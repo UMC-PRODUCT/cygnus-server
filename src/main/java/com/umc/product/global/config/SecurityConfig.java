@@ -1,13 +1,23 @@
 package com.umc.product.global.config;
 
+
+import com.umc.product.global.security.ApiAccessDeniedHandler;
+import com.umc.product.global.security.ApiAuthenticationEntryPoint;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.global.security.JwtAuthenticationFilter;
+import com.umc.product.global.security.util.PublicEndpointCollector;
+import com.umc.product.maintenance.adapter.in.web.filter.MaintenanceFilter;
+import com.umc.product.maintenance.application.port.out.MaintenanceBypassPolicy;
+import com.umc.product.maintenance.application.service.MaintenanceStateHolder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -15,12 +25,15 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -28,24 +41,22 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
-import com.umc.product.global.response.ApiErrorResponseWriter;
-import com.umc.product.global.security.ApiAccessDeniedHandler;
-import com.umc.product.global.security.ApiAuthenticationEntryPoint;
-import com.umc.product.global.security.JwtAuthenticationFilter;
-import com.umc.product.global.security.util.PublicEndpointCollector;
-import com.umc.product.maintenance.adapter.in.web.filter.MaintenanceFilter;
-import com.umc.product.maintenance.application.port.out.MaintenanceBypassPolicy;
-import com.umc.product.maintenance.application.service.MaintenanceStateHolder;
-
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity // @PreAuthorize, @PostAuthorize 활성화
 @RequiredArgsConstructor
 @Slf4j
 public class SecurityConfig {
+
+    private static final String[] STATIC_FILE_PATHS = {
+        "/swagger-ui/**",
+        "/docs/**",
+        "/v3/api-docs/**",
+        "/docs-json/**",
+        "/swagger-resources/**",
+        "/webjars/**",
+        "/umc-logo.svg"
+    };
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final ApiAuthenticationEntryPoint authenticationEntryPoint;
@@ -57,24 +68,48 @@ public class SecurityConfig {
     private List<String> allowedOriginPatterns;
 
     /**
-     * 점검 모드 필터. JWT 다음에 동작해서 점검 중 일반 사용자 요청을 503 으로 차단한다. {@code @Component} 가 아닌 명시 {@code @Bean} 으로 두는 이유: 슬라이스 테스트
-     * ({@code @WebMvcTest}) 의 자동 Filter 디스커버리가 본 필터의 의존성까지 끌어와 컨텍스트 로딩을 실패시키는 것을 막기 위함이다. SecurityConfig 는 슬라이스 테스트에
-     * 포함되지 않으므로 본 빈도 함께 제외된다.
+     * Swagger용 SecurityFilterChain (dev에서만 활성화, local은 따로 제약을 걸지 않음)
+     * <p>
+     * HTTP Basic 인증 적용 - 순서가 먼저라서 Swagger 경로는 이 체인이 처리
+     */
+    @Bean
+    @Order(1)
+    @Profile("dev")
+    public SecurityFilterChain swaggerSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+            .securityMatcher(STATIC_FILE_PATHS)
+            .cors(Customizer.withDefaults())
+            .csrf(AbstractHttpConfigurer::disable)
+            .sessionManagement(session ->
+                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().authenticated()
+            )
+            .httpBasic(Customizer.withDefaults());  // HTTP Basic 인증
+
+        return http.build();
+    }
+
+    /**
+     * 점검 모드 필터. JWT 다음에 동작해서 점검 중 일반 사용자 요청을 503 으로 차단한다.
+     * {@code @Component} 가 아닌 명시 {@code @Bean} 으로 두는 이유: 슬라이스 테스트
+     * ({@code @WebMvcTest}) 의 자동 Filter 디스커버리가 본 필터의 의존성까지 끌어와 컨텍스트 로딩을
+     * 실패시키는 것을 막기 위함이다. SecurityConfig 는 슬라이스 테스트에 포함되지 않으므로 본 빈도 함께 제외된다.
      */
     @Bean
     public MaintenanceFilter maintenanceFilter(
         MaintenanceStateHolder stateHolder,
         MaintenanceBypassPolicy bypassPolicy,
-        ApiErrorResponseWriter errorResponseWriter
+        ObjectMapper objectMapper
     ) {
-        return new MaintenanceFilter(stateHolder, bypassPolicy, errorResponseWriter);
+        return new MaintenanceFilter(stateHolder, bypassPolicy, objectMapper);
     }
 
     /**
      * 메인 Security 체인. JWT → MaintenanceFilter → 인가 순서로 동작한다.
      */
     @Bean
-    @Order(1)
+    @Order(2)
     public SecurityFilterChain filterChain(HttpSecurity http, MaintenanceFilter maintenanceFilter) throws Exception {
         List<PublicEndpointCollector.EndpointMatcher> publicEndpoints = PublicEndpointCollector
             .collectPublicEndpoints(requestMappingHandlerMapping);
@@ -100,11 +135,17 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> {
-                // Swagger UI와 기존 Swagger 문서 경로는 인증 여부와 무관하게 차단
-                auth.requestMatchers(SecurityPathConfig.swaggerBlockedPaths()).denyAll();
+                // 공개 엔드포인트
+                auth.requestMatchers(
+                    // Health Check & Error
+                    "/actuator/**",
+                    "/error",
+                    // WebSocket
+                    "/ws/**"
+                ).permitAll();
 
-                // 공통 공개 경로
-                auth.requestMatchers(SecurityPathConfig.securityPermitAllPaths()).permitAll();
+                // Swagger
+                auth.requestMatchers(STATIC_FILE_PATHS).permitAll();
 
                 // @Public 어노테이션이 달린 엔드포인트 (HTTP 메서드 포함)
                 for (PublicEndpointCollector.EndpointMatcher endpoint : publicEndpoints) {
@@ -131,12 +172,30 @@ public class SecurityConfig {
     }
 
     /**
+     * Swagger Basic Auth용 InMemoryUserDetailsManager (dev 프로필)
+     */
+    @Bean
+    @Profile("dev")
+    public UserDetailsService swaggerUserDetailsService(
+        @Value("${app.swagger-auth.username:username}") String username,
+        @Value("${app.swagger-auth.password:password}") String password,
+        PasswordEncoder passwordEncoder) {
+        UserDetails user = User.builder()
+            .username(username)
+            .password(passwordEncoder.encode(password))
+            .roles("SWAGGER")
+            .build();
+        return new InMemoryUserDetailsManager(user);
+    }
+
+
+    /**
      * UserDetailsService Bean을 제공하여 Spring Security의 기본 사용자 자동 생성 방지
      * <p>
      * Spring Security가 "인증 체계가 구성되어 있다"고 인식하도록 하기 위한 더미 Bean
      */
     @Bean
-    @ConditionalOnMissingBean(UserDetailsService.class) // Dummy Bean이라서 Conditional로 변경
+    @Profile("!dev")
     public UserDetailsService userDetailsService() {
         return username -> {
             throw new UsernameNotFoundException(
@@ -147,8 +206,9 @@ public class SecurityConfig {
     /**
      * 비밀번호 해시는 password_hash 단일 컬럼에 "{id}encoded" prefix 형태로 저장한다.
      * <p>
-     * 신규 저장은 Argon2 를 기본으로 하고, 기존/외부 호환을 위해 bcrypt 검증도 함께 등록한다. 알고리즘/파라미터가 갱신되더라도 기존 해시를 그대로 검증할 수 있으며, 로그인 성공 시
-     * {@link PasswordEncoder#upgradeEncoding} 으로 점진적 rehash 를 수행한다.
+     * 신규 저장은 Argon2 를 기본으로 하고, 기존/외부 호환을 위해 bcrypt 검증도 함께 등록한다.
+     * 알고리즘/파라미터가 갱신되더라도 기존 해시를 그대로 검증할 수 있으며,
+     * 로그인 성공 시 {@link PasswordEncoder#upgradeEncoding} 으로 점진적 rehash 를 수행한다.
      */
     @Bean
     public PasswordEncoder passwordEncoder() {

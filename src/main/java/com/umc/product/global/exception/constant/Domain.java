@@ -17,7 +17,7 @@ public enum Domain {
     COMMUNITY,
     NOTICE,
     FCM,
-    FORM,
+    SURVEY,
     RECRUITMENT,
     TERMS,
     EMAIL,
@@ -25,12 +25,9 @@ public enum Domain {
     WEBHOOK,
     AUDIT_LOG,
     PROJECT,
+    FIGMA,
     LLM,
     ANALYTICS,
-    CHAT,
-    MAINTENANCE,
-    FEEDBACK,
-    BLOG,
-    DOCUMENTATION,
-    CERTIFICATE
+    INQUIRY,
+    MAINTENANCE
 }

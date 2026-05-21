@@ -1,10 +1,8 @@
 package com.umc.product.authorization.domain;
 
-import java.util.Set;
-
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
-
+import java.util.Set;
 import lombok.Getter;
 
 /**
@@ -60,14 +58,6 @@ public enum ResourceType {
     COMMUNITY_COMMENT("community_comment", "커뮤니티 게시글에 대한 댓글",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
 
-    // 블로그 도메인
-    BLOG_CONTENT("blog_content", "블로그 콘텐츠",
-        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
-    BLOG_SERIES("blog_series", "블로그 시리즈",
-        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
-    BLOG_COMMENT("blog_comment", "블로그 댓글",
-        Set.of(PermissionType.EDIT, PermissionType.DELETE)),
-
     // UMC 모집 관련
     RECRUITMENT("recruitment", "모집",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE,
@@ -104,7 +94,19 @@ public enum ResourceType {
     // 프로젝트 지원서 관련
     PROJECT_APPLICATION("project_application", "프로젝트 지원서",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT,
-            PermissionType.DELETE, PermissionType.APPROVE))
+            PermissionType.DELETE, PermissionType.APPROVE)),
+
+    // 프로젝트 지원서 관련
+    // Figma 통합 admin
+    FIGMA("figma", "Figma 통합",
+        Set.of(PermissionType.READ,
+            PermissionType.DELETE, PermissionType.MANAGE)),
+
+    // 문의사항 관련
+    INQUIRY("inquiry", "문의사항",
+        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
+    INQUIRY_MESSAGE("inquiry_message", "문의사항 메시지",
+        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.DELETE)),
     ;
 
     private final String code;
