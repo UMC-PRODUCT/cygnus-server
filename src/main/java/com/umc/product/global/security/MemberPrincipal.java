@@ -2,6 +2,7 @@ package com.umc.product.global.security;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 
 import org.springframework.security.core.AuthenticatedPrincipal;
 import org.springframework.security.core.GrantedAuthority;
@@ -22,12 +23,24 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
     private final ClientType clientType;
 
     private final ClientContextClaims clientContextClaims;
+    private final boolean requiredTermsAgreed;
+    private final List<Long> agreedRequiredTermIds;
 
     @Builder
-    public MemberPrincipal(Long memberId, ClientType clientType, ClientContextClaims clientContextClaims) {
+    public MemberPrincipal(
+        Long memberId,
+        ClientType clientType,
+        ClientContextClaims clientContextClaims,
+        Boolean requiredTermsAgreed,
+        List<Long> agreedRequiredTermIds
+    ) {
         this.memberId = memberId;
         this.clientType = clientType;
         this.clientContextClaims = clientContextClaims == null ? ClientContextClaims.empty() : clientContextClaims;
+        this.requiredTermsAgreed = requiredTermsAgreed == null || requiredTermsAgreed;
+        this.agreedRequiredTermIds = agreedRequiredTermIds == null
+            ? List.of()
+            : List.copyOf(agreedRequiredTermIds);
     }
 
     public MemberPrincipal(Long memberId) {
@@ -35,7 +48,11 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
     }
 
     public MemberPrincipal(Long memberId, ClientType clientType) {
-        this(memberId, clientType, ClientContextClaims.empty());
+        this(memberId, clientType, ClientContextClaims.empty(), true, List.of());
+    }
+
+    public MemberPrincipal(Long memberId, ClientType clientType, ClientContextClaims clientContextClaims) {
+        this(memberId, clientType, clientContextClaims, true, List.of());
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -53,6 +70,8 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
                 "memberId=" + memberId +
                 ", clientType=" + clientType +
                 ", clientContextClaims=" + clientContextClaims +
+                ", requiredTermsAgreed=" + requiredTermsAgreed +
+                ", agreedRequiredTermIds=" + agreedRequiredTermIds +
                 '}';
     }
 }

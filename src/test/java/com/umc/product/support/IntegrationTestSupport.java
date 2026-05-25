@@ -1,5 +1,11 @@
 package com.umc.product.support;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.BDDMockito.given;
+
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -124,4 +130,10 @@ public abstract class IntegrationTestSupport {
 
     @MockitoBean
     protected StoragePort storagePort;
+
+    @BeforeEach
+    void setUpDefaultJwtTermClaims() {
+        given(jwtTokenProvider.hasRequiredTermsAgreed(anyString())).willReturn(true);
+        given(jwtTokenProvider.getAgreedRequiredTermIdsFromAccessToken(anyString())).willReturn(List.of());
+    }
 }

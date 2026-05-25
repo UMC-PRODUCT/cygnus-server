@@ -36,6 +36,7 @@ import com.umc.product.global.security.util.PublicEndpointCollector;
 import com.umc.product.maintenance.adapter.in.web.filter.MaintenanceFilter;
 import com.umc.product.maintenance.application.port.out.MaintenanceBypassPolicy;
 import com.umc.product.maintenance.application.service.MaintenanceStateHolder;
+import com.umc.product.term.adapter.in.web.filter.TermConsentEnforcementFilter;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +52,7 @@ public class SecurityConfig {
     private final ApiAuthenticationEntryPoint authenticationEntryPoint;
     private final ApiAccessDeniedHandler accessDeniedHandler;
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
+    private final TermConsentEnforcementFilter termConsentEnforcementFilter;
 
     // application.yml에서 cors.allowed-origin-patterns 값을 List 형태로 주입받음
     @Value("${app.cors.allowed-origin-patterns}")
@@ -122,6 +124,7 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             // JWT 로 SecurityContext 가 채워진 뒤 점검 필터에서 bypass 판정
             .addFilterAfter(maintenanceFilter, JwtAuthenticationFilter.class)
+            .addFilterAfter(termConsentEnforcementFilter, MaintenanceFilter.class)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint) // 인증 실패 시
                 .accessDeniedHandler(accessDeniedHandler)           // 인가 실패 시

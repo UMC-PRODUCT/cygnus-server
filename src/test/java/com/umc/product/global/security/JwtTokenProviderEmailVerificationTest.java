@@ -128,6 +128,35 @@ class JwtTokenProviderEmailVerificationTest {
     }
 
     @Test
+    @DisplayName("AccessToken 에 필수 약관 동의 완료 여부와 동의한 약관 ID를 claim 으로 저장하고 파싱한다")
+    void access_token_required_terms_agreed_claim_파싱() {
+        // given
+        String token = provider.createAccessToken(1L, List.of(), null, false, List.of(10L, 20L));
+
+        // when
+        boolean agreed = provider.hasRequiredTermsAgreed(token);
+        List<Long> agreedRequiredTermIds = provider.getAgreedRequiredTermIdsFromAccessToken(token);
+
+        // then
+        assertThat(agreed).isFalse();
+        assertThat(agreedRequiredTermIds).containsExactly(10L, 20L);
+    }
+
+    @Test
+    @DisplayName("필수 약관 claim 이 없는 기존 AccessToken 은 하위 호환을 위해 동의 완료로 간주한다")
+    void access_token_required_terms_claim_없으면_동의완료로_간주() {
+        // given
+        String token = provider.createAccessToken(1L, List.of());
+
+        // when
+        boolean agreed = provider.hasRequiredTermsAgreed(token);
+
+        // then
+        assertThat(agreed).isTrue();
+        assertThat(provider.getAgreedRequiredTermIdsFromAccessToken(token)).isEmpty();
+    }
+
+    @Test
     @DisplayName("REGISTER 토큰을 CHANGE_EMAIL 로 파싱하면 INVALID_EMAIL_VERIFICATION 예외를 던진다")
     void registerTokenRejectedForChangeEmail() {
         // given

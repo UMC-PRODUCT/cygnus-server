@@ -44,6 +44,8 @@ public class JwtTokenProvider {
     private static final String SSO_LOGIN_TYPE = "SSO_LOGIN";
     private static final String TOKEN_TYPE_KEY = "typ";
     private static final String AUTHENTICATION_METHOD_KEY = "authenticationMethod";
+    private static final String REQUIRED_TERMS_AGREED_KEY = "requiredTermsAgreed";
+    private static final String AGREED_REQUIRED_TERM_IDS_KEY = "agreedRequiredTermIds";
     private final SecretKey accessTokenSecret;
     private final SecretKey refreshTokenSecret;
     private final SecretKey oAuthVerificationTokenSecret;
@@ -186,21 +188,42 @@ public class JwtTokenProvider {
      * 다운스트림(MDC, 통계)에서는 UNKNOWN 으로 집계된다.
      */
     public String createAccessToken(Long memberId, List<String> roles, ClientType clientType) {
-        Date now = new Date();
-        Date validityDate = new Date(now.getTime() + accessTokenValidityInMilliseconds);
+        return createAccessTokenInternal(
+            memberId,
+            roles,
+            clientType,
+            null,
+            null,
+            null,
+            accessTokenValidityInMilliseconds
+        );
+    }
 
-        var builder = Jwts.builder()
-            .subject(String.valueOf(memberId)) // 사용자 식별자 (ID)
-            .claim(AUTHORITIES_KEY, roles)     // 권한 정보 저장
-            .issuedAt(now)
-            .expiration(validityDate)
-            .signWith(accessTokenSecret);
+    public String createAccessToken(
+        Long memberId,
+        List<String> roles,
+        ClientType clientType,
+        boolean requiredTermsAgreed
+    ) {
+        return createAccessToken(memberId, roles, clientType, requiredTermsAgreed, List.of());
+    }
 
-        if (clientType != null) {
-            builder.claim(CLIENT_TYPE_KEY, clientType.name());
-        }
-
-        return builder.compact();
+    public String createAccessToken(
+        Long memberId,
+        List<String> roles,
+        ClientType clientType,
+        boolean requiredTermsAgreed,
+        List<Long> agreedRequiredTermIds
+    ) {
+        return createAccessTokenInternal(
+            memberId,
+            roles,
+            clientType,
+            null,
+            requiredTermsAgreed,
+            agreedRequiredTermIds,
+            accessTokenValidityInMilliseconds
+        );
     }
 
     public String createAccessToken(
@@ -220,8 +243,28 @@ public class JwtTokenProvider {
         ClientContextClaims clientContext,
         Long expiresInSeconds
     ) {
+        return createAccessTokenInternal(
+            memberId,
+            roles,
+            clientType,
+            clientContext,
+            null,
+            null,
+            expiresInSeconds * 1000
+        );
+    }
+
+    private String createAccessTokenInternal(
+        Long memberId,
+        List<String> roles,
+        ClientType clientType,
+        ClientContextClaims clientContext,
+        Boolean requiredTermsAgreed,
+        List<Long> agreedRequiredTermIds,
+        long validityInMilliseconds
+    ) {
         Date now = new Date();
-        Date validityDate = new Date(now.getTime() + expiresInSeconds * 1000);
+        Date validityDate = new Date(now.getTime() + validityInMilliseconds);
 
         var builder = Jwts.builder()
             .subject(String.valueOf(memberId))
@@ -234,6 +277,12 @@ public class JwtTokenProvider {
             builder.claim(CLIENT_TYPE_KEY, clientType.name());
         }
         addClientContextClaims(builder, clientContext);
+        if (requiredTermsAgreed != null) {
+            builder.claim(REQUIRED_TERMS_AGREED_KEY, requiredTermsAgreed);
+        }
+        if (agreedRequiredTermIds != null) {
+            builder.claim(AGREED_REQUIRED_TERM_IDS_KEY, agreedRequiredTermIds);
+        }
 
         return builder.compact();
     }
@@ -316,6 +365,31 @@ public class JwtTokenProvider {
 
     public ClientContextClaims getClientContextClaimsFromAccessToken(String token) {
         return getClientContextClaims(parseAccessTokenClaims(token));
+    }
+
+    /**
+     * AccessToken 에서 필수 약관 동의 완료 여부를 추출한다.
+     * <p>
+     * claim 도입 이전에 발급된 토큰에는 값이 없으므로 하위 호환을 위해 동의 완료로 간주한다.
+     * 실제 최신 상태는 로그인/토큰 재발급 시점에 다시 계산해 새 AccessToken claim 으로 반영한다.
+     */
+    public boolean hasRequiredTermsAgreed(String token) {
+        Claims claims = parseAccessTokenClaims(token);
+        Boolean requiredTermsAgreed = claims.get(REQUIRED_TERMS_AGREED_KEY, Boolean.class);
+        return requiredTermsAgreed == null || requiredTermsAgreed;
+    }
+
+    public List<Long> getAgreedRequiredTermIdsFromAccessToken(String token) {
+        Claims claims = parseAccessTokenClaims(token);
+        Object agreedRequiredTermIds = claims.get(AGREED_REQUIRED_TERM_IDS_KEY);
+        if (agreedRequiredTermIds instanceof List<?> ids) {
+            return ids.stream()
+                .filter(Number.class::isInstance)
+                .map(Number.class::cast)
+                .map(Number::longValue)
+                .toList();
+        }
+        return Collections.emptyList();
     }
 
     /**

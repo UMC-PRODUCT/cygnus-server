@@ -13,6 +13,8 @@ import com.umc.product.common.domain.enums.ClientType;
 import com.umc.product.global.client.ClientContextClaims;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.RefreshTokenClaims;
+import com.umc.product.term.application.port.in.query.GetRequiredTermConsentStatusUseCase;
+import com.umc.product.term.application.port.in.query.dto.RequiredTermConsentStatusInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,10 +24,19 @@ public class AuthenticationTokenIssuer {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final SaveRefreshTokenPort saveRefreshTokenPort;
+    private final GetRequiredTermConsentStatusUseCase getRequiredTermConsentStatusUseCase;
 
     @Transactional
     public NewTokens issue(Long memberId, ClientType clientType) {
-        String accessToken = jwtTokenProvider.createAccessToken(memberId, Collections.emptyList(), clientType);
+        RequiredTermConsentStatusInfo requiredTermConsentStatus =
+            getRequiredTermConsentStatusUseCase.getRequiredTermConsentStatus(memberId);
+        String accessToken = jwtTokenProvider.createAccessToken(
+            memberId,
+            Collections.emptyList(),
+            clientType,
+            !requiredTermConsentStatus.needsReconsent(),
+            requiredTermConsentStatus.agreedRequiredTermIds()
+        );
         String refreshToken = jwtTokenProvider.createRefreshToken(memberId);
         RefreshTokenClaims claims = jwtTokenProvider.parseRefreshToken(refreshToken);
 

@@ -53,6 +53,7 @@ class GetRequiredTermConsentStatusUseCaseTest {
         assertThat(result.missingRequiredTerms())
             .extracting(term -> term.id())
             .containsExactly(2L);
+        assertThat(result.agreedRequiredTermIds()).containsExactly(1L);
     }
 
     @Test
@@ -73,6 +74,7 @@ class GetRequiredTermConsentStatusUseCaseTest {
         // then
         assertThat(result.needsReconsent()).isFalse();
         assertThat(result.missingRequiredTerms()).isEmpty();
+        assertThat(result.agreedRequiredTermIds()).containsExactly(1L, 2L);
     }
 
     private TermConsent createConsent(Long memberId, Term term) {

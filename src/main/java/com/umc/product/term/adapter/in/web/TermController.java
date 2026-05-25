@@ -13,12 +13,15 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.global.security.annotation.Public;
+import com.umc.product.term.adapter.in.web.dto.request.CreateTermAgreementRequest;
 import com.umc.product.term.adapter.in.web.dto.request.CreateTermRequest;
 import com.umc.product.term.adapter.in.web.dto.response.ActiveTermsResponse;
 import com.umc.product.term.adapter.in.web.dto.response.RequiredTermConsentStatusResponse;
 import com.umc.product.term.adapter.in.web.dto.response.TermResponse;
+import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
 import com.umc.product.term.application.port.in.command.ManageTermUseCase;
 import com.umc.product.term.application.port.in.command.dto.CreateTermCommand;
+import com.umc.product.term.application.port.in.command.dto.CreateTermConsentCommand;
 import com.umc.product.term.application.port.in.query.GetRequiredTermConsentStatusUseCase;
 import com.umc.product.term.application.port.in.query.GetTermUseCase;
 import com.umc.product.term.domain.enums.TermType;
@@ -37,6 +40,7 @@ public class TermController {
     private final GetTermUseCase getTermUseCase;
     private final GetRequiredTermConsentStatusUseCase getRequiredTermConsentStatusUseCase;
     private final ManageTermUseCase manageTermUseCase;
+    private final ManageTermAgreementUseCase manageTermAgreementUseCase;
 
     @GetMapping
     @Public
@@ -64,6 +68,22 @@ public class TermController {
     RequiredTermConsentStatusResponse getMyRequiredTermConsentStatus(@CurrentMember MemberPrincipal memberPrincipal) {
         return RequiredTermConsentStatusResponse.from(
             getRequiredTermConsentStatusUseCase.getRequiredTermConsentStatus(memberPrincipal.getMemberId())
+        );
+    }
+
+    @PostMapping("agreements")
+    @Operation(summary = "[TERM-002] 내 약관 동의 저장")
+    void createMyTermAgreement(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @Valid @RequestBody CreateTermAgreementRequest request
+    ) {
+        Long memberId = memberPrincipal.getMemberId();
+        manageTermAgreementUseCase.createTermConsent(
+            CreateTermConsentCommand.builder()
+                .memberId(memberId)
+                .termId(request.termsId())
+                .isAgreed(request.isAgreed())
+                .build()
         );
     }
 
