@@ -65,6 +65,12 @@ public class ChatRoomPersistenceAdapter implements
     }
 
     @Override
+    public ChatMember getByRoomIdAndMemberId(Long roomId, Long memberId) {
+        return chatMemberJpaRepository.findByRoomIdAndMemberId(roomId, memberId)
+            .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_MEMBER_NOT_FOUND));
+    }
+
+    @Override
     public List<ChatMember> listByRoomId(Long roomId) {
         return chatMemberJpaRepository.findAllByRoomId(roomId);
     }

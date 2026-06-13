@@ -7,5 +7,7 @@ public interface LoadChatMemberPort {
 
     boolean existsByRoomIdAndMemberId(Long roomId, Long memberId);
 
+    ChatMember getByRoomIdAndMemberId(Long roomId, Long memberId);
+
     List<ChatMember> listByRoomId(Long roomId);
 }

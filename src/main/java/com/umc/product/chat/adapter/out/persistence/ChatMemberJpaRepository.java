@@ -2,6 +2,7 @@ package com.umc.product.chat.adapter.out.persistence;
 
 import com.umc.product.chat.domain.ChatMember;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -12,6 +13,8 @@ public interface ChatMemberJpaRepository extends JpaRepository<ChatMember, Long>
     List<ChatMember> findAllByRoomId(Long roomId);
 
     List<ChatMember> findAllByMemberId(Long memberId);
+
+    Optional<ChatMember> findByRoomIdAndMemberId(Long roomId, Long memberId);
 
     boolean existsByRoomIdAndMemberId(Long roomId, Long memberId);
 
