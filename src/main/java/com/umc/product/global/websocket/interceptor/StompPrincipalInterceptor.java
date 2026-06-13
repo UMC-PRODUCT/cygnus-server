@@ -42,7 +42,6 @@ public class StompPrincipalInterceptor implements ChannelInterceptor {
 
         String token = authHeader.substring(7);
 
-        // TODO: 인증 실패 시 STOMP ERROR 프레임을 ApiResponse 형식으로 포맷팅하는 StompSubProtocolErrorHandler 구현 필요
         ParsedAccessToken parsed = jwtTokenProvider.parseAndValidateAccessToken(token);
 
         MemberPrincipal principal = MemberPrincipal.builder()

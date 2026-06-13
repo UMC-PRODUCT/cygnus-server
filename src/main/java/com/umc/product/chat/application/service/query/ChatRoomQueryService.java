@@ -1,5 +1,6 @@
 package com.umc.product.chat.application.service.query;
 
+import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatRoomUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
@@ -14,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ChatRoomQueryService implements GetChatRoomUseCase {
+public class ChatRoomQueryService implements GetChatRoomUseCase, CheckChatRoomAccessUseCase {
 
     private final LoadChatRoomPort loadChatRoomPort;
     private final LoadChatMemberPort loadChatMemberPort;
@@ -26,5 +27,10 @@ public class ChatRoomQueryService implements GetChatRoomUseCase {
             .map(ChatMember::getMemberId)
             .toList();
         return new ChatRoomInfo(chatRoom.getId(), chatRoom.getCreatedAt(), memberIds);
+    }
+
+    @Override
+    public boolean hasChatRoomAccess(Long memberId, Long chatRoomId) {
+        return loadChatMemberPort.existsByRoomIdAndMemberId(chatRoomId, memberId);
     }
 }
