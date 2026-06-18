@@ -1,6 +1,7 @@
 package com.umc.product.feedback.application.port.out;
 
 import java.util.Optional;
+import java.util.List;
 
 import com.umc.product.feedback.domain.UserFeedbackTemplate;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
@@ -26,4 +27,26 @@ public interface LoadUserFeedbackTemplatePort {
      * ID로 UserFeedbackTemplate을 조회합니다. 존재하지 않으면 도메인 예외를 던집니다.
      */
     UserFeedbackTemplate getById(Long id);
+
+    /**
+     * ID로 활성 UserFeedbackTemplate을 조회합니다. 존재하지 않거나 비활성이면 도메인 예외를 던집니다.
+     */
+    UserFeedbackTemplate getActiveById(Long id);
+
+    /**
+     * 관리자 화면에서 optional 필터로 템플릿 목록을 조회합니다.
+     */
+    List<UserFeedbackTemplate> listByCondition(
+        UserFeedbackContext context,
+        UserFeedbackTargetType targetType,
+        Boolean active
+    );
+
+    boolean existsActiveByContextAndTargetType(UserFeedbackContext context, UserFeedbackTargetType targetType);
+
+    boolean existsActiveByContextAndTargetTypeExcludingId(
+        UserFeedbackContext context,
+        UserFeedbackTargetType targetType,
+        Long excludedTemplateId
+    );
 }

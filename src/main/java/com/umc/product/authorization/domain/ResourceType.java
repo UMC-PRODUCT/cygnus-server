@@ -78,6 +78,8 @@ public enum ResourceType {
         Set.of(PermissionType.READ, PermissionType.DELETE)),
     ANALYTICS("analytics", "운영진 대시보드",
         Set.of(PermissionType.READ)),
+    FEEDBACK("feedback", "사용자 피드백",
+        Set.of(PermissionType.READ, PermissionType.MANAGE)),
     TERM("term", "약관",
         Set.of(PermissionType.WRITE)),
 

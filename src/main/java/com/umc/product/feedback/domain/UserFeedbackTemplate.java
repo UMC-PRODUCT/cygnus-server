@@ -52,4 +52,13 @@ public class UserFeedbackTemplate extends BaseEntity {
             .isActive(true)
             .build();
     }
+
+    public void updateContextAndTarget(UserFeedbackContext context, UserFeedbackTargetType targetType) {
+        this.context = context;
+        this.targetType = targetType;
+    }
+
+    public void deactivate() {
+        this.isActive = false;
+    }
 }

@@ -11,4 +11,12 @@ import com.umc.product.feedback.domain.enums.UserFeedbackTargetType;
 public interface UserFeedbackTemplateJpaRepository extends JpaRepository<UserFeedbackTemplate, Long> {
 
     Optional<UserFeedbackTemplate> findByContextAndTargetTypeAndIsActiveTrue(UserFeedbackContext context, UserFeedbackTargetType targetType);
+
+    boolean existsByContextAndTargetTypeAndIsActiveTrue(UserFeedbackContext context, UserFeedbackTargetType targetType);
+
+    boolean existsByContextAndTargetTypeAndIsActiveTrueAndIdNot(
+        UserFeedbackContext context,
+        UserFeedbackTargetType targetType,
+        Long id
+    );
 }
