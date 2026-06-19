@@ -1,9 +1,13 @@
 package com.umc.product.notification.adapter.out.persistentce;
 
 import com.umc.product.notification.domain.FcmToken;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 public interface FcmJpaRepository extends JpaRepository<FcmToken, Long> {
 
@@ -17,4 +21,18 @@ public interface FcmJpaRepository extends JpaRepository<FcmToken, Long> {
 
     List<FcmToken> findAllByIdInAndIsActiveTrue(List<Long> ids);
 
+    @Query("""
+        SELECT f
+        FROM FcmToken f
+        WHERE f.isActive = true
+          AND (f.lastValidatedAt IS NULL OR f.lastValidatedAt <= :validatedBefore)
+        ORDER BY
+          CASE WHEN f.lastValidatedAt IS NULL THEN 0 ELSE 1 END,
+          f.lastValidatedAt ASC,
+          f.id ASC
+        """)
+    List<FcmToken> findActiveValidationTargets(
+        @Param("validatedBefore") Instant validatedBefore,
+        Pageable pageable
+    );
 }

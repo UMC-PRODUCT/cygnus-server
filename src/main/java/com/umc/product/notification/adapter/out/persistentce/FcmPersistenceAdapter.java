@@ -3,9 +3,11 @@ package com.umc.product.notification.adapter.out.persistentce;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
 import com.umc.product.notification.application.port.out.SaveFcmPort;
 import com.umc.product.notification.domain.FcmToken;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -37,6 +39,11 @@ public class FcmPersistenceAdapter implements LoadFcmPort, SaveFcmPort {
     @Override
     public List<FcmToken> listActiveByIds(List<Long> ids) {
         return fcmJpaRepository.findAllByIdInAndIsActiveTrue(ids);
+    }
+
+    @Override
+    public List<FcmToken> listActiveForValidation(Instant validatedBefore, int limit) {
+        return fcmJpaRepository.findActiveValidationTargets(validatedBefore, PageRequest.of(0, limit));
     }
 
     @Override

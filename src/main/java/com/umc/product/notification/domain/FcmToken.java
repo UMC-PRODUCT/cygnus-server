@@ -47,6 +47,9 @@ public class FcmToken extends BaseEntity {
     @Column(name = "deactivated_at")
     private Instant deactivatedAt;
 
+    @Column(name = "last_validated_at")
+    private Instant lastValidatedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
     private FcmToken(Long memberId, String fcmToken, String platform, String deviceId, String appVersion) {
         this.memberId = memberId;
@@ -96,4 +99,7 @@ public class FcmToken extends BaseEntity {
         this.deactivatedAt = Instant.now();
     }
 
+    public void markValidated() {
+        this.lastValidatedAt = Instant.now();
+    }
 }

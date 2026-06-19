@@ -8,6 +8,7 @@ import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
 import com.umc.product.notification.application.service.FcmAudienceResolver;
 import com.umc.product.notification.domain.FcmToken;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -27,7 +28,7 @@ class FcmNotificationRequestedEventListenerTest {
         FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(createTokens(501));
         FakeDomainEventPublisher eventPublisher = new FakeDomainEventPublisher();
         FcmNotificationRequestedEventListener listener = new FcmNotificationRequestedEventListener(
-            new FcmProperties(true),
+            new FcmProperties(true, true),
             new FcmAudienceResolver(null, null, null),
             loadFcmPort,
             eventPublisher
@@ -102,6 +103,11 @@ class FcmNotificationRequestedEventListenerTest {
 
         @Override
         public List<FcmToken> listActiveByIds(List<Long> ids) {
+            return List.of();
+        }
+
+        @Override
+        public List<FcmToken> listActiveForValidation(Instant validatedBefore, int limit) {
             return List.of();
         }
     }

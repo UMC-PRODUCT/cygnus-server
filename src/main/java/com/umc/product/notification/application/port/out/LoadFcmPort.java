@@ -1,6 +1,7 @@
 package com.umc.product.notification.application.port.out;
 
 import com.umc.product.notification.domain.FcmToken;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,4 +17,5 @@ public interface LoadFcmPort {
 
     List<FcmToken> listActiveByIds(List<Long> ids);
 
+    List<FcmToken> listActiveForValidation(Instant validatedBefore, int limit);
 }

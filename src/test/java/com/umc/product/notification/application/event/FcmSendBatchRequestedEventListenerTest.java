@@ -14,6 +14,7 @@ import com.umc.product.notification.domain.FcmToken;
 import com.umc.product.notification.domain.exception.FcmDomainException;
 import com.umc.product.notification.domain.exception.FcmErrorCode;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +39,7 @@ class FcmSendBatchRequestedEventListenerTest {
             FcmSendResult.of(1, 1, List.of(2L))
         );
         FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
-            new FcmProperties(true),
+            new FcmProperties(true, true),
             loadFcmPort,
             saveFcmPort,
             sendFcmMessagePort,
@@ -74,7 +75,7 @@ class FcmSendBatchRequestedEventListenerTest {
         FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(active));
         FakeSaveFcmPort saveFcmPort = new FakeSaveFcmPort();
         FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
-            new FcmProperties(true),
+            new FcmProperties(true, true),
             loadFcmPort,
             saveFcmPort,
             request -> {
@@ -137,6 +138,11 @@ class FcmSendBatchRequestedEventListenerTest {
         @Override
         public List<FcmToken> listActiveByIds(List<Long> ids) {
             return tokens;
+        }
+
+        @Override
+        public List<FcmToken> listActiveForValidation(Instant validatedBefore, int limit) {
+            return List.of();
         }
     }
 

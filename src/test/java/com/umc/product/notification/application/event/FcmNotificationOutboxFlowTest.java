@@ -58,7 +58,7 @@ class FcmNotificationOutboxFlowTest {
 
         RecordingSaveEventOutboxPort batchOutboxPort = new RecordingSaveEventOutboxPort();
         FcmNotificationRequestedEventListener listener = new FcmNotificationRequestedEventListener(
-            new FcmProperties(true),
+            new FcmProperties(true, true),
             new FcmAudienceResolver(null, null, null),
             new FakeLoadFcmPort(createTokens(501)),
             new OutboxDomainEventPublisher(batchOutboxPort, serializer)
@@ -161,6 +161,11 @@ class FcmNotificationOutboxFlowTest {
 
         @Override
         public List<FcmToken> listActiveByIds(List<Long> ids) {
+            return List.of();
+        }
+
+        @Override
+        public List<FcmToken> listActiveForValidation(Instant validatedBefore, int limit) {
             return List.of();
         }
     }
