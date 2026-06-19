@@ -25,36 +25,6 @@ public interface GetChallengerRoleUseCase extends ListChallengerRoleUseCase, Che
     }
 
     /**
-     * @deprecated {@link #isCentralCoreInGisu}를 사용해주세요.
-     */
-    @Deprecated(since = "v1.5.0", forRemoval = true)
-    boolean isCentralCore(Long memberId);
-
-    /**
-     * @deprecated {@link #isCentralMemberInGisu}를 사용해주세요.
-     */
-    @Deprecated(since = "v1.5.0", forRemoval = true)
-    boolean isCentralMember(Long memberId);
-
-    /**
-     * @deprecated {@link #isSchoolCoreInGisu}를 사용해주세요.
-     */
-    @Deprecated(since = "v1.5.0", forRemoval = true)
-    boolean isSchoolCore(Long memberId, Long schoolId);
-
-    /**
-     * @deprecated {@link #isSchoolAdminInGisu}를 사용해주세요.
-     */
-    @Deprecated(since = "v1.5.0", forRemoval = true)
-    boolean isSchoolAdmin(Long memberId, Long schoolId);
-
-    /**
-     * @deprecated {@link #isChapterPresidentInGisu}를 사용해주세요.
-     */
-    @Deprecated(since = "v1.5.0", forRemoval = true)
-    boolean isChapterPresident(Long memberId, Long chapterId);
-
-    /**
      * RoleType만 가져오는게 아니라, 전체 {@link com.umc.product.authorization.domain.ChallengerRole}을 가져오도록 구성해서 사용해주세요.
      */
     @Deprecated(since = "v1.5.0", forRemoval = true)

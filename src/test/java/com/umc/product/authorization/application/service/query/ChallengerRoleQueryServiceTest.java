@@ -108,6 +108,44 @@ class ChallengerRoleQueryServiceTest {
     }
 
     @Test
+    @DisplayName("권한 판정 UseCase로 중앙 총괄단 AnyGisu 정책을 명시적으로 확인한다")
+    void check_central_core_in_any_gisu() {
+        ChallengerRoleQueryService sut = new ChallengerRoleQueryService(loadChallengerRolePort, getGisuUseCase);
+        CheckChallengerAuthorityUseCase useCase = sut;
+        ChallengerRole role = ChallengerRole.create(
+            10L,
+            ChallengerRoleType.CENTRAL_PRESIDENT,
+            null,
+            null,
+            GISU_ID
+        );
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
+
+        boolean result = useCase.isCentralCoreInAnyGisu(MEMBER_ID);
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("권한 판정 UseCase로 학교 회장단 AnyGisu 정책을 명시적으로 확인한다")
+    void check_school_core_in_any_gisu() {
+        ChallengerRoleQueryService sut = new ChallengerRoleQueryService(loadChallengerRolePort, getGisuUseCase);
+        CheckChallengerAuthorityUseCase useCase = sut;
+        ChallengerRole role = ChallengerRole.create(
+            10L,
+            ChallengerRoleType.SCHOOL_VICE_PRESIDENT,
+            SCHOOL_ID,
+            null,
+            GISU_ID
+        );
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
+
+        boolean result = useCase.isSchoolCoreInAnyGisu(MEMBER_ID, SCHOOL_ID);
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
     @DisplayName("조회 전용 UseCase로 챌린저별 역할 타입을 일괄 조회한다")
     void map_role_types_by_challenger_ids() {
         ListChallengerRoleUseCase useCase = service;

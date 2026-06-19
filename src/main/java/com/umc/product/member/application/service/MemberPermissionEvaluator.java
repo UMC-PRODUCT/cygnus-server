@@ -38,6 +38,6 @@ public class MemberPermissionEvaluator implements ResourcePermissionEvaluator {
 
     private boolean canDeleteMember(SubjectAttributes subjectAttributes) {
         // 회원 강제 삭제는 중앙운영사무국 총괄단만 가능합니다.
-        return subjectAttributes.toAuthoritySnapshot().isCentralCore();
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
     }
 }

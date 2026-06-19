@@ -67,7 +67,7 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
 
     private boolean canReadNotice(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
         // 총괄/부총괄: 모든 공지 읽기 가능
-        if (subjectAttributes.toAuthoritySnapshot().isCentralCore()) {
+        if (canReadAllAsCentralCore(subjectAttributes, targetInfo)) {
             return true;
         }
 
@@ -159,19 +159,39 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
      */
     private boolean canManageNotice(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
         AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
-        if (snapshot.isCentralCore()) {
+        if (targetInfo.targetGisuId() != null && snapshot.isCentralCoreInGisu(targetInfo.targetGisuId())) {
+            return true;
+        }
+        if (targetInfo.targetGisuId() == null && snapshot.isCentralCoreInAnyGisu()) {
             return true;
         }
 
         if (targetInfo.targetSchoolId() != null) {
-            return snapshot.isSchoolAdmin(targetInfo.targetSchoolId());
+            if (targetInfo.targetGisuId() != null) {
+                return snapshot.isSchoolAdminInGisu(targetInfo.targetGisuId(), targetInfo.targetSchoolId());
+            }
+            return snapshot.isSchoolAdminInAnyGisu(targetInfo.targetSchoolId());
         }
 
         if (targetInfo.targetChapterId() != null) {
-            return snapshot.isChapterPresident(targetInfo.targetChapterId());
+            if (targetInfo.targetGisuId() != null) {
+                return snapshot.isChapterPresidentInGisu(targetInfo.targetGisuId(), targetInfo.targetChapterId());
+            }
+            return snapshot.isChapterPresidentInAnyGisu(targetInfo.targetChapterId());
         }
 
-        return snapshot.isCentralMember();
+        if (targetInfo.targetGisuId() != null) {
+            return snapshot.isCentralMemberInGisu(targetInfo.targetGisuId());
+        }
+        return snapshot.isCentralMemberInAnyGisu();
+    }
+
+    private boolean canReadAllAsCentralCore(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
+        AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
+        if (targetInfo.targetGisuId() != null) {
+            return snapshot.isCentralCoreInGisu(targetInfo.targetGisuId());
+        }
+        return snapshot.isCentralCoreInAnyGisu();
     }
 
     private boolean chapterPresidentCanRead(RoleAttribute role, NoticeTargetInfo targetInfo,

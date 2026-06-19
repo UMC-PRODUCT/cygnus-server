@@ -21,7 +21,7 @@ public class AuditLogPermissionEvaluator implements ResourcePermissionEvaluator 
     @Override
     public boolean evaluate(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         return switch (resourcePermission.permission()) {
-            case READ -> subjectAttributes.toAuthoritySnapshot().isCentralMember();
+            case READ -> subjectAttributes.toAuthoritySnapshot().isCentralMemberInAnyGisu();
             default -> throw new CommonException(CommonErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED,
                 "PE 관련 에러가 발생하였습니다. 관리자에게 문의하세요.");
         };

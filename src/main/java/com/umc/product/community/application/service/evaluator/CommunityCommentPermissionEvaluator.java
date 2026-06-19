@@ -58,7 +58,7 @@ public class CommunityCommentPermissionEvaluator implements ResourcePermissionEv
             }
             case DELETE -> {
                 // 삭제는 게시글 작성자나 총괄단이 가능
-                return subjectAttributes.toAuthoritySnapshot().isCentralCore()
+                return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu()
                     || isAuthor;
             }
             default -> {

@@ -21,7 +21,7 @@ public class ChapterPermissionEvaluator implements ResourcePermissionEvaluator {
     @Override
     public boolean evaluate(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         return switch (resourcePermission.permission()) {
-            case WRITE, DELETE -> subjectAttributes.toAuthoritySnapshot().isCentralCore();
+            case WRITE, DELETE -> subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
             default -> throw new AuthorizationDomainException(AuthorizationErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED,
                 "ChapterPermissionEvaluator에서 해당 PermissionType을 지원하지 않습니다: " + resourcePermission.permission());
         };

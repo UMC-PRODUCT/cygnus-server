@@ -15,6 +15,16 @@ public interface CheckChallengerAuthorityUseCase {
 
     boolean hasAllRoleTypeInGisu(Long memberId, Long gisuId, ChallengerRoleType... roles);
 
+    boolean isCentralCoreInAnyGisu(Long memberId);
+
+    boolean isCentralMemberInAnyGisu(Long memberId);
+
+    boolean isSchoolCoreInAnyGisu(Long memberId, Long schoolId);
+
+    boolean isSchoolAdminInAnyGisu(Long memberId, Long schoolId);
+
+    boolean isChapterPresidentInAnyGisu(Long memberId, Long chapterId);
+
     boolean isCentralCoreInGisu(Long memberId, Long gisuId);
 
     boolean isCentralMemberInGisu(Long memberId, Long gisuId);

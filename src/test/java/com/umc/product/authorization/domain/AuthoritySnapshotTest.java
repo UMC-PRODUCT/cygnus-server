@@ -35,6 +35,26 @@ class AuthoritySnapshotTest {
     }
 
     @Test
+    @DisplayName("기수 무관 challenger role 정책은 AnyGisu 이름으로만 사용한다")
+    void central_core_in_any_gisu() {
+        AuthoritySnapshot snapshot = AuthoritySnapshot.of(
+            MEMBER_ID,
+            SCHOOL_ID,
+            List.of(),
+            List.of(new RoleAttribute(
+                ChallengerRoleType.CENTRAL_VICE_PRESIDENT,
+                OrganizationType.CENTRAL,
+                null,
+                null,
+                GISU_ID
+            )),
+            Set.of()
+        );
+
+        assertThat(snapshot.isCentralCoreInAnyGisu()).isTrue();
+    }
+
+    @Test
     @DisplayName("중앙 총괄단 여부는 같은 기수의 challenger role로 판단한다")
     void central_core_in_gisu() {
         AuthoritySnapshot snapshot = AuthoritySnapshot.of(

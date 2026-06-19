@@ -37,7 +37,7 @@ public class ChallengerPointPermissionEvaluator implements ResourcePermissionEva
         return switch (resourcePermission.permission()) {
             case WRITE -> canCreate(subjectAttributes, resourcePermission);
             case EDIT -> canUpdate(subjectAttributes, resourcePermission);
-            case DELETE -> canDelete(subjectAttributes);
+            case DELETE -> canDelete(subjectAttributes, resourcePermission);
             default -> throw new CommonException(CommonErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED);
         };
     }
@@ -98,8 +98,12 @@ public class ChallengerPointPermissionEvaluator implements ResourcePermissionEva
         return false;
     }
 
-    private boolean canDelete(SubjectAttributes subjectAttributes) {
+    private boolean canDelete(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
+        ChallengerPointInfo challengerPointInfo = getChallengerPointUseCase.getById(
+            resourcePermission.getResourceIdAsLong());
+        ChallengerInfo grantedChallengerInfo = getGrantedChallengerInfo(challengerPointInfo.challengerId());
+
         // 중앙운영사무국 총괄단만 가능함
-        return subjectAttributes.toAuthoritySnapshot().isCentralCore();
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInGisu(grantedChallengerInfo.gisuId());
     }
 }

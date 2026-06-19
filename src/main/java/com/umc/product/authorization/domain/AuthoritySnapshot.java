@@ -60,7 +60,7 @@ public record AuthoritySnapshot(
             .anyMatch(ChallengerRoleType::isSuperAdmin);
     }
 
-    public boolean isCentralCore() {
+    public boolean isCentralCoreInAnyGisu() {
         return isSuperAdmin() || challengerRoles.stream()
             .map(RoleAttribute::roleType)
             .anyMatch(ChallengerRoleType::isAtLeastCentralCore);
@@ -73,7 +73,7 @@ public record AuthoritySnapshot(
             .anyMatch(ChallengerRoleType::isAtLeastCentralCore);
     }
 
-    public boolean isCentralMember() {
+    public boolean isCentralMemberInAnyGisu() {
         return isSuperAdmin() || challengerRoles.stream()
             .map(RoleAttribute::roleType)
             .anyMatch(ChallengerRoleType::isAtLeastCentralMember);
@@ -86,7 +86,7 @@ public record AuthoritySnapshot(
             .anyMatch(ChallengerRoleType::isAtLeastCentralMember);
     }
 
-    public boolean isSchoolCore(Long schoolId) {
+    public boolean isSchoolCoreInAnyGisu(Long schoolId) {
         return isSuperAdmin() || challengerRoles.stream()
             .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
             .filter(role -> Objects.equals(role.organizationId(), schoolId))
@@ -103,7 +103,7 @@ public record AuthoritySnapshot(
             .anyMatch(ChallengerRoleType::isAtLeastSchoolCore);
     }
 
-    public boolean isSchoolAdmin(Long schoolId) {
+    public boolean isSchoolAdminInAnyGisu(Long schoolId) {
         return isSuperAdmin() || challengerRoles.stream()
             .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
             .filter(role -> Objects.equals(role.organizationId(), schoolId))
@@ -120,7 +120,7 @@ public record AuthoritySnapshot(
             .anyMatch(ChallengerRoleType::isAtLeastSchoolAdmin);
     }
 
-    public boolean isChapterPresident(Long chapterId) {
+    public boolean isChapterPresidentInAnyGisu(Long chapterId) {
         return isSuperAdmin() || challengerRoles.stream()
             .filter(role -> role.organizationType() == OrganizationType.CHAPTER)
             .filter(role -> Objects.equals(role.organizationId(), chapterId))
