@@ -53,7 +53,7 @@ public class FcmSendBatchRequestedEventListener {
         ));
         deactivateInvalidTokens(tokens, result.invalidTokenIds());
         recordFcmMetric(result);
-        log.info("FCM 배치 발송 완료: requestId={}, success={}, failure={}",
+        log.info("FCM 배치 발송 결과: requestId={}, success={}, failure={}",
             event.requestId(), result.successCount(), result.failureCount());
     }
 

@@ -1,6 +1,7 @@
 package com.umc.product.notification.application.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.global.logging.OperationalMetrics;
@@ -10,6 +11,8 @@ import com.umc.product.notification.application.port.out.SendFcmMessagePort;
 import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
 import com.umc.product.notification.application.port.out.dto.FcmSendResult;
 import com.umc.product.notification.domain.FcmToken;
+import com.umc.product.notification.domain.exception.FcmDomainException;
+import com.umc.product.notification.domain.exception.FcmErrorCode;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
@@ -61,6 +64,40 @@ class FcmSendBatchRequestedEventListenerTest {
         assertThat(invalid.isActive()).isFalse();
         assertThat(active.isActive()).isTrue();
         assertThat(saveFcmPort.saved).containsExactly(invalid);
+    }
+
+    @Test
+    @DisplayName("FCM 발송 transient 실패는 공용 outbox relay 재시도로 이어지도록 예외를 전파한다")
+    void transient_failure_예외_전파() {
+        // given
+        FcmToken active = token(1L, 10L, "token-1");
+        FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(active));
+        FakeSaveFcmPort saveFcmPort = new FakeSaveFcmPort();
+        FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
+            new FcmProperties(true),
+            loadFcmPort,
+            saveFcmPort,
+            request -> {
+                throw new FcmDomainException(FcmErrorCode.FCM_SEND_FAILED);
+            },
+            new OperationalMetrics(new SimpleMeterRegistry())
+        );
+        FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
+            null,
+            null,
+            UUID.randomUUID(),
+            List.of(1L),
+            "제목",
+            "본문",
+            Map.of(),
+            null,
+            null
+        );
+
+        // when & then
+        assertThatThrownBy(() -> listener.handle(event))
+            .isInstanceOf(FcmDomainException.class);
+        assertThat(saveFcmPort.saved).isEmpty();
     }
 
     private FcmToken token(Long id, Long memberId, String value) {
