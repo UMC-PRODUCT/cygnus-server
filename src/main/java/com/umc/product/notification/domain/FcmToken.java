@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -31,23 +32,68 @@ public class FcmToken extends BaseEntity {
     @Column(name = "is_active", nullable = false)
     private boolean isActive;
 
+    @Column(name = "platform", length = 30)
+    private String platform;
+
+    @Column(name = "device_id", length = 100)
+    private String deviceId;
+
+    @Column(name = "app_version", length = 50)
+    private String appVersion;
+
+    @Column(name = "last_registered_at")
+    private Instant lastRegisteredAt;
+
+    @Column(name = "deactivated_at")
+    private Instant deactivatedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private FcmToken(Long memberId, String fcmToken) {
+    private FcmToken(Long memberId, String fcmToken, String platform, String deviceId, String appVersion) {
         this.memberId = memberId;
         this.fcmToken = fcmToken;
-        this.isActive = true;
+        register(platform, deviceId, appVersion);
     }
 
     public static FcmToken create(Long memberId, String fcmToken) {
         return FcmToken.builder().memberId(memberId).fcmToken(fcmToken).build();
     }
 
+    public static FcmToken create(
+        Long memberId,
+        String fcmToken,
+        String platform,
+        String deviceId,
+        String appVersion
+    ) {
+        return FcmToken.builder()
+            .memberId(memberId)
+            .fcmToken(fcmToken)
+            .platform(platform)
+            .deviceId(deviceId)
+            .appVersion(appVersion)
+            .build();
+    }
+
+    public boolean belongsTo(Long memberId) {
+        return this.memberId != null && this.memberId.equals(memberId);
+    }
+
     public void activate() {
         this.isActive = true;
+        this.deactivatedAt = null;
+    }
+
+    public void register(String platform, String deviceId, String appVersion) {
+        this.platform = platform;
+        this.deviceId = deviceId;
+        this.appVersion = appVersion;
+        this.lastRegisteredAt = Instant.now();
+        activate();
     }
 
     public void deactivate() {
         this.isActive = false;
+        this.deactivatedAt = Instant.now();
     }
 
 }

@@ -61,7 +61,7 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
             return;
         }
 
-        List<FcmToken> tokens = loadFcmPort.findAllActiveByMemberIds(memberIds);
+        List<FcmToken> tokens = loadFcmPort.listActiveByMemberIds(memberIds);
         if (tokens.isEmpty()) {
             log.info("활성 FCM 토큰 없음. memberIds count={}", memberIds.size());
             return;
@@ -80,7 +80,7 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
             return;
         }
 
-        List<FcmToken> tokens = loadFcmPort.findAllActiveByMemberId(command.memberId());
+        List<FcmToken> tokens = loadFcmPort.listActiveByMemberId(command.memberId());
         if (tokens.isEmpty()) {
             log.warn("활성 FCM 토큰 없음. memberId={}", command.memberId());
             return;
@@ -102,7 +102,7 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
             return;
         }
 
-        List<FcmToken> tokens = loadFcmPort.findAllActiveByMemberIds(memberIds);
+        List<FcmToken> tokens = loadFcmPort.listActiveByMemberIds(memberIds);
         if (tokens.isEmpty()) {
             log.info("활성 FCM 토큰 없음. memberIds count={}", memberIds.size());
             return;

@@ -3,6 +3,7 @@ package com.umc.product.notification.adapter.in.web.swagger;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.notification.adapter.in.web.dto.request.FcmRegistrationRequest;
+import com.umc.product.notification.adapter.in.web.dto.request.FcmUnregistrationRequest;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,6 +28,20 @@ public interface FcmControllerApi {
         @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         FcmRegistrationRequest request
+    );
+
+    @Operation(
+        operationId = "FCM-004",
+        summary = "FCM 토큰 해제",
+        description = "사용자의 특정 FCM 토큰을 비활성화합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "토큰 해제 성공")
+    })
+    void unregisterFcmToken(
+        @Parameter(hidden = true)
+        @CurrentMember MemberPrincipal memberPrincipal,
+        FcmUnregistrationRequest request
     );
 
     @Operation(

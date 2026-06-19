@@ -20,13 +20,18 @@ public class FcmPersistenceAdapter implements LoadFcmPort, SaveFcmPort {
     }
 
     @Override
-    public List<FcmToken> findAllActiveByMemberId(Long memberId) {
+    public List<FcmToken> listActiveByMemberId(Long memberId) {
         return fcmJpaRepository.findAllByMemberIdAndIsActiveTrue(memberId);
     }
 
     @Override
-    public List<FcmToken> findAllActiveByMemberIds(List<Long> memberIds) {
+    public List<FcmToken> listActiveByMemberIds(List<Long> memberIds) {
         return fcmJpaRepository.findAllByMemberIdInAndIsActiveTrue(memberIds);
+    }
+
+    @Override
+    public List<FcmToken> listActiveByToken(String fcmToken) {
+        return fcmJpaRepository.findAllByFcmTokenAndIsActiveTrue(fcmToken);
     }
 
     @Override

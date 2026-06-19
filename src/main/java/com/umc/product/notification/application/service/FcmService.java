@@ -1,14 +1,15 @@
 package com.umc.product.notification.application.service;
 
-import com.umc.product.notification.adapter.in.web.dto.request.FcmRegistrationRequest;
 import com.umc.product.notification.application.port.in.ManageFcmUseCase;
+import com.umc.product.notification.application.port.in.dto.RegisterFcmTokenCommand;
+import com.umc.product.notification.application.port.in.dto.UnregisterFcmTokenCommand;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
 import com.umc.product.notification.application.port.out.SaveFcmPort;
 import com.umc.product.notification.domain.FcmToken;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Service
@@ -20,12 +21,42 @@ public class FcmService implements ManageFcmUseCase {
 
     @Override
     @Transactional
-    public void registerFcmToken(Long memberId, FcmRegistrationRequest request) {
-        loadFcmPort.findByMemberIdAndToken(memberId, request.fcmToken())
+    public void registerFcmToken(RegisterFcmTokenCommand command) {
+        deactivateTokensOwnedByOtherMembers(command.memberId(), command.fcmToken());
+
+        loadFcmPort.findByMemberIdAndToken(command.memberId(), command.fcmToken())
             .ifPresentOrElse(
-                FcmToken::activate,
-                () -> saveFcmPort.save(FcmToken.create(memberId, request.fcmToken()))
+                token -> {
+                    token.register(command.platform(), command.deviceId(), command.appVersion());
+                    saveFcmPort.save(token);
+                },
+                () -> saveFcmPort.save(FcmToken.create(
+                    command.memberId(),
+                    command.fcmToken(),
+                    command.platform(),
+                    command.deviceId(),
+                    command.appVersion()
+                ))
             );
+    }
+
+    @Override
+    @Transactional
+    public void unregisterFcmToken(UnregisterFcmTokenCommand command) {
+        loadFcmPort.findByMemberIdAndToken(command.memberId(), command.fcmToken())
+            .ifPresent(token -> {
+                token.deactivate();
+                saveFcmPort.save(token);
+            });
+    }
+
+    private void deactivateTokensOwnedByOtherMembers(Long memberId, String fcmToken) {
+        loadFcmPort.listActiveByToken(fcmToken).stream()
+            .filter(token -> !token.belongsTo(memberId))
+            .forEach(token -> {
+                token.deactivate();
+                saveFcmPort.save(token);
+            });
     }
 
 }
