@@ -10,7 +10,9 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
@@ -32,7 +34,10 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @Slf4j
-public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
+public class ChallengerRoleQueryService implements
+    ListChallengerRoleUseCase,
+    CheckChallengerAuthorityUseCase,
+    GetChallengerRoleUseCase {
 
     private final LoadChallengerRolePort loadChallengerRolePort;
 
@@ -52,16 +57,28 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public List<ChallengerRoleInfo> findAllByMemberId(Long memberId) {
+    public List<ChallengerRoleInfo> listByMemberId(Long memberId) {
         return loadChallengerRolePort.findByMemberId(memberId).stream()
             .map(this::getChallengerRoleInfoFromEntity)
             .toList();
     }
 
     @Override
-    public List<ChallengerRoleBasicInfo> findAllBasicByMemberId(Long memberId) {
+    public List<ChallengerRoleBasicInfo> listBasicByMemberId(Long memberId) {
         return loadChallengerRolePort.findByMemberId(memberId).stream()
             .map(ChallengerRoleBasicInfo::from)
+            .toList();
+    }
+
+    @Override
+    public List<ChallengerRoleInfo> listByMemberIdAndGisuId(Long memberId, Long gisuId) {
+        if (gisuId == null) {
+            throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
+                "gisuId는 null일 수 없습니다.");
+        }
+
+        return loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId).stream()
+            .map(this::getChallengerRoleInfoFromEntity)
             .toList();
     }
 
@@ -238,7 +255,7 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public Map<Long, List<ChallengerRoleType>> getAllRoleTypesByChallengerIds(Set<Long> challengerIds) {
+    public Map<Long, List<ChallengerRoleType>> mapRoleTypesByChallengerIds(Set<Long> challengerIds) {
         if (challengerIds == null || challengerIds.isEmpty()) {
             return Map.of();
         }
@@ -251,7 +268,7 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public Set<ChallengerPart> getAllResponsiblePartByMemberIdAndGisuId(Long memberId, Long gisuId) {
+    public Set<ChallengerPart> listResponsiblePartsByMemberIdAndGisuId(Long memberId, Long gisuId) {
         return loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId).stream()
             .map(ChallengerRole::getResponsiblePart)
             .filter(Objects::nonNull)

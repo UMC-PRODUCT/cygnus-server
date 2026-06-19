@@ -6,7 +6,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
@@ -19,11 +19,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MemberSearchAccessScopeResolver {
 
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final ListChallengerRoleUseCase listChallengerRoleUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
 
     public MemberSearchAccessScope resolve(Long memberId) {
-        List<ChallengerRoleBasicInfo> roles = getChallengerRoleUseCase.findAllBasicByMemberId(memberId);
+        List<ChallengerRoleBasicInfo> roles = listChallengerRoleUseCase.listBasicByMemberId(memberId);
 
         if (roles.stream().map(ChallengerRoleBasicInfo::roleType).anyMatch(this::grantsUnrestrictedAccess)) {
             return MemberSearchAccessScope.allowAll();
