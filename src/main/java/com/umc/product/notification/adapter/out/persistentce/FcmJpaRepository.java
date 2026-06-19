@@ -15,4 +15,6 @@ public interface FcmJpaRepository extends JpaRepository<FcmToken, Long> {
 
     List<FcmToken> findAllByFcmTokenAndIsActiveTrue(String fcmToken);
 
+    List<FcmToken> findAllByIdInAndIsActiveTrue(List<Long> ids);
+
 }

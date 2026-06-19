@@ -14,4 +14,6 @@ public interface LoadFcmPort {
 
     List<FcmToken> listActiveByToken(String fcmToken);
 
+    List<FcmToken> listActiveByIds(List<Long> ids);
+
 }

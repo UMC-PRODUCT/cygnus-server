@@ -99,6 +99,11 @@ class FcmNotificationRequestedEventListenerTest {
         public List<FcmToken> listActiveByToken(String fcmToken) {
             return List.of();
         }
+
+        @Override
+        public List<FcmToken> listActiveByIds(List<Long> ids) {
+            return List.of();
+        }
     }
 
     private static class FakeDomainEventPublisher implements DomainEventPublisher {

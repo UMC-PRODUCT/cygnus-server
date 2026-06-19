@@ -35,6 +35,11 @@ public class FcmPersistenceAdapter implements LoadFcmPort, SaveFcmPort {
     }
 
     @Override
+    public List<FcmToken> listActiveByIds(List<Long> ids) {
+        return fcmJpaRepository.findAllByIdInAndIsActiveTrue(ids);
+    }
+
+    @Override
     public void save(FcmToken fcmToken) {
         fcmJpaRepository.save(fcmToken);
     }

@@ -422,7 +422,7 @@ app:
   fcm:
     enabled: ${FCM_ENABLED:false}
     outbox-interval-ms: ${FCM_OUTBOX_INTERVAL_MS:60000}
-    firebase-configuration: ${FIREBASE_CONFIGURATION}
+    firebase-configuration: ${FIREBASE_CONFIGURATION:}
 
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}
