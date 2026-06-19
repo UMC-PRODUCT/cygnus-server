@@ -1,7 +1,7 @@
 package com.umc.product.challenger.application.service.evaluator;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
+import com.umc.product.authorization.domain.AuthoritySnapshot;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
@@ -19,7 +19,6 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class ChallengerPointPermissionEvaluator implements ResourcePermissionEvaluator {
 
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final GetChallengerPointUseCase getChallengerPointUseCase;
@@ -57,17 +56,16 @@ public class ChallengerPointPermissionEvaluator implements ResourcePermissionEva
 
         Long targetGisuId = grantedChallengerInfo.gisuId();
         Long targetSchoolId = getMemberUseCase.getById(grantedChallengerInfo.memberId()).schoolId();
+        AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
 
         // 대상의 기수에서 요청자가 중앙운영사무국 소속인지 확인
-        if (getChallengerRoleUseCase.isCentralMemberInGisu(subjectAttributes.memberId(), targetGisuId)) {
+        if (snapshot.isCentralMemberInGisu(targetGisuId)) {
             return true;
         }
 
         // 대상의 기수에서 요청자가 같은 학교의 Core(회장/부회장)인지 확인
         if (targetSchoolId != null) {
-            return getChallengerRoleUseCase.isSchoolCoreInGisu(
-                subjectAttributes.memberId(), targetGisuId, targetSchoolId
-            );
+            return snapshot.isSchoolCoreInGisu(targetGisuId, targetSchoolId);
         }
 
         return false;
@@ -85,17 +83,16 @@ public class ChallengerPointPermissionEvaluator implements ResourcePermissionEva
 
         Long targetGisuId = grantedChallengerInfo.gisuId();
         Long targetSchoolId = getMemberUseCase.getById(grantedChallengerInfo.memberId()).schoolId();
+        AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
 
         // 대상의 기수에서 요청자가 중앙운영사무국 소속인지 확인
-        if (getChallengerRoleUseCase.isCentralMemberInGisu(subjectAttributes.memberId(), targetGisuId)) {
+        if (snapshot.isCentralMemberInGisu(targetGisuId)) {
             return true;
         }
 
         // 대상의 기수에서 요청자가 같은 학교의 Core(회장/부회장)인지 확인
         if (targetSchoolId != null) {
-            return getChallengerRoleUseCase.isSchoolCoreInGisu(
-                subjectAttributes.memberId(), targetGisuId, targetSchoolId
-            );
+            return snapshot.isSchoolCoreInGisu(targetGisuId, targetSchoolId);
         }
 
         return false;
@@ -103,7 +100,6 @@ public class ChallengerPointPermissionEvaluator implements ResourcePermissionEva
 
     private boolean canDelete(SubjectAttributes subjectAttributes) {
         // 중앙운영사무국 총괄단만 가능함
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastCentralCore());
+        return subjectAttributes.toAuthoritySnapshot().isCentralCore();
     }
 }

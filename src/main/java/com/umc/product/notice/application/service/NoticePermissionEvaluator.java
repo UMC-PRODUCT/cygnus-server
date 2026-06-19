@@ -4,8 +4,8 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
+import com.umc.product.authorization.domain.AuthoritySnapshot;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
@@ -35,7 +35,6 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
 
     private final GetNoticeTargetUseCase getNoticeTargetUseCase;
     private final LoadNoticePort loadNoticePort;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     @Override
     public ResourceType supportedResourceType() {
@@ -60,7 +59,7 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
             case READ -> canReadNotice(subjectAttributes, targetInfo);
             case EDIT, DELETE -> canDeleteOrEditNotice(subjectAttributes, resourcePermission);
             // TODO: Check는 임시로 Manage랑 동일하게 적용, 하나야 수정해줘!
-            case MANAGE, CHECK -> canManageNotice(subjectAttributes.memberId(), targetInfo);
+            case MANAGE, CHECK -> canManageNotice(subjectAttributes, targetInfo);
             default -> throw new AuthorizationDomainException(AuthorizationErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED,
                 "NoticePE에서 해당 PermissionType을 지원하지 않습니다: " + resourcePermission.permission());
         };
@@ -68,7 +67,7 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
 
     private boolean canReadNotice(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
         // 총괄/부총괄: 모든 공지 읽기 가능
-        if (subjectAttributes.roleAttributes().stream().anyMatch(r -> r.roleType().isAtLeastCentralCore())) {
+        if (subjectAttributes.toAuthoritySnapshot().isCentralCore()) {
             return true;
         }
 
@@ -145,7 +144,7 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
     }
 
     private boolean canDeleteOrEditNotice(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
-        if (subjectAttributes.roleAttributes().stream().anyMatch(r -> r.roleType().isSuperAdmin())) {
+        if (subjectAttributes.toAuthoritySnapshot().isSuperAdmin()) {
             return true;
         }
 
@@ -158,20 +157,21 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
     /**
      * 공지사항 관리 권한 확인 (수신 현황 조회 등) - 총괄/부총괄: 항상 허용 - School 레벨 공지: 해당 학교 운영진 - Chapter 레벨 공지: 해당 지부장 - Gisu 레벨 공지: 중앙 멤버
      */
-    private boolean canManageNotice(Long memberId, NoticeTargetInfo targetInfo) {
-        if (getChallengerRoleUseCase.isCentralCore(memberId)) {
+    private boolean canManageNotice(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
+        AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
+        if (snapshot.isCentralCore()) {
             return true;
         }
 
         if (targetInfo.targetSchoolId() != null) {
-            return getChallengerRoleUseCase.isSchoolAdmin(memberId, targetInfo.targetSchoolId());
+            return snapshot.isSchoolAdmin(targetInfo.targetSchoolId());
         }
 
         if (targetInfo.targetChapterId() != null) {
-            return getChallengerRoleUseCase.isChapterPresident(memberId, targetInfo.targetChapterId());
+            return snapshot.isChapterPresident(targetInfo.targetChapterId());
         }
 
-        return getChallengerRoleUseCase.isCentralMember(memberId);
+        return snapshot.isCentralMember();
     }
 
     private boolean chapterPresidentCanRead(RoleAttribute role, NoticeTargetInfo targetInfo,

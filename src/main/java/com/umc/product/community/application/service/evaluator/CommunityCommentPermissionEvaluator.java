@@ -1,6 +1,5 @@
 package com.umc.product.community.application.service.evaluator;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Component;
 public class CommunityCommentPermissionEvaluator implements ResourcePermissionEvaluator {
 
     private final GetChallengerUseCase getChallengerUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetCommentListUseCase getCommentListUseCase;
 
 
@@ -60,7 +58,7 @@ public class CommunityCommentPermissionEvaluator implements ResourcePermissionEv
             }
             case DELETE -> {
                 // 삭제는 게시글 작성자나 총괄단이 가능
-                return getChallengerRoleUseCase.isCentralCore(subjectAttributes.memberId())
+                return subjectAttributes.toAuthoritySnapshot().isCentralCore()
                     || isAuthor;
             }
             default -> {

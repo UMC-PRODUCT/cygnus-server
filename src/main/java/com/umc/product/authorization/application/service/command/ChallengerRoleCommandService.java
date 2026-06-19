@@ -13,7 +13,11 @@ import com.umc.product.authorization.application.port.in.command.dto.DeleteChall
 import com.umc.product.authorization.application.port.in.command.dto.UpdateChallengerRoleCommand;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
+import com.umc.product.authorization.application.service.AuthoritySnapshotCacheKeys;
 import com.umc.product.authorization.domain.ChallengerRole;
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.global.cache.application.port.in.CacheUseCase;
+import com.umc.product.global.cache.domain.CacheNamespace;
 import com.umc.product.global.exception.constant.Domain;
 
 import lombok.RequiredArgsConstructor;
@@ -25,6 +29,8 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
 
     private final LoadChallengerRolePort loadChallengerRolePort;
     private final SaveChallengerRolePort saveChallengerRolePort;
+    private final GetChallengerUseCase getChallengerUseCase;
+    private final CacheUseCase cacheUseCase;
 
     @Audited(
         domain = Domain.AUTHORIZATION,
@@ -36,7 +42,9 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
     @Override
     public Long createChallengerRole(CreateChallengerRoleCommand command) {
         ChallengerRole challengerRole = command.toEntity();
-        return saveChallengerRolePort.save(challengerRole).getId();
+        ChallengerRole savedRole = saveChallengerRolePort.save(challengerRole);
+        evictAuthoritySnapshot(savedRole);
+        return savedRole.getId();
     }
 
     @Override
@@ -45,7 +53,10 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
             .map(CreateChallengerRoleCommand::toEntity)
             .toList();
 
-        return saveChallengerRolePort.saveAll(challengerRoles).stream()
+        List<ChallengerRole> savedRoles = saveChallengerRolePort.saveAll(challengerRoles);
+        savedRoles.forEach(this::evictAuthoritySnapshot);
+
+        return savedRoles.stream()
             .map(ChallengerRole::getId)
             .toList();
     }
@@ -62,6 +73,7 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
         ChallengerRole challengerRole = loadChallengerRolePort.getById(command.challengerRoleId());
         challengerRole.update(command.roleType(), command.organizationId(), command.responsiblePart());
         saveChallengerRolePort.save(challengerRole);
+        evictAuthoritySnapshot(challengerRole);
     }
 
     @Audited(
@@ -75,5 +87,11 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
     public void deleteChallengerRole(DeleteChallengerRoleCommand command) {
         ChallengerRole challengerRole = loadChallengerRolePort.getById(command.challengerRoleId());
         saveChallengerRolePort.delete(challengerRole);
+        evictAuthoritySnapshot(challengerRole);
+    }
+
+    private void evictAuthoritySnapshot(ChallengerRole challengerRole) {
+        Long memberId = getChallengerUseCase.getById(challengerRole.getChallengerId()).memberId();
+        cacheUseCase.evict(CacheNamespace.AUTHORITY_SNAPSHOT, AuthoritySnapshotCacheKeys.member(memberId));
     }
 }
