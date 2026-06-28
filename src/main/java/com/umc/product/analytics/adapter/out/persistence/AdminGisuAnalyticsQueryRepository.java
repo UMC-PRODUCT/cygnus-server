@@ -3,11 +3,14 @@ package com.umc.product.analytics.adapter.out.persistence;
 import static com.umc.product.analytics.adapter.out.persistence.AdminAnalyticsQueryExpressions.chapterMatchedOrNoMapping;
 import static com.umc.product.analytics.adapter.out.persistence.AdminAnalyticsQueryExpressions.pointScore;
 
+import java.util.List;
+
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.analytics.application.port.in.query.dto.AdminGisuPointsInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminGisuSummaryInfo;
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
 import com.umc.product.challenger.domain.QChallenger;
@@ -112,6 +115,51 @@ public class AdminGisuAnalyticsQueryRepository {
             defaultDouble(pointsRow, penaltyTotal),
             defaultLong(pointsRow, outCount)
         );
+    }
+
+    public AdminGisuPointsInfo getGisuPoints(AdminAnalyticsScope scope) {
+        QChallengerPoint point = new QChallengerPoint("gisuPointsPoint");
+        QChallenger ch = new QChallenger("gisuPointsCh");
+        QMember member = new QMember("gisuPointsMember");
+        QChapterSchool chapterSchool = new QChapterSchool("gisuPointsCs");
+        QChapter chapter = new QChapter("gisuPointsChapter");
+
+        NumberExpression<Double> score = pointScore(point);
+        NumberExpression<Double> bonusTotal = new CaseBuilder()
+            .when(score.gt(0.0)).then(score).otherwise(0.0).sum();
+        NumberExpression<Double> penaltyTotal = new CaseBuilder()
+            .when(score.lt(0.0)).then(score.negate()).otherwise(0.0).sum();
+
+        List<AdminGisuPointsInfo.ChapterPointsInfo> chapters = queryFactory
+            .select(
+                chapter.id,
+                chapter.name,
+                ch.id.countDistinct(),
+                bonusTotal,
+                penaltyTotal
+            )
+            .from(point)
+            .join(point.challenger, ch)
+            .join(member).on(member.id.eq(ch.memberId))
+            .leftJoin(chapterSchool).on(chapterSchool.school.id.eq(member.schoolId))
+            .leftJoin(chapter).on(chapter.id.eq(chapterSchool.chapter.id)
+                .and(chapter.gisu.id.eq(scope.gisuId())))
+            .where(challengerScopeCondition(scope, ch, member, chapterSchool, chapter)
+                .and(chapter.id.isNotNull()))
+            .groupBy(chapter.id, chapter.name)
+            .orderBy(chapter.name.asc())
+            .fetch()
+            .stream()
+            .map(row -> AdminGisuPointsInfo.ChapterPointsInfo.of(
+                row.get(chapter.id),
+                row.get(chapter.name),
+                row.get(ch.id.countDistinct()),
+                row.get(bonusTotal) != null ? row.get(bonusTotal) : 0.0,
+                row.get(penaltyTotal) != null ? row.get(penaltyTotal) : 0.0
+            ))
+            .toList();
+
+        return AdminGisuPointsInfo.from(chapters);
     }
 
     private BooleanBuilder challengerScopeCondition(
