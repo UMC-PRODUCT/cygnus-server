@@ -112,6 +112,18 @@ public class Inquiry extends BaseEntity {
     }
 
     /**
+     * 담당 운영진을 이관한다. 기존 담당자를 목록에서 제거하고 새 담당자를 추가한다.
+     * <p>
+     * 기존 담당자가 목록에 없어도 무시하며, 새 담당자가 이미 있으면 중복 추가하지 않는다. 상태(status)는 변경하지 않는다.
+     */
+    public void transferManager(Long fromMemberId, Long toMemberId) {
+        this.assignedMemberIds.remove(fromMemberId);
+        if (!this.assignedMemberIds.contains(toMemberId)) {
+            this.assignedMemberIds.add(toMemberId);
+        }
+    }
+
+    /**
      * 운영진이 처음 문의를 열람할 때 호출된다. 이미 true이면 아무 작업도 하지 않는다
      */
     public void markAsRead() {
