@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardActionQueueRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminGisuSummaryRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceChaptersRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendancePartsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceRequest;
@@ -21,6 +22,7 @@ import com.umc.product.analytics.adapter.in.web.dto.request.AdminRiskChallengerR
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardActionQueueResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardContextResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardSummaryResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminGisuSummaryResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceChaptersResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendancePartsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceResponse;
@@ -34,6 +36,7 @@ import com.umc.product.analytics.adapter.in.web.dto.response.AdminRiskChallenger
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardActionQueueUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardContextUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminGisuSummaryUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceChaptersUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendancePartsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceTagsUseCase;
@@ -74,6 +77,7 @@ public class AdminDashboardController {
     private final GetAdminOperationsAttendancePartsUseCase getAdminOperationsAttendancePartsUseCase;
     private final GetAdminOperationsStudyGroupsUseCase getAdminOperationsStudyGroupsUseCase;
     private final GetAdminOperationsSignupsUseCase getAdminOperationsSignupsUseCase;
+    private final GetAdminGisuSummaryUseCase getAdminGisuSummaryUseCase;
 
     @Operation(operationId = "DASHBOARD-001", summary = "운영진 대시보드 요약 조회")
     @GetMapping("summary")
@@ -219,6 +223,18 @@ public class AdminDashboardController {
     ) {
         return AdminOperationsSignupsResponse.from(
             getAdminOperationsSignupsUseCase.getOperationsSignups(request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-014", summary = "기수별 핵심 지표 요약 조회")
+    @GetMapping("gisu/summary")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminGisuSummaryResponse getGisuSummary(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminGisuSummaryRequest request
+    ) {
+        return AdminGisuSummaryResponse.from(
+            getAdminGisuSummaryUseCase.getGisuSummary(request.toQuery(memberPrincipal.getMemberId()))
         );
     }
 

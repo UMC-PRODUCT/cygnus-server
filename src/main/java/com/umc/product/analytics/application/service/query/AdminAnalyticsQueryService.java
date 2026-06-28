@@ -7,6 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardActionQueueUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardContextUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminGisuSummaryUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceChaptersUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendancePartsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceTagsUseCase;
@@ -23,6 +24,8 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardAct
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardContextInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminGisuSummaryInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminGisuSummaryQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceChaptersInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceChaptersQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceInfo;
@@ -46,6 +49,7 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminRiskChalleng
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryQuery;
 import com.umc.product.analytics.application.port.out.LoadAdminDashboardAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminGisuSummaryPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAnalyticsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendanceChaptersPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendancePartsPort;
@@ -78,7 +82,8 @@ public class AdminAnalyticsQueryService implements
     GetAdminOperationsAttendanceTagsUseCase,
     GetAdminOperationsAttendancePartsUseCase,
     GetAdminOperationsStudyGroupsUseCase,
-    GetAdminOperationsSignupsUseCase {
+    GetAdminOperationsSignupsUseCase,
+    GetAdminGisuSummaryUseCase {
 
     private final AdminAnalyticsScopeResolver scopeResolver;
     private final LoadAdminDashboardAnalyticsPort loadAdminDashboardAnalyticsPort;
@@ -93,6 +98,7 @@ public class AdminAnalyticsQueryService implements
     private final LoadAdminOperationsAttendancePartsPort loadAdminOperationsAttendancePartsPort;
     private final LoadAdminOperationsStudyGroupsPort loadAdminOperationsStudyGroupsPort;
     private final LoadAdminOperationsSignupsPort loadAdminOperationsSignupsPort;
+    private final LoadAdminGisuSummaryPort loadAdminGisuSummaryPort;
 
     @Override
     public AdminDashboardSummaryInfo getSummary(AdminDashboardQuery query) {
@@ -193,5 +199,11 @@ public class AdminAnalyticsQueryService implements
     public AdminOperationsSignupsInfo getOperationsSignups(AdminOperationsSignupsQuery query) {
         AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
         return loadAdminOperationsSignupsPort.getOperationsSignups(scope, query.from(), query.to());
+    }
+
+    @Override
+    public AdminGisuSummaryInfo getGisuSummary(AdminGisuSummaryQuery query) {
+        AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
+        return loadAdminGisuSummaryPort.getGisuSummary(scope);
     }
 }
