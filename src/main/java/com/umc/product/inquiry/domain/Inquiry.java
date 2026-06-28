@@ -55,6 +55,20 @@ public class Inquiry extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private InquiryStatus status;
 
+    @Column(name = "chat_room_id", nullable = false)
+    private Long chatRoomId;
+
+    // 문의 대상(target) 권한 정보. 도메인 경계를 넘는 ID 참조만 보유한다(FK 없음, nullable).
+    // target=CENTRAL/PRODUCT_TEAM이면 school/chapter는 null이다. gisu는 생성 시 활성 기수가 주입된다.
+    @Column(name = "target_school_id")
+    private Long targetSchoolId;
+
+    @Column(name = "target_chapter_id")
+    private Long targetChapterId;
+
+    @Column(name = "target_gisu_id")
+    private Long targetGisuId;
+
     // 수정/삭제는 정책상 전면 불가
     @Column(name = "author_member_id", nullable = false)
     private Long authorMemberId;
@@ -80,7 +94,11 @@ public class Inquiry extends BaseEntity {
         String content,
         InquiryCategory category,
         InquiryTarget target,
-        Long authorMemberId
+        Long chatRoomId,
+        Long authorMemberId,
+        Long targetSchoolId,
+        Long targetChapterId,
+        Long targetGisuId
     ) {
         return Inquiry.builder()
             .title(title)
@@ -88,7 +106,11 @@ public class Inquiry extends BaseEntity {
             .category(category)
             .target(target)
             .status(InquiryStatus.RECEIVED)
+            .chatRoomId(chatRoomId)
             .authorMemberId(authorMemberId)
+            .targetSchoolId(targetSchoolId)
+            .targetChapterId(targetChapterId)
+            .targetGisuId(targetGisuId)
             .assignedMemberIds(new ArrayList<>())
             .fileMetadataIds(new ArrayList<>())
             .isRead(false)

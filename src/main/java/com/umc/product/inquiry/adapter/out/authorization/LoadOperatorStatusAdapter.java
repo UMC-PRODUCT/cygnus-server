@@ -4,57 +4,60 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.inquiry.application.port.out.LoadOperatorStatusPort;
 import com.umc.product.inquiry.application.port.out.dto.LoadOperatorStatusContext;
 import com.umc.product.inquiry.domain.Inquiry;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 /**
  * 운영진 판정 어댑터.
  * <p>
- * 활성 기수를 맥락으로 삼아, 문의 타겟(InquiryTarget)별로 발신자가 해당 조직의 운영진인지 판정한다.
+ * 문의(inquiry)가 직접 보유한 target_* 컬럼(gisu/school/chapter)을 맥락으로 삼아, 문의 타겟(InquiryTarget)별로 발신자가 해당 조직의
+ * 운영진인지 판정한다(ADR-006 권한 모델).
  * <ul>
- *     <li>CENTRAL — 활성 기수에서 중앙운영사무국 멤버 여부</li>
- *     <li>CHAPTER — 활성 기수에서 지부장 여부</li>
- *     <li>SCHOOL  — 문의 작성자(고객)의 소속 학교 기준, 발신자가 그 학교의 운영진인지</li>
- *     <li>PRODUCT_TEAM — 대응 역할 미정(별도 과제). 보수적으로 false</li>
+ *     <li>CENTRAL — target 기수에서 중앙운영사무국 멤버 여부</li>
+ *     <li>PRODUCT_TEAM — 정식 Role 미정. 임시로 중앙 멤버 판정으로 라우팅</li>
+ *     <li>SCHOOL  — target 학교의 운영진 여부</li>
+ *     <li>CHAPTER — target 지부의 지부장 여부</li>
  * </ul>
- * 활성 기수가 없는 시점(휴지기 등)에는 안전하게 false를 반환한다.
+ * target_gisu_id가 없으면(기수 컨텍스트 없음) 안전하게 false를 반환한다.
  */
 @Component
 @RequiredArgsConstructor
 public class LoadOperatorStatusAdapter implements LoadOperatorStatusPort {
 
-    private final GetGisuUseCase getGisuUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
-    private final GetMemberUseCase getMemberUseCase;
 
     @Override
     public boolean isOperator(LoadOperatorStatusContext context) {
         Long senderMemberId = context.memberId();
         Inquiry inquiry = context.inquiry();
 
-        // 활성 기수 없으면(휴지기 등) 운영진 판정 불가 → false (안전 기본값)
-        Optional<GisuInfo> activeGisu = getGisuUseCase.findActiveGisu();
-        if (activeGisu.isEmpty()) {
-            return false;
+        Long gisuId = inquiry.getTargetGisuId();   // 컬럼에서 직접 읽음(활성기수 조회 안 함)
+        if (gisuId == null) {
+            return false;   // 기수 컨텍스트 없으면 판정 불가 → 안전 false
         }
-        Long gisuId = activeGisu.get().gisuId();
 
         return switch (inquiry.getTarget()) {
             case CENTRAL -> getChallengerRoleUseCase.isCentralMemberInGisu(senderMemberId, gisuId);
-            case CHAPTER -> getChallengerRoleUseCase.isChapterPresidentInGisu(senderMemberId, gisuId);
+
+            // PRODUCT_TEAM: 정식 Role 없음 → 임시로 중앙운영사무국 멤버 전체로 라우팅(ADR-006).
+            // TODO: PRODUCT_TEAM 정식 매핑(별도 ADR/이슈). 현재는 중앙 멤버 판정으로 대체.
+            case PRODUCT_TEAM -> getChallengerRoleUseCase.isCentralMemberInGisu(senderMemberId, gisuId);
+
             case SCHOOL -> {
-                // 학교 = 문의 작성자(고객)의 소속 학교. 발신자가 "그 학교"의 운영진인지 판정.
-                Long authorSchoolId = getMemberUseCase.getById(inquiry.getAuthorMemberId()).schoolId();
-                if (authorSchoolId == null) {
-                    yield false;   // 작성자 학교 미배정 → 판정 불가 → false
+                Long schoolId = inquiry.getTargetSchoolId();
+                if (schoolId == null) {
+                    yield false;   // SCHOOL인데 대상 학교 미지정 → 판정 불가 → false
                 }
-                yield getChallengerRoleUseCase.isSchoolAdminInGisu(senderMemberId, gisuId, authorSchoolId);
+                yield getChallengerRoleUseCase.isSchoolAdminInGisu(senderMemberId, gisuId, schoolId);
             }
-            case PRODUCT_TEAM -> false;   // 대응 역할 미정 — 별도 과제. 보수적으로 false.
+
+            case CHAPTER -> {
+                Long chapterId = inquiry.getTargetChapterId();
+                if (chapterId == null) {
+                    yield false;   // CHAPTER인데 대상 지부 미지정 → 판정 불가 → false
+                }
+                yield getChallengerRoleUseCase.isChapterPresidentInGisu(senderMemberId, gisuId, chapterId);
+            }
         };
     }
 }
