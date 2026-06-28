@@ -7,6 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardActionQueueUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardContextUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceChaptersUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendancePartsUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceTagsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsOverviewUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsPointsUseCase;
@@ -20,8 +23,14 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardAct
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardContextInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceChaptersInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceChaptersQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendancePartsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendancePartsQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceTagsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceTagsQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsPointsInfo;
@@ -38,7 +47,10 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummar
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryQuery;
 import com.umc.product.analytics.application.port.out.LoadAdminDashboardAnalyticsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendanceChaptersPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendancePartsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendancePort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendanceTagsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsPointsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsSchoolsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsSignupsPort;
@@ -62,6 +74,9 @@ public class AdminAnalyticsQueryService implements
     GetAdminOperationsSchoolsUseCase,
     GetAdminOperationsPointsUseCase,
     GetAdminOperationsAttendanceUseCase,
+    GetAdminOperationsAttendanceChaptersUseCase,
+    GetAdminOperationsAttendanceTagsUseCase,
+    GetAdminOperationsAttendancePartsUseCase,
     GetAdminOperationsStudyGroupsUseCase,
     GetAdminOperationsSignupsUseCase {
 
@@ -73,6 +88,9 @@ public class AdminAnalyticsQueryService implements
     private final LoadAdminOperationsSchoolsPort loadAdminOperationsSchoolsPort;
     private final LoadAdminOperationsPointsPort loadAdminOperationsPointsPort;
     private final LoadAdminOperationsAttendancePort loadAdminOperationsAttendancePort;
+    private final LoadAdminOperationsAttendanceChaptersPort loadAdminOperationsAttendanceChaptersPort;
+    private final LoadAdminOperationsAttendanceTagsPort loadAdminOperationsAttendanceTagsPort;
+    private final LoadAdminOperationsAttendancePartsPort loadAdminOperationsAttendancePartsPort;
     private final LoadAdminOperationsStudyGroupsPort loadAdminOperationsStudyGroupsPort;
     private final LoadAdminOperationsSignupsPort loadAdminOperationsSignupsPort;
 
@@ -145,6 +163,24 @@ public class AdminAnalyticsQueryService implements
     public AdminOperationsAttendanceInfo getOperationsAttendance(AdminOperationsAttendanceQuery query) {
         AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
         return loadAdminOperationsAttendancePort.getOperationsAttendance(scope, query.from(), query.to());
+    }
+
+    @Override
+    public AdminOperationsAttendanceChaptersInfo getOperationsAttendanceByChapters(AdminOperationsAttendanceChaptersQuery query) {
+        AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
+        return loadAdminOperationsAttendanceChaptersPort.getAttendanceByChapters(scope, query.from(), query.to());
+    }
+
+    @Override
+    public AdminOperationsAttendanceTagsInfo getOperationsAttendanceByTags(AdminOperationsAttendanceTagsQuery query) {
+        AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
+        return loadAdminOperationsAttendanceTagsPort.getAttendanceByTags(scope, query.from(), query.to());
+    }
+
+    @Override
+    public AdminOperationsAttendancePartsInfo getOperationsAttendanceByParts(AdminOperationsAttendancePartsQuery query) {
+        AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
+        return loadAdminOperationsAttendancePartsPort.getAttendanceByParts(scope, query.from(), query.to());
     }
 
     @Override

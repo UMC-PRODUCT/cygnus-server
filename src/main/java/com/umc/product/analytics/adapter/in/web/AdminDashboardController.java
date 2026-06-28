@@ -8,7 +8,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardActionQueueRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceChaptersRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendancePartsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceTagsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsOverviewRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsPointsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsSchoolsRequest;
@@ -18,7 +21,10 @@ import com.umc.product.analytics.adapter.in.web.dto.request.AdminRiskChallengerR
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardActionQueueResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardContextResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardSummaryResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceChaptersResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendancePartsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceTagsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsOverviewResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsPointsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsSchoolsResponse;
@@ -28,6 +34,9 @@ import com.umc.product.analytics.adapter.in.web.dto.response.AdminRiskChallenger
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardActionQueueUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardContextUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminDashboardSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceChaptersUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendancePartsUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceTagsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsOverviewUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsPointsUseCase;
@@ -60,6 +69,9 @@ public class AdminDashboardController {
     private final GetAdminOperationsSchoolsUseCase getAdminOperationsSchoolsUseCase;
     private final GetAdminOperationsPointsUseCase getAdminOperationsPointsUseCase;
     private final GetAdminOperationsAttendanceUseCase getAdminOperationsAttendanceUseCase;
+    private final GetAdminOperationsAttendanceChaptersUseCase getAdminOperationsAttendanceChaptersUseCase;
+    private final GetAdminOperationsAttendanceTagsUseCase getAdminOperationsAttendanceTagsUseCase;
+    private final GetAdminOperationsAttendancePartsUseCase getAdminOperationsAttendancePartsUseCase;
     private final GetAdminOperationsStudyGroupsUseCase getAdminOperationsStudyGroupsUseCase;
     private final GetAdminOperationsSignupsUseCase getAdminOperationsSignupsUseCase;
 
@@ -144,6 +156,45 @@ public class AdminDashboardController {
     ) {
         return AdminOperationsAttendanceResponse.from(
             getAdminOperationsAttendanceUseCase.getOperationsAttendance(request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-011", summary = "운영 현황 - 지부별 출석률 현황 조회")
+    @GetMapping("operations/attendance/chapters")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsAttendanceChaptersResponse getOperationsAttendanceByChapters(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsAttendanceChaptersRequest request
+    ) {
+        return AdminOperationsAttendanceChaptersResponse.from(
+            getAdminOperationsAttendanceChaptersUseCase.getOperationsAttendanceByChapters(
+                request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-012", summary = "운영 현황 - 일정 태그별 출석률 현황 조회")
+    @GetMapping("operations/attendance/tags")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsAttendanceTagsResponse getOperationsAttendanceByTags(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsAttendanceTagsRequest request
+    ) {
+        return AdminOperationsAttendanceTagsResponse.from(
+            getAdminOperationsAttendanceTagsUseCase.getOperationsAttendanceByTags(
+                request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-013", summary = "운영 현황 - 파트별 출석률 현황 조회")
+    @GetMapping("operations/attendance/parts")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminOperationsAttendancePartsResponse getOperationsAttendanceByParts(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminOperationsAttendancePartsRequest request
+    ) {
+        return AdminOperationsAttendancePartsResponse.from(
+            getAdminOperationsAttendancePartsUseCase.getOperationsAttendanceByParts(
+                request.toQuery(memberPrincipal.getMemberId()))
         );
     }
 
