@@ -7,4 +7,7 @@ public record CloseInquiryCommand(
     Long inquiryId,
     Long actorMemberId
 ) {
+    public static CloseInquiryCommand of(Long inquiryId, Long actorMemberId) {
+        return new CloseInquiryCommand(inquiryId, actorMemberId);
+    }
 }

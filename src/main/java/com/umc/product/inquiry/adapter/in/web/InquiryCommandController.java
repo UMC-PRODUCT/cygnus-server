@@ -72,6 +72,6 @@ public class InquiryCommandController {
         @PathVariable Long inquiryId,
         @CurrentMember MemberPrincipal principal
     ) {
-        closeInquiryUseCase.close(new CloseInquiryCommand(inquiryId, principal.getMemberId()));
+        closeInquiryUseCase.close(CloseInquiryCommand.of(inquiryId, principal.getMemberId()));
     }
 }

@@ -4,6 +4,7 @@ import com.umc.product.inquiry.domain.Inquiry;
 import com.umc.product.inquiry.domain.enums.InquiryCategory;
 import com.umc.product.inquiry.domain.enums.InquiryStatus;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
+import java.util.List;
 
 /**
  * 문의 조회/생성 결과 정보. 도메인 엔티티(Inquiry)를 외부 계층에 노출하지 않기 위한 전달용 record.
@@ -19,7 +20,10 @@ public record InquiryInfo(
     Long authorMemberId,
     Long targetSchoolId,
     Long targetChapterId,
-    Long targetGisuId
+    Long targetGisuId,
+    List<Long> assignedMemberIds,
+    List<String> fileMetadataIds,
+    boolean isRead
 ) {
     public static InquiryInfo from(Inquiry inquiry) {
         return new InquiryInfo(
@@ -33,7 +37,10 @@ public record InquiryInfo(
             inquiry.getAuthorMemberId(),
             inquiry.getTargetSchoolId(),
             inquiry.getTargetChapterId(),
-            inquiry.getTargetGisuId()
+            inquiry.getTargetGisuId(),
+            inquiry.getAssignedMemberIds(),
+            inquiry.getFileMetadataIds(),
+            inquiry.isRead()
         );
     }
 }
