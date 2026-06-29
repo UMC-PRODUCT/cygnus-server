@@ -1,7 +1,10 @@
 package com.umc.product.inquiry.application.service.command;
 
 import com.umc.product.chat.application.port.in.command.CreateChatRoomUseCase;
+import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomCommand;
+import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
+import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.SubmitInquiryUseCase;
@@ -44,6 +47,8 @@ public class InquiryCommandService implements
     private final SaveInquiryPort saveInquiryPort;
     private final GetGisuUseCase getGisuUseCase;
     private final CreateChatRoomUseCase createChatRoomUseCase;
+    private final JoinChatRoomUseCase joinChatRoomUseCase;
+    private final CheckChatRoomAccessUseCase checkChatRoomAccessUseCase;
     private final LoadInquiryPort loadInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
 
@@ -102,6 +107,8 @@ public class InquiryCommandService implements
         Inquiry inquiry = loadAndAuthorize(command.inquiryId(), command.actorMemberId());
         inquiry.assignManager(command.targetManagerId());
         saveInquiryPort.save(inquiry);
+        // 지정된 운영진을 채팅방 멤버로 등록 (이미 멤버면 중복 등록 생략)
+        joinIfNotMember(inquiry.getChatRoomId(), command.targetManagerId());
     }
 
     @Override
@@ -130,5 +137,15 @@ public class InquiryCommandService implements
             throw new InquiryDomainException(InquiryErrorCode.NO_INQUIRY_PERMISSION);
         }
         return inquiry;
+    }
+
+    /**
+     * 이미 채팅방 멤버면 생략하고, 멤버가 아닐 때만 join한다.
+     * joinChatRoom()은 멱등하지 않아(이미 멤버면 예외) 사전 체크가 필수다.
+     */
+    private void joinIfNotMember(Long chatRoomId, Long memberId) {
+        if (!checkChatRoomAccessUseCase.hasChatRoomAccess(memberId, chatRoomId)) {
+            joinChatRoomUseCase.joinChatRoom(new JoinChatRoomCommand(chatRoomId, memberId));
+        }
     }
 }

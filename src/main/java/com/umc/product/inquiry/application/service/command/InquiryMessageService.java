@@ -1,7 +1,10 @@
 package com.umc.product.inquiry.application.service.command;
 
+import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.SendChatMessageUseCase;
+import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
+import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.inquiry.application.port.in.command.SendInquiryMessageUseCase;
 import com.umc.product.inquiry.application.port.in.command.dto.SendInquiryMessageCommand;
@@ -27,6 +30,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class InquiryMessageService implements SendInquiryMessageUseCase {
 
     private final SendChatMessageUseCase sendChatMessageUseCase;
+    private final JoinChatRoomUseCase joinChatRoomUseCase;
+    private final CheckChatRoomAccessUseCase checkChatRoomAccessUseCase;
     private final LoadInquiryPort loadInquiryPort;
     private final SaveInquiryPort saveInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
@@ -36,15 +41,26 @@ public class InquiryMessageService implements SendInquiryMessageUseCase {
         // 1) 이 채팅방의 문의 로드
         Inquiry inquiry = loadInquiryPort.getByChatRoomId(command.chatRoomId());
 
-        // 2) 운영진의 첫 메시지면 상태 전환 (운영진 AND 현재 RECEIVED일 때만 호출)
-        //    startProgress()는 RECEIVED가 아니면 예외를 던지므로 가드로 보호한다(예외를 흐름 제어에 쓰지 않음).
+        // 2) 상태 전환
+        //    - CLOSED: 발신자 구분 없이 reopen() (카카오톡 채널 방식)
+        //    - RECEIVED + 운영진: startProgress()
         boolean isOperator = loadOperatorStatusPort.isOperator(
             LoadOperatorStatusContext.of(command.senderMemberId(), inquiry));
-        if (isOperator && inquiry.getStatus() == InquiryStatus.RECEIVED) {
+        if (inquiry.getStatus() == InquiryStatus.CLOSED) {
+            inquiry.reopen();
+        } else if (isOperator && inquiry.getStatus() == InquiryStatus.RECEIVED) {
             inquiry.startProgress();
         }
 
-        // 3) 메시지 전송 (chat send 재사용 — DB 저장 + 이벤트 발행, broadcast는 AFTER_COMMIT)
+        // 3) 운영진이 메시지를 보내면 채팅방 멤버 등록 + 열람 처리
+        if (isOperator) {
+            if (!checkChatRoomAccessUseCase.hasChatRoomAccess(command.senderMemberId(), command.chatRoomId())) {
+                joinChatRoomUseCase.joinChatRoom(new JoinChatRoomCommand(command.chatRoomId(), command.senderMemberId()));
+            }
+            inquiry.markAsRead();
+        }
+
+        // 4) 메시지 전송 (chat send 재사용 — DB 저장 + 이벤트 발행, broadcast는 AFTER_COMMIT)
         ChatMessageInfo result = sendChatMessageUseCase.send(
             new SendChatMessageCommand(
                 command.chatRoomId(),
@@ -53,7 +69,7 @@ public class InquiryMessageService implements SendInquiryMessageUseCase {
                 command.content(),
                 command.fileMetadataIds()));
 
-        // 4) 상태 변경 영속 (변경이 없었어도 save 호출은 무해)
+        // 5) 상태 변경 영속 (변경이 없었어도 save 호출은 무해)
         saveInquiryPort.save(inquiry);
 
         return result;
