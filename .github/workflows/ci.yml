@@ -1,7 +1,4 @@
-# Required repository variables:
-# - vars.UMC_GITHUB_APP_CLIENT_ID
 # Required repository secrets:
-# - secrets.UMC_GITHUB_APP_PRIVATE_KEY
 # - secrets.AWS_ACCESS_KEY_ID
 # - secrets.AWS_SECRET_ACCESS_KEY
 # Built-in GitHub token:
@@ -238,21 +235,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      issues: write
+      pull-requests: write
+      statuses: write
 
     steps:
       - name: 코드베이스 체크아웃
         uses: actions/checkout@v4
 
-      - name: GitHub App token 생성
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.UMC_GITHUB_APP_CLIENT_ID }}
-          private-key: ${{ secrets.UMC_GITHUB_APP_PRIVATE_KEY }}
-
       - name: CI 댓글 및 status 반영
         env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          GITHUB_TOKEN: ${{ github.token }}
           FEEDBACK_MODE: ci
           JOB_RESULT: ${{ needs.build-and-test.result }}
           TEST_OUTCOME: ${{ needs.build-and-test.outputs.test_outcome }}
