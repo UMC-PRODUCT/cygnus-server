@@ -1,13 +1,15 @@
 package com.umc.product.authorization.application.service;
 
+import org.springframework.stereotype.Component;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authorization.application.service.dto.AuthoritySnapshotCacheDto;
 import com.umc.product.authorization.domain.AuthoritySnapshot;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

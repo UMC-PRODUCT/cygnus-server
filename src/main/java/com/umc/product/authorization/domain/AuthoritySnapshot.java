@@ -1,10 +1,11 @@
 package com.umc.product.authorization.domain;
 
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.common.domain.enums.OrganizationType;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.OrganizationType;
 
 /**
  * 권한 판단에 필요한 subject 상태를 모은 snapshot입니다.

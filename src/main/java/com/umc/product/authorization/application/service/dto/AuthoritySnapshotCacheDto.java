@@ -1,5 +1,8 @@
 package com.umc.product.authorization.application.service.dto;
 
+import java.util.List;
+import java.util.Set;
+
 import com.umc.product.authorization.domain.AuthoritySnapshot;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
@@ -7,8 +10,6 @@ import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
-import java.util.List;
-import java.util.Set;
 
 public record AuthoritySnapshotCacheDto(
     Long memberId,
