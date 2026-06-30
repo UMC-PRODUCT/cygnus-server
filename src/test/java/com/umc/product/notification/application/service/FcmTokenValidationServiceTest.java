@@ -28,8 +28,8 @@ class FcmTokenValidationServiceTest {
     @DisplayName("검증 대상 토큰을 FCM dry-run으로 확인하고 유효하지 않은 토큰은 비활성화한다")
     void due_tokens_검증() {
         // given
-        FcmToken valid = token(1L, 10L, "valid-token");
-        FcmToken invalid = token(2L, 20L, "invalid-token");
+        FcmToken valid = staleToken(1L, 10L, "valid-token");
+        FcmToken invalid = staleToken(2L, 20L, "invalid-token");
         FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(valid, invalid));
         FakeSaveFcmPort saveFcmPort = new FakeSaveFcmPort();
         FakeValidateFcmTokenPort validateFcmTokenPort = new FakeValidateFcmTokenPort(
@@ -57,6 +57,7 @@ class FcmTokenValidationServiceTest {
         assertThat(valid.isActive()).isTrue();
         assertThat(valid.getLastValidatedAt()).isNotNull();
         assertThat(saveFcmPort.saved).containsExactlyInAnyOrder(valid, invalid);
+        assertThat(saveFcmPort.saveAllCallCount).isEqualTo(1);
         assertThat(loadFcmPort.lastLimit).isEqualTo(500);
         assertThat(loadFcmPort.lastValidatedBefore).isBeforeOrEqualTo(Instant.now().minus(Duration.ofDays(29)));
     }
@@ -65,8 +66,9 @@ class FcmTokenValidationServiceTest {
     @DisplayName("토큰별 transient 실패는 검증 성공으로 기록하지 않는다")
     void transient_token_failure_검증_시각_미기록() {
         // given
-        FcmToken valid = token(1L, 10L, "valid-token");
-        FcmToken transientFailure = token(2L, 20L, "transient-token");
+        FcmToken valid = staleToken(1L, 10L, "valid-token");
+        FcmToken transientFailure = staleToken(2L, 20L, "transient-token");
+        Instant transientFailureLastValidatedAt = transientFailure.getLastValidatedAt();
         FakeSaveFcmPort saveFcmPort = new FakeSaveFcmPort();
         FcmTokenValidationService service = new FcmTokenValidationService(
             new FcmProperties(true, true),
@@ -84,15 +86,16 @@ class FcmTokenValidationServiceTest {
         // then
         assertThat(valid.getLastValidatedAt()).isNotNull();
         assertThat(transientFailure.isActive()).isTrue();
-        assertThat(transientFailure.getLastValidatedAt()).isNull();
+        assertThat(transientFailure.getLastValidatedAt()).isEqualTo(transientFailureLastValidatedAt);
         assertThat(saveFcmPort.saved).containsExactly(valid);
+        assertThat(saveFcmPort.saveAllCallCount).isEqualTo(1);
     }
 
     @Test
     @DisplayName("FCM이 비활성화되어 있으면 토큰을 조회하지 않는다")
     void fcm_disabled_스킵() {
         // given
-        FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(token(1L, 10L, "token")));
+        FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(staleToken(1L, 10L, "token")));
         FcmTokenValidationService service = new FcmTokenValidationService(
             new FcmProperties(false, true),
             loadFcmPort,
@@ -111,9 +114,10 @@ class FcmTokenValidationServiceTest {
         assertThat(loadFcmPort.called).isFalse();
     }
 
-    private FcmToken token(Long id, Long memberId, String value) {
+    private FcmToken staleToken(Long id, Long memberId, String value) {
         FcmToken token = FcmToken.create(memberId, value);
         ReflectionTestUtils.setField(token, "id", id);
+        ReflectionTestUtils.setField(token, "lastValidatedAt", Instant.now().minus(Duration.ofDays(31)));
         return token;
     }
 
@@ -165,10 +169,17 @@ class FcmTokenValidationServiceTest {
     private static class FakeSaveFcmPort implements SaveFcmPort {
 
         private final List<FcmToken> saved = new ArrayList<>();
+        private int saveAllCallCount;
 
         @Override
         public void save(FcmToken newToken) {
             saved.add(newToken);
+        }
+
+        @Override
+        public void saveAll(List<FcmToken> fcmTokens) {
+            saveAllCallCount++;
+            saved.addAll(fcmTokens);
         }
     }
 

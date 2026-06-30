@@ -68,14 +68,17 @@ public class FcmSendBatchRequestedEventListener {
             return;
         }
         Set<Long> invalidTokenIdSet = new HashSet<>(invalidTokenIds);
-        tokens.stream()
+        List<FcmToken> deactivatedTokens = tokens.stream()
             .filter(token -> invalidTokenIdSet.contains(token.getId()))
-            .forEach(token -> {
+            .peek(token -> {
                 token.deactivate();
-                saveFcmPort.save(token);
                 log.info("유효하지 않은 FCM 토큰 비활성화 tokenId={}, memberId={}",
                     token.getId(), token.getMemberId());
-            });
+            })
+            .toList();
+        if (!deactivatedTokens.isEmpty()) {
+            saveFcmPort.saveAll(deactivatedTokens);
+        }
     }
 
     private void recordFcmMetric(FcmSendResult result) {

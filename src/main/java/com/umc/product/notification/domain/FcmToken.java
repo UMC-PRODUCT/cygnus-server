@@ -87,10 +87,12 @@ public class FcmToken extends BaseEntity {
     }
 
     public void register(String platform, String deviceId, String appVersion) {
+        Instant registeredAt = Instant.now();
         this.platform = platform;
         this.deviceId = deviceId;
         this.appVersion = appVersion;
-        this.lastRegisteredAt = Instant.now();
+        this.lastRegisteredAt = registeredAt;
+        this.lastValidatedAt = registeredAt;
         activate();
     }
 

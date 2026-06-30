@@ -65,6 +65,7 @@ class FcmSendBatchRequestedEventListenerTest {
         assertThat(invalid.isActive()).isFalse();
         assertThat(active.isActive()).isTrue();
         assertThat(saveFcmPort.saved).containsExactly(invalid);
+        assertThat(saveFcmPort.saveAllCallCount).isEqualTo(1);
     }
 
     @Test
@@ -99,6 +100,7 @@ class FcmSendBatchRequestedEventListenerTest {
         assertThatThrownBy(() -> listener.handle(event))
             .isInstanceOf(FcmDomainException.class);
         assertThat(saveFcmPort.saved).isEmpty();
+        assertThat(saveFcmPort.saveAllCallCount).isZero();
     }
 
     private FcmToken token(Long id, Long memberId, String value) {
@@ -149,10 +151,17 @@ class FcmSendBatchRequestedEventListenerTest {
     private static class FakeSaveFcmPort implements SaveFcmPort {
 
         private final List<FcmToken> saved = new ArrayList<>();
+        private int saveAllCallCount;
 
         @Override
         public void save(FcmToken newToken) {
             saved.add(newToken);
+        }
+
+        @Override
+        public void saveAll(List<FcmToken> fcmTokens) {
+            saveAllCallCount++;
+            saved.addAll(fcmTokens);
         }
     }
 

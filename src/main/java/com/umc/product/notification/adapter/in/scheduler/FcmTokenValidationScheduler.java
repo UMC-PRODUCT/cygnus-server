@@ -1,15 +1,22 @@
 package com.umc.product.notification.adapter.in.scheduler;
 
-import com.umc.product.global.config.FcmProperties;
-import com.umc.product.notification.application.port.in.ValidateFcmTokensUseCase;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+
+import com.umc.product.global.config.FcmProperties;
+import com.umc.product.notification.application.port.in.ValidateFcmTokensUseCase;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(
+    name = {"app.fcm.enabled", "app.fcm.token-validation-enabled"},
+    havingValue = "true"
+)
 public class FcmTokenValidationScheduler {
 
     private final FcmProperties fcmProperties;

@@ -26,10 +26,7 @@ public interface FcmJpaRepository extends JpaRepository<FcmToken, Long> {
         FROM FcmToken f
         WHERE f.isActive = true
           AND (f.lastValidatedAt IS NULL OR f.lastValidatedAt <= :validatedBefore)
-        ORDER BY
-          CASE WHEN f.lastValidatedAt IS NULL THEN 0 ELSE 1 END,
-          f.lastValidatedAt ASC,
-          f.id ASC
+        ORDER BY f.lastValidatedAt ASC NULLS FIRST, f.id ASC
         """)
     List<FcmToken> findActiveValidationTargets(
         @Param("validatedBefore") Instant validatedBefore,
