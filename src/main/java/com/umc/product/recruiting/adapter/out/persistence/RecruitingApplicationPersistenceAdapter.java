@@ -69,6 +69,27 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
+    public boolean existsByRoundIdAndApplicantIdentityKey(Long roundId, String applicantIdentityKey) {
+        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantIdentityKey(
+            roundId,
+            applicantIdentityKey
+        );
+    }
+
+    @Override
+    public boolean existsByRoundIdAndApplicantIdentityKeyAndIdNot(
+        Long roundId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    ) {
+        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantIdentityKeyAndIdNot(
+            roundId,
+            applicantIdentityKey,
+            excludedApplicationId
+        );
+    }
+
+    @Override
     public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKey(
         Long gisuId,
         String applicantIdentityKey
@@ -76,6 +97,19 @@ public class RecruitingApplicationPersistenceAdapter
         return recruitingApplicationQueryRepository.existsBlockingApplicationByGisuIdAndApplicantIdentityKey(
             gisuId,
             applicantIdentityKey
+        );
+    }
+
+    @Override
+    public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    ) {
+        return recruitingApplicationQueryRepository.existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
+            gisuId,
+            applicantIdentityKey,
+            excludedApplicationId
         );
     }
 
@@ -90,6 +124,22 @@ public class RecruitingApplicationPersistenceAdapter
                 gisuId,
                 schoolId,
                 applicantIdentityKey
+            );
+    }
+
+    @Override
+    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        Long schoolId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    ) {
+        return recruitingApplicationQueryRepository
+            .existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
+                gisuId,
+                schoolId,
+                applicantIdentityKey,
+                excludedApplicationId
             );
     }
 

@@ -13,6 +13,14 @@ public interface RecruitingApplicationJpaRepository extends JpaRepository<Recrui
 
     Optional<RecruitingApplication> findByApplicationNo(String applicationNo);
 
+    boolean existsByRound_IdAndApplicantIdentityKey(Long roundId, String applicantIdentityKey);
+
+    boolean existsByRound_IdAndApplicantIdentityKeyAndIdNot(
+        Long roundId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    );
+
     List<RecruitingApplication> findAllByRound_IdOrderBySubmittedAtAscIdAsc(Long roundId);
 
     List<RecruitingApplication> findAllByRound_IdAndStatusInOrderBySubmittedAtAscIdAsc(

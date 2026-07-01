@@ -65,6 +65,14 @@ public class RecruitingApplicationQueryRepository {
         Long gisuId,
         String applicantIdentityKey
     ) {
+        return existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(gisuId, applicantIdentityKey, null);
+    }
+
+    public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    ) {
         return queryFactory
             .selectOne()
             .from(recruitingApplication)
@@ -73,7 +81,8 @@ public class RecruitingApplicationQueryRepository {
             .where(
                 recruitingSeason.gisuId.eq(gisuId),
                 recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
-                recruitingApplication.status.in(BLOCKING_STATUSES)
+                recruitingApplication.status.in(BLOCKING_STATUSES),
+                applicationIdNotEq(excludedApplicationId)
             )
             .fetchFirst() != null;
     }
@@ -82,6 +91,20 @@ public class RecruitingApplicationQueryRepository {
         Long gisuId,
         Long schoolId,
         String applicantIdentityKey
+    ) {
+        return existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
+            gisuId,
+            schoolId,
+            applicantIdentityKey,
+            null
+        );
+    }
+
+    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        Long schoolId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
     ) {
         return queryFactory
             .selectOne()
@@ -92,7 +115,7 @@ public class RecruitingApplicationQueryRepository {
                 recruitingSeason.gisuId.eq(gisuId),
                 recruitingSeason.schoolId.ne(schoolId),
                 recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
-                recruitingApplication.status.in(BLOCKING_STATUSES)
+                applicationIdNotEq(excludedApplicationId)
             )
             .fetchFirst() != null;
     }
@@ -154,5 +177,9 @@ public class RecruitingApplicationQueryRepository {
 
     private BooleanExpression statusIn(Collection<RecruitingApplicationStatus> statuses) {
         return statuses == null || statuses.isEmpty() ? null : recruitingApplication.status.in(statuses);
+    }
+
+    private BooleanExpression applicationIdNotEq(Long applicationId) {
+        return applicationId == null ? null : recruitingApplication.id.ne(applicationId);
     }
 }

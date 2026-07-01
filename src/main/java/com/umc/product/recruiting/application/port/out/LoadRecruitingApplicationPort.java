@@ -27,12 +27,33 @@ public interface LoadRecruitingApplicationPort {
         String applicantIdentityKey
     );
 
+    boolean existsByRoundIdAndApplicantIdentityKey(Long roundId, String applicantIdentityKey);
+
+    boolean existsByRoundIdAndApplicantIdentityKeyAndIdNot(
+        Long roundId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    );
+
     boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey);
+
+    boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    );
 
     boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
         Long gisuId,
         Long schoolId,
         String applicantIdentityKey
+    );
+
+    boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        Long schoolId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
     );
 
     boolean existsFinalPassedByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey);
