@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 
 public interface LoadRecruitingApplicationFormPort {
 
@@ -16,4 +17,9 @@ public interface LoadRecruitingApplicationFormPort {
     Optional<RecruitingApplicationForm> findByFormId(Long formId);
 
     List<RecruitingApplicationForm> listByRoundId(Long roundId);
+
+    List<RecruitingApplicationForm> listByRoundIdsAndStatus(
+        List<Long> roundIds,
+        RecruitingApplicationFormStatus status
+    );
 }

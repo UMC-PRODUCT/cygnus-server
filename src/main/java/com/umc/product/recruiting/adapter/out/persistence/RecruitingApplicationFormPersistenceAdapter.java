@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -44,6 +45,17 @@ public class RecruitingApplicationFormPersistenceAdapter
     @Override
     public List<RecruitingApplicationForm> listByRoundId(Long roundId) {
         return recruitingApplicationFormJpaRepository.findAllByRound_IdOrderByIdAsc(roundId);
+    }
+
+    @Override
+    public List<RecruitingApplicationForm> listByRoundIdsAndStatus(
+        List<Long> roundIds,
+        RecruitingApplicationFormStatus status
+    ) {
+        if (roundIds.isEmpty()) {
+            return List.of();
+        }
+        return recruitingApplicationFormJpaRepository.findAllByRoundIdsAndStatus(roundIds, status);
     }
 
     @Override
