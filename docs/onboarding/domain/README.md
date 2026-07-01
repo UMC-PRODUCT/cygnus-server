@@ -26,6 +26,7 @@
 - [Notification](notification.md)
 - [Organization](organization.md)
 - [Project](project.md)
+- [Recruiting](recruiting.md)
 - [Schedule](schedule.md)
 - [Storage](storage.md)
 - [Survey](survey.md)
