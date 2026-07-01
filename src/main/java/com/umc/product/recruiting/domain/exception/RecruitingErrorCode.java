@@ -1,0 +1,26 @@
+package com.umc.product.recruiting.domain.exception;
+
+import org.springframework.http.HttpStatus;
+
+import com.umc.product.global.response.code.BaseCode;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public enum RecruitingErrorCode implements BaseCode {
+
+    RECRUITING_SEASON_NOT_FOUND(HttpStatus.NOT_FOUND, "RECRUITING-0001", "모집 시즌을 찾을 수 없어요. 모집 정보를 확인해주세요."),
+    RECRUITING_ROUND_NOT_FOUND(HttpStatus.NOT_FOUND, "RECRUITING-0002", "모집 차수를 찾을 수 없어요. 모집 차수를 확인해주세요."),
+    RECRUITING_APPLICATION_FORM_NOT_FOUND(HttpStatus.NOT_FOUND, "RECRUITING-0003", "지원 폼을 찾을 수 없어요. 지원 폼을 확인해주세요."),
+    RECRUITING_APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "RECRUITING-0004", "지원서를 찾을 수 없어요. 지원서 정보를 확인해주세요."),
+    RECRUITING_ROUND_INVALID_ROUND_NO(HttpStatus.BAD_REQUEST, "RECRUITING-0100", "추가모집 차수는 1 이상이어야 해요."),
+    RECRUITING_APPLICATION_FORM_TRACK_REQUIRED(HttpStatus.BAD_REQUEST, "RECRUITING-0200", "지원 폼의 모집 트랙을 선택해주세요."),
+    RECRUITING_APPLICATION_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0300", "현재 지원서 상태에서는 할 수 없는 작업이에요."),
+    ;
+
+    private final HttpStatus httpStatus;
+    private final String code;
+    private final String message;
+}
