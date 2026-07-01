@@ -3,10 +3,8 @@ package com.umc.product.inquiry.application.port.out;
 import com.umc.product.inquiry.application.port.out.dto.LoadOperatorStatusContext;
 
 /**
- * 운영진 판정을 격리하는 아웃바운드 포트.
- * <p>
- * 판정 로직(gisuId 결정, InquiryTarget↔ChallengerRoleType 매핑, PRODUCT_TEAM 예외 등)은 미정 영역이므로 인터페이스 뒤로 숨긴다. 서비스는 맥락 객체만 넘기고
- * boolean만 돌려받는다.
+ * 운영진 판정을 격리하는 아웃바운드 포트. 판정 로직(활성 기수 조회, InquiryTarget별 역할 판정, PRODUCT_TEAM 임시 라우팅)은 외부 도메인(authorization/gisu) 의존이 크므로
+ * 어댑터 뒤로 숨긴다. 서비스는 맥락(context)만 넘기고 boolean만 돌려받는다.
  */
 public interface LoadOperatorStatusPort {
 

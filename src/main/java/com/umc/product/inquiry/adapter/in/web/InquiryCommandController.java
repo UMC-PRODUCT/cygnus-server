@@ -1,16 +1,22 @@
 package com.umc.product.inquiry.adapter.in.web;
 
+import com.umc.product.chat.adapter.in.web.dto.response.ChatMessageResponse;
 import com.umc.product.inquiry.adapter.in.web.dto.request.AssignInquiryManagerRequest;
+import com.umc.product.inquiry.adapter.in.web.dto.request.SendInquiryMessageRequest;
 import com.umc.product.inquiry.adapter.in.web.dto.request.SubmitInquiryRequest;
 import com.umc.product.inquiry.adapter.in.web.dto.request.TransferInquiryManagerRequest;
 import com.umc.product.inquiry.adapter.in.web.dto.response.InquiryResponse;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.MarkInquiryReadUseCase;
+import com.umc.product.inquiry.application.port.in.command.SendInquiryMessageUseCase;
 import com.umc.product.inquiry.application.port.in.command.SubmitInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.TransferInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.dto.CloseInquiryCommand;
 import com.umc.product.inquiry.application.port.in.command.dto.MarkInquiryReadCommand;
+import com.umc.product.inquiry.application.port.in.command.dto.SendInquiryMessageCommand;
+import com.umc.product.inquiry.application.port.in.query.GetInquiryUseCase;
+import com.umc.product.inquiry.application.port.in.query.dto.GetInquiryQuery;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,6 +44,8 @@ public class InquiryCommandController {
     private final TransferInquiryManagerUseCase transferInquiryManagerUseCase;
     private final CloseInquiryUseCase closeInquiryUseCase;
     private final MarkInquiryReadUseCase markInquiryReadUseCase;
+    private final SendInquiryMessageUseCase sendInquiryMessageUseCase;
+    private final GetInquiryUseCase getInquiryUseCase;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -85,5 +93,28 @@ public class InquiryCommandController {
         @CurrentMember MemberPrincipal principal
     ) {
         markInquiryReadUseCase.markRead(MarkInquiryReadCommand.of(inquiryId, principal.getMemberId()));
+    }
+
+    @PostMapping("/{inquiryId}/messages")
+    @io.swagger.v3.oas.annotations.Operation(summary = "문의 메시지 전송")
+    public ChatMessageResponse sendMessage(
+        @PathVariable Long inquiryId,
+        @Valid @RequestBody SendInquiryMessageRequest request,
+        @CurrentMember MemberPrincipal principal
+    ) {
+        Long senderMemberId = principal.getMemberId();
+        Long chatRoomId = getInquiryUseCase.getById(
+            new GetInquiryQuery(inquiryId, senderMemberId)).chatRoomId();
+        return ChatMessageResponse.from(
+            sendInquiryMessageUseCase.send(
+                new SendInquiryMessageCommand(
+                    chatRoomId,
+                    senderMemberId,
+                    request.contentType(),
+                    request.content(),
+                    request.fileMetadataIds()
+                )
+            )
+        );
     }
 }
