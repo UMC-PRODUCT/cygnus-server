@@ -173,6 +173,15 @@ public class RecruitingApplication extends BaseEntity {
         recordStatusChange(memberId, null);
     }
 
+    public void register(Long memberId) {
+        validateStatus(RecruitingApplicationStatus.FINAL_PASSED);
+        if (this.registrationStatus != RecruitingApplicationRegistrationStatus.READY) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
+        }
+        this.registrationStatus = RecruitingApplicationRegistrationStatus.REGISTERED;
+        recordStatusChange(memberId, null);
+    }
+
     public boolean allowsReapplication() {
         return this.status == RecruitingApplicationStatus.DOCUMENT_FAILED
             || this.status == RecruitingApplicationStatus.FINAL_FAILED

@@ -31,6 +31,9 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_APPLICATION_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0301", "이미 같은 모집 차수에 제출한 지원서가 있어요."),
     RECRUITING_APPLICATION_DIFFERENT_SCHOOL_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0302", "같은 기수의 다른 학교 모집에 이미 지원했어요."),
     RECRUITING_APPLICATION_REAPPLICATION_BLOCKED(HttpStatus.CONFLICT, "RECRUITING-0303", "진행 중이거나 합격한 지원서가 있어 재지원할 수 없어요."),
+    RECRUITING_APPLICATION_FINAL_PASS_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0304", "이미 최종 합격한 지원서가 있어요."),
+    RECRUITING_REGISTRATION_FORBIDDEN(HttpStatus.FORBIDDEN, "RECRUITING-0305", "중앙운영사무국 총괄단 이상만 최종 등록을 확정할 수 있어요."),
+    RECRUITING_APPLICATION_MEMBER_REQUIRED(HttpStatus.BAD_REQUEST, "RECRUITING-0306", "챌린저 등록에는 연결된 회원 정보가 필요해요."),
     RECRUITING_EVALUATION_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0400", "현재 평가 상태에서는 할 수 없는 작업이에요."),
     RECRUITING_EVALUATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "RECRUITING-0401", "이미 제출한 지원자 평가가 있어요."),
     ;

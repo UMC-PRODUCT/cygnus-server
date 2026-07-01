@@ -152,6 +152,19 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
+    public boolean existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    ) {
+        return recruitingApplicationQueryRepository.existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+            gisuId,
+            applicantIdentityKey,
+            excludedApplicationId
+        );
+    }
+
+    @Override
     public List<RecruitingApplication> listByRoundId(Long roundId) {
         return recruitingApplicationJpaRepository.findAllByRound_IdOrderBySubmittedAtAscIdAsc(roundId);
     }

@@ -58,6 +58,12 @@ public interface LoadRecruitingApplicationPort {
 
     boolean existsFinalPassedByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey);
 
+    boolean existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    );
+
     List<RecruitingApplication> listByRoundId(Long roundId);
 
     List<RecruitingApplication> listByRoundIdAndStatusIn(

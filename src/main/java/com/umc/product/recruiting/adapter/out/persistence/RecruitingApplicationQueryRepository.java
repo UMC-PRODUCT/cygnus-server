@@ -121,6 +121,14 @@ public class RecruitingApplicationQueryRepository {
     }
 
     public boolean existsFinalPassedByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey) {
+        return existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(gisuId, applicantIdentityKey, null);
+    }
+
+    public boolean existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+        Long gisuId,
+        String applicantIdentityKey,
+        Long excludedApplicationId
+    ) {
         return queryFactory
             .selectOne()
             .from(recruitingApplication)
@@ -129,7 +137,8 @@ public class RecruitingApplicationQueryRepository {
             .where(
                 recruitingSeason.gisuId.eq(gisuId),
                 recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
-                recruitingApplication.status.eq(RecruitingApplicationStatus.FINAL_PASSED)
+                recruitingApplication.status.eq(RecruitingApplicationStatus.FINAL_PASSED),
+                applicationIdNotEq(excludedApplicationId)
             )
             .fetchFirst() != null;
     }
