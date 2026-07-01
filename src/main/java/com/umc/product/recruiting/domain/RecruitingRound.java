@@ -79,9 +79,25 @@ public class RecruitingRound extends BaseEntity {
             .build();
     }
 
+    public void open() {
+        validateStatus(RecruitingRoundStatus.DRAFT);
+        this.status = RecruitingRoundStatus.OPEN;
+    }
+
+    public void close() {
+        validateStatus(RecruitingRoundStatus.OPEN);
+        this.status = RecruitingRoundStatus.CLOSED;
+    }
+
     private static void validateRoundNo(Integer roundNo) {
         if (roundNo == null || roundNo < 1) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_ROUND_NO);
+        }
+    }
+
+    private void validateStatus(RecruitingRoundStatus expectedStatus) {
+        if (this.status != expectedStatus) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRANSITION);
         }
     }
 }

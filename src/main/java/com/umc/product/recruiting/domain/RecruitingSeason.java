@@ -2,6 +2,8 @@ package com.umc.product.recruiting.domain;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
+import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
+import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -55,5 +57,21 @@ public class RecruitingSeason extends BaseEntity {
             .gisuId(gisuId)
             .schoolId(schoolId)
             .build();
+    }
+
+    public void activate() {
+        validateStatus(RecruitingSeasonStatus.DRAFT);
+        this.status = RecruitingSeasonStatus.ACTIVE;
+    }
+
+    public void close() {
+        validateStatus(RecruitingSeasonStatus.ACTIVE);
+        this.status = RecruitingSeasonStatus.CLOSED;
+    }
+
+    private void validateStatus(RecruitingSeasonStatus expectedStatus) {
+        if (this.status != expectedStatus) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SEASON_INVALID_TRANSITION);
+        }
     }
 }
