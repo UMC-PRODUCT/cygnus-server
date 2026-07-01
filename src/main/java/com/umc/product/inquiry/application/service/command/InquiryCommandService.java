@@ -2,15 +2,19 @@ package com.umc.product.inquiry.application.service.command;
 
 import com.umc.product.chat.application.port.in.command.CreateChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
+import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
 import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomCommand;
 import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
+import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
+import com.umc.product.inquiry.application.port.in.command.MarkInquiryReadUseCase;
 import com.umc.product.inquiry.application.port.in.command.SubmitInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.TransferInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.dto.AssignInquiryManagerCommand;
 import com.umc.product.inquiry.application.port.in.command.dto.CloseInquiryCommand;
+import com.umc.product.inquiry.application.port.in.command.dto.MarkInquiryReadCommand;
 import com.umc.product.inquiry.application.port.in.command.dto.SubmitInquiryCommand;
 import com.umc.product.inquiry.application.port.in.command.dto.TransferInquiryManagerCommand;
 import com.umc.product.inquiry.application.port.in.query.dto.InquiryInfo;
@@ -42,13 +46,15 @@ public class InquiryCommandService implements
     SubmitInquiryUseCase,
     AssignInquiryManagerUseCase,
     TransferInquiryManagerUseCase,
-    CloseInquiryUseCase {
+    CloseInquiryUseCase,
+    MarkInquiryReadUseCase {
 
     private final SaveInquiryPort saveInquiryPort;
     private final GetGisuUseCase getGisuUseCase;
     private final CreateChatRoomUseCase createChatRoomUseCase;
     private final JoinChatRoomUseCase joinChatRoomUseCase;
     private final CheckChatRoomAccessUseCase checkChatRoomAccessUseCase;
+    private final MarkChatRoomReadUseCase markChatRoomReadUseCase;
     private final LoadInquiryPort loadInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
 
@@ -99,7 +105,7 @@ public class InquiryCommandService implements
             gisuId
         );
 
-        return InquiryInfo.from(saveInquiryPort.save(inquiry));
+        return InquiryInfo.from(saveInquiryPort.save(inquiry), 0L);
     }
 
     @Override
@@ -124,6 +130,13 @@ public class InquiryCommandService implements
         // 이미 CLOSED면 close()가 INQUIRY_ALREADY_CLOSED를 던진다(도메인 위임).
         inquiry.close();
         saveInquiryPort.save(inquiry);
+    }
+
+    @Override
+    public void markRead(MarkInquiryReadCommand command) {
+        Inquiry inquiry = loadInquiryPort.getById(command.inquiryId());
+        markChatRoomReadUseCase.markRead(
+            MarkChatRoomReadCommand.of(inquiry.getChatRoomId(), command.memberId()));
     }
 
     /**

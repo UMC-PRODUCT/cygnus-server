@@ -17,9 +17,10 @@ public record InquirySummaryInfo(
     Long targetSchoolId,
     Long targetChapterId,
     boolean isRead,
+    long unreadCount,
     Instant createdAt
 ) {
-    public static InquirySummaryInfo from(Inquiry inquiry) {
+    public static InquirySummaryInfo from(Inquiry inquiry, long unreadCount) {
         return new InquirySummaryInfo(
             inquiry.getId(),
             inquiry.getTitle(),
@@ -31,6 +32,7 @@ public record InquirySummaryInfo(
             inquiry.getTargetSchoolId(),
             inquiry.getTargetChapterId(),
             inquiry.isRead(),
+            unreadCount,
             inquiry.getCreatedAt()
         );
     }

@@ -23,9 +23,10 @@ public record InquiryInfo(
     Long targetGisuId,
     List<Long> assignedMemberIds,
     List<String> fileMetadataIds,
-    boolean isRead
+    boolean isRead,
+    long unreadCount
 ) {
-    public static InquiryInfo from(Inquiry inquiry) {
+    public static InquiryInfo from(Inquiry inquiry, long unreadCount) {
         return new InquiryInfo(
             inquiry.getId(),
             inquiry.getTitle(),
@@ -40,7 +41,8 @@ public record InquiryInfo(
             inquiry.getTargetGisuId(),
             inquiry.getAssignedMemberIds(),
             inquiry.getFileMetadataIds(),
-            inquiry.isRead()
+            inquiry.isRead(),
+            unreadCount
         );
     }
 }

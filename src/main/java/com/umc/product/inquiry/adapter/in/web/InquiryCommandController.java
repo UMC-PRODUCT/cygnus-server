@@ -6,9 +6,11 @@ import com.umc.product.inquiry.adapter.in.web.dto.request.TransferInquiryManager
 import com.umc.product.inquiry.adapter.in.web.dto.response.InquiryResponse;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
+import com.umc.product.inquiry.application.port.in.command.MarkInquiryReadUseCase;
 import com.umc.product.inquiry.application.port.in.command.SubmitInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.TransferInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.dto.CloseInquiryCommand;
+import com.umc.product.inquiry.application.port.in.command.dto.MarkInquiryReadCommand;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +37,7 @@ public class InquiryCommandController {
     private final AssignInquiryManagerUseCase assignInquiryManagerUseCase;
     private final TransferInquiryManagerUseCase transferInquiryManagerUseCase;
     private final CloseInquiryUseCase closeInquiryUseCase;
+    private final MarkInquiryReadUseCase markInquiryReadUseCase;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -73,5 +76,14 @@ public class InquiryCommandController {
         @CurrentMember MemberPrincipal principal
     ) {
         closeInquiryUseCase.close(CloseInquiryCommand.of(inquiryId, principal.getMemberId()));
+    }
+
+    @PostMapping("/{inquiryId}/read")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void markRead(
+        @PathVariable Long inquiryId,
+        @CurrentMember MemberPrincipal principal
+    ) {
+        markInquiryReadUseCase.markRead(MarkInquiryReadCommand.of(inquiryId, principal.getMemberId()));
     }
 }

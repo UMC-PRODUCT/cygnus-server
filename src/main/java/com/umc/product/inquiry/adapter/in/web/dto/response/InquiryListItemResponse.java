@@ -17,6 +17,7 @@ public record InquiryListItemResponse(
     Long targetSchoolId,
     Long targetChapterId,
     boolean isRead,
+    long unreadCount,
     Instant createdAt
 ) {
     public static InquiryListItemResponse from(InquirySummaryInfo info) {
@@ -31,6 +32,7 @@ public record InquiryListItemResponse(
             info.targetSchoolId(),
             info.targetChapterId(),
             info.isRead(),
+            info.unreadCount(),
             info.createdAt()
         );
     }
