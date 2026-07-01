@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.challenger.adapter.in.web.v2.dto.response.ChallengerSearchV2Response;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.adapter.in.web.dto.request.SearchMemberRequest;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 
@@ -48,10 +50,11 @@ public class ChallengerSearchV2Controller {
     @GetMapping("search")
     public ChallengerSearchV2Response searchChallengersV2(
         @ParameterObject Pageable pageable,
-        @ParameterObject SearchMemberRequest searchRequest
+        @ParameterObject SearchMemberRequest searchRequest,
+        @CurrentMember MemberPrincipal memberPrincipal
     ) {
         return ChallengerSearchV2Response.from(
-            searchMemberUseCase.searchChallengersByV2(searchRequest.toQuery(), pageable)
+            searchMemberUseCase.searchChallengersByV2(searchRequest.toQuery(memberPrincipal.getMemberId()), pageable)
         ).withMaskedEmails();
     }
 }

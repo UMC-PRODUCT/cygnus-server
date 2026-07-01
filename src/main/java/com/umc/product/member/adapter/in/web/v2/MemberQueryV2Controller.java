@@ -81,10 +81,11 @@ public class MemberQueryV2Controller {
     @GetMapping("search")
     public SearchMemberV2Response searchMembersV2(
         @ParameterObject Pageable pageable,
-        @ParameterObject SearchMemberRequest searchRequest
+        @ParameterObject SearchMemberRequest searchRequest,
+        @CurrentMember MemberPrincipal memberPrincipal
     ) {
         return SearchMemberV2Response.from(
-            searchMemberUseCase.searchByV2(searchRequest.toQuery(), pageable)
+            searchMemberUseCase.searchByV2(searchRequest.toQuery(memberPrincipal.getMemberId()), pageable)
         ).withMaskedEmails();
     }
 }

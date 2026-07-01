@@ -1,7 +1,9 @@
 package com.umc.product.member.adapter.in.web.v2;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,6 +13,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -34,6 +37,7 @@ import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.member.application.port.in.query.dto.MemberProfileInfo;
 import com.umc.product.member.application.port.in.query.dto.MemberSummaryV2Info;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberV2Result;
 
 @WebMvcTest(controllers = MemberQueryV2Controller.class)
@@ -115,5 +119,22 @@ class MemberQueryV2ControllerTest {
                 .param("size", "10"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.page.content[0].email").value("gil****@example.com"));
+    }
+
+    @Test
+    @DisplayName("회원 검색 v2는 현재 로그인 memberId를 Query에 포함한다")
+    void 회원_검색_v2는_현재_로그인_memberId를_Query에_포함한다() throws Exception {
+        given(searchMemberUseCase.searchByV2(any(), any())).willReturn(new SearchMemberV2Result(
+            new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+        ));
+
+        mockMvc.perform(get("/api/v2/member/search")
+                .param("page", "0")
+                .param("size", "10"))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
+        then(searchMemberUseCase).should().searchByV2(queryCaptor.capture(), any());
+        assertThat(queryCaptor.getValue().requesterMemberId()).isEqualTo(99L);
     }
 }

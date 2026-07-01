@@ -1,9 +1,22 @@
 package com.umc.product.member.application.service;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
@@ -11,6 +24,7 @@ import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchItemV2Info;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchV2Result;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemInfo;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info.Participation;
@@ -19,20 +33,12 @@ import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberResult;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberV2Result;
 import com.umc.product.member.application.port.out.SearchMemberPort;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -48,7 +54,8 @@ public class MemberSearchService implements SearchMemberUseCase {
 
     @Override
     public SearchMemberResult searchBy(SearchMemberQuery query, Pageable pageable) {
-        Page<Challenger> challengers = searchMemberPort.search(query, pageable);
+        SearchMemberQuery scopedQuery = applyAccessScope(query);
+        Page<Challenger> challengers = searchMemberPort.search(scopedQuery, pageable);
 
         // 배치 데이터 로딩
         Map<Long, MemberInfo> memberProfiles = loadMemberProfiles(challengers.getContent());
@@ -64,7 +71,8 @@ public class MemberSearchService implements SearchMemberUseCase {
 
     @Override
     public ChallengerSearchV2Result searchChallengersByV2(SearchMemberQuery query, Pageable pageable) {
-        Page<Challenger> challengers = searchMemberPort.search(query, pageable);
+        SearchMemberQuery scopedQuery = applyAccessScope(query);
+        Page<Challenger> challengers = searchMemberPort.search(scopedQuery, pageable);
         List<Challenger> content = challengers.getContent();
 
         Map<Long, MemberInfo> memberProfiles = loadMemberProfiles(content);
@@ -90,7 +98,8 @@ public class MemberSearchService implements SearchMemberUseCase {
 
     @Override
     public SearchMemberV2Result searchByV2(SearchMemberQuery query, Pageable pageable) {
-        Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, pageable);
+        SearchMemberQuery scopedQuery = applyAccessScope(query);
+        Page<Long> memberIdPage = searchMemberPort.searchMemberIds(scopedQuery, pageable);
         List<Long> memberIds = memberIdPage.getContent();
 
         if (memberIds.isEmpty()) {
@@ -127,6 +136,51 @@ public class MemberSearchService implements SearchMemberUseCase {
         ));
 
         return new SearchMemberV2Result(items);
+    }
+
+    private SearchMemberQuery applyAccessScope(SearchMemberQuery query) {
+        if (query.requesterMemberId() == null) {
+            return query;
+        }
+
+        SearchMemberAccessScope accessScope = resolveAccessScope(query.requesterMemberId());
+        if (accessScope.noAccess()) {
+            throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
+        }
+
+        return query.withAccessScope(accessScope);
+    }
+
+    private SearchMemberAccessScope resolveAccessScope(Long requesterMemberId) {
+        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(requesterMemberId);
+
+        if (roles.stream().anyMatch(role -> role.roleType().isAtLeastCentralCore())) {
+            return SearchMemberAccessScope.all();
+        }
+
+        Set<Long> schoolIds = roles.stream()
+            .filter(role -> role.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
+                || role.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
+            .map(ChallengerRoleInfo::organizationId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        if (!schoolIds.isEmpty()) {
+            return SearchMemberAccessScope.ofSchoolIds(schoolIds);
+        }
+
+        Map<Long, List<ChallengerBasicInfo>> challengersByMemberId =
+            getChallengerUseCase.getAllBasicByMemberIds(Set.of(requesterMemberId));
+        Set<Long> gisuIds = challengersByMemberId.getOrDefault(requesterMemberId, List.of()).stream()
+            .map(ChallengerBasicInfo::gisuId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        if (!gisuIds.isEmpty()) {
+            return SearchMemberAccessScope.ofGisuIds(gisuIds);
+        }
+
+        return SearchMemberAccessScope.none();
     }
 
     // ======= PRIVATE — v1 helpers =========

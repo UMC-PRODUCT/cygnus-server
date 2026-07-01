@@ -11,11 +11,13 @@ import org.springframework.stereotype.Repository;
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.challenger.domain.QChallenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.domain.Member;
 import com.umc.product.member.domain.QMember;
@@ -132,6 +134,7 @@ public class MemberQueryRepository {
         builder.and(chapterIdExists(query.chapterId(), member));
         builder.and(gisuIdEq(query.gisuId(), challenger));
         builder.and(partEq(query.part(), challenger));
+        builder.and(accessScopeAllows(query.accessScope(), challenger, member));
 
         return builder;
     }
@@ -174,5 +177,30 @@ public class MemberQueryRepository {
 
     private BooleanExpression schoolIdEq(Long schoolId, QMember member) {
         return schoolId != null ? member.schoolId.eq(schoolId) : null;
+    }
+
+    private BooleanExpression accessScopeAllows(
+        SearchMemberAccessScope accessScope,
+        QChallenger challenger,
+        QMember member
+    ) {
+        if (accessScope == null || accessScope.unrestricted()) {
+            return null;
+        }
+
+        if (accessScope.noAccess()) {
+            return Expressions.FALSE;
+        }
+
+        BooleanExpression expression = null;
+        if (!accessScope.allowedGisuIds().isEmpty()) {
+            expression = challenger.gisuId.in(accessScope.allowedGisuIds());
+        }
+        if (!accessScope.allowedSchoolIds().isEmpty()) {
+            BooleanExpression schoolExpression = member.schoolId.in(accessScope.allowedSchoolIds());
+            expression = expression == null ? schoolExpression : expression.or(schoolExpression);
+        }
+
+        return expression == null ? Expressions.FALSE : expression;
     }
 }
