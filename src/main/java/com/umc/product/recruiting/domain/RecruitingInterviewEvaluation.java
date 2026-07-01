@@ -77,6 +77,14 @@ public class RecruitingInterviewEvaluation extends BaseEntity {
             .build();
     }
 
+    public void updateDraft(Integer score, String comment) {
+        if (this.status != RecruitingInterviewEvaluationStatus.DRAFT) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);
+        }
+        this.score = score;
+        this.comment = comment;
+    }
+
     public void submit(Integer score, String comment) {
         if (this.status != RecruitingInterviewEvaluationStatus.DRAFT) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);

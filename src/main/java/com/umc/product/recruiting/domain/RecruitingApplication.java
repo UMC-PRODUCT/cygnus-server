@@ -155,6 +155,12 @@ public class RecruitingApplication extends BaseEntity {
         recordStatusChange(memberId, reason);
     }
 
+    public void assignInterview(Long memberId, String reason) {
+        validateStatus(RecruitingApplicationStatus.DOCUMENT_PASSED);
+        this.status = RecruitingApplicationStatus.INTERVIEW_ASSIGNED;
+        recordStatusChange(memberId, reason);
+    }
+
     public void passFinal(Long memberId, String reason) {
         validateFinalDecisionSource();
         this.status = RecruitingApplicationStatus.FINAL_PASSED;
