@@ -18,6 +18,8 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_ROUND_INVALID_ROUND_NO(HttpStatus.BAD_REQUEST, "RECRUITING-0100", "추가모집 차수는 1 이상이어야 해요."),
     RECRUITING_APPLICATION_FORM_TRACK_REQUIRED(HttpStatus.BAD_REQUEST, "RECRUITING-0200", "지원 폼의 모집 트랙을 선택해주세요."),
     RECRUITING_APPLICATION_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0300", "현재 지원서 상태에서는 할 수 없는 작업이에요."),
+    RECRUITING_EVALUATION_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0400", "현재 평가 상태에서는 할 수 없는 작업이에요."),
+    RECRUITING_EVALUATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "RECRUITING-0401", "이미 제출한 지원자 평가가 있어요."),
     ;
 
     private final HttpStatus httpStatus;
