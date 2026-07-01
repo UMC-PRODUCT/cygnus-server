@@ -1,0 +1,18 @@
+package com.umc.product.recruiting.adapter.out.external.survey;
+
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
+import com.umc.product.global.exception.NotImplementedException;
+import com.umc.product.recruiting.application.port.out.FindRecruitingScheduleOverlapPort;
+import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
+
+@Component
+public class UnavailableRecruitingScheduleOverlapAdapter implements FindRecruitingScheduleOverlapPort {
+
+    @Override
+    public List<RecruitingInterviewScheduleCandidate> findOverlaps(Long formId, List<Long> formResponseIds) {
+        throw new NotImplementedException("지원자 가능 일정 겹침 계산은 survey/form 일정 질문 PR이 병합된 뒤 사용할 수 있어요.");
+    }
+}
