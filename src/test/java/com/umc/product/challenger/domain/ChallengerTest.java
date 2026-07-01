@@ -12,6 +12,7 @@ import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 @DisplayName("Challenger 도메인")
 class ChallengerTest {
@@ -29,6 +30,39 @@ class ChallengerTest {
     @Test
     void 챌린저_생성_시_기본적으로_활성화_상태이다() {
         assertThat(challenger.getStatus()).isEqualTo(ChallengerStatus.ACTIVE);
+    }
+
+    @Test
+    @DisplayName("기존 파트만 가진 챌린저는 파트 정책으로 트랙을 해석한다")
+    void 기존_파트만_가진_챌린저는_파트_정책으로_트랙을_해석한다() {
+        assertThat(challenger.getTrack()).isNull();
+        assertThat(challenger.getEffectiveTrack()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    @DisplayName("트랙 정책 챌린저는 파트 없이 트랙으로 생성된다")
+    void 트랙_정책_챌린저는_파트_없이_트랙으로_생성된다() {
+        Challenger trackBasedChallenger = Challenger.builder()
+            .memberId(1L)
+            .track(ChallengerTrack.MOBILE_PRODUCT_ENGINEER)
+            .gisuId(9L)
+            .build();
+
+        assertThat(trackBasedChallenger.getPart()).isNull();
+        assertThat(trackBasedChallenger.getTrack()).isEqualTo(ChallengerTrack.MOBILE_PRODUCT_ENGINEER);
+        assertThat(trackBasedChallenger.getEffectiveTrack()).isEqualTo(ChallengerTrack.MOBILE_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    @DisplayName("파트와 트랙이 모두 없으면 챌린저를 생성할 수 없다")
+    void 파트와_트랙이_모두_없으면_챌린저를_생성할_수_없다() {
+        assertThatThrownBy(() -> Challenger.builder()
+            .memberId(1L)
+            .gisuId(9L)
+            .build())
+            .isInstanceOf(ChallengerDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);
     }
 
     @Nested

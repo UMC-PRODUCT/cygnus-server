@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +40,7 @@ import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChallengerCommandService")
@@ -104,6 +106,30 @@ class ChallengerCommandServiceTest {
             sut.createChallenger(command);
 
             then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+        }
+
+        @Test
+        @DisplayName("트랙 기반 챌린저는 파트 없이 생성한다")
+        void 트랙_기반_챌린저는_파트_없이_생성한다() {
+            CreateChallengerCommand command = CreateChallengerCommand.builder()
+                .memberId(1L)
+                .track(ChallengerTrack.WEB_PRODUCT_ENGINEER)
+                .gisuId(9L)
+                .build();
+            given(loadChallengerPort.findByMemberIdAndGisuId(1L, 9L)).willReturn(Optional.empty());
+            given(saveChallengerPort.save(any(Challenger.class))).willAnswer(invocation -> {
+                Challenger challenger = invocation.getArgument(0);
+                ReflectionTestUtils.setField(challenger, "id", 101L);
+                return challenger;
+            });
+
+            Long result = sut.createChallenger(command);
+
+            ArgumentCaptor<Challenger> captor = ArgumentCaptor.forClass(Challenger.class);
+            assertThat(result).isEqualTo(101L);
+            then(saveChallengerPort).should().save(captor.capture());
+            assertThat(captor.getValue().getPart()).isNull();
+            assertThat(captor.getValue().getTrack()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         }
 
         @Test

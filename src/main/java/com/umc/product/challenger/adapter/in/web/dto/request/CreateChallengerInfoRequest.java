@@ -8,9 +8,13 @@ import jakarta.validation.constraints.NotNull;
 public record CreateChallengerInfoRequest(
         @NotNull(message = "회원 ID는 필수입니다") Long memberId,
         @NotNull(message = "챌린저 파트는 필수입니다") ChallengerPart part,
-        @NotNull(message = "기수 ID는 필수입니다") Long gisuId
+    @NotNull(message = "기수 ID는 필수입니다") Long gisuId
 ) {
     public CreateChallengerCommand toCommand() {
-        return new CreateChallengerCommand(memberId, part, gisuId);
+        return CreateChallengerCommand.builder()
+            .memberId(memberId)
+            .part(part)
+            .gisuId(gisuId)
+            .build();
     }
 }

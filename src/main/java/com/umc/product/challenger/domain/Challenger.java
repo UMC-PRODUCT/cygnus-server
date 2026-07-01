@@ -1,10 +1,15 @@
 package com.umc.product.challenger.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.BaseEntity;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -17,8 +22,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -43,8 +46,12 @@ public class Challenger extends BaseEntity {
     private Long memberId;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, name = "part")
+    @Column(name = "part")
     private ChallengerPart part;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "track")
+    private ChallengerTrack track;
 
     @Column(nullable = false, name = "gisu_id")
     private Long gisuId;
@@ -69,11 +76,19 @@ public class Challenger extends BaseEntity {
 
 
     @Builder
-    public Challenger(Long memberId, ChallengerPart part, Long gisuId) {
+    public Challenger(Long memberId, ChallengerPart part, ChallengerTrack track, Long gisuId) {
+        if (part == null && track == null) {
+            throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);
+        }
         this.memberId = memberId;
         this.part = part;
+        this.track = track;
         this.gisuId = gisuId;
         this.status = ChallengerStatus.ACTIVE;
+    }
+
+    public Challenger(Long memberId, ChallengerPart part, Long gisuId) {
+        this(memberId, part, null, gisuId);
     }
 
     public void validateChallengerStatus() {
@@ -88,6 +103,18 @@ public class Challenger extends BaseEntity {
     public void changePart(ChallengerPart newPart) {
         validateChallengerStatus();
         this.part = newPart;
+    }
+
+    public void changeTrack(ChallengerTrack newTrack) {
+        validateChallengerStatus();
+        this.track = newTrack;
+    }
+
+    public ChallengerTrack getEffectiveTrack() {
+        if (this.track != null) {
+            return this.track;
+        }
+        return ChallengerTrack.from(this.part);
     }
 
     /**

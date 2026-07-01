@@ -55,11 +55,12 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
                 throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_ALREADY_EXISTS);
             });
 
-        Challenger challenger = new Challenger(
-            command.memberId(),
-            command.part(),
-            command.gisuId()
-        );
+        Challenger challenger = Challenger.builder()
+            .memberId(command.memberId())
+            .part(command.part())
+            .track(command.track())
+            .gisuId(command.gisuId())
+            .build();
 
         Challenger savedChallenger = saveChallengerPort.save(challenger);
         evictAuthoritySnapshotCacheUseCase.evictByMemberId(savedChallenger.getMemberId());
@@ -77,11 +78,12 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
         validateEnvIsNotProduction();
 
         List<Challenger> challengers = commands.stream()
-            .map(command -> new Challenger(
-                command.memberId(),
-                command.part(),
-                command.gisuId()
-            ))
+            .map(command -> Challenger.builder()
+                .memberId(command.memberId())
+                .part(command.part())
+                .track(command.track())
+                .gisuId(command.gisuId())
+                .build())
             .toList();
 
         List<Challenger> savedChallengers = saveChallengerPort.saveAll(challengers);
