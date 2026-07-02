@@ -60,7 +60,7 @@ public class StompPrincipalInterceptor implements ChannelInterceptor {
 
         accessor.setUser(authentication);
 
-        log.debug("WebSocket CONNECT 인증 성공: memberId={}", parsed.memberId());
+        log.debug("WebSocket CONNECT 인증 확인 memberId={}", parsed.memberId());
 
         return message;
     }

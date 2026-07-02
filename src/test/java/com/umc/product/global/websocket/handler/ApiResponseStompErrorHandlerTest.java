@@ -36,14 +36,14 @@ class ApiResponseStompErrorHandlerTest {
 
         JsonNode body = objectMapper.readTree(result.getPayload());
         assertThat(body.path("success").asBoolean()).isFalse();
-        assertThat(body.path("code").asText()).isEqualTo("AUTHORIZATION-0002");
-        assertThat(body.path("message").asText()).isEqualTo("해당 리소스에 접근할 권한이 없습니다.");
+        assertThat(body.path("code").asText()).isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getCode());
+        assertThat(body.path("message").asText()).isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getMessage());
         assertThat(body.has("result")).isFalse();
 
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(result, StompHeaderAccessor.class);
         assertThat(accessor.getCommand()).isEqualTo(StompCommand.ERROR);
         assertThat(accessor.getContentType()).isEqualTo(MimeTypeUtils.APPLICATION_JSON);
-        assertThat(accessor.getMessage()).isEqualTo("해당 리소스에 접근할 권한이 없습니다.");
+        assertThat(accessor.getMessage()).isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getMessage());
         assertThat(accessor.getReceiptId()).isEqualTo("receipt-1");
     }
 
@@ -56,8 +56,8 @@ class ApiResponseStompErrorHandlerTest {
 
         JsonNode body = objectMapper.readTree(result.getPayload());
         assertThat(body.path("success").asBoolean()).isFalse();
-        assertThat(body.path("code").asText()).isEqualTo("SECURITY-0001");
-        assertThat(body.path("message").asText()).isEqualTo("인증 정보가 전달되지 않았습니다.");
+        assertThat(body.path("code").asText()).isEqualTo(CommonErrorCode.SECURITY_NOT_GIVEN.getCode());
+        assertThat(body.path("message").asText()).isEqualTo(CommonErrorCode.SECURITY_NOT_GIVEN.getMessage());
         assertThat(body.has("result")).isFalse();
     }
 
@@ -68,8 +68,8 @@ class ApiResponseStompErrorHandlerTest {
 
         JsonNode body = objectMapper.readTree(result.getPayload());
         assertThat(body.path("success").asBoolean()).isFalse();
-        assertThat(body.path("code").asText()).isEqualTo("COMMON-0001");
-        assertThat(body.path("message").asText()).isEqualTo("알 수 없는 오류입니다. 관리자에게 문의해주세요.");
+        assertThat(body.path("code").asText()).isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode());
+        assertThat(body.path("message").asText()).isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage());
         assertThat(body.has("result")).isFalse();
     }
 

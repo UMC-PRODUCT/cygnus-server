@@ -18,6 +18,8 @@ import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.boot.actuate.autoconfigure.security.servlet.ManagementWebSecurityAutoConfiguration;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.flyway.FlywayAutoConfiguration;
+import org.springframework.boot.autoconfigure.graphql.GraphQlAutoConfiguration;
+import org.springframework.boot.autoconfigure.graphql.servlet.GraphQlWebMvcAutoConfiguration;
 import org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration;
 import org.springframework.boot.autoconfigure.orm.jpa.HibernateJpaAutoConfiguration;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
@@ -43,6 +45,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
 import com.umc.product.common.domain.enums.ClientType;
 import com.umc.product.global.config.WebSocketMessageBrokerConfig;
@@ -89,7 +92,11 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         try {
             StompErrorFrame errorFrame = errors.poll(5, TimeUnit.SECONDS);
             assertThat(errorFrame).isNotNull();
-            assertErrorFrame(errorFrame, "JWT-0004", "잘못된 JWT 토큰입니다.");
+            assertErrorFrame(
+                errorFrame,
+                AuthenticationErrorCode.INVALID_JWT.getCode(),
+                AuthenticationErrorCode.INVALID_JWT.getMessage()
+            );
         } finally {
             stompClient.stop();
         }
@@ -109,7 +116,11 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         try {
             StompErrorFrame errorFrame = errors.poll(5, TimeUnit.SECONDS);
             assertThat(errorFrame).isNotNull();
-            assertErrorFrame(errorFrame, "JWT-0004", "잘못된 JWT 토큰입니다.");
+            assertErrorFrame(
+                errorFrame,
+                AuthenticationErrorCode.INVALID_JWT.getCode(),
+                AuthenticationErrorCode.INVALID_JWT.getMessage()
+            );
         } finally {
             stompClient.stop();
         }
@@ -134,7 +145,11 @@ class ApiResponseStompErrorHandlerIntegrationTest {
 
             String payload = userErrors.poll(5, TimeUnit.SECONDS);
             assertThat(payload).isNotNull();
-            assertApiResponsePayload(payload, "AUTHORIZATION-0002", "해당 리소스에 접근할 권한이 없습니다.");
+            assertApiResponsePayload(
+                payload,
+                AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getCode(),
+                AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getMessage()
+            );
         } finally {
             if (session.isConnected()) {
                 session.disconnect();
@@ -241,6 +256,8 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         DataSourceAutoConfiguration.class,
         HibernateJpaAutoConfiguration.class,
         FlywayAutoConfiguration.class,
+        GraphQlAutoConfiguration.class,
+        GraphQlWebMvcAutoConfiguration.class,
         SecurityAutoConfiguration.class,
         SecurityFilterAutoConfiguration.class,
         ManagementWebSecurityAutoConfiguration.class

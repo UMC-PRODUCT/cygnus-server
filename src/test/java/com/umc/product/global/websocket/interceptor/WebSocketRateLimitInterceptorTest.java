@@ -1,7 +1,7 @@
 package com.umc.product.global.websocket.interceptor;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import java.util.List;
@@ -10,7 +10,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
-import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
@@ -34,15 +33,15 @@ class WebSocketRateLimitInterceptorTest {
     }
 
     @Test
-    @DisplayName("동일 멤버가 초당 21번째 메시지를 전송하면 MessageDeliveryException이 발생한다")
-    void send_exceeding_rate_limit_throws() {
+    @DisplayName("동일 멤버가 초당 21번째 메시지를 전송하면 해당 메시지만 무시한다")
+    void send_exceeding_rate_limit_returns_null() {
         for (int i = 0; i < 20; i++) {
             sut.preSend(sendMessage(1L), mock(MessageChannel.class));
         }
 
-        assertThatThrownBy(() -> sut.preSend(sendMessage(1L), mock(MessageChannel.class)))
-            .isInstanceOf(MessageDeliveryException.class)
-            .hasMessageContaining("빈도가 초과");
+        Message<?> result = sut.preSend(sendMessage(1L), mock(MessageChannel.class));
+
+        assertThat(result).isNull();
     }
 
     @Test

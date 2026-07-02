@@ -32,8 +32,11 @@ import lombok.extern.slf4j.Slf4j;
 public class ApiResponseStompErrorHandler extends StompSubProtocolErrorHandler {
 
     private static final byte[] INTERNAL_SERVER_ERROR_PAYLOAD = (
-        "{\"success\":false,\"code\":\"COMMON-0001\","
-            + "\"message\":\"알 수 없는 오류입니다. 관리자에게 문의해주세요.\"}"
+        "{\"success\":false,\"code\":\"%s\",\"message\":\"%s\"}"
+            .formatted(
+                CommonErrorCode.INTERNAL_SERVER_ERROR.getCode(),
+                CommonErrorCode.INTERNAL_SERVER_ERROR.getMessage()
+            )
     ).getBytes(StandardCharsets.UTF_8);
 
     private final ObjectMapper objectMapper;

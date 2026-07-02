@@ -70,7 +70,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             throw new CommonException(CommonErrorCode.SECURITY_NOT_GIVEN);
         }
         if (!checkChatRoomAccessUseCase.hasChatRoomAccess(memberId, chatDestination.chatRoomId())) {
-            log.warn("WebSocket 채팅방 접근 거부: memberId={}, chatRoomId={}, command={}, destination={}",
+            log.warn("WebSocket 채팅방 접근 거부: memberId={}, chatRoomId={}, stompCommand={}, destination={}",
                 memberId, chatDestination.chatRoomId(), accessor.getCommand(), accessor.getDestination());
             applicationEventPublisher.publishEvent(
                 new WebSocketErrorEvent(user.getName(), AuthorizationErrorCode.RESOURCE_ACCESS_DENIED)

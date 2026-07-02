@@ -38,8 +38,8 @@ class WebSocketErrorPublisherTest {
 
         ApiResponse<Object> response = responseCaptor.getValue();
         assertThat(response.isSuccess()).isFalse();
-        assertThat(response.getCode()).isEqualTo("AUTHORIZATION-0002");
-        assertThat(response.getMessage()).isEqualTo("해당 리소스에 접근할 권한이 없습니다.");
+        assertThat(response.getCode()).isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getCode());
+        assertThat(response.getMessage()).isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getMessage());
         assertThat(response.getResult()).isNull();
     }
 }
