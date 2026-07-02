@@ -1,0 +1,189 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# 앱이 안 뜰 때 EC2 콘솔과 /var/log 에서 바로 원인을 볼 수 있게 로그를 남긴다.
+exec > >(tee /var/log/umc-load-test-sut-user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+
+# Docker + compose + AWS CLI (Amazon Linux 2023)
+dnf -y install docker curl awscli jq
+systemctl enable --now docker
+
+case "$(uname -m)" in
+  x86_64) compose_arch="x86_64" ;;
+  aarch64|arm64) compose_arch="aarch64" ;;
+  *)
+    echo "Unsupported CPU architecture: $(uname -m)"
+    exit 1
+    ;;
+esac
+
+mkdir -p /usr/libexec/docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$${compose_arch}" \
+  -o /usr/libexec/docker/cli-plugins/docker-compose
+chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+
+mkdir -p /opt/umc
+cd /opt/umc
+
+# registry_type=ecr 이면 SUT EC2 role 로 ECR 에 로그인한다.
+# generic private registry 는 SSM SecureString 의 JSON credential 로 로그인한다.
+if [ "${registry_type}" = "ecr" ]; then
+  aws --region "${region}" ecr get-login-password \
+    | docker login --username AWS --password-stdin "${registry_server}"
+elif [ "${registry_type}" = "generic" ]; then
+  if [ -z "${registry_credentials_ssm_parameter_name}" ]; then
+    echo "registry_credentials_ssm_parameter_name is required when registry_type=generic"
+    exit 1
+  fi
+
+  # secret 예: {"username":"docker-user","password":"read-only-token"}
+  registry_json="$(aws --region "${region}" ssm get-parameter \
+    --name "${registry_credentials_ssm_parameter_name}" \
+    --with-decryption \
+    --query Parameter.Value \
+    --output text)"
+  registry_username="$(printf '%s' "$${registry_json}" | jq -r '.username // ""')"
+  registry_password="$(printf '%s' "$${registry_json}" | jq -r '.password // ""')"
+
+  if [ -z "$${registry_username}" ] || [ -z "$${registry_password}" ]; then
+    echo "Registry credential secret must contain username and password"
+    exit 1
+  fi
+
+  printf '%s' "$${registry_password}" | docker login "${registry_server}" -u "$${registry_username}" --password-stdin
+fi
+
+# 앱 런타임 env: SSM Parameter Store env + 부하테스트 오버라이드
+# app_env SSM path 는 외부 연동 secret 등 "앱 부팅에 필요한 값"만 받는다.
+# DB/OTLP/Hikari/dev profile 은 부하 테스트 조건 고정을 위해 아래 OVERRIDE_ENV 에서 항상 덮어쓴다.
+if [ -n "${app_env_ssm_parameter_path}" ]; then
+  PARAMETERS_JSON="$(aws --region "${region}" ssm get-parameters-by-path \
+    --path "${app_env_ssm_parameter_path}" \
+    --with-decryption \
+    --recursive \
+    --output json)"
+
+  PARAMETER_COUNT="$(jq '.Parameters | length' <<< "$${PARAMETERS_JSON}")"
+  if [ "$${PARAMETER_COUNT}" = "0" ]; then
+    echo "No SSM parameters found under ${app_env_ssm_parameter_path}"
+    exit 1
+  fi
+
+  jq -r '
+    def invalid_key_items:
+      map(select((.env_key | test("^[A-Z_][A-Z0-9_]*$")) | not));
+    def multiline_value_items:
+      map(select((.Value | contains("\n")) or (.Value | contains("\r"))));
+    def duplicate_key_groups:
+      group_by(.env_key) | map(select(length > 1));
+
+    .Parameters
+    | map(. + { env_key: (.Name | split("/")[-1]) })
+    | invalid_key_items as $invalid_keys
+    | if ($invalid_keys | length) > 0 then
+        error("Invalid env key from SSM parameter name: " + $invalid_keys[0].Name)
+      else . end
+    | multiline_value_items as $multiline_values
+    | if ($multiline_values | length) > 0 then
+        error("Parameter value must be single-line for dotenv rendering: " + $multiline_values[0].Name)
+      else . end
+    | duplicate_key_groups as $duplicate_groups
+    | if ($duplicate_groups | length) > 0 then
+        error("Duplicate env key resolved from SSM parameters: " + $duplicate_groups[0][0].env_key)
+      else . end
+    | sort_by(.env_key)[]
+    | "\(.env_key)=\(.Value)"
+  ' <<< "$${PARAMETERS_JSON}" > app.env
+else
+  : > app.env
+fi
+
+cat >> app.env <<OVERRIDE_ENV
+SPRING_PROFILES_ACTIVE=dev
+SERVER_PORT=8080
+MANAGEMENT_PORT=9090
+APP_ENVIRONMENT=load-test
+# SeedController 와 /test/token/access 는 dev/test 용이다. 부하 테스트 시딩과 토큰 발급을 위해 켠다.
+APP_SEED_ENABLED=true
+P6SPY_ENABLE_LOGGING=false
+TRACE_SAMPLING_PROBABILITY=1.0
+DATABASE_URL=jdbc:postgresql://${db_host}:${db_port}/${db_name}
+DATABASE_USERNAME=${db_username}
+DATABASE_PASSWORD=${db_password}
+HIKARI_MAX_POOL_SIZE=${hikari_pool}
+HIKARI_MIN_IDLE=${hikari_pool}
+OTEL_URL=http://${otel_host}:4318
+OTEL_AUTH_HEADER=Bearer ${otel_token}
+OVERRIDE_ENV
+
+chmod 600 app.env
+
+# compose: 앱 + valkey (DB 는 RDS). prod 에 nginx 앞단이 있으면 여기 추가.
+# ⚠️ app_env 의 valkey/redis 호스트는 아래 서비스명 'valkey' 를 가리켜야 함.
+# 현재는 Nginx 없이 앱 8080 을 직접 노출한다. prod 앞단까지 재현해야 하면 여기에 nginx service 를 추가한다.
+cat > docker-compose.yml <<'COMPOSE'
+services:
+  valkey:
+    # 앱 캐시/세션 의존성을 compose 내부 서비스로 해결한다. DB 는 compose 가 아니라 RDS 를 사용한다.
+    image: valkey/valkey:9.1
+    restart: unless-stopped
+    command: ["valkey-server", "--appendonly", "yes"]
+    volumes:
+      - valkey-data:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  app:
+    # image 는 terraform.tfvars 의 app_image 값이다. Terraform 은 빌드하지 않고 pull 만 수행한다.
+    image: ${app_image}
+    restart: unless-stopped
+    env_file: [app.env]
+    depends_on:
+      valkey:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+      - "9090:9090"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9090/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  node-exporter:
+    # SUT host 의 CPU/memory/network 를 Prometheus 에 노출해 USE 분석에 사용한다.
+    image: prom/node-exporter:v1.11.1
+    restart: unless-stopped
+    command:
+      - --path.rootfs=/host
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    ports:
+      - "9100:9100"
+
+volumes:
+  valkey-data:
+COMPOSE
+
+docker compose pull
+docker compose up -d
+
+# Flyway, DB 연결, actuator health 가 정상인지 apply 단계에서 확인한다.
+for i in {1..90}; do
+  if curl -fsS http://localhost:9090/actuator/health >/dev/null; then
+    echo "SUT is healthy"
+    exit 0
+  fi
+  echo "waiting for SUT... $i/90"
+  sleep 5
+done
+
+echo "SUT failed to become healthy"
+docker compose ps
+docker compose logs --tail=300
+exit 1

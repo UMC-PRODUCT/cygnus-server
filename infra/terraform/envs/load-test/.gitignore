@@ -1,0 +1,10 @@
+# Terraform state / 시크릿 — 커밋 금지
+*.tfstate
+*.tfstate.*
+.terraform/
+terraform.tfvars
+*.auto.tfvars
+*.tfplan
+.terraform.lock.hcl
+crash.log
+tfplan

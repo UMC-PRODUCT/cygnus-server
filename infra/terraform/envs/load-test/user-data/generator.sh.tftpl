@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# cloud-init 로그와 EC2 콘솔 로그 양쪽에서 부팅 실패 원인을 볼 수 있게 남긴다.
+exec > >(tee /var/log/umc-load-test-generator-user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+
+# generator 는 k6 실행과 host metric 수집만 담당한다. 앱/관측 컨테이너는 올리지 않는다.
+dnf -y install docker git curl
+systemctl enable --now docker
+
+case "$(uname -m)" in
+  x86_64|aarch64|arm64) ;;
+  *)
+    echo "Unsupported CPU architecture: $(uname -m)"
+    exit 1
+    ;;
+esac
+
+# k6 설치 (공식 repo)
+# Amazon Linux 기본 repo 에 k6 가 없어 Grafana 공식 RPM repo 를 등록한다.
+cat > /etc/yum.repos.d/k6.repo <<'REPO'
+[k6]
+name=k6
+baseurl=https://dl.k6.io/rpm/$basearch
+enabled=1
+gpgcheck=1
+gpgkey=https://dl.k6.io/key.gpg
+REPO
+dnf -y install k6
+
+# generator 자체가 먼저 병목나는지 보기 위해 node-exporter 를 같이 올린다.
+docker run -d \
+  --name umc-load-test-generator-node-exporter \
+  --restart unless-stopped \
+  --pid host \
+  -p 9100:9100 \
+  -v /:/host:ro,rslave \
+  prom/node-exporter:v1.11.1 \
+  --path.rootfs=/host \
+  '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+
+cd /home/ec2-user
+%{ if git_repo_url != "" ~}
+# k6 script 와 seed template 은 repo 의 docs/guides/load-test/k6 에서 가져온다.
+git clone ${git_repo_url} umc-product
+cp -r umc-product/docs/guides/load-test/k6 ./k6 2>/dev/null || mkdir -p k6
+%{ else ~}
+echo "⚠️ git_repo_url 미설정 — k6 스크립트(script.js)·seed.json 을 ~/k6 에 수동으로 올리세요."
+mkdir -p k6
+%{ endif ~}
+# 첫 smoke 를 바로 실행할 수 있게 example 을 seed.json 으로 복사한다.
+# 실제 측정 전에는 Phase 03 시딩 결과로 이 파일을 교체해야 한다.
+if [ -f /home/ec2-user/k6/data/seed.example.json ] && [ ! -f /home/ec2-user/k6/data/seed.json ]; then
+  cp /home/ec2-user/k6/data/seed.example.json /home/ec2-user/k6/data/seed.json
+fi
+chown -R ec2-user:ec2-user /home/ec2-user/k6
+
+# 반복 실행 명령을 고정해 사람이 매번 remote-write 환경변수를 입력하지 않도록 한다.
+cat > /usr/local/bin/run-umc-k6 <<'RUNNER'
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROFILE="$${1:-smoke}"
+RATE="$${2:-50}"
+
+cd /home/ec2-user/k6
+
+export K6_OUT=experimental-prometheus-rw
+export K6_PROMETHEUS_RW_SERVER_URL="${prom_rw_url}"
+export K6_PROMETHEUS_RW_TREND_STATS="p(50),p(90),p(95),p(99),min,max,avg"
+
+# BASE_URL 은 운영과 같은 HTTP 진입점인 ALB 를 사용한다.
+k6 run \
+  -e BASE_URL="${base_url}" \
+  -e PROFILE="$${PROFILE}" \
+  -e RATE="$${RATE}" \
+  -e SEED_FILE="./data/seed.json" \
+  script.js
+RUNNER
+chmod +x /usr/local/bin/run-umc-k6
+
+# 실행 힌트
+cat > /home/ec2-user/k6/RUN.md <<HINT
+SUT(ALB): ${base_url}
+Prometheus remote-write: ${prom_rw_url}
+
+# smoke
+run-umc-k6 smoke 1
+# read 램프 (메트릭 적재)
+run-umc-k6 read 300
+HINT
+chown ec2-user:ec2-user /home/ec2-user/k6/RUN.md

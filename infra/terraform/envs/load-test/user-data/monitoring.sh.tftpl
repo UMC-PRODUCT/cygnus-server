@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# monitoring 은 부하 중 문제가 생겼을 때 가장 먼저 봐야 하는 박스라 user-data 로그를 파일/콘솔에 남긴다.
+exec > >(tee /var/log/umc-load-test-monitoring-user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
+
+# Docker compose 기반 기존 monitoring stack 을 그대로 재사용한다.
+dnf -y install docker git curl
+systemctl enable --now docker
+
+case "$(uname -m)" in
+  x86_64) compose_arch="x86_64" ;;
+  aarch64|arm64) compose_arch="aarch64" ;;
+  *)
+    echo "Unsupported CPU architecture: $(uname -m)"
+    exit 1
+    ;;
+esac
+
+mkdir -p /usr/libexec/docker/cli-plugins
+curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-$${compose_arch}" \
+  -o /usr/libexec/docker/cli-plugins/docker-compose
+chmod +x /usr/libexec/docker/cli-plugins/docker-compose
+
+cd /opt
+%{ if git_repo_url != "" ~}
+# infra/monitoring/grafana 의 compose/config/provisioning 을 가져온다.
+# private repo URL 에 토큰을 넣으면 EC2 user-data 와 Terraform state 에 남으므로 read-only 토큰만 사용한다.
+git clone ${git_repo_url} umc-product
+cd umc-product/infra/monitoring/grafana
+%{ else ~}
+echo "⚠️ git_repo_url 미설정 — infra/monitoring/grafana 의 compose+config 를 이 경로에 수동으로 올린 뒤 compose up 하세요."
+mkdir -p umc-product/infra/monitoring/grafana
+cd umc-product/infra/monitoring/grafana
+%{ endif ~}
+
+# 전용 스택용 .env (외부에서 접근 가능하도록 0.0.0.0 바인드)
+# 이 스택은 부하 테스트 전용이므로 localhost bind 가 아니라 VPC/SUT 에서 접근 가능한 bind 로 바꾼다.
+cat > .env <<ENV
+OTEL_INGEST_TOKEN=${otel_token}
+MONITORING_BIND_ADDRESS=0.0.0.0
+OTEL_BIND_ADDRESS=0.0.0.0
+GRAFANA_ADMIN_USER=admin
+GRAFANA_ADMIN_PASSWORD=${grafana_admin_password}
+DISCORD_ALERT_WEBHOOK=http://127.0.0.1:65535/load-test-alert-disabled
+ENV
+
+# 기존 prometheus.yml 은 운영/로컬 공용 설정이다.
+# 부하 테스트에서는 SUT/generator node-exporter, postgres_exporter, k6 remote-write 를 같은 Prometheus 에 모아야 한다.
+cat > config/prometheus/prometheus.yml <<'PROMETHEUS'
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: umc-product-load-test
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: [ 'localhost:9090' ]
+
+  - job_name: node-exporter
+    static_configs:
+      - targets: [ 'node-exporter:9100' ]
+        labels:
+          role: monitoring
+      - targets: [ '${sut_private_ip}:9100' ]
+        labels:
+          role: sut
+      - targets: [ '${generator_private_ip}:9100' ]
+        labels:
+          role: generator
+
+  - job_name: postgres-exporter
+    static_configs:
+      - targets: [ 'postgres-exporter:9187' ]
+        labels:
+          role: rds
+
+  - job_name: alertmanager
+    static_configs:
+      - targets: [ 'alertmanager:9093' ]
+
+  - job_name: grafana
+    static_configs:
+      - targets: [ 'grafana:3000' ]
+
+  - job_name: loki
+    static_configs:
+      - targets: [ 'loki:3100' ]
+
+  - job_name: otel-collector
+    static_configs:
+      - targets: [ 'otel-collector:8888' ]
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: [ 'alertmanager:9093' ]
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+PROMETHEUS
+
+cat > docker-compose.load-test.override.yml <<'COMPOSE'
+services:
+  prometheus:
+    # k6 는 Prometheus remote-write 로 결과를 밀어 넣으므로 receiver 플래그가 필요하다.
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=3d
+      - --web.enable-otlp-receiver
+      - --web.enable-remote-write-receiver
+      - --web.enable-lifecycle
+
+  postgres-exporter:
+    # RDS 내부 지표(connection, lock, xact, cache hit)를 Prometheus scrape metric 으로 변환한다.
+    image: prometheuscommunity/postgres-exporter:v0.17.1
+    container_name: umc-load-test-postgres-exporter
+    environment:
+      DATA_SOURCE_URI: "${db_host}:${db_port}/${db_name}?sslmode=require"
+      DATA_SOURCE_USER: "${db_username}"
+      DATA_SOURCE_PASS: "${db_password}"
+    networks: [monitoring]
+    restart: unless-stopped
+COMPOSE
+
+# linux 프로필로 monitoring host 의 node-exporter 까지 같이 기동한다.
+docker compose -f docker-compose.yml -f docker-compose.load-test.override.yml --profile linux up -d
+
+# Grafana/Prometheus 가 뜨기 전 apply 가 성공 처리되면 이후 단계에서 원인 파악이 어렵다.
+# 최소 health endpoint 를 확인해 부팅 실패를 user-data 실패로 드러낸다.
+for i in {1..60}; do
+  if curl -fsS http://localhost:13000/api/health >/dev/null &&
+     curl -fsS http://localhost:19090/-/ready >/dev/null; then
+    echo "monitoring stack is ready"
+    exit 0
+  fi
+  echo "waiting for monitoring stack... $i/60"
+  sleep 5
+done
+
+echo "monitoring stack failed to become ready"
+docker compose -f docker-compose.yml -f docker-compose.load-test.override.yml ps
+docker compose -f docker-compose.yml -f docker-compose.load-test.override.yml logs --tail=200
+exit 1
