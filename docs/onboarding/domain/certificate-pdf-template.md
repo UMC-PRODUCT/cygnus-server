@@ -15,6 +15,7 @@
 ## 좌표계
 
 - 기준 캔버스는 Figma 프레임과 동일한 A4 landscape `2970px x 2100px`이다.
+- 품목 레이아웃은 Figma 템플릿의 품목 영역에서 가져온 값이다. `certificate_template.json`의 notes에 남긴 것처럼 5개 품목은 Figma frame `152:1256`, 6개 품목은 `152:3864`, 4개 품목은 `155:2` 기준이다.
 - JSON의 `xPx`, `yPx`는 좌상단 원점 기준이다.
 - PDFBox는 좌하단 원점이므로 렌더러가 `pageHeight - yPx * pxToPt` 형태로 변환한다.
 - 변환 비율은 `pxToPt = 0.283464567`이다.
@@ -119,3 +120,29 @@
 3. 새로운 품목 값을 추가할 때는 `buildFieldValues()`에서 `item_label_N`, `item_value_N` 값을 채우고, JSON의 `layouts.N.fields`에 같은 key가 있어야 한다.
 4. 배경 PDF가 바뀌면 `CertificateTemplate.backgroundResourcePath()`가 가리키는 리소스를 교체하고, 샘플 PDF를 생성해 실제 겹침 여부를 확인한다.
 5. QR을 숨겨야 하면 `QR_CODE_ENABLED`를 `false`로 바꾸면 된다.
+
+## 로컬 미리보기
+
+local 또는 dev profile에서는 테스트 도메인에서 PDF를 바로 내려받을 수 있다.
+
+```bash
+curl -L \
+  "http://localhost:8080/test/certificates/preview?template=UMC_DEMO_DAY_FIRST_PRIZE&recipientName=%EA%B9%80%EC%9C%A0%EC%97%A0&gisuGeneration=7" \
+  -o build/certificate-preview.pdf
+```
+
+주요 query parameter는 아래와 같다.
+
+| Parameter | 필수 | 설명 |
+| --- | --- | --- |
+| `template` | 예 | `CertificateTemplate` enum 이름 |
+| `issuanceNumber` | 아니오 | 생략하면 `UMC-{typeCode}-20260703-SAMPLE01` 사용 |
+| `recipientName` | 아니오 | 생략하면 `김유엠` 사용 |
+| `recipientSchoolName` | 아니오 | 생략하면 `유엠씨대학교` 사용 |
+| `gisuGeneration` | 아니오 | 생략하면 `7` 사용 |
+| `projectName` | 아니오 | 프로젝트 참가 확인서 계열 확인용 값 |
+| `meritTitle` | 아니오 | 상장명 override |
+| `meritDescription` | 아니오 | 본문 설명 override |
+| `verificationUrl` | 아니오 | QR에 넣을 검증 URL override |
+
+`verificationUrl`을 생략하면 `certificate.verification-url-template`을 사용한다. 해당 값이 `/api/...`처럼 path-only이면 preview endpoint가 현재 요청 origin을 붙여 `http://localhost:8080/api/...` 형태로 QR을 만든다. 실제 발급 플로우는 요청 origin을 자동 합성하지 않으므로 운영 환경에서는 `CERTIFICATE_VERIFICATION_URL_TEMPLATE`에 absolute URL을 설정해야 한다.
