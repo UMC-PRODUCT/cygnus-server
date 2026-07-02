@@ -19,6 +19,8 @@ public record ProjectMemberInfo(
     Long projectMemberId,
     Long projectId,
     Long applicationId,
+    Long projectGisuId,
+    String projectName,
     Long memberId,
     ChallengerPart part,
     boolean isLeader,
@@ -31,6 +33,8 @@ public record ProjectMemberInfo(
             .projectMemberId(entity.getId())
             .projectId(entity.getProject().getId())
             .applicationId(entity.getApplication() == null ? null : entity.getApplication().getId())
+            .projectGisuId(entity.getProject().getGisuId())
+            .projectName(entity.getProject().getName())
             .memberId(entity.getMemberId())
             .part(entity.getPart())
             .isLeader(entity.isLeader())

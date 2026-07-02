@@ -152,7 +152,11 @@ class AuditCoveragePolicyTest {
 
             spec("storage.application.service.FileCommandService", "getFileUploadUrl", "STORAGE", "CREATE", "FileMetadata", type("storage.application.port.in.command.dto.PrepareFileUploadCommand")),
             spec("storage.application.service.FileCommandService", "confirmUpload", "STORAGE", "CHECK", "FileMetadata", String.class),
-            spec("storage.application.service.FileCommandService", "deleteFile", "STORAGE", "DELETE", "FileMetadata", type("storage.application.port.in.command.dto.DeleteFileCommand"))
+            spec("storage.application.service.FileCommandService", "deleteFile", "STORAGE", "DELETE", "FileMetadata", type("storage.application.port.in.command.dto.DeleteFileCommand")),
+
+            spec("certificate.application.service.CertificateCommandService", "issue", "CERTIFICATE", "CREATE", "Certificate", type("certificate.application.port.in.command.dto.IssueCertificateCommand")),
+            spec("certificate.application.service.CertificateCommandService", "issueByAdmin", "CERTIFICATE", "CREATE", "Certificate", type("certificate.application.port.in.command.dto.AdminIssueCertificateCommand")),
+            spec("certificate.application.service.CertificateCommandService", "revoke", "CERTIFICATE", "UPDATE", "Certificate", type("certificate.application.port.in.command.dto.RevokeCertificateCommand"))
         );
     }
 

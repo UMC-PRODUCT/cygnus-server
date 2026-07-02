@@ -9,6 +9,7 @@
 ## 도메인 문서
 
 - [Domain Onboarding](domain/README.md): 제품 도메인별 역할, 책임, 경계, UX 문구 기준
+- [Certificate PDF Template](domain/certificate-pdf-template.md): 인증서 PDF 배경 템플릿의 품목 개수, 글자 크기, 좌표 조정 방식
 
 ## 프로젝트별 운영 문서
 

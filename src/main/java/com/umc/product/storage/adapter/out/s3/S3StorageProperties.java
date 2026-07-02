@@ -1,9 +1,11 @@
 package com.umc.product.storage.adapter.out.s3;
 
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
 import com.umc.product.storage.domain.exception.StorageErrorCode;
 import com.umc.product.storage.domain.exception.StorageException;
+
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
  * AWS S3 및 CloudFront 설정 프로퍼티
@@ -21,18 +23,23 @@ public record S3StorageProperties(
         String distributionDomain,
         boolean enabled,
         String keyPairId,
-        String privateKey
+        String privateKey,
+        String privateKeyParameterName
     ) {
         public CloudFront {
             if (enabled) {
-                if (keyPairId == null || privateKey == null) {
+                if (!hasText(keyPairId) || (!hasText(privateKey) && !hasText(privateKeyParameterName))) {
                     log.warn("CloudFront가 활성화되었으나 Signed URL 생성을 위한 Key가 누락되어 있습니다.");
                 }
 
-                if (distributionDomain == null) {
+                if (!hasText(distributionDomain)) {
                     throw new StorageException(StorageErrorCode.NO_ENV_KEYS);
                 }
             }
+        }
+
+        private static boolean hasText(String value) {
+            return value != null && !value.isBlank();
         }
     }
 }

@@ -50,6 +50,8 @@ public enum FileCategory {
      */
     PORTFOLIO("private/portfolio", 200 * 1024 * 1024, new String[]{"pdf"}),
 
+    CERTIFICATE("private/certificate", 20 * 1024 * 1024, new String[]{"pdf"}),
+
     /**
      * 프로젝트 썸네일 이미지 (S-CHL-01 카드용 540x286)
      */

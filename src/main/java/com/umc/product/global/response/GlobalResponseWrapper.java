@@ -2,6 +2,7 @@ package com.umc.product.global.response;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -19,6 +20,10 @@ public class GlobalResponseWrapper implements ResponseBodyAdvice<Object> {
                             Class<? extends HttpMessageConverter<?>> converterType) {
         // 이미 ApiResponse로 래핑된 경우 제외
         if (returnType.getParameterType().equals(ApiResponse.class)) {
+            return false;
+        }
+
+        if (ResponseEntity.class.isAssignableFrom(returnType.getParameterType())) {
             return false;
         }
 

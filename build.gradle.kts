@@ -39,6 +39,8 @@ val springDocVersion = "2.8.17"
 val queryDslVersion = "5.1.0"
 val jwtVersion = "0.12.5"
 val awsVersion = "2.40.12"
+val pdfboxVersion = "2.0.24"
+val zxingVersion = "3.5.4"
 val springAiVersion = "1.1.5"
 val otelVersion = "1.61.0"
 val otelInstrumentationVersion = "2.27.0-alpha"
@@ -161,11 +163,17 @@ dependencies {
     // --- Cloud Service ---
     implementation(platform("software.amazon.awssdk:bom:${awsVersion}"))
     implementation("software.amazon.awssdk:s3")
+    implementation("software.amazon.awssdk:ssm")
     implementation("software.amazon.awssdk:cloudfront")  // CloudFront Signed URL
     implementation("software.amazon.awssdk:sesv2")       // AWS SES v2 (인증 이메일 발송)
 
     // --- Email ---
     implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
+
+    // --- PDF / QR ---
+    implementation("org.apache.pdfbox:pdfbox:${pdfboxVersion}")
+    implementation("com.google.zxing:core:${zxingVersion}")
+    implementation("com.google.zxing:javase:${zxingVersion}")
 
     // BOM으로 버전 강제 정렬
     implementation(platform("com.google.protobuf:protobuf-bom:4.29.3"))

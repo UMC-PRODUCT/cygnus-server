@@ -31,5 +31,6 @@ public enum Domain {
     MAINTENANCE,
     FEEDBACK,
     BLOG,
-    DOCUMENTATION
+    DOCUMENTATION,
+    CERTIFICATE
 }

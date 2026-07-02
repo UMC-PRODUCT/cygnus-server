@@ -12,9 +12,12 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
+import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
+import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
+import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
 import com.umc.product.storage.application.port.out.SaveFileMetadataPort;
 import com.umc.product.storage.application.port.out.StoragePort;
@@ -31,7 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class FileCommandService implements ManageFileUseCase {
+public class FileCommandService implements ManageFileUseCase, StoreGeneratedFileUseCase {
 
     private static final long UPLOAD_URL_DURATION_MINUTES = 15;
 
@@ -97,6 +100,41 @@ public class FileCommandService implements ManageFileUseCase {
             uploadInfo.headers(),
             uploadInfo.expiresAt()
         );
+    }
+
+    @Audited(
+        domain = Domain.STORAGE,
+        action = AuditAction.CREATE,
+        targetType = "FileMetadata",
+        targetId = "#result.fileId()",
+        description = "'서버 생성 파일을 저장했습니다.'"
+    )
+    @Override
+    @Transactional
+    public GeneratedFileInfo store(StoreGeneratedFileCommand command) {
+        validateGeneratedFile(command);
+
+        String fileId = UUID.randomUUID().toString();
+        String extension = extractExtension(command.fileName());
+        String storageKey = storagePort.generateStorageKey(command.category(), fileId, extension);
+
+        storagePort.uploadObject(storageKey, command.contentType(), command.content());
+
+        FileMetadata metadata = FileMetadata.builder()
+            .fileId(fileId)
+            .originalFileName(command.fileName())
+            .category(command.category())
+            .contentType(command.contentType())
+            .fileSize(command.fileSize())
+            .storageProvider(StorageProvider.AWS_S3)
+            .storageKey(storageKey)
+            .uploadedMemberId(command.generatedByMemberId())
+            .build();
+        metadata.markAsUploaded();
+        saveFileMetadataPort.save(metadata);
+
+        log.info("서버 생성 파일을 저장했습니다: fileId={}, category={}", fileId, command.category());
+        return GeneratedFileInfo.of(fileId, storageKey, command.fileSize());
     }
 
     @Audited(
@@ -197,6 +235,16 @@ public class FileCommandService implements ManageFileUseCase {
             throw new StorageException(StorageErrorCode.INVALID_FILE_EXTENSION);
         }
 
+        if (!command.category().isAllowedSize(command.fileSize())) {
+            throw new StorageException(StorageErrorCode.FILE_SIZE_EXCEEDED);
+        }
+    }
+
+    private void validateGeneratedFile(StoreGeneratedFileCommand command) {
+        String extension = extractExtension(command.fileName());
+        if (extension.isBlank() || !command.category().isAllowedExtension(extension)) {
+            throw new StorageException(StorageErrorCode.INVALID_FILE_EXTENSION);
+        }
         if (!command.category().isAllowedSize(command.fileSize())) {
             throw new StorageException(StorageErrorCode.FILE_SIZE_EXCEEDED);
         }
