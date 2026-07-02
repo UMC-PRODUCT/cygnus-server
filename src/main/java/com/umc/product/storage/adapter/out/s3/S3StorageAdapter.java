@@ -14,11 +14,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-import org.bouncycastle.util.io.pem.PemObject;
-import org.bouncycastle.util.io.pem.PemReader;
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.openssl.PEMKeyPair;
+import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriUtils;
 
 import com.umc.product.global.logging.OperationalMetrics;
@@ -137,8 +140,11 @@ public class S3StorageAdapter implements StoragePort {
 
     @Override
     public String generateAccessUrl(String storageKey, long durationMinutes) {
-        if (properties.cloudfront().enabled()) {
+        if (isCloudFrontSigningAvailable()) {
             return generateCloudFrontSignedUrl(storageKey, durationMinutes);
+        }
+        if (properties.cloudfront().enabled()) {
+            log.warn("CloudFront가 활성화되었지만 서명 설정이 누락되어 S3 Presigned GET URL로 대체합니다.");
         }
         return generateS3DownloadUrl(storageKey, durationMinutes);
     }
@@ -289,21 +295,40 @@ public class S3StorageAdapter implements StoragePort {
      * PEM 형식의 Private Key를 파싱합니다.
      */
     private PrivateKey parsePrivateKey(String privateKeyPem) throws Exception {
-        if (privateKeyPem.contains("-----BEGIN")) {
-            try (PemReader pemReader = new PemReader(new StringReader(privateKeyPem))) {
-                PemObject pemObject = pemReader.readPemObject();
-                byte[] keyBytes = pemObject.getContent();
-
-                KeyFactory keyFactory = KeyFactory.getInstance("RSA");
-                PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
-                return keyFactory.generatePrivate(keySpec);
+        String normalizedPrivateKey = normalizePrivateKey(privateKeyPem);
+        if (normalizedPrivateKey.contains("-----BEGIN")) {
+            try (PEMParser pemParser = new PEMParser(new StringReader(normalizedPrivateKey))) {
+                Object pemObject = pemParser.readObject();
+                JcaPEMKeyConverter converter = new JcaPEMKeyConverter();
+                if (pemObject instanceof PEMKeyPair pemKeyPair) {
+                    return converter.getKeyPair(pemKeyPair).getPrivate();
+                }
+                if (pemObject instanceof PrivateKeyInfo privateKeyInfo) {
+                    return converter.getPrivateKey(privateKeyInfo);
+                }
+                throw new IllegalArgumentException("지원하지 않는 CloudFront private key 형식입니다.");
             }
         }
 
-        byte[] keyBytes = Base64.getDecoder().decode(privateKeyPem);
+        byte[] keyBytes = Base64.getMimeDecoder().decode(normalizedPrivateKey);
         KeyFactory keyFactory = KeyFactory.getInstance("RSA");
         PKCS8EncodedKeySpec keySpec = new PKCS8EncodedKeySpec(keyBytes);
         return keyFactory.generatePrivate(keySpec);
+    }
+
+    private boolean isCloudFrontSigningAvailable() {
+        S3StorageProperties.CloudFront cloudfront = properties.cloudfront();
+        return cloudfront.enabled()
+            && StringUtils.hasText(cloudfront.distributionDomain())
+            && StringUtils.hasText(cloudfront.keyPairId())
+            && StringUtils.hasText(cloudfront.privateKey());
+    }
+
+    private String normalizePrivateKey(String privateKeyPem) {
+        return privateKeyPem
+            .trim()
+            .replace("\\n", "\n")
+            .replaceAll("\\A[\"']|[\"']\\z", "");
     }
 
     private String encodeStorageKey(String storageKey) {

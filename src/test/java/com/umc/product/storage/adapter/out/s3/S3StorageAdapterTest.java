@@ -6,7 +6,11 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -111,6 +115,44 @@ class S3StorageAdapterTest {
     }
 
     @Test
+    @DisplayName("CloudFront가 켜져 있어도 서명 키가 없으면 Presigned GET URL로 대체한다")
+    void CloudFront가_켜져_있어도_서명_키가_없으면_Presigned_GET_URL로_대체한다() throws Exception {
+        // given
+        S3StorageAdapter sut = adapter(new S3StorageProperties.CloudFront("cdn.example.com", true, null, null));
+        ArgumentCaptor<GetObjectPresignRequest> captor = ArgumentCaptor.forClass(GetObjectPresignRequest.class);
+        given(presignedGetObjectRequest.url()).willReturn(URI.create("https://storage.example.com/download").toURL());
+        given(s3Presigner.presignGetObject(captor.capture())).willReturn(presignedGetObjectRequest);
+
+        // when
+        String result = sut.generateAccessUrl("private/certificate/file.pdf", 60L);
+
+        // then
+        assertThat(result).isEqualTo("https://storage.example.com/download");
+        assertThat(captor.getValue().getObjectRequest().key()).isEqualTo("private/certificate/file.pdf");
+    }
+
+    @Test
+    @DisplayName("이스케이프된 PEM private key로 CloudFront Signed URL을 생성한다")
+    void 이스케이프된_PEM_private_key로_CloudFront_Signed_URL을_생성한다() throws Exception {
+        // given
+        String privateKey = pkcs8PrivateKeyPem().replace("\n", "\\n");
+        S3StorageAdapter sut = adapter(new S3StorageProperties.CloudFront(
+            "cdn.example.com",
+            true,
+            "K1234567890",
+            privateKey
+        ));
+
+        // when
+        String result = sut.generateAccessUrl("private/certificate/file.pdf", 60L);
+
+        // then
+        assertThat(result)
+            .startsWith("https://cdn.example.com/private/certificate/file.pdf")
+            .contains("Key-Pair-Id=K1234567890");
+    }
+
+    @Test
     @DisplayName("HeadObject 결과를 S3 객체 정보로 반환한다")
     void HeadObject_결과를_S3_객체_정보로_반환한다() {
         // given
@@ -158,21 +200,38 @@ class S3StorageAdapterTest {
     }
 
     private S3StorageAdapter adapter() {
+        return adapter(new S3StorageProperties.CloudFront("cdn.example.com", false, null, null));
+    }
+
+    private S3StorageAdapter adapter(S3StorageProperties.CloudFront cloudFront) {
         return new S3StorageAdapter(
             s3Client,
             s3Presigner,
-            properties(),
+            properties(cloudFront),
             new OperationalMetrics(new SimpleMeterRegistry())
         );
     }
 
-    private S3StorageProperties properties() {
+    private S3StorageProperties properties(S3StorageProperties.CloudFront cloudFront) {
         return new S3StorageProperties(
             "test-bucket",
             "ap-northeast-2",
             "access-key",
             "secret-key",
-            new S3StorageProperties.CloudFront("cdn.example.com", false, null, null)
+            cloudFront
         );
+    }
+
+    private String pkcs8PrivateKeyPem() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        String encoded = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
+            .encodeToString(keyPair.getPrivate().getEncoded());
+        return """
+            -----BEGIN PRIVATE KEY-----
+            %s
+            -----END PRIVATE KEY-----
+            """.formatted(encoded);
     }
 }
