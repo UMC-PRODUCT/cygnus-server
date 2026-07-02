@@ -69,7 +69,7 @@ public class CertificateQueryService implements GetCertificateUseCase {
 
     private String maskName(String name) {
         if (!StringUtils.hasText(name)) {
-            return "*";
+            return "";
         }
         name = name.trim();
         int[] codePoints = name.codePoints().toArray();

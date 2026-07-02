@@ -93,8 +93,8 @@ class CertificateQueryServiceTest {
     }
 
     @Test
-    @DisplayName("공개 검증 결과의 수신자 이름이 비어 있으면 별표 한 글자로 마스킹한다")
-    void 공개_검증_결과의_수신자_이름이_비어_있으면_별표_한_글자로_마스킹한다() {
+    @DisplayName("공개 검증 결과의 수신자 이름이 비어 있으면 빈 문자열을 반환한다")
+    void 공개_검증_결과의_수신자_이름이_비어_있으면_빈_문자열을_반환한다() {
         // given
         Certificate certificate = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber("UMC-CMP-20260701-ABCDEFGH")
@@ -122,7 +122,7 @@ class CertificateQueryServiceTest {
         CertificateVerificationInfo result = sut.verifyBySerialNumber(certificate.getSerialNumber());
 
         // then
-        assertThat(result.recipientName()).isEqualTo("*");
+        assertThat(result.recipientName()).isEmpty();
     }
 
     @Test
