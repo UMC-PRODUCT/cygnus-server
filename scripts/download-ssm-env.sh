@@ -21,14 +21,6 @@ Values must be single-line dotenv-ready strings. Store multiline values as escap
 USAGE
 }
 
-base64_decode() {
-  if base64 --decode >/dev/null 2>&1 <<< "" ; then
-    base64 --decode
-  else
-    base64 -D
-  fi
-}
-
 SSM_PARAMETER_PATH="${SSM_PARAMETER_PATH:-}"
 OUTPUT_FILE="${ENV_OUTPUT_FILE:-.env.local}"
 AWS_REGION_VALUE="${AWS_REGION:-ap-northeast-2}"
@@ -120,9 +112,8 @@ if [[ "${PARAMETER_COUNT}" == "0" ]]; then
 fi
 
 TMP_OUTPUT="$(mktemp)"
-TMP_KEYS="$(mktemp)"
 cleanup() {
-  rm -f "${TMP_OUTPUT}" "${TMP_KEYS}"
+  rm -f "${TMP_OUTPUT}"
 }
 trap cleanup EXIT
 
@@ -131,31 +122,31 @@ trap cleanup EXIT
   echo "# Do not commit this file."
 } > "${TMP_OUTPUT}"
 
-while IFS= read -r encoded_parameter; do
-  parameter_json="$(printf '%s' "${encoded_parameter}" | base64_decode)"
-  parameter_name="$(jq -r '.Name' <<< "${parameter_json}")"
-  parameter_value="$(jq -r '.Value' <<< "${parameter_json}")"
-  env_key="${parameter_name##*/}"
+jq -r '
+  def invalid_key_items:
+    map(select((.env_key | test("^[A-Z_][A-Z0-9_]*$")) | not));
+  def multiline_value_items:
+    map(select((.Value | contains("\n")) or (.Value | contains("\r"))));
+  def duplicate_key_groups:
+    group_by(.env_key) | map(select(length > 1));
 
-  if ! [[ "${env_key}" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
-    echo "Invalid env key from SSM parameter name: ${parameter_name}" >&2
-    exit 1
-  fi
-
-  if grep -Fxq "${env_key}" "${TMP_KEYS}"; then
-    echo "Duplicate env key resolved from SSM parameters: ${env_key}" >&2
-    exit 1
-  fi
-  printf '%s\n' "${env_key}" >> "${TMP_KEYS}"
-
-  if [[ "${parameter_value}" == *$'\n'* || "${parameter_value}" == *$'\r'* ]]; then
-    echo "Parameter value must be single-line for dotenv rendering: ${parameter_name}" >&2
-    echo "Store multiline secrets as escaped text or base64." >&2
-    exit 1
-  fi
-
-  printf '%s=%s\n' "${env_key}" "${parameter_value}" >> "${TMP_OUTPUT}"
-done < <(jq -r '.Parameters | sort_by(.Name)[] | @base64' <<< "${PARAMETERS_JSON}")
+  .Parameters
+  | map(. + { env_key: (.Name | split("/")[-1]) })
+  | invalid_key_items as $invalid_keys
+  | if ($invalid_keys | length) > 0 then
+      error("Invalid env key from SSM parameter name: " + $invalid_keys[0].Name)
+    else . end
+  | multiline_value_items as $multiline_values
+  | if ($multiline_values | length) > 0 then
+      error("Parameter value must be single-line for dotenv rendering: " + $multiline_values[0].Name)
+    else . end
+  | duplicate_key_groups as $duplicate_groups
+  | if ($duplicate_groups | length) > 0 then
+      error("Duplicate env key resolved from SSM parameters: " + $duplicate_groups[0][0].env_key)
+    else . end
+  | sort_by(.env_key)[]
+  | "\(.env_key)=\(.Value)"
+' <<< "${PARAMETERS_JSON}" >> "${TMP_OUTPUT}"
 
 install -m 600 "${TMP_OUTPUT}" "${OUTPUT_FILE}"
 echo "Wrote ${PARAMETER_COUNT} parameters to ${OUTPUT_FILE}."

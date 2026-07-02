@@ -67,32 +67,31 @@ fi
   echo "# Do not edit on the instance."
 } > "${APP_DIR}/.env"
 
-declare -A seen_keys=()
-while IFS= read -r encoded_parameter; do
-  parameter_json="$(printf '%s' "${encoded_parameter}" | base64 --decode)"
-  parameter_name="$(jq -r '.Name' <<< "${parameter_json}")"
-  parameter_value="$(jq -r '.Value' <<< "${parameter_json}")"
-  env_key="${parameter_name##*/}"
+jq -r '
+  def invalid_key_items:
+    map(select((.env_key | test("^[A-Z_][A-Z0-9_]*$")) | not));
+  def multiline_value_items:
+    map(select((.Value | contains("\n")) or (.Value | contains("\r"))));
+  def duplicate_key_groups:
+    group_by(.env_key) | map(select(length > 1));
 
-  if ! [[ "${env_key}" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
-    echo "Invalid env key from SSM parameter name: ${parameter_name}"
-    exit 1
-  fi
-
-  if [[ -n "${seen_keys[${env_key}]:-}" ]]; then
-    echo "Duplicate env key resolved from SSM parameters: ${env_key}"
-    exit 1
-  fi
-  seen_keys["${env_key}"]=1
-
-  if [[ "${parameter_value}" == *$'\n'* || "${parameter_value}" == *$'\r'* ]]; then
-    echo "Parameter value must be single-line for dotenv rendering: ${parameter_name}"
-    echo "Store multiline secrets as escaped text or base64."
-    exit 1
-  fi
-
-  printf '%s=%s\n' "${env_key}" "${parameter_value}" >> "${APP_DIR}/.env"
-done < <(jq -r '.Parameters | sort_by(.Name)[] | @base64' <<< "${PARAMETERS_JSON}")
+  .Parameters
+  | map(. + { env_key: (.Name | split("/")[-1]) })
+  | invalid_key_items as $invalid_keys
+  | if ($invalid_keys | length) > 0 then
+      error("Invalid env key from SSM parameter name: " + $invalid_keys[0].Name)
+    else . end
+  | multiline_value_items as $multiline_values
+  | if ($multiline_values | length) > 0 then
+      error("Parameter value must be single-line for dotenv rendering: " + $multiline_values[0].Name)
+    else . end
+  | duplicate_key_groups as $duplicate_groups
+  | if ($duplicate_groups | length) > 0 then
+      error("Duplicate env key resolved from SSM parameters: " + $duplicate_groups[0][0].env_key)
+    else . end
+  | sort_by(.env_key)[]
+  | "\(.env_key)=\(.Value)"
+' <<< "${PARAMETERS_JSON}" >> "${APP_DIR}/.env"
 
 chmod 600 "${APP_DIR}/.env"
 
