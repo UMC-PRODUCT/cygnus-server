@@ -2,18 +2,38 @@ package com.umc.product.certificate.adapter.out.pdf;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.Objects;
 
 import javax.imageio.ImageIO;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDPageContentStream.AppendMode;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.apache.pdfbox.pdmodel.graphics.color.PDColor;
+import org.apache.pdfbox.pdmodel.graphics.color.PDDeviceRGB;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.thymeleaf.context.Context;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.EncodeHintType;
 import com.google.zxing.MultiFormatWriter;
@@ -23,6 +43,7 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.umc.product.certificate.application.port.out.RenderCertificatePdfPort;
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
@@ -33,40 +54,93 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort {
 
+    private static final String TEMPLATE_CONFIG_RESOURCE_PATH = "certificate/config/certificate_template.json";
+    private static final String PRETENDARD_REGULAR_RESOURCE_PATH = "certificate/fonts/Pretendard-Regular.ttf";
+    private static final String PRETENDARD_MEDIUM_RESOURCE_PATH = "certificate/fonts/Pretendard-Medium.ttf";
+    private static final String PRETENDARD_SEMIBOLD_RESOURCE_PATH = "certificate/fonts/Pretendard-SemiBold.ttf";
+    private static final double PX_TO_PT = 0.283464567;
+    private static final boolean QR_CODE_ENABLED = true;
+    private static final float QR_CODE_SIZE_PT = 58F;
+    private static final float QR_CODE_RIGHT_OFFSET_PT = 188F;
+    private static final DateTimeFormatter ISSUE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM.dd")
+        .withLocale(Locale.KOREA)
+        .withZone(ZoneId.of("Asia/Seoul"));
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일")
         .withLocale(Locale.KOREA)
         .withZone(ZoneId.of("Asia/Seoul"));
 
     private final SpringTemplateEngine templateEngine;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public byte[] render(CertificatePdfRenderCommand command) {
         try {
-            Context context = new Context(Locale.KOREA);
-            context.setVariable("serialNumber", command.serialNumber());
-            context.setVariable("typeName", command.type().displayName());
-            context.setVariable("issuerName", command.issuer().displayName());
-            context.setVariable("recipientName", command.recipientName());
-            context.setVariable("recipientSchoolName", command.recipientSchoolName());
-            context.setVariable("gisuGeneration", command.gisuGeneration());
-            context.setVariable("projectName", command.projectName());
-            context.setVariable("meritTitle", command.meritTitle());
-            context.setVariable("meritDescription", command.meritDescription());
-            context.setVariable("issuedDate", DATE_FORMATTER.format(command.issuedAt()));
-            context.setVariable("expiresDate", DATE_FORMATTER.format(command.expiresAt()));
-            context.setVariable("verificationUrl", command.verificationUrl());
-            context.setVariable("qrCodeDataUri", createQrCodeDataUri(command.verificationUrl()));
-
-            String html = templateEngine.process(resolveTemplateName(command.type()), context);
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            PdfRendererBuilder builder = new PdfRendererBuilder();
-            builder.useFastMode();
-            builder.withHtmlContent(html, resolveBaseUri());
-            builder.toStream(outputStream);
-            builder.run();
-            return outputStream.toByteArray();
+            if (command.template() != null) {
+                return renderCoordinateTemplate(command);
+            }
+            return renderThymeleafTemplate(command);
+        } catch (CertificateException e) {
+            throw e;
         } catch (Exception e) {
             throw new CertificateException(CertificateErrorCode.CERTIFICATE_RENDER_FAILED, e);
+        }
+    }
+
+    private byte[] renderThymeleafTemplate(CertificatePdfRenderCommand command) throws Exception {
+        Context context = new Context(Locale.KOREA);
+        context.setVariable("serialNumber", command.issuanceNumber());
+        context.setVariable("typeName", command.type().displayName());
+        context.setVariable("issuerName", command.issuer().displayName());
+        context.setVariable("recipientName", command.recipientName());
+        context.setVariable("recipientSchoolName", command.recipientSchoolName());
+        context.setVariable("gisuGeneration", command.gisuGeneration());
+        context.setVariable("projectName", command.projectName());
+        context.setVariable("meritTitle", command.meritTitle());
+        context.setVariable("meritDescription", command.meritDescription());
+        context.setVariable("issuedDate", DATE_FORMATTER.format(command.issuedAt()));
+        context.setVariable("expiresDate", DATE_FORMATTER.format(command.expiresAt()));
+        context.setVariable("verificationUrl", command.verificationUrl());
+        context.setVariable("qrCodeDataUri", createQrCodeDataUri(command.verificationUrl()));
+
+        String html = templateEngine.process(resolveTemplateName(command.type()), context);
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        PdfRendererBuilder builder = new PdfRendererBuilder();
+        builder.useFastMode();
+        builder.useFont(() -> getResourceInputStream(PRETENDARD_REGULAR_RESOURCE_PATH), "Pretendard");
+        builder.useFont(() -> getResourceInputStream(PRETENDARD_MEDIUM_RESOURCE_PATH), "Pretendard");
+        builder.useFont(() -> getResourceInputStream(PRETENDARD_SEMIBOLD_RESOURCE_PATH), "Pretendard");
+        builder.withHtmlContent(html, resolveBaseUri());
+        builder.toStream(outputStream);
+        builder.run();
+        return outputStream.toByteArray();
+    }
+
+    private byte[] renderCoordinateTemplate(CertificatePdfRenderCommand command) throws Exception {
+        CertificateTemplate template = Objects.requireNonNull(command.template(), "template must not be null");
+        JsonNode config = loadTemplateConfig();
+        Map<String, String> fieldValues = buildFieldValues(command, template);
+
+        try (InputStream backgroundStream = getResourceInputStream(template.backgroundResourcePath());
+             PDDocument document = PDDocument.load(backgroundStream)) {
+            PDPage page = document.getPage(0);
+            FontSet fonts = loadFonts(document);
+
+            try (PDPageContentStream contentStream = new PDPageContentStream(
+                document,
+                page,
+                AppendMode.APPEND,
+                true,
+                true
+            )) {
+                JsonNode layout = config.path("layouts").path(Integer.toString(template.itemCount()));
+                drawShapes(contentStream, page, layout.path("shapes"));
+                drawFields(contentStream, page, fonts, collectFields(config, layout), fieldValues);
+                drawQrCodeIfEnabled(document, page, contentStream, command.verificationUrl());
+            }
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            document.save(outputStream);
+            return outputStream.toByteArray();
         }
     }
 
@@ -83,21 +157,530 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
         return resource != null ? resource.toString() : "";
     }
 
-    private String createQrCodeDataUri(String verificationUrl) throws Exception {
+    private JsonNode loadTemplateConfig() throws IOException {
+        try (InputStream inputStream = getResourceInputStream(TEMPLATE_CONFIG_RESOURCE_PATH)) {
+            return objectMapper.readTree(inputStream);
+        }
+    }
+
+    private FontSet loadFonts(PDDocument document) throws IOException {
+        try (InputStream regular = getResourceInputStream(PRETENDARD_REGULAR_RESOURCE_PATH);
+             InputStream medium = getResourceInputStream(PRETENDARD_MEDIUM_RESOURCE_PATH);
+             InputStream semiBold = getResourceInputStream(PRETENDARD_SEMIBOLD_RESOURCE_PATH)) {
+            return new FontSet(
+                PDType0Font.load(document, regular),
+                PDType0Font.load(document, medium),
+                PDType0Font.load(document, semiBold)
+            );
+        }
+    }
+
+    private InputStream getResourceInputStream(String resourcePath) {
+        try {
+            return new ClassPathResource(resourcePath).getInputStream();
+        } catch (IOException e) {
+            throw new CertificateException(CertificateErrorCode.CERTIFICATE_RENDER_FAILED, e);
+        }
+    }
+
+    private List<FieldDefinition> collectFields(JsonNode config, JsonNode layout) {
+        List<FieldDefinition> fields = new ArrayList<>();
+        config.path("commonFields").forEach(field -> fields.add(FieldDefinition.from(field)));
+        layout.path("fields").forEach(field -> fields.add(FieldDefinition.from(field)));
+        return fields;
+    }
+
+    private Map<String, String> buildFieldValues(CertificatePdfRenderCommand command, CertificateTemplate template) {
+        String generationKo = command.gisuGeneration() + "기";
+        String generationEn = command.gisuGeneration() + ordinalSuffix(command.gisuGeneration());
+        String displayAwardName = firstNonBlank(command.meritTitle(), template.awardName());
+        String line1 = generationEn + " " + template.brandName();
+
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("award_en_subtitle", englishCertificateTitle(template));
+        values.put("award_ko_subtitle", line1 + " " + koreanTitle(template, displayAwardName));
+        values.put("award_en_title_line1", line1);
+        values.put("award_en_title_line2", englishTitleLine2(template));
+        values.put("award_ko_title", koreanTitle(template, displayAwardName));
+        values.put("award_description", firstNonBlank(
+            command.meritDescription(),
+            defaultDescription(template, displayAwardName, generationKo, line1)
+        ));
+        values.put("issue_date", ISSUE_DATE_FORMATTER.format(command.issuedAt()));
+        values.put("static_issuer_value", command.issuer().displayName());
+        values.put("issuanceNumber", command.issuanceNumber());
+        values.put("item_label_1", "성명");
+        values.put("item_value_1", command.recipientName());
+        values.put("item_label_2", "소속");
+        values.put("item_value_2", firstNonBlank(command.recipientSchoolName(), "-"));
+        values.put("item_label_3", "기수");
+        values.put("item_value_3", generationKo);
+        values.put("item_label_4", itemLabel4(command));
+        values.put("item_value_4", itemValue4(command, displayAwardName));
+        return values;
+    }
+
+    private String itemLabel4(CertificatePdfRenderCommand command) {
+        return command.type() == CertificateType.PROJECT_PARTICIPATION ? "프로젝트" : "구분";
+    }
+
+    private String itemValue4(CertificatePdfRenderCommand command, String displayAwardName) {
+        if (command.type() == CertificateType.PROJECT_PARTICIPATION) {
+            return firstNonBlank(command.projectName(), "-");
+        }
+        return firstNonBlank(displayAwardName, command.type().displayName());
+    }
+
+    private String englishCertificateTitle(CertificateTemplate template) {
+        if (template.type() == CertificateType.COMPLETION || "공로증".equals(template.awardName())) {
+            return "Certificate of Completion";
+        }
+        return "Certificate of Award";
+    }
+
+    private String englishTitleLine2(CertificateTemplate template) {
+        if ("공로증".equals(template.awardName())) {
+            return "APPRECIATION";
+        }
+        if ("course".equals(template.eventKey())) {
+            return "COMPLETION";
+        }
+        if ("hackathon".equals(template.eventKey())) {
+            return "HACKATHON";
+        }
+        return "DEMO DAY";
+    }
+
+    private String koreanTitle(CertificateTemplate template, String awardName) {
+        if ("demo".equals(template.eventKey())) {
+            return "데모데이 " + awardName;
+        }
+        if ("hackathon".equals(template.eventKey())) {
+            return "해커톤 " + awardName;
+        }
+        return awardName;
+    }
+
+    private String defaultDescription(
+        CertificateTemplate template,
+        String awardName,
+        String generationKo,
+        String line1
+    ) {
+        if ("course".equals(template.eventKey()) && template.type() == CertificateType.COMPLETION) {
+            return "위 챌린저는 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
+                + " 과정을 성실히 수료하였기에 이 증서를 수여합니다.";
+        }
+        if ("course".equals(template.eventKey()) && "공로증".equals(template.awardName())) {
+            return "위 운영진은 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
+                + " 과정의 발전에 기여하였기에 이 증서를 수여합니다.";
+        }
+        if ("demo".equals(template.eventKey()) && "베스트 파트원".equals(template.awardName())) {
+            return "위 챌린저는 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
+                + " 과정에서 최고의 역량과 성과를 보였기에 이 증서를 수여합니다.";
+        }
+        if ("demo".equals(template.eventKey()) && "AWS특별상".equals(template.awardName())) {
+            return "위 챌린저는 " + line1
+                + " DEMO DAY에서 AWS 기술 활용의 우수성을 인정받아 이 증서를 수여합니다.";
+        }
+        if ("hackathon".equals(template.eventKey()) && template.type() == CertificateType.COMPLETION) {
+            return "위 챌린저는 " + line1 + " HACKATHON을 성실히 수료하였기에 이 증서를 수여합니다.";
+        }
+        String eventLabel = "hackathon".equals(template.eventKey()) ? "HACKATHON" : "DEMO DAY";
+        return "위 챌린저는 " + line1 + " " + eventLabel
+            + "에서 " + awardName + "에 해당하는 우수한 성과를 거두었기에 이 증서를 수여합니다.";
+    }
+
+    private void drawShapes(PDPageContentStream contentStream, PDPage page, JsonNode shapes) throws IOException {
+        float pageHeight = pageHeight(page);
+        for (JsonNode shape : shapes) {
+            float x = pxToPt(shape.path("xPx").asDouble());
+            float y = pageHeight - pxToPt(shape.path("yPx").asDouble() + shape.path("heightPx").asDouble());
+            float width = pxToPt(shape.path("widthPx").asDouble());
+            float height = pxToPt(shape.path("heightPx").asDouble());
+            int[] color = rgb(shape.path("strokeRGB"), 185, 185, 185);
+            contentStream.setStrokingColor(pdfRgb(color));
+            contentStream.setLineWidth(Math.max(pxToPt(shape.path("strokeWidthPx").asDouble(1D)), 0.1F));
+            if ("rect".equals(shape.path("type").asText())) {
+                contentStream.addRect(x, y, width, height);
+                contentStream.stroke();
+            } else {
+                contentStream.moveTo(x, y);
+                contentStream.lineTo(x + width, y);
+                contentStream.stroke();
+            }
+        }
+    }
+
+    private void drawFields(
+        PDPageContentStream contentStream,
+        PDPage page,
+        FontSet fonts,
+        List<FieldDefinition> fields,
+        Map<String, String> fieldValues
+    ) throws IOException {
+        float pageHeight = pageHeight(page);
+        for (FieldDefinition field : fields) {
+            String text = resolveText(field, fieldValues);
+            if (text.isBlank()) {
+                continue;
+            }
+            PDType0Font font = fonts.byStyle(field.fontStyle());
+            TextLayout layout = computeLayout(field, font, text);
+            if (!layout.fits() && "error".equals(field.overflowBehavior())) {
+                throw new CertificateException(CertificateErrorCode.CERTIFICATE_RENDER_FAILED);
+            }
+            drawText(contentStream, pageHeight, field, font, layout);
+        }
+    }
+
+    private String resolveText(FieldDefinition field, Map<String, String> fieldValues) {
+        String value = fieldValues.get(field.key());
+        if (value != null) {
+            return value;
+        }
+        return field.staticField() ? field.defaultText() : "";
+    }
+
+    private TextLayout computeLayout(FieldDefinition field, PDType0Font font, String text) throws IOException {
+        float maxWidth = pxToPt(field.widthPx());
+        float maxHeight = pxToPt(field.heightPx());
+        float baseLetterSpacing = pxToPt(field.letterSpacingPx());
+        float fontSize = field.fontSizePt();
+
+        List<String> lines = tryFit(field, font, text, fontSize, baseLetterSpacing, maxWidth, maxHeight);
+        if (lines != null) {
+            return new TextLayout(lines, fontSize, baseLetterSpacing, true);
+        }
+
+        for (float shrinkSize = fontSize - 0.5F; shrinkSize >= field.minFontSizePt(); shrinkSize -= 0.5F) {
+            lines = tryFit(field, font, text, shrinkSize, baseLetterSpacing, maxWidth, maxHeight);
+            if (lines != null) {
+                return new TextLayout(lines, shrinkSize, baseLetterSpacing, true);
+            }
+        }
+        return new TextLayout(List.of(text), field.minFontSizePt(), baseLetterSpacing, false);
+    }
+
+    private List<String> tryFit(
+        FieldDefinition field,
+        PDType0Font font,
+        String text,
+        float fontSize,
+        float letterSpacing,
+        float maxWidth,
+        float maxHeight
+    ) throws IOException {
+        float lineHeight = fontSize * field.lineHeightMultiplier();
+        if (!field.allowWrap()) {
+            if (textWidth(font, text, fontSize, letterSpacing) <= maxWidth && lineHeight <= maxHeight + 0.5F) {
+                return List.of(text);
+            }
+            return null;
+        }
+        List<String> lines = wrapText(font, text, fontSize, letterSpacing, maxWidth, field.maxLines());
+        if (lines.size() > field.maxLines() || lineHeight * lines.size() > maxHeight + 0.5F) {
+            return null;
+        }
+        return lines;
+    }
+
+    private List<String> wrapText(
+        PDType0Font font,
+        String text,
+        float fontSize,
+        float letterSpacing,
+        float maxWidth,
+        int maxLines
+    ) throws IOException {
+        String[] tokens = text.split("\\s+");
+        if (tokens.length == 0) {
+            return List.of(text);
+        }
+
+        List<String> lines = new ArrayList<>();
+        String current = "";
+        for (String token : tokens) {
+            String candidate = current.isBlank() ? token : current + " " + token;
+            if (textWidth(font, candidate, fontSize, letterSpacing) <= maxWidth) {
+                current = candidate;
+                continue;
+            }
+            if (!current.isBlank()) {
+                lines.add(current);
+                if (lines.size() >= maxLines) {
+                    return lines;
+                }
+            }
+            current = fitToken(font, token, fontSize, letterSpacing, maxWidth, lines, maxLines);
+        }
+        if (!current.isBlank()) {
+            lines.add(current);
+        }
+        return lines;
+    }
+
+    private String fitToken(
+        PDType0Font font,
+        String token,
+        float fontSize,
+        float letterSpacing,
+        float maxWidth,
+        List<String> lines,
+        int maxLines
+    ) throws IOException {
+        String current = "";
+        for (int offset = 0; offset < token.length(); ) {
+            int codePoint = token.codePointAt(offset);
+            String character = new String(Character.toChars(codePoint));
+            String candidate = current + character;
+            if (textWidth(font, candidate, fontSize, letterSpacing) <= maxWidth) {
+                current = candidate;
+            } else {
+                if (!current.isBlank()) {
+                    lines.add(current);
+                    if (lines.size() >= maxLines) {
+                        return character;
+                    }
+                }
+                current = character;
+            }
+            offset += Character.charCount(codePoint);
+        }
+        return current;
+    }
+
+    private void drawText(
+        PDPageContentStream contentStream,
+        float pageHeight,
+        FieldDefinition field,
+        PDType0Font font,
+        TextLayout layout
+    ) throws IOException {
+        contentStream.setNonStrokingColor(pdfRgb(field.colorRgb()));
+        for (int i = 0; i < layout.lines().size(); i++) {
+            String line = layout.lines().get(i);
+            float x = textX(field, font, line, layout.fontSizePt(), layout.letterSpacingPt());
+            float lineTop = pxToPt(field.yPx()) + i * layout.fontSizePt() * field.lineHeightMultiplier();
+            float y = pageHeight - lineTop - layout.fontSizePt() * 0.75F;
+            drawLine(contentStream, font, layout.fontSizePt(), layout.letterSpacingPt(), x, y, line);
+        }
+    }
+
+    private float textX(
+        FieldDefinition field,
+        PDType0Font font,
+        String line,
+        float fontSize,
+        float letterSpacing
+    ) throws IOException {
+        float x = pxToPt(field.xPx());
+        float fieldWidth = pxToPt(field.widthPx());
+        float textWidth = textWidth(font, line, fontSize, letterSpacing);
+        return switch (field.textAlignHorizontal()) {
+            case "RIGHT" -> x + fieldWidth - textWidth;
+            case "CENTER" -> x + (fieldWidth - textWidth) / 2F;
+            default -> x;
+        };
+    }
+
+    private void drawLine(
+        PDPageContentStream contentStream,
+        PDType0Font font,
+        float fontSize,
+        float letterSpacing,
+        float x,
+        float y,
+        String line
+    ) throws IOException {
+        contentStream.beginText();
+        contentStream.setFont(font, fontSize);
+        contentStream.newLineAtOffset(x, y);
+        if (Math.abs(letterSpacing) < 0.01F) {
+            contentStream.showText(line);
+        } else {
+            showTextWithLetterSpacing(contentStream, font, fontSize, letterSpacing, line);
+        }
+        contentStream.endText();
+    }
+
+    private void showTextWithLetterSpacing(
+        PDPageContentStream contentStream,
+        PDType0Font font,
+        float fontSize,
+        float letterSpacing,
+        String line
+    ) throws IOException {
+        for (int offset = 0; offset < line.length(); ) {
+            int codePoint = line.codePointAt(offset);
+            String character = new String(Character.toChars(codePoint));
+            contentStream.showText(character);
+            contentStream.newLineAtOffset(textWidth(font, character, fontSize, 0F) + letterSpacing, 0F);
+            offset += Character.charCount(codePoint);
+        }
+    }
+
+    private void drawQrCodeIfEnabled(
+        PDDocument document,
+        PDPage page,
+        PDPageContentStream contentStream,
+        String verificationUrl
+    ) throws Exception {
+        if (!QR_CODE_ENABLED) {
+            return;
+        }
+        BufferedImage qrImage = createQrCodeImage(verificationUrl, 180);
+        PDImageXObject imageObject = LosslessFactory.createFromImage(document, qrImage);
+        PDRectangle mediaBox = page.getMediaBox();
+        contentStream.drawImage(
+            imageObject,
+            mediaBox.getWidth() - QR_CODE_SIZE_PT - QR_CODE_RIGHT_OFFSET_PT,
+            36F,
+            QR_CODE_SIZE_PT,
+            QR_CODE_SIZE_PT
+        );
+    }
+
+    private BufferedImage createQrCodeImage(String verificationUrl, int size) throws Exception {
         BitMatrix bitMatrix = new MultiFormatWriter().encode(
             verificationUrl,
             BarcodeFormat.QR_CODE,
-            180,
-            180,
-            java.util.Map.of(
+            size,
+            size,
+            Map.of(
                 EncodeHintType.CHARACTER_SET, "UTF-8",
                 EncodeHintType.ERROR_CORRECTION, ErrorCorrectionLevel.M,
                 EncodeHintType.MARGIN, 1
             )
         );
-        BufferedImage image = MatrixToImageWriter.toBufferedImage(bitMatrix);
+        return MatrixToImageWriter.toBufferedImage(bitMatrix);
+    }
+
+    private String createQrCodeDataUri(String verificationUrl) throws Exception {
+        BufferedImage image = createQrCodeImage(verificationUrl, 180);
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         ImageIO.write(image, "png", outputStream);
         return "data:image/png;base64," + Base64.getEncoder().encodeToString(outputStream.toByteArray());
+    }
+
+    private float textWidth(PDType0Font font, String text, float fontSize, float letterSpacing) throws IOException {
+        return font.getStringWidth(text) / 1000F * fontSize
+            + letterSpacing * Math.max(0, text.codePointCount(0, text.length()) - 1);
+    }
+
+    private float pageHeight(PDPage page) {
+        return page.getMediaBox().getHeight();
+    }
+
+    private float pxToPt(double px) {
+        return (float) (px * PX_TO_PT);
+    }
+
+    private int[] rgb(JsonNode node, int defaultR, int defaultG, int defaultB) {
+        if (!node.isArray() || node.size() < 3) {
+            return new int[] {defaultR, defaultG, defaultB};
+        }
+        return new int[] {node.get(0).asInt(), node.get(1).asInt(), node.get(2).asInt()};
+    }
+
+    private PDColor pdfRgb(int[] rgb) {
+        return new PDColor(
+            new float[] {rgb[0] / 255F, rgb[1] / 255F, rgb[2] / 255F},
+            PDDeviceRGB.INSTANCE
+        );
+    }
+
+    private String firstNonBlank(String first, String fallback) {
+        if (first != null && !first.isBlank()) {
+            return first.trim();
+        }
+        return fallback;
+    }
+
+    private String ordinalSuffix(Long value) {
+        long number = value == null ? 0L : Math.abs(value);
+        long lastTwoDigits = number % 100;
+        if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+            return "th";
+        }
+        return switch ((int) (number % 10)) {
+            case 1 -> "st";
+            case 2 -> "nd";
+            case 3 -> "rd";
+            default -> "th";
+        };
+    }
+
+    private record FontSet(
+        PDType0Font regular,
+        PDType0Font medium,
+        PDType0Font semiBold
+    ) {
+
+        private PDType0Font byStyle(String fontStyle) {
+            return switch (fontStyle) {
+                case "SemiBold" -> semiBold;
+                case "Medium" -> medium;
+                default -> regular;
+            };
+        }
+    }
+
+    private record FieldDefinition(
+        String key,
+        double xPx,
+        double yPx,
+        double widthPx,
+        double heightPx,
+        String fontStyle,
+        float fontSizePt,
+        float lineHeightMultiplier,
+        double letterSpacingPx,
+        String textAlignHorizontal,
+        int maxLines,
+        boolean allowWrap,
+        float minFontSizePt,
+        String overflowBehavior,
+        int[] colorRgb,
+        String defaultText,
+        boolean staticField
+    ) {
+
+        private static FieldDefinition from(JsonNode node) {
+            return new FieldDefinition(
+                node.path("key").asText(),
+                node.path("xPx").asDouble(),
+                node.path("yPx").asDouble(),
+                node.path("widthPx").asDouble(),
+                node.path("heightPx").asDouble(),
+                node.path("fontStyle").asText("Regular"),
+                (float) node.path("fontSizePt").asDouble(10D),
+                (float) node.path("lineHeightMultiplier").asDouble(1.2D),
+                node.path("letterSpacingPx").asDouble(0D),
+                node.path("textAlignHorizontal").asText("LEFT"),
+                node.path("maxLines").asInt(1),
+                node.path("allowWrap").asBoolean(false),
+                (float) node.path("minFontSizePt").asDouble(6D),
+                node.path("overflowBehavior").asText("error"),
+                rgb(node.path("colorRGB"), 0, 0, 0),
+                node.path("defaultText").asText(""),
+                node.path("static").asBoolean(false)
+            );
+        }
+
+        private static int[] rgb(JsonNode node, int defaultR, int defaultG, int defaultB) {
+            if (!node.isArray() || node.size() < 3) {
+                return new int[] {defaultR, defaultG, defaultB};
+            }
+            return new int[] {node.get(0).asInt(), node.get(1).asInt(), node.get(2).asInt()};
+        }
+    }
+
+    private record TextLayout(
+        List<String> lines,
+        float fontSizePt,
+        float letterSpacingPt,
+        boolean fits
+    ) {
     }
 }
