@@ -5,11 +5,13 @@ import static com.umc.product.challenger.domain.QChallengerRecord.challengerReco
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
+import com.umc.product.challenger.application.port.out.dto.UnusedChallengerRecordCountRow;
 import com.umc.product.challenger.domain.ChallengerRecord;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
@@ -60,6 +62,27 @@ public class ChallengerRecordQueryRepository {
             .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    /**
+     * 기수×학교 단위로 미사용(isUsed=false) 챌린저 기록 코드 개수를 그룹 집계합니다.
+     * <p>
+     * 미사용 코드가 0개인 (기수, 학교) 조합은 결과에 포함되지 않으며,
+     * 기수 내림차순(최신 우선) · 학교 오름차순으로 정렬합니다.
+     */
+    public List<UnusedChallengerRecordCountRow> aggregateUnusedCountByGisuAndSchool() {
+        return queryFactory
+            .select(Projections.constructor(
+                UnusedChallengerRecordCountRow.class,
+                challengerRecord.gisuId,
+                challengerRecord.schoolId,
+                challengerRecord.count()
+            ))
+            .from(challengerRecord)
+            .where(challengerRecord.isUsed.isFalse())
+            .groupBy(challengerRecord.gisuId, challengerRecord.schoolId)
+            .orderBy(challengerRecord.gisuId.desc(), challengerRecord.schoolId.asc())
+            .fetch();
     }
 
     private BooleanBuilder buildCondition(ListChallengerRecordsQuery query) {

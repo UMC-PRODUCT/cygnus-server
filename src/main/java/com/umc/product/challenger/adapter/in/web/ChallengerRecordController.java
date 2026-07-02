@@ -14,7 +14,6 @@ import com.umc.product.challenger.adapter.in.web.dto.response.UnusedChallengerRe
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
-import com.umc.product.challenger.application.port.in.query.GetUnusedChallengerRecordStatisticsUseCase;
 import com.umc.product.global.response.PageResponse;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -46,7 +45,6 @@ public class ChallengerRecordController {
 
     private final ChallengerRecordResponseAssembler assembler;
     private final ManageChallengerRecordUseCase manageChallengerRecordUseCase;
-    private final GetUnusedChallengerRecordStatisticsUseCase getUnusedChallengerRecordStatisticsUseCase;
     private final JwtTokenProvider jwtTokenProvider;
 
     // 코드를 이용해서 Member에 챌린저 기록을 추가하는 API
@@ -130,14 +128,14 @@ public class ChallengerRecordController {
         permission = PermissionType.READ
     )
     @GetMapping("statistics/unused")
-    @Operation(operationId = "CHALLENGER-RECORD-104", summary = "미사용 ChallengerRecord 코드 통합 통계 조회",
+    @Operation(operationId = "CHALLENGER-RECORD-104", summary = "기수×학교별 미사용 ChallengerRecord 코드 개수 집계 조회",
         description = """
-            아직 사용되지 않은(isUsed=false) 챌린저 기록 코드의 전체 개수를 통합 집계하여 반환합니다.
+            아직 사용되지 않은(isUsed=false) 챌린저 기록 코드 개수를 기수×학교 단위로 그룹 집계하여 반환합니다.
+            미사용 코드가 0개인 (기수, 학교) 조합은 결과에 포함되지 않으며, 기수 내림차순·학교 오름차순으로 정렬됩니다.
+            전체 합계(totalUnusedCount)도 함께 제공합니다.
             """)
     public UnusedChallengerRecordStatisticsResponse getUnusedChallengerRecordStatistics() {
-        return UnusedChallengerRecordStatisticsResponse.of(
-            getUnusedChallengerRecordStatisticsUseCase.getUnusedRecordCount()
-        );
+        return assembler.unusedStatistics();
     }
 
     // 코드를 생성하는 API

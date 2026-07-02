@@ -1,7 +1,9 @@
 package com.umc.product.challenger.application.service;
 
 import com.umc.product.challenger.application.port.in.query.GetUnusedChallengerRecordStatisticsUseCase;
+import com.umc.product.challenger.application.port.in.query.dto.UnusedChallengerRecordCountInfo;
 import com.umc.product.challenger.application.port.out.LoadChallengerRecordPort;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,7 +16,9 @@ public class ChallengerRecordStatisticsQueryService implements GetUnusedChalleng
     private final LoadChallengerRecordPort loadChallengerRecordPort;
 
     @Override
-    public long getUnusedRecordCount() {
-        return loadChallengerRecordPort.countUnused();
+    public List<UnusedChallengerRecordCountInfo> getUnusedCountByGisuAndSchool() {
+        return loadChallengerRecordPort.aggregateUnusedCountByGisuAndSchool().stream()
+            .map(row -> new UnusedChallengerRecordCountInfo(row.gisuId(), row.schoolId(), row.unusedCount()))
+            .toList();
     }
 }

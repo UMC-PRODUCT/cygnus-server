@@ -3,6 +3,7 @@ package com.umc.product.challenger.adapter.out.persistence;
 import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
 import com.umc.product.challenger.application.port.out.LoadChallengerRecordPort;
 import com.umc.product.challenger.application.port.out.SaveChallengerRecordPort;
+import com.umc.product.challenger.application.port.out.dto.UnusedChallengerRecordCountRow;
 import com.umc.product.challenger.domain.ChallengerRecord;
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
@@ -62,8 +63,8 @@ public class ChallengerRecordPersistenceAdapter implements LoadChallengerRecordP
     }
 
     @Override
-    public long countUnused() {
-        return repository.countByIsUsedFalse();
+    public List<UnusedChallengerRecordCountRow> aggregateUnusedCountByGisuAndSchool() {
+        return queryRepository.aggregateUnusedCountByGisuAndSchool();
     }
 
     @Override
