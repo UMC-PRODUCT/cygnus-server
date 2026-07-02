@@ -27,6 +27,7 @@ variable "subnets" {
     availability_zone       = string
     map_public_ip_on_launch = bool
     route_table             = string
+    role                    = string
   }))
   description = "Subnet definitions keyed by subnet Name tag. route_table unmanaged preserves subnets without explicit route table association."
   nullable    = false
@@ -40,6 +41,13 @@ variable "subnets" {
 
   validation {
     condition = alltrue([
+      for subnet in var.subnets : contains(["public-alb", "public-app", "private-app", "private-db", "unmanaged"], subnet.role)
+    ])
+    error_message = "subnets[*].role must be public-alb, public-app, private-app, private-db, or unmanaged."
+  }
+
+  validation {
+    condition = alltrue([
       for subnet in var.subnets : can(cidrnetmask(subnet.cidr))
     ])
     error_message = "subnets[*].cidr must be valid CIDR blocks."
@@ -48,6 +56,6 @@ variable "subnets" {
 
 variable "enable_s3_gateway_endpoint" {
   type        = bool
-  description = "Whether to create an S3 gateway VPC endpoint for private route table."
+  description = "Whether to create an S3 gateway VPC endpoint for public and private route tables."
   default     = true
 }

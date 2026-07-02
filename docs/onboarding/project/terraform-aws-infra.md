@@ -29,15 +29,15 @@
 | 경로 | 책임 |
 | --- | --- |
 | `infra/terraform/modules/network/main.tf` | VPC, subnet, internet gateway, route table, route table association, S3 gateway endpoint를 생성한다. |
-| `infra/terraform/modules/network/variables.tf` | VPC CIDR, subnet map, route table 구분, S3 gateway endpoint 활성화 여부를 입력받는다. |
-| `infra/terraform/modules/network/outputs.tf` | VPC ID, subnet ID map, public/private route table ID를 다른 모듈에 전달한다. |
+| `infra/terraform/modules/network/variables.tf` | VPC CIDR, subnet map, route table 구분, subnet role, S3 gateway endpoint 활성화 여부를 입력받는다. |
+| `infra/terraform/modules/network/outputs.tf` | VPC ID, subnet ID map, role별 subnet ID 목록, public/private route table ID를 다른 모듈에 전달한다. |
 
 ### Security module
 
 | 경로 | 책임 |
 | --- | --- |
 | `infra/terraform/modules/security/main.tf` | ALB, ASG, DB 등 security group과 ingress/egress rule을 관리한다. SG rule은 독립 리소스로 두어 순환 참조를 줄인다. |
-| `infra/terraform/modules/security/variables.tf` | VPC ID, SSH 허용 CIDR, parity용 공개 SSH 허용 여부를 입력받는다. rebuild 기본값은 공개 SSH를 허용하지 않는다. |
+| `infra/terraform/modules/security/variables.tf` | VPC ID/CIDR, SSH 허용 CIDR, parity용 공개 SSH 허용 여부를 입력받는다. rebuild 기본값은 공개 SSH를 허용하지 않는다. |
 | `infra/terraform/modules/security/outputs.tf` | ALB/ASG/DB security group ID를 ALB, ASG, RDS 모듈에 전달한다. |
 
 ### IAM module

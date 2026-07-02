@@ -31,7 +31,7 @@ variable "acm_certificate_arn" {
   nullable    = false
 
   validation {
-    condition     = can(regex("^arn:aws:acm:ap-northeast-2:137809407320:certificate/[0-9a-f-]+$", var.acm_certificate_arn))
-    error_message = "acm_certificate_arn must be an ACM certificate ARN in account 137809407320 and region ap-northeast-2."
+    condition     = can(regex("^arn:aws:acm:ap-northeast-2:[0-9]{12}:certificate/[0-9a-f-]+$", var.acm_certificate_arn))
+    error_message = "acm_certificate_arn must be a valid ACM certificate ARN in ap-northeast-2 region."
   }
 }

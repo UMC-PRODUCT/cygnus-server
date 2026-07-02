@@ -4,6 +4,17 @@ variable "vpc_id" {
   nullable    = false
 }
 
+variable "vpc_cidr" {
+  type        = string
+  description = "VPC CIDR block allowed for database security group egress."
+  nullable    = false
+
+  validation {
+    condition     = can(cidrnetmask(var.vpc_cidr))
+    error_message = "vpc_cidr must be a valid CIDR block."
+  }
+}
+
 variable "allowed_ssh_cidrs" {
   type        = list(string)
   description = "CIDR blocks allowed to access EC2 instances over SSH."

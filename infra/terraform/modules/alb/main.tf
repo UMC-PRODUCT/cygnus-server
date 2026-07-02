@@ -111,19 +111,8 @@ resource "aws_lb_listener_rule" "dev" {
   }
 
   action {
-    type = "forward"
-
-    forward {
-      target_group {
-        arn    = aws_lb_target_group.dev_ec2.arn
-        weight = 1
-      }
-
-      stickiness {
-        enabled  = false
-        duration = 3600
-      }
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.dev_ec2.arn
   }
 }
 
@@ -138,18 +127,7 @@ resource "aws_lb_listener_rule" "prod" {
   }
 
   action {
-    type = "forward"
-
-    forward {
-      target_group {
-        arn    = aws_lb_target_group.prod_ec2.arn
-        weight = 1
-      }
-
-      stickiness {
-        enabled  = false
-        duration = 3600
-      }
-    }
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.prod_ec2.arn
   }
 }

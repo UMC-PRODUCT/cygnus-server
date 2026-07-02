@@ -33,10 +33,8 @@ variable "dev_host_headers" {
   nullable    = false
 
   validation {
-    condition = alltrue([
-      for host in var.dev_host_headers : host == "dev.api.university.neordinary.com"
-    ])
-    error_message = "dev_host_headers may only contain dev.api.university.neordinary.com."
+    condition     = length(var.dev_host_headers) > 0 && alltrue([for host in var.dev_host_headers : length(trimspace(host)) > 0])
+    error_message = "dev_host_headers must contain at least one non-empty host header."
   }
 }
 
@@ -46,10 +44,8 @@ variable "prod_host_headers" {
   nullable    = false
 
   validation {
-    condition = alltrue([
-      for host in var.prod_host_headers : host == "api.university.neordinary.com"
-    ])
-    error_message = "prod_host_headers may only contain api.university.neordinary.com."
+    condition     = length(var.prod_host_headers) > 0 && alltrue([for host in var.prod_host_headers : length(trimspace(host)) > 0])
+    error_message = "prod_host_headers must contain at least one non-empty host header."
   }
 }
 

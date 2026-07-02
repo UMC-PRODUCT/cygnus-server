@@ -111,11 +111,12 @@ resource "aws_security_group_rule" "db_ingress_postgresql" {
 
 # 기존 ECS task와 bastion의 DB ingress는 초기 import 범위에서 의도적으로 소유하지 않는다.
 # standalone rule만 선언했으므로 Terraform은 미소유 기존 rule을 삭제하지 않는다.
-resource "aws_security_group_rule" "db_egress_all" {
+resource "aws_security_group_rule" "db_egress_vpc" {
   type              = "egress"
   security_group_id = aws_security_group.db.id
+  description       = "Restrict DB outbound traffic to VPC CIDR"
   from_port         = 0
   to_port           = 0
   protocol          = "-1"
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = [var.vpc_cidr]
 }

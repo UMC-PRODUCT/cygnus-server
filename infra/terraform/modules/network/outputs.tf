@@ -1,3 +1,14 @@
+locals {
+  subnet_ids_by_role = {
+    for role in toset([for subnet in values(var.subnets) : subnet.role]) : role => [
+      for subnet_key in sort([
+        for name, subnet in var.subnets : "${subnet.availability_zone}|${name}"
+        if subnet.role == role
+      ]) : aws_subnet.this[split("|", subnet_key)[1]].id
+    ]
+  }
+}
+
 output "vpc_id" {
   description = "VPC ID."
   value       = aws_vpc.this.id
@@ -10,34 +21,22 @@ output "subnet_ids" {
 
 output "public_subnet_ids" {
   description = "Public ALB subnet IDs ordered by AZ."
-  value = [
-    aws_subnet.this["server-subnet-pub-2a"].id,
-    aws_subnet.this["server-subnet-pub-2b"].id
-  ]
+  value       = try(local.subnet_ids_by_role["public-alb"], [])
 }
 
 output "public_app_subnet_ids" {
   description = "Public app subnet IDs used by current ASG launch templates."
-  value = [
-    aws_subnet.this["server-subnet-pub-app-2a"].id,
-    aws_subnet.this["server-subnet-pub-app-2b"].id
-  ]
+  value       = try(local.subnet_ids_by_role["public-app"], [])
 }
 
 output "private_app_subnet_ids" {
   description = "Private app subnet IDs for future hardening."
-  value = [
-    aws_subnet.this["server-subnet-pri-app-2a"].id,
-    aws_subnet.this["server-subnet-pri-app-2b"].id
-  ]
+  value       = try(local.subnet_ids_by_role["private-app"], [])
 }
 
 output "private_db_subnet_ids" {
   description = "Private DB subnet IDs ordered by AZ."
-  value = [
-    aws_subnet.this["server-subnet-pri-db-2a"].id,
-    aws_subnet.this["server-subnet-pri-db-2b"].id
-  ]
+  value       = try(local.subnet_ids_by_role["private-db"], [])
 }
 
 output "public_route_table_id" {

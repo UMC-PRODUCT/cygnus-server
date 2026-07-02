@@ -174,7 +174,7 @@ import {
 }
 
 import {
-  to = module.security.aws_security_group_rule.db_egress_all
+  to = module.security.aws_security_group_rule.db_egress_vpc
   id = "sg-0c1aa556e22fb3981_egress_-1_0_0_0.0.0.0/0"
 }
 
