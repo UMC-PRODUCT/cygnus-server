@@ -19,8 +19,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.certificate.application.port.in.command.dto.AdminIssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.CertificateIssueInfo;
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.application.port.out.LoadCertificatePort;
@@ -30,6 +32,7 @@ import com.umc.product.certificate.application.port.out.dto.CertificatePdfRender
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssueSpec;
 import com.umc.product.certificate.domain.CertificateIssuer;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
 import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
@@ -74,6 +77,7 @@ class CertificateCommandServiceTest {
         given(contextResolver.resolveSelf(command)).willReturn(context);
         given(loadCertificatePort.findValidByScope(
             CertificateType.COMPLETION,
+            CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
             1L,
             7L,
             null,
@@ -104,6 +108,7 @@ class CertificateCommandServiceTest {
         given(contextResolver.resolveSelf(command)).willReturn(completionContext());
         given(loadCertificatePort.findValidByScope(
             CertificateType.COMPLETION,
+            CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
             1L,
             7L,
             null,
@@ -137,6 +142,50 @@ class CertificateCommandServiceTest {
         assertThat(saved.getFileSha256()).isEqualTo(sha256(pdfBytes));
     }
 
+    @Test
+    @DisplayName("템플릿 발급 시 선택된 템플릿과 발급번호를 PDF 렌더러로 전달한다")
+    void 템플릿_발급_시_선택된_템플릿과_발급번호를_PDF_렌더러로_전달한다() {
+        // given
+        AdminIssueCertificateCommand command = AdminIssueCertificateCommand.builder()
+            .template(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE)
+            .requesterMemberId(99L)
+            .recipientMemberId(1L)
+            .gisuId(7L)
+            .build();
+        byte[] pdfBytes = "pdf-content".getBytes(StandardCharsets.UTF_8);
+        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
+        given(contextResolver.resolveAdmin(command)).willReturn(meritTemplateContext());
+        given(loadCertificatePort.findValidByScope(
+            CertificateType.MERIT,
+            CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+            1L,
+            7L,
+            null,
+            "최우수상",
+            NOW
+        )).willReturn(Optional.empty());
+        given(serialNumberGenerator.generate(CertificateType.MERIT, NOW))
+            .willReturn("UMC-MRT-20260701-ABCDEFGH");
+        given(loadCertificatePort.existsBySerialNumber("UMC-MRT-20260701-ABCDEFGH")).willReturn(false);
+        given(renderCertificatePdfPort.render(org.mockito.ArgumentMatchers.any())).willReturn(pdfBytes);
+        given(storeGeneratedFileUseCase.store(org.mockito.ArgumentMatchers.any()))
+            .willReturn(GeneratedFileInfo.of("file-id", "private/certificate/file.pdf", pdfBytes.length));
+        given(saveCertificatePort.save(org.mockito.ArgumentMatchers.any(Certificate.class)))
+            .willAnswer(invocation -> invocation.getArgument(0));
+        CertificateCommandService sut = sut();
+        ArgumentCaptor<CertificatePdfRenderCommand> renderCommandCaptor =
+            ArgumentCaptor.forClass(CertificatePdfRenderCommand.class);
+
+        // when
+        sut.issueByAdmin(command);
+
+        // then
+        verify(renderCertificatePdfPort).render(renderCommandCaptor.capture());
+        CertificatePdfRenderCommand renderCommand = renderCommandCaptor.getValue();
+        assertThat(renderCommand.template()).isEqualTo(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE);
+        assertThat(renderCommand.issuanceNumber()).isEqualTo("UMC-MRT-20260701-ABCDEFGH");
+    }
+
     private CertificateCommandService sut() {
         return new CertificateCommandService(
             loadCertificatePort,
@@ -147,6 +196,7 @@ class CertificateCommandServiceTest {
             contextResolver,
             getChallengerRoleUseCase,
             new CertificateProperties("/api/v1/certificates/verify/{serialNumber}"),
+            TransactionOperations.withoutTransaction(),
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
     }
@@ -154,6 +204,7 @@ class CertificateCommandServiceTest {
     private CertificateIssueContext completionContext() {
         return new CertificateIssueContext(
             CertificateType.COMPLETION,
+            null,
             CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
             1L,
             "김유엠",
@@ -165,6 +216,24 @@ class CertificateCommandServiceTest {
             null,
             null,
             1L
+        );
+    }
+
+    private CertificateIssueContext meritTemplateContext() {
+        return new CertificateIssueContext(
+            CertificateType.MERIT,
+            CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE,
+            CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+            1L,
+            "김유엠",
+            "유엠씨대학교",
+            7L,
+            7L,
+            null,
+            null,
+            "최우수상",
+            "탁월한 기여",
+            99L
         );
     }
 

@@ -5,9 +5,12 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
+import java.util.Objects;
+import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionOperations;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
@@ -53,6 +56,7 @@ public class CertificateCommandService implements
     private final CertificateIssueContextResolver contextResolver;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final CertificateProperties certificateProperties;
+    private final TransactionOperations transactionOperations;
     private final Clock clock;
 
     @Override
@@ -63,7 +67,6 @@ public class CertificateCommandService implements
         targetId = "#result.certificateId()",
         description = "'인증서를 셀프 발급했습니다.'"
     )
-    @Transactional
     public CertificateIssueInfo issue(IssueCertificateCommand command) {
         CertificateIssueContext context = contextResolver.resolveSelf(command);
         return issue(context, false);
@@ -77,7 +80,6 @@ public class CertificateCommandService implements
         targetId = "#result.certificateId()",
         description = "'운영진이 인증서를 발급했습니다.'"
     )
-    @Transactional
     public CertificateIssueInfo issueByAdmin(AdminIssueCertificateCommand command) {
         validateAdmin(command.requesterMemberId(), command.gisuId());
         CertificateIssueContext context = contextResolver.resolveAdmin(command);
@@ -94,8 +96,7 @@ public class CertificateCommandService implements
     )
     @Transactional
     public void revoke(RevokeCertificateCommand command) {
-        Certificate certificate = loadCertificatePort.findById(command.certificateId())
-            .orElseThrow(() -> new CertificateException(CertificateErrorCode.CERTIFICATE_NOT_FOUND));
+        Certificate certificate = loadCertificatePort.getById(command.certificateId());
         validateAdmin(command.requesterMemberId(), certificate.getGisuId());
         certificate.revoke(command.requesterMemberId(), Instant.now(clock), command.reason());
         saveCertificatePort.save(certificate);
@@ -103,24 +104,12 @@ public class CertificateCommandService implements
 
     private CertificateIssueInfo issue(CertificateIssueContext context, boolean reissue) {
         Instant now = Instant.now(clock);
-        Certificate existing = loadCertificatePort.findValidByScope(
-            context.type(),
-            context.recipientMemberId(),
-            context.gisuId(),
-            context.projectId(),
-            context.meritTitle(),
-            now
-        ).orElse(null);
-
-        if (existing != null && !reissue) {
-            return CertificateIssueInfo.from(existing);
-        }
-        if (existing != null) {
-            existing.revoke(context.issuedByMemberId(), now, "재발급");
-            saveCertificatePort.save(existing);
+        CertificateIssuePreparation preparation = executeInTransaction(() -> prepareIssue(context, reissue, now));
+        if (preparation.existingInfo() != null) {
+            return preparation.existingInfo();
         }
 
-        String serialNumber = generateUniqueSerialNumber(context, now);
+        String serialNumber = preparation.serialNumber();
         Instant expiresAt = now.plusSeconds(365L * 24 * 60 * 60);
         byte[] pdfBytes = renderPdf(context, serialNumber, now, expiresAt);
         String fileSha256 = sha256(pdfBytes);
@@ -132,6 +121,39 @@ public class CertificateCommandService implements
             context.issuedByMemberId()
         ));
 
+        return executeInTransaction(() -> saveIssuedCertificate(context, serialNumber, now, fileInfo, fileSha256));
+    }
+
+    private CertificateIssuePreparation prepareIssue(CertificateIssueContext context, boolean reissue, Instant now) {
+        Certificate existing = loadCertificatePort.findValidByScope(
+            context.type(),
+            context.issuer(),
+            context.recipientMemberId(),
+            context.gisuId(),
+            context.projectId(),
+            context.meritTitle(),
+            now
+        ).orElse(null);
+
+        if (existing != null && !reissue) {
+            return CertificateIssuePreparation.existing(CertificateIssueInfo.from(existing));
+        }
+        if (existing != null) {
+            existing.revoke(context.issuedByMemberId(), now, "재발급");
+            saveCertificatePort.save(existing);
+        }
+
+        String serialNumber = generateUniqueSerialNumber(context, now);
+        return CertificateIssuePreparation.newIssue(serialNumber);
+    }
+
+    private CertificateIssueInfo saveIssuedCertificate(
+        CertificateIssueContext context,
+        String serialNumber,
+        Instant issuedAt,
+        GeneratedFileInfo fileInfo,
+        String fileSha256
+    ) {
         Certificate certificate = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber(serialNumber)
             .type(context.type())
@@ -146,7 +168,7 @@ public class CertificateCommandService implements
             .meritTitle(context.meritTitle())
             .meritDescription(context.meritDescription())
             .issuedByMemberId(context.issuedByMemberId())
-            .issuedAt(now)
+            .issuedAt(issuedAt)
             .fileId(fileInfo.fileId())
             .fileSha256(fileSha256)
             .build());
@@ -156,8 +178,9 @@ public class CertificateCommandService implements
 
     private byte[] renderPdf(CertificateIssueContext context, String serialNumber, Instant issuedAt, Instant expiresAt) {
         return renderCertificatePdfPort.render(CertificatePdfRenderCommand.builder()
-            .serialNumber(serialNumber)
+            .issuanceNumber(serialNumber)
             .type(context.type())
+            .template(context.template())
             .issuer(context.issuer())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
@@ -169,6 +192,10 @@ public class CertificateCommandService implements
             .expiresAt(expiresAt)
             .verificationUrl(certificateProperties.verificationUrl(serialNumber))
             .build());
+    }
+
+    private <T> T executeInTransaction(Supplier<T> supplier) {
+        return Objects.requireNonNull(transactionOperations.execute(status -> supplier.get()));
     }
 
     private String generateUniqueSerialNumber(CertificateIssueContext context, Instant issuedAt) {
@@ -194,6 +221,20 @@ public class CertificateCommandService implements
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
         } catch (NoSuchAlgorithmException e) {
             throw new CertificateException(CertificateErrorCode.CERTIFICATE_RENDER_FAILED, e);
+        }
+    }
+
+    private record CertificateIssuePreparation(
+        CertificateIssueInfo existingInfo,
+        String serialNumber
+    ) {
+
+        private static CertificateIssuePreparation existing(CertificateIssueInfo existingInfo) {
+            return new CertificateIssuePreparation(existingInfo, null);
+        }
+
+        private static CertificateIssuePreparation newIssue(String serialNumber) {
+            return new CertificateIssuePreparation(null, serialNumber);
         }
     }
 }

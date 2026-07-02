@@ -123,6 +123,23 @@ class S3StorageAdapterTest {
     }
 
     @Test
+    @DisplayName("다운로드 URL 생성 실패 시 원인 예외를 보존한다")
+    void 다운로드_URL_생성_실패_시_원인_예외를_보존한다() {
+        // given
+        S3StorageAdapter sut = adapter();
+        RuntimeException failure = new RuntimeException("presign failed");
+        given(s3Presigner.presignGetObject(org.mockito.ArgumentMatchers.any(GetObjectPresignRequest.class)))
+            .willThrow(failure);
+
+        // when & then
+        assertThatThrownBy(() -> sut.generateAccessUrl("private/certificate/file.pdf", 60L))
+            .isInstanceOf(StorageException.class)
+            .hasCause(failure)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.STORAGE_URL_GENERATION_FAILED);
+    }
+
+    @Test
     @DisplayName("CloudFront가 켜져 있어도 서명 키가 없으면 Presigned GET URL로 대체한다")
     void CloudFront가_켜져_있어도_서명_키가_없으면_Presigned_GET_URL로_대체한다() throws Exception {
         // given

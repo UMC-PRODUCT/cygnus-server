@@ -9,8 +9,11 @@ import org.springframework.stereotype.Component;
 import com.umc.product.certificate.application.port.out.LoadCertificatePort;
 import com.umc.product.certificate.application.port.out.SaveCertificatePort;
 import com.umc.product.certificate.domain.Certificate;
+import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
 import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.exception.CertificateErrorCode;
+import com.umc.product.certificate.domain.exception.CertificateException;
 
 import lombok.RequiredArgsConstructor;
 
@@ -26,6 +29,12 @@ public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveC
     }
 
     @Override
+    public Certificate getById(Long certificateId) {
+        return certificateRepository.findById(certificateId)
+            .orElseThrow(() -> new CertificateException(CertificateErrorCode.CERTIFICATE_NOT_FOUND));
+    }
+
+    @Override
     public Optional<Certificate> findBySerialNumber(String serialNumber) {
         return certificateRepository.findBySerialNumber(serialNumber);
     }
@@ -33,6 +42,7 @@ public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveC
     @Override
     public Optional<Certificate> findValidByScope(
         CertificateType type,
+        CertificateIssuer issuer,
         Long recipientMemberId,
         Long gisuId,
         Long projectId,
@@ -41,6 +51,7 @@ public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveC
     ) {
         return certificateRepository.findValidByScope(
             type,
+            issuer,
             recipientMemberId,
             gisuId,
             projectId,

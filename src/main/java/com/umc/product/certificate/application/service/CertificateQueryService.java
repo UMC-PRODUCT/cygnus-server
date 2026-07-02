@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import com.umc.product.certificate.application.port.in.query.GetCertificateUseCase;
 import com.umc.product.certificate.application.port.in.query.dto.CertificateDownloadInfo;
@@ -38,8 +39,7 @@ public class CertificateQueryService implements GetCertificateUseCase {
 
     @Override
     public CertificateDownloadInfo getDownloadInfo(Long certificateId, Long requesterMemberId) {
-        Certificate certificate = loadCertificatePort.findById(certificateId)
-            .orElseThrow(() -> new CertificateException(CertificateErrorCode.CERTIFICATE_NOT_FOUND));
+        Certificate certificate = loadCertificatePort.getById(certificateId);
         if (!certificate.getRecipientMemberId().equals(requesterMemberId)) {
             throw new CertificateException(CertificateErrorCode.CERTIFICATE_ACCESS_FORBIDDEN);
         }
@@ -68,6 +68,10 @@ public class CertificateQueryService implements GetCertificateUseCase {
     }
 
     private String maskName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return "*";
+        }
+        name = name.trim();
         int[] codePoints = name.codePoints().toArray();
         if (codePoints.length == 1) {
             return "*";

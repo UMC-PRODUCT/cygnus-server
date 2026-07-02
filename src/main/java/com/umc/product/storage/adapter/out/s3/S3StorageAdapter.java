@@ -139,7 +139,7 @@ public class S3StorageAdapter implements StoragePort {
         } catch (Exception e) {
             recordStorageMetric("CREATE_UPLOAD_URL", "failure", startNanos);
             log.error("S3 업로드 URL 생성 실패: storageKey={}", storageKey, e);
-            throw new StorageException(StorageErrorCode.STORAGE_URL_GENERATION_FAILED);
+            throw new StorageException(StorageErrorCode.STORAGE_URL_GENERATION_FAILED, e);
         }
     }
 
@@ -169,7 +169,7 @@ public class S3StorageAdapter implements StoragePort {
         } catch (Exception e) {
             recordStorageMetric("UPLOAD_OBJECT", "failure", startNanos);
             log.error("S3 객체 저장 실패: storageKey={}", storageKey, e);
-            throw new StorageException(StorageErrorCode.STORAGE_UPLOAD_FAILED);
+            throw new StorageException(StorageErrorCode.STORAGE_UPLOAD_FAILED, e);
         }
     }
 
@@ -222,7 +222,7 @@ public class S3StorageAdapter implements StoragePort {
         } catch (Exception e) {
             recordStorageMetric("DELETE_OBJECT", "failure", startNanos);
             log.error("S3 파일 삭제 실패: storageKey={}", storageKey, e);
-            throw new StorageException(StorageErrorCode.STORAGE_DELETE_FAILED);
+            throw new StorageException(StorageErrorCode.STORAGE_DELETE_FAILED, e);
         }
     }
 
@@ -265,7 +265,7 @@ public class S3StorageAdapter implements StoragePort {
         } catch (Exception e) {
             recordStorageMetric("CREATE_DOWNLOAD_URL", "failure", startNanos);
             log.error("CloudFront Signed URL 생성 실패: storageKey={}", storageKey, e);
-            throw new StorageException(StorageErrorCode.CDN_SIGNING_FAILED);
+            throw new StorageException(StorageErrorCode.CDN_SIGNING_FAILED, e);
         }
     }
 
@@ -286,7 +286,7 @@ public class S3StorageAdapter implements StoragePort {
         } catch (Exception e) {
             recordStorageMetric("CREATE_DOWNLOAD_URL", "failure", startNanos);
             log.error("S3 다운로드 URL 생성 실패: storageKey={}", storageKey, e);
-            throw new StorageException(StorageErrorCode.STORAGE_URL_GENERATION_FAILED);
+            throw new StorageException(StorageErrorCode.STORAGE_URL_GENERATION_FAILED, e);
         }
     }
 

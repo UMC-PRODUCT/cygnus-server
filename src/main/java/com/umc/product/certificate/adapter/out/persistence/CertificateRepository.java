@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.umc.product.certificate.domain.Certificate;
+import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
 import com.umc.product.certificate.domain.CertificateType;
 
@@ -24,6 +25,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
         SELECT c
         FROM Certificate c
         WHERE c.type = :type
+          AND c.issuer = :issuer
           AND c.recipientMemberId = :recipientMemberId
           AND c.gisuId = :gisuId
           AND c.status = :status
@@ -34,6 +36,7 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
         """)
     List<Certificate> findValidByScope(
         @Param("type") CertificateType type,
+        @Param("issuer") CertificateIssuer issuer,
         @Param("recipientMemberId") Long recipientMemberId,
         @Param("gisuId") Long gisuId,
         @Param("projectId") Long projectId,
