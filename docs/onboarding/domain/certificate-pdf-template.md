@@ -10,7 +10,7 @@
 - 배경 PDF: `src/main/resources/certificate/backgrounds/*.pdf`
 - 폰트: `src/main/resources/certificate/fonts/Pretendard-*.ttf`
 
-`CertificatePdfRenderCommand.template()`이 있으면 Thymeleaf HTML 템플릿을 쓰지 않고, 배경 PDF를 연 뒤 PDFBox로 텍스트와 선, QR을 덧그린다. `CertificateTemplate.itemCount()` 값으로 `certificate_template.json`의 `layouts.{itemCount}`를 선택한다.
+인증서 PDF는 Thymeleaf HTML 템플릿을 사용하지 않는다. `CertificatePdfRenderCommand.template()`이 가리키는 배경 PDF를 연 뒤 PDFBox로 텍스트와 선, QR을 덧그린다. `certificate_template.json`은 이때 사용할 공통 필드, 품목 필드, 선, 폰트, 좌표계를 정의하는 렌더링 설정 파일이다. `CertificateTemplate.itemCount()` 값으로 `certificate_template.json`의 `layouts.{itemCount}`를 선택한다.
 
 ## 좌표계
 
@@ -75,7 +75,7 @@
 | 1 | `성명` | `recipientName` |
 | 2 | `소속` | `recipientSchoolName`, 없으면 `-` |
 | 3 | `기수` | `{gisuGeneration}기` |
-| 4 | `구분` 또는 `프로젝트` | 공로증/수료증은 상장명, 프로젝트 참가 확인서는 `projectName` |
+| 4 | `구분` | 공로증/수료증/상장의 상장명 |
 
 ### 4개 품목 레이아웃
 

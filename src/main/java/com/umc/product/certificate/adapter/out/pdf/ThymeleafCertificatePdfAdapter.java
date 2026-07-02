@@ -4,18 +4,14 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-
-import javax.imageio.ImageIO;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
@@ -29,8 +25,6 @@ import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
-import org.thymeleaf.context.Context;
-import org.thymeleaf.spring6.SpringTemplateEngine;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -40,7 +34,6 @@ import com.google.zxing.MultiFormatWriter;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
-import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import com.umc.product.certificate.application.port.out.RenderCertificatePdfPort;
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
 import com.umc.product.certificate.domain.CertificateTemplate;
@@ -48,10 +41,7 @@ import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
 
-import lombok.RequiredArgsConstructor;
-
 @Component
-@RequiredArgsConstructor
 public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort {
 
     private static final String TEMPLATE_CONFIG_RESOURCE_PATH = "certificate/config/certificate_template.json";
@@ -65,54 +55,18 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
     private static final DateTimeFormatter ISSUE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy.MM.dd")
         .withLocale(Locale.KOREA)
         .withZone(ZoneId.of("Asia/Seoul"));
-    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy년 MM월 dd일")
-        .withLocale(Locale.KOREA)
-        .withZone(ZoneId.of("Asia/Seoul"));
 
-    private final SpringTemplateEngine templateEngine;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public byte[] render(CertificatePdfRenderCommand command) {
         try {
-            if (command.template() != null) {
-                return renderCoordinateTemplate(command);
-            }
-            return renderThymeleafTemplate(command);
+            return renderCoordinateTemplate(command);
         } catch (CertificateException e) {
             throw e;
         } catch (Exception e) {
             throw new CertificateException(CertificateErrorCode.CERTIFICATE_RENDER_FAILED, e);
         }
-    }
-
-    private byte[] renderThymeleafTemplate(CertificatePdfRenderCommand command) throws Exception {
-        Context context = new Context(Locale.KOREA);
-        context.setVariable("serialNumber", command.issuanceNumber());
-        context.setVariable("typeName", command.type().displayName());
-        context.setVariable("issuerName", command.issuer().displayName());
-        context.setVariable("recipientName", command.recipientName());
-        context.setVariable("recipientSchoolName", command.recipientSchoolName());
-        context.setVariable("gisuGeneration", command.gisuGeneration());
-        context.setVariable("projectName", command.projectName());
-        context.setVariable("meritTitle", command.meritTitle());
-        context.setVariable("meritDescription", command.meritDescription());
-        context.setVariable("issuedDate", DATE_FORMATTER.format(command.issuedAt()));
-        context.setVariable("expiresDate", DATE_FORMATTER.format(command.expiresAt()));
-        context.setVariable("verificationUrl", command.verificationUrl());
-        context.setVariable("qrCodeDataUri", createQrCodeDataUri(command.verificationUrl()));
-
-        String html = templateEngine.process(resolveTemplateName(command.type()), context);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        PdfRendererBuilder builder = new PdfRendererBuilder();
-        builder.useFastMode();
-        builder.useFont(() -> getResourceInputStream(PRETENDARD_REGULAR_RESOURCE_PATH), "Pretendard");
-        builder.useFont(() -> getResourceInputStream(PRETENDARD_MEDIUM_RESOURCE_PATH), "Pretendard");
-        builder.useFont(() -> getResourceInputStream(PRETENDARD_SEMIBOLD_RESOURCE_PATH), "Pretendard");
-        builder.withHtmlContent(html, resolveBaseUri());
-        builder.toStream(outputStream);
-        builder.run();
-        return outputStream.toByteArray();
     }
 
     private byte[] renderCoordinateTemplate(CertificatePdfRenderCommand command) throws Exception {
@@ -142,19 +96,6 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
             document.save(outputStream);
             return outputStream.toByteArray();
         }
-    }
-
-    private String resolveTemplateName(CertificateType type) {
-        return switch (type) {
-            case COMPLETION -> "certificate/completion";
-            case PROJECT_PARTICIPATION -> "certificate/project-participation";
-            case MERIT -> "certificate/merit";
-        };
-    }
-
-    private String resolveBaseUri() {
-        URL resource = getClass().getResource("/templates/certificate/");
-        return resource != null ? resource.toString() : "";
     }
 
     private JsonNode loadTemplateConfig() throws IOException {
@@ -492,13 +433,6 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
             )
         );
         return MatrixToImageWriter.toBufferedImage(bitMatrix);
-    }
-
-    private String createQrCodeDataUri(String verificationUrl) throws Exception {
-        BufferedImage image = createQrCodeImage(verificationUrl, 180);
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        ImageIO.write(image, "png", outputStream);
-        return "data:image/png;base64," + Base64.getEncoder().encodeToString(outputStream.toByteArray());
     }
 
     private float textWidth(PDType0Font font, String text, float fontSize, float letterSpacing) throws IOException {

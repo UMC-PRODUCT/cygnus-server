@@ -37,12 +37,12 @@ class CertificateIssueContextResolver {
     private final GetProjectMemberUseCase getProjectMemberUseCase;
 
     CertificateIssueContext resolveSelf(IssueCertificateCommand command) {
-        if (command.type() == CertificateType.MERIT) {
+        if (command.type() != CertificateType.COMPLETION) {
             throw new CertificateException(CertificateErrorCode.CERTIFICATE_SELF_ISSUE_FORBIDDEN);
         }
         return resolve(
             command.type(),
-            null,
+            CertificateTemplate.UMC_COURSE_COMPLETION,
             command.requesterMemberId(),
             command.gisuId(),
             command.projectId(),
@@ -84,7 +84,14 @@ class CertificateIssueContextResolver {
 
         return switch (type) {
             case COMPLETION -> resolveCompletion(member, gisu, template, issuer, issuedByMemberId);
-            case PROJECT_PARTICIPATION -> resolveProjectParticipation(member, gisu, projectId, issuer, issuedByMemberId);
+            case PROJECT_PARTICIPATION -> resolveProjectParticipation(
+                member,
+                gisu,
+                projectId,
+                template,
+                issuer,
+                issuedByMemberId
+            );
             case MERIT -> resolveMerit(member, gisu, template, issuer, meritTitle, meritDescription, issuedByMemberId);
         };
     }
@@ -108,6 +115,7 @@ class CertificateIssueContextResolver {
         MemberInfo member,
         GisuInfo gisu,
         Long projectId,
+        CertificateTemplate template,
         CertificateIssuer issuer,
         Long issuedByMemberId
     ) {
@@ -124,7 +132,7 @@ class CertificateIssueContextResolver {
         }
         return baseContext(
             CertificateType.PROJECT_PARTICIPATION,
-            null,
+            template,
             issuer,
             member,
             gisu,
@@ -193,19 +201,16 @@ class CertificateIssueContextResolver {
     }
 
     private CertificateType resolveType(AdminIssueCertificateCommand command) {
-        return command.template() != null ? command.template().type() : command.type();
+        return command.template().type();
     }
 
     private CertificateIssuer resolveIssuer(AdminIssueCertificateCommand command) {
-        if (command.template() != null) {
-            return command.template().issuer();
-        }
-        return command.issuer() == null ? DEFAULT_ISSUER : command.issuer();
+        return command.template().issuer();
     }
 
     private String resolveMeritTitle(AdminIssueCertificateCommand command) {
         String overrideTitle = normalize(command.meritTitle());
-        if (overrideTitle != null || command.template() == null) {
+        if (overrideTitle != null) {
             return overrideTitle;
         }
         return command.template().defaultMeritTitle();

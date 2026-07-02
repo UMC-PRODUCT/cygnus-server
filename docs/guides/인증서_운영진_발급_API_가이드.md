@@ -4,23 +4,23 @@
 
 `POST /api/v1/admin/certificates`
 
-운영진이 수료증, 공로증, 상장, 프로젝트 참가 확인서를 단건 발급할 때 사용한다.
+운영진이 PDF 배경 템플릿이 준비된 수료증, 공로증, 상장을 단건 발급할 때 사용한다.
 
 ## 필드 사용 기준
 
 | 필드 | 사용 시점 |
 | --- | --- |
-| `template` | 수료증, 공로증, 상장처럼 실제 PDF 배경 템플릿이 있는 인증서 발급에 사용한다. 이 값이 있으면 서버가 `type`, `issuer`, 기본 상명을 결정한다. |
-| `type` | 전용 PDF 템플릿이 아직 없는 fallback 인증서에만 사용한다. 현재는 `PROJECT_PARTICIPATION`만 허용한다. |
-| `issuer` | `type=PROJECT_PARTICIPATION` fallback 발급에서 발급 주체를 지정할 때 사용한다. `template`과 함께 보내지 않는다. |
+| `template` | 필수다. 서버가 `type`, `issuer`, 기본 상명을 결정한다. |
+| `type` | 사용하지 않는다. legacy HTML fallback을 제거했으므로 보내면 `400 Bad Request`가 발생한다. |
+| `issuer` | 사용하지 않는다. 발급 주체는 `template`이 결정하므로 보내면 `400 Bad Request`가 발생한다. |
 | `recipientMemberId` | 인증서를 받을 회원 ID다. |
 | `gisuId` | 인증서에 표시할 기수이자 자격 판정 기준 기수다. |
-| `projectId` | 프로젝트 참가 확인서 발급 시 필수다. |
+| `projectId` | 현재 템플릿 목록에서는 사용하지 않는다. 추후 프로젝트 참가 확인서 템플릿이 추가되면 사용한다. |
 | `meritTitle` | 공로증/상장 제목을 커스터마이즈할 때 사용한다. 비우면 `template`의 기본 상명이 들어간다. |
 | `meritDescription` | 공로증/상장 본문을 커스터마이즈할 때 사용한다. 비우면 서버가 템플릿과 기수 기반 기본 문구를 생성한다. |
 | `reissue` | 동일 범위 유효 인증서가 있을 때 기존 인증서를 폐기하고 새로 발급할지 여부다. |
 
-`template`과 `type`/`issuer`는 동시에 보내지 않는다.
+`template`만 발급 종류와 발급 주체를 선택하는 입력이다.
 
 ## 템플릿 목록
 
@@ -78,15 +78,4 @@ CUSTOM 상장:
 }
 ```
 
-프로젝트 참가 확인서 fallback:
-
-```json
-{
-  "type": "PROJECT_PARTICIPATION",
-  "issuer": "UNIVERSITY_MAKEUS_CHALLENGE",
-  "recipientMemberId": 1,
-  "gisuId": 7,
-  "projectId": 100,
-  "reissue": true
-}
-```
+프로젝트 참가 확인서는 현재 legacy HTML fallback을 제거한 상태라 발급 요청을 받지 않는다. 전용 PDF 배경 템플릿이 추가되면 `CertificateTemplate` enum을 추가해 `template` 방식으로 발급한다.

@@ -1,3 +1,4 @@
+-- 목적: 인증서 발급 이력, 진위 검증 상태, S3 파일 참조, PDF SHA-256 무결성 정보를 저장한다.
 CREATE TABLE certificate
 (
     id                     BIGSERIAL PRIMARY KEY,
@@ -30,8 +31,11 @@ CREATE TABLE certificate
     CONSTRAINT certificate_issuer_check CHECK (issuer IN ('UNIVERSITY_MAKEUS_CHALLENGE', 'NEORDINARY'))
 );
 
+-- 목적: 사용자가 본인 인증서 목록을 최신 발급순으로 조회할 때 사용하는 정렬 인덱스다.
 CREATE INDEX idx_certificate_recipient_issued_at
     ON certificate (recipient_member_id, issued_at DESC, id DESC);
 
+-- 목적: 동일 범위의 유효 인증서 재사용/재발급 판정을 빠르게 수행한다.
+-- issuer를 포함해 같은 수신자, 기수, 프로젝트, 상명이라도 UMC와 Ne(O)rdinary 발급 주체를 분리한다.
 CREATE INDEX idx_certificate_scope_valid
-    ON certificate (type, recipient_member_id, gisu_id, project_id, merit_title, status, expires_at);
+    ON certificate (type, issuer, recipient_member_id, gisu_id, project_id, merit_title, status, expires_at);

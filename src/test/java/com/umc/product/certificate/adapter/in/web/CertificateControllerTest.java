@@ -2,6 +2,7 @@ package com.umc.product.certificate.adapter.in.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -112,16 +113,9 @@ class CertificateControllerTest {
     }
 
     @Test
-    @DisplayName("운영진 프로젝트 참가 확인서 발급 요청은 fallback type과 issuer를 command로 변환한다")
-    void 운영진_프로젝트_참가_확인서_발급_요청은_fallback_type과_issuer를_command로_변환한다() throws Exception {
-        // given
-        given(adminIssueCertificateUseCase.issueByAdmin(any())).willReturn(issueInfo(
-            "UMC-PRJ-20260701-ABCDEFGH",
-            CertificateType.PROJECT_PARTICIPATION,
-            CertificateIssuer.NEORDINARY
-        ));
-
-        // when
+    @DisplayName("운영진 프로젝트 참가 확인서 fallback 발급 요청은 거부한다")
+    void 운영진_프로젝트_참가_확인서_fallback_발급_요청은_거부한다() throws Exception {
+        // when & then
         mockMvc.perform(post("/api/v1/admin/certificates")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -134,20 +128,9 @@ class CertificateControllerTest {
                       "reissue": true
                     }
                     """))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result.type").value("PROJECT_PARTICIPATION"))
-            .andExpect(jsonPath("$.result.issuer").value("NEORDINARY"));
+            .andExpect(status().isBadRequest());
 
-        // then
-        verify(adminIssueCertificateUseCase).issueByAdmin(AdminIssueCertificateCommand.builder()
-            .type(CertificateType.PROJECT_PARTICIPATION)
-            .issuer(CertificateIssuer.NEORDINARY)
-            .requesterMemberId(99L)
-            .recipientMemberId(1L)
-            .gisuId(7L)
-            .projectId(100L)
-            .reissue(true)
-            .build());
+        verify(adminIssueCertificateUseCase, never()).issueByAdmin(any());
     }
 
     @Test

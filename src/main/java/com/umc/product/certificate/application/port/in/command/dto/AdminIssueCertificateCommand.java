@@ -26,14 +26,9 @@ public record AdminIssueCertificateCommand(
         Objects.requireNonNull(requesterMemberId, "requesterMemberId must not be null");
         Objects.requireNonNull(recipientMemberId, "recipientMemberId must not be null");
         Objects.requireNonNull(gisuId, "gisuId must not be null");
-        if (template != null) {
-            if (type != null || issuer != null) {
-                throw new IllegalArgumentException("type and issuer must be null when template is provided");
-            }
-        } else if (type == null) {
-            throw new NullPointerException("type must not be null");
-        } else if (type != CertificateType.PROJECT_PARTICIPATION) {
-            throw new IllegalArgumentException("type fallback is only allowed for project participation");
+        Objects.requireNonNull(template, "template must not be null");
+        if (type != null || issuer != null) {
+            throw new IllegalArgumentException("type and issuer must be null when template is provided");
         }
     }
 }

@@ -19,13 +19,13 @@ public record AdminIssueCertificateRequest(
     CertificateTemplate template,
 
     @Schema(
-        description = "템플릿이 아직 없는 fallback 인증서 종류입니다. 현재 PROJECT_PARTICIPATION에만 사용합니다.",
+        description = "사용하지 않습니다. 인증서 발급은 template으로만 요청합니다.",
         example = "PROJECT_PARTICIPATION"
     )
     CertificateType type,
 
     @Schema(
-        description = "fallback 인증서의 발급 주체입니다. template을 보내면 template이 발급 주체를 결정하므로 함께 보내지 않습니다.",
+        description = "사용하지 않습니다. 발급 주체는 template이 결정합니다.",
         example = "UNIVERSITY_MAKEUS_CHALLENGE"
     )
     CertificateIssuer issuer,
@@ -70,18 +70,13 @@ public record AdminIssueCertificateRequest(
             .build();
     }
 
-    @AssertTrue(message = "template 또는 type 중 하나는 필수입니다.") @Schema(hidden = true)
-    public boolean isTemplateOrTypeProvided() {
-        return template != null || type != null;
+    @AssertTrue(message = "template은 필수입니다.") @Schema(hidden = true)
+    public boolean isTemplateProvided() {
+        return template != null;
     }
 
-    @AssertTrue(message = "template을 보낼 때는 type과 issuer를 함께 보낼 수 없습니다.") @Schema(hidden = true)
-    public boolean isTemplateExclusive() {
-        return template == null || (type == null && issuer == null);
-    }
-
-    @AssertTrue(message = "type fallback은 PROJECT_PARTICIPATION에만 사용할 수 있습니다.") @Schema(hidden = true)
-    public boolean isFallbackTypeAllowed() {
-        return template != null || type == null || type == CertificateType.PROJECT_PARTICIPATION;
+    @AssertTrue(message = "type과 issuer는 사용할 수 없습니다. template으로 발급 종류와 주체를 선택해주세요.") @Schema(hidden = true)
+    public boolean isTypeAndIssuerNotProvided() {
+        return type == null && issuer == null;
     }
 }

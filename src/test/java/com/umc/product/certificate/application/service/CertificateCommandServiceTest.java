@@ -137,6 +137,7 @@ class CertificateCommandServiceTest {
         Certificate saved = certificateCaptor.getValue();
         assertThat(result.serialNumber()).isEqualTo("UMC-CMP-20260701-ABCDEFGH");
         assertThat(renderCommandCaptor.getValue().issuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
+        assertThat(renderCommandCaptor.getValue().template()).isEqualTo(CertificateTemplate.UMC_COURSE_COMPLETION);
         assertThat(saved.getIssuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
         assertThat(saved.getFileId()).isEqualTo("file-id");
         assertThat(saved.getFileSha256()).isEqualTo(sha256(pdfBytes));
@@ -204,7 +205,7 @@ class CertificateCommandServiceTest {
     private CertificateIssueContext completionContext() {
         return new CertificateIssueContext(
             CertificateType.COMPLETION,
-            null,
+            CertificateTemplate.UMC_COURSE_COMPLETION,
             CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
             1L,
             "김유엠",
