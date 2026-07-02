@@ -31,11 +31,15 @@ import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInte
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingInterviewEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewEvaluationUseCase;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/admin/recruiting")
+@Tag(name = "Recruiting | 면접 관리", description = "운영진이 면접 배정, 일정 안내, 면접 평가를 관리합니다.")
 @RequiredArgsConstructor
 public class RecruitingAdminInterviewController {
 
@@ -49,7 +53,13 @@ public class RecruitingAdminInterviewController {
 
     @PostMapping("/seasons/{seasonId}/applications/{applicationId}/interviews")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-001",
+        summary = "면접 배정",
+        description = "서류 합격 지원서에 면접관과 면접 일정을 배정합니다."
+    )
     public RecruitingIdResponse assignInterview(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationId,
@@ -62,7 +72,13 @@ public class RecruitingAdminInterviewController {
 
     @PostMapping("/seasons/{seasonId}/applications/{applicationId}/interviews/skip")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-002",
+        summary = "면접 스킵",
+        description = "면접을 진행하지 않는 지원서의 면접 단계를 스킵합니다."
+    )
     public void skipInterview(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationId,
@@ -76,6 +92,11 @@ public class RecruitingAdminInterviewController {
 
     @PostMapping("/seasons/{seasonId}/interviews/schedule-candidates")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-003",
+        summary = "면접 일정 후보 조회",
+        description = "form 응답의 가능 일정 데이터를 기반으로 겹치는 면접 일정 후보를 조회합니다."
+    )
     public List<RecruitingInterviewScheduleCandidateResponse> findScheduleCandidates(
         @PathVariable Long seasonId,
         @Valid @RequestBody FindRecruitingInterviewScheduleCandidatesRequest request
@@ -88,6 +109,11 @@ public class RecruitingAdminInterviewController {
 
     @PostMapping("/seasons/{seasonId}/applications/{applicationId}/interview-guide")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-004",
+        summary = "면접 안내 메일 발송",
+        description = "지원자에게 면접 시작 시간과 장소 안내 메일을 발송합니다."
+    )
     public void sendInterviewGuide(
         @PathVariable Long seasonId,
         @PathVariable Long applicationId,
@@ -98,7 +124,13 @@ public class RecruitingAdminInterviewController {
 
     @PatchMapping("/seasons/{seasonId}/interview-assignments/{assignmentId}/evaluation")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-005",
+        summary = "면접 평가 임시 저장",
+        description = "면접관이 지원자 평가 점수와 코멘트를 임시 저장합니다."
+    )
     public void saveEvaluation(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long assignmentId,
@@ -109,7 +141,13 @@ public class RecruitingAdminInterviewController {
 
     @PostMapping("/seasons/{seasonId}/interview-assignments/{assignmentId}/evaluation/submit")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-006",
+        summary = "면접 평가 제출",
+        description = "면접관이 지원자 평가를 제출합니다. 제출 후에는 visibility 정책에 따라 다른 면접관의 평가를 볼 수 있습니다."
+    )
     public void submitEvaluation(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long assignmentId,
@@ -120,7 +158,13 @@ public class RecruitingAdminInterviewController {
 
     @GetMapping("/seasons/{seasonId}/applications/{applicationId}/interview-evaluations")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-INTERVIEW-007",
+        summary = "면접 평가 목록 조회",
+        description = "관리자가 특정 지원서에 작성된 면접 평가 목록을 조회합니다."
+    )
     public List<RecruitingInterviewEvaluationResponse> listVisibleEvaluations(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationId

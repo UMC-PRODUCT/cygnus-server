@@ -44,11 +44,15 @@ import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruit
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/admin/recruiting")
+@Tag(name = "Recruiting | 운영진 관리", description = "운영진이 리크루팅 시즌, 차수, 지원 폼, 합불 결정, 통계를 관리합니다.")
 @RequiredArgsConstructor
 public class RecruitingAdminController {
 
@@ -67,12 +71,22 @@ public class RecruitingAdminController {
 
     @PostMapping("/seasons")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.WRITE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-001",
+        summary = "모집 시즌 생성",
+        description = "기수와 학교 단위의 리크루팅 시즌을 생성합니다."
+    )
     public RecruitingIdResponse createSeason(@Valid @RequestBody CreateRecruitingSeasonRequest request) {
         return RecruitingIdResponse.from(createSeasonUseCase.createSeason(request.toCommand()));
     }
 
     @PatchMapping("/seasons/{seasonId}/status")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-002",
+        summary = "모집 시즌 상태 변경",
+        description = "리크루팅 시즌의 운영 상태를 변경합니다."
+    )
     public void updateSeasonStatus(
         @PathVariable Long seasonId,
         @Valid @RequestBody UpdateRecruitingSeasonStatusRequest request
@@ -82,6 +96,11 @@ public class RecruitingAdminController {
 
     @PostMapping("/seasons/{seasonId}/rounds")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-003",
+        summary = "모집 차수 생성",
+        description = "본모집 또는 추가모집 차수를 생성합니다."
+    )
     public RecruitingIdResponse createRound(
         @PathVariable Long seasonId,
         @Valid @RequestBody CreateRecruitingRoundRequest request
@@ -91,6 +110,11 @@ public class RecruitingAdminController {
 
     @PatchMapping("/seasons/{seasonId}/rounds/{roundId}/status")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-004",
+        summary = "모집 차수 상태 변경",
+        description = "특정 모집 차수의 운영 상태를 변경합니다."
+    )
     public void updateRoundStatus(
         @PathVariable Long seasonId,
         @PathVariable Long roundId,
@@ -101,6 +125,11 @@ public class RecruitingAdminController {
 
     @PostMapping("/seasons/{seasonId}/rounds/{roundId}/forms")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-005",
+        summary = "지원 폼 연결",
+        description = "모집 차수에 form 엔진의 지원 폼을 track 기준으로 연결합니다."
+    )
     public RecruitingIdResponse linkForm(
         @PathVariable Long seasonId,
         @PathVariable Long roundId,
@@ -111,7 +140,13 @@ public class RecruitingAdminController {
 
     @PostMapping("/seasons/{seasonId}/forms/{applicationFormId}/publish")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-006",
+        summary = "지원 폼 게시",
+        description = "연결된 지원 폼을 지원자에게 공개합니다."
+    )
     public void publishForm(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationFormId
@@ -124,6 +159,11 @@ public class RecruitingAdminController {
 
     @PostMapping("/seasons/{seasonId}/forms/{applicationFormId}/close")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-007",
+        summary = "지원 폼 마감",
+        description = "공개된 지원 폼을 수동으로 마감합니다."
+    )
     public void closeForm(
         @PathVariable Long seasonId,
         @PathVariable Long applicationFormId
@@ -135,7 +175,13 @@ public class RecruitingAdminController {
 
     @PatchMapping("/seasons/{seasonId}/applications/{applicationId}/document-decision")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.APPROVE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-008",
+        summary = "서류 합불 결정",
+        description = "지원서의 서류 평가 결과를 합격 또는 불합격으로 결정합니다."
+    )
     public void decideDocument(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationId,
@@ -146,7 +192,13 @@ public class RecruitingAdminController {
 
     @PatchMapping("/seasons/{seasonId}/applications/{applicationId}/final-decision")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.APPROVE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-009",
+        summary = "최종 합불 결정",
+        description = "면접 이후 지원서의 최종 합격 또는 불합격 여부를 결정합니다."
+    )
     public void decideFinal(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationId,
@@ -157,7 +209,13 @@ public class RecruitingAdminController {
 
     @PostMapping("/seasons/{seasonId}/applications/{applicationId}/registration-confirm")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.MANAGE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-010",
+        summary = "합격자 챌린저 등록 확정",
+        description = "최종 합격 지원서를 실제 챌린저 등록 대상으로 확정합니다."
+    )
     public void confirmRegistration(
+        @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long seasonId,
         @PathVariable Long applicationId
@@ -170,6 +228,11 @@ public class RecruitingAdminController {
 
     @GetMapping("/summary")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.MANAGE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-011",
+        summary = "지원 현황 요약 조회",
+        description = "기수와 학교 기준으로 지원서 상태별 집계와 전체 건수를 조회합니다."
+    )
     public RecruitingStatusSummaryResponse getSummary(
         @RequestParam Long gisuId,
         @RequestParam Long schoolId
@@ -179,6 +242,11 @@ public class RecruitingAdminController {
 
     @GetMapping("/statistics.csv")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.MANAGE)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-012",
+        summary = "지원 현황 CSV 다운로드",
+        description = "지원서 본문과 원본 이메일을 제외한 학교별 지원 현황 CSV를 다운로드합니다."
+    )
     public ResponseEntity<byte[]> exportCsv(
         @RequestParam Long gisuId,
         @RequestParam Long schoolId
