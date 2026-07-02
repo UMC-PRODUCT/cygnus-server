@@ -16,14 +16,14 @@ import software.amazon.awssdk.services.ssm.SsmClient;
 
 @Configuration
 @ConditionalOnProperty(name = "storage.provider", havingValue = "s3")
-@EnableConfigurationProperties(S3StorageProperties.class)
+@EnableConfigurationProperties({S3StorageProperties.class, AppSsmProperties.class})
 public class S3Config {
 
     @Bean
     public S3Client s3Client(S3StorageProperties properties) {
         return S3Client.builder()
             .region(Region.of(properties.region()))
-            .credentialsProvider(resolveCredentials(properties))
+            .credentialsProvider(resolveS3Credentials(properties))
             .build();
     }
 
@@ -31,19 +31,19 @@ public class S3Config {
     public S3Presigner s3Presigner(S3StorageProperties properties) {
         return S3Presigner.builder()
             .region(Region.of(properties.region()))
-            .credentialsProvider(resolveCredentials(properties))
+            .credentialsProvider(resolveS3Credentials(properties))
             .build();
     }
 
     @Bean
-    public SsmClient ssmClient(S3StorageProperties properties) {
+    public SsmClient ssmClient(S3StorageProperties properties, AppSsmProperties ssmProperties) {
         return SsmClient.builder()
-            .region(Region.of(properties.region()))
-            .credentialsProvider(resolveCredentials(properties))
+            .region(Region.of(resolveSsmRegion(properties, ssmProperties)))
+            .credentialsProvider(resolveSsmCredentials(ssmProperties))
             .build();
     }
 
-    private AwsCredentialsProvider resolveCredentials(S3StorageProperties properties) {
+    AwsCredentialsProvider resolveS3Credentials(S3StorageProperties properties) {
         if (properties.accessKeyId() != null && !properties.accessKeyId().isBlank()
             && properties.secretAccessKey() != null && !properties.secretAccessKey().isBlank()) {
             return StaticCredentialsProvider.create(
@@ -52,5 +52,23 @@ public class S3Config {
         }
 
         return DefaultCredentialsProvider.builder().build();
+    }
+
+    AwsCredentialsProvider resolveSsmCredentials(AppSsmProperties ssmProperties) {
+        if (ssmProperties != null && ssmProperties.hasStaticCredentials()) {
+            return StaticCredentialsProvider.create(
+                AwsBasicCredentials.create(ssmProperties.accessKeyId(), ssmProperties.secretAccessKey())
+            );
+        }
+
+        return DefaultCredentialsProvider.builder().build();
+    }
+
+    String resolveSsmRegion(S3StorageProperties properties, AppSsmProperties ssmProperties) {
+        if (ssmProperties != null && ssmProperties.hasRegion()) {
+            return ssmProperties.region();
+        }
+
+        return properties.region();
     }
 }
