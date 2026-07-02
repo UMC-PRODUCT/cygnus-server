@@ -2,7 +2,12 @@ package com.umc.product.challenger.adapter.in.web;
 
 import java.util.List;
 
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,10 +22,13 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.challenger.adapter.in.web.assembler.ChallengerRecordResponseAssembler;
 import com.umc.product.challenger.adapter.in.web.dto.request.AddChallengerRecordToMemberRequest;
 import com.umc.product.challenger.adapter.in.web.dto.request.CreateChallengerRecordRequest;
+import com.umc.product.challenger.adapter.in.web.dto.request.SearchChallengerRecordRequest;
 import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
+import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordSummaryResponse;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
+import com.umc.product.global.response.PageResponse;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -99,6 +107,24 @@ public class ChallengerRecordController {
         return assembler.from(id);
     }
 
+    @CheckAccess(
+        resourceType = ResourceType.CHALLENGER_RECORD,
+        permission = PermissionType.READ
+    )
+    @GetMapping
+    @Operation(operationId = "CHALLENGER-RECORD-103", summary = "조건별 ChallengerRecord 코드 목록 조회",
+        description = """
+            기수/학교/파트/역할 조건으로 발급된 챌린저 기록 코드를 페이지 조회합니다.
+            모든 조건은 선택이며 자유롭게 조합할 수 있습니다. (조건 미지정 시 전체 조회)
+            """)
+    public PageResponse<ChallengerRecordSummaryResponse> searchChallengerRecords(
+        @ParameterObject @Valid SearchChallengerRecordRequest request,
+        @ParameterObject @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
+        Pageable pageable
+    ) {
+        return assembler.search(request.toQuery(pageable));
+    }
+
     // 코드를 생성하는 API
     @CheckAccess(
         resourceType = ResourceType.CHALLENGER_RECORD,
@@ -162,6 +188,23 @@ public class ChallengerRecordController {
         );
 
         return ids;
+    }
+
+    // 발급된 코드를 단건 삭제하는 API
+    @CheckAccess(
+        resourceType = ResourceType.CHALLENGER_RECORD,
+        permission = PermissionType.DELETE
+    )
+    @Operation(operationId = "CHALLENGER-RECORD-004", summary = "ChallengerRecord 코드 단건 삭제",
+        description = """
+            발급된 챌린저 기록 코드를 단건 물리 삭제합니다.
+            중앙운영사무국 총괄단 등 삭제 권한을 가진 운영진만 사용할 수 있습니다.
+            """)
+    @DeleteMapping("id/{id}")
+    public void deleteChallengerRecord(
+        @PathVariable Long id
+    ) {
+        manageChallengerRecordUseCase.delete(id);
     }
 
 }

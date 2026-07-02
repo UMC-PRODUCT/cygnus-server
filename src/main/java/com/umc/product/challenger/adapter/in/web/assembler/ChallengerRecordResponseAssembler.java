@@ -1,13 +1,22 @@
 package com.umc.product.challenger.adapter.in.web.assembler;
 
 import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
+import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordSummaryResponse;
 import com.umc.product.challenger.application.port.in.query.GetChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerRecordInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
+import com.umc.product.global.response.PageResponse;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
@@ -32,6 +41,34 @@ public class ChallengerRecordResponseAssembler {
         return infoToResponse(recordInfo);
     }
 
+    /**
+     * 조건별 챌린저 기록 코드 목록을 페이지 조회합니다 (CHALLENGER-RECORD-103).
+     * <p>
+     * 기수/학교 이름 보강은 페이지 내 항목의 gisuId를 일괄 조회({@code getByIds},
+     * {@code getSchoolListByGisuIds})하여 N+1 없이 매핑합니다.
+     */
+    public PageResponse<ChallengerRecordSummaryResponse> search(ListChallengerRecordsQuery query) {
+        Page<ChallengerRecordInfo> page = getChallengerRecordUseCase.search(query);
+
+        if (page.isEmpty()) {
+            return PageResponse.of(page, info -> toSummary(info, null, null));
+        }
+
+        Set<Long> gisuIds = page.getContent().stream()
+            .map(ChallengerRecordInfo::gisuId)
+            .collect(Collectors.toSet());
+
+        Map<Long, GisuInfo> gisuMap = getGisuUseCase.getByIds(gisuIds).stream()
+            .collect(Collectors.toMap(GisuInfo::gisuId, Function.identity()));
+
+        Map<Long, SchoolDetailInfo> schoolMap = getSchoolUseCase.getSchoolListByGisuIds(gisuIds).values().stream()
+            .flatMap(List::stream)
+            .collect(Collectors.toMap(SchoolDetailInfo::schoolId, Function.identity(), (a, b) -> a));
+
+        return PageResponse.of(page,
+            info -> toSummary(info, gisuMap.get(info.gisuId()), schoolMap.get(info.schoolId())));
+    }
+
     private ChallengerRecordResponse infoToResponse(ChallengerRecordInfo recordInfo) {
         GisuInfo gisuInfo = getGisuUseCase.getById(recordInfo.gisuId());
         SchoolDetailInfo schoolInfo = getSchoolUseCase.getSchoolDetail(recordInfo.schoolId());
@@ -48,6 +85,28 @@ public class ChallengerRecordResponseAssembler {
             .memberName(recordInfo.memberName())
             .challengerRoleType(recordInfo.challengerRoleType())
             .organizationId(recordInfo.organizationId())
+            .build();
+    }
+
+    private ChallengerRecordSummaryResponse toSummary(
+        ChallengerRecordInfo info, GisuInfo gisuInfo, SchoolDetailInfo schoolInfo
+    ) {
+        return ChallengerRecordSummaryResponse.builder()
+            .id(info.id())
+            .code(info.code())
+            .part(info.part())
+            .gisuId(info.gisuId())
+            .gisu(gisuInfo != null ? gisuInfo.generation() : null)
+            .schoolId(info.schoolId())
+            .schoolName(schoolInfo != null ? schoolInfo.schoolName() : null)
+            .chapterId(schoolInfo != null ? schoolInfo.chapterId() : info.chapterId())
+            .chapterName(schoolInfo != null ? schoolInfo.chapterName() : null)
+            .memberName(info.memberName())
+            .challengerRoleType(info.challengerRoleType())
+            .organizationId(info.organizationId())
+            .isUsed(info.isUsed())
+            .usedMemberId(info.usedMemberId())
+            .usedAt(info.usedAt())
             .build();
     }
 }
