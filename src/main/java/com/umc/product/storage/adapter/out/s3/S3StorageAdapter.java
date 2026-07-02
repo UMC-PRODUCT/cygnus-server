@@ -1,6 +1,7 @@
 package com.umc.product.storage.adapter.out.s3;
 
 import java.io.StringReader;
+import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyFactory;
@@ -237,10 +238,7 @@ public class S3StorageAdapter implements StoragePort {
 
             String encodedKey = encodeStorageKey(storageKey);
 
-            String resourceUrl = String.format("https://%s/%s",
-                cloudfront.distributionDomain(),
-                encodedKey
-            );
+            String resourceUrl = buildCloudFrontResourceUrl(cloudfront.distributionDomain(), encodedKey);
 
             CloudFrontUtilities cloudFrontUtilities = CloudFrontUtilities.create();
 
@@ -374,6 +372,30 @@ public class S3StorageAdapter implements StoragePort {
     private String encodeStorageKey(String storageKey) {
 
         return UriUtils.encodePath(storageKey, StandardCharsets.UTF_8);
+    }
+
+    private String buildCloudFrontResourceUrl(String distributionDomain, String encodedKey) {
+        return normalizeCloudFrontBaseUrl(distributionDomain) + "/" + encodedKey;
+    }
+
+    private String normalizeCloudFrontBaseUrl(String distributionDomain) {
+        String trimmedDomain = distributionDomain.trim();
+        String url = hasScheme(trimmedDomain) ? trimmedDomain : "https://" + trimmedDomain;
+        URI uri = URI.create(url);
+        if (!StringUtils.hasText(uri.getHost())) {
+            throw new StorageException(StorageErrorCode.CDN_SIGNING_FAILED);
+        }
+
+        String baseUrl = uri.getScheme() + "://" + uri.getRawAuthority();
+        if (StringUtils.hasText(uri.getRawPath())) {
+            baseUrl += uri.getRawPath();
+        }
+        return baseUrl.replaceAll("/+$", "");
+    }
+
+    private boolean hasScheme(String url) {
+        String lowerUrl = url.toLowerCase();
+        return lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://");
     }
 
     private String parseSpringProfileToCloudFrontPath() {

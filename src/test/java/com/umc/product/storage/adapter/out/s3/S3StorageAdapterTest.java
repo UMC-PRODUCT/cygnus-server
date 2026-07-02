@@ -180,6 +180,28 @@ class S3StorageAdapterTest {
     }
 
     @Test
+    @DisplayName("CloudFront 배포 도메인이 URL 형식이어도 CDN URL로 시작하는 Signed URL을 생성한다")
+    void CloudFront_배포_도메인이_URL_형식이어도_CDN_URL로_시작하는_Signed_URL을_생성한다() throws Exception {
+        // given
+        String privateKey = pkcs8PrivateKeyPem().replace("\n", "\\n");
+        S3StorageAdapter sut = adapter(new S3StorageProperties.CloudFront(
+            "https://cdn.example.com/certificate/",
+            true,
+            "K1234567890",
+            privateKey,
+            null
+        ));
+
+        // when
+        String result = sut.generateAccessUrl("private/certificate/file name.pdf", 60L);
+
+        // then
+        assertThat(result)
+            .startsWith("https://cdn.example.com/certificate/private/certificate/file%20name.pdf")
+            .contains("Key-Pair-Id=K1234567890");
+    }
+
+    @Test
     @DisplayName("SSM SecureString private key로 CloudFront Signed URL을 생성하고 값을 캐시한다")
     void SSM_SecureString_private_key로_CloudFront_Signed_URL을_생성하고_값을_캐시한다() throws Exception {
         // given
