@@ -136,7 +136,7 @@ class RecruitingAdminControllerTest {
     void 모집_시즌_생성_API는_id를_반환한다() throws Exception {
         given(createSeasonUseCase.createSeason(any())).willReturn(SEASON_ID);
 
-        mockMvc.perform(post("/api/v1/admin/recruiting/seasons")
+        mockMvc.perform(post("/api/v1/recruiting/admin/seasons")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"gisuId\":11,\"schoolId\":22}"))
             .andExpect(status().isOk())
@@ -148,7 +148,7 @@ class RecruitingAdminControllerTest {
     void 모집_폼_연결_API는_track_기반_command를_전달한다() throws Exception {
         given(linkFormUseCase.link(any())).willReturn(APPLICATION_FORM_ID);
 
-        mockMvc.perform(post("/api/v1/admin/recruiting/seasons/{seasonId}/rounds/{roundId}/forms", SEASON_ID, ROUND_ID)
+        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/forms", SEASON_ID, ROUND_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"formId\":300,\"track\":\"WEB_PRODUCT_ENGINEER\"}"))
             .andExpect(status().isOk())
@@ -165,7 +165,7 @@ class RecruitingAdminControllerTest {
     @DisplayName("서류 결정 API는 결정자 memberId를 command로 전달한다")
     void 서류_결정_API는_결정자_memberId를_command로_전달한다() throws Exception {
         mockMvc.perform(patch(
-                    "/api/v1/admin/recruiting/seasons/{seasonId}/applications/{applicationId}/document-decision",
+                    "/api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/document-decision",
                     SEASON_ID, APPLICATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"decision\":\"PASS\",\"reason\":\"충분한 역량\"}"))
@@ -183,7 +183,7 @@ class RecruitingAdminControllerTest {
     @DisplayName("최종 결정 API는 결정자 memberId를 command로 전달한다")
     void 최종_결정_API는_결정자_memberId를_command로_전달한다() throws Exception {
         mockMvc.perform(patch(
-                    "/api/v1/admin/recruiting/seasons/{seasonId}/applications/{applicationId}/final-decision",
+                    "/api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/final-decision",
                     SEASON_ID, APPLICATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"decision\":\"FAIL\",\"reason\":\"정원 초과\"}"))
@@ -206,7 +206,7 @@ class RecruitingAdminControllerTest {
                 3
             )));
 
-        mockMvc.perform(post("/api/v1/admin/recruiting/seasons/{seasonId}/interviews/schedule-candidates", SEASON_ID)
+        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/interviews/schedule-candidates", SEASON_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"formId\":300,\"formResponseIds\":[1,2,3]}"))
             .andExpect(status().isOk())
@@ -227,7 +227,7 @@ class RecruitingAdminControllerTest {
             )));
 
         mockMvc.perform(get(
-                    "/api/v1/admin/recruiting/seasons/{seasonId}/applications/{applicationId}/interview-evaluations",
+                    "/api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/interview-evaluations",
                     SEASON_ID, APPLICATION_ID))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result[0].evaluationId").value(77L))
@@ -243,7 +243,7 @@ class RecruitingAdminControllerTest {
                 11,22,REGULAR,1,300,WEB_PRODUCT_ENGINEER,REC-001,h***@example.com,SUBMITTED,NONE,2026-07-01T00:00:00Z
                 """.getBytes());
 
-        mockMvc.perform(get("/api/v1/admin/recruiting/statistics.csv")
+        mockMvc.perform(get("/api/v1/recruiting/admin/statistics.csv")
                 .param("gisuId", "11")
                 .param("schoolId", "22"))
             .andExpect(status().isOk())
@@ -264,7 +264,7 @@ class RecruitingAdminControllerTest {
         given(getApplicationQueryUseCase.getStatusSummary(11L, 22L))
             .willReturn(new RecruitingStatusSummaryInfo(3L, counts));
 
-        mockMvc.perform(get("/api/v1/admin/recruiting/summary")
+        mockMvc.perform(get("/api/v1/recruiting/admin/summary")
                 .param("gisuId", "11")
                 .param("schoolId", "22"))
             .andExpect(status().isOk())

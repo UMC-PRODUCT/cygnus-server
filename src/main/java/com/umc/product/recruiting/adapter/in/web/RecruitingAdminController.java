@@ -51,7 +51,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/admin/recruiting")
+@RequestMapping("/api/v1/recruiting/admin")
 @Tag(name = "Recruiting | 운영진 관리", description = "운영진이 리크루팅 시즌, 차수, 지원 폼, 합불 결정, 통계를 관리합니다.")
 @RequiredArgsConstructor
 public class RecruitingAdminController {

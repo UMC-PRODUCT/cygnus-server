@@ -90,13 +90,13 @@ PUT /api/v1/recruiting/applications/{applicationId}
 POST /api/v1/recruiting/applications/{applicationId}/submit
 PATCH /api/v1/recruiting/applications/{applicationId}/cancel
 
-POST /api/v1/admin/recruiting/seasons
-POST /api/v1/admin/recruiting/seasons/{seasonId}/rounds
-POST /api/v1/admin/recruiting/seasons/{seasonId}/rounds/{roundId}/forms
-PATCH /api/v1/admin/recruiting/seasons/{seasonId}/applications/{applicationId}/document-decision
-PATCH /api/v1/admin/recruiting/seasons/{seasonId}/applications/{applicationId}/final-decision
-POST /api/v1/admin/recruiting/seasons/{seasonId}/applications/{applicationId}/registration-confirm
-GET /api/v1/admin/recruiting/statistics.csv?gisuId=11&schoolId=22
+POST /api/v1/recruiting/admin/seasons
+POST /api/v1/recruiting/admin/seasons/{seasonId}/rounds
+POST /api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/forms
+PATCH /api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/document-decision
+PATCH /api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/final-decision
+POST /api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/registration-confirm
+GET /api/v1/recruiting/admin/statistics.csv?gisuId=11&schoolId=22
 ```
 
 ## GraphQL 계획

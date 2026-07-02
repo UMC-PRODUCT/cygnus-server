@@ -38,7 +38,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/admin/recruiting")
+@RequestMapping("/api/v1/recruiting/admin")
 @Tag(name = "Recruiting | 면접 관리", description = "운영진이 면접 배정, 일정 안내, 면접 평가를 관리합니다.")
 @RequiredArgsConstructor
 public class RecruitingAdminInterviewController {
