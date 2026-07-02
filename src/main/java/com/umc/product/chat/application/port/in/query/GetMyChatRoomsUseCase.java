@@ -1,7 +1,8 @@
 package com.umc.product.chat.application.port.in.query;
 
-import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import java.util.List;
+
+import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 
 public interface GetMyChatRoomsUseCase {
 

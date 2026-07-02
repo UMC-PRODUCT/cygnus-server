@@ -3,6 +3,7 @@ package com.umc.product.global.security;
 import java.util.Collection;
 import java.util.Collections;
 
+import org.springframework.security.core.AuthenticatedPrincipal;
 import org.springframework.security.core.GrantedAuthority;
 
 import com.umc.product.common.domain.enums.ClientType;
@@ -10,7 +11,6 @@ import com.umc.product.global.client.ClientContextClaims;
 
 import lombok.Builder;
 import lombok.Getter;
-import org.springframework.security.core.AuthenticatedPrincipal;
 
 @Getter
 public class MemberPrincipal implements AuthenticatedPrincipal {

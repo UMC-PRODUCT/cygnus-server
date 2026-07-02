@@ -4,31 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
-import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
-import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
-import com.umc.product.common.domain.enums.ClientType;
-import com.umc.product.global.config.WebSocketMessageBrokerConfig;
-import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.global.security.ParsedAccessToken;
-import com.umc.product.global.websocket.interceptor.ShutdownAwareHandshakeInterceptor;
-import com.umc.product.global.websocket.interceptor.StompAuthChannelInterceptor;
-import com.umc.product.global.websocket.interceptor.StompPrincipalInterceptor;
-import com.umc.product.global.websocket.interceptor.WebSocketInboundMetricInterceptor;
-import com.umc.product.global.websocket.interceptor.WebSocketOutboundMetricInterceptor;
-import com.umc.product.global.websocket.interceptor.WebSocketRateLimitInterceptor;
-import io.micrometer.context.ContextSnapshotFactory;
-import io.micrometer.core.instrument.MeterRegistry;
-import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import io.micrometer.observation.ObservationRegistry;
 import java.lang.reflect.Type;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +38,27 @@ import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.socket.sockjs.client.SockJsClient;
 import org.springframework.web.socket.sockjs.client.WebSocketTransport;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
+import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
+import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
+import com.umc.product.common.domain.enums.ClientType;
+import com.umc.product.global.config.WebSocketMessageBrokerConfig;
+import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.ParsedAccessToken;
+import com.umc.product.global.websocket.interceptor.ShutdownAwareHandshakeInterceptor;
+import com.umc.product.global.websocket.interceptor.StompAuthChannelInterceptor;
+import com.umc.product.global.websocket.interceptor.StompPrincipalInterceptor;
+import com.umc.product.global.websocket.interceptor.WebSocketInboundMetricInterceptor;
+import com.umc.product.global.websocket.interceptor.WebSocketOutboundMetricInterceptor;
+import com.umc.product.global.websocket.interceptor.WebSocketRateLimitInterceptor;
+
+import io.micrometer.context.ContextSnapshotFactory;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.observation.ObservationRegistry;
 
 @DisplayName("ApiResponseStompErrorHandler 통합 테스트")
 @SpringBootTest(

@@ -3,15 +3,18 @@ package com.umc.product.chat.adapter.out.persistence;
 import static com.umc.product.chat.domain.QChatMember.chatMember;
 import static com.umc.product.chat.domain.QChatMessage.chatMessage;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Repository;
+
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
 import com.umc.product.chat.domain.ChatMessage;
-import java.util.List;
-import java.util.Optional;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor

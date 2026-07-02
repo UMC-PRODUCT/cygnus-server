@@ -6,14 +6,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
-import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
-import com.umc.product.common.domain.exception.CommonException;
-import com.umc.product.global.exception.constant.CommonErrorCode;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.global.websocket.handler.WebSocketErrorEvent;
 import java.security.Principal;
 import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -27,6 +22,13 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
+import com.umc.product.common.domain.exception.CommonException;
+import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.websocket.handler.WebSocketErrorEvent;
 
 @DisplayName("StompAuthChannelInterceptor")
 @ExtendWith(MockitoExtension.class)

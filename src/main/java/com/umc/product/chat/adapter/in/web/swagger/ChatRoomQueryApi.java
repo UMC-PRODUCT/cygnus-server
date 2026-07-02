@@ -1,12 +1,14 @@
 package com.umc.product.chat.adapter.in.web.swagger;
 
+import org.springframework.web.bind.annotation.PathVariable;
+
 import com.umc.product.chat.adapter.in.web.dto.response.ChatRoomResponse;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.PathVariable;
 
 @Tag(name = "Chat | 채팅방 Query", description = "채팅방 단건 조회 API")
 public interface ChatRoomQueryApi {

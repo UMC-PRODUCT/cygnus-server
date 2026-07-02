@@ -1,14 +1,7 @@
 package com.umc.product.global.websocket.interceptor;
 
-import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
-import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
-import com.umc.product.common.domain.exception.CommonException;
-import com.umc.product.global.exception.constant.CommonErrorCode;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.global.websocket.handler.WebSocketErrorEvent;
 import java.security.Principal;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -18,6 +11,16 @@ import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Component;
+
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
+import com.umc.product.common.domain.exception.CommonException;
+import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.websocket.handler.WebSocketErrorEvent;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j

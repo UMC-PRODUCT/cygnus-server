@@ -1,10 +1,12 @@
 package com.umc.product.chat.application.policy;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * 채팅방 접근 정책.

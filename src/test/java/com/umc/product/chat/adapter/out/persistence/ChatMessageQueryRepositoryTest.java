@@ -2,17 +2,10 @@ package com.umc.product.chat.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
-import com.umc.product.chat.domain.ChatMember;
-import com.umc.product.chat.domain.ChatMessage;
-import com.umc.product.chat.domain.ChatRoom;
-import com.umc.product.chat.domain.MessageContentType;
-import com.umc.product.global.config.JpaConfig;
-import com.umc.product.global.config.QueryDslConfig;
-import com.umc.product.support.TestContainersConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,6 +14,15 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+
+import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
+import com.umc.product.chat.domain.ChatMember;
+import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.ChatRoom;
+import com.umc.product.chat.domain.MessageContentType;
+import com.umc.product.global.config.JpaConfig;
+import com.umc.product.global.config.QueryDslConfig;
+import com.umc.product.support.TestContainersConfig;
 
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)

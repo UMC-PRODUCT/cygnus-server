@@ -1,14 +1,16 @@
 package com.umc.product.chat.adapter.in.web.swagger;
 
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
+
 import com.umc.product.chat.adapter.in.web.dto.request.JoinChatRoomRequest;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestBody;
 
 @Tag(name = "Chat | 채팅방 멤버 Command", description = "채팅방 멤버 추가·제거 API")
 public interface ChatMemberCommandApi {

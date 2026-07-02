@@ -2,12 +2,6 @@ package com.umc.product.global.websocket.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
-import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
-import com.umc.product.common.domain.exception.CommonException;
-import com.umc.product.global.exception.constant.CommonErrorCode;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.messaging.Message;
@@ -16,6 +10,13 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.util.MimeTypeUtils;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.common.domain.exception.CommonException;
+import com.umc.product.global.exception.constant.CommonErrorCode;
 
 @DisplayName("ApiResponseStompErrorHandler")
 class ApiResponseStompErrorHandlerTest {

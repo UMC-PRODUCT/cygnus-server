@@ -1,12 +1,14 @@
 package com.umc.product.chat.adapter.out.persistence;
 
-import com.umc.product.chat.domain.ChatMember;
 import java.util.List;
 import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.umc.product.chat.domain.ChatMember;
 
 public interface ChatMemberJpaRepository extends JpaRepository<ChatMember, Long> {
 

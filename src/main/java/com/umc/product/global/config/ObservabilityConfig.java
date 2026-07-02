@@ -1,8 +1,9 @@
 package com.umc.product.global.config;
 
-import io.micrometer.context.ContextSnapshotFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import io.micrometer.context.ContextSnapshotFactory;
 
 @Configuration
 public class ObservabilityConfig {

@@ -2,10 +2,11 @@ package com.umc.product.global.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.umc.product.common.domain.enums.ClientType;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
+import com.umc.product.common.domain.enums.ClientType;
 
 @DisplayName("MemberPrincipal")
 class MemberPrincipalTest {

@@ -1,5 +1,10 @@
 package com.umc.product.chat.application.service.query;
 
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatRoomUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
@@ -7,10 +12,8 @@ import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatRoom;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor

@@ -1,5 +1,8 @@
 package com.umc.product.chat.application.service.command;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.LeaveChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
@@ -10,9 +13,8 @@ import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor

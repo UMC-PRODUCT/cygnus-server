@@ -1,15 +1,8 @@
 package com.umc.product.global.websocket.handler;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.global.exception.BusinessException;
-import com.umc.product.global.exception.constant.CommonErrorCode;
-import com.umc.product.global.response.ApiResponse;
-import com.umc.product.global.response.code.BaseCode;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.lang.Nullable;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -19,6 +12,16 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.MimeTypeUtils;
 import org.springframework.web.socket.messaging.StompSubProtocolErrorHandler;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.global.exception.BusinessException;
+import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.response.ApiResponse;
+import com.umc.product.global.response.code.BaseCode;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * STOMP 예외를 HTTP API와 동일한 ApiResponse 형식의 ERROR 프레임으로 변환한다.

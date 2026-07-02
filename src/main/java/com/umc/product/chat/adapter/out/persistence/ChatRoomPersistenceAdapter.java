@@ -1,5 +1,9 @@
 package com.umc.product.chat.adapter.out.persistence;
 
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
@@ -8,9 +12,8 @@ import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatRoom;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

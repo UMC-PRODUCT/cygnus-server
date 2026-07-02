@@ -1,13 +1,15 @@
 package com.umc.product.chat.adapter.in.web.swagger;
 
+import org.springframework.web.bind.annotation.PathVariable;
+
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.web.bind.annotation.PathVariable;
 
 @Tag(name = "Chat | 채팅 메시지 Command", description = "채팅방 읽음 처리 API")
 public interface ChatMessageCommandApi {

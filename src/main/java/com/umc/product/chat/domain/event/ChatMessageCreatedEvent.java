@@ -1,11 +1,12 @@
 package com.umc.product.chat.domain.event;
 
-import com.umc.product.chat.domain.ChatMessage;
-import com.umc.product.chat.domain.MessageContentType;
-import com.umc.product.global.event.domain.DomainEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
+import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.MessageContentType;
+import com.umc.product.global.event.domain.DomainEvent;
 
 /**
  * 채팅 메시지가 생성되었음을 알리는 도메인 이벤트.

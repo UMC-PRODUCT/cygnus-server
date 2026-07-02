@@ -3,11 +3,14 @@ package com.umc.product.chat.adapter.out.persistence;
 import static com.umc.product.chat.domain.QChatMember.chatMember;
 import static com.umc.product.chat.domain.QChatRoom.chatRoom;
 
+import java.util.List;
+
+import org.springframework.stereotype.Repository;
+
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.chat.domain.ChatRoom;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor

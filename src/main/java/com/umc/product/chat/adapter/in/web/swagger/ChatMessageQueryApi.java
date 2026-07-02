@@ -1,18 +1,21 @@
 package com.umc.product.chat.adapter.in.web.swagger;
 
+import java.util.List;
+
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
+
 import com.umc.product.chat.adapter.in.web.dto.response.ChatMessageResponse;
 import com.umc.product.chat.adapter.in.web.dto.response.ChatRoomSummaryResponse;
 import com.umc.product.global.response.CursorResponse;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.List;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestParam;
 
 @Tag(name = "Chat | 채팅 메시지 Query", description = "채팅 메시지 내역 및 내 채팅방 목록 조회 API")
 public interface ChatMessageQueryApi {
