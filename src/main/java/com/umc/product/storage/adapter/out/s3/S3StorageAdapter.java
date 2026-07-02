@@ -49,6 +49,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
 
 /**
  * AWS S3 + CloudFront 기반 스토리지 어댑터
@@ -64,8 +66,11 @@ public class S3StorageAdapter implements StoragePort {
 
     private final S3Client s3Client;
     private final S3Presigner s3Presigner;
+    private final SsmClient ssmClient;
     private final S3StorageProperties properties;
     private final OperationalMetrics operationalMetrics;
+
+    private volatile String cachedCloudFrontPrivateKey;
 
     @Value("${spring.profiles.active:default}")
     private String springProfile;
@@ -140,7 +145,7 @@ public class S3StorageAdapter implements StoragePort {
 
     @Override
     public String generateAccessUrl(String storageKey, long durationMinutes) {
-        if (isCloudFrontSigningAvailable()) {
+        if (isCloudFrontSigningConfigured()) {
             return generateCloudFrontSignedUrl(storageKey, durationMinutes);
         }
         if (properties.cloudfront().enabled()) {
@@ -239,7 +244,7 @@ public class S3StorageAdapter implements StoragePort {
 
             CloudFrontUtilities cloudFrontUtilities = CloudFrontUtilities.create();
 
-            PrivateKey privateKey = parsePrivateKey(cloudfront.privateKey());
+            PrivateKey privateKey = parsePrivateKey(resolveCloudFrontPrivateKey(cloudfront));
 
             CannedSignerRequest signerRequest = CannedSignerRequest.builder()
                 .resourceUrl(resourceUrl)
@@ -254,6 +259,9 @@ public class S3StorageAdapter implements StoragePort {
             recordStorageMetric("CREATE_DOWNLOAD_URL", "success", startNanos);
 
             return signedUrl.url();
+        } catch (StorageException e) {
+            recordStorageMetric("CREATE_DOWNLOAD_URL", "failure", startNanos);
+            throw e;
         } catch (Exception e) {
             recordStorageMetric("CREATE_DOWNLOAD_URL", "failure", startNanos);
             log.error("CloudFront Signed URL 생성 실패: storageKey={}", storageKey, e);
@@ -316,12 +324,44 @@ public class S3StorageAdapter implements StoragePort {
         return keyFactory.generatePrivate(keySpec);
     }
 
-    private boolean isCloudFrontSigningAvailable() {
+    private boolean isCloudFrontSigningConfigured() {
         S3StorageProperties.CloudFront cloudfront = properties.cloudfront();
         return cloudfront.enabled()
             && StringUtils.hasText(cloudfront.distributionDomain())
             && StringUtils.hasText(cloudfront.keyPairId())
-            && StringUtils.hasText(cloudfront.privateKey());
+            && (StringUtils.hasText(cloudfront.privateKey())
+                || StringUtils.hasText(cloudfront.privateKeyParameterName()));
+    }
+
+    private String resolveCloudFrontPrivateKey(S3StorageProperties.CloudFront cloudfront) {
+        if (StringUtils.hasText(cloudfront.privateKey())) {
+            return cloudfront.privateKey();
+        }
+
+        String cachedPrivateKey = cachedCloudFrontPrivateKey;
+        if (StringUtils.hasText(cachedPrivateKey)) {
+            return cachedPrivateKey;
+        }
+
+        try {
+            String parameterName = cloudfront.privateKeyParameterName();
+            String privateKey = ssmClient.getParameter(GetParameterRequest.builder()
+                    .name(parameterName)
+                    .withDecryption(true)
+                    .build())
+                .parameter()
+                .value();
+            if (!StringUtils.hasText(privateKey)) {
+                throw new StorageException(StorageErrorCode.CDN_SIGNING_FAILED);
+            }
+            cachedCloudFrontPrivateKey = privateKey;
+            return privateKey;
+        } catch (StorageException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("CloudFront private key SSM 조회 실패: parameterName={}", cloudfront.privateKeyParameterName(), e);
+            throw new StorageException(StorageErrorCode.CDN_SIGNING_FAILED, e);
+        }
     }
 
     private String normalizePrivateKey(String privateKeyPem) {

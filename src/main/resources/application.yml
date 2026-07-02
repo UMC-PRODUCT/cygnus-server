@@ -540,8 +540,9 @@ storage:
     cloudfront:
       enabled: ${AWS_CLOUDFRONT_ENABLED:false}
       distribution-domain: ${AWS_CLOUDFRONT_DISTRIBUTION_DOMAIN:cdn.umc.it.kr}
-      private-key: ${CDN_PRIVATE_KEY}
-      key-pair-id: ${CDN_KEY_PAIR_ID}
+      key-pair-id: ${CDN_KEY_PAIR_ID:}
+      private-key: ${CDN_PRIVATE_KEY:}
+      private-key-parameter-name: ${CDN_PRIVATE_KEY_PARAMETER_NAME:/umc/common/cloudfront/private-key}
 
 
 # ==================================================================

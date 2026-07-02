@@ -3,6 +3,7 @@ package com.umc.product.storage.adapter.out.s3;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.net.URI;
@@ -39,6 +40,10 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedPutObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
+import software.amazon.awssdk.services.ssm.SsmClient;
+import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
+import software.amazon.awssdk.services.ssm.model.GetParameterResponse;
+import software.amazon.awssdk.services.ssm.model.Parameter;
 
 @ExtendWith(MockitoExtension.class)
 class S3StorageAdapterTest {
@@ -48,6 +53,9 @@ class S3StorageAdapterTest {
 
     @Mock
     S3Presigner s3Presigner;
+
+    @Mock
+    SsmClient ssmClient;
 
     @Mock
     PresignedPutObjectRequest presignedPutObjectRequest;
@@ -118,7 +126,7 @@ class S3StorageAdapterTest {
     @DisplayName("CloudFront가 켜져 있어도 서명 키가 없으면 Presigned GET URL로 대체한다")
     void CloudFront가_켜져_있어도_서명_키가_없으면_Presigned_GET_URL로_대체한다() throws Exception {
         // given
-        S3StorageAdapter sut = adapter(new S3StorageProperties.CloudFront("cdn.example.com", true, null, null));
+        S3StorageAdapter sut = adapter(new S3StorageProperties.CloudFront("cdn.example.com", true, null, null, null));
         ArgumentCaptor<GetObjectPresignRequest> captor = ArgumentCaptor.forClass(GetObjectPresignRequest.class);
         given(presignedGetObjectRequest.url()).willReturn(URI.create("https://storage.example.com/download").toURL());
         given(s3Presigner.presignGetObject(captor.capture())).willReturn(presignedGetObjectRequest);
@@ -129,6 +137,7 @@ class S3StorageAdapterTest {
         // then
         assertThat(result).isEqualTo("https://storage.example.com/download");
         assertThat(captor.getValue().getObjectRequest().key()).isEqualTo("private/certificate/file.pdf");
+        verify(ssmClient, never()).getParameter(org.mockito.ArgumentMatchers.any(GetParameterRequest.class));
     }
 
     @Test
@@ -140,7 +149,8 @@ class S3StorageAdapterTest {
             "cdn.example.com",
             true,
             "K1234567890",
-            privateKey
+            privateKey,
+            null
         ));
 
         // when
@@ -150,6 +160,41 @@ class S3StorageAdapterTest {
         assertThat(result)
             .startsWith("https://cdn.example.com/private/certificate/file.pdf")
             .contains("Key-Pair-Id=K1234567890");
+    }
+
+    @Test
+    @DisplayName("SSM SecureString private key로 CloudFront Signed URL을 생성하고 값을 캐시한다")
+    void SSM_SecureString_private_key로_CloudFront_Signed_URL을_생성하고_값을_캐시한다() throws Exception {
+        // given
+        String privateKey = pkcs8PrivateKeyPem().replace("\n", "\\n");
+        S3StorageAdapter sut = adapter(new S3StorageProperties.CloudFront(
+            "cdn.example.com",
+            true,
+            "K1234567890",
+            null,
+            "/umc/common/cloudfront/private-key"
+        ));
+        ArgumentCaptor<GetParameterRequest> captor = ArgumentCaptor.forClass(GetParameterRequest.class);
+        given(ssmClient.getParameter(captor.capture())).willReturn(GetParameterResponse.builder()
+            .parameter(Parameter.builder()
+                .value(privateKey)
+                .build())
+            .build());
+
+        // when
+        String firstResult = sut.generateAccessUrl("private/certificate/file.pdf", 60L);
+        String secondResult = sut.generateAccessUrl("private/certificate/file.pdf", 60L);
+
+        // then
+        assertThat(firstResult)
+            .startsWith("https://cdn.example.com/private/certificate/file.pdf")
+            .contains("Key-Pair-Id=K1234567890");
+        assertThat(secondResult)
+            .startsWith("https://cdn.example.com/private/certificate/file.pdf")
+            .contains("Key-Pair-Id=K1234567890");
+        assertThat(captor.getValue().name()).isEqualTo("/umc/common/cloudfront/private-key");
+        assertThat(captor.getValue().withDecryption()).isTrue();
+        verify(ssmClient).getParameter(org.mockito.ArgumentMatchers.any(GetParameterRequest.class));
     }
 
     @Test
@@ -200,13 +245,14 @@ class S3StorageAdapterTest {
     }
 
     private S3StorageAdapter adapter() {
-        return adapter(new S3StorageProperties.CloudFront("cdn.example.com", false, null, null));
+        return adapter(new S3StorageProperties.CloudFront("cdn.example.com", false, null, null, null));
     }
 
     private S3StorageAdapter adapter(S3StorageProperties.CloudFront cloudFront) {
         return new S3StorageAdapter(
             s3Client,
             s3Presigner,
+            ssmClient,
             properties(cloudFront),
             new OperationalMetrics(new SimpleMeterRegistry())
         );
