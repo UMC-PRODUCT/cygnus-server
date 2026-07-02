@@ -5,8 +5,11 @@ import java.util.List;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CancelRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormGraphQlResponse;
@@ -57,18 +60,20 @@ public class RecruitingGraphQlController {
 
     @MutationMapping
     public RecruitingApplicationGraphQlResponse createRecruitingApplicationDraft(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument CreateRecruitingApplicationDraftGraphQlRequest input
     ) {
-        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId();
+        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(createDraftUseCase.createDraft(input.toCommand(resolvedMemberId)));
     }
 
     @MutationMapping
     public RecruitingApplicationGraphQlResponse updateRecruitingApplicationDraft(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long applicationId,
         @Argument UpdateRecruitingApplicationDraftGraphQlRequest input
     ) {
-        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId();
+        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(
             updateDraftUseCase.updateDraft(input.toCommand(applicationId, resolvedMemberId))
         );
@@ -76,13 +81,14 @@ public class RecruitingGraphQlController {
 
     @MutationMapping
     public RecruitingApplicationGraphQlResponse submitRecruitingApplication(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long applicationId,
         @Argument SubmitRecruitingApplicationGraphQlRequest input
     ) {
         SubmitRecruitingApplicationGraphQlRequest actualInput = input == null
             ? new SubmitRecruitingApplicationGraphQlRequest(null, null)
             : input;
-        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId();
+        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(
             submitApplicationUseCase.submit(actualInput.toCommand(applicationId, resolvedMemberId))
         );
@@ -90,13 +96,14 @@ public class RecruitingGraphQlController {
 
     @MutationMapping
     public RecruitingApplicationGraphQlResponse cancelRecruitingApplication(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long applicationId,
         @Argument CancelRecruitingApplicationGraphQlRequest input
     ) {
         CancelRecruitingApplicationGraphQlRequest actualInput = input == null
             ? new CancelRecruitingApplicationGraphQlRequest(null, null)
             : input;
-        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId();
+        Long resolvedMemberId = permissionSupport.nullableCurrentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(
             cancelApplicationUseCase.cancel(actualInput.toCommand(applicationId, resolvedMemberId))
         );

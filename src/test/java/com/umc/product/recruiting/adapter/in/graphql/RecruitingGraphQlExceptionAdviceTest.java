@@ -23,6 +23,7 @@ import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.AssignRecruitingInterviewUseCase;
 import com.umc.product.recruiting.application.port.in.command.FindRecruitingInterviewScheduleCandidatesUseCase;
@@ -35,7 +36,12 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQue
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewEvaluationUseCase;
 
 @GraphQlTest(RecruitingInterviewGraphQlController.class)
-@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, RecruitingGraphQlPermissionSupport.class})
+@Import({
+    GraphQlRuntimeWiringConfig.class,
+    GraphQlExceptionAdvice.class,
+    RecruitingGraphQlPermissionSupport.class,
+    CurrentMemberSecurityConfig.class
+})
 @DisplayName("RecruitingGraphQlExceptionAdvice")
 class RecruitingGraphQlExceptionAdviceTest {
 

@@ -3,9 +3,12 @@ package com.umc.product.recruiting.adapter.in.graphql;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.LinkRecruitingApplicationFormGraphQlRequest;
@@ -114,11 +117,15 @@ public class RecruitingAdminGraphQlController {
     }
 
     @MutationMapping
-    public Boolean publishRecruitingApplicationForm(@Argument Long seasonId, @Argument Long applicationFormId) {
+    public Boolean publishRecruitingApplicationForm(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long seasonId,
+        @Argument Long applicationFormId
+    ) {
         permissionSupport.assertResourceBelongsToSeason(
             getFormQueryUseCase.isApplicationFormBelongsToSeason(applicationFormId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
         publishFormUseCase.publish(PublishRecruitingApplicationFormCommand.builder()
             .applicationFormId(applicationFormId)
@@ -141,6 +148,7 @@ public class RecruitingAdminGraphQlController {
 
     @MutationMapping
     public Boolean decideRecruitingDocument(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long applicationId,
         @Argument RecruitingDecisionGraphQlRequest input
@@ -148,7 +156,7 @@ public class RecruitingAdminGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.APPROVE);
         decideDocumentUseCase.decideDocument(input.toDocumentCommand(applicationId, requesterMemberId));
         return true;
@@ -156,6 +164,7 @@ public class RecruitingAdminGraphQlController {
 
     @MutationMapping
     public Boolean decideRecruitingFinal(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long applicationId,
         @Argument RecruitingDecisionGraphQlRequest input
@@ -163,18 +172,22 @@ public class RecruitingAdminGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.APPROVE);
         decideFinalUseCase.decideFinal(input.toFinalCommand(applicationId, requesterMemberId));
         return true;
     }
 
     @MutationMapping
-    public Boolean confirmRecruitingRegistration(@Argument Long seasonId, @Argument Long applicationId) {
+    public Boolean confirmRecruitingRegistration(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long seasonId,
+        @Argument Long applicationId
+    ) {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.MANAGE);
         confirmRegistrationUseCase.confirmRegistration(ConfirmRecruitingRegistrationCommand.builder()
             .applicationId(applicationId)

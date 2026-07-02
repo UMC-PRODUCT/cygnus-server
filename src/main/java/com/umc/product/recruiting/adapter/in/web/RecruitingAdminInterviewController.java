@@ -125,7 +125,7 @@ public class RecruitingAdminInterviewController {
         @PathVariable Long seasonId,
         @PathVariable Long applicationId
     ) {
-        return getEvaluationUseCase.listVisibleEvaluations(applicationId, memberId(memberPrincipal))
+        return getEvaluationUseCase.listVisibleEvaluations(applicationId, memberId(memberPrincipal), true)
             .stream()
             .map(RecruitingInterviewEvaluationResponse::from)
             .toList();

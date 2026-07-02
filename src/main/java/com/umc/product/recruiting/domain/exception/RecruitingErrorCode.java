@@ -23,6 +23,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_ROUND_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0102", "현재 모집 차수 상태에서는 할 수 없는 작업이에요."),
     RECRUITING_SEASON_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0103", "이미 같은 학교와 기수의 모집 시즌이 있어요."),
     RECRUITING_ROUND_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0104", "이미 같은 시즌의 모집 차수가 있어요."),
+    RECRUITING_SEASON_REQUIRED_FIELD(HttpStatus.BAD_REQUEST, "RECRUITING-0105", "모집 시즌 생성에는 기수와 학교가 필요해요."),
     RECRUITING_APPLICATION_FORM_TRACK_REQUIRED(HttpStatus.BAD_REQUEST, "RECRUITING-0200", "지원 폼의 모집 트랙을 선택해주세요."),
     RECRUITING_APPLICATION_FORM_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0201", "현재 지원 폼 상태에서는 할 수 없는 작업이에요."),
     RECRUITING_APPLICATION_FORM_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0202", "이미 해당 모집 차수에 연결된 지원 폼이에요."),
@@ -36,6 +37,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_APPLICATION_MEMBER_REQUIRED(HttpStatus.BAD_REQUEST, "RECRUITING-0306", "챌린저 등록에는 연결된 회원 정보가 필요해요."),
     RECRUITING_EVALUATION_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0400", "현재 평가 상태에서는 할 수 없는 작업이에요."),
     RECRUITING_EVALUATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "RECRUITING-0401", "이미 제출한 지원자 평가가 있어요."),
+    RECRUITING_EVALUATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0402", "지원자 평가를 조회할 권한이 없어요."),
     ;
 
     private final HttpStatus httpStatus;

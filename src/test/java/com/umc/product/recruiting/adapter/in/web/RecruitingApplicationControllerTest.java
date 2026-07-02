@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,6 +20,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -60,6 +62,11 @@ class RecruitingApplicationControllerTest {
     @MockitoBean
     CancelRecruitingApplicationUseCase cancelUseCase;
 
+    @BeforeEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("지원서 draft 생성 API는 identity metadata를 command로 전달한다")
     void 지원서_draft_생성_API는_identity_metadata를_command로_전달한다() throws Exception {
@@ -87,6 +94,32 @@ class RecruitingApplicationControllerTest {
         assertThat(captor.getValue().applicationFormId()).isEqualTo(10L);
         assertThat(captor.getValue().applicantIdentityKey()).isEqualTo("identity-key");
         assertThat(captor.getValue().maskedEmail()).isEqualTo("h***@example.com");
+    }
+
+    @Test
+    @DisplayName("비로그인 지원서 draft 생성 API는 요청 본문의 applicantMemberId를 신뢰하지 않는다")
+    void 비로그인_지원서_draft_생성_API는_요청_본문의_applicantMemberId를_신뢰하지_않는다() throws Exception {
+        given(createDraftUseCase.createDraft(any()))
+            .willReturn(RecruitingApplicationInfo.from(100L, "REC-001", RecruitingApplicationStatus.DRAFT));
+
+        String body = """
+            {
+              "applicationFormId": 10,
+              "applicantMemberId": 999,
+              "applicantIdentityKey": "identity-key",
+              "maskedEmail": "h***@example.com"
+            }
+            """;
+
+        mockMvc.perform(post("/api/v1/recruiting/applications")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(body))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<CreateRecruitingApplicationDraftCommand> captor =
+            ArgumentCaptor.forClass(CreateRecruitingApplicationDraftCommand.class);
+        then(createDraftUseCase).should().createDraft(captor.capture());
+        assertThat(captor.getValue().applicantMemberId()).isNull();
     }
 
     @Test

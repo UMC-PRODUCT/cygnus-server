@@ -214,9 +214,9 @@ class RecruitingAdminControllerTest {
     }
 
     @Test
-    @DisplayName("평가 조회 API는 제출 전 visibility 정책 결과만 반환한다")
-    void 평가_조회_API는_제출_전_visibility_정책_결과만_반환한다() throws Exception {
-        given(getEvaluationUseCase.listVisibleEvaluations(APPLICATION_ID, MEMBER_ID))
+    @DisplayName("어드민 평가 조회 API는 관리자 bypass로 모든 평가를 조회한다")
+    void 어드민_평가_조회_API는_관리자_bypass로_모든_평가를_조회한다() throws Exception {
+        given(getEvaluationUseCase.listVisibleEvaluations(APPLICATION_ID, MEMBER_ID, true))
             .willReturn(List.of(new RecruitingInterviewEvaluationInfo(
                 77L,
                 MEMBER_ID,

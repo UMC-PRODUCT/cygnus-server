@@ -5,9 +5,12 @@ import java.util.List;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.AssignRecruitingInterviewGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.FindRecruitingInterviewScheduleCandidatesGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
@@ -45,21 +48,31 @@ public class RecruitingInterviewGraphQlController {
 
     @QueryMapping
     public List<RecruitingInterviewEvaluationGraphQlResponse> recruitingVisibleInterviewEvaluations(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long applicationId
     ) {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
-        return getEvaluationUseCase.listVisibleEvaluations(applicationId, requesterMemberId).stream()
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        boolean canBypassVisibility = permissionSupport.hasRecruitmentPermission(
+            requesterMemberId,
+            seasonId,
+            PermissionType.READ
+        );
+        return getEvaluationUseCase.listVisibleEvaluations(
+                applicationId,
+                requesterMemberId,
+                canBypassVisibility
+            ).stream()
             .map(RecruitingInterviewEvaluationGraphQlResponse::from)
             .toList();
     }
 
     @MutationMapping
     public RecruitingIdGraphQlResponse assignRecruitingInterview(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long applicationId,
         @Argument AssignRecruitingInterviewGraphQlRequest input
@@ -67,7 +80,7 @@ public class RecruitingInterviewGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
         return RecruitingIdGraphQlResponse.from(
             assignInterviewUseCase.assign(input.toCommand(applicationId, requesterMemberId))
@@ -76,6 +89,7 @@ public class RecruitingInterviewGraphQlController {
 
     @MutationMapping
     public Boolean skipRecruitingInterview(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long applicationId,
         @Argument SkipRecruitingInterviewGraphQlRequest input
@@ -83,7 +97,7 @@ public class RecruitingInterviewGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         SkipRecruitingInterviewGraphQlRequest actualInput = input == null
             ? new SkipRecruitingInterviewGraphQlRequest(null)
             : input;
@@ -126,6 +140,7 @@ public class RecruitingInterviewGraphQlController {
 
     @MutationMapping
     public Boolean saveRecruitingInterviewEvaluation(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long assignmentId,
         @Argument SaveRecruitingInterviewEvaluationGraphQlRequest input
@@ -133,7 +148,7 @@ public class RecruitingInterviewGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getEvaluationUseCase.isAssignmentBelongsToSeason(assignmentId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
         saveEvaluationUseCase.saveEvaluation(input.toSaveCommand(assignmentId, requesterMemberId));
         return true;
@@ -141,6 +156,7 @@ public class RecruitingInterviewGraphQlController {
 
     @MutationMapping
     public Boolean submitRecruitingInterviewEvaluation(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long assignmentId,
         @Argument SaveRecruitingInterviewEvaluationGraphQlRequest input
@@ -148,7 +164,7 @@ public class RecruitingInterviewGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getEvaluationUseCase.isAssignmentBelongsToSeason(assignmentId, seasonId)
         );
-        Long requesterMemberId = permissionSupport.currentMemberId();
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
         submitEvaluationUseCase.submitEvaluation(input.toSubmitCommand(assignmentId, requesterMemberId));
         return true;

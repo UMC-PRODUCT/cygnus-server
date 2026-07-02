@@ -15,6 +15,7 @@ import org.springframework.graphql.execution.GraphQlSource;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 
 import graphql.ExecutionResult;
+import graphql.introspection.Introspection;
 
 class RecruitingGraphQlSurfaceTest {
 
@@ -22,48 +23,53 @@ class RecruitingGraphQlSurfaceTest {
     @DisplayName("GraphQL introspection에서 Recruiting Query와 Mutation 필드를 제공한다")
     void GraphQL_introspection에서_Recruiting_Query와_Mutation_필드를_제공한다() throws IOException {
         // Given
-        GraphQlSource graphQlSource = graphQlSource();
+        boolean previousIntrospectionEnabled = Introspection.enabledJvmWide(true);
+        try {
+            GraphQlSource graphQlSource = graphQlSource();
 
-        // When
-        ExecutionResult result = graphQlSource.graphQl()
-            .execute("""
-                {
-                  __schema {
-                    types {
-                      name
-                      fields {
-                        name
+            // When
+            ExecutionResult result = graphQlSource.graphQl()
+                .execute("""
+                    {
+                      __schema {
+                        types {
+                          name
+                          fields {
+                            name
+                          }
+                        }
                       }
                     }
-                  }
-                }
-                """)
-            ;
+                    """)
+                ;
 
-        // Then
-        assertThat(result.getErrors()).isEmpty();
-        Map<String, Object> data = result.getData();
-        assertThat(data).isNotNull();
-        List<String> queryFields = fieldNames(data, "Query");
-        List<String> mutationFields = fieldNames(data, "Mutation");
-        System.out.println("GraphQL introspection Query fields: " + queryFields);
-        System.out.println("GraphQL introspection Mutation fields: " + mutationFields);
+            // Then
+            assertThat(result.getErrors()).isEmpty();
+            Map<String, Object> data = result.getData();
+            assertThat(data).isNotNull();
+            List<String> queryFields = fieldNames(data, "Query");
+            List<String> mutationFields = fieldNames(data, "Mutation");
+            System.out.println("GraphQL introspection Query fields: " + queryFields);
+            System.out.println("GraphQL introspection Mutation fields: " + mutationFields);
 
-        assertThat(queryFields)
-            .contains(
-                "recruitingApplicationForms",
-                "recruitingApplicationResult",
-                "recruitingStatusSummary",
-                "recruitingVisibleInterviewEvaluations"
-            );
-        assertThat(mutationFields)
-            .contains(
-                "createRecruitingSeason",
-                "linkRecruitingApplicationForm",
-                "createRecruitingApplicationDraft",
-                "confirmRecruitingRegistration",
-                "submitRecruitingInterviewEvaluation"
-            );
+            assertThat(queryFields)
+                .contains(
+                    "recruitingApplicationForms",
+                    "recruitingApplicationResult",
+                    "recruitingStatusSummary",
+                    "recruitingVisibleInterviewEvaluations"
+                );
+            assertThat(mutationFields)
+                .contains(
+                    "createRecruitingSeason",
+                    "linkRecruitingApplicationForm",
+                    "createRecruitingApplicationDraft",
+                    "confirmRecruitingRegistration",
+                    "submitRecruitingInterviewEvaluation"
+                );
+        } finally {
+            Introspection.enabledJvmWide(previousIntrospectionEnabled);
+        }
     }
 
     private static GraphQlSource graphQlSource() throws IOException {

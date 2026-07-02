@@ -13,6 +13,8 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewEv
 import com.umc.product.recruiting.domain.RecruitingInterviewAssignment;
 import com.umc.product.recruiting.domain.RecruitingInterviewEvaluation;
 import com.umc.product.recruiting.domain.RecruitingInterviewEvaluationVisibility;
+import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
+import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,7 +27,17 @@ public class RecruitingInterviewQueryService implements GetRecruitingInterviewEv
     private final LoadRecruitingInterviewAssignmentPort loadAssignmentPort;
 
     @Override
-    public List<RecruitingInterviewEvaluationInfo> listVisibleEvaluations(Long applicationId, Long evaluatorMemberId) {
+    public List<RecruitingInterviewEvaluationInfo> listVisibleEvaluations(
+        Long applicationId,
+        Long evaluatorMemberId,
+        boolean canBypassVisibility
+    ) {
+        if (canBypassVisibility) {
+            return loadEvaluationPort.listByApplicationId(applicationId).stream()
+                .map(RecruitingInterviewEvaluationInfo::from)
+                .toList();
+        }
+        assertAssignedInterviewer(applicationId, evaluatorMemberId);
         return loadEvaluationPort.findByApplicationIdAndEvaluatorMemberId(applicationId, evaluatorMemberId)
             .map(ownEvaluation -> listVisibleEvaluations(applicationId, evaluatorMemberId, ownEvaluation))
             .orElse(List.of());
@@ -55,5 +67,10 @@ public class RecruitingInterviewQueryService implements GetRecruitingInterviewEv
             .filter(evaluation -> evaluation.getEvaluatorMemberId().equals(evaluatorMemberId))
             .map(RecruitingInterviewEvaluationInfo::from)
             .toList();
+    }
+
+    private void assertAssignedInterviewer(Long applicationId, Long evaluatorMemberId) {
+        loadAssignmentPort.findByApplicationIdAndInterviewerMemberId(applicationId, evaluatorMemberId)
+            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_ACCESS_DENIED));
     }
 }

@@ -1,14 +1,13 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 
 import lombok.RequiredArgsConstructor;
@@ -18,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingGraphQlPermissionSupport {
 
     private final CheckPermissionUseCase checkPermissionUseCase;
+    private final CurrentMemberProvider currentMemberProvider;
 
     public void assertRecruitmentTypePermission(PermissionType permission) {
         checkPermissionUseCase.checkOrThrow(
@@ -34,6 +34,10 @@ public class RecruitingGraphQlPermissionSupport {
         checkPermissionUseCase.checkOrThrow(memberId, recruitmentPermission(seasonId, permission));
     }
 
+    public boolean hasRecruitmentPermission(Long memberId, Long seasonId, PermissionType permission) {
+        return checkPermissionUseCase.check(memberId, recruitmentPermission(seasonId, permission));
+    }
+
     public void assertResourceBelongsToSeason(boolean belongsToSeason) {
         if (!belongsToSeason) {
             throw new AccessDeniedException("해당 모집 리소스에 접근할 권한이 없어요.");
@@ -41,22 +45,22 @@ public class RecruitingGraphQlPermissionSupport {
     }
 
     public Long currentMemberId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
+        return currentMemberProvider.getRequiredCurrentMemberId();
+    }
+
+    public Long currentMemberId(MemberPrincipal memberPrincipal) {
+        if (memberPrincipal == null) {
             throw new AccessDeniedException("로그인이 필요해요. 로그인 후 다시 시도해주세요.");
         }
-        if (authentication.getPrincipal() instanceof MemberPrincipal principal) {
-            return principal.getMemberId();
-        }
-        throw new AccessDeniedException("인증 정보가 올바르지 않아요. 다시 로그인해주세요.");
+        return memberPrincipal.getMemberId();
     }
 
     public Long nullableCurrentMemberId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof MemberPrincipal principal) {
-            return principal.getMemberId();
-        }
-        return null;
+        return currentMemberProvider.getNullableCurrentMemberId();
+    }
+
+    public Long nullableCurrentMemberId(MemberPrincipal memberPrincipal) {
+        return memberPrincipal == null ? null : memberPrincipal.getMemberId();
     }
 
     private ResourcePermission recruitmentPermission(Long seasonId, PermissionType permission) {

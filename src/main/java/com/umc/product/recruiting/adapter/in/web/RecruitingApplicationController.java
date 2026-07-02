@@ -100,6 +100,6 @@ public class RecruitingApplicationController {
         if (memberPrincipal != null) {
             return memberPrincipal.getMemberId();
         }
-        return requestMemberId;
+        return null;
     }
 }

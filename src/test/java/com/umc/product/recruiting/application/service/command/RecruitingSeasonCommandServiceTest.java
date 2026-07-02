@@ -77,6 +77,24 @@ class RecruitingSeasonCommandServiceTest {
     }
 
     @Test
+    @DisplayName("모집_시즌_생성_command는_기수와_학교가_필수이다")
+    void 모집_시즌_생성_command는_기수와_학교가_필수이다() {
+        assertThatThrownBy(() -> CreateRecruitingSeasonCommand.builder()
+            .schoolId(10L)
+            .build())
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_SEASON_REQUIRED_FIELD);
+
+        assertThatThrownBy(() -> CreateRecruitingSeasonCommand.builder()
+            .gisuId(1L)
+            .build())
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_SEASON_REQUIRED_FIELD);
+    }
+
+    @Test
     @DisplayName("같은_학교와_기수의_모집_시즌이_이미_있으면_생성할_수_없다")
     void createSeasonRejectsDuplicate() {
         // Given

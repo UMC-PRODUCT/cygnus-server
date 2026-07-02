@@ -19,6 +19,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionGraphQlRequest;
@@ -145,6 +146,7 @@ class RecruitingGraphQlSecurityTest {
             .willReturn(RecruitingApplicationInfo.from(1L, "APP-1", RecruitingApplicationStatus.DRAFT));
 
         controller.createRecruitingApplicationDraft(
+            null,
             new CreateRecruitingApplicationDraftGraphQlRequest(100L, 999L, "anonymous-key", "a***@umc.test")
         );
 
@@ -163,6 +165,7 @@ class RecruitingGraphQlSecurityTest {
             .willReturn(false);
 
         assertThatThrownBy(() -> controller.decideRecruitingFinal(
+            null,
             SEASON_ID,
             APPLICATION_ID,
             new RecruitingDecisionGraphQlRequest(RecruitingDecisionStatus.PASS, "pass")
@@ -182,6 +185,7 @@ class RecruitingGraphQlSecurityTest {
             .willReturn(false);
 
         assertThatThrownBy(() -> controller.submitRecruitingInterviewEvaluation(
+            null,
             SEASON_ID,
             ASSIGNMENT_ID,
             new SaveRecruitingInterviewEvaluationGraphQlRequest(5, "good")
@@ -238,7 +242,7 @@ class RecruitingGraphQlSecurityTest {
     }
 
     private RecruitingGraphQlPermissionSupport permissionSupport() {
-        return new RecruitingGraphQlPermissionSupport(checkPermissionUseCase);
+        return new RecruitingGraphQlPermissionSupport(checkPermissionUseCase, new CurrentMemberProvider());
     }
 
     private static void authenticateRequester() {
