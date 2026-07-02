@@ -43,6 +43,11 @@ public class RecruitingApplicationFormPersistenceAdapter
     }
 
     @Override
+    public boolean existsByFormIdAndSeasonId(Long formId, Long seasonId) {
+        return recruitingApplicationFormJpaRepository.existsByFormIdAndRound_Season_Id(formId, seasonId);
+    }
+
+    @Override
     public List<RecruitingApplicationForm> listByRoundId(Long roundId) {
         return recruitingApplicationFormJpaRepository.findAllByRound_IdOrderByIdAsc(roundId);
     }

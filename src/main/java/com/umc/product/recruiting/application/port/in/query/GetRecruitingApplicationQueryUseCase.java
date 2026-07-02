@@ -8,4 +8,8 @@ public interface GetRecruitingApplicationQueryUseCase {
     RecruitingApplicationResultInfo getAnonymousResult(String applicationNo, String applicantIdentityKey);
 
     RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId);
+
+    boolean isRoundBelongsToSeason(Long roundId, Long seasonId);
+
+    boolean isApplicationBelongsToSeason(Long applicationId, Long seasonId);
 }

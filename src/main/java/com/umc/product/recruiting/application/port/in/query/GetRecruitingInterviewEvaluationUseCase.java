@@ -7,4 +7,6 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingInterv
 public interface GetRecruitingInterviewEvaluationUseCase {
 
     List<RecruitingInterviewEvaluationInfo> listVisibleEvaluations(Long applicationId, Long evaluatorMemberId);
+
+    boolean isAssignmentBelongsToSeason(Long assignmentId, Long seasonId);
 }

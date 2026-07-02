@@ -1,5 +1,6 @@
 package com.umc.product.global.exception;
 
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -46,7 +47,8 @@ public class GraphQlExceptionAdvice {
     @GraphQlExceptionHandler({
         IllegalArgumentException.class,
         BindException.class,
-        ConstraintViolationException.class
+        ConstraintViolationException.class,
+        DateTimeParseException.class
     })
     public GraphQLError handleBadRequestException(Exception exception, DataFetchingEnvironment env) {
         log.warn("[GRAPHQL BAD REQUEST] path={}, message={}", env.getExecutionStepInfo().getPath(),

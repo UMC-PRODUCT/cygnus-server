@@ -42,4 +42,12 @@ class ChallengerTrackTest {
             .extracting("baseCode")
             .isEqualTo(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);
     }
+
+    @Test
+    @DisplayName("모집 트랙은 INFRA_CORE를 지원하지 않는다")
+    void 모집_트랙은_INFRA_CORE를_지원하지_않는다() {
+        assertThat(ChallengerTrack.values())
+            .extracting(Enum::name)
+            .doesNotContain("INFRA_CORE");
+    }
 }

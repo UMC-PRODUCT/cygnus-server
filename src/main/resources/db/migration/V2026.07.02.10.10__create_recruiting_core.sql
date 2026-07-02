@@ -50,7 +50,6 @@ CREATE TABLE public.recruiting_application_form
             'DESIGN',
             'WEB_PRODUCT_ENGINEER',
             'MOBILE_PRODUCT_ENGINEER',
-            'INFRA_CORE',
             'INFRA_PLUS'
         )
     ),

@@ -16,6 +16,8 @@ public interface LoadRecruitingApplicationFormPort {
 
     Optional<RecruitingApplicationForm> findByFormId(Long formId);
 
+    boolean existsByFormIdAndSeasonId(Long formId, Long seasonId);
+
     List<RecruitingApplicationForm> listByRoundId(Long roundId);
 
     List<RecruitingApplicationForm> listByRoundIdsAndStatus(

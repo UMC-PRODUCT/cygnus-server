@@ -13,7 +13,6 @@ ALTER TABLE public.challenger
                 'DESIGN',
                 'WEB_PRODUCT_ENGINEER',
                 'MOBILE_PRODUCT_ENGINEER',
-                'INFRA_CORE',
                 'INFRA_PLUS'
             )
         );

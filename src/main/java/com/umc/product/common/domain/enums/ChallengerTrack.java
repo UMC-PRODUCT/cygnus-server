@@ -13,8 +13,7 @@ public enum ChallengerTrack {
     DESIGN("디자인", 1),
     WEB_PRODUCT_ENGINEER("웹 프로덕트 엔지니어", 2),
     MOBILE_PRODUCT_ENGINEER("모바일 프로덕트 엔지니어", 3),
-    INFRA_CORE("인프라 코어", 4),
-    INFRA_PLUS("인프라 플러스", 5),
+    INFRA_PLUS("인프라 플러스", 4),
     ;
 
     private final String displayName;

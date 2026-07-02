@@ -63,6 +63,42 @@ public class RecruitingQueryService implements GetRecruitingApplicationQueryUseC
         return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus);
     }
 
+    @Override
+    public boolean isRoundBelongsToSeason(Long roundId, Long seasonId) {
+        if (roundId == null || seasonId == null) {
+            return false;
+        }
+        return Objects.equals(loadRoundPort.getById(roundId).getSeason().getId(), seasonId);
+    }
+
+    @Override
+    public boolean isApplicationBelongsToSeason(Long applicationId, Long seasonId) {
+        if (applicationId == null || seasonId == null) {
+            return false;
+        }
+        RecruitingApplication application = loadApplicationPort.getById(applicationId);
+        return Objects.equals(application.getRound().getSeason().getId(), seasonId);
+    }
+
+    @Override
+    public boolean isApplicationFormBelongsToSeason(Long applicationFormId, Long seasonId) {
+        if (applicationFormId == null || seasonId == null) {
+            return false;
+        }
+        return Objects.equals(
+            loadApplicationFormPort.getById(applicationFormId).getRound().getSeason().getId(),
+            seasonId
+        );
+    }
+
+    @Override
+    public boolean isFormBelongsToSeason(Long formId, Long seasonId) {
+        if (formId == null || seasonId == null) {
+            return false;
+        }
+        return loadApplicationFormPort.existsByFormIdAndSeasonId(formId, seasonId);
+    }
+
     private List<RecruitingApplicationFormInfo> listPublishedForms(RecruitingSeason season) {
         List<Long> roundIds = loadRoundPort.listBySeasonId(season.getId())
             .stream()

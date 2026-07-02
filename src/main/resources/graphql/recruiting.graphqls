@@ -1,0 +1,241 @@
+extend type Query {
+  recruitingApplicationForms(input: RecruitingApplicationFormSearchInput!): [RecruitingApplicationForm!]!
+  recruitingApplicationResult(input: RecruitingApplicationResultInput!): RecruitingApplicationResult!
+  recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
+  recruitingVisibleInterviewEvaluations(seasonId: ID!, applicationId: ID!): [RecruitingInterviewEvaluation!]!
+}
+
+type Mutation {
+  createRecruitingSeason(input: CreateRecruitingSeasonInput!): RecruitingIdPayload!
+  updateRecruitingSeasonStatus(seasonId: ID!, input: UpdateRecruitingSeasonStatusInput!): Boolean!
+  createRecruitingRound(seasonId: ID!, input: CreateRecruitingRoundInput!): RecruitingIdPayload!
+  updateRecruitingRoundStatus(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundStatusInput!): Boolean!
+  linkRecruitingApplicationForm(seasonId: ID!, roundId: ID!, input: LinkRecruitingApplicationFormInput!): RecruitingIdPayload!
+  publishRecruitingApplicationForm(seasonId: ID!, applicationFormId: ID!): Boolean!
+  closeRecruitingApplicationForm(seasonId: ID!, applicationFormId: ID!): Boolean!
+  createRecruitingApplicationDraft(input: CreateRecruitingApplicationDraftInput!): RecruitingApplication!
+  updateRecruitingApplicationDraft(applicationId: ID!, input: UpdateRecruitingApplicationDraftInput!): RecruitingApplication!
+  submitRecruitingApplication(applicationId: ID!, input: SubmitRecruitingApplicationInput): RecruitingApplication!
+  cancelRecruitingApplication(applicationId: ID!, input: CancelRecruitingApplicationInput): RecruitingApplication!
+  decideRecruitingDocument(seasonId: ID!, applicationId: ID!, input: RecruitingDecisionInput!): Boolean!
+  decideRecruitingFinal(seasonId: ID!, applicationId: ID!, input: RecruitingDecisionInput!): Boolean!
+  confirmRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
+  assignRecruitingInterview(seasonId: ID!, applicationId: ID!, input: AssignRecruitingInterviewInput!): RecruitingIdPayload!
+  skipRecruitingInterview(seasonId: ID!, applicationId: ID!, input: SkipRecruitingInterviewInput): Boolean!
+  findRecruitingInterviewScheduleCandidates(seasonId: ID!, input: FindRecruitingInterviewScheduleCandidatesInput!): [RecruitingInterviewScheduleCandidate!]!
+  sendRecruitingInterviewGuide(seasonId: ID!, applicationId: ID!, input: SendRecruitingInterviewGuideInput!): Boolean!
+  saveRecruitingInterviewEvaluation(seasonId: ID!, assignmentId: ID!, input: SaveRecruitingInterviewEvaluationInput!): Boolean!
+  submitRecruitingInterviewEvaluation(seasonId: ID!, assignmentId: ID!, input: SaveRecruitingInterviewEvaluationInput!): Boolean!
+}
+
+input RecruitingApplicationFormSearchInput {
+  gisuId: ID!
+  schoolId: ID!
+}
+
+input RecruitingApplicationResultInput {
+  applicationNo: String!
+  applicantIdentityKey: String!
+}
+
+input RecruitingStatusSummaryInput {
+  gisuId: ID!
+  schoolId: ID!
+}
+
+input CreateRecruitingSeasonInput {
+  gisuId: ID!
+  schoolId: ID!
+}
+
+input UpdateRecruitingSeasonStatusInput {
+  status: RecruitingSeasonStatus!
+}
+
+input CreateRecruitingRoundInput {
+  type: RecruitingRoundType!
+  roundNo: Int!
+}
+
+input UpdateRecruitingRoundStatusInput {
+  status: RecruitingRoundStatus!
+}
+
+input LinkRecruitingApplicationFormInput {
+  formId: ID!
+  track: ChallengerTrack!
+}
+
+input CreateRecruitingApplicationDraftInput {
+  applicationFormId: ID!
+  applicantMemberId: ID
+  applicantIdentityKey: String!
+  maskedEmail: String
+}
+
+input UpdateRecruitingApplicationDraftInput {
+  answers: [RecruitingAnswerInput!]
+  requesterMemberId: ID
+}
+
+input RecruitingAnswerInput {
+  questionId: ID!
+  textValue: String
+  selectedOptionIds: [ID!]
+  fileIds: [ID!]
+}
+
+input SubmitRecruitingApplicationInput {
+  requesterMemberId: ID
+  submittedIp: String
+}
+
+input CancelRecruitingApplicationInput {
+  requesterMemberId: ID
+  reason: String
+}
+
+input RecruitingDecisionInput {
+  decision: RecruitingDecisionStatus!
+  reason: String
+}
+
+input AssignRecruitingInterviewInput {
+  interviewerMemberId: ID!
+  startsAt: String!
+  endsAt: String!
+  location: String
+}
+
+input SkipRecruitingInterviewInput {
+  reason: String
+}
+
+input FindRecruitingInterviewScheduleCandidatesInput {
+  formId: ID!
+  formResponseIds: [ID!]
+}
+
+input SendRecruitingInterviewGuideInput {
+  recipientEmail: String!
+  startsAt: String!
+  location: String
+}
+
+input SaveRecruitingInterviewEvaluationInput {
+  score: Int
+  comment: String
+}
+
+type RecruitingApplicationForm {
+  applicationFormId: ID!
+  roundId: ID!
+  roundType: RecruitingRoundType!
+  roundNo: Int!
+  formId: ID!
+  track: ChallengerTrack!
+  status: RecruitingApplicationFormStatus!
+}
+
+type RecruitingApplicationResult {
+  applicationId: ID!
+  applicationNo: String!
+  maskedEmail: String
+  track: ChallengerTrack!
+  status: RecruitingApplicationStatus!
+  registrationStatus: RecruitingApplicationRegistrationStatus!
+}
+
+type RecruitingStatusSummary {
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
+}
+
+type RecruitingStatusCount {
+  status: RecruitingApplicationStatus!
+  count: Long!
+}
+
+type RecruitingApplication {
+  applicationId: ID!
+  applicationNo: String!
+  status: RecruitingApplicationStatus!
+}
+
+type RecruitingIdPayload {
+  id: ID!
+}
+
+type RecruitingInterviewEvaluation {
+  evaluationId: ID!
+  evaluatorMemberId: ID!
+  status: RecruitingInterviewEvaluationStatus!
+  score: Int
+  comment: String
+  submittedAt: String
+}
+
+type RecruitingInterviewScheduleCandidate {
+  startsAt: String
+  endsAt: String
+  availableApplicantCount: Int!
+}
+
+enum ChallengerTrack {
+  PLAN
+  DESIGN
+  WEB_PRODUCT_ENGINEER
+  MOBILE_PRODUCT_ENGINEER
+  INFRA_PLUS
+}
+
+enum RecruitingRoundType {
+  REGULAR
+  ADDITIONAL
+}
+
+enum RecruitingRoundStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+enum RecruitingSeasonStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+enum RecruitingApplicationFormStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum RecruitingApplicationStatus {
+  DRAFT
+  SUBMITTED
+  DOCUMENT_PASSED
+  DOCUMENT_FAILED
+  INTERVIEW_ASSIGNED
+  INTERVIEW_SKIPPED
+  FINAL_PASSED
+  FINAL_FAILED
+  CANCELLED
+}
+
+enum RecruitingApplicationRegistrationStatus {
+  NOT_READY
+  READY
+  REGISTERED
+}
+
+enum RecruitingInterviewEvaluationStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum RecruitingDecisionStatus {
+  PASS
+  FAIL
+}

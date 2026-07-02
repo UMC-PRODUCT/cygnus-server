@@ -16,6 +16,8 @@ public interface RecruitingApplicationFormJpaRepository extends JpaRepository<Re
 
     Optional<RecruitingApplicationForm> findFirstByFormIdOrderByIdAsc(Long formId);
 
+    boolean existsByFormIdAndRound_Season_Id(Long formId, Long seasonId);
+
     List<RecruitingApplicationForm> findAllByRound_IdOrderByIdAsc(Long roundId);
 
     @Query("""

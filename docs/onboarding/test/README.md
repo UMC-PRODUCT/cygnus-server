@@ -20,7 +20,7 @@
 | Notification | 3 | 10 | [notification.md](notification.md) |
 | Organization | 32 | 168 | [organization.md](organization.md) |
 | Project | 37 | 526 | [project.md](project.md) |
-| Recruiting | 15 | 74 | [recruiting.md](recruiting.md) |
+| Recruiting | 20 | 86 | [recruiting.md](recruiting.md) |
 | Schedule | 2 | 16 | [schedule.md](schedule.md) |
 | Storage | 5 | 40 | [storage.md](storage.md) |
 | Support | 1 | 1 | [support.md](support.md) |
@@ -28,8 +28,8 @@
 | Term | 8 | 23 | [term.md](term.md) |
 | Test Seed | 11 | 58 | [test.md](test.md) |
 
-- 총 실행 테스트 파일: 235개
-- 총 테스트 케이스: 1511개
+- 총 실행 테스트 파일: 240개
+- 총 테스트 케이스: 1523개
 
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
 

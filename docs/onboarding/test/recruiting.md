@@ -1,12 +1,13 @@
 # Recruiting 테스트 케이스
 
-- 테스트 파일: 15개
-- 테스트 케이스: 74개
-- 분류 기준: `Controller`, `UseCase`, `Repository`, `Domain`, `Permission`
+- 테스트 파일: 20개
+- 테스트 케이스: 86개
+- 분류 기준: `Controller`, `GraphQL`, `UseCase`, `Repository`, `Domain`, `Permission`
 
 | 카테고리 | 케이스 수 | 주요 파일 |
 |---|---:|---|
 | Controller / Inbound Adapter | 14 | `RecruitingPublicControllerTest`, `RecruitingApplicationControllerTest`, `RecruitingAdminControllerTest` |
+| GraphQL / Inbound Adapter | 12 | `RecruitingGraphQlControllerTest`, `RecruitingGraphQlSecurityTest`, `RecruitingGraphQlArchitectureTest` |
 | UseCase / Application Service | 37 | command/query service tests |
 | Repository / Outbound Persistence | 7 | `RecruitingPersistenceAdapterTest` |
 | Domain | 8 | `RecruitingCoreDomainTest`, `RecruitingEvaluationDomainTest` |
@@ -19,6 +20,16 @@
 | `RecruitingPublicControllerTest` | 학교별 public form 목록, 지원서 번호와 applicant identity key 기반 익명 결과 조회, raw email 미노출 |
 | `RecruitingApplicationControllerTest` | draft 생성, draft 답변 수정, 제출 IP 전달, 철회 요청 매핑 |
 | `RecruitingAdminControllerTest` | 시즌 생성, form-track 연결, 서류/최종 결정자 memberId 전달, 면접 일정 후보 반환, 평가 visibility 결과 반환, CSV attachment와 개인정보 제외, 상태 요약 |
+
+## GraphQL / Inbound Adapter
+
+| 테스트 파일 | 검증 범위 |
+|---|---|
+| `RecruitingGraphQlControllerTest` | public form 조회, 익명/로그인 지원서 생성 시 command 매핑, GraphQL 응답 필드 |
+| `RecruitingGraphQlSecurityTest` | 비로그인 입력 memberId spoofing 차단, 다른 season 소속 application/assignment 조작 차단 |
+| `RecruitingGraphQlExceptionAdviceTest` | 잘못된 interview datetime 입력을 `BAD_REQUEST`로 매핑하고 command 호출 전 차단 |
+| `RecruitingGraphQlArchitectureTest` | GraphQL adapter가 REST adapter DTO, outbound adapter, JPA repository, recruiting domain entity에 직접 의존하지 않는지 검사 |
+| `RecruitingGraphQlSurfaceTest` | schema introspection으로 recruiting Query/Mutation 표면과 CSV REST-only 정책 확인 |
 
 ## UseCase / Application Service
 
@@ -53,7 +64,10 @@
 ```bash
 ./gradlew test --tests 'com.umc.product.recruiting.*'
 ./gradlew test --tests 'com.umc.product.recruiting.adapter.in.web.*Test'
+./gradlew test --tests 'com.umc.product.recruiting.adapter.in.graphql.*Test'
 ./gradlew test --tests 'com.umc.product.recruiting.application.service.evaluator.RecruitingPermissionEvaluatorTest'
 ```
 
-GraphQL adapter 테스트는 GraphQL 기반 PR이 병합된 뒤 추가한다. 현재 worktree에는 GraphQL schema/resolver 인프라가 없으므로 resolver convention을 추측하지 않는다.
+## 검증 evidence
+
+이번 GraphQL 후속 구현 검증은 [recruiting-graphql-verification-evidence.md](../../analysis/recruiting-graphql-verification-evidence.md)에 별도 요약했다.
