@@ -30,12 +30,11 @@
 | Template | Issuer | Type | Event | Background | 품목 개수 | Layout |
 | --- | --- | --- | --- | --- | ---: | --- |
 | `UMC_COURSE_COMPLETION` | UMC | `COMPLETION` | course | `umc-course-completion.pdf` | 4 | `layouts.4` |
-| `UMC_COURSE_MERIT` | UMC | `MERIT` | course | `umc-course-merit.pdf` | 4 | `layouts.4` |
+| `UMC_COURSE_MERIT` | UMC | `MERIT` | course | `umc-course-completion.pdf` | 4 | `layouts.4` |
 | `UMC_DEMO_DAY_GRAND_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-grand-prize.pdf` | 4 | `layouts.4` |
 | `UMC_DEMO_DAY_FIRST_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-first-prize.pdf` | 4 | `layouts.4` |
 | `UMC_DEMO_DAY_SECOND_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-second-prize.pdf` | 4 | `layouts.4` |
 | `UMC_DEMO_DAY_PARTICIPATION_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-participation-prize.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_BEST_PART_CHALLENGER` | UMC | `MERIT` | demo | `umc-demo-day-best-part-challenger.pdf` | 4 | `layouts.4` |
 | `UMC_DEMO_DAY_AWS_SPECIAL_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-aws-special-prize.pdf` | 4 | `layouts.4` |
 | `UMC_DEMO_DAY_BEST_CHALLENGER` | UMC | `MERIT` | demo | `umc-demo-day-best-part-challenger.pdf` | 4 | `layouts.4` |
 | `UMC_HACKATHON_CERTIFICATION_OF_COMPLETION` | UMC | `COMPLETION` | hackathon | `umc-course-completion.pdf` | 4 | `layouts.4` |

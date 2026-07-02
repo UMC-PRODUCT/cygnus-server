@@ -49,14 +49,6 @@ public enum CertificateTemplate {
         "장려상",
         "certificate/backgrounds/umc-demo-day-participation-prize.pdf"
     ),
-    UMC_DEMO_DAY_BEST_PART_CHALLENGER(
-        CertificateType.MERIT,
-        CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
-        "demo",
-        "베스트 파트원",
-        "베스트 파트원",
-        "certificate/backgrounds/umc-demo-day-best-part-challenger.pdf"
-    ),
     UMC_DEMO_DAY_AWS_SPECIAL_PRIZE(
         CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
@@ -267,7 +259,7 @@ public enum CertificateTemplate {
     }
 
     private boolean isBestAward() {
-        return "베스트 파트원".equals(awardName) || "베스트 챌린저".equals(awardName);
+        return "베스트 챌린저".equals(awardName);
     }
 
     private String ordinalSuffix(Long value) {

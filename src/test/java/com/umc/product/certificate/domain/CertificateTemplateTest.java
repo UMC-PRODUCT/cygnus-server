@@ -29,7 +29,6 @@ class CertificateTemplateTest {
             "UMC_DEMO_DAY_FIRST_PRIZE",
             "UMC_DEMO_DAY_SECOND_PRIZE",
             "UMC_DEMO_DAY_PARTICIPATION_PRIZE",
-            "UMC_DEMO_DAY_BEST_PART_CHALLENGER",
             "UMC_DEMO_DAY_AWS_SPECIAL_PRIZE",
             "UMC_DEMO_DAY_BEST_CHALLENGER",
             "UMC_HACKATHON_CERTIFICATION_OF_COMPLETION",
@@ -96,14 +95,6 @@ class CertificateTemplateTest {
                 "공로증",
                 "10th UMC 공로증",
                 "위 운영진은 전국 대학생 IT 연합 동아리 University MakeUs Challenge 10기 과정의 발전에 기여하였기에 이 증서를 수여합니다."
-            ),
-            Arguments.of(
-                CertificateTemplate.UMC_DEMO_DAY_BEST_PART_CHALLENGER,
-                "Certificate of Award",
-                "DEMO DAY",
-                "베스트 파트원",
-                "10th UMC 베스트 파트원",
-                "위 챌린저는 전국 대학생 IT 연합 동아리 University MakeUs Challenge 10기 과정에서 최고의 역량과 성과를 보였기에 이 증서를 수여합니다."
             ),
             Arguments.of(
                 CertificateTemplate.UMC_DEMO_DAY_BEST_CHALLENGER,
