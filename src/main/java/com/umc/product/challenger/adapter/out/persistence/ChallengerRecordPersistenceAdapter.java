@@ -62,6 +62,11 @@ public class ChallengerRecordPersistenceAdapter implements LoadChallengerRecordP
     }
 
     @Override
+    public long countUnused() {
+        return repository.countByIsUsedFalse();
+    }
+
+    @Override
     public ChallengerRecord save(ChallengerRecord record) {
         return repository.save(record);
     }

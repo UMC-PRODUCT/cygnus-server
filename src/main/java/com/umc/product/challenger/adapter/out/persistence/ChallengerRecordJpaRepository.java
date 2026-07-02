@@ -14,4 +14,6 @@ public interface ChallengerRecordJpaRepository extends JpaRepository<ChallengerR
     List<ChallengerRecord> findBySchoolId(Long schoolId);
 
     List<ChallengerRecord> findByChapterId(Long chapterId);
+
+    long countByIsUsedFalse();
 }

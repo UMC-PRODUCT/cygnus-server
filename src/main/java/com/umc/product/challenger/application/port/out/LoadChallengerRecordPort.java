@@ -47,4 +47,9 @@ public interface LoadChallengerRecordPort {
      * 기수/학교/파트/역할 동적 조건으로 챌린저 기록 목록을 페이지 조회
      */
     Page<ChallengerRecord> search(ListChallengerRecordsQuery query);
+
+    /**
+     * 미사용(isUsed=false) 챌린저 기록 코드의 전체 개수 조회
+     */
+    long countUnused();
 }

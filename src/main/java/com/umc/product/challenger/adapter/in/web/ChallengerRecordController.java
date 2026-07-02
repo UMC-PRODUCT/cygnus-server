@@ -1,7 +1,29 @@
 package com.umc.product.challenger.adapter.in.web;
 
+import com.umc.product.authentication.domain.EmailVerificationPurpose;
+import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
+import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.challenger.adapter.in.web.assembler.ChallengerRecordResponseAssembler;
+import com.umc.product.challenger.adapter.in.web.dto.request.AddChallengerRecordToMemberRequest;
+import com.umc.product.challenger.adapter.in.web.dto.request.CreateChallengerRecordRequest;
+import com.umc.product.challenger.adapter.in.web.dto.request.SearchChallengerRecordRequest;
+import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
+import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordSummaryResponse;
+import com.umc.product.challenger.adapter.in.web.dto.response.UnusedChallengerRecordStatisticsResponse;
+import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
+import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
+import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
+import com.umc.product.challenger.application.port.in.query.GetUnusedChallengerRecordStatisticsUseCase;
+import com.umc.product.global.response.PageResponse;
+import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.List;
-
+import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -15,29 +37,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.umc.product.authentication.domain.EmailVerificationPurpose;
-import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
-import com.umc.product.authorization.domain.PermissionType;
-import com.umc.product.authorization.domain.ResourceType;
-import com.umc.product.challenger.adapter.in.web.assembler.ChallengerRecordResponseAssembler;
-import com.umc.product.challenger.adapter.in.web.dto.request.AddChallengerRecordToMemberRequest;
-import com.umc.product.challenger.adapter.in.web.dto.request.CreateChallengerRecordRequest;
-import com.umc.product.challenger.adapter.in.web.dto.request.SearchChallengerRecordRequest;
-import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
-import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordSummaryResponse;
-import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
-import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
-import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
-import com.umc.product.global.response.PageResponse;
-import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.global.security.annotation.CurrentMember;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-
 @RestController
 @RequestMapping("/api/v1/challenger-record")
 @RequiredArgsConstructor
@@ -47,6 +46,7 @@ public class ChallengerRecordController {
 
     private final ChallengerRecordResponseAssembler assembler;
     private final ManageChallengerRecordUseCase manageChallengerRecordUseCase;
+    private final GetUnusedChallengerRecordStatisticsUseCase getUnusedChallengerRecordStatisticsUseCase;
     private final JwtTokenProvider jwtTokenProvider;
 
     // 코드를 이용해서 Member에 챌린저 기록을 추가하는 API
@@ -123,6 +123,21 @@ public class ChallengerRecordController {
         Pageable pageable
     ) {
         return assembler.search(request.toQuery(pageable));
+    }
+
+    @CheckAccess(
+        resourceType = ResourceType.CHALLENGER_RECORD,
+        permission = PermissionType.READ
+    )
+    @GetMapping("statistics/unused")
+    @Operation(operationId = "CHALLENGER-RECORD-104", summary = "미사용 ChallengerRecord 코드 통합 통계 조회",
+        description = """
+            아직 사용되지 않은(isUsed=false) 챌린저 기록 코드의 전체 개수를 통합 집계하여 반환합니다.
+            """)
+    public UnusedChallengerRecordStatisticsResponse getUnusedChallengerRecordStatistics() {
+        return UnusedChallengerRecordStatisticsResponse.of(
+            getUnusedChallengerRecordStatisticsUseCase.getUnusedRecordCount()
+        );
     }
 
     // 코드를 생성하는 API
