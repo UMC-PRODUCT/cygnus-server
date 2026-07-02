@@ -21,7 +21,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/admin/certificates")
+@RequestMapping("/api/v1/certificates/admin")
 @RequiredArgsConstructor
 @Tag(name = "Admin Certificate | 인증서 운영", description = "운영진 인증서 발급과 폐기를 제공합니다.")
 public class AdminCertificateController {

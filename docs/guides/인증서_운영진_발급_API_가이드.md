@@ -2,7 +2,7 @@
 
 ## 엔드포인트
 
-`POST /api/v1/admin/certificates`
+`POST /api/v1/certificates/admin`
 
 운영진이 PDF 배경 템플릿이 준비된 수료증, 공로증, 상장을 단건 발급할 때 사용한다.
 

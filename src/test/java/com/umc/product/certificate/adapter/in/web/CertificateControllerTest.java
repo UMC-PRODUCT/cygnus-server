@@ -116,7 +116,7 @@ class CertificateControllerTest {
     @DisplayName("운영진 프로젝트 참가 확인서 fallback 발급 요청은 거부한다")
     void 운영진_프로젝트_참가_확인서_fallback_발급_요청은_거부한다() throws Exception {
         // when & then
-        mockMvc.perform(post("/api/v1/admin/certificates")
+        mockMvc.perform(post("/api/v1/certificates/admin")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -137,7 +137,7 @@ class CertificateControllerTest {
     @DisplayName("운영진 공로증은 template 없이 type만으로 발급할 수 없다")
     void 운영진_공로증은_template_없이_type만으로_발급할_수_없다() throws Exception {
         // when & then
-        mockMvc.perform(post("/api/v1/admin/certificates")
+        mockMvc.perform(post("/api/v1/certificates/admin")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -162,7 +162,7 @@ class CertificateControllerTest {
         ));
 
         // when
-        mockMvc.perform(post("/api/v1/admin/certificates")
+        mockMvc.perform(post("/api/v1/certificates/admin")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -192,7 +192,7 @@ class CertificateControllerTest {
     @DisplayName("운영진 템플릿 발급 요청은 template과 type을 동시에 받지 않는다")
     void 운영진_템플릿_발급_요청은_template과_type을_동시에_받지_않는다() throws Exception {
         // when & then
-        mockMvc.perform(post("/api/v1/admin/certificates")
+        mockMvc.perform(post("/api/v1/certificates/admin")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
@@ -235,7 +235,7 @@ class CertificateControllerTest {
     @DisplayName("운영진 인증서 폐기 요청을 command로 변환한다")
     void 운영진_인증서_폐기_요청을_command로_변환한다() throws Exception {
         // when
-        mockMvc.perform(patch("/api/v1/admin/certificates/{certificateId}/revoke", 10L)
+        mockMvc.perform(patch("/api/v1/certificates/admin/{certificateId}/revoke", 10L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(new RevokeRequestBody("오발급"))))
             .andExpect(status().isOk());
