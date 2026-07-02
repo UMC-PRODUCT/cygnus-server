@@ -8,6 +8,9 @@ import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
@@ -47,6 +50,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     private final GetChapterUseCase getChapterUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final ManageChallengerRoleUseCase manageChallengerRoleUseCase;
+    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
 
@@ -120,6 +124,13 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
 
             MemberInfo memberInfo = getMemberUseCase.getById(memberId);
 
+            // 동일 역할 중복 등록 fail-fast 차단: 같은 챌린저가 같은 기수·조직에서
+            // 동일 역할을 이미 보유하고 있으면 역할을 생성하지 않고 즉시 예외를 던진다.
+            if (getChallengerRoleUseCase.hasRoleInOrganization(
+                challengerId, record.getChallengerRoleType(), record.getOrganizationId(), record.getGisuId())) {
+                throw new AuthorizationDomainException(AuthorizationErrorCode.DUPLICATE_CHALLENGER_ROLE);
+            }
+
             manageChallengerRoleUseCase.createChallengerRole(
                 CreateChallengerRoleCommand.builder()
                     .challengerId(challengerId)
@@ -150,6 +161,10 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
             MemberInfo memberInfo = getMemberUseCase.getById(memberId);
             record.validateMember(memberInfo.name(), memberInfo.schoolId());
 
+            // 이메일 소유자 본인 확인: 인증된 이메일이 로그인 계정 이메일과 일치해야 한다.
+            // (운영진 코드 분기는 이 검증을 생략한다.)
+            validateVerifiedEmail(command.verifiedEmail(), memberInfo.email());
+
             // 해당 기수에 챌린저 기록이 없는지 확인
             loadChallengerPort.findByMemberIdAndGisuId(memberId, record.getGisuId())
                 .ifPresent(challenger -> {
@@ -177,6 +192,12 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
         }
 
         record.markAsUsed(memberId);
+    }
+
+    private void validateVerifiedEmail(String verifiedEmail, String memberEmail) {
+        if (verifiedEmail == null || memberEmail == null || !verifiedEmail.equalsIgnoreCase(memberEmail)) {
+            throw new ChallengerDomainException(ChallengerErrorCode.EMAIL_VERIFICATION_MISMATCH);
+        }
     }
 
     private void validateRecord(Long gisuId, Long schoolId, Long chapterId) {

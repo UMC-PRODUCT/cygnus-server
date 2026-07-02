@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.umc.product.authentication.domain.EmailVerificationPurpose;
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
@@ -20,6 +21,7 @@ import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordRe
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
+import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 
@@ -37,12 +39,16 @@ public class ChallengerRecordController {
 
     private final ChallengerRecordResponseAssembler assembler;
     private final ManageChallengerRecordUseCase manageChallengerRecordUseCase;
+    private final JwtTokenProvider jwtTokenProvider;
 
     // 코드를 이용해서 Member에 챌린저 기록을 추가하는 API
     @Operation(operationId = "CHALLENGER-RECORD-001", summary = "6자리 코드를 이용해서 회원(계정)에 챌린저 기록 추가",
         description = """
             각 챌린저 활동 기록에 대해서 발급된 6자리 코드를 입력하여,
             현재 로그인한 계정에 챌린저 기록 및 권한을 추가하는 기능입니다.
+
+            CHALLENGER_REGISTER 용도로 발급된 emailVerificationToken 으로 이메일 소유를 검증하며,
+            검증된 이메일이 로그인한 계정의 이메일과 일치해야 합니다. (운영진 코드는 이메일 검증을 생략합니다.)
 
             각 코드는 1회만 생성 가능하며, 어떤 계정에, 언제 사용되었는지 기록됩니다.
             """)
@@ -55,10 +61,16 @@ public class ChallengerRecordController {
         @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody AddChallengerRecordToMemberRequest request) {
 
+        String verifiedEmail = jwtTokenProvider.parseEmailVerificationToken(
+            request.emailVerificationToken(),
+            EmailVerificationPurpose.CHALLENGER_REGISTER
+        );
+
         manageChallengerRecordUseCase.consumeCode(
             ConsumeChallengerRecordCommand.builder()
                 .targetMemberId(memberPrincipal.getMemberId())
                 .code(request.code())
+                .verifiedEmail(verifiedEmail)
                 .build()
         );
     }
