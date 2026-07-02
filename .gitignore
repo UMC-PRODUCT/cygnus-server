@@ -264,3 +264,20 @@ phases/
 scripts/
 !.github/scripts/
 !.github/scripts/**
+!scripts/
+!scripts/build-app-image.sh
+!scripts/measure-boot-time.sh
+!scripts/aws-infra-inventory.sh
+docs/infra/aws-current-inventory/
+
+# Terraform local state, plans, backend config, and environment values
+infra/terraform/**/.terraform/
+infra/terraform/**/.terraform.lock.hcl
+infra/terraform/**/*.tfstate
+infra/terraform/**/*.tfstate.*
+infra/terraform/**/tfplan
+infra/terraform/**/*.tfplan
+infra/terraform/backend.*.hcl
+!infra/terraform/backend.example.hcl
+!infra/terraform/backend.*.example.hcl
+infra/terraform/envs/*/terraform.tfvars
