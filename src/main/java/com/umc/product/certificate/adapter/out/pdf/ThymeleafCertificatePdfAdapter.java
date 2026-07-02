@@ -192,19 +192,17 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
 
     private Map<String, String> buildFieldValues(CertificatePdfRenderCommand command, CertificateTemplate template) {
         String generationKo = command.gisuGeneration() + "기";
-        String generationEn = command.gisuGeneration() + ordinalSuffix(command.gisuGeneration());
         String displayAwardName = firstNonBlank(command.meritTitle(), template.awardName());
-        String line1 = generationEn + " " + template.brandName();
 
         Map<String, String> values = new LinkedHashMap<>();
-        values.put("award_en_subtitle", englishCertificateTitle(template));
-        values.put("award_ko_subtitle", line1 + " " + koreanTitle(template, displayAwardName));
-        values.put("award_en_title_line1", line1);
-        values.put("award_en_title_line2", englishTitleLine2(template));
-        values.put("award_ko_title", koreanTitle(template, displayAwardName));
+        values.put("award_en_subtitle", template.englishCertificateTitle());
+        values.put("award_ko_subtitle", template.koreanSubtitle(command.gisuGeneration(), displayAwardName));
+        values.put("award_en_title_line1", template.englishTitleLine1(command.gisuGeneration()));
+        values.put("award_en_title_line2", template.englishTitleLine2());
+        values.put("award_ko_title", template.koreanTitle(displayAwardName));
         values.put("award_description", firstNonBlank(
             command.meritDescription(),
-            defaultDescription(template, displayAwardName, generationKo, line1)
+            template.defaultDescription(command.gisuGeneration(), displayAwardName)
         ));
         values.put("issue_date", ISSUE_DATE_FORMATTER.format(command.issuedAt()));
         values.put("static_issuer_value", command.issuer().displayName());
@@ -229,66 +227,6 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
             return firstNonBlank(command.projectName(), "-");
         }
         return firstNonBlank(displayAwardName, command.type().displayName());
-    }
-
-    private String englishCertificateTitle(CertificateTemplate template) {
-        if (template.type() == CertificateType.COMPLETION || "공로증".equals(template.awardName())) {
-            return "Certificate of Completion";
-        }
-        return "Certificate of Award";
-    }
-
-    private String englishTitleLine2(CertificateTemplate template) {
-        if ("공로증".equals(template.awardName())) {
-            return "APPRECIATION";
-        }
-        if ("course".equals(template.eventKey())) {
-            return "COMPLETION";
-        }
-        if ("hackathon".equals(template.eventKey())) {
-            return "HACKATHON";
-        }
-        return "DEMO DAY";
-    }
-
-    private String koreanTitle(CertificateTemplate template, String awardName) {
-        if ("demo".equals(template.eventKey())) {
-            return "데모데이 " + awardName;
-        }
-        if ("hackathon".equals(template.eventKey())) {
-            return "해커톤 " + awardName;
-        }
-        return awardName;
-    }
-
-    private String defaultDescription(
-        CertificateTemplate template,
-        String awardName,
-        String generationKo,
-        String line1
-    ) {
-        if ("course".equals(template.eventKey()) && template.type() == CertificateType.COMPLETION) {
-            return "위 챌린저는 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
-                + " 과정을 성실히 수료하였기에 이 증서를 수여합니다.";
-        }
-        if ("course".equals(template.eventKey()) && "공로증".equals(template.awardName())) {
-            return "위 운영진은 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
-                + " 과정의 발전에 기여하였기에 이 증서를 수여합니다.";
-        }
-        if ("demo".equals(template.eventKey()) && "베스트 파트원".equals(template.awardName())) {
-            return "위 챌린저는 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
-                + " 과정에서 최고의 역량과 성과를 보였기에 이 증서를 수여합니다.";
-        }
-        if ("demo".equals(template.eventKey()) && "AWS특별상".equals(template.awardName())) {
-            return "위 챌린저는 " + line1
-                + " DEMO DAY에서 AWS 기술 활용의 우수성을 인정받아 이 증서를 수여합니다.";
-        }
-        if ("hackathon".equals(template.eventKey()) && template.type() == CertificateType.COMPLETION) {
-            return "위 챌린저는 " + line1 + " HACKATHON을 성실히 수료하였기에 이 증서를 수여합니다.";
-        }
-        String eventLabel = "hackathon".equals(template.eventKey()) ? "HACKATHON" : "DEMO DAY";
-        return "위 챌린저는 " + line1 + " " + eventLabel
-            + "에서 " + awardName + "에 해당하는 우수한 성과를 거두었기에 이 증서를 수여합니다.";
     }
 
     private void drawShapes(PDPageContentStream contentStream, PDPage page, JsonNode shapes) throws IOException {
@@ -595,20 +533,6 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
             return first.trim();
         }
         return fallback;
-    }
-
-    private String ordinalSuffix(Long value) {
-        long number = value == null ? 0L : Math.abs(value);
-        long lastTwoDigits = number % 100;
-        if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
-            return "th";
-        }
-        return switch ((int) (number % 10)) {
-            case 1 -> "st";
-            case 2 -> "nd";
-            case 3 -> "rd";
-            default -> "th";
-        };
     }
 
     private record FontSet(
