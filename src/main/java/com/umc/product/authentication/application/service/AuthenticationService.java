@@ -111,6 +111,9 @@ public class AuthenticationService implements ManageAuthenticationUseCase {
                 }
                 yield hasCredential;
             }
+            // 챌린저 코드 사용 흐름은 이미 로그인한 회원 본인의 이메일 소유를 확인하는 것이므로,
+            // 가입 여부(EMAIL_ALREADY_EXISTS) 검사 없이 항상 인증 메일을 발송한다.
+            case CHALLENGER_REGISTER -> true;
         };
 
         // 실제로 메일이 나갈 경우에만 throttle 을 검사한다. silent skip 으로 발송하지 않는 경로는
