@@ -12,6 +12,7 @@
 - [Audit](audit.md)
 - [Authentication](authentication.md)
 - [Authorization](authorization.md)
+- [Certificate PDF Template](certificate-pdf-template.md)
 - [Challenger](challenger.md)
 - [Community](community.md)
 - [Curriculum](curriculum.md)
