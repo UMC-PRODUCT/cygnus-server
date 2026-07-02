@@ -2,7 +2,7 @@
 # - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
 # - vars.ASG_NAME
 # - vars.LAUNCH_TEMPLATE_NAME
-# - vars.SECRET_S3_URI
+# - vars.SSM_PARAMETER_PATH
 # Optional repository variables:
 # - vars.AWS_REGION (default: ap-northeast-2)
 # - vars.ECR_REPOSITORY (default: umc-product-server)
@@ -81,7 +81,7 @@ jobs:
       LAUNCH_TEMPLATE_NAME: ${{ vars.LAUNCH_TEMPLATE_NAME }}
       APP_PORT: ${{ vars.APP_PORT || '8080' }}
       MANAGEMENT_PORT: ${{ vars.MANAGEMENT_PORT || '9090' }}
-      SECRET_S3_URI: ${{ vars.SECRET_S3_URI }}
+      SSM_PARAMETER_PATH: ${{ vars.SSM_PARAMETER_PATH }}
       MIN_HEALTHY_PERCENTAGE: ${{ vars.ASG_MIN_HEALTHY_PERCENTAGE || '100' }}
       MAX_HEALTHY_PERCENTAGE: ${{ vars.ASG_MAX_HEALTHY_PERCENTAGE || '200' }}
       INSTANCE_WARMUP: ${{ vars.ASG_INSTANCE_WARMUP || '300' }}
@@ -117,7 +117,7 @@ jobs:
           : "${ECR_REPOSITORY:?ECR_REPOSITORY is required}"
           : "${APP_PORT:?APP_PORT is required}"
           : "${MANAGEMENT_PORT:?MANAGEMENT_PORT is required}"
-          : "${SECRET_S3_URI:?SECRET_S3_URI is required}"
+          : "${SSM_PARAMETER_PATH:?SSM_PARAMETER_PATH is required}"
 
           if [[ -z "${AWS_ACCOUNT_ID}" ]]; then
             AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
@@ -138,7 +138,7 @@ jobs:
           sed -i "s|__IMAGE_TAG__|${IMAGE_TAG}|g" /tmp/user-data.sh
           sed -i "s|__APP_PORT__|${APP_PORT}|g" /tmp/user-data.sh
           sed -i "s|__MANAGEMENT_PORT__|${MANAGEMENT_PORT}|g" /tmp/user-data.sh
-          sed -i "s|__SECRET_S3_URI__|${SECRET_S3_URI}|g" /tmp/user-data.sh
+          sed -i "s|__SSM_PARAMETER_PATH__|${SSM_PARAMETER_PATH}|g" /tmp/user-data.sh
           sed -i "s|__SPRING_PROFILE__|${SPRING_PROFILE}|g" /tmp/user-data.sh
 
           USER_DATA_BASE64=$(base64 -w 0 /tmp/user-data.sh)

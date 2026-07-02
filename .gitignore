@@ -264,3 +264,6 @@ phases/
 scripts/
 !.github/scripts/
 !.github/scripts/**
+!scripts/
+!scripts/download-ssm-env.sh
+docs/infra/aws-current-inventory/

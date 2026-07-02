@@ -1,6 +1,6 @@
 # Required repository variables:
 # - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
-# - vars.SECRET_S3_URI
+# - vars.SSM_PARAMETER_PATH
 # Optional repository variables:
 # - vars.AWS_REGION (default: ap-northeast-2)
 # - vars.ECR_REPOSITORY (default: umc-product-server)
@@ -74,11 +74,14 @@ jobs:
       HTTP_PORT: ${{ vars.HTTP_PORT || '8080' }}
       APP_PORT: ${{ vars.APP_PORT || '8080' }}
       MANAGEMENT_PORT: ${{ vars.MANAGEMENT_PORT || '9090' }}
-      SECRET_S3_URI: ${{ vars.SECRET_S3_URI }}
+      SSM_PARAMETER_PATH: ${{ vars.SSM_PARAMETER_PATH }}
       APP_REPLICAS: ${{ vars.APP_REPLICAS || '1' }}
       HEALTHCHECK_TIMEOUT: ${{ vars.HEALTHCHECK_TIMEOUT || '180' }}
 
     steps:
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
       - name: 환경변수 검증
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -92,9 +95,6 @@ jobs:
           POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
         run: bash .github/scripts/cd-dev-home-validate-env.sh
 
-      - name: 코드베이스 체크아웃
-        uses: actions/checkout@v4
-
       - name: AWS 인증
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -102,7 +102,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: ECR 및 S3 secret 준비
+      - name: ECR 및 SSM env 준비
         run: bash .github/scripts/cd-dev-home-prepare-env.sh
 
       - name: 배포 정보 출력

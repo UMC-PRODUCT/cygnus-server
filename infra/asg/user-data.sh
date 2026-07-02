@@ -9,7 +9,7 @@ ECR_REPOSITORY="__ECR_REPOSITORY__"
 IMAGE_TAG="__IMAGE_TAG__"
 APP_PORT="__APP_PORT__"
 MANAGEMENT_PORT="__MANAGEMENT_PORT__"
-SECRET_S3_URI="__SECRET_S3_URI__"
+SSM_PARAMETER_PATH="__SSM_PARAMETER_PATH__"
 SPRING_PROFILE="__SPRING_PROFILE__"
 
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -30,11 +30,12 @@ ensure_bootstrap_dependencies() {
   command -v docker >/dev/null 2>&1 || missing+=("docker")
   docker compose version >/dev/null 2>&1 || missing+=("docker compose plugin")
   command -v aws >/dev/null 2>&1 || missing+=("awscli")
+  command -v jq >/dev/null 2>&1 || missing+=("jq")
   command -v curl >/dev/null 2>&1 || missing+=("curl")
 
   if (( ${#missing[@]} > 0 )); then
     echo "Missing baked AMI dependencies: ${missing[*]}"
-    echo "Bake Docker, Docker Compose plugin, AWS CLI, and curl into the Launch Template AMI."
+    echo "Bake Docker, Docker Compose plugin, AWS CLI, jq, and curl into the Launch Template AMI."
     exit 1
   fi
 }
@@ -47,8 +48,52 @@ systemctl start docker
 mkdir -p "${APP_DIR}"
 cd "${APP_DIR}"
 
-echo "Downloading env file from S3..."
-aws s3 cp "${SECRET_S3_URI}" "${APP_DIR}/.env" --region "${AWS_REGION}"
+echo "Rendering env file from SSM Parameter Store..."
+PARAMETERS_JSON="$(aws ssm get-parameters-by-path \
+  --region "${AWS_REGION}" \
+  --path "${SSM_PARAMETER_PATH}" \
+  --with-decryption \
+  --recursive \
+  --output json)"
+
+PARAMETER_COUNT="$(jq '.Parameters | length' <<< "${PARAMETERS_JSON}")"
+if [[ "${PARAMETER_COUNT}" == "0" ]]; then
+  echo "No SSM parameters found under ${SSM_PARAMETER_PATH}"
+  exit 1
+fi
+
+{
+  echo "# Generated from SSM Parameter Store path: ${SSM_PARAMETER_PATH}"
+  echo "# Do not edit on the instance."
+} > "${APP_DIR}/.env"
+
+declare -A seen_keys=()
+while IFS= read -r encoded_parameter; do
+  parameter_json="$(printf '%s' "${encoded_parameter}" | base64 --decode)"
+  parameter_name="$(jq -r '.Name' <<< "${parameter_json}")"
+  parameter_value="$(jq -r '.Value' <<< "${parameter_json}")"
+  env_key="${parameter_name##*/}"
+
+  if ! [[ "${env_key}" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+    echo "Invalid env key from SSM parameter name: ${parameter_name}"
+    exit 1
+  fi
+
+  if [[ -n "${seen_keys[${env_key}]:-}" ]]; then
+    echo "Duplicate env key resolved from SSM parameters: ${env_key}"
+    exit 1
+  fi
+  seen_keys["${env_key}"]=1
+
+  if [[ "${parameter_value}" == *$'\n'* || "${parameter_value}" == *$'\r'* ]]; then
+    echo "Parameter value must be single-line for dotenv rendering: ${parameter_name}"
+    echo "Store multiline secrets as escaped text or base64."
+    exit 1
+  fi
+
+  printf '%s=%s\n' "${env_key}" "${parameter_value}" >> "${APP_DIR}/.env"
+done < <(jq -r '.Parameters | sort_by(.Name)[] | @base64' <<< "${PARAMETERS_JSON}")
+
 chmod 600 "${APP_DIR}/.env"
 
 echo "Logging in to ECR..."
