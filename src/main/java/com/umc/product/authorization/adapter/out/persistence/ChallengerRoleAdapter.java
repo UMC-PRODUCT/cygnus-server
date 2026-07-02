@@ -5,6 +5,7 @@ import com.umc.product.authorization.application.port.out.SaveChallengerRolePort
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -45,6 +46,13 @@ public class ChallengerRoleAdapter implements LoadChallengerRolePort, SaveChalle
     public ChallengerRole getById(Long id) {
         return jpaRepository.findById(id)
             .orElseThrow(() -> new AuthorizationDomainException(AuthorizationErrorCode.CHALLENGER_ROLE_NOT_FOUND));
+    }
+
+    @Override
+    public boolean existsByChallengerRole(
+        Long challengerId, ChallengerRoleType roleType, Long organizationId, Long gisuId
+    ) {
+        return queryRepository.existsByChallengerRole(challengerId, roleType, organizationId, gisuId);
     }
 
     @Override

@@ -1,6 +1,7 @@
 package com.umc.product.authorization.application.port.out;
 
 import com.umc.product.authorization.domain.ChallengerRole;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -44,4 +45,15 @@ public interface LoadChallengerRolePort {
      * ID로 ChallengerRole 조회 - 없으면 예외
      */
     ChallengerRole getById(Long id);
+
+    /**
+     * 특정 챌린저가 특정 기수·조직에서 동일 역할을 이미 보유하고 있는지 여부
+     *
+     * @param challengerId   챌린저 ID
+     * @param roleType       역할 타입
+     * @param organizationId 조직 ID (CENTRAL 이면 null)
+     * @param gisuId         기수 ID
+     * @return 동일 역할이 이미 있으면 true
+     */
+    boolean existsByChallengerRole(Long challengerId, ChallengerRoleType roleType, Long organizationId, Long gisuId);
 }
