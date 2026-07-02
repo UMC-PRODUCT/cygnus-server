@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 import com.umc.product.certificate.domain.CertificateIssuer;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.CertificateType;
 
 import lombok.Builder;
@@ -11,7 +12,9 @@ import lombok.Builder;
 @Builder
 public record CertificatePdfRenderCommand(
     String serialNumber,
+    String issuanceNumber,
     CertificateType type,
+    CertificateTemplate template,
     CertificateIssuer issuer,
     String recipientName,
     String recipientSchoolName,
@@ -25,7 +28,13 @@ public record CertificatePdfRenderCommand(
 ) {
 
     public CertificatePdfRenderCommand {
-        Objects.requireNonNull(serialNumber, "serialNumber must not be null");
+        if (issuanceNumber == null) {
+            issuanceNumber = serialNumber;
+        }
+        if (serialNumber == null) {
+            serialNumber = issuanceNumber;
+        }
+        Objects.requireNonNull(issuanceNumber, "issuanceNumber must not be null");
         Objects.requireNonNull(type, "type must not be null");
         Objects.requireNonNull(issuer, "issuer must not be null");
         Objects.requireNonNull(recipientName, "recipientName must not be null");

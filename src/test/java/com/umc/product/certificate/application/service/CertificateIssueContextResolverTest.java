@@ -16,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.umc.product.certificate.application.port.in.command.dto.AdminIssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.domain.CertificateIssuer;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
@@ -63,8 +64,8 @@ class CertificateIssueContextResolverTest {
     }
 
     @Test
-    @DisplayName("운영진 공로증 발급 시 발급 주체를 설정할 수 있다")
-    void 운영진_공로증_발급_시_발급_주체를_설정할_수_있다() {
+    @DisplayName("운영진 공로증 발급 시 템플릿으로 발급 주체를 설정한다")
+    void 운영진_공로증_발급_시_템플릿으로_발급_주체를_설정한다() {
         // given
         given(getMemberUseCase.getById(1L)).willReturn(member());
         given(getGisuUseCase.getById(7L)).willReturn(gisu());
@@ -72,12 +73,10 @@ class CertificateIssueContextResolverTest {
 
         // when
         CertificateIssueContext result = sut.resolveAdmin(AdminIssueCertificateCommand.builder()
-            .type(CertificateType.MERIT)
-            .issuer(CertificateIssuer.NEORDINARY)
+            .template(CertificateTemplate.NEORDINARY_HACKATHON_GRAND_PRIZE)
             .requesterMemberId(99L)
             .recipientMemberId(1L)
             .gisuId(7L)
-            .meritTitle("대상")
             .build());
 
         // then
@@ -85,6 +84,53 @@ class CertificateIssueContextResolverTest {
         assertThat(result.issuer()).isEqualTo(CertificateIssuer.NEORDINARY);
         assertThat(result.gisuGeneration()).isEqualTo(7L);
         assertThat(result.meritTitle()).isEqualTo("대상");
+    }
+
+    @Test
+    @DisplayName("운영진 템플릿 발급은 템플릿으로 종류와 발급 주체와 기본 상명을 결정한다")
+    void 운영진_템플릿_발급은_템플릿으로_종류와_발급_주체와_기본_상명을_결정한다() {
+        // given
+        given(getMemberUseCase.getById(1L)).willReturn(member());
+        given(getGisuUseCase.getById(7L)).willReturn(gisu());
+        CertificateIssueContextResolver sut = sut();
+
+        // when
+        CertificateIssueContext result = sut.resolveAdmin(AdminIssueCertificateCommand.builder()
+            .template(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE)
+            .requesterMemberId(99L)
+            .recipientMemberId(1L)
+            .gisuId(7L)
+            .build());
+
+        // then
+        assertThat(result.template()).isEqualTo(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE);
+        assertThat(result.type()).isEqualTo(CertificateType.MERIT);
+        assertThat(result.issuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
+        assertThat(result.meritTitle()).isEqualTo("최우수상");
+    }
+
+    @Test
+    @DisplayName("커스텀 상장은 기존 템플릿 배경과 입력 문구를 사용한다")
+    void 커스텀_상장은_기존_템플릿_배경과_입력_문구를_사용한다() {
+        // given
+        given(getMemberUseCase.getById(1L)).willReturn(member());
+        given(getGisuUseCase.getById(7L)).willReturn(gisu());
+        CertificateIssueContextResolver sut = sut();
+
+        // when
+        CertificateIssueContext result = sut.resolveAdmin(AdminIssueCertificateCommand.builder()
+            .template(CertificateTemplate.UMC_DEMO_DAY_SECOND_PRIZE)
+            .requesterMemberId(99L)
+            .recipientMemberId(1L)
+            .gisuId(7L)
+            .meritTitle("커스텀 공로상")
+            .meritDescription("커스텀 설명입니다.")
+            .build());
+
+        // then
+        assertThat(result.template()).isEqualTo(CertificateTemplate.UMC_DEMO_DAY_SECOND_PRIZE);
+        assertThat(result.meritTitle()).isEqualTo("커스텀 공로상");
+        assertThat(result.meritDescription()).isEqualTo("커스텀 설명입니다.");
     }
 
     @Test
@@ -145,24 +191,24 @@ class CertificateIssueContextResolverTest {
     }
 
     @Test
-    @DisplayName("공로증 제목이 없으면 운영진 공로증 발급 조건을 만족하지 않는다")
-    void 공로증_제목이_없으면_운영진_공로증_발급_조건을_만족하지_않는다() {
+    @DisplayName("템플릿 공로증 제목이 없으면 기본 상명을 사용한다")
+    void 템플릿_공로증_제목이_없으면_기본_상명을_사용한다() {
         // given
         given(getMemberUseCase.getById(1L)).willReturn(member());
         given(getGisuUseCase.getById(7L)).willReturn(gisu());
         CertificateIssueContextResolver sut = sut();
 
-        // when & then
-        assertThatThrownBy(() -> sut.resolveAdmin(AdminIssueCertificateCommand.builder()
-            .type(CertificateType.MERIT)
+        // when
+        CertificateIssueContext result = sut.resolveAdmin(AdminIssueCertificateCommand.builder()
+            .template(CertificateTemplate.UMC_COURSE_MERIT)
             .requesterMemberId(99L)
             .recipientMemberId(1L)
             .gisuId(7L)
             .meritTitle(" ")
-            .build()))
-            .isInstanceOf(CertificateException.class)
-            .extracting("baseCode")
-            .isEqualTo(CertificateErrorCode.CERTIFICATE_ELIGIBILITY_NOT_MET);
+            .build());
+
+        // then
+        assertThat(result.meritTitle()).isEqualTo("공로증");
     }
 
     private CertificateIssueContextResolver sut() {

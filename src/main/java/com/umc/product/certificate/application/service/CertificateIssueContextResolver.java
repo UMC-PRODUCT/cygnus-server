@@ -8,6 +8,7 @@ import org.springframework.util.StringUtils;
 import com.umc.product.certificate.application.port.in.command.dto.AdminIssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.domain.CertificateIssuer;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
@@ -41,6 +42,7 @@ class CertificateIssueContextResolver {
         }
         return resolve(
             command.type(),
+            null,
             command.requesterMemberId(),
             command.gisuId(),
             command.projectId(),
@@ -52,13 +54,15 @@ class CertificateIssueContextResolver {
     }
 
     CertificateIssueContext resolveAdmin(AdminIssueCertificateCommand command) {
+        CertificateTemplate template = command.template();
         return resolve(
-            command.type(),
+            resolveType(command),
+            template,
             command.recipientMemberId(),
             command.gisuId(),
             command.projectId(),
-            resolveIssuer(command.issuer()),
-            command.meritTitle(),
+            resolveIssuer(command),
+            resolveMeritTitle(command),
             command.meritDescription(),
             command.requesterMemberId()
         );
@@ -66,6 +70,7 @@ class CertificateIssueContextResolver {
 
     private CertificateIssueContext resolve(
         CertificateType type,
+        CertificateTemplate template,
         Long recipientMemberId,
         Long gisuId,
         Long projectId,
@@ -78,15 +83,16 @@ class CertificateIssueContextResolver {
         GisuInfo gisu = getGisuUseCase.getById(gisuId);
 
         return switch (type) {
-            case COMPLETION -> resolveCompletion(member, gisu, issuer, issuedByMemberId);
+            case COMPLETION -> resolveCompletion(member, gisu, template, issuer, issuedByMemberId);
             case PROJECT_PARTICIPATION -> resolveProjectParticipation(member, gisu, projectId, issuer, issuedByMemberId);
-            case MERIT -> resolveMerit(member, gisu, issuer, meritTitle, meritDescription, issuedByMemberId);
+            case MERIT -> resolveMerit(member, gisu, template, issuer, meritTitle, meritDescription, issuedByMemberId);
         };
     }
 
     private CertificateIssueContext resolveCompletion(
         MemberInfo member,
         GisuInfo gisu,
+        CertificateTemplate template,
         CertificateIssuer issuer,
         Long issuedByMemberId
     ) {
@@ -95,7 +101,7 @@ class CertificateIssueContextResolver {
         if (challenger.challengerStatus() != ChallengerStatus.GRADUATED) {
             throw new CertificateException(CertificateErrorCode.CERTIFICATE_ELIGIBILITY_NOT_MET);
         }
-        return baseContext(CertificateType.COMPLETION, issuer, member, gisu, null, null, null, null, issuedByMemberId);
+        return baseContext(CertificateType.COMPLETION, template, issuer, member, gisu, null, null, null, null, issuedByMemberId);
     }
 
     private CertificateIssueContext resolveProjectParticipation(
@@ -118,6 +124,7 @@ class CertificateIssueContextResolver {
         }
         return baseContext(
             CertificateType.PROJECT_PARTICIPATION,
+            null,
             issuer,
             member,
             gisu,
@@ -132,6 +139,7 @@ class CertificateIssueContextResolver {
     private CertificateIssueContext resolveMerit(
         MemberInfo member,
         GisuInfo gisu,
+        CertificateTemplate template,
         CertificateIssuer issuer,
         String meritTitle,
         String meritDescription,
@@ -143,6 +151,7 @@ class CertificateIssueContextResolver {
         }
         return baseContext(
             CertificateType.MERIT,
+            template,
             issuer,
             member,
             gisu,
@@ -156,6 +165,7 @@ class CertificateIssueContextResolver {
 
     private CertificateIssueContext baseContext(
         CertificateType type,
+        CertificateTemplate template,
         CertificateIssuer issuer,
         MemberInfo member,
         GisuInfo gisu,
@@ -167,6 +177,7 @@ class CertificateIssueContextResolver {
     ) {
         return new CertificateIssueContext(
             type,
+            template,
             issuer,
             member.id(),
             member.name(),
@@ -181,8 +192,23 @@ class CertificateIssueContextResolver {
         );
     }
 
-    private CertificateIssuer resolveIssuer(CertificateIssuer issuer) {
-        return issuer == null ? DEFAULT_ISSUER : issuer;
+    private CertificateType resolveType(AdminIssueCertificateCommand command) {
+        return command.template() != null ? command.template().type() : command.type();
+    }
+
+    private CertificateIssuer resolveIssuer(AdminIssueCertificateCommand command) {
+        if (command.template() != null) {
+            return command.template().issuer();
+        }
+        return command.issuer() == null ? DEFAULT_ISSUER : command.issuer();
+    }
+
+    private String resolveMeritTitle(AdminIssueCertificateCommand command) {
+        String overrideTitle = normalize(command.meritTitle());
+        if (overrideTitle != null || command.template() == null) {
+            return overrideTitle;
+        }
+        return command.template().defaultMeritTitle();
     }
 
     private String normalize(String value) {

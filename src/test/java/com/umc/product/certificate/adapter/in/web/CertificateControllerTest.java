@@ -36,6 +36,7 @@ import com.umc.product.certificate.application.port.in.query.GetCertificateUseCa
 import com.umc.product.certificate.application.port.in.query.dto.CertificateVerificationInfo;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
@@ -111,12 +112,12 @@ class CertificateControllerTest {
     }
 
     @Test
-    @DisplayName("운영진 공로증 발급 요청은 발급 주체를 command로 변환한다")
-    void 운영진_공로증_발급_요청은_발급_주체를_command로_변환한다() throws Exception {
+    @DisplayName("운영진 프로젝트 참가 확인서 발급 요청은 fallback type과 issuer를 command로 변환한다")
+    void 운영진_프로젝트_참가_확인서_발급_요청은_fallback_type과_issuer를_command로_변환한다() throws Exception {
         // given
         given(adminIssueCertificateUseCase.issueByAdmin(any())).willReturn(issueInfo(
-            "UMC-MRT-20260701-ABCDEFGH",
-            CertificateType.MERIT,
+            "UMC-PRJ-20260701-ABCDEFGH",
+            CertificateType.PROJECT_PARTICIPATION,
             CertificateIssuer.NEORDINARY
         ));
 
@@ -125,30 +126,100 @@ class CertificateControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
+                      "type": "PROJECT_PARTICIPATION",
+                      "issuer": "NEORDINARY",
+                      "recipientMemberId": 1,
+                      "gisuId": 7,
+                      "projectId": 100,
+                      "reissue": true
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.type").value("PROJECT_PARTICIPATION"))
+            .andExpect(jsonPath("$.result.issuer").value("NEORDINARY"));
+
+        // then
+        verify(adminIssueCertificateUseCase).issueByAdmin(AdminIssueCertificateCommand.builder()
+            .type(CertificateType.PROJECT_PARTICIPATION)
+            .issuer(CertificateIssuer.NEORDINARY)
+            .requesterMemberId(99L)
+            .recipientMemberId(1L)
+            .gisuId(7L)
+            .projectId(100L)
+            .reissue(true)
+            .build());
+    }
+
+    @Test
+    @DisplayName("운영진 공로증은 template 없이 type만으로 발급할 수 없다")
+    void 운영진_공로증은_template_없이_type만으로_발급할_수_없다() throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/v1/admin/certificates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
                       "type": "MERIT",
                       "issuer": "NEORDINARY",
                       "recipientMemberId": 1,
                       "gisuId": 7,
-                      "meritTitle": "대상",
+                      "meritTitle": "대상"
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("운영진 템플릿 발급 요청은 template 중심 command로 변환한다")
+    void 운영진_템플릿_발급_요청은_template_중심_command로_변환한다() throws Exception {
+        // given
+        given(adminIssueCertificateUseCase.issueByAdmin(any())).willReturn(issueInfo(
+            "UMC-MRT-20260701-ABCDEFGH",
+            CertificateType.MERIT,
+            CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE
+        ));
+
+        // when
+        mockMvc.perform(post("/api/v1/admin/certificates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "template": "UMC_DEMO_DAY_FIRST_PRIZE",
+                      "recipientMemberId": 1,
+                      "gisuId": 7,
                       "meritDescription": "탁월한 기여",
                       "reissue": true
                     }
                     """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.type").value("MERIT"))
-            .andExpect(jsonPath("$.result.issuer").value("NEORDINARY"));
+            .andExpect(jsonPath("$.result.issuer").value("UNIVERSITY_MAKEUS_CHALLENGE"));
 
         // then
         verify(adminIssueCertificateUseCase).issueByAdmin(AdminIssueCertificateCommand.builder()
-            .type(CertificateType.MERIT)
-            .issuer(CertificateIssuer.NEORDINARY)
+            .template(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE)
             .requesterMemberId(99L)
             .recipientMemberId(1L)
             .gisuId(7L)
-            .meritTitle("대상")
             .meritDescription("탁월한 기여")
             .reissue(true)
             .build());
+    }
+
+    @Test
+    @DisplayName("운영진 템플릿 발급 요청은 template과 type을 동시에 받지 않는다")
+    void 운영진_템플릿_발급_요청은_template과_type을_동시에_받지_않는다() throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/v1/admin/certificates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "template": "UMC_DEMO_DAY_FIRST_PRIZE",
+                      "type": "MERIT",
+                      "recipientMemberId": 1,
+                      "gisuId": 7
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
     }
 
     @Test
