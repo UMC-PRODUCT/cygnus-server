@@ -45,7 +45,8 @@ public final class SecurityPathConfig {
         Stream.concat(
             Stream.of(
                 "/actuator/**",
-                "/error"
+                "/error",
+                "/ws/**"
             ),
             DOCUMENTATION_PATHS.stream()
         ),
