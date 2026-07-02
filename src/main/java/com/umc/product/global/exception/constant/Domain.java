@@ -28,7 +28,6 @@ public enum Domain {
     FIGMA,
     LLM,
     ANALYTICS,
-    INQUIRY,
     CHAT,
     MAINTENANCE,
     FEEDBACK,
