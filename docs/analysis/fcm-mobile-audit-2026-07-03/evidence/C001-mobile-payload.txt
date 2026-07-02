@@ -1,0 +1,569 @@
+COMMAND: rg -n "deepLink|imageUrl|Notification\.builder|putIfAbsent|setNotification|setData|FcmSendRequest|FcmAdminSendRequest|FcmRegistrationRequest|RequestFcmNotificationCommand|FcmNotificationRequestedEvent|FcmSendBatchRequestedEvent" src/main/java/com/umc/product/notification src/test/java/com/umc/product/notification
+
+src/test/java/com/umc/product/notification/application/event/FcmNotificationOutboxFlowTest.java:31:import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+src/test/java/com/umc/product/notification/application/event/FcmNotificationOutboxFlowTest.java:52:        service.request(RequestFcmNotificationCommand.builder()
+src/test/java/com/umc/product/notification/application/event/FcmNotificationOutboxFlowTest.java:61:        assertThat(requestOutbox.getEventClass()).isEqualTo(FcmNotificationRequestedEvent.class.getName());
+src/test/java/com/umc/product/notification/application/event/FcmNotificationOutboxFlowTest.java:65:        FcmNotificationRequestedEventListener listener = new FcmNotificationRequestedEventListener(
+src/test/java/com/umc/product/notification/application/event/FcmNotificationOutboxFlowTest.java:72:            if (event instanceof FcmNotificationRequestedEvent fcmEvent) {
+src/test/java/com/umc/product/notification/application/event/FcmNotificationOutboxFlowTest.java:96:            .containsOnly(FcmSendBatchRequestedEvent.class.getName());
+src/test/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListenerTest.java:24:class FcmNotificationRequestedEventListenerTest {
+src/test/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListenerTest.java:32:        FcmNotificationRequestedEventListener listener = new FcmNotificationRequestedEventListener(
+src/test/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListenerTest.java:38:        FcmNotificationRequestedEvent event = new FcmNotificationRequestedEvent(
+src/test/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListenerTest.java:60:        assertThat((FcmSendBatchRequestedEvent) eventPublisher.published.get(0))
+src/test/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListenerTest.java:63:        assertThat((FcmSendBatchRequestedEvent) eventPublisher.published.get(1))
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:22:import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:31:class FcmSendBatchRequestedEventListenerTest {
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:44:        FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:51:        FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:81:        FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:90:        FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:174:        private FcmSendRequest lastRequest;
+src/test/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListenerTest.java:181:        public FcmSendResult send(FcmSendRequest request) {
+src/test/java/com/umc/product/notification/application/service/FcmNotificationCommandServiceTest.java:14:import com.umc.product.notification.application.event.FcmNotificationRequestedEvent;
+src/test/java/com/umc/product/notification/application/service/FcmNotificationCommandServiceTest.java:16:import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+src/test/java/com/umc/product/notification/application/service/FcmNotificationCommandServiceTest.java:27:        RequestFcmNotificationCommand command = RequestFcmNotificationCommand.builder()
+src/test/java/com/umc/product/notification/application/service/FcmNotificationCommandServiceTest.java:40:        FcmNotificationRequestedEvent event = (FcmNotificationRequestedEvent) eventPublisher.published.getFirst();
+src/test/java/com/umc/product/notification/adapter/in/web/FcmAdminControllerTest.java:82:                        "deepLink": "umc://notices/1"
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:11:public record FcmSendBatchRequestedEvent(
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:19:    String imageUrl,
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:20:    String deepLink
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:23:    public FcmSendBatchRequestedEvent {
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:37:    public static FcmSendBatchRequestedEvent create(
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:40:        FcmNotificationRequestedEvent source
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:42:        return new FcmSendBatchRequestedEvent(
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:50:            source.imageUrl(),
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:51:            source.deepLink()
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/NoopFcmMessageAdapter.java:9:import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/NoopFcmMessageAdapter.java:17:    public FcmSendResult send(FcmSendRequest request) {
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:19:import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:37:    public FcmSendResult send(FcmSendRequest request) {
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:51:    private MulticastMessage toMessage(FcmSendRequest request) {
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:52:        Notification.Builder notificationBuilder = Notification.builder()
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:55:        if (request.imageUrl() != null && !request.imageUrl().isBlank()) {
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:56:            notificationBuilder.setImage(request.imageUrl());
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:61:            .setNotification(notificationBuilder.build());
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:64:        if (request.deepLink() != null && !request.deepLink().isBlank()) {
+src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:65:            data.putIfAbsent("deepLink", request.deepLink());
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:12:import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:14:public record FcmNotificationRequestedEvent(
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:27:    String imageUrl,
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:28:    String deepLink
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:31:    public FcmNotificationRequestedEvent {
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:46:    public static FcmNotificationRequestedEvent from(
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:49:        RequestFcmNotificationCommand command
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:51:        return new FcmNotificationRequestedEvent(
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:64:            command.imageUrl(),
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:65:            command.deepLink()
+src/main/java/com/umc/product/notification/application/service/FcmNotificationCommandService.java:10:import com.umc.product.notification.application.event.FcmNotificationRequestedEvent;
+src/main/java/com/umc/product/notification/application/service/FcmNotificationCommandService.java:13:import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+src/main/java/com/umc/product/notification/application/service/FcmNotificationCommandService.java:27:    public FcmNotificationRequestInfo request(RequestFcmNotificationCommand command) {
+src/main/java/com/umc/product/notification/application/service/FcmNotificationCommandService.java:30:        eventPublisher.publish(FcmNotificationRequestedEvent.from(requestId, queuedAt, command));
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:16:import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:27:public class FcmSendBatchRequestedEventListener {
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:37:    public void handle(FcmSendBatchRequestedEvent event) {
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:49:        FcmSendResult result = sendFcmMessagePort.send(FcmSendRequest.of(
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:54:            event.imageUrl(),
+src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:55:            event.deepLink()
+src/main/java/com/umc/product/notification/application/port/in/RequestFcmNotificationUseCase.java:4:import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+src/main/java/com/umc/product/notification/application/port/in/RequestFcmNotificationUseCase.java:8:    FcmNotificationRequestInfo request(RequestFcmNotificationCommand command);
+src/main/java/com/umc/product/notification/adapter/in/web/swagger/FcmControllerApi.java:5:import com.umc.product.notification.adapter.in.web.dto.request.FcmRegistrationRequest;
+src/main/java/com/umc/product/notification/adapter/in/web/swagger/FcmControllerApi.java:30:        FcmRegistrationRequest request
+src/main/java/com/umc/product/notification/application/port/out/SendFcmMessagePort.java:3:import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+src/main/java/com/umc/product/notification/application/port/out/SendFcmMessagePort.java:8:    FcmSendResult send(FcmSendRequest request);
+src/main/java/com/umc/product/notification/application/port/in/dto/RequestFcmNotificationCommand.java:13:public record RequestFcmNotificationCommand(
+src/main/java/com/umc/product/notification/application/port/in/dto/RequestFcmNotificationCommand.java:23:    String imageUrl,
+src/main/java/com/umc/product/notification/application/port/in/dto/RequestFcmNotificationCommand.java:24:    String deepLink
+src/main/java/com/umc/product/notification/application/port/in/dto/RequestFcmNotificationCommand.java:27:    public RequestFcmNotificationCommand {
+src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java:10:import com.umc.product.notification.adapter.in.web.dto.request.FcmRegistrationRequest;
+src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java:32:        @RequestBody @Valid FcmRegistrationRequest request) {
+src/main/java/com/umc/product/notification/adapter/in/web/FcmAdminController.java:18:import com.umc.product.notification.adapter.in.web.dto.request.FcmAdminSendRequest;
+src/main/java/com/umc/product/notification/adapter/in/web/FcmAdminController.java:48:        @RequestBody @Valid FcmAdminSendRequest request
+src/main/java/com/umc/product/notification/application/service/FcmAudienceService.java:24:import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+src/main/java/com/umc/product/notification/application/service/FcmAudienceService.java:125:                FcmSendResult response = sendFcmMessagePort.send(FcmSendRequest.of(
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:8:import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:15:public record FcmAdminSendRequest(
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:20:    public RequestFcmNotificationCommand toCommand(Long requesterMemberId) {
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:21:        return RequestFcmNotificationCommand.builder()
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:31:            .imageUrl(message.imageUrl())
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:32:            .deepLink(message.deepLink())
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:49:        @Size(max = 500) String imageUrl,
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:50:        @Size(max = 500) String deepLink
+src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java:8:public record FcmRegistrationRequest(
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:6:public record FcmSendRequest(
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:11:    String imageUrl,
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:12:    String deepLink
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:15:    public FcmSendRequest {
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:20:    public static FcmSendRequest of(
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:25:        String imageUrl,
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:26:        String deepLink
+src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:28:        return new FcmSendRequest(targets, title, body, data, imageUrl, deepLink);
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListener.java:21:public class FcmNotificationRequestedEventListener {
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListener.java:31:    public void handle(FcmNotificationRequestedEvent event) {
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListener.java:49:        List<FcmSendBatchRequestedEvent> batchEvents = partition(tokenIds(tokens), FCM_MULTICAST_BATCH_SIZE)
+src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEventListener.java:51:            .map(tokenIds -> FcmSendBatchRequestedEvent.create(event.requestId(), tokenIds, event))
+src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:16:import com.umc.product.notification.application.event.FcmNotificationRequestedEvent;
+src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:30:    public List<Long> resolve(FcmNotificationRequestedEvent event) {
+src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:36:    private List<Long> resolveByTarget(FcmNotificationRequestedEvent event) {
+src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:80:        FcmNotificationRequestedEvent event,
+
+
+COMMAND: nl excerpts for mobile payload files
+
+--- src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java ---
+     1	package com.umc.product.notification.adapter.out.external.fcm;
+     2	
+     3	import java.util.ArrayList;
+     4	import java.util.HashMap;
+     5	import java.util.List;
+     6	import java.util.Map;
+     7	
+     8	import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+     9	import org.springframework.stereotype.Component;
+    10	
+    11	import com.google.firebase.messaging.BatchResponse;
+    12	import com.google.firebase.messaging.FirebaseMessaging;
+    13	import com.google.firebase.messaging.FirebaseMessagingException;
+    14	import com.google.firebase.messaging.MessagingErrorCode;
+    15	import com.google.firebase.messaging.MulticastMessage;
+    16	import com.google.firebase.messaging.Notification;
+    17	import com.google.firebase.messaging.SendResponse;
+    18	import com.umc.product.notification.application.port.out.SendFcmMessagePort;
+    19	import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+    20	import com.umc.product.notification.application.port.out.dto.FcmSendResult;
+    21	import com.umc.product.notification.application.port.out.dto.FcmSendTarget;
+    22	import com.umc.product.notification.domain.exception.FcmDomainException;
+    23	import com.umc.product.notification.domain.exception.FcmErrorCode;
+    24	
+    25	import lombok.RequiredArgsConstructor;
+    26	import lombok.extern.slf4j.Slf4j;
+    27	
+    28	@Slf4j
+    29	@Component
+    30	@RequiredArgsConstructor
+    31	@ConditionalOnProperty(name = "app.fcm.enabled", havingValue = "true")
+    32	public class FirebaseFcmMessageAdapter implements SendFcmMessagePort {
+    33	
+    34	    private final FirebaseMessaging firebaseMessaging;
+    35	
+    36	    @Override
+    37	    public FcmSendResult send(FcmSendRequest request) {
+    38	        if (request.targets().isEmpty()) {
+    39	            return FcmSendResult.of(0, 0, List.of());
+    40	        }
+    41	
+    42	        try {
+    43	            BatchResponse response = firebaseMessaging.sendEachForMulticast(toMessage(request));
+    44	            return toResult(request.targets(), response);
+    45	        } catch (FirebaseMessagingException e) {
+    46	            log.error("FCM 배치 발송 실패: tokenCount={}", request.targets().size(), e);
+    47	            throw new FcmDomainException(FcmErrorCode.FCM_SEND_FAILED);
+    48	        }
+    49	    }
+    50	
+    51	    private MulticastMessage toMessage(FcmSendRequest request) {
+    52	        Notification.Builder notificationBuilder = Notification.builder()
+    53	            .setTitle(request.title())
+    54	            .setBody(request.body());
+    55	        if (request.imageUrl() != null && !request.imageUrl().isBlank()) {
+    56	            notificationBuilder.setImage(request.imageUrl());
+    57	        }
+    58	
+    59	        MulticastMessage.Builder messageBuilder = MulticastMessage.builder()
+    60	            .addAllTokens(request.targets().stream().map(FcmSendTarget::token).toList())
+    61	            .setNotification(notificationBuilder.build());
+    62	
+    63	        Map<String, String> data = new HashMap<>(request.data());
+    64	        if (request.deepLink() != null && !request.deepLink().isBlank()) {
+    65	            data.putIfAbsent("deepLink", request.deepLink());
+    66	        }
+    67	        if (!data.isEmpty()) {
+    68	            messageBuilder.putAllData(data);
+    69	        }
+    70	
+    71	        return messageBuilder.build();
+    72	    }
+    73	
+    74	    private FcmSendResult toResult(List<FcmSendTarget> targets, BatchResponse response) {
+    75	        List<Long> invalidTokenIds = new ArrayList<>();
+    76	        List<SendResponse> responses = response.getResponses();
+    77	        for (int i = 0; i < responses.size(); i++) {
+    78	            SendResponse sendResponse = responses.get(i);
+    79	            if (isUnregistered(sendResponse)) {
+    80	                invalidTokenIds.add(targets.get(i).tokenId());
+    81	            }
+    82	        }
+    83	        return FcmSendResult.of(response.getSuccessCount(), response.getFailureCount(), invalidTokenIds);
+    84	    }
+    85	
+    86	    private boolean isUnregistered(SendResponse response) {
+    87	        return !response.isSuccessful()
+    88	            && response.getException() != null
+    89	            && MessagingErrorCode.UNREGISTERED.equals(response.getException().getMessagingErrorCode());
+    90	    }
+    91	}
+
+--- src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java ---
+     1	package com.umc.product.notification.application.port.out.dto;
+     2	
+     3	import java.util.List;
+     4	import java.util.Map;
+     5	
+     6	public record FcmSendRequest(
+     7	    List<FcmSendTarget> targets,
+     8	    String title,
+     9	    String body,
+    10	    Map<String, String> data,
+    11	    String imageUrl,
+    12	    String deepLink
+    13	) {
+    14	
+    15	    public FcmSendRequest {
+    16	        targets = targets == null ? List.of() : List.copyOf(targets);
+    17	        data = data == null ? Map.of() : Map.copyOf(data);
+    18	    }
+    19	
+    20	    public static FcmSendRequest of(
+    21	        List<FcmSendTarget> targets,
+    22	        String title,
+    23	        String body,
+    24	        Map<String, String> data,
+    25	        String imageUrl,
+    26	        String deepLink
+    27	    ) {
+    28	        return new FcmSendRequest(targets, title, body, data, imageUrl, deepLink);
+    29	    }
+    30	}
+
+--- src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java ---
+     1	package com.umc.product.notification.adapter.in.web.dto.request;
+     2	
+     3	import java.util.List;
+     4	import java.util.Map;
+     5	import java.util.Set;
+     6	
+     7	import com.umc.product.common.domain.enums.ChallengerPart;
+     8	import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+     9	
+    10	import jakarta.validation.Valid;
+    11	import jakarta.validation.constraints.NotBlank;
+    12	import jakarta.validation.constraints.NotNull;
+    13	import jakarta.validation.constraints.Size;
+    14	
+    15	public record FcmAdminSendRequest(
+    16	    @NotNull @Valid Target target,
+    17	    @NotNull @Valid Message message
+    18	) {
+    19	
+    20	    public RequestFcmNotificationCommand toCommand(Long requesterMemberId) {
+    21	        return RequestFcmNotificationCommand.builder()
+    22	            .requesterMemberId(requesterMemberId)
+    23	            .memberIds(target.memberIds())
+    24	            .targetGisuId(target.gisuId())
+    25	            .targetChapterId(target.chapterId())
+    26	            .targetSchoolId(target.schoolId())
+    27	            .targetParts(target.parts())
+    28	            .title(message.title())
+    29	            .body(message.body())
+    30	            .data(message.data())
+    31	            .imageUrl(message.imageUrl())
+    32	            .deepLink(message.deepLink())
+    33	            .build();
+    34	    }
+    35	
+    36	    public record Target(
+    37	        List<Long> memberIds,
+    38	        Long gisuId,
+    39	        Long chapterId,
+    40	        Long schoolId,
+    41	        Set<ChallengerPart> parts
+    42	    ) {
+    43	    }
+    44	
+    45	    public record Message(
+    46	        @NotBlank @Size(max = 100) String title,
+    47	        @NotBlank @Size(max = 500) String body,
+    48	        Map<@Size(max = 50) String, @Size(max = 500) String> data,
+    49	        @Size(max = 500) String imageUrl,
+    50	        @Size(max = 500) String deepLink
+    51	    ) {
+    52	    }
+    53	}
+
+--- src/main/java/com/umc/product/notification/application/port/in/dto/RequestFcmNotificationCommand.java ---
+     1	package com.umc.product.notification.application.port.in.dto;
+     2	
+     3	import java.util.List;
+     4	import java.util.Map;
+     5	import java.util.Objects;
+     6	import java.util.Set;
+     7	
+     8	import com.umc.product.common.domain.enums.ChallengerPart;
+     9	
+    10	import lombok.Builder;
+    11	
+    12	@Builder
+    13	public record RequestFcmNotificationCommand(
+    14	    Long requesterMemberId,
+    15	    List<Long> memberIds,
+    16	    Long targetGisuId,
+    17	    Long targetChapterId,
+    18	    Long targetSchoolId,
+    19	    Set<ChallengerPart> targetParts,
+    20	    String title,
+    21	    String body,
+    22	    Map<String, String> data,
+    23	    String imageUrl,
+    24	    String deepLink
+    25	) {
+    26	
+    27	    public RequestFcmNotificationCommand {
+    28	        memberIds = normalizeMemberIds(memberIds);
+    29	        targetParts = targetParts == null ? Set.of() : Set.copyOf(targetParts);
+    30	        data = data == null ? Map.of() : Map.copyOf(data);
+    31	        if (title == null || title.isBlank()) {
+    32	            throw new IllegalArgumentException("FCM 알림 제목은 필수입니다.");
+    33	        }
+    34	        if (body == null || body.isBlank()) {
+    35	            throw new IllegalArgumentException("FCM 알림 본문은 필수입니다.");
+    36	        }
+    37	    }
+    38	
+    39	    private static List<Long> normalizeMemberIds(List<Long> memberIds) {
+    40	        if (memberIds == null || memberIds.isEmpty()) {
+    41	            return List.of();
+    42	        }
+    43	        return memberIds.stream()
+    44	            .filter(Objects::nonNull)
+    45	            .distinct()
+    46	            .toList();
+    47	    }
+    48	}
+
+--- src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java ---
+     1	package com.umc.product.notification.application.event;
+     2	
+     3	import java.time.Instant;
+     4	import java.util.List;
+     5	import java.util.Map;
+     6	import java.util.Objects;
+     7	import java.util.Set;
+     8	import java.util.UUID;
+     9	
+    10	import com.umc.product.common.domain.enums.ChallengerPart;
+    11	import com.umc.product.global.event.domain.DomainEvent;
+    12	import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+    13	
+    14	public record FcmNotificationRequestedEvent(
+    15	    UUID eventId,
+    16	    Instant occurredAt,
+    17	    UUID requestId,
+    18	    Long requesterMemberId,
+    19	    List<Long> memberIds,
+    20	    Long targetGisuId,
+    21	    Long targetChapterId,
+    22	    Long targetSchoolId,
+    23	    Set<ChallengerPart> targetParts,
+    24	    String title,
+    25	    String body,
+    26	    Map<String, String> data,
+    27	    String imageUrl,
+    28	    String deepLink
+    29	) implements DomainEvent {
+    30	
+    31	    public FcmNotificationRequestedEvent {
+    32	        if (eventId == null) {
+    33	            eventId = UUID.randomUUID();
+    34	        }
+    35	        if (occurredAt == null) {
+    36	            occurredAt = Instant.now();
+    37	        }
+    38	        if (requestId == null) {
+    39	            requestId = UUID.randomUUID();
+    40	        }
+    41	        memberIds = normalizeMemberIds(memberIds);
+    42	        targetParts = targetParts == null ? Set.of() : Set.copyOf(targetParts);
+    43	        data = data == null ? Map.of() : Map.copyOf(data);
+    44	    }
+    45	
+    46	    public static FcmNotificationRequestedEvent from(
+    47	        UUID requestId,
+    48	        Instant queuedAt,
+    49	        RequestFcmNotificationCommand command
+    50	    ) {
+    51	        return new FcmNotificationRequestedEvent(
+    52	            null,
+    53	            queuedAt,
+    54	            requestId,
+    55	            command.requesterMemberId(),
+    56	            command.memberIds(),
+    57	            command.targetGisuId(),
+    58	            command.targetChapterId(),
+    59	            command.targetSchoolId(),
+    60	            command.targetParts(),
+    61	            command.title(),
+    62	            command.body(),
+    63	            command.data(),
+    64	            command.imageUrl(),
+    65	            command.deepLink()
+    66	        );
+    67	    }
+    68	
+    69	    @Override
+    70	    public String eventType() {
+    71	        return "notification.fcm.requested";
+    72	    }
+    73	
+    74	    private static List<Long> normalizeMemberIds(List<Long> memberIds) {
+    75	        if (memberIds == null || memberIds.isEmpty()) {
+    76	            return List.of();
+    77	        }
+    78	        return memberIds.stream()
+    79	            .filter(Objects::nonNull)
+    80	            .distinct()
+    81	            .toList();
+    82	    }
+    83	}
+
+--- src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java ---
+     1	package com.umc.product.notification.application.event;
+     2	
+     3	import java.time.Instant;
+     4	import java.util.List;
+     5	import java.util.Map;
+     6	import java.util.Objects;
+     7	import java.util.UUID;
+     8	
+     9	import com.umc.product.global.event.domain.DomainEvent;
+    10	
+    11	public record FcmSendBatchRequestedEvent(
+    12	    UUID eventId,
+    13	    Instant occurredAt,
+    14	    UUID requestId,
+    15	    List<Long> tokenIds,
+    16	    String title,
+    17	    String body,
+    18	    Map<String, String> data,
+    19	    String imageUrl,
+    20	    String deepLink
+    21	) implements DomainEvent {
+    22	
+    23	    public FcmSendBatchRequestedEvent {
+    24	        if (eventId == null) {
+    25	            eventId = UUID.randomUUID();
+    26	        }
+    27	        if (occurredAt == null) {
+    28	            occurredAt = Instant.now();
+    29	        }
+    30	        if (requestId == null) {
+    31	            requestId = UUID.randomUUID();
+    32	        }
+    33	        tokenIds = normalizeTokenIds(tokenIds);
+    34	        data = data == null ? Map.of() : Map.copyOf(data);
+    35	    }
+    36	
+    37	    public static FcmSendBatchRequestedEvent create(
+    38	        UUID requestId,
+    39	        List<Long> tokenIds,
+    40	        FcmNotificationRequestedEvent source
+    41	    ) {
+    42	        return new FcmSendBatchRequestedEvent(
+    43	            null,
+    44	            null,
+    45	            requestId,
+    46	            tokenIds,
+    47	            source.title(),
+    48	            source.body(),
+    49	            source.data(),
+    50	            source.imageUrl(),
+    51	            source.deepLink()
+    52	        );
+    53	    }
+    54	
+    55	    @Override
+    56	    public String eventType() {
+    57	        return "notification.fcm.batch.requested";
+    58	    }
+    59	
+    60	    private static List<Long> normalizeTokenIds(List<Long> tokenIds) {
+    61	        if (tokenIds == null || tokenIds.isEmpty()) {
+    62	            return List.of();
+    63	        }
+    64	        return tokenIds.stream()
+    65	            .filter(Objects::nonNull)
+    66	            .distinct()
+    67	            .toList();
+    68	    }
+    69	}
+
+--- src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java ---
+     1	package com.umc.product.notification.adapter.in.web;
+     2	
+     3	import org.springframework.web.bind.annotation.DeleteMapping;
+     4	import org.springframework.web.bind.annotation.PutMapping;
+     5	import org.springframework.web.bind.annotation.RequestBody;
+     6	import org.springframework.web.bind.annotation.RestController;
+     7	
+     8	import com.umc.product.global.security.MemberPrincipal;
+     9	import com.umc.product.global.security.annotation.CurrentMember;
+    10	import com.umc.product.notification.adapter.in.web.dto.request.FcmRegistrationRequest;
+    11	import com.umc.product.notification.adapter.in.web.dto.request.FcmUnregistrationRequest;
+    12	import com.umc.product.notification.adapter.in.web.swagger.FcmControllerApi;
+    13	import com.umc.product.notification.application.port.in.ManageFcmTopicUseCase;
+    14	import com.umc.product.notification.application.port.in.ManageFcmUseCase;
+    15	
+    16	import jakarta.validation.Valid;
+    17	import lombok.RequiredArgsConstructor;
+    18	import lombok.extern.slf4j.Slf4j;
+    19	
+    20	@Slf4j
+    21	@RestController
+    22	@RequiredArgsConstructor
+    23	public class FcmController implements FcmControllerApi {
+    24	
+    25	    private final ManageFcmUseCase manageFcmUseCase;
+    26	    private final ManageFcmTopicUseCase manageFcmTopicUseCase;
+    27	
+    28	    @Override
+    29	    @PutMapping({"/api/v1/notifications/fcm/tokens", "/api/v1/notification/fcm/token"})
+    30	    public void refreshFcmToken(
+    31	        @CurrentMember MemberPrincipal memberPrincipal,
+    32	        @RequestBody @Valid FcmRegistrationRequest request) {
+    33	        manageFcmUseCase.registerFcmToken(request.toCommand(memberPrincipal.getMemberId()));
+    34	    }
+    35	
+    36	    @Override
+    37	    @DeleteMapping({"/api/v1/notifications/fcm/tokens", "/api/v1/notification/fcm/token"})
+    38	    public void unregisterFcmToken(
+    39	        @CurrentMember MemberPrincipal memberPrincipal,
+    40	        @RequestBody @Valid FcmUnregistrationRequest request) {
+    41	        manageFcmUseCase.unregisterFcmToken(request.toCommand(memberPrincipal.getMemberId()));
+    42	    }
+    43	
+    44	    @Override
+    45	    @DeleteMapping("/api/v1/notification/fcm/topics/legacy")
+    46	    public void unsubscribeAllMemberLegacyTopics(@CurrentMember MemberPrincipal memberPrincipal) {
+    47	        manageFcmTopicUseCase.unsubscribeLegacyTopics(memberPrincipal.getMemberId());
+    48	    }
+    49	
+    50	    @Override
+    51	    public void resubscribeAllMemberLegacyTopics() {
+    52	        manageFcmTopicUseCase.resubscribeAllLegacyTopics();
+    53	    }
+    54	
+    55	
+    56	}
+
+Official Firebase documentation checked:
+- https://firebase.google.com/docs/cloud-messaging/customize-messages/set-message-type
+  - Notification messages may be handled/displayed by the SDK in background; data messages are handled by client code.
+  - Firebase notes that FCM transport is not end-to-end encrypted and reserved keys such as `from`, `gcm`, and `google` should not be used in custom data.
+- https://firebase.google.com/docs/cloud-messaging/android/receive-messages
+  - Android background behavior differs for notification/data payloads; notification payload can be delivered to the notification tray and data payload can be exposed through intent extras.
+  - Android-specific notification icon/color/default appearance are configured through Android-specific options/resources.
+- https://firebase.google.com/docs/cloud-messaging/ios/receive-messages
+  - iOS silent/background update behavior requires APNs-specific `content-available`.
+- https://firebase.google.com/docs/cloud-messaging/customize-messages/cross-platform
+  - Cross-platform messages can use common notification/data fields plus platform-specific `android` and `apns` blocks.
+  - Firebase documents platform-specific click action/category handling.
+
+cleanup: no runtime resources spawned; evidence generated by shell redirection only

@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "createdAt": "2026-07-01T13:26:53.656Z",
+  "updatedAt": "2026-07-01T21:07:27.993Z",
+  "briefPath": ".omo/ulw-loop/fcm-mobile-audit-20260701/brief.md",
+  "goalsPath": ".omo/ulw-loop/fcm-mobile-audit-20260701/goals.json",
+  "ledgerPath": ".omo/ulw-loop/fcm-mobile-audit-20260701/ledger.jsonl",
+  "codexGoalMode": "aggregate",
+  "goals": [
+    {
+      "id": "G001-fcm-ios-android",
+      "title": "FCM 알림 구현이 iOS/Android 모바일 클라이언트 친화적으로 구성되어 있는지, 보안상 부족한 점이 없는지, 기능 개...",
+      "objective": "FCM 알림 구현이 iOS/Android 모바일 클라이언트 친화적으로 구성되어 있는지, 보안상 부족한 점이 없는지, 기능 개선점이 무엇인지, 향후 다양한 알림 용도에 대해 확장 가능한 설계인지 코드와 설정 근거로 평가한다. 코드 변경 없이 평가 보고서를 산출한다.",
+      "status": "complete",
+      "successCriteria": [
+        {
+          "id": "C001",
+          "scenario": "CLI/code evidence: run rg/sed over FCM request event, batch event, Firebase adapter, admin/token DTOs, and controller to verify whether the outgoing payload contract is mobile-friendly for iOS/Android. PASS iff the report cites exact file:line evidence for notification/data/deepLink/image handling and identifies concrete mobile-client contract strengths/risks.",
+          "userModel": "happy",
+          "expectedEvidence": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C001-mobile-payload.txt containing command output with cited file:line snippets plus cleanup: no runtime resources spawned",
+          "essential": true,
+          "capturedEvidence": "UPDATED: fcm-mobile-audit-report.md now includes exact file:line evidence for FirebaseFcmMessageAdapter, FcmSendRequest, request/batch events, and direct Firebase official documentation URLs; C001-mobile-payload.txt includes docs URLs and cleanup receipt; manual QA matrix: .omo/evidence/fcm-mobile-audit-manual-qa.md | cleanup: no runtime resources spawned; no server/tmux/browser/container left running",
+          "status": "pass",
+          "capturedAt": "2026-07-01T13:43:12.060Z"
+        },
+        {
+          "id": "C002",
+          "scenario": "CLI/code evidence: inspect admin API auth/audit, request validation, token storage, Firebase config, outbox retry, token validation, and logging/metrics for security and abuse risks. PASS iff the report cites exact file:line evidence and separates must-fix security gaps from acceptable risks.",
+          "userModel": "edge",
+          "expectedEvidence": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C002-security.txt containing command output with cited file:line snippets plus cleanup: no runtime resources spawned",
+          "essential": true,
+          "capturedEvidence": "UPDATED: C002-security.txt and fcm-mobile-audit-report.md now include exact file:line evidence for admin auth/audit, target validation gaps, data/deepLink reserved-key/allowlist gaps, FCM token plaintext storage, token registration abuse via unbounded fcmToken/per-member active tokens, validation stale-duration gap, Firebase init risk, and token-validation multi-instance caveat; code review artifact: .omo/evidence/fcm-mobile-audit-code-review.md; manual QA matrix: .omo/evidence/fcm-mobile-audit-manual-qa.md | cleanup: no runtime resources spawned; no server/tmux/browser/container left running",
+          "status": "pass",
+          "capturedAt": "2026-07-01T13:43:18.546Z"
+        },
+        {
+          "id": "C003",
+          "scenario": "CLI/code evidence: inspect event model, targeting/audience resolution, outbox usage, DTO shape, batching, and scheduler properties for extensibility and operational scalability. PASS iff the report cites exact file:line evidence and gives a reasoned verdict on whether future notification use cases can be added without reworking the core.",
+          "userModel": "regression",
+          "expectedEvidence": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C003-extensibility.txt containing command output with cited file:line snippets plus cleanup: no runtime resources spawned",
+          "essential": false,
+          "capturedEvidence": "UPDATED: fcm-mobile-audit-report.md now includes exact file:line evidence for request/batch event model, audience resolver coupling, SendFcmMessagePort/FcmSendRequest shape, event_outbox conditional default EVENT_OUTBOX_ENABLED=false, and extensibility verdict; C003-extensibility.txt already contains event/outbox/publisher/scheduler evidence; manual QA matrix: .omo/evidence/fcm-mobile-audit-manual-qa.md | cleanup: no runtime resources spawned; no server/tmux/browser/container left running",
+          "status": "pass",
+          "capturedAt": "2026-07-01T13:43:25.298Z"
+        }
+      ],
+      "attempt": 1,
+      "createdAt": "2026-07-01T13:26:53.656Z",
+      "updatedAt": "2026-07-01T21:07:27.993Z",
+      "startedAt": "2026-07-01T13:27:38.277Z",
+      "completedAt": "2026-07-01T21:07:27.993Z",
+      "evidence": "C001/C002/C003 all pass; report includes exact file:line evidence, Firebase official docs, mobile iOS/Android payload verdict, security/abuse findings including token registration abuse, event_outbox default caveat, extensibility verdict, manual QA passed, code re-review APPROVE, gate re-review APPROVE; artifacts under .omo/ulw-loop/fcm-mobile-audit-20260701/evidence and .omo/evidence; cleanup: no runtime resources spawned"
+    }
+  ],
+  "codexObjective": "Complete the durable ulw-loop plan in .omo/ulw-loop/fcm-mobile-audit-20260701/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/fcm-mobile-audit-20260701/ledger.jsonl as the audit trail.",
+  "aggregateCompletion": {
+    "status": "complete",
+    "completedAt": "2026-07-01T21:07:27.993Z",
+    "evidence": "C001/C002/C003 all pass; report includes exact file:line evidence, Firebase official docs, mobile iOS/Android payload verdict, security/abuse findings including token registration abuse, event_outbox default caveat, extensibility verdict, manual QA passed, code re-review APPROVE, gate re-review APPROVE; artifacts under .omo/ulw-loop/fcm-mobile-audit-20260701/evidence and .omo/evidence; cleanup: no runtime resources spawned",
+    "codexGoal": {
+      "goal": {
+        "threadId": "019ee150-34d3-7551-b502-096f90e7955e",
+        "objective": "Complete the durable ulw-loop plan in .omo/ulw-loop/fcm-mobile-audit-20260701/goals.json, including later accepted/appended stories, under the original brief constraints; use .omo/ulw-loop/fcm-mobile-audit-20260701/ledger.jsonl as the audit trail.",
+        "status": "complete",
+        "tokensUsed": 480303,
+        "timeUsedSeconds": 1461,
+        "createdAt": 1782912469,
+        "updatedAt": 1782940024
+      },
+      "remainingTokens": null,
+      "completionBudgetReport": "Goal achieved. Report final usage from this tool result's structured goal fields."
+    }
+  }
+}

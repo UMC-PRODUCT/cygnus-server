@@ -1,0 +1,149 @@
+{
+  "codeReview": {
+    "by": "lazycodex-code-reviewer",
+    "recommendation": "APPROVE",
+    "codeQualityStatus": "CLEAR",
+    "reportPath": ".omo/evidence/fcm-mobile-audit-rereview-code-review.md",
+    "evidence": "Re-review approved after the previous blockers were addressed: token registration abuse risk and event_outbox default caveat are now present in the report/evidence. The reviewer reported no blockers.",
+    "blockers": []
+  },
+  "manualQa": {
+    "by": "lazycodex-qa-executor",
+    "status": "passed",
+    "evidence": "Read-only QA verified C001/C002/C003 report and evidence files, exact file:line evidence, Firebase official URLs, token registration abuse risk, event_outbox caveat, and cleanup receipts.",
+    "surfaceEvidence": [
+      {
+        "id": "surface-c001-mobile-payload",
+        "criterionRef": "C001",
+        "surface": "cli",
+        "invocation": "rg/wc/sed/nl over report, C001 evidence, source files, and Firebase documentation URLs",
+        "verdict": "passed",
+        "artifactRefs": [
+          "report",
+          "c001"
+        ]
+      },
+      {
+        "id": "surface-c002-security",
+        "criterionRef": "C002",
+        "surface": "cli",
+        "invocation": "rg over report and C002 evidence for FcmRegistrationRequest, FcmService, token validation, admin API, and reserved-key risks",
+        "verdict": "passed",
+        "artifactRefs": [
+          "report",
+          "c002"
+        ]
+      },
+      {
+        "id": "surface-c003-extensibility",
+        "criterionRef": "C003",
+        "surface": "cli",
+        "invocation": "rg over report and C003 evidence for event model, audience resolver, send port, batching, and event_outbox config",
+        "verdict": "passed",
+        "artifactRefs": [
+          "report",
+          "c003"
+        ]
+      }
+    ],
+    "adversarialCases": [
+      {
+        "id": "adv-docs-official",
+        "criterionRef": "C001",
+        "scenario": "Firebase documentation claims must cite official Firebase URLs.",
+        "expectedBehavior": "Report and C001 evidence include official Firebase documentation URLs for message type, Android receive, iOS receive, and cross-platform config.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "report",
+          "c001"
+        ]
+      },
+      {
+        "id": "adv-token-abuse",
+        "criterionRef": "C002",
+        "scenario": "Token registration abuse risk must not be omitted.",
+        "expectedBehavior": "Report and C002 evidence include unbounded fcmToken, same-member active token accumulation, stale validation delay, and malformed-token cleanup caveat.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "report",
+          "c002"
+        ]
+      },
+      {
+        "id": "adv-outbox-default",
+        "criterionRef": "C003",
+        "scenario": "Durable outbox behavior must not be overstated.",
+        "expectedBehavior": "Report explicitly states durable event_outbox behavior is conditional on EVENT_OUTBOX_ENABLED=true and cites application.yml default false.",
+        "verdict": "passed",
+        "artifactRefs": [
+          "report",
+          "c003"
+        ]
+      }
+    ],
+    "artifactRefs": [
+      {
+        "id": "report",
+        "kind": "log",
+        "description": "Final FCM mobile/security/extensibility audit report.",
+        "path": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/fcm-mobile-audit-report.md"
+      },
+      {
+        "id": "c001",
+        "kind": "cli-transcript",
+        "description": "Mobile payload evidence with Firebase documentation URLs.",
+        "path": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C001-mobile-payload.txt"
+      },
+      {
+        "id": "c002",
+        "kind": "cli-transcript",
+        "description": "Security evidence including token registration abuse addendum.",
+        "path": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C002-security.txt"
+      },
+      {
+        "id": "c003",
+        "kind": "cli-transcript",
+        "description": "Extensibility and event_outbox evidence.",
+        "path": ".omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C003-extensibility.txt"
+      },
+      {
+        "id": "manual-qa",
+        "kind": "log",
+        "description": "Manual QA matrix.",
+        "path": ".omo/evidence/fcm-mobile-audit-manual-qa.md"
+      }
+    ]
+  },
+  "gateReview": {
+    "by": "lazycodex-gate-reviewer",
+    "recommendation": "APPROVE",
+    "reportPath": ".omo/evidence/fcm-mobile-audit-final-gate-review.md",
+    "evidence": "Final gate artifacts verify all criteria passed, the report includes exact file:line evidence, official Firebase URLs, token registration abuse coverage, event_outbox caveat, code-review approval, manual QA pass, and cleanup receipts.",
+    "blockers": []
+  },
+  "iteration": {
+    "fullRerun": true,
+    "status": "passed",
+    "rerunCommands": [
+      "jq '.goals[0].successCriteria[] | {id,status,capturedAt:(.capturedAt // null)}' .omo/ulw-loop/fcm-mobile-audit-20260701/goals.json",
+      "rg -n 'src/main/java/.+:[0-9]+|src/main/resources/application.yml:[0-9]+|firebase.google.com|Must-fix|cleanup' .omo/ulw-loop/fcm-mobile-audit-20260701/evidence/fcm-mobile-audit-report.md",
+      "wc -l .omo/ulw-loop/fcm-mobile-audit-20260701/evidence/fcm-mobile-audit-report.md .omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C001-mobile-payload.txt .omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C002-security.txt .omo/ulw-loop/fcm-mobile-audit-20260701/evidence/C003-extensibility.txt .omo/evidence/fcm-mobile-audit-manual-qa.md",
+      "jq '.' .omo/evidence/fcm-mobile-audit-quality-gate.json"
+    ],
+    "evidence": "All success criteria are pass, artifacts are non-empty, report contains exact file:line evidence plus Firebase official URLs, and JSON validates with jq."
+  },
+  "criteriaCoverage": {
+    "totalCriteria": 3,
+    "passCount": 3,
+    "originalIntent": "Evaluate whether FCM notifications are mobile-friendly for iOS/Android, identify security gaps and functional improvements, and judge extensibility for future notification use cases.",
+    "desiredOutcome": "A code-and-settings-backed Korean audit report with exact file:line evidence, Firebase documentation references, security/abuse findings, and extension recommendations, with ULW evidence and cleanup receipts.",
+    "userOutcomeReview": "The report now gives a direct verdict: baseline mobile push works, but platform-native options and payload contract are incomplete; security must improve target/data/deepLink validation and token-registration abuse defenses; extensibility is good for current member/org audiences but medium for new audience axes and platform semantics.",
+    "adversarialClassesCovered": [
+      "missing Firebase official documentation",
+      "unsupported mobile payload conclusion",
+      "token registration abuse omission",
+      "event_outbox durability overstatement",
+      "missing cleanup receipt"
+    ]
+  }
+}
