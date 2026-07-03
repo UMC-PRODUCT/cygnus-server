@@ -84,7 +84,7 @@ public class ChallengerRecordResponseAssembler {
      */
     public UnusedChallengerRecordStatisticsResponse unusedStatistics() {
         List<UnusedChallengerRecordCountInfo> counts =
-            getUnusedChallengerRecordStatisticsUseCase.getUnusedCountByGisuAndSchool();
+            getUnusedChallengerRecordStatisticsUseCase.listUnusedCountByGisuAndSchool();
 
         long totalUnusedCount = counts.stream()
             .mapToLong(UnusedChallengerRecordCountInfo::unusedCount)

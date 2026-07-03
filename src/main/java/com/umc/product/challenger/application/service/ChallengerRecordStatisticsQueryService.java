@@ -19,7 +19,7 @@ public class ChallengerRecordStatisticsQueryService implements GetUnusedChalleng
     private final LoadChallengerRecordPort loadChallengerRecordPort;
 
     @Override
-    public List<UnusedChallengerRecordCountInfo> getUnusedCountByGisuAndSchool() {
+    public List<UnusedChallengerRecordCountInfo> listUnusedCountByGisuAndSchool() {
         return loadChallengerRecordPort.aggregateUnusedCountByGisuAndSchool().stream()
             .map(row -> new UnusedChallengerRecordCountInfo(row.gisuId(), row.schoolId(), row.unusedCount()))
             .toList();

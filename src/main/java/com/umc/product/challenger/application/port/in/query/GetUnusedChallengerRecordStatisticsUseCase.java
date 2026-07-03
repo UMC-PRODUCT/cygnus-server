@@ -12,5 +12,5 @@ public interface GetUnusedChallengerRecordStatisticsUseCase {
      * 미사용 코드가 0개인 (기수, 학교) 조합은 결과에 포함되지 않으며,
      * 기수 내림차순(최신 우선) · 학교 오름차순으로 정렬됩니다.
      */
-    List<UnusedChallengerRecordCountInfo> getUnusedCountByGisuAndSchool();
+    List<UnusedChallengerRecordCountInfo> listUnusedCountByGisuAndSchool();
 }
