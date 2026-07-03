@@ -1,12 +1,15 @@
 package com.umc.product.challenger.application.service;
 
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.challenger.application.port.in.query.GetUnusedChallengerRecordStatisticsUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.UnusedChallengerRecordCountInfo;
 import com.umc.product.challenger.application.port.out.LoadChallengerRecordPort;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor

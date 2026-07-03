@@ -2,6 +2,15 @@ package com.umc.product.challenger.adapter.out.persistence;
 
 import static com.umc.product.challenger.domain.QChallengerRecord.challengerRecord;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.stereotype.Repository;
+
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
@@ -15,14 +24,8 @@ import com.umc.product.challenger.application.port.out.dto.UnusedChallengerRecor
 import com.umc.product.challenger.domain.ChallengerRecord;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import java.util.ArrayList;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.stereotype.Repository;
 
 /**
  * ChallengerRecord QueryDSL 동적 검색 구현 (CHALLENGER-RECORD-103).

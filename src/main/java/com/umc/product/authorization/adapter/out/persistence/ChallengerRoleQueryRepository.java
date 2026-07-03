@@ -3,13 +3,16 @@ package com.umc.product.authorization.adapter.out.persistence;
 import static com.umc.product.authorization.domain.QChallengerRole.challengerRole;
 import static com.umc.product.challenger.domain.QChallenger.challenger;
 
+import java.util.List;
+
+import org.springframework.stereotype.Repository;
+
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Repository;
 
 /**
  * ChallengerRole QueryDSL Repository

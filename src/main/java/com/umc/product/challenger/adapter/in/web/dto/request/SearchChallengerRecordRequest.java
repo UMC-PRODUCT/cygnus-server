@@ -1,9 +1,10 @@
 package com.umc.product.challenger.adapter.in.web.dto.request;
 
+import org.springframework.data.domain.Pageable;
+
 import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import org.springframework.data.domain.Pageable;
 
 /**
  * 조건별 챌린저 기록 코드 목록 조회 요청 (CHALLENGER-RECORD-103).

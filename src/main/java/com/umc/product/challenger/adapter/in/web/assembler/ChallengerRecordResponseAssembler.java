@@ -1,5 +1,14 @@
 package com.umc.product.challenger.adapter.in.web.assembler;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.stereotype.Component;
+
 import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordResponse;
 import com.umc.product.challenger.adapter.in.web.dto.response.ChallengerRecordSummaryResponse;
 import com.umc.product.challenger.adapter.in.web.dto.response.UnusedChallengerRecordStatisticsResponse;
@@ -13,14 +22,8 @@ import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.function.Function;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.stereotype.Component;
 
 @RequiredArgsConstructor
 @Component

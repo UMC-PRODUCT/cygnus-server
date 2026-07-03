@@ -1,8 +1,10 @@
 package com.umc.product.challenger.adapter.in.web.dto.response;
 
+import java.time.Instant;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import java.time.Instant;
+
 import lombok.Builder;
 
 /**

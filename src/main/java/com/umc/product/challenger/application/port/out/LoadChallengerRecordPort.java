@@ -1,11 +1,13 @@
 package com.umc.product.challenger.application.port.out;
 
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+
 import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
 import com.umc.product.challenger.application.port.out.dto.UnusedChallengerRecordCountRow;
 import com.umc.product.challenger.domain.ChallengerRecord;
-import java.util.List;
-import java.util.Optional;
-import org.springframework.data.domain.Page;
 
 public interface LoadChallengerRecordPort {
 

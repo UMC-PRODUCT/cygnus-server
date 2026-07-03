@@ -1,16 +1,19 @@
 package com.umc.product.authorization.adapter.out.persistence;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * ChallengerRole Persistence Adapter
