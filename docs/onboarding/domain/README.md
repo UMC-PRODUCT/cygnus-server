@@ -17,7 +17,6 @@
 - [Community](community.md)
 - [Curriculum](curriculum.md)
 - [Feedback](feedback.md)
-- [Figma](figma.md)
 - [LLM](llm.md)
 - [Maintenance](maintenance.md)
 - [Member](member.md)

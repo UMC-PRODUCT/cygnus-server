@@ -23,8 +23,6 @@
 | curriculum | `WorkbookAutoReleaseScheduler` | 매일 00:00 KST | scheduling enabled profile | 워크북 자동 배포. 저빈도 도메인 batch로 적절하다. |
 | notification | `FcmOutboxScheduler` | `app.fcm.outbox-interval-ms` | `app.fcm.enabled=true` | FCM outbox polling. FCM 미사용 환경에서는 scheduler bean 자체를 등록하지 않는다. |
 | global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.enabled=true` | persistent event outbox relay. 외부 broker 전환 전까지 허용되는 polling 작업이다. |
-| figma | `FigmaCommentSyncScheduler` | `app.figma.sync.poll-interval` | `app.figma.sync.enabled=true` | Figma comment window sync. 외부 API/LLM 호출이 포함되므로 interval과 실행 시간을 운영에서 모니터링해야 한다. |
-| figma | `FigmaCommentDispatchRetentionScheduler` | `app.figma.summary.retention-poll-interval` | `app.figma.sync.enabled=true` | dispatch dedup row 회수. sync가 꺼진 환경에서는 등록하지 않는다. |
 
 ## Project 매칭 데드라인
 

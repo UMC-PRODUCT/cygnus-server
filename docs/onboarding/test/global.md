@@ -1,7 +1,7 @@
 # Global 테스트 케이스
 
 - 테스트 파일: 28개
-- 테스트 케이스: 97개
+- 테스트 케이스: 96개
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 
 | 카테고리 | 케이스 수 |
@@ -12,7 +12,7 @@
 | Scheduler | 1 |
 | Domain | 15 |
 | External Adapter | 15 |
-| Support / Config / Utility | 54 |
+| Support / Config / Utility | 53 |
 
 ## UseCase / Application Service
 
@@ -22,7 +22,7 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [12](../../../src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java#L12) | get, put, evict 요청을 저장소 포트로 위임한다 | 호출 put(spec, key, "auth"); 호출 get(spec, key); 호출 evict(CacheNamespace.FIGMA_CLASSIFICATION, key) | 실패: 예외 CacheLookup.Hit, CacheLookup.Miss; 검증 assertThat(hit).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) hit).value()).isEqualTo("auth"); assertThat(miss).isInstanceOf(CacheLookup.Miss.class); |
+| [12](../../../src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java#L12) | get, put, evict 요청을 저장소 포트로 위임한다 | 호출 put(spec, key, "auth"); 호출 get(spec, key); 호출 evict(CacheNamespace.GOOGLE_JWKS, key) | 실패: 예외 CacheLookup.Hit, CacheLookup.Miss; 검증 assertThat(hit).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) hit).value()).isEqualTo("auth"); assertThat(miss).isInstanceOf(CacheLookup.Miss.class); |
 
 ### EventOutboxRelayServiceTest
 - 테스트 설명: EventOutboxRelayService
@@ -104,7 +104,7 @@
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
 | [6](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L6) | cache namespace 값은 중복되지 않는다 | 조건 cache namespace 값은 중복되지 않는다 | 실패: cache namespace 값은 중복되지 않는다 |
-| [15](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L15) | CacheNamespace / Figma 분류 캐시는 기존 Prometheus metric name을 유지한다 | 조건 CacheNamespace / Figma 분류 캐시는 기존 Prometheus metric name을 유지한다 | 성공: 검증 .isEqualTo("figma.classifier.l1"); |
+| [15](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L15) | CacheNamespace / Google JWKS 캐시는 기존 Prometheus metric name을 유지한다 | 조건 CacheNamespace / Google JWKS 캐시는 기존 Prometheus metric name을 유지한다 | 성공: 검증 .isEqualTo("authentication.google.jwks.l1"); |
 
 ### CacheSpecTest
 - 테스트 설명: CacheSpec
@@ -112,7 +112,7 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L8) | namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 조건 namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 성공: 검증 assertThat(spec.namespace()).isEqualTo(CacheNamespace.FIGMA_CLASSIFICATION); assertThat(spec.valueType()).isEqualTo(String.class); assertThat(spec.ttl()).isEqualTo(Duration.ofMinutes(5)); assertThat(spec.maximumSize()... |
+| [8](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L8) | namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 조건 namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 성공: 검증 assertThat(spec.namespace()).isEqualTo(CacheNamespace.GOOGLE_JWKS); assertThat(spec.valueType()).isEqualTo(String.class); assertThat(spec.ttl()).isEqualTo(Duration.ofMinutes(5)); assertThat(spec.maximumSize()... |
 | [27](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L27) | CacheSpec / ttl은 양수여야 한다 | 조건 CacheSpec / ttl은 양수여야 한다 | 실패: 예외 IllegalArgumentException |
 | [40](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L40) | CacheSpec / maximumSize는 양수여야 한다 | 조건 CacheSpec / maximumSize는 양수여야 한다 | 실패: 예외 IllegalArgumentException |
 
@@ -137,7 +137,7 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/cache/adapter/out/CacheKeyFormatterTest.java#L8) | 환경, namespace, key를 조합해 최종 cache key를 만든다 | 조건 환경, namespace, key를 조합해 최종 cache key를 만든다 | 성공: 검증 assertThat(result).isEqualTo("umc:local:figma.classification:comment-1"); |
+| [8](../../../src/test/java/com/umc/product/global/cache/adapter/out/CacheKeyFormatterTest.java#L8) | 환경, namespace, key를 조합해 최종 cache key를 만든다 | 조건 환경, namespace, key를 조합해 최종 cache key를 만든다 | 성공: 검증 assertThat(result).isEqualTo("umc:local:authentication.google.jwks:google"); |
 
 ### CaffeineCacheStoreAdapterTest
 - 테스트 설명: CaffeineCacheStoreAdapter

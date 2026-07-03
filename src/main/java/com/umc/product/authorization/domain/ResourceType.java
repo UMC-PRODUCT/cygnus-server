@@ -104,13 +104,7 @@ public enum ResourceType {
     // 프로젝트 지원서 관련
     PROJECT_APPLICATION("project_application", "프로젝트 지원서",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT,
-            PermissionType.DELETE, PermissionType.APPROVE)),
-
-    // 프로젝트 지원서 관련
-    // Figma 통합 admin
-    FIGMA("figma", "Figma 통합",
-        Set.of(PermissionType.READ,
-            PermissionType.DELETE, PermissionType.MANAGE)),
+            PermissionType.DELETE, PermissionType.APPROVE))
     ;
 
     private final String code;

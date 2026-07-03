@@ -26,7 +26,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/admin/maintenance")
+@RequestMapping("/api/v1/maintenance/admin")
 @RequiredArgsConstructor
 @Tag(name = "Maintenance | 점검 관리 (어드민)", description = "SUPER_ADMIN이 점검 윈도우를 관리합니다.")
 public class AdminMaintenanceController {

@@ -128,7 +128,7 @@ class MaintenanceFilterIntegrationTest extends IntegrationTestSupport {
 
         // 비인증 호출이라 권한 검증으로 인해 403/401 등 다른 코드가 반환되어도
         // 필터에서 차단되지 않았음을 확인한다.
-        int actualStatus = mockMvc.perform(get("/api/v1/admin/maintenance"))
+        int actualStatus = mockMvc.perform(get("/api/v1/maintenance/admin"))
             .andReturn().getResponse().getStatus();
 
         assertThat(actualStatus).isNotEqualTo(503);

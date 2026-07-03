@@ -3,7 +3,7 @@
 > 작성일: 2026-05-08
 > 작성 기준: 2026-01 (모델 가격 정책 최종 확인 시점). **가격은 분기 단위로 변동**되므로, 결제 의사결정 전에 본 보고서 §6 의 공식 링크에서 최신값을 다시 확인할 것.
 >
-> 본 프로젝트는 [LlmProperties.java](../../src/main/java/com/umc/product/llm/adapter/out/external/LlmProperties.java) 의 `app.llm.provider` 한 값으로 4 종 어댑터 (mock / openai / vertexai-gemini / google-genai) 중 하나를 활성화한다. 본 보고서는 결제 활성화 시 각 provider 별 rate limit / 단가 변화를 정리하고, 본 프로젝트의 figma 댓글 분류 호출량 기준 월 비용을 시뮬레이션한다.
+> 본 프로젝트는 [LlmProperties.java](../../src/main/java/com/umc/product/llm/adapter/out/external/LlmProperties.java) 의 `app.llm.provider` 한 값으로 4 종 어댑터 (mock / openai / vertexai-gemini / google-genai) 중 하나를 활성화한다. 본 보고서는 결제 활성화 시 각 provider 별 rate limit / 단가 변화를 정리하고, 배치형 LLM 호출량 예시 기준 월 비용을 시뮬레이션한다.
 
 ---
 
@@ -15,26 +15,26 @@
 | **본 프로젝트 사전 페이싱**           | `app.llm.rate-limit.requests-per-minute=10` ([application.yml:360](../../src/main/resources/application.yml#L360)) — 결제해도 이 값 안 올리면 효과 없음 |
 | **가장 cost-effective 결제 옵션** | AI Studio Tier 1 (Google Cloud 빌링 연결만) → flash-lite RPM 15 → **4,000** (266×), 월 예상 < $1                                                  |
 | **정확도 더 필요할 때**             | Gemini 2.5 Flash 또는 GPT-4o-mini, 월 $1~3                                                                                                   |
-| **고품질 분류 필요할 때**            | Gemini 2.5 Pro, 월 $2~5 (현재 호출량 기준)                                                                                                        |
+| **고품질 분류 필요할 때**            | Gemini 2.5 Pro, 월 $2~5 (§1 예시 호출량 기준)                                                                                                      |
 
 ---
 
-## 1. 현재 호출 패턴 (비용 시뮬레이션의 입력)
+## 1. 예시 호출 패턴 (비용 시뮬레이션의 입력)
 
-ADR-003 / ADR-004 기준 figma 댓글 분류의 호출 프로파일.
+배치형 분류/요약 작업을 기준으로 한 보수적 호출 프로파일.
 
 ```
 호출 형태:    classifyBatch (댓글 N건 → JSON 배열 응답)
-호출 시점:    스케줄러 sync (5분 주기) + admin digest / preview ad-hoc
-캐시 레이어:  L1 Caffeine + L2 Redis + L3 DB persistent
-                → 동일 commentId 재호출 0
+호출 시점:    스케줄러 sync + admin preview ad-hoc
+캐시 레이어:  L1 Caffeine + L2 Redis/DB persistent
+                → 동일 입력 재호출 0
 ```
 
 **기본 가정 (보수적 추정)**:
 
 | 변수           | 값               | 근거                                                |
 |--------------|-----------------|---------------------------------------------------|
-| 신규 댓글 수      | 100 건/일         | UMC 운영 디자인 파일 5~10개 × 평균 댓글 빈도                    |
+| 신규 처리 대상 수   | 100 건/일         | 운영 데이터 100건/일을 가정한 보수적 예시                         |
 | batch 묶음 크기  | 10~25 건         | classifyBatch 응답 토큰 한도 (32~512)                   |
 | 일 호출 수       | **~12 건**       | 100 / 평균 batch 8                                  |
 | 호출당 input    | 1,200 token     | system prompt(400) + candidates(200) + 댓글 묶음(600) |
@@ -180,7 +180,7 @@ Vertex AI 는 **RPM 단위가 아니라 region 별 QPM/TPM 쿼터** 로 운영. 
 
 ### 5.3 캐시 효과 반영 후 (실제 운영 추정)
 
-본 프로젝트는 [FigmaCommentDomainClassifier](../../src/main/java/com/umc/product/figma/application/service/FigmaCommentDomainClassifier.java) 의 3-tier 캐시 (L1 Caffeine / L2 Redis / L3 DB persistent) 로 **동일 commentId 재분류 = 0**. 즉 실제 LLM 호출은 신규 댓글 한정. 운영 정착 후 cache hit ratio ~70~90% 가정 시 위 비용의 **0.1~0.3×**.
+배치형 LLM 기능에 입력 단위 캐시 (L1 Caffeine / L2 Redis 또는 DB persistent) 를 적용하면 **동일 입력 재처리 = 0** 으로 수렴한다. 운영 정착 후 cache hit ratio ~70~90% 가정 시 위 비용의 **0.1~0.3×**.
 
 §5.1 의 운영 비용은 이미 신규 댓글만 가정하므로 추가 할인 없음. §5.2 는 캐시 효과로 ~$2 ~ $5/월 수준이 현실적 상한.
 
@@ -212,7 +212,7 @@ app.llm.rate-limit.burst: 5
 
 ### 6.3 token-per-minute (TPM) 한도
 
-본 프로젝트 호출당 input ~1,200 / output ~80 = ~1,300 token. 분당 호출이 60 회 가도 **78K TPM** 으로, paid Tier 1 의 1M TPM (flash) ~ 4M TPM (flash-lite) 한도 안에 충분히 들어옴.
+§1 예시 호출당 input ~1,200 / output ~80 = ~1,300 token. 분당 호출이 60 회 가도 **78K TPM** 으로, paid Tier 1 의 1M TPM (flash) ~ 4M TPM (flash-lite) 한도 안에 충분히 들어옴.
 
 ---
 
@@ -315,7 +315,7 @@ LLM_RATE_LIMIT_BURST=30             # burst 도 함께 올림
 
 ## 11. 결론
 
-본 프로젝트의 figma 댓글 분류 호출량 (월 input ~430K token / output ~30K token) 기준 결제 활성화 비용은 **모든 주요 모델에서 월 $0.06 ~ $1.38** 범위. 실질적으로 비용은 의사결정 변수가 아니며, **선택은 정확도 / 운영 인프라 통합 / provider 락인 의 trade-off** 로 수렴한다.
+§1 의 배치형 호출량 예시 (월 input ~430K token / output ~30K token) 기준 결제 활성화 비용은 **모든 주요 모델에서 월 $0.06 ~ $1.38** 범위. 실질적으로 비용은 의사결정 변수가 아니며, **선택은 정확도 / 운영 인프라 통합 / provider 락인 의 trade-off** 로 수렴한다.
 
 **행동 권고**:
 

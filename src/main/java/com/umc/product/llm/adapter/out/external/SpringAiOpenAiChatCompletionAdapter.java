@@ -21,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
  * application property 의 {@code app.llm.provider=openai} 일 때만 활성화된다. 모델/온도/max-tokens 는 {@link LlmProperties} 가 결정하고,
  * 분류 호출에서는 {@link ChatPromptHelper} 가 system prompt 에 후보 제약을 강제한다.
  * <p>
- * 응답이 후보 외 값인지 여부는 호출자(예: FigmaCommentDomainClassifier) 가 판정한다.
+ * 응답이 호출 목적에 맞는 값인지 여부는 호출자가 판정한다.
  */
 @Slf4j
 @Component

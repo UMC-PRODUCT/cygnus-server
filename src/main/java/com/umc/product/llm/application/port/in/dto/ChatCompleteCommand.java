@@ -1,7 +1,7 @@
 package com.umc.product.llm.application.port.in.dto;
 
 /**
- * LLM 호출 입력. 본 도메인은 generic chat completion 추상이며, system/user prompt 의 모든 의미는 호출자(예: figma 분류기)가 완성해 보낸다. LLM 도메인은
+ * LLM 호출 입력. 본 도메인은 generic chat completion 추상이며, system/user prompt 의 모든 의미는 호출자가 완성해 보낸다. LLM 도메인은
  * prompt 를 변형하지 않는다.
  *
  * @param systemPrompt            모델의 역할/제약을 지시하는 system 프롬프트 (없으면 null/empty)
