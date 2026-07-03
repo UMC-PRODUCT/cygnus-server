@@ -126,7 +126,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
 
             // 동일 역할 중복 등록 fail-fast 차단: 같은 챌린저가 같은 기수·조직에서
             // 동일 역할을 이미 보유하고 있으면 역할을 생성하지 않고 즉시 예외를 던진다.
-            if (getChallengerRoleUseCase.hasRoleInOrganization(
+            if (record.getChallengerRoleType() != null && getChallengerRoleUseCase.hasRoleInOrganization(
                 challengerId, record.getChallengerRoleType(), record.getOrganizationId(), record.getGisuId())) {
                 throw new AuthorizationDomainException(AuthorizationErrorCode.DUPLICATE_CHALLENGER_ROLE);
             }
