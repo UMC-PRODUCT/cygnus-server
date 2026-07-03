@@ -70,10 +70,15 @@ public class ChallengerRecordController {
         @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody AddChallengerRecordToMemberRequest request) {
 
-        String verifiedEmail = jwtTokenProvider.parseEmailVerificationToken(
-            request.emailVerificationToken(),
-            EmailVerificationPurpose.CHALLENGER_REGISTER
-        );
+        // 운영진 코드는 토큰이 없을 수 있으므로 토큰이 존재할 때만 파싱한다.
+        // 일반 코드에서 토큰이 없어 verifiedEmail이 null인 경우의 검증은 consumeCode 내부에서 처리한다.
+        String verifiedEmail = null;
+        if (request.emailVerificationToken() != null && !request.emailVerificationToken().isBlank()) {
+            verifiedEmail = jwtTokenProvider.parseEmailVerificationToken(
+                request.emailVerificationToken(),
+                EmailVerificationPurpose.CHALLENGER_REGISTER
+            );
+        }
 
         manageChallengerRecordUseCase.consumeCode(
             ConsumeChallengerRecordCommand.builder()
