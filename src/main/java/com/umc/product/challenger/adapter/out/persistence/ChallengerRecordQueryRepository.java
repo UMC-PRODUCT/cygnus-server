@@ -54,6 +54,10 @@ public class ChallengerRecordQueryRepository {
             contentQuery
                 .offset(pageable.getOffset())
                 .limit(pageable.getPageSize());
+        } else {
+            // unpaged 는 전건을 조회하므로 별도 카운트 쿼리 없이 content 크기를 전체 개수로 사용한다.
+            List<ChallengerRecord> content = contentQuery.fetch();
+            return new PageImpl<>(content, pageable, content.size());
         }
 
         List<ChallengerRecord> content = contentQuery.fetch();
