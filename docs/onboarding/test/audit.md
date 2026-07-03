@@ -17,7 +17,7 @@
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
 | [35](../../../src/test/java/com/umc/product/audit/adapter/in/web/AuditLogControllerTest.java#L35) | 신규 감사 로그 admin 경로로 검색한다 | HTTP GET /api/v1/audit/admin/audit-logs | 성공: HTTP 200 OK |
-| [50](../../../src/test/java/com/umc/product/audit/adapter/in/web/AuditLogControllerTest.java#L50) | 기존 감사 로그 admin 경로는 하위호환을 유지한다 | HTTP GET /api/v1/admin/audit-logs | 성공: HTTP 200 OK |
+| [50](../../../src/test/java/com/umc/product/audit/adapter/in/web/AuditLogControllerTest.java#L50) | 기존 감사 로그 admin 경로는 더 이상 지원하지 않는다 | HTTP GET /api/v1/admin/audit-logs | 실패: HTTP 404 Not Found |
 
 ## Domain
 

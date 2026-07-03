@@ -16,7 +16,7 @@
 - **누가 볼 수 있는가?** **중앙운영사무국 국원**만 조회 가능합니다.
   ([AuditLogPermissionEvaluator.java](src/main/java/com/umc/product/audit/application/service/AuditLogPermissionEvaluator.java))
 - **데이터는 어떻게 쌓이나?** 백엔드 메서드에 붙은 `@Audited` 어노테이션이 메서드 정상 종료 후 이벤트를 발행하고, 트랜잭션 커밋 이후 **비동기로** DB 에 저장합니다.
-- **호출해야 할 엔드포인트는?** `GET /api/v1/audit/admin/audit-logs` 입니다. 기존 `GET /api/v1/admin/audit-logs` 도 하위호환을 위해 동일하게 동작합니다.
+- **호출해야 할 엔드포인트는?** `GET /api/v1/audit/admin/audit-logs` 입니다.
 
 ---
 

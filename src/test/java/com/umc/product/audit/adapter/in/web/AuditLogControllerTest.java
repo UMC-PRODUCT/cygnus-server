@@ -49,13 +49,9 @@ class AuditLogControllerTest {
     }
 
     @Test
-    @DisplayName("기존 감사 로그 admin 경로는 하위호환을 유지한다")
-    void 기존_감사_로그_admin_경로는_하위호환을_유지한다() throws Exception {
-        given(getAuditLogUseCase.search(any(), any())).willReturn(Page.empty());
-
+    @DisplayName("기존 감사 로그 admin 경로는 더 이상 지원하지 않는다")
+    void 기존_감사_로그_admin_경로는_더_이상_지원하지_않는다() throws Exception {
         mockMvc.perform(get("/api/v1/admin/audit-logs"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.success").value(true))
-            .andExpect(jsonPath("$.result.content").isArray());
+            .andExpect(status().isNotFound());
     }
 }
