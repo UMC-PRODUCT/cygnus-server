@@ -19,6 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
 import com.umc.product.challenger.application.port.out.LoadChallengerPort;
@@ -61,6 +62,9 @@ class ChallengerRecordCommandServiceTest {
 
     @Mock
     ManageChallengerRoleUseCase manageChallengerRoleUseCase;
+
+    @Mock
+    GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     @Mock
     SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
@@ -232,6 +236,7 @@ class ChallengerRecordCommandServiceTest {
         return ConsumeChallengerRecordCommand.builder()
             .targetMemberId(100L)
             .code("ABC123")
+            .verifiedEmail("hong@test.com")
             .build();
     }
 
@@ -244,6 +249,7 @@ class ChallengerRecordCommandServiceTest {
             .id(100L)
             .name(name)
             .nickname("길동")
+            .email("hong@test.com")
             .schoolId(schoolId)
             .schoolName("테스트대학교")
             .build();

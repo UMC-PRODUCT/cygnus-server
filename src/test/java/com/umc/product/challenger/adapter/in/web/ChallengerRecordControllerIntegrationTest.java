@@ -1,6 +1,9 @@
 package com.umc.product.challenger.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -14,6 +17,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.umc.product.authentication.domain.EmailVerificationPurpose;
 import com.umc.product.authorization.adapter.out.persistence.ChallengerRoleJpaRepository;
 import com.umc.product.challenger.adapter.out.persistence.ChallengerJpaRepository;
 import com.umc.product.challenger.adapter.out.persistence.ChallengerRecordJpaRepository;
@@ -79,7 +83,8 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
     void 일반_챌린저_기록_코드를_소비하면_챌린저가_생성되고_코드가_사용_처리된다() throws Exception {
         // given
         RecordContext context = recordContext(9201L, "일반코드");
-        Member member = member("홍길동", "길동", "regular-code@test.com", context.school().getId());
+        String email = "regular-code@test.com";
+        Member member = member("홍길동", "길동", email, context.school().getId());
         Member creator = member("관리자", "관리", "regular-code-admin@test.com", context.school().getId());
         ChallengerRecord record = saveChallengerRecordPort.save(ChallengerRecord.create(
             creator.getId(),
@@ -90,11 +95,14 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
             member.getName()
         ));
         authenticate(member.getId());
+        // JwtTokenProvider 는 통합 테스트에서 MockitoBean 이므로, 토큰 파싱 결과(검증된 이메일)를 stub 한다.
+        given(jwtTokenProvider.parseEmailVerificationToken(anyString(), eq(EmailVerificationPurpose.CHALLENGER_REGISTER)))
+            .willReturn(email);
 
         // when & then
         mockMvc.perform(post("/api/v1/challenger-record/member")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(codeRequest(record.getCode())))
+                .content(codeRequest(record.getCode(), "verified-token")))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true));
 
@@ -163,7 +171,8 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
     void 이미_사용된_챌린저_기록_코드는_재사용할_수_없다() throws Exception {
         // given
         RecordContext context = recordContext(9203L, "재사용실패");
-        Member member = member("박실패", "실패", "reused-code@test.com", context.school().getId());
+        String email = "reused-code@test.com";
+        Member member = member("박실패", "실패", email, context.school().getId());
         Member creator = member("관리자", "관리", "reused-code-admin@test.com", context.school().getId());
         ChallengerRecord record = saveChallengerRecordPort.save(ChallengerRecord.create(
             creator.getId(),
@@ -174,16 +183,18 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
             member.getName()
         ));
         authenticate(member.getId());
+        given(jwtTokenProvider.parseEmailVerificationToken(anyString(), eq(EmailVerificationPurpose.CHALLENGER_REGISTER)))
+            .willReturn(email);
 
         mockMvc.perform(post("/api/v1/challenger-record/member")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(codeRequest(record.getCode())))
+                .content(codeRequest(record.getCode(), "verified-token")))
             .andExpect(status().isOk());
 
         // when & then
         mockMvc.perform(post("/api/v1/challenger-record/member")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(codeRequest(record.getCode())))
+                .content(codeRequest(record.getCode(), "verified-token")))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.success").value(false))
             .andExpect(jsonPath("$.code").value("CHALLENGER-0012"));
@@ -224,6 +235,12 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
         return """
             {"code":"%s"}
             """.formatted(code);
+    }
+
+    private String codeRequest(String code, String emailVerificationToken) {
+        return """
+            {"code":"%s","emailVerificationToken":"%s"}
+            """.formatted(code, emailVerificationToken);
     }
 
     private record RecordContext(Gisu gisu, Chapter chapter, School school) {
