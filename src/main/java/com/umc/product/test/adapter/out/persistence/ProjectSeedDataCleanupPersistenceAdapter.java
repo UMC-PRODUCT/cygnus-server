@@ -23,7 +23,7 @@ public class ProjectSeedDataCleanupPersistenceAdapter implements DeleteSeedProje
      * - project_part_quota: project를 참조하는 파트별 TO.
      * - project_matching_round: chapter_id를 통해 대상 기수 chapter의 매칭 차수를 판별한다.
      * - project_application: project_application_form, project_matching_round를 참조하는 지원서 메타데이터.
-     * - project_application_form: project와 survey form을 연결한다. form_id는 현재 DB FK가 아닌 스칼라 ID다.
+     * - project_application_form: project와 form form을 연결한다. form_id는 현재 DB FK가 아닌 스칼라 ID다.
      * - project_application_form_policy: project_application_form과 form_section_id를 연결하는 섹션 노출 정책.
      * - form, form_section, question, question_option: 프로젝트 지원 폼의 설문 구조.
      * - form_response, answer, answer_choice: 프로젝트 지원 폼에 제출된 신규 설문 응답 구조.

@@ -2,7 +2,7 @@ package com.umc.product.project.adapter.in.web.dto.common;
 
 import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionEntry;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.domain.enums.QuestionType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;

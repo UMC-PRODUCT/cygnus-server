@@ -57,8 +57,8 @@ import com.umc.product.project.domain.enums.PartQuotaStatus;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.survey.domain.enums.FormResponseStatus;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationResponseAssemblerTest {

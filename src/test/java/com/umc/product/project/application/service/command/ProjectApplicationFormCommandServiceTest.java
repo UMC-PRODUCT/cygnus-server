@@ -47,30 +47,30 @@ import com.umc.product.project.domain.enums.FormSectionType;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormSectionUseCase;
-import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
-import com.umc.product.survey.application.port.in.command.ManageQuestionOptionUseCase;
-import com.umc.product.survey.application.port.in.command.ManageQuestionUseCase;
-import com.umc.product.survey.application.port.in.command.dto.CreateDraftFormCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateFormSectionCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateQuestionOptionCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteFormSectionCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteQuestionOptionCommand;
-import com.umc.product.survey.application.port.in.command.dto.ForkQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.ReorderFormSectionsCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateFormCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateFormSectionCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateQuestionOptionCommand;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.Option;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
-import com.umc.product.survey.domain.enums.FormStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.command.ManageQuestionOptionUseCase;
+import com.umc.product.form.application.port.in.command.ManageQuestionUseCase;
+import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateFormSectionCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateQuestionOptionCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteFormSectionCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteQuestionOptionCommand;
+import com.umc.product.form.application.port.in.command.dto.ForkQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.ReorderFormSectionsCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateFormSectionCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateQuestionOptionCommand;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.Option;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
+import com.umc.product.form.domain.enums.FormStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationFormCommandServiceTest {
@@ -845,15 +845,15 @@ class ProjectApplicationFormCommandServiceTest {
     }
 
     private void stubExistingFormWithEmptyStructure(
-        Long projectId, Long formRowId, Long surveyFormId, String formTitle, String formDescription
+        Long projectId, Long formRowId, Long formFormId, String formTitle, String formDescription
     ) {
         Project project = createProject(projectId, ProjectStatus.DRAFT, "Triple");
-        ProjectApplicationForm form = createApplicationForm(project, formRowId, surveyFormId);
+        ProjectApplicationForm form = createApplicationForm(project, formRowId, formFormId);
 
         given(loadProjectPort.getById(projectId)).willReturn(project);
         given(loadApplicationFormPort.findByProjectId(projectId)).willReturn(Optional.of(form));
-        given(getFormUseCase.getFormWithStructure(surveyFormId))
-            .willReturn(structureWithMeta(surveyFormId, formTitle, formDescription, List.of()));
+        given(getFormUseCase.getFormWithStructure(formFormId))
+            .willReturn(structureWithMeta(formFormId, formTitle, formDescription, List.of()));
         given(loadPolicyPort.listByApplicationFormId(formRowId)).willReturn(List.of());
     }
 

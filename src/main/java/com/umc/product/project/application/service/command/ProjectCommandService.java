@@ -52,9 +52,9 @@ import com.umc.product.project.domain.ProjectPartQuota;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
-import com.umc.product.survey.application.port.in.command.dto.DeleteFormCommand;
-import com.umc.product.survey.application.port.in.command.dto.PublishFormCommand;
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
+import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
 
 import lombok.RequiredArgsConstructor;
 
@@ -260,8 +260,8 @@ public class ProjectCommandService implements
     /**
      * 프로젝트 hard delete. DRAFT/PENDING_REVIEW 상태에서만 호출 가능하며 자식 row 들을 순서대로 정리한다.
      * <ol>
-     *   <li>ProjectApplicationForm 이 등록되어 있으면 Policy → ApplicationForm row → survey Form 순으로 정리.
-     *       (Form 삭제는 survey 도메인의 cascade 가 보장)</li>
+     *   <li>ProjectApplicationForm 이 등록되어 있으면 Policy → ApplicationForm row → form Form 순으로 정리.
+     *       (Form 삭제는 form 도메인의 cascade 가 보장)</li>
      *   <li>ProjectPartQuota 일괄 삭제</li>
      *   <li>ProjectMember 일괄 삭제</li>
      *   <li>Project 삭제</li>

@@ -17,7 +17,7 @@ public enum Domain {
     COMMUNITY,
     NOTICE,
     FCM,
-    SURVEY,
+    FORM,
     RECRUITMENT,
     TERMS,
     EMAIL,

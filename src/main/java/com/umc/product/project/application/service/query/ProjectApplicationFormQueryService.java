@@ -27,15 +27,15 @@ import com.umc.product.project.domain.ProjectApplicationForm;
 import com.umc.product.project.domain.ProjectApplicationFormPolicy;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 
 import lombok.RequiredArgsConstructor;
 
 /**
  * 지원 폼 조회 서비스 (PROJECT-106-GET).
  * <p>
- * 폼 메타와 섹션→질문→옵션 nested 구조는 Survey 도메인에 위임하며, Project 도메인의 정책({@link ProjectApplicationFormPolicy}) 을 합성해 단일 응답을 만든다.
+ * 폼 메타와 섹션→질문→옵션 nested 구조는 Form 도메인에 위임하며, Project 도메인의 정책({@link ProjectApplicationFormPolicy}) 을 합성해 단일 응답을 만든다.
  * 호출자 역할에 따라 전체/마스킹된 섹션을 차등 노출한다.
  */
 @Service

@@ -6,7 +6,7 @@ import java.util.Set;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.domain.enums.QuestionType;
 
 public record ProjectApplicationFormGraphQlResponse(
     Long projectId,

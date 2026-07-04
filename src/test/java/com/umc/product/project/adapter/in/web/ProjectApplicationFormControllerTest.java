@@ -20,7 +20,7 @@ import com.umc.product.project.application.port.in.command.UpsertProjectApplicat
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.domain.enums.QuestionType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;

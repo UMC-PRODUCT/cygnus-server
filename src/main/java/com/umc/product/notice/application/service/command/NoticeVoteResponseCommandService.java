@@ -17,12 +17,12 @@ import com.umc.product.notice.domain.NoticeVote;
 import com.umc.product.notice.domain.enums.VoteStatus;
 import com.umc.product.notice.domain.exception.NoticeDomainException;
 import com.umc.product.notice.domain.exception.NoticeErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.command.dto.AnswerCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.SubmitFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateFormResponseCommand;
-import com.umc.product.survey.application.port.in.query.GetVoteUseCase;
+import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
+import com.umc.product.form.application.port.in.query.GetVoteUseCase;
 
 import lombok.RequiredArgsConstructor;
 

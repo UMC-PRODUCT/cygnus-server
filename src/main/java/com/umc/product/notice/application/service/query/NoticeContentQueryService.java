@@ -12,8 +12,8 @@ import com.umc.product.notice.domain.NoticeImage;
 import com.umc.product.notice.domain.NoticeLink;
 import com.umc.product.notice.domain.NoticeVote;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
-import com.umc.product.survey.application.port.in.query.GetVoteUseCase;
-import com.umc.product.survey.application.port.in.query.dto.VoteInfo;
+import com.umc.product.form.application.port.in.query.GetVoteUseCase;
+import com.umc.product.form.application.port.in.query.dto.VoteInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -57,12 +57,12 @@ public class NoticeContentQueryService implements GetNoticeContentUseCase {
             return null;
         }
 
-        VoteInfo surveyInfo = getVoteUseCase.getVoteInfo(vote.getVoteId(), memberId);
-        if (surveyInfo == null) {
+        VoteInfo formInfo = getVoteUseCase.getVoteInfo(vote.getVoteId(), memberId);
+        if (formInfo == null) {
             return null;
         }
 
-        List<NoticeVoteInfo.VoteOptionInfo> options = surveyInfo.options().stream()
+        List<NoticeVoteInfo.VoteOptionInfo> options = formInfo.options().stream()
             .map(opt -> new NoticeVoteInfo.VoteOptionInfo(
                 opt.optionId(),
                 opt.content(),
@@ -73,16 +73,16 @@ public class NoticeContentQueryService implements GetNoticeContentUseCase {
             .toList();
 
         return new NoticeVoteInfo(
-            surveyInfo.formId(),
-            surveyInfo.title(),
-            surveyInfo.isAnonymous(),
-            surveyInfo.allowMultipleChoice(),
+            formInfo.formId(),
+            formInfo.title(),
+            formInfo.isAnonymous(),
+            formInfo.allowMultipleChoice(),
             vote.getOpenStatus(Instant.now()),
             vote.getStartsAt(),
             vote.getEndsAtExclusive(),
-            surveyInfo.totalParticipants(),
+            formInfo.totalParticipants(),
             options,
-            surveyInfo.mySelectedOptionIds()
+            formInfo.mySelectedOptionIds()
         );
     }
 

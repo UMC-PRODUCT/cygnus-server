@@ -166,7 +166,7 @@ public class ProjectApplicationController {
             - 행위자: 지원자 본인만 (운영진 강제 철회는 별도 API, 추후 작업)
 
             철회 후 동일 매칭 차수에 재지원 가능 (DB partial unique index 가 활성 지원서 1개 보장).
-            Survey 응답 본문은 보존됨.
+            Form 응답 본문은 보존됨.
             """
     )
     @CheckAccess(

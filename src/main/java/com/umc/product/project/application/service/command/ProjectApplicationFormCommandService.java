@@ -32,31 +32,31 @@ import com.umc.product.project.domain.enums.FormSectionType;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormSectionUseCase;
-import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
-import com.umc.product.survey.application.port.in.command.ManageQuestionOptionUseCase;
-import com.umc.product.survey.application.port.in.command.ManageQuestionUseCase;
-import com.umc.product.survey.application.port.in.command.dto.CreateDraftFormCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateFormSectionCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateQuestionOptionCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteFormSectionCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.DeleteQuestionOptionCommand;
-import com.umc.product.survey.application.port.in.command.dto.ForkQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.ReorderFormSectionsCommand;
-import com.umc.product.survey.application.port.in.command.dto.ReorderQuestionOptionsCommand;
-import com.umc.product.survey.application.port.in.command.dto.ReorderQuestionsCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateFormCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateFormSectionCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateQuestionCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateQuestionOptionCommand;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.Option;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.command.ManageQuestionOptionUseCase;
+import com.umc.product.form.application.port.in.command.ManageQuestionUseCase;
+import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateFormSectionCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateQuestionOptionCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteFormSectionCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteQuestionOptionCommand;
+import com.umc.product.form.application.port.in.command.dto.ForkQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.ReorderFormSectionsCommand;
+import com.umc.product.form.application.port.in.command.dto.ReorderQuestionOptionsCommand;
+import com.umc.product.form.application.port.in.command.dto.ReorderQuestionsCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateFormSectionCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateQuestionCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateQuestionOptionCommand;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.Option;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
+import com.umc.product.form.domain.enums.QuestionType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -64,7 +64,7 @@ import lombok.RequiredArgsConstructor;
  * 지원 폼 upsert 서비스 (PROJECT-106).
  * <p>
  * 본문이 곧 폼의 새 상태가 되도록 (PUT 시멘틱) 섹션/질문/옵션을 3계층 diff 로 동기화한다.
- * Survey 도메인의 5종 UseCase 와 Project 도메인의 정책({@link ProjectApplicationFormPolicy})
+ * Form 도메인의 5종 UseCase 와 Project 도메인의 정책({@link ProjectApplicationFormPolicy})
  * 을 합쳐 단일 트랜잭션으로 처리한다.
  */
 @Service
@@ -255,7 +255,7 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
 
         savePolicyPort.save(buildPolicy(applicationForm, sectionId, entry));
 
-        // 본문 순서대로 reorder 명시 호출 — Survey 단의 자동 orderNo 부여 정책에 의존하지 않음
+        // 본문 순서대로 reorder 명시 호출 — Form 단의 자동 orderNo 부여 정책에 의존하지 않음
         List<Long> newQuestionIds = new ArrayList<>();
         for (ApplicationQuestionEntry questionEntry : entry.questions()) {
             newQuestionIds.add(createNewQuestion(sectionId, questionEntry, requesterMemberId));
@@ -372,7 +372,7 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
                 .build()
         );
 
-        // 본문 순서대로 reorder 명시 호출 — Survey 단의 자동 orderNo 부여 정책에 의존하지 않음
+        // 본문 순서대로 reorder 명시 호출 — Form 단의 자동 orderNo 부여 정책에 의존하지 않음
         List<Long> newOptionIds = new ArrayList<>();
         for (ApplicationQuestionOptionEntry optionEntry : entry.options()) {
             newOptionIds.add(createNewOption(questionId, optionEntry, requesterMemberId));

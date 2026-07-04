@@ -1,0 +1,19 @@
+package com.umc.product.form.application.port.out;
+
+import com.umc.product.form.domain.FormSection;
+
+import java.util.List;
+
+public interface SaveFormSectionPort {
+
+    FormSection save(FormSection formSection);
+
+    List<FormSection> saveAll(List<FormSection> sections);
+
+    void deleteById(Long sectionId);
+
+    /**
+     * 특정 폼에 속한 모든 섹션 삭제 (deleteForm cascade 용)
+     */
+    void deleteByFormId(Long formId);
+}

@@ -19,7 +19,7 @@ public interface SaveProjectApplicationFormPort {
 
     /**
      * 특정 프로젝트의 모든 지원 폼 매핑 row 를 일괄 삭제합니다. DRAFT/PENDING_REVIEW 단계 프로젝트 hard delete 시 자식 정리용.
-     * survey 도메인의 Form 자체는 호출 측에서 {@code ManageFormUseCase.deleteForm} 로 별도 정리해야 합니다.
+     * form 도메인의 Form 자체는 호출 측에서 {@code ManageFormUseCase.deleteForm} 로 별도 정리해야 합니다.
      */
     void deleteAllByProjectId(Long projectId);
 }

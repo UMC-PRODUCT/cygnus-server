@@ -55,7 +55,7 @@ import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.domain.enums.QuestionType;
 
 @GraphQlTest(ProjectGraphQlController.class)
 @Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class})

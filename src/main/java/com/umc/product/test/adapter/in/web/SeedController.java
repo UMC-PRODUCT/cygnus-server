@@ -175,7 +175,7 @@ public class SeedController {
             특정 기수의 프로젝트 관련 데이터를 물리 삭제합니다.
             삭제 범위는 Project, ProjectMember, ProjectPartQuota, ProjectApplication,
             ProjectApplicationForm/Policy, 해당 기수 Chapter 의 ProjectMatchingRound,
-            그리고 프로젝트 지원 폼이 생성한 survey Form/FormSection/Question/QuestionOption/
+            그리고 프로젝트 지원 폼이 생성한 form Form/FormSection/Question/QuestionOption/
             FormResponse/Answer/AnswerChoice/legacy SingleAnswer 입니다.
             gisuId 가 null 이면 활성 기수를 대상으로 합니다. prod 환경에서는 노출되지 않습니다.
             """

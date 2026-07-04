@@ -12,11 +12,11 @@ import com.umc.product.project.application.port.in.query.dto.ProjectApplicationV
 import com.umc.product.project.domain.enums.FormSectionType;
 import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import com.umc.product.survey.application.port.in.query.dto.AnswerInfo;
-import com.umc.product.survey.application.port.in.query.dto.AnswerInfo.SelectedOption;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.survey.domain.enums.FormResponseStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo.SelectedOption;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 
 public record ProjectApplicationGraphQlResponse(
     Long applicationId,

@@ -14,17 +14,17 @@ import com.umc.product.project.domain.ProjectMatchingRound;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import com.umc.product.survey.application.port.in.query.dto.AnswerInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseWithAnswersInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 
 import lombok.Builder;
 
 /**
  * 지원서 단건 상세 Info DTO.
  * <p>
- * Service 가 cross-domain (project/challenger/survey/storage) raw 데이터를 모아 넘기면, {@link #of} 가 지원자 파트 기준 폼 구조 /
+ * Service 가 cross-domain (project/challenger/form/storage) raw 데이터를 모아 넘기면, {@link #of} 가 지원자 파트 기준 폼 구조 /
  * FormResponse 메타 / questionId -> 답변 매핑까지 합성한다. 트리(섹션 -> 질문 -> 답변) 구조 합성은 Web Response 레이어가 책임진다 -- Info 는
  * 컨테이너 형태를 유지한다.
  *
@@ -63,9 +63,9 @@ public record ProjectApplicationDetailInfo(
      *
      * @param application             fetch 된 지원서 (applicationForm/project, appliedMatchingRound 로드 상태)
      * @param applicantPart           지원자 파트 (challenger 도메인 enrichment 결과)
-     * @param formStructure           survey 도메인의 폼 구조
+     * @param formStructure           form 도메인의 폼 구조
      * @param formPolicies            project 도메인의 섹션 표시 정책
-     * @param formResponseWithAnswers survey 도메인의 응답 메타 + 답변
+     * @param formResponseWithAnswers form 도메인의 응답 메타 + 답변
      * @param filesByFileId           storage 도메인의 fileId -> FileInfo 매핑 (batch 조회 결과)
      */
     public static ProjectApplicationDetailInfo of(
