@@ -1,17 +1,19 @@
 package com.umc.product.project.application.port.in.query.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.project.domain.ProjectApplicationForm;
-import com.umc.product.project.domain.ProjectApplicationFormPolicy;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.form.domain.enums.QuestionType;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.domain.ProjectApplicationForm;
+import com.umc.product.project.domain.ProjectApplicationFormPolicy;
+import com.umc.product.project.domain.enums.FormSectionType;
+
 import lombok.Builder;
 
 /**

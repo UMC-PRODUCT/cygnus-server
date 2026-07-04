@@ -28,6 +28,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.access.ProjectApplicationAccessScope;
 import com.umc.product.project.application.access.ProjectApplicationAccessScopeResolver;
 import com.umc.product.project.application.port.in.query.dto.GetMyProjectApplicationsQuery;
@@ -53,13 +60,6 @@ import com.umc.product.project.domain.exception.ProjectErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
 import com.umc.product.storage.domain.enums.FileCategory;
-import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
-import com.umc.product.form.application.port.in.query.GetFormUseCase;
-import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
-import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
-import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.form.domain.enums.FormResponseStatus;
-import com.umc.product.form.domain.enums.QuestionType;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationQueryServiceTest {

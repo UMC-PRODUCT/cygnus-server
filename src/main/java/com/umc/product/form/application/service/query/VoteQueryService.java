@@ -1,9 +1,22 @@
 package com.umc.product.form.application.service.query;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.form.application.port.in.query.GetVoteUseCase;
 import com.umc.product.form.application.port.in.query.dto.VoteInfo;
 import com.umc.product.form.application.port.in.query.dto.VoteInfo.VoteOptionInfo;
-import com.umc.product.form.application.port.out.*;
+import com.umc.product.form.application.port.out.LoadAnswerPort;
+import com.umc.product.form.application.port.out.LoadFormPort;
+import com.umc.product.form.application.port.out.LoadFormSectionPort;
+import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
+import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
@@ -11,16 +24,9 @@ import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 @Slf4j
 @Service

@@ -7,6 +7,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.project.domain.ProjectApplication;
 import com.umc.product.project.domain.ProjectApplicationForm;
 import com.umc.product.project.domain.ProjectApplicationFormPolicy;
@@ -14,10 +18,6 @@ import com.umc.product.project.domain.ProjectMatchingRound;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
-import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
-import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 
 import lombok.Builder;
 

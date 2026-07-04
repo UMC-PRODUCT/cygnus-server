@@ -12,7 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.form.application.port.in.command.ManageQuestionUseCase;
 import com.umc.product.form.application.port.in.command.dto.CreateQuestionCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteQuestionCommand;
@@ -29,6 +28,7 @@ import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
+import com.umc.product.global.exception.constant.Domain;
 
 import lombok.RequiredArgsConstructor;
 

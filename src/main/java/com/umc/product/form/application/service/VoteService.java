@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.ManageVoteUseCase;
 import com.umc.product.form.application.port.in.command.dto.CreateVoteCommand;
@@ -23,6 +22,7 @@ import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.exception.constant.Domain;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

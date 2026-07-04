@@ -4,19 +4,21 @@ import static com.umc.product.form.domain.QAnswer.answer;
 import static com.umc.product.form.domain.QAnswerChoice.answerChoice;
 import static com.umc.product.form.domain.QFormResponse.formResponse;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Repository;
+
 import com.querydsl.core.Tuple;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.form.domain.AnswerChoice;
 import com.umc.product.form.domain.QQuestionOption;
 import com.umc.product.form.domain.enums.FormResponseStatus;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor

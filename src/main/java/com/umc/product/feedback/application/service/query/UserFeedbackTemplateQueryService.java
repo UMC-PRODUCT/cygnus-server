@@ -15,8 +15,8 @@ import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTempla
 import com.umc.product.feedback.application.port.out.LoadUserFeedbackTemplatePort;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
 import com.umc.product.feedback.domain.enums.UserFeedbackTargetType;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 

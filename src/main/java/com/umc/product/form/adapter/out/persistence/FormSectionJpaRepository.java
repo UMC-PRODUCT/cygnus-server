@@ -1,10 +1,11 @@
 package com.umc.product.form.adapter.out.persistence;
 
-import com.umc.product.form.domain.FormSection;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.umc.product.form.domain.FormSection;
 
 public interface FormSectionJpaRepository extends JpaRepository<FormSection, Long> {
 

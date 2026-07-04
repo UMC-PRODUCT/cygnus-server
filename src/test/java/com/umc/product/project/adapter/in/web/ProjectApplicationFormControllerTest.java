@@ -7,23 +7,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.global.config.JacksonConfig;
-import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.project.adapter.in.web.dto.common.ApplicationFormSection;
-import com.umc.product.project.adapter.in.web.dto.common.ApplicationQuestionItem;
-import com.umc.product.project.adapter.in.web.dto.common.ApplicationQuestionOptionItem;
-import com.umc.product.project.adapter.in.web.dto.request.UpsertApplicationFormRequest;
-import com.umc.product.project.application.port.in.command.UpsertProjectApplicationFormUseCase;
-import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
-import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.form.domain.enums.QuestionType;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +22,21 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.config.JacksonConfig;
+import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.project.adapter.in.web.dto.common.ApplicationFormSection;
+import com.umc.product.project.adapter.in.web.dto.common.ApplicationQuestionItem;
+import com.umc.product.project.adapter.in.web.dto.common.ApplicationQuestionOptionItem;
+import com.umc.product.project.adapter.in.web.dto.request.UpsertApplicationFormRequest;
+import com.umc.product.project.application.port.in.command.UpsertProjectApplicationFormUseCase;
+import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
+import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
+import com.umc.product.project.domain.enums.FormSectionType;
 
 @WebMvcTest(controllers = ProjectApplicationFormController.class)
 @Import(JacksonConfig.class)

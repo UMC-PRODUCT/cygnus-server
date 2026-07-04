@@ -1,8 +1,8 @@
 package com.umc.product.form.application.port.in.command.dto;
 
-import lombok.Builder;
-
 import java.util.List;
+
+import lombok.Builder;
 
 /**
  * draft 응답의 답변을 전체 교체하는 Command. (임시저장 용도)

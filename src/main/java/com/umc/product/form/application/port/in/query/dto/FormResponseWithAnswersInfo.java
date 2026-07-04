@@ -1,11 +1,12 @@
 package com.umc.product.form.application.port.in.query.dto;
 
-import com.umc.product.form.domain.FormResponse;
-import com.umc.product.form.domain.enums.FormResponseStatus;
-import lombok.Builder;
-
 import java.time.Instant;
 import java.util.List;
+
+import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.enums.FormResponseStatus;
+
+import lombok.Builder;
 
 /**
  * FormResponse 메타 + 모든 Answer 를 합성한 facade DTO.

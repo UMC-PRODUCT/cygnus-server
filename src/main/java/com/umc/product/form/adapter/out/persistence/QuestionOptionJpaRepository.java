@@ -1,11 +1,12 @@
 package com.umc.product.form.adapter.out.persistence;
 
-import com.umc.product.form.domain.QuestionOption;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.form.domain.QuestionOption;
 
 public interface QuestionOptionJpaRepository extends JpaRepository<QuestionOption, Long> {
 

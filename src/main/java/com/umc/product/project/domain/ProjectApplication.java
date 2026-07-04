@@ -3,10 +3,10 @@ package com.umc.product.project.domain;
 import java.time.Instant;
 
 import com.umc.product.common.BaseEntity;
+import com.umc.product.form.domain.FormResponse;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.form.domain.FormResponse;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

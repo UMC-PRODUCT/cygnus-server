@@ -1,14 +1,15 @@
 package com.umc.product.form.application.port.in.query.dto;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
-import lombok.Builder;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Set;
+import lombok.Builder;
 
 /**
  * Answer 단건 조회 결과 DTO.

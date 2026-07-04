@@ -12,8 +12,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.global.exception.constant.Domain;
-import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
@@ -40,6 +38,8 @@ import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
+import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 import lombok.RequiredArgsConstructor;
 

@@ -1,13 +1,15 @@
 package com.umc.product.form.adapter.out.persistence;
 
-import com.umc.product.form.domain.FormResponse;
-import com.umc.product.form.domain.enums.FormResponseStatus;
 import java.util.List;
 import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.enums.FormResponseStatus;
 
 public interface FormResponseJpaRepository extends JpaRepository<FormResponse, Long> {
     Optional<FormResponse> findFirstByForm_IdAndRespondentMemberIdAndStatusOrderByIdDesc(

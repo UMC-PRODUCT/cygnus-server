@@ -1,7 +1,9 @@
 package com.umc.product.form.application.port.in.query.dto;
 
-import com.umc.product.form.domain.FormSection;
 import java.time.Instant;
+
+import com.umc.product.form.domain.FormSection;
+
 import lombok.Builder;
 
 /**

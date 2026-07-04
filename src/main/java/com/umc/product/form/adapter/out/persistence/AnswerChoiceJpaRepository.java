@@ -1,12 +1,13 @@
 package com.umc.product.form.adapter.out.persistence;
 
-import com.umc.product.form.domain.AnswerChoice;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.List;
+import com.umc.product.form.domain.AnswerChoice;
 
 public interface AnswerChoiceJpaRepository extends JpaRepository<AnswerChoice, Long> {
 

@@ -1,9 +1,9 @@
 package com.umc.product.form.application.port.out;
 
+import java.util.List;
+
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
-
-import java.util.List;
 
 public interface SaveAnswerPort {
 

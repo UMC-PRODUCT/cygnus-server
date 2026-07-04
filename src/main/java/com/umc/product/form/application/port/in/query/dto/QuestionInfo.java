@@ -1,8 +1,10 @@
 package com.umc.product.form.application.port.in.query.dto;
 
+import java.time.Instant;
+
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.enums.QuestionType;
-import java.time.Instant;
+
 import lombok.Builder;
 
 /**

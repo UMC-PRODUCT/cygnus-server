@@ -29,24 +29,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand;
-import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationFormSectionEntry;
-import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionEntry;
-import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionOptionEntry;
-import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
-import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
-import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
-import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
-import com.umc.product.project.application.port.out.LoadProjectPort;
-import com.umc.product.project.application.port.out.SaveProjectApplicationFormPolicyPort;
-import com.umc.product.project.application.port.out.SaveProjectApplicationFormPort;
-import com.umc.product.project.domain.Project;
-import com.umc.product.project.domain.ProjectApplicationForm;
-import com.umc.product.project.domain.ProjectApplicationFormPolicy;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.project.domain.enums.ProjectStatus;
-import com.umc.product.project.domain.exception.ProjectDomainException;
-import com.umc.product.project.domain.exception.ProjectErrorCode;
 import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.ManageQuestionOptionUseCase;
@@ -71,6 +53,24 @@ import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand;
+import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationFormSectionEntry;
+import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionEntry;
+import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionOptionEntry;
+import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
+import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
+import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
+import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
+import com.umc.product.project.application.port.out.LoadProjectPort;
+import com.umc.product.project.application.port.out.SaveProjectApplicationFormPolicyPort;
+import com.umc.product.project.application.port.out.SaveProjectApplicationFormPort;
+import com.umc.product.project.domain.Project;
+import com.umc.product.project.domain.ProjectApplicationForm;
+import com.umc.product.project.domain.ProjectApplicationFormPolicy;
+import com.umc.product.project.domain.enums.FormSectionType;
+import com.umc.product.project.domain.enums.ProjectStatus;
+import com.umc.product.project.domain.exception.ProjectDomainException;
+import com.umc.product.project.domain.exception.ProjectErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationFormCommandServiceTest {
