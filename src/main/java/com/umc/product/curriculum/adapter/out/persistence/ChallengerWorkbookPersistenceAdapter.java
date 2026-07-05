@@ -21,7 +21,7 @@ public class ChallengerWorkbookPersistenceAdapter implements LoadChallengerWorkb
     private final ChallengerWorkbookJpaRepository challengerWorkbookJpaRepository;
 
     @Override
-    public ChallengerWorkbook findById(Long id) {
+    public ChallengerWorkbook getById(Long id) {
         return challengerWorkbookJpaRepository.findById(id)
             .orElseThrow(() -> new CurriculumDomainException(CurriculumErrorCode.CHALLENGER_WORKBOOK_NOT_FOUND));
     }
@@ -37,7 +37,7 @@ public class ChallengerWorkbookPersistenceAdapter implements LoadChallengerWorkb
     }
 
     @Override
-    public List<ChallengerWorkbook> findByMemberIdAndOriginalWorkbookIdIn(
+    public List<ChallengerWorkbook> listByMemberIdAndOriginalWorkbookIdIn(
         Long memberId,
         List<Long> originalWorkbookIds
     ) {

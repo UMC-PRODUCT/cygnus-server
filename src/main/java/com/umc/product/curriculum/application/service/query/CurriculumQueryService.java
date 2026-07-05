@@ -1,5 +1,12 @@
 package com.umc.product.curriculum.application.service.query;
 
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -8,18 +15,28 @@ import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOvervi
 import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo.WeeklyCurriculumOverviewInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.CurriculumProjection;
 import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo;
-import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.*;
-import com.umc.product.curriculum.application.port.out.*;
-import com.umc.product.curriculum.domain.*;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionFeedbackInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionSubmissionInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MyOriginalWorkbookInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MyOriginalWorkbookMissionInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MyWeeklyCurriculumInfo;
+import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
+import com.umc.product.curriculum.application.port.out.LoadCurriculumPort;
+import com.umc.product.curriculum.application.port.out.LoadMissionFeedbackPort;
+import com.umc.product.curriculum.application.port.out.LoadMissionSubmissionPort;
+import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
+import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookPort;
+import com.umc.product.curriculum.application.port.out.LoadWeeklyCurriculumPort;
+import com.umc.product.curriculum.domain.ChallengerWorkbook;
+import com.umc.product.curriculum.domain.MissionFeedback;
+import com.umc.product.curriculum.domain.MissionSubmission;
+import com.umc.product.curriculum.domain.OriginalWorkbook;
+import com.umc.product.curriculum.domain.OriginalWorkbookMission;
+import com.umc.product.curriculum.domain.WeeklyCurriculum;
 import com.umc.product.curriculum.domain.enums.FeedbackResult;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -66,7 +83,7 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
         List<OriginalWorkbookMission> allMissions =
             loadOriginalWorkbookMissionPort.findByOriginalWorkbookIdIn(originalWorkbookIds);
         List<ChallengerWorkbook> allChallengerWorkbooks =
-            loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(memberId, originalWorkbookIds);
+            loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(memberId, originalWorkbookIds);
 
         List<Long> challengerWorkbookIds = allChallengerWorkbooks.stream().map(ChallengerWorkbook::getId).toList();
         List<MissionSubmission> allSubmissions =
@@ -136,12 +153,12 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
         ));
     }
 
-    private MissionSubmissionInfo toSubmissionInfo(MissionSubmission s, List<MissionFeedback> feedbacks) {
+    private MissionSubmissionInfo toSubmissionInfo(MissionSubmission submission, List<MissionFeedback> feedbacks) {
         List<MissionFeedbackInfo> feedbackInfos = feedbacks.stream()
             .map(MissionFeedbackInfo::of)
             .toList();
 
-        return MissionSubmissionInfo.of(s, resolveSubmissionStatus(feedbacks), feedbackInfos);
+        return MissionSubmissionInfo.of(submission, resolveSubmissionStatus(feedbacks), feedbackInfos);
     }
 
     private SubmissionStatus resolveSubmissionStatus(List<MissionFeedback> feedbacks) {

@@ -1,5 +1,7 @@
 package com.umc.product.curriculum.application.service.command;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -33,6 +35,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class WeeklyBestWorkbookCommandService implements ManageWeeklyBestWorkbookUseCase {
+
+    private static final int WITHDRAW_DEADLINE_DAYS = 7;
 
     private final LoadWeeklyCurriculumPort loadWeeklyCurriculumPort;
     private final LoadOriginalWorkbookPort loadOriginalWorkbookPort;
@@ -75,6 +79,7 @@ public class WeeklyBestWorkbookCommandService implements ManageWeeklyBestWorkboo
     @Override
     public void withdraw(Long weeklyBestWorkbookId) {
         WeeklyBestWorkbook weeklyBestWorkbook = loadWeeklyBestWorkbookPort.getById(weeklyBestWorkbookId);
+        validateWithdrawDeadline(weeklyBestWorkbook);
         saveWeeklyBestWorkbookPort.delete(weeklyBestWorkbook);
     }
 
@@ -121,7 +126,7 @@ public class WeeklyBestWorkbookCommandService implements ManageWeeklyBestWorkboo
             );
         }
 
-        boolean hasExcusedWorkbook = loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(
+        boolean hasExcusedWorkbook = loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(
                 bestMemberId,
                 releasedOriginalWorkbookIds
             )
@@ -132,6 +137,18 @@ public class WeeklyBestWorkbookCommandService implements ManageWeeklyBestWorkboo
             throw new CurriculumDomainException(
                 CurriculumErrorCode.WORKBOOK_ACCESS_DENIED,
                 "인정 처리된 워크북이 있는 챌린저는 베스트 워크북으로 선정할 수 없어요."
+            );
+        }
+    }
+
+    private void validateWithdrawDeadline(WeeklyBestWorkbook weeklyBestWorkbook) {
+        Instant withdrawDeadline = weeklyBestWorkbook.getWeeklyCurriculum()
+            .getEndsAt()
+            .plus(WITHDRAW_DEADLINE_DAYS, ChronoUnit.DAYS);
+        if (Instant.now().isAfter(withdrawDeadline)) {
+            throw new CurriculumDomainException(
+                CurriculumErrorCode.INVALID_WORKBOOK_STATUS,
+                "베스트 워크북 선정 철회는 해당 주차가 종료된 후 1주일 이내에만 가능합니다."
             );
         }
     }

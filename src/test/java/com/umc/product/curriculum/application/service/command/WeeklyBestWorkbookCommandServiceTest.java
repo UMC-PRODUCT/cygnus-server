@@ -83,7 +83,11 @@ class WeeklyBestWorkbookCommandServiceTest {
             // given
             WeeklyCurriculum weeklyCurriculum = weeklyCurriculum();
             OriginalWorkbook originalWorkbook = releasedWorkbook(weeklyCurriculum);
-            ChallengerWorkbook challengerWorkbook = ChallengerWorkbook.create(originalWorkbook, MEMBER_ID, STUDY_GROUP_ID);
+            ChallengerWorkbook challengerWorkbook = ChallengerWorkbook.create(
+                originalWorkbook,
+                MEMBER_ID,
+                STUDY_GROUP_ID
+            );
 
             given(loadWeeklyCurriculumPort.getById(WEEKLY_CURRICULUM_ID)).willReturn(weeklyCurriculum);
             given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of(activeChallenger()));
@@ -93,7 +97,7 @@ class WeeklyBestWorkbookCommandServiceTest {
             )).willReturn(false);
             given(loadOriginalWorkbookPort.findReleasedByWeeklyCurriculumId(WEEKLY_CURRICULUM_ID))
                 .willReturn(List.of(originalWorkbook));
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(
                 MEMBER_ID,
                 List.of(ORIGINAL_WORKBOOK_ID)
             )).willReturn(List.of(challengerWorkbook));
@@ -138,7 +142,11 @@ class WeeklyBestWorkbookCommandServiceTest {
             // given
             WeeklyCurriculum weeklyCurriculum = weeklyCurriculum();
             OriginalWorkbook originalWorkbook = releasedWorkbook(weeklyCurriculum);
-            ChallengerWorkbook challengerWorkbook = ChallengerWorkbook.create(originalWorkbook, MEMBER_ID, STUDY_GROUP_ID);
+            ChallengerWorkbook challengerWorkbook = ChallengerWorkbook.create(
+                originalWorkbook,
+                MEMBER_ID,
+                STUDY_GROUP_ID
+            );
             challengerWorkbook.excuse("공결", DECIDED_MEMBER_ID);
 
             given(loadWeeklyCurriculumPort.getById(WEEKLY_CURRICULUM_ID)).willReturn(weeklyCurriculum);
@@ -149,7 +157,7 @@ class WeeklyBestWorkbookCommandServiceTest {
             )).willReturn(false);
             given(loadOriginalWorkbookPort.findReleasedByWeeklyCurriculumId(WEEKLY_CURRICULUM_ID))
                 .willReturn(List.of(originalWorkbook));
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(
                 MEMBER_ID,
                 List.of(ORIGINAL_WORKBOOK_ID)
             )).willReturn(List.of(challengerWorkbook));
@@ -202,6 +210,22 @@ class WeeklyBestWorkbookCommandServiceTest {
             // then
             then(saveWeeklyBestWorkbookPort).should().delete(weeklyBestWorkbook);
         }
+
+        @Test
+        @DisplayName("주차 종료 후 7일이 지나면 베스트 워크북 선정을 철회할 수 없다")
+        void 주차_종료_후_7일이_지나면_베스트_워크북_선정을_철회할_수_없다() {
+            // given
+            WeeklyBestWorkbook weeklyBestWorkbook = weeklyBestWorkbook(expiredWeeklyCurriculum());
+            given(loadWeeklyBestWorkbookPort.getById(WEEKLY_BEST_WORKBOOK_ID)).willReturn(weeklyBestWorkbook);
+
+            // when & then
+            assertThatThrownBy(() -> sut.withdraw(WEEKLY_BEST_WORKBOOK_ID))
+                .isInstanceOf(CurriculumDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(CurriculumErrorCode.INVALID_WORKBOOK_STATUS);
+
+            then(saveWeeklyBestWorkbookPort).should(never()).delete(any());
+        }
     }
 
     private CreateWeeklyBestWorkbookCommand createCommand() {
@@ -225,8 +249,12 @@ class WeeklyBestWorkbookCommandServiceTest {
     }
 
     private WeeklyBestWorkbook weeklyBestWorkbook() {
+        return weeklyBestWorkbook(weeklyCurriculum());
+    }
+
+    private WeeklyBestWorkbook weeklyBestWorkbook(WeeklyCurriculum weeklyCurriculum) {
         WeeklyBestWorkbook weeklyBestWorkbook = WeeklyBestWorkbook.create(
-            weeklyCurriculum(),
+            weeklyCurriculum,
             MEMBER_ID,
             STUDY_GROUP_ID,
             "선정 사유",
@@ -256,8 +284,21 @@ class WeeklyBestWorkbookCommandServiceTest {
             1L,
             false,
             "1주차",
-            Instant.parse("2027-03-01T00:00:00Z"),
-            Instant.parse("2027-03-07T23:59:59Z")
+            Instant.parse("2099-03-01T00:00:00Z"),
+            Instant.parse("2099-03-07T23:59:59Z")
+        );
+        ReflectionTestUtils.setField(weeklyCurriculum, "id", WEEKLY_CURRICULUM_ID);
+        return weeklyCurriculum;
+    }
+
+    private WeeklyCurriculum expiredWeeklyCurriculum() {
+        WeeklyCurriculum weeklyCurriculum = WeeklyCurriculum.create(
+            Curriculum.create(9L, ChallengerPart.SPRINGBOOT, "9기 스프링부트"),
+            1L,
+            false,
+            "1주차",
+            Instant.parse("2020-03-01T00:00:00Z"),
+            Instant.parse("2020-03-07T23:59:59Z")
         );
         ReflectionTestUtils.setField(weeklyCurriculum, "id", WEEKLY_CURRICULUM_ID);
         return weeklyCurriculum;

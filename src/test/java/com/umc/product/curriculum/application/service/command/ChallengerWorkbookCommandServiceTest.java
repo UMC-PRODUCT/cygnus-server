@@ -73,7 +73,10 @@ class ChallengerWorkbookCommandServiceTest {
             OriginalWorkbook workbook = releasedWorkbook(ORIGINAL_WORKBOOK_ID);
             given(loadOriginalWorkbookPort.batchGetByIds(List.of(ORIGINAL_WORKBOOK_ID))).willReturn(List.of(workbook));
             given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of(activeChallenger(MEMBER_ID)));
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(ORIGINAL_WORKBOOK_ID)))
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(
+                MEMBER_ID,
+                List.of(ORIGINAL_WORKBOOK_ID)
+            ))
                 .willReturn(List.of());
             given(saveChallengerWorkbookPort.save(any(ChallengerWorkbook.class)))
                 .willAnswer(invocation -> {
@@ -108,7 +111,10 @@ class ChallengerWorkbookCommandServiceTest {
             ChallengerWorkbook existing = challengerWorkbook(workbook, MEMBER_ID);
             given(loadOriginalWorkbookPort.batchGetByIds(List.of(ORIGINAL_WORKBOOK_ID))).willReturn(List.of(workbook));
             given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of(activeChallenger(MEMBER_ID)));
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(ORIGINAL_WORKBOOK_ID)))
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(
+                MEMBER_ID,
+                List.of(ORIGINAL_WORKBOOK_ID)
+            ))
                 .willReturn(List.of(existing));
 
             var command = DeployChallengerWorkbookCommand.builder()
@@ -156,7 +162,7 @@ class ChallengerWorkbookCommandServiceTest {
         void 본인_워크북의_내용을_수정할_수_있다() {
             // given
             ChallengerWorkbook workbook = challengerWorkbook(releasedWorkbook(ORIGINAL_WORKBOOK_ID), MEMBER_ID);
-            given(loadChallengerWorkbookPort.findById(CHALLENGER_WORKBOOK_ID)).willReturn(workbook);
+            given(loadChallengerWorkbookPort.getById(CHALLENGER_WORKBOOK_ID)).willReturn(workbook);
 
             var command = EditChallengerWorkbookCommand.builder()
                 .challengerWorkbookId(CHALLENGER_WORKBOOK_ID)
@@ -177,7 +183,7 @@ class ChallengerWorkbookCommandServiceTest {
         void 다른_사람의_워크북은_수정할_수_없다() {
             // given
             ChallengerWorkbook workbook = challengerWorkbook(releasedWorkbook(ORIGINAL_WORKBOOK_ID), OTHER_MEMBER_ID);
-            given(loadChallengerWorkbookPort.findById(CHALLENGER_WORKBOOK_ID)).willReturn(workbook);
+            given(loadChallengerWorkbookPort.getById(CHALLENGER_WORKBOOK_ID)).willReturn(workbook);
 
             var command = EditChallengerWorkbookCommand.builder()
                 .challengerWorkbookId(CHALLENGER_WORKBOOK_ID)

@@ -51,7 +51,7 @@ public class ChallengerWorkbookCommandService implements ManageChallengerWorkboo
         originalWorkbooks.forEach(originalWorkbook -> validateDeployableMember(originalWorkbook, challengers));
 
         Map<Long, ChallengerWorkbook> existingWorkbookByOriginalWorkbookId =
-            loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(
+            loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(
                     command.requestedMemberId(),
                     originalWorkbookIds
                 )
@@ -73,7 +73,7 @@ public class ChallengerWorkbookCommandService implements ManageChallengerWorkboo
 
     @Override
     public void edit(EditChallengerWorkbookCommand command) {
-        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.findById(command.challengerWorkbookId());
+        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.getById(command.challengerWorkbookId());
         validateOwner(challengerWorkbook, command.requestedMemberId());
 
         challengerWorkbook.edit(command.content());
@@ -82,13 +82,13 @@ public class ChallengerWorkbookCommandService implements ManageChallengerWorkboo
 
     @Override
     public void delete(DeleteChallengerWorkbookCommand command) {
-        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.findById(command.challengerWorkbookId());
+        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.getById(command.challengerWorkbookId());
         saveChallengerWorkbookPort.delete(challengerWorkbook);
     }
 
     @Override
     public void excuse(ExcuseChallengerWorkbookCommand command) {
-        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.findById(command.challengerWorkbookId());
+        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.getById(command.challengerWorkbookId());
         challengerWorkbook.excuse(command.reason(), command.excuseApprovedMemberId());
         saveChallengerWorkbookPort.save(challengerWorkbook);
     }

@@ -62,7 +62,13 @@ public class ChallengerWorkbook extends BaseEntity {
         Long memberId,
         Long studyGroupId
     ) {
-        if (originalWorkbook == null || memberId == null) {
+        if (originalWorkbook == null) {
+            throw new CurriculumDomainException(
+                CurriculumErrorCode.WORKBOOK_NOT_FOUND,
+                "배포할 원본 워크북을 찾을 수 없어요. 원본 워크북을 확인해주세요."
+            );
+        }
+        if (memberId == null) {
             throw new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
         }
         this.originalWorkbook = originalWorkbook;

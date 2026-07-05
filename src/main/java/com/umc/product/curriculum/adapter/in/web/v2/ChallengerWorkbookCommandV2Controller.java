@@ -15,7 +15,6 @@ import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.CreateBestWorkbookRequest;
-import com.umc.product.curriculum.adapter.in.web.v2.dto.request.DeleteChallengerWorkbookRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.EditChallengerWorkbookRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.EditWeeklyBestWorkbookReasonRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.ExcuseChallengerWorkbookRequest;
@@ -23,6 +22,7 @@ import com.umc.product.curriculum.adapter.in.web.v2.dto.response.ChallengerWorkb
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.ChallengerWorkbookStatusResponse;
 import com.umc.product.curriculum.application.port.in.command.ManageChallengerWorkbookUseCase;
 import com.umc.product.curriculum.application.port.in.command.ManageWeeklyBestWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.DeleteChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.DeployChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
 import com.umc.product.global.security.MemberPrincipal;
@@ -108,15 +108,18 @@ public class ChallengerWorkbookCommandV2Controller {
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
+        resourceId = "#challengerWorkbookId",
         permission = PermissionType.DELETE
     )
     @DeleteMapping("/{challengerWorkbookId}")
     public void deleteChallengerWorkbook(
         @PathVariable Long challengerWorkbookId,
-        @Valid @RequestBody DeleteChallengerWorkbookRequest request,
         @CurrentMember MemberPrincipal memberPrincipal
     ) {
-        manageChallengerWorkbookUseCase.delete(request.toCommand(challengerWorkbookId, memberPrincipal.getMemberId()));
+        manageChallengerWorkbookUseCase.delete(DeleteChallengerWorkbookCommand.builder()
+            .challengerWorkbookId(challengerWorkbookId)
+            .requestedMemberId(memberPrincipal.getMemberId())
+            .build());
     }
 
     @Operation(
@@ -129,6 +132,7 @@ public class ChallengerWorkbookCommandV2Controller {
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
+        resourceId = "#challengerWorkbookId",
         permission = PermissionType.WRITE
     )
     @PostMapping("/{challengerWorkbookId}/excuse")
@@ -185,6 +189,7 @@ public class ChallengerWorkbookCommandV2Controller {
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
+        resourceId = "#weeklyBestWorkbookId",
         permission = PermissionType.WRITE
     )
     @PatchMapping("/weekly-best/{weeklyBestWorkbookId}")
@@ -208,6 +213,7 @@ public class ChallengerWorkbookCommandV2Controller {
     )
     @CheckAccess(
         resourceType = ResourceType.CURRICULUM,
+        resourceId = "#weeklyBestWorkbookId",
         permission = PermissionType.DELETE
     )
     @DeleteMapping("/weekly-best/{weeklyBestWorkbookId}")
