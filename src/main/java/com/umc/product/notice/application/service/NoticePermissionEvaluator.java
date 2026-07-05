@@ -159,39 +159,23 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
      */
     private boolean canManageNotice(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
         AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
-        if (targetInfo.targetGisuId() != null && snapshot.isCentralCoreInGisu(targetInfo.targetGisuId())) {
-            return true;
-        }
-        if (targetInfo.targetGisuId() == null && snapshot.isCentralCoreInAnyGisu()) {
+        if (snapshot.isCentralCoreInAnyGisu()) {
             return true;
         }
 
         if (targetInfo.targetSchoolId() != null) {
-            if (targetInfo.targetGisuId() != null) {
-                return snapshot.isSchoolAdminInGisu(targetInfo.targetGisuId(), targetInfo.targetSchoolId());
-            }
             return snapshot.isSchoolAdminInAnyGisu(targetInfo.targetSchoolId());
         }
 
         if (targetInfo.targetChapterId() != null) {
-            if (targetInfo.targetGisuId() != null) {
-                return snapshot.isChapterPresidentInGisu(targetInfo.targetGisuId(), targetInfo.targetChapterId());
-            }
             return snapshot.isChapterPresidentInAnyGisu(targetInfo.targetChapterId());
         }
 
-        if (targetInfo.targetGisuId() != null) {
-            return snapshot.isCentralMemberInGisu(targetInfo.targetGisuId());
-        }
         return snapshot.isCentralMemberInAnyGisu();
     }
 
     private boolean canReadAllAsCentralCore(SubjectAttributes subjectAttributes, NoticeTargetInfo targetInfo) {
-        AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
-        if (targetInfo.targetGisuId() != null) {
-            return snapshot.isCentralCoreInGisu(targetInfo.targetGisuId());
-        }
-        return snapshot.isCentralCoreInAnyGisu();
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
     }
 
     private boolean chapterPresidentCanRead(RoleAttribute role, NoticeTargetInfo targetInfo,

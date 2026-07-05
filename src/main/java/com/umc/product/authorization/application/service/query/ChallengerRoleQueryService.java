@@ -17,11 +17,13 @@ import com.umc.product.authorization.application.port.in.query.dto.ChallengerRol
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -42,6 +44,8 @@ public class ChallengerRoleQueryService implements
     private final LoadChallengerRolePort loadChallengerRolePort;
 
     private final GetGisuUseCase getGisuUseCase;
+
+    private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
 
     private ChallengerRoleInfo getChallengerRoleInfoFromEntity(ChallengerRole role) {
         return ChallengerRoleInfo.from(
@@ -84,9 +88,9 @@ public class ChallengerRoleQueryService implements
 
     @Override
     public boolean isSuperAdmin(Long memberId) {
-        return loadChallengerRolePort.findByMemberId(memberId).stream()
-            .map(ChallengerRole::getChallengerRoleType)
-            .anyMatch(ChallengerRoleType::isSuperAdmin);
+        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+            .map(role -> SystemRoleType.from(role.roleType()))
+            .anyMatch(roleType -> roleType == SystemRoleType.SUPER_ADMIN);
     }
 
     @Override

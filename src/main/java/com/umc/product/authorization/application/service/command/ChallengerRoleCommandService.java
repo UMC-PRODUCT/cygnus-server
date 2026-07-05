@@ -7,17 +7,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
 import com.umc.product.authorization.application.port.in.command.dto.DeleteChallengerRoleCommand;
 import com.umc.product.authorization.application.port.in.command.dto.UpdateChallengerRoleCommand;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
-import com.umc.product.authorization.application.service.AuthoritySnapshotCacheKeys;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.global.cache.application.port.in.CacheUseCase;
-import com.umc.product.global.cache.domain.CacheNamespace;
 import com.umc.product.global.exception.constant.Domain;
 
 import lombok.RequiredArgsConstructor;
@@ -30,7 +28,7 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
     private final LoadChallengerRolePort loadChallengerRolePort;
     private final SaveChallengerRolePort saveChallengerRolePort;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final CacheUseCase cacheUseCase;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @Audited(
         domain = Domain.AUTHORIZATION,
@@ -92,6 +90,6 @@ public class ChallengerRoleCommandService implements ManageChallengerRoleUseCase
 
     private void evictAuthoritySnapshot(ChallengerRole challengerRole) {
         Long memberId = getChallengerUseCase.getById(challengerRole.getChallengerId()).memberId();
-        cacheUseCase.evict(CacheNamespace.AUTHORITY_SNAPSHOT, AuthoritySnapshotCacheKeys.member(memberId));
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(memberId);
     }
 }

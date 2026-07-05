@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -19,6 +20,7 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
@@ -30,6 +32,7 @@ import com.umc.product.global.cache.domain.CacheNamespace;
 import com.umc.product.global.cache.domain.CacheSpec;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 
@@ -51,6 +54,7 @@ public class AuthorizationService implements CheckPermissionUseCase {
     private final Map<ResourceType, ResourcePermissionEvaluator> evaluators;
 
     private final GetMemberUseCase getMemberUseCase;
+    private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
     private final GetChapterUseCase getChapterUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final OperationalMetrics operationalMetrics;
@@ -64,11 +68,13 @@ public class AuthorizationService implements CheckPermissionUseCase {
      */
     public AuthorizationService(LoadChallengerRolePort loadChallengerRolePort,
                                 List<ResourcePermissionEvaluator> evaluatorList, GetMemberUseCase getMemberUseCase,
+                                ListMemberSystemRoleUseCase listMemberSystemRoleUseCase,
                                 GetChapterUseCase getChapterUseCase, GetChallengerUseCase getChallengerUseCase,
                                 OperationalMetrics operationalMetrics, CacheUseCase cacheUseCase,
                                 AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer) {
         this.loadChallengerRolePort = loadChallengerRolePort;
         this.getMemberUseCase = getMemberUseCase;
+        this.listMemberSystemRoleUseCase = listMemberSystemRoleUseCase;
         this.getChapterUseCase = getChapterUseCase;
         this.getChallengerUseCase = getChallengerUseCase;
         this.operationalMetrics = operationalMetrics;
@@ -132,6 +138,7 @@ public class AuthorizationService implements CheckPermissionUseCase {
             .schoolId(schoolId)
             .gisuChallengerInfos(chapterIds)
             .roleAttributes(roles)
+            .systemRoles(listSystemRoles(memberId))
             .build();
 
         log.debug("권한 평가 subject를 로드했습니다: memberId={}, roleCount={}, challengerCount={}",
@@ -139,6 +146,12 @@ public class AuthorizationService implements CheckPermissionUseCase {
             subjectAttributes.gisuChallengerInfos().size());
 
         return subjectAttributes;
+    }
+
+    private Set<SystemRoleType> listSystemRoles(Long memberId) {
+        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+            .map(role -> SystemRoleType.from(role.roleType()))
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private Optional<SubjectAttributes> readCachedSubject(CacheKey cacheKey, Long memberId) {

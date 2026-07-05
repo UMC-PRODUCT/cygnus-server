@@ -67,11 +67,11 @@ public class ProjectApplicationAccessScopeResolver {
             return new ProjectScoped(projectId);
         }
 
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-        if (roles.stream().anyMatch(r -> r.roleType().isSuperAdmin())) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
             return new ProjectScoped(projectId, true);
         }
 
+        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
         List<ChallengerRoleInfo> rolesInGisu = roles.stream()
             .filter(r -> Objects.equals(r.gisuId(), project.getGisuId()))
             .toList();
@@ -112,8 +112,10 @@ public class ProjectApplicationAccessScopeResolver {
         Set<Long> activePlanProjectIds = new HashSet<>(
             loadProjectMemberPort.listProjectIdsByActivePlanMember(projectIds, memberId));
 
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-        boolean superAdmin = roles.stream().anyMatch(r -> r.roleType().isSuperAdmin());
+        boolean superAdmin = getChallengerRoleUseCase.isSuperAdmin(memberId);
+        List<ChallengerRoleInfo> roles = superAdmin
+            ? List.of()
+            : getChallengerRoleUseCase.findAllByMemberId(memberId);
 
         Set<Long> gisuIds = projects.stream()
             .map(Project::getGisuId)
@@ -233,12 +235,11 @@ public class ProjectApplicationAccessScopeResolver {
      * </ol>
      */
     public ProjectApplicationAccessScope resolveForManagement(Long memberId, Long gisuId) {
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-
-        if (roles.stream().anyMatch(r -> r.roleType().isSuperAdmin())) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
             return new All();
         }
 
+        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
         List<ChallengerRoleInfo> rolesInGisu = roles.stream()
             .filter(r -> Objects.equals(r.gisuId(), gisuId))
             .toList();

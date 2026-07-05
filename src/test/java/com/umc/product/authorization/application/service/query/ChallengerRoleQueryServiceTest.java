@@ -11,17 +11,6 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -33,6 +22,8 @@ import com.umc.product.authorization.application.port.out.LoadChallengerRolePort
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberSystemRoleInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
@@ -50,8 +41,8 @@ class ChallengerRoleQueryServiceTest {
     @Mock
     GetGisuUseCase getGisuUseCase;
 
-    @InjectMocks
-    ChallengerRoleQueryService service;
+    @Mock
+    ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
 
     @Test
     @DisplayName("경량 역할 조회는 역할 범위만 매핑하고 기수 상세를 조회하지 않는다")
@@ -66,7 +57,7 @@ class ChallengerRoleQueryServiceTest {
         given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(centralRole, schoolRole));
 
         // when
-        List<ChallengerRoleBasicInfo> result = service.listBasicByMemberId(MEMBER_ID);
+        List<ChallengerRoleBasicInfo> result = sut().listBasicByMemberId(MEMBER_ID);
 
         // then
         assertThat(result).containsExactly(
@@ -81,7 +72,8 @@ class ChallengerRoleQueryServiceTest {
     @Test
     @DisplayName("조회 전용 UseCase로 멤버의 역할 목록을 조회한다")
     void list_by_member_id() {
-        ListChallengerRoleUseCase useCase = service;
+        ChallengerRoleQueryService sut = sut();
+        ListChallengerRoleUseCase useCase = sut;
         ChallengerRole role = ChallengerRole.create(
             10L,
             ChallengerRoleType.SCHOOL_PRESIDENT,
@@ -102,7 +94,8 @@ class ChallengerRoleQueryServiceTest {
     @Test
     @DisplayName("권한 판정 UseCase로 특정 기수의 학교 회장단 여부를 확인한다")
     void check_school_core_in_gisu() {
-        CheckChallengerAuthorityUseCase useCase = service;
+        ChallengerRoleQueryService sut = sut();
+        CheckChallengerAuthorityUseCase useCase = sut;
         ChallengerRole role = ChallengerRole.create(
             10L,
             ChallengerRoleType.SCHOOL_VICE_PRESIDENT,
@@ -120,7 +113,7 @@ class ChallengerRoleQueryServiceTest {
     @Test
     @DisplayName("권한 판정 UseCase로 중앙 총괄단 AnyGisu 정책을 명시적으로 확인한다")
     void check_central_core_in_any_gisu() {
-        ChallengerRoleQueryService sut = new ChallengerRoleQueryService(loadChallengerRolePort, getGisuUseCase);
+        ChallengerRoleQueryService sut = sut();
         CheckChallengerAuthorityUseCase useCase = sut;
         ChallengerRole role = ChallengerRole.create(
             10L,
@@ -139,7 +132,7 @@ class ChallengerRoleQueryServiceTest {
     @Test
     @DisplayName("권한 판정 UseCase로 학교 회장단 AnyGisu 정책을 명시적으로 확인한다")
     void check_school_core_in_any_gisu() {
-        ChallengerRoleQueryService sut = new ChallengerRoleQueryService(loadChallengerRolePort, getGisuUseCase);
+        ChallengerRoleQueryService sut = sut();
         CheckChallengerAuthorityUseCase useCase = sut;
         ChallengerRole role = ChallengerRole.create(
             10L,
@@ -158,7 +151,8 @@ class ChallengerRoleQueryServiceTest {
     @Test
     @DisplayName("조회 전용 UseCase로 챌린저별 역할 타입을 일괄 조회한다")
     void map_role_types_by_challenger_ids() {
-        ListChallengerRoleUseCase useCase = service;
+        ChallengerRoleQueryService sut = sut();
+        ListChallengerRoleUseCase useCase = sut;
         ChallengerRole role = ChallengerRole.create(
             10L,
             ChallengerRoleType.CENTRAL_PRESIDENT,
@@ -171,5 +165,27 @@ class ChallengerRoleQueryServiceTest {
         Map<Long, List<ChallengerRoleType>> result = useCase.mapRoleTypesByChallengerIds(Set.of(10L));
 
         assertThat(result).containsEntry(10L, List.of(ChallengerRoleType.CENTRAL_PRESIDENT));
+    }
+
+    @Test
+    @DisplayName("SUPER_ADMIN은 member system role로 판정한다")
+    void check_super_admin_by_member_system_role() {
+        ChallengerRoleQueryService sut = sut();
+        CheckChallengerAuthorityUseCase useCase = sut;
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of(
+            new MemberSystemRoleInfo(MEMBER_ID, "SUPER_ADMIN")
+        ));
+
+        boolean result = useCase.isSuperAdmin(MEMBER_ID);
+
+        assertThat(result).isTrue();
+    }
+
+    private ChallengerRoleQueryService sut() {
+        return new ChallengerRoleQueryService(
+            loadChallengerRolePort,
+            getGisuUseCase,
+            listMemberSystemRoleUseCase
+        );
     }
 }

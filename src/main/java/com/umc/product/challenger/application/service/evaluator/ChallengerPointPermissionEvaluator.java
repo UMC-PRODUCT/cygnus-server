@@ -101,11 +101,7 @@ public class ChallengerPointPermissionEvaluator implements ResourcePermissionEva
     }
 
     private boolean canDelete(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
-        ChallengerPointInfo challengerPointInfo = getChallengerPointUseCase.getById(
-            resourcePermission.getResourceIdAsLong());
-        ChallengerInfo grantedChallengerInfo = getGrantedChallengerInfo(challengerPointInfo.challengerId());
-
         // 중앙운영사무국 총괄단만 가능함
-        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInGisu(grantedChallengerInfo.gisuId());
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
     }
 }

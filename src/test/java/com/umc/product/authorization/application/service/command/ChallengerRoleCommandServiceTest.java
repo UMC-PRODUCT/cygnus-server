@@ -4,12 +4,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
 import com.umc.product.authorization.application.port.in.command.dto.DeleteChallengerRoleCommand;
 import com.umc.product.authorization.application.port.in.command.dto.UpdateChallengerRoleCommand;
@@ -19,9 +22,6 @@ import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.global.cache.application.port.in.CacheUseCase;
-import com.umc.product.global.cache.domain.CacheKey;
-import com.umc.product.global.cache.domain.CacheNamespace;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChallengerRoleCommandService")
@@ -43,7 +43,7 @@ class ChallengerRoleCommandServiceTest {
     GetChallengerUseCase getChallengerUseCase;
 
     @Mock
-    CacheUseCase cacheUseCase;
+    EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @Test
     @DisplayName("역할 생성 후 해당 회원의 권한 snapshot 캐시를 제거한다")
@@ -52,7 +52,7 @@ class ChallengerRoleCommandServiceTest {
             loadChallengerRolePort,
             saveChallengerRolePort,
             getChallengerUseCase,
-            cacheUseCase
+            evictAuthoritySnapshotCacheUseCase
         );
         given(saveChallengerRolePort.save(any(ChallengerRole.class))).willAnswer(invocation -> invocation.getArgument(0));
         given(getChallengerUseCase.getById(CHALLENGER_ID)).willReturn(ChallengerInfo.builder()
@@ -67,7 +67,32 @@ class ChallengerRoleCommandServiceTest {
             .gisuId(GISU_ID)
             .build());
 
-        verify(cacheUseCase).evict(CacheNamespace.AUTHORITY_SNAPSHOT, CacheKey.from("member:" + MEMBER_ID));
+        verify(evictAuthoritySnapshotCacheUseCase).evictByMemberId(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("역할을 대량 생성한 후 해당 회원들의 권한 snapshot 캐시를 제거한다")
+    void evict_authority_snapshot_after_bulk_create() {
+        ChallengerRoleCommandService sut = new ChallengerRoleCommandService(
+            loadChallengerRolePort,
+            saveChallengerRolePort,
+            getChallengerUseCase,
+            evictAuthoritySnapshotCacheUseCase
+        );
+        given(saveChallengerRolePort.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
+        given(getChallengerUseCase.getById(CHALLENGER_ID)).willReturn(ChallengerInfo.builder()
+            .challengerId(CHALLENGER_ID)
+            .memberId(MEMBER_ID)
+            .build());
+
+        sut.createChallengerRoleBulk(List.of(CreateChallengerRoleCommand.builder()
+            .challengerId(CHALLENGER_ID)
+            .roleType(ChallengerRoleType.SCHOOL_PRESIDENT)
+            .organizationId(SCHOOL_ID)
+            .gisuId(GISU_ID)
+            .build()));
+
+        verify(evictAuthoritySnapshotCacheUseCase).evictByMemberId(MEMBER_ID);
     }
 
     @Test
@@ -77,7 +102,7 @@ class ChallengerRoleCommandServiceTest {
             loadChallengerRolePort,
             saveChallengerRolePort,
             getChallengerUseCase,
-            cacheUseCase
+            evictAuthoritySnapshotCacheUseCase
         );
         ChallengerRole role = ChallengerRole.create(
             CHALLENGER_ID,
@@ -98,7 +123,7 @@ class ChallengerRoleCommandServiceTest {
             .organizationId(SCHOOL_ID)
             .build());
 
-        verify(cacheUseCase).evict(CacheNamespace.AUTHORITY_SNAPSHOT, CacheKey.from("member:" + MEMBER_ID));
+        verify(evictAuthoritySnapshotCacheUseCase).evictByMemberId(MEMBER_ID);
     }
 
     @Test
@@ -108,7 +133,7 @@ class ChallengerRoleCommandServiceTest {
             loadChallengerRolePort,
             saveChallengerRolePort,
             getChallengerUseCase,
-            cacheUseCase
+            evictAuthoritySnapshotCacheUseCase
         );
         ChallengerRole role = ChallengerRole.create(
             CHALLENGER_ID,
@@ -127,6 +152,6 @@ class ChallengerRoleCommandServiceTest {
             .challengerRoleId(CHALLENGER_ROLE_ID)
             .build());
 
-        verify(cacheUseCase).evict(CacheNamespace.AUTHORITY_SNAPSHOT, CacheKey.from("member:" + MEMBER_ID));
+        verify(evictAuthoritySnapshotCacheUseCase).evictByMemberId(MEMBER_ID);
     }
 }

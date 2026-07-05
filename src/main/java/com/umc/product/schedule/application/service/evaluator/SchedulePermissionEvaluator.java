@@ -1,17 +1,18 @@
 package com.umc.product.schedule.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.schedule.application.port.out.LoadSchedulePort;
 import com.umc.product.schedule.domain.Schedule;
 import com.umc.product.schedule.domain.exception.ScheduleDomainException;
 import com.umc.product.schedule.domain.exception.ScheduleErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * Schedule(일정) 리소스에 대한 권한 평가
@@ -21,7 +22,6 @@ import org.springframework.stereotype.Component;
 public class SchedulePermissionEvaluator implements ResourcePermissionEvaluator {
 
     private final LoadSchedulePort loadSchedulePort;
-    private final GetGisuUseCase getGisuUseCase;
 
     @Override
     public ResourceType supportedResourceType() {
@@ -41,8 +41,6 @@ public class SchedulePermissionEvaluator implements ResourcePermissionEvaluator 
             return !subjectAttributes.gisuChallengerInfos().isEmpty();
         }
 
-        // EDIT (일정 수정), DELETE (일정 삭제)
-        // '생성자 본인' 또는 '해당 일정 기수의 최고 운영 관리자'만 가능
         if (permission == PermissionType.EDIT || permission == PermissionType.DELETE) {
 
             // resourceId가 없으면 false 리턴
@@ -53,17 +51,13 @@ public class SchedulePermissionEvaluator implements ResourcePermissionEvaluator 
             Schedule schedule = loadSchedulePort.findById(resourcePermission.getResourceIdAsLong())
                 .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
 
-            // 해당 일정의 기수에서 최고 운영 관리자 권한이 있다면 즉시 통과
-            if (isSuperAdminOfScheduleGisu(subjectAttributes, schedule)) {
+            if (isSuperAdmin(subjectAttributes)) {
                 return true;
             }
 
-            // 최고 운영 관리자가 아니라면 일정 생성자 본인인지 확인
             return schedule.getAuthorMemberId().equals(memberId);
         }
 
-        // FORCE_DELETE (일정 강제 삭제)
-        // '해당 일정 기수의 최고 운영 관리자'만 가능 (생성자 본인은 불가)
         if (permission == PermissionType.FORCE_DELETE) {
 
             if (resourcePermission.resourceId() == null) {
@@ -73,16 +67,13 @@ public class SchedulePermissionEvaluator implements ResourcePermissionEvaluator 
             Schedule schedule = loadSchedulePort.findById(resourcePermission.getResourceIdAsLong())
                 .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
 
-            return isSuperAdminOfScheduleGisu(subjectAttributes, schedule);
+            return isSuperAdmin(subjectAttributes);
         }
 
         return false;
     }
 
-    private boolean isSuperAdminOfScheduleGisu(SubjectAttributes subjectAttributes, Schedule schedule) {
-        Long targetGisuId = getGisuUseCase.getGisuByDate(schedule.getStartsAt()).gisuId();
-        return subjectAttributes.roleAttributes().stream()
-            .filter(role -> role.gisuId().equals(targetGisuId))
-            .anyMatch(role -> role.roleType().isSuperAdmin());
+    private boolean isSuperAdmin(SubjectAttributes subjectAttributes) {
+        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin();
     }
 }

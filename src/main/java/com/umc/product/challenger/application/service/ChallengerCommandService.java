@@ -1,5 +1,13 @@
 package com.umc.product.challenger.application.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ChallengerDeactivationType;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerCommand;
@@ -20,12 +28,8 @@ import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
-import java.util.List;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,6 +42,7 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
     private final SaveChallengerPort saveChallengerPort;
     private final LoadChallengerPointPort loadChallengerPointPort;
     private final SaveChallengerPointPort saveChallengerPointPort;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     // NOTE: 같은 도메인은 port를 통해서 접근하도록 함.
     // 동일 도메인 내에서 UseCase를 통해서 접근할 경우, 의존 방향이 역전된 것
@@ -57,6 +62,7 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
         );
 
         Challenger savedChallenger = saveChallengerPort.save(challenger);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(savedChallenger.getMemberId());
         return savedChallenger.getId();
     }
 
@@ -78,7 +84,12 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
             ))
             .toList();
 
-        return saveChallengerPort.saveAll(challengers).stream()
+        List<Challenger> savedChallengers = saveChallengerPort.saveAll(challengers);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberIds(savedChallengers.stream()
+            .map(Challenger::getMemberId)
+            .toList());
+
+        return savedChallengers.stream()
             .map(Challenger::getId)
             .toList();
     }
@@ -105,12 +116,14 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
         }
 
         saveChallengerPort.save(challenger);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(challenger.getMemberId());
     }
 
     @Override
     public void deleteChallenger(DeleteChallengerCommand command) {
         Challenger challenger = loadChallengerPort.getById(command.challengerId());
         saveChallengerPort.delete(challenger);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(challenger.getMemberId());
     }
 
     @Override
@@ -121,6 +134,7 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
             command.modifiedBy(),
             command.reason()
         );
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(challenger.getMemberId());
     }
 
     @Override

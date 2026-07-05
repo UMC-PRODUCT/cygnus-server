@@ -28,7 +28,9 @@ import com.umc.product.global.cache.domain.CacheNamespace;
 import com.umc.product.global.cache.domain.CacheSpec;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.application.port.in.query.dto.MemberSystemRoleInfo;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 
@@ -49,6 +51,9 @@ class AuthorizationServiceCacheTest {
     GetMemberUseCase getMemberUseCase;
 
     @Mock
+    ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
+
+    @Mock
     GetChapterUseCase getChapterUseCase;
 
     @Mock
@@ -65,6 +70,7 @@ class AuthorizationServiceCacheTest {
             loadChallengerRolePort,
             List.of(),
             getMemberUseCase,
+            listMemberSystemRoleUseCase,
             getChapterUseCase,
             getChallengerUseCase,
             operationalMetrics,
@@ -89,20 +95,27 @@ class AuthorizationServiceCacheTest {
             null,
             GISU_ID
         )));
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of(
+            new MemberSystemRoleInfo(MEMBER_ID, "SUPER_ADMIN")
+        ));
 
         SubjectAttributes first = sut.loadSubject(MEMBER_ID);
         SubjectAttributes second = sut.loadSubject(MEMBER_ID);
 
         assertThat(first.roleAttributes()).hasSize(1);
         assertThat(second.roleAttributes()).hasSize(1);
+        assertThat(first.systemRoles()).hasSize(1);
+        assertThat(second.systemRoles()).hasSize(1);
         assertThat(cacheUseCase.latestSpec().namespace()).isEqualTo(CacheNamespace.AUTHORITY_SNAPSHOT);
         assertThat(cacheUseCase.latestSpec().valueType()).isEqualTo(String.class);
         assertThat(cacheUseCase.latestValue()).isInstanceOf(String.class);
         assertThat((String) cacheUseCase.latestValue()).contains("SCHOOL_PRESIDENT");
+        assertThat((String) cacheUseCase.latestValue()).contains("SUPER_ADMIN");
         verify(getMemberUseCase, times(1)).getById(MEMBER_ID);
         verify(getChallengerUseCase, times(1)).getAllByMemberId(MEMBER_ID);
         verify(getChapterUseCase, times(1)).byGisuAndSchool(GISU_ID, SCHOOL_ID);
         verify(loadChallengerRolePort, times(1)).findByMemberId(MEMBER_ID);
+        verify(listMemberSystemRoleUseCase, times(1)).listByMemberId(MEMBER_ID);
     }
 
     private static class InMemoryCacheUseCase implements CacheUseCase {

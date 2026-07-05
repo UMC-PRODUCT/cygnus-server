@@ -148,6 +148,10 @@ public class ProjectCommandService implements
     private void validateRequesterCanAssignTarget(
         Long requesterId, Long gisuId, Long targetSchoolId, Long targetChapterId
     ) {
+        if (getChallengerRoleUseCase.isSuperAdmin(requesterId)) {
+            return;
+        }
+
         List<ChallengerRoleInfo> requesterRoles = getChallengerRoleUseCase.findAllByMemberId(requesterId).stream()
             .filter(r -> Objects.equals(r.gisuId(), gisuId))
             .toList();

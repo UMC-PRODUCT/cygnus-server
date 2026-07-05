@@ -24,6 +24,8 @@ import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicI
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.member.application.dto.MemberSearchAccessScope;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberSystemRoleInfo;
 
 @ExtendWith(MockitoExtension.class)
 class MemberSearchAccessScopeResolverTest {
@@ -35,6 +37,9 @@ class MemberSearchAccessScopeResolverTest {
 
     @Mock
     GetChallengerUseCase getChallengerUseCase;
+
+    @Mock
+    ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
 
     @InjectMocks
     MemberSearchAccessScopeResolver resolver;
@@ -110,7 +115,22 @@ class MemberSearchAccessScopeResolverTest {
     @Test
     @DisplayName("SUPER_ADMIN 역할은 챌린저 이력 없이도 무제한 범위를 허용한다")
     void superAdmin_역할은_무제한_범위를_허용한다() {
-        assertCentralRoleGrantsUnrestricted(ChallengerRoleType.SUPER_ADMIN);
+        // given
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of(
+            new MemberSystemRoleInfo(MEMBER_ID, "SUPER_ADMIN")
+        ));
+
+        // when
+        MemberSearchAccessScope scope = resolver.resolve(MEMBER_ID);
+
+        // then
+        assertThat(scope.denied()).isFalse();
+        assertThat(scope.unrestricted()).isTrue();
+        assertThat(scope.allowedSchoolIds()).isEmpty();
+        assertThat(scope.allowedGisuIds()).isEmpty();
+        then(listMemberSystemRoleUseCase).should().listByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
     }
 
     @Test

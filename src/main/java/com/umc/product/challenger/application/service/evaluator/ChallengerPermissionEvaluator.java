@@ -1,12 +1,13 @@
 package com.umc.product.challenger.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
-import org.springframework.stereotype.Component;
 
 @Component
 public class ChallengerPermissionEvaluator implements ResourcePermissionEvaluator {
@@ -28,19 +29,18 @@ public class ChallengerPermissionEvaluator implements ResourcePermissionEvaluato
 
     private boolean canCreateChallenger(SubjectAttributes subjectAttributes) {
         // 교내 회장/부회장 이상만 가능함
-        return subjectAttributes.roleAttributes().stream()
+        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin()
+            || subjectAttributes.roleAttributes().stream()
             .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastSchoolCore());
     }
 
     private boolean canUpdateChallenger(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         // 중앙운영사무국 총괄단만 가능
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastCentralCore());
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
     }
 
     private boolean canDeleteChallenger(SubjectAttributes subjectAttributes) {
         // 중앙운영사무국 총괄단만 가능함
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastCentralCore());
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
     }
 }

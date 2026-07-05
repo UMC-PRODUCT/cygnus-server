@@ -106,6 +106,16 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 - Flyway files use `VYYYY.MM.DD.HH.MM__snake_case.sql`; duplicate versions are checked by Gradle.
 - REST Docs snippets use `{class-name}/{method-name}` and are assembled into `docs/static`.
 
+## AUTHORIZATION
+
+- ChallengerRole-backed staff authority is scoped to a gisu. New resource permission checks that have a resource gisu must use `...InGisu(...)` predicates with the resource's gisu.
+- `...InAnyGisu(...)` predicates are allowed only for intentionally global or gisu-agnostic surfaces, such as audit, analytics, organization-wide admin policy, or other flows whose resource has no meaningful gisu. The reason must be covered by tests or PR review notes.
+- Use `ListChallengerRoleUseCase` for role read models and `CheckChallengerAuthorityUseCase` for boolean authority decisions. `GetChallengerRoleUseCase` exists as a compatibility facade; do not introduce it in new code unless an existing constructor/API boundary requires it.
+- `ResourcePermissionEvaluator` implementations should evaluate `SubjectAttributes.toAuthoritySnapshot()` instead of re-querying ChallengerRole data or manually streaming raw role lists.
+- When ChallengerRole data or member system role data changes, evict the `AUTHORITY_SNAPSHOT` cache through the authorization cache usecase. Cache serialized DTOs, not domain entities.
+- `SUPER_ADMIN` is a member-bound global system role stored by the member domain (`member_system_role`). Authorization consumes it through the member domain's public usecase and maps it to `SystemRoleType`; do not create new `challenger_role` rows for `SUPER_ADMIN` or force it into gisu-scoped ChallengerRole policy.
+- Authorization refactors must preserve client-visible API paths, request/response shapes, and status semantics unless the issue explicitly includes a client contract change. Add tests that lock existing behavior before replacing predicates.
+
 ## ANTI-PATTERNS
 
 - No `@Setter` on entities.

@@ -24,7 +24,7 @@ public class GisuPermissionEvaluator implements ResourcePermissionEvaluator {
     public boolean evaluate(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         return switch (resourcePermission.permission()) {
             case WRITE, EDIT, DELETE -> subjectAttributes.toAuthoritySnapshot()
-                .isCentralCoreInGisu(resourcePermission.getResourceIdAsLong());
+                .isCentralCoreInAnyGisu();
             default -> throw new AuthorizationDomainException(AuthorizationErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED,
                 "GisuPermissionEvaluator에서 해당 PermissionType을 지원하지 않습니다: " + resourcePermission.permission());
         };

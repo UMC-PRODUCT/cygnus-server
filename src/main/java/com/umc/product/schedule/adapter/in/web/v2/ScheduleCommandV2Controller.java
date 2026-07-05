@@ -123,7 +123,7 @@ public class ScheduleCommandV2Controller {
         resourceType = ResourceType.SCHEDULE,
         resourceId = "#scheduleId",
         permission = PermissionType.EDIT,
-        message = "일정은 생성자 본인 또는 해당 기수의 최고 운영 관리자만 수정할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+        message = "일정은 생성자 본인 또는 전역 최고 운영 관리자만 수정할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     @Operation(operationId = "SCHEDULE-C002", summary = "일정 수정", description = """
         일정과 관련된 모든 정보를 수정합니다. 제공되지 않은 필드는 변경하지 않는 것으로 간주합니다.
@@ -184,7 +184,7 @@ public class ScheduleCommandV2Controller {
         resourceType = ResourceType.SCHEDULE,
         resourceId = "#scheduleId",
         permission = PermissionType.DELETE,
-        message = "일정은 생성자 본인 또는 해당 기수의 최고 운영 관리자만 삭제할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+        message = "일정은 생성자 본인 또는 전역 최고 운영 관리자만 삭제할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     @Operation(operationId = "SCHEDULE-C006", summary = "일정 삭제", description = """
         일정을 삭제합니다.
@@ -195,7 +195,7 @@ public class ScheduleCommandV2Controller {
 
         삭제 가능 권한:
         - 일정 생성자 본인
-        - 해당 일정이 진행되는 기수의 최고 운영 관리자(`SUPER_ADMIN`)
+        - 전역 최고 운영 관리자(`SUPER_ADMIN`)
         """
     )
     @ApiResponses(value = {
@@ -225,7 +225,7 @@ public class ScheduleCommandV2Controller {
         resourceType = ResourceType.SCHEDULE,
         resourceId = "#scheduleId",
         permission = PermissionType.FORCE_DELETE,
-        message = "일정 강제 삭제는 해당 기수의 최고 운영 관리자만 할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+        message = "일정 강제 삭제는 전역 최고 운영 관리자만 할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     @Operation(operationId = "SCHEDULE-C007", summary = "일정 강제 삭제", description = """
         출석 기록 존재 여부와 관계 없이 일정을 강제로 삭제합니다.
@@ -234,7 +234,7 @@ public class ScheduleCommandV2Controller {
         - 출석 기록이 있는 일정 또한 삭제 가능합니다.
 
         강제 삭제 가능 권한:
-        - 해당 일정이 진행되는 기수의 최고 운영 관리자(`SUPER_ADMIN`)
+        - 전역 최고 운영 관리자(`SUPER_ADMIN`)
         """
     )
     @ApiResponses(value = {

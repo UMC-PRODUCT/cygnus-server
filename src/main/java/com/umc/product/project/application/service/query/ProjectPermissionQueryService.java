@@ -418,9 +418,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     }
 
     private boolean isCentralCoreInGisu(SubjectAttributes subject, Long gisuId) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin()
-                || (role.roleType().isAtLeastCentralCore() && Objects.equals(role.gisuId(), gisuId)));
+        return subject.toAuthoritySnapshot().isCentralCoreInGisu(gisuId);
     }
 
     private boolean isChapterPresidentOf(SubjectAttributes subject, Long chapterId, Long gisuId) {

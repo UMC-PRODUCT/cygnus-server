@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -19,9 +20,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ChallengerDeactivationType;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.DeactivateChallengerCommand;
+import com.umc.product.challenger.application.port.in.command.dto.DeleteChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.GrantChallengerPointCommand;
 import com.umc.product.challenger.application.port.in.command.dto.UpdateChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.UpdateChallengerPointCommand;
@@ -56,6 +59,9 @@ class ChallengerCommandServiceTest {
     @Mock
     SaveChallengerPointPort saveChallengerPointPort;
 
+    @Mock
+    EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
+
     @InjectMocks
     ChallengerCommandService sut;
 
@@ -82,6 +88,22 @@ class ChallengerCommandServiceTest {
 
             assertThat(result).isEqualTo(100L);
             then(saveChallengerPort).should().save(any(Challenger.class));
+        }
+
+        @Test
+        @DisplayName("동일 기수 챌린저가 없으면 생성 후 해당 회원의 권한 snapshot 캐시를 제거한다")
+        void 동일_기수_챌린저가_없으면_생성_후_해당_회원의_권한_snapshot_캐시를_제거한다() {
+            CreateChallengerCommand command = CreateChallengerCommand.builder()
+                .memberId(1L)
+                .part(ChallengerPart.SPRINGBOOT)
+                .gisuId(9L)
+                .build();
+            given(loadChallengerPort.findByMemberIdAndGisuId(1L, 9L)).willReturn(Optional.empty());
+            given(saveChallengerPort.save(any(Challenger.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            sut.createChallenger(command);
+
+            then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
         }
 
         @Test
@@ -137,6 +159,38 @@ class ChallengerCommandServiceTest {
 
             then(saveChallengerPort).should(never()).save(any());
         }
+
+        @Test
+        @DisplayName("파트를 변경하면 해당 회원의 권한 snapshot 캐시를 제거한다")
+        void 파트를_변경하면_해당_회원의_권한_snapshot_캐시를_제거한다() {
+            given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
+
+            sut.updateChallenger(UpdateChallengerCommand.forPartChange(1L, ChallengerPart.WEB, 99L));
+
+            then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+        }
+    }
+
+    @Test
+    @DisplayName("챌린저를 대량 생성하면 생성된 회원들의 권한 snapshot 캐시를 제거한다")
+    void 챌린저를_대량_생성하면_생성된_회원들의_권한_snapshot_캐시를_제거한다() {
+        given(environment.getActiveProfiles()).willReturn(new String[] {"local"});
+        given(saveChallengerPort.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        sut.createChallengerBulk(List.of(
+            CreateChallengerCommand.builder()
+                .memberId(1L)
+                .part(ChallengerPart.SPRINGBOOT)
+                .gisuId(9L)
+                .build(),
+            CreateChallengerCommand.builder()
+                .memberId(2L)
+                .part(ChallengerPart.WEB)
+                .gisuId(9L)
+                .build()
+        ));
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberIds(List.of(1L, 2L));
     }
 
     @Test
@@ -155,6 +209,31 @@ class ChallengerCommandServiceTest {
         assertThat(challenger.getStatus()).isEqualTo(ChallengerStatus.EXPELLED);
         assertThat(challenger.getModifiedBy()).isEqualTo(99L);
         assertThat(challenger.getModificationReason()).isEqualTo("징계");
+    }
+
+    @Test
+    @DisplayName("챌린저를 비활성화하면 해당 회원의 권한 snapshot 캐시를 제거한다")
+    void 챌린저를_비활성화하면_해당_회원의_권한_snapshot_캐시를_제거한다() {
+        given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
+
+        sut.deactivateChallenger(DeactivateChallengerCommand.of(
+            1L,
+            ChallengerDeactivationType.WITHDRAW,
+            99L,
+            "탈퇴"
+        ));
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+    }
+
+    @Test
+    @DisplayName("챌린저 삭제 후 해당 회원의 권한 snapshot 캐시를 제거한다")
+    void 챌린저_삭제_후_해당_회원의_권한_snapshot_캐시를_제거한다() {
+        given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
+
+        sut.deleteChallenger(new DeleteChallengerCommand(1L, "잘못 생성된 기록"));
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
     }
 
     @Test

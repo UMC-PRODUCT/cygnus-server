@@ -165,14 +165,11 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
     }
 
     private boolean isSuperAdmin(SubjectAttributes subject) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin());
+        return subject.toAuthoritySnapshot().isSuperAdmin();
     }
 
     private boolean isCentralCoreInGisu(SubjectAttributes subject, Long gisuId) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin()
-                || (role.roleType().isAtLeastCentralCore() && Objects.equals(role.gisuId(), gisuId)));
+        return subject.toAuthoritySnapshot().isCentralCoreInGisu(gisuId);
     }
 
     private boolean isOwner(SubjectAttributes subject, Project project) {
