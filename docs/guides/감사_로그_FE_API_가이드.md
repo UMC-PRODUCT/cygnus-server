@@ -223,7 +223,7 @@ GET /api/v1/admin/audit-logs
 
 `COMMON`, `AUTHENTICATION`, `AUTHORIZATION`, `MEMBER`, `CHALLENGER`, `ORGANIZATION`,
 `CURRICULUM`, `SCHEDULE`, `COMMUNITY`, `NOTICE`, `FCM`, `SURVEY`, `RECRUITMENT`,
-`TERMS`, `EMAIL`, `STORAGE`, `WEBHOOK`, `AUDIT_LOG`, `PROJECT`, `FIGMA`, `LLM`
+`TERMS`, `EMAIL`, `STORAGE`, `WEBHOOK`, `AUDIT_LOG`, `PROJECT`, `LLM`
 
 > 모든 도메인이 실제로 감사 로그를 발행하는 것은 아닙니다 (현재는 `SCHEDULE` 위주). 드롭다운에는 전체 enum 을 노출해도 무방하나, "결과 0건" 빈 상태가 자주 나올 수 있다는 점을 유의하세요.
 

@@ -25,7 +25,6 @@ public enum Domain {
     WEBHOOK,
     AUDIT_LOG,
     PROJECT,
-    FIGMA,
     LLM,
     ANALYTICS,
     MAINTENANCE,

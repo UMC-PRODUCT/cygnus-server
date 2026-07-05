@@ -65,7 +65,7 @@ public class ChatCompletionService implements ChatCompleteUseCase {
     }
 
     /**
-     * 부팅 시 실제로 활성화된 어댑터를 INFO 로 한 줄 출력하고, 활성 provider / fallback 진입 여부를 항상 노출되는 gauge 로 등록한다 (LLM_분류_캐시_점검_보고서 §3.6).
+     * 부팅 시 실제로 활성화된 어댑터를 INFO 로 한 줄 출력하고, 활성 provider / fallback 진입 여부를 항상 노출되는 gauge 로 등록한다.
      */
     @PostConstruct
     void logActiveProvider() {
