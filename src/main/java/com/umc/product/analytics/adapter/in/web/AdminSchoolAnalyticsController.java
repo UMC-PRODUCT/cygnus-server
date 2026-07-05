@@ -21,7 +21,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/admin/schools")
+@RequestMapping("/api/v1/analytics/admin/schools")
 @RequiredArgsConstructor
 @Tag(name = "Analytics | 학교별 현황", description = "운영진이 학교별 운영 현황을 확인합니다.")
 public class AdminSchoolAnalyticsController {

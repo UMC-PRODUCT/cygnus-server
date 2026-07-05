@@ -55,7 +55,7 @@ public final class SecurityPathConfig {
     public static final List<String> MAINTENANCE_ALWAYS_ALLOW_PATHS = Stream.concat(
         Stream.of(
             "/api/v1/system/status",
-            "/api/v1/admin/maintenance/**",
+            "/api/v1/maintenance/admin/**",
             "/api/v1/auth/sso/oauth/**",
             "/api/v1/auth/sso/**",
             "/api/v1/auth/**",

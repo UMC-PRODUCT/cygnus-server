@@ -6,7 +6,7 @@
 | 도메인 | 테스트 파일 수 | 테스트 케이스 수 | 문서 |
 |---|---:|---:|---|
 | Analytics | 8 | 26 | [analytics.md](analytics.md) |
-| Audit | 1 | 3 | [audit.md](audit.md) |
+| Audit | 2 | 5 | [audit.md](audit.md) |
 | Authentication | 14 | 71 | [authentication.md](authentication.md) |
 | Authorization | 2 | 19 | [authorization.md](authorization.md) |
 | Blog | 3 | 33 | [blog.md](blog.md) |
@@ -27,8 +27,8 @@
 | Term | 8 | 23 | [term.md](term.md) |
 | Test Seed | 11 | 58 | [test.md](test.md) |
 
-- 총 실행 테스트 파일: 210개
-- 총 테스트 케이스: 1386개
+- 총 실행 테스트 파일: 211개
+- 총 테스트 케이스: 1388개
 
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
 

@@ -116,7 +116,7 @@ class AdminDashboardControllerTest {
             Map.of()
         ));
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/summary")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/summary")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.activeChallengerCount").value(10L))
@@ -131,7 +131,7 @@ class AdminDashboardControllerTest {
         given(getAdminDashboardActionQueueUseCase.getActionQueue(any()))
             .willReturn(AdminDashboardActionQueueInfo.of(4L, 3L, 5L));
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/action-queue")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/action-queue")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.pendingAttendanceDecisionCount").value(4L))
@@ -154,7 +154,7 @@ class AdminDashboardControllerTest {
             AdminAnalyticsScopeType.CENTRAL
         ));
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/context"))
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/context"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.roleType").value("CENTRAL_PRESIDENT"))
             .andExpect(jsonPath("$.result.scopeType").value("CENTRAL"))
@@ -166,7 +166,7 @@ class AdminDashboardControllerTest {
     void 대시보드_riskChallengers_API_응답() throws Exception {
         given(getAdminRiskChallengerUseCase.getRiskChallengers(any())).willReturn(Page.empty());
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/risk-challengers")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/risk-challengers")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.content").isArray())
@@ -206,7 +206,7 @@ class AdminDashboardControllerTest {
             )
         );
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/operations")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations")
                 .param("gisuId", "7")
                 .param("from", "2026-05-01T00:00:00Z")
                 .param("to", "2026-05-13T00:00:00Z"))

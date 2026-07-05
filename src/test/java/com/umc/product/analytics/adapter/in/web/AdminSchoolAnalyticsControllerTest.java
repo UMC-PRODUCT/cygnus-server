@@ -6,13 +6,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.umc.product.analytics.application.port.in.query.GetAdminSchoolSummaryUseCase;
-import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryInfo;
-import com.umc.product.global.config.JacksonConfig;
-import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.support.RestDocsConfig;
 import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,6 +23,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.umc.product.analytics.application.port.in.query.GetAdminSchoolSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryInfo;
+import com.umc.product.global.config.JacksonConfig;
+import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = AdminSchoolAnalyticsController.class)
 @Import({JacksonConfig.class, RestDocsConfig.class})
@@ -75,7 +77,7 @@ class AdminSchoolAnalyticsControllerTest {
         given(getAdminSchoolSummaryUseCase.getSchoolSummaries(any()))
             .willReturn(new PageImpl<>(List.of(info), PageRequest.of(0, 20), 1));
 
-        mockMvc.perform(get("/api/v1/admin/schools/summary")
+        mockMvc.perform(get("/api/v1/analytics/admin/schools/summary")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.content[0].schoolName").value("가천대학교"))
