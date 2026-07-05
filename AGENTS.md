@@ -90,6 +90,9 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 - Command UseCases and Query UseCases stay separate. Command services use `@Transactional`; Query services use `@Transactional(readOnly = true)`.
 - Controllers return adapter `Response` records or application `Info` values. They do not return entities and do not wrap success responses in `ApiResponse`.
 - REST controllers live under `adapter/in/web`; GraphQL controllers live under `adapter/in/graphql`.
+- REST API URIs must be resource-first: start with `/api/v{version}/{domain}` and use stable, kebab-case resource nouns after the domain segment.
+- Admin REST APIs must use `/api/v{version}/{domain}/admin/...`; do not create new admin APIs under `/api/v{version}/admin/{domain}/...`.
+- Treat `admin` as an access/control surface inside the owning domain, not as a top-level domain. When changing controller paths, update REST Docs, controller tests, security/maintenance allow paths, and onboarding/API guide documents together.
 - GraphQL schema files in `src/main/resources/graphql` are API contracts and must stay aligned with GraphQL DTOs.
 - SSO/PKCE flows must not log authorization codes, login tokens, refresh tokens, or client secrets.
 - Request records live under `adapter/in/web/dto/request` and convert to command/query objects near the adapter boundary.
