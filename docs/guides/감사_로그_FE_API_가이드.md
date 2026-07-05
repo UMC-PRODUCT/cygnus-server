@@ -16,7 +16,7 @@
 - **누가 볼 수 있는가?** **중앙운영사무국 국원**만 조회 가능합니다.
   ([AuditLogPermissionEvaluator.java](src/main/java/com/umc/product/audit/application/service/AuditLogPermissionEvaluator.java))
 - **데이터는 어떻게 쌓이나?** 백엔드 메서드에 붙은 `@Audited` 어노테이션이 메서드 정상 종료 후 이벤트를 발행하고, 트랜잭션 커밋 이후 **비동기로** DB 에 저장합니다.
-- **호출해야 할 엔드포인트는?** `GET /api/v1/admin/audit-logs` 단 하나입니다. 필터 파라미터로 좁혀 검색합니다.
+- **호출해야 할 엔드포인트는?** `GET /api/v1/audit/admin/audit-logs` 입니다.
 
 ---
 
@@ -149,7 +149,7 @@ FE 가 화면을 만들 때 다음 설계 의도를 알고 있으면 더 자연�
 ### 3.1 엔드포인트
 
 ```
-GET /api/v1/admin/audit-logs
+GET /api/v1/audit/admin/audit-logs
 ```
 
 [AuditLogController.java](src/main/java/com/umc/product/audit/adapter/in/web/AuditLogController.java)
@@ -278,14 +278,14 @@ GET /api/v1/admin/audit-logs
 ### 4.1 cURL — 가장 단순한 호출 (모든 도메인, 최근 20건)
 
 ```bash
-curl -X GET 'https://{HOST}/api/v1/admin/audit-logs' \
+curl -X GET 'https://{HOST}/api/v1/audit/admin/audit-logs' \
   -H 'Authorization: Bearer eyJhbGciOi...'
 ```
 
 ### 4.2 cURL — 특정 기간의 SCHEDULE 도메인 CREATE 만
 
 ```bash
-curl -G 'https://{HOST}/api/v1/admin/audit-logs' \
+curl -G 'https://{HOST}/api/v1/audit/admin/audit-logs' \
   -H 'Authorization: Bearer eyJhbGciOi...' \
   --data-urlencode 'domain=SCHEDULE' \
   --data-urlencode 'action=CREATE' \
@@ -320,7 +320,7 @@ export async function searchAuditLogs(
   });
 
   const res = await fetch(
-    `/api/v1/admin/audit-logs?${params.toString()}`,
+    `/api/v1/audit/admin/audit-logs?${params.toString()}`,
     {
       method: "GET",
       headers: { Authorization: `Bearer ${accessToken}` },

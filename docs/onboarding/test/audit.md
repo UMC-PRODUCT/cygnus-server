@@ -1,12 +1,23 @@
 # Audit 테스트 케이스
 
-- 테스트 파일: 1개
-- 테스트 케이스: 3개
+- 테스트 파일: 2개
+- 테스트 케이스: 5개
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 
 | 카테고리 | 케이스 수 |
 |---|---:|
+| Controller | 2 |
 | Domain | 3 |
+
+## Controller
+
+### AuditLogControllerTest
+- 위치: `src/test/java/com/umc/product/audit/adapter/in/web/AuditLogControllerTest.java`
+
+| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
+|---:|---|---|---|
+| [35](../../../src/test/java/com/umc/product/audit/adapter/in/web/AuditLogControllerTest.java#L35) | 신규 감사 로그 admin 경로로 검색한다 | HTTP GET /api/v1/audit/admin/audit-logs | 성공: HTTP 200 OK |
+| [50](../../../src/test/java/com/umc/product/audit/adapter/in/web/AuditLogControllerTest.java#L50) | 기존 감사 로그 admin 경로는 더 이상 지원하지 않는다 | HTTP GET /api/v1/admin/audit-logs | 실패: HTTP 404 Not Found |
 
 ## Domain
 

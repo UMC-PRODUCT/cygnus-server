@@ -18,11 +18,11 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [104](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L104) | AdminDashboardController / 대시보드 summary API 문서화 | HTTP GET /api/v1/admin/dashboard/summary; param gisuId="7" | 성공: HTTP 200 OK |
-| [126](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L126) | AdminDashboardController / 대시보드 actionQueue API는 대상 도메인의 처리 대기 항목만 반환한다 | HTTP GET /api/v1/admin/dashboard/action-queue; param gisuId="7" | 성공: HTTP 200 OK |
-| [143](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L143) | 대시보드 context API 응답 | HTTP GET /api/v1/admin/dashboard/context | 성공: HTTP 200 OK |
-| [162](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L162) | 대시보드 riskChallengers API 응답 | HTTP GET /api/v1/admin/dashboard/risk-challengers; param gisuId="7" | 성공: HTTP 200 OK |
-| [174](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L174) | 대시보드 operations API 응답 | HTTP GET /api/v1/admin/dashboard/operations; param gisuId="7"; param from="2026-05-01T00:00:00Z"; param to="2026-05-13T00:00:00Z" | 성공: HTTP 200 OK |
+| [104](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L104) | AdminDashboardController / 대시보드 summary API 문서화 | HTTP GET /api/v1/analytics/admin/dashboard/summary; param gisuId="7" | 성공: HTTP 200 OK |
+| [126](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L126) | AdminDashboardController / 대시보드 actionQueue API는 대상 도메인의 처리 대기 항목만 반환한다 | HTTP GET /api/v1/analytics/admin/dashboard/action-queue; param gisuId="7" | 성공: HTTP 200 OK |
+| [143](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L143) | 대시보드 context API 응답 | HTTP GET /api/v1/analytics/admin/dashboard/context | 성공: HTTP 200 OK |
+| [162](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L162) | 대시보드 riskChallengers API 응답 | HTTP GET /api/v1/analytics/admin/dashboard/risk-challengers; param gisuId="7" | 성공: HTTP 200 OK |
+| [174](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminDashboardControllerTest.java#L174) | 대시보드 operations API 응답 | HTTP GET /api/v1/analytics/admin/dashboard/operations; param gisuId="7"; param from="2026-05-01T00:00:00Z"; param to="2026-05-13T00:00:00Z" | 성공: HTTP 200 OK |
 
 ### AdminSchoolAnalyticsControllerTest
 - 테스트 설명: AdminSchoolAnalyticsController
@@ -30,7 +30,7 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [57](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminSchoolAnalyticsControllerTest.java#L57) | AdminSchoolAnalyticsController / 학교별 summary API 문서화 | HTTP GET /api/v1/admin/schools/summary; param gisuId="7" | 성공: HTTP 200 OK |
+| [57](../../../src/test/java/com/umc/product/analytics/adapter/in/web/AdminSchoolAnalyticsControllerTest.java#L57) | AdminSchoolAnalyticsController / 학교별 summary API 문서화 | HTTP GET /api/v1/analytics/admin/schools/summary; param gisuId="7" | 성공: HTTP 200 OK |
 
 ## UseCase / Application Service
 

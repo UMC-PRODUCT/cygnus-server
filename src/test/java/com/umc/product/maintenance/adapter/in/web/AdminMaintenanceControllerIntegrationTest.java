@@ -7,6 +7,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
+
 import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.challenger.domain.Challenger;
@@ -20,14 +30,6 @@ import com.umc.product.support.IntegrationTestSupport;
 import com.umc.product.support.fixture.ChallengerFixture;
 import com.umc.product.support.fixture.GisuFixture;
 import com.umc.product.support.fixture.MemberFixture;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 
 @DisplayName("AdminMaintenanceController 통합 테스트")
 class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
@@ -75,7 +77,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
             "더 나은 서비스를 위한 점검입니다"
         );
 
-        String created = mockMvc.perform(post("/api/v1/admin/maintenance")
+        String created = mockMvc.perform(post("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + superAdminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
@@ -86,7 +88,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
 
         Long createdId = objectMapper.readTree(created).path("result").path("id").asLong();
 
-        mockMvc.perform(patch("/api/v1/admin/maintenance/" + createdId + "/end")
+        mockMvc.perform(patch("/api/v1/maintenance/admin/" + createdId + "/end")
                 .header("Authorization", "Bearer " + superAdminToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.forcedEndedAt").isNotEmpty());
@@ -101,7 +103,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
             "t", "m"
         );
 
-        mockMvc.perform(post("/api/v1/admin/maintenance")
+        mockMvc.perform(post("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + normalUserToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
@@ -117,7 +119,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
             now.plusSeconds(30), now.plus(Duration.ofHours(2)),
             "first", "m"
         );
-        mockMvc.perform(post("/api/v1/admin/maintenance")
+        mockMvc.perform(post("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + superAdminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(first)))
@@ -129,7 +131,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
             now.plus(Duration.ofHours(3)),
             "overlap", "m"
         );
-        mockMvc.perform(post("/api/v1/admin/maintenance")
+        mockMvc.perform(post("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + superAdminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(overlapping)))
@@ -147,7 +149,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
             "invalid", "m"
         );
 
-        mockMvc.perform(post("/api/v1/admin/maintenance")
+        mockMvc.perform(post("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + superAdminToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(body)))
@@ -157,11 +159,11 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
 
     @Test
     void 윈도우_목록은_SUPER_ADMIN_만_조회_가능() throws Exception {
-        mockMvc.perform(get("/api/v1/admin/maintenance")
+        mockMvc.perform(get("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + superAdminToken))
             .andExpect(status().isOk());
 
-        mockMvc.perform(get("/api/v1/admin/maintenance")
+        mockMvc.perform(get("/api/v1/maintenance/admin")
                 .header("Authorization", "Bearer " + normalUserToken))
             .andExpect(status().isForbidden());
     }
