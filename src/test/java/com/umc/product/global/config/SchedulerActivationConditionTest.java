@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 
-import com.umc.product.figma.adapter.in.scheduler.FigmaCommentDispatchRetentionScheduler;
-import com.umc.product.figma.adapter.in.scheduler.FigmaCommentSyncScheduler;
 import com.umc.product.notification.adapter.in.scheduler.FcmOutboxScheduler;
 
 @DisplayName("Scheduler activation condition")
@@ -18,13 +16,6 @@ class SchedulerActivationConditionTest {
     @DisplayName("FCM outbox scheduler는 FCM 활성화 시에만 등록된다")
     void fcmOutboxScheduler는_fcm_활성화시에만_등록된다() {
         assertConditionalOnProperty(FcmOutboxScheduler.class, "app.fcm.enabled");
-    }
-
-    @Test
-    @DisplayName("Figma scheduler는 Figma sync 활성화 시에만 등록된다")
-    void figmaScheduler는_sync_활성화시에만_등록된다() {
-        assertConditionalOnProperty(FigmaCommentSyncScheduler.class, "app.figma.sync.enabled");
-        assertConditionalOnProperty(FigmaCommentDispatchRetentionScheduler.class, "app.figma.sync.enabled");
     }
 
     private static void assertConditionalOnProperty(Class<?> type, String propertyName) {

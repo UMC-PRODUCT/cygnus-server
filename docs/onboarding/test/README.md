@@ -13,8 +13,7 @@
 | Challenger | 13 | 56 | [challenger.md](challenger.md) |
 | Curriculum | 5 | 61 | [curriculum.md](curriculum.md) |
 | Documentation | 2 | 4 | [documentation.md](documentation.md) |
-| Figma | 10 | 50 | [figma.md](figma.md) |
-| Global | 28 | 97 | [global.md](global.md) |
+| Global | 28 | 96 | [global.md](global.md) |
 | LLM | 4 | 15 | [llm.md](llm.md) |
 | Maintenance | 8 | 47 | [maintenance.md](maintenance.md) |
 | Member | 20 | 100 | [member.md](member.md) |
@@ -28,8 +27,8 @@
 | Term | 8 | 23 | [term.md](term.md) |
 | Test Seed | 11 | 58 | [test.md](test.md) |
 
-- 총 실행 테스트 파일: 220개
-- 총 테스트 케이스: 1437개
+- 총 실행 테스트 파일: 210개
+- 총 테스트 케이스: 1386개
 
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
 
