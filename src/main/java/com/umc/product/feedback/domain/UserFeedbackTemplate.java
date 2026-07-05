@@ -39,7 +39,7 @@ public class UserFeedbackTemplate extends BaseEntity {
     private UserFeedbackTargetType targetType;
 
     @Column(nullable = false)
-    private Long formId; // Survey Form ID 참조
+    private Long formId; // Form 도메인 Form ID 참조
 
     @Column(nullable = false)
     private boolean isActive;

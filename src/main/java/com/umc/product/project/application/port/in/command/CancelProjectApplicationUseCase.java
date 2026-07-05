@@ -24,7 +24,7 @@ import com.umc.product.project.application.port.in.query.dto.ProjectApplicationI
  * 권한 검증 (행위자, 상태별 접근 등)은 호출하는 endpoint의 권한 모델에서 결정합니다.
  * <p>
  * CANCELLED 후 동일 매칭 차수 재지원이 가능합니다 (DB partial unique index가 활성 지원서 1 개로 제한).
- * Survey {@code FormResponse} 본문은 보존.
+ * Form {@code FormResponse} 본문은 보존.
  */
 public interface CancelProjectApplicationUseCase {
     ProjectApplicationInfo cancel(CancelProjectApplicationCommand command);

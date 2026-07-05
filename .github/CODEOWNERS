@@ -41,7 +41,7 @@ src/main/java/com/umc/product/notice/** @kanghana1 @seamooll @kyeoungwoon
 src/main/java/com/umc/product/notification/** @kanghana1 @seamooll @wlgusqkr
 
 # 모집 및 프로젝트 관련
-src/main/java/com/umc/product/survey/** @galllee @kyeoungwoon
+src/main/java/com/umc/product/form/** @galllee @kyeoungwoon
 src/main/java/com/umc/product/project/** @kyeoungwoon @wooodypark
 src/main/java/com/umc/product/recruitment/** @galllee
 

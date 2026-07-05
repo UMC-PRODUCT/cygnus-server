@@ -1,7 +1,8 @@
 package com.umc.product.project.application.port.out;
 
-import com.umc.product.project.domain.ProjectApplicationFormPolicy;
 import java.util.List;
+
+import com.umc.product.project.domain.ProjectApplicationFormPolicy;
 
 /**
  * ProjectApplicationFormPolicy 쓰기 Port (Driven / Port Out).
@@ -20,7 +21,7 @@ public interface SaveProjectApplicationFormPolicyPort {
     /**
      * 특정 FormSection 에 매핑된 정책 row 를 삭제합니다.
      * <p>
-     * Survey 단의 {@code deleteSection} 호출 후 이 메서드로 매핑 row 를 정리합니다.
+     * Form 단의 {@code deleteSection} 호출 후 이 메서드로 매핑 row 를 정리합니다.
      */
     void deleteByFormSectionId(Long formSectionId);
 

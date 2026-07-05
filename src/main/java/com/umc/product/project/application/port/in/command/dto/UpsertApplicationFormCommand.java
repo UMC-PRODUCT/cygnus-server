@@ -1,11 +1,13 @@
 package com.umc.product.project.application.port.in.command.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.survey.domain.enums.QuestionType;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.domain.enums.FormSectionType;
+
 import lombok.Builder;
 
 /**

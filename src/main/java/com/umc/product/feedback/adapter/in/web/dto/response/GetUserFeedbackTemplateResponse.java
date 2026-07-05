@@ -5,8 +5,8 @@ import java.util.List;
 import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTemplateInfo;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
 import com.umc.product.feedback.domain.enums.UserFeedbackTargetType;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.domain.enums.QuestionType;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.QuestionType;
 
 import lombok.Builder;
 

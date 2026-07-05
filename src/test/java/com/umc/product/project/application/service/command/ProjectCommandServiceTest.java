@@ -74,7 +74,7 @@ class ProjectCommandServiceTest {
     @Mock
     GetChapterUseCase getChapterUseCase;
     @Mock
-    com.umc.product.survey.application.port.in.command.ManageFormUseCase manageFormUseCase;
+    com.umc.product.form.application.port.in.command.ManageFormUseCase manageFormUseCase;
 
     @InjectMocks
     ProjectCommandService sut;
