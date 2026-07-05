@@ -1,0 +1,103 @@
+name: GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release를 생성할 기존 v* tag 이름"
+        required: true
+        type: string
+
+concurrency:
+  group: github-release-${{ github.event.inputs.tag_name || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release tag 검증
+        id: release-target
+        env:
+          INPUT_TAG_NAME: ${{ github.event.inputs.tag_name || '' }}
+        run: |
+          set -euo pipefail
+
+          TAG_NAME="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            TAG_NAME="${INPUT_TAG_NAME}"
+          fi
+
+          if [[ "${TAG_NAME}" != v* ]]; then
+            echo "::error::Release tag '${TAG_NAME}' must start with 'v'."
+            exit 1
+          fi
+
+          git fetch --force --tags origin "+refs/heads/main:refs/remotes/origin/main"
+
+          if ! git show-ref --verify --quiet "refs/tags/${TAG_NAME}"; then
+            echo "::error::Tag '${TAG_NAME}' does not exist."
+            exit 1
+          fi
+
+          TAG_SHA="$(git rev-parse --verify "refs/tags/${TAG_NAME}^{commit}")"
+
+          if ! git rev-list --first-parent origin/main | awk -v target="${TAG_SHA}" '$0 == target { found = 1 } END { exit found ? 0 : 1 }'; then
+            echo "::error::Tag '${TAG_NAME}' must point to a commit on main's first-parent history."
+            exit 1
+          fi
+
+          PARENT_COUNT="$(git show -s --format=%P "${TAG_SHA}" | wc -w | tr -d ' ')"
+          if (( PARENT_COUNT < 2 )); then
+            echo "::error::Tag '${TAG_NAME}' must point to a merge commit on main."
+            exit 1
+          fi
+
+          {
+            echo "tag_name=${TAG_NAME}"
+            echo "sha=${TAG_SHA}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: GitHub Release 생성
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ steps.release-target.outputs.tag_name }}
+          TARGET_SHA: ${{ steps.release-target.outputs.sha }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "${TAG_NAME}" >/dev/null 2>&1; then
+            echo "Release '${TAG_NAME}' already exists. Skipping."
+            exit 0
+          fi
+
+          gh release create "${TAG_NAME}" \
+            --target "${TARGET_SHA}" \
+            --title "${TAG_NAME}" \
+            --verify-tag \
+            --generate-notes
+
+      - name: Release summary
+        run: |
+          {
+            echo "### GitHub Release"
+            echo ""
+            echo "| 항목 | 값 |"
+            echo "|------|-----|"
+            echo "| Tag | \`${{ steps.release-target.outputs.tag_name }}\` |"
+            echo "| Target SHA | \`${{ steps.release-target.outputs.sha }}\` |"
+            echo "| Repository | \`${{ github.repository }}\` |"
+          } >> "${GITHUB_STEP_SUMMARY}"
