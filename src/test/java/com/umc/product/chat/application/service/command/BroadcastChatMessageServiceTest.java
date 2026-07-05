@@ -5,13 +5,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.then;
 
-import com.umc.product.chat.application.port.in.command.dto.BroadcastChatMessagePayload;
-import com.umc.product.chat.domain.MessageContentType;
-import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
-import com.umc.product.global.websocket.application.port.out.BroadcastPort;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -19,6 +16,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.umc.product.chat.application.port.in.command.dto.BroadcastChatMessagePayload;
+import com.umc.product.chat.domain.MessageContentType;
+import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
+import com.umc.product.global.websocket.application.port.out.BroadcastPort;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("BroadcastChatMessageService")

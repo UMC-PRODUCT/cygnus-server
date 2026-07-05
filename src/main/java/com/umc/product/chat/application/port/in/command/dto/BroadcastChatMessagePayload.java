@@ -1,9 +1,10 @@
 package com.umc.product.chat.application.port.in.command.dto;
 
-import com.umc.product.chat.domain.MessageContentType;
-import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 import java.time.Instant;
 import java.util.List;
+
+import com.umc.product.chat.domain.MessageContentType;
+import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 
 /**
  * 채팅 메시지 broadcast 전용 payload.

@@ -4,10 +4,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 
-import com.umc.product.chat.application.port.in.command.dto.BroadcastChatMessagePayload;
-import com.umc.product.chat.domain.MessageContentType;
 import java.time.Instant;
 import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,6 +15,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.messaging.MessagingException;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
+
+import com.umc.product.chat.application.port.in.command.dto.BroadcastChatMessagePayload;
+import com.umc.product.chat.domain.MessageContentType;
 
 /**
  * {@link StompBroadcastAdapter} 단위 테스트.
