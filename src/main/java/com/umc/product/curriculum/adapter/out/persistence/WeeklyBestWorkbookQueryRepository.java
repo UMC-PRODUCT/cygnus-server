@@ -3,7 +3,6 @@ package com.umc.product.curriculum.adapter.out.persistence;
 import static com.umc.product.curriculum.domain.QCurriculum.curriculum;
 import static com.umc.product.curriculum.domain.QWeeklyBestWorkbook.weeklyBestWorkbook;
 import static com.umc.product.curriculum.domain.QWeeklyCurriculum.weeklyCurriculum;
-import static com.umc.product.member.domain.QMember.member;
 
 import java.util.Collection;
 import java.util.List;
@@ -30,10 +29,9 @@ public class WeeklyBestWorkbookQueryRepository {
             .selectFrom(weeklyBestWorkbook)
             .join(weeklyBestWorkbook.weeklyCurriculum, weeklyCurriculum).fetchJoin()
             .join(weeklyCurriculum.curriculum, curriculum).fetchJoin()
-            .leftJoin(member).on(member.id.eq(weeklyBestWorkbook.memberId))
             .where(
                 gisuIdEq(query.gisuId()),
-                schoolIdIn(query.schoolIds()),
+                memberIdIn(query.memberIds()),
                 partIn(query.parts()),
                 weekNoIn(query.weekNos()),
                 studyGroupIdIn(query.studyGroupIds()),
@@ -48,8 +46,8 @@ public class WeeklyBestWorkbookQueryRepository {
         return gisuId != null ? curriculum.gisuId.eq(gisuId) : null;
     }
 
-    private BooleanExpression schoolIdIn(Set<Long> schoolIds) {
-        return hasValues(schoolIds) ? member.schoolId.in(schoolIds) : null;
+    private BooleanExpression memberIdIn(Set<Long> memberIds) {
+        return hasValues(memberIds) ? weeklyBestWorkbook.memberId.in(memberIds) : null;
     }
 
     private BooleanExpression partIn(Set<ChallengerPart> parts) {

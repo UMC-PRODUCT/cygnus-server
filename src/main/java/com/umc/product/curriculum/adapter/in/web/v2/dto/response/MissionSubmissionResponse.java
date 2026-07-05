@@ -3,7 +3,9 @@ package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 import java.time.Instant;
 import java.util.List;
 
+import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionSubmissionInfo;
+import com.umc.product.curriculum.domain.enums.FeedbackResult;
 import com.umc.product.curriculum.domain.enums.MissionType;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
 
@@ -39,7 +41,7 @@ public record MissionSubmissionResponse(
     }
 
     public static MissionSubmissionResponse from(
-        com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo.MissionSubmissionInfo info
+        ChallengerWorkbookInfo.MissionSubmissionInfo info
     ) {
         List<MissionFeedbackResponse> feedbacks = info.feedbacks().stream()
             .map(MissionFeedbackResponse::from)
@@ -64,7 +66,7 @@ public record MissionSubmissionResponse(
         }
         return feedbacks.stream()
             .map(MissionFeedbackResponse::feedbackResult)
-            .anyMatch(result -> result == com.umc.product.curriculum.domain.enums.FeedbackResult.PASS)
+            .anyMatch(result -> result == FeedbackResult.PASS)
             ? SubmissionStatus.PASS
             : SubmissionStatus.FAIL;
     }

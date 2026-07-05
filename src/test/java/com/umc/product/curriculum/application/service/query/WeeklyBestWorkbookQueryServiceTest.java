@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,7 @@ import com.umc.product.curriculum.domain.OriginalWorkbook;
 import com.umc.product.curriculum.domain.WeeklyBestWorkbook;
 import com.umc.product.curriculum.domain.WeeklyCurriculum;
 import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class WeeklyBestWorkbookQueryServiceTest {
@@ -44,6 +46,9 @@ class WeeklyBestWorkbookQueryServiceTest {
 
     @Mock
     LoadMissionFeedbackPort loadMissionFeedbackPort;
+
+    @Mock
+    GetMemberUseCase getMemberUseCase;
 
     @InjectMocks
     WeeklyBestWorkbookQueryService sut;
@@ -81,7 +86,8 @@ class WeeklyBestWorkbookQueryServiceTest {
         given(challengerWorkbook.isExcused()).willReturn(false);
         given(challengerWorkbook.getContent()).willReturn("챌린저 본문");
 
-        given(searchWeeklyBestWorkbookPort.searchBestWorkbooks(query.withSize(2)))
+        given(getMemberUseCase.listIdsBySchoolIds(Set.of(1L))).willReturn(Map.of(1L, Set.of(40L)));
+        given(searchWeeklyBestWorkbookPort.searchBestWorkbooks(query.withMemberIds(Set.of(40L)).withSize(2)))
             .willReturn(List.of(first, second));
         given(loadChallengerWorkbookPort.findByMemberIdInAndWeeklyCurriculumIdIn(List.of(40L), List.of(10L)))
             .willReturn(List.of(challengerWorkbook));

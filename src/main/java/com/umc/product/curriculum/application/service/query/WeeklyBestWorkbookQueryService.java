@@ -3,6 +3,7 @@ package com.umc.product.curriculum.application.service.query;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import com.umc.product.curriculum.domain.MissionFeedback;
 import com.umc.product.curriculum.domain.MissionSubmission;
 import com.umc.product.curriculum.domain.WeeklyBestWorkbook;
 import com.umc.product.curriculum.domain.WeeklyCurriculum;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,11 +36,18 @@ public class WeeklyBestWorkbookQueryService implements GetWeeklyBestWorkbookUseC
     private final LoadChallengerWorkbookPort loadChallengerWorkbookPort;
     private final LoadMissionSubmissionPort loadMissionSubmissionPort;
     private final LoadMissionFeedbackPort loadMissionFeedbackPort;
+    private final GetMemberUseCase getMemberUseCase;
 
     @Override
     public WeeklyBestWorkbookPageInfo searchBestWorkbooks(GetBestWorkbooksQuery query) {
+        Set<Long> filteredMemberIds = resolveMemberIds(query.schoolIds());
+        if (query.schoolIds() != null && !query.schoolIds().isEmpty() && filteredMemberIds.isEmpty()) {
+            return WeeklyBestWorkbookPageInfo.empty();
+        }
+
+        GetBestWorkbooksQuery searchQuery = query.withMemberIds(filteredMemberIds).withSize(query.size() + 1);
         List<WeeklyBestWorkbook> fetched =
-            searchWeeklyBestWorkbookPort.searchBestWorkbooks(query.withSize(query.size() + 1));
+            searchWeeklyBestWorkbookPort.searchBestWorkbooks(searchQuery);
         boolean hasNext = fetched.size() > query.size();
         List<WeeklyBestWorkbook> pageItems = hasNext ? fetched.subList(0, query.size()) : fetched;
         if (pageItems.isEmpty()) {
@@ -78,6 +87,15 @@ public class WeeklyBestWorkbookQueryService implements GetWeeklyBestWorkbookUseC
 
         Long nextCursor = hasNext ? content.get(content.size() - 1).weeklyBestWorkbookEntityId() : null;
         return new WeeklyBestWorkbookPageInfo(content, nextCursor, hasNext);
+    }
+
+    private Set<Long> resolveMemberIds(Set<Long> schoolIds) {
+        if (schoolIds == null || schoolIds.isEmpty()) {
+            return null;
+        }
+        return getMemberUseCase.listIdsBySchoolIds(schoolIds).values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
     }
 
     private Map<Long, List<MissionSubmission>> findSubmissionsByChallengerWorkbookId(

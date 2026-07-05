@@ -1,5 +1,6 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 
+import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionFeedbackInfo;
 import com.umc.product.curriculum.domain.enums.FeedbackResult;
 
@@ -23,7 +24,7 @@ public record MissionFeedbackResponse(
     }
 
     public static MissionFeedbackResponse from(
-        com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo.MissionFeedbackInfo info
+        ChallengerWorkbookInfo.MissionFeedbackInfo info
     ) {
         return MissionFeedbackResponse.builder()
             .missionFeedbackId(info.missionFeedbackId())

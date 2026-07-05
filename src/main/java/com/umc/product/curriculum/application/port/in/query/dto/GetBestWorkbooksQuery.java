@@ -21,6 +21,7 @@ import com.umc.product.common.domain.enums.ChallengerPart;
 public record GetBestWorkbooksQuery(
     Long gisuId,
     Set<Long> schoolIds,
+    Set<Long> memberIds,
     Set<ChallengerPart> parts,
     List<Long> weekNos,
     List<Long> studyGroupIds,
@@ -47,6 +48,7 @@ public record GetBestWorkbooksQuery(
         return new GetBestWorkbooksQuery(
             gisuId,
             schoolIds,
+            null,
             parts,
             weekNos,
             studyGroupIds,
@@ -55,7 +57,11 @@ public record GetBestWorkbooksQuery(
         );
     }
 
+    public GetBestWorkbooksQuery withMemberIds(Set<Long> memberIds) {
+        return new GetBestWorkbooksQuery(gisuId, schoolIds, memberIds, parts, weekNos, studyGroupIds, cursor, size);
+    }
+
     public GetBestWorkbooksQuery withSize(int size) {
-        return new GetBestWorkbooksQuery(gisuId, schoolIds, parts, weekNos, studyGroupIds, cursor, size);
+        return new GetBestWorkbooksQuery(gisuId, schoolIds, memberIds, parts, weekNos, studyGroupIds, cursor, size);
     }
 }

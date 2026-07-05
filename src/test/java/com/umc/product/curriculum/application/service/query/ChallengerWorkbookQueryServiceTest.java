@@ -18,7 +18,6 @@ import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbo
 import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
 import com.umc.product.curriculum.application.port.out.LoadMissionFeedbackPort;
 import com.umc.product.curriculum.application.port.out.LoadMissionSubmissionPort;
-import com.umc.product.curriculum.application.port.out.LoadWorkbookSubmissionPort;
 import com.umc.product.curriculum.domain.ChallengerWorkbook;
 import com.umc.product.curriculum.domain.MissionFeedback;
 import com.umc.product.curriculum.domain.MissionSubmission;
@@ -26,14 +25,9 @@ import com.umc.product.curriculum.domain.OriginalWorkbook;
 import com.umc.product.curriculum.domain.OriginalWorkbookMission;
 import com.umc.product.curriculum.domain.enums.FeedbackResult;
 import com.umc.product.curriculum.domain.enums.MissionType;
-import com.umc.product.organization.application.port.in.query.GetStudyGroupUseCase;
-import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class ChallengerWorkbookQueryServiceTest {
-
-    @Mock
-    LoadWorkbookSubmissionPort loadWorkbookSubmissionPort;
 
     @Mock
     LoadChallengerWorkbookPort loadChallengerWorkbookPort;
@@ -43,12 +37,6 @@ class ChallengerWorkbookQueryServiceTest {
 
     @Mock
     LoadMissionFeedbackPort loadMissionFeedbackPort;
-
-    @Mock
-    GetStudyGroupUseCase getStudyGroupUseCase;
-
-    @Mock
-    GetFileUseCase getFileUseCase;
 
     @InjectMocks
     ChallengerWorkbookQueryService sut;
