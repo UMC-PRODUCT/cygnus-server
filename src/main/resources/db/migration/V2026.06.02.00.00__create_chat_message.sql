@@ -14,6 +14,7 @@ CREATE TABLE chat_message
 ALTER TABLE chat_message
     ADD CONSTRAINT fk_chat_message_room FOREIGN KEY (room_id) REFERENCES chat_room (id) ON DELETE CASCADE;
 
+CREATE INDEX idx_chat_message_room_id ON chat_message (room_id);
 
 -- 읽음 처리 / 안 읽은 수 계산 기준
 ALTER TABLE chat_member

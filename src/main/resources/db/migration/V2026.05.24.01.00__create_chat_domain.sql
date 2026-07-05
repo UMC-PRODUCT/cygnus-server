@@ -19,3 +19,5 @@ CREATE TABLE chat_member
 
 ALTER TABLE chat_member
     ADD CONSTRAINT fk_chat_member_room FOREIGN KEY (room_id) REFERENCES chat_room (id) ON DELETE CASCADE;
+
+CREATE INDEX idx_chat_member_member_id ON chat_member (member_id);
