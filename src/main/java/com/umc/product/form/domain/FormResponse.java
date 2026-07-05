@@ -38,7 +38,7 @@ public class FormResponse extends BaseEntity {
     @JoinColumn(name = "form_id", nullable = false)
     private Form form;
 
-    @Column(name = "respondent_member_id", nullable = false)
+    @Column(name = "respondent_member_id")
     private Long respondentMemberId;
 
     @Enumerated(EnumType.STRING)
