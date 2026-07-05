@@ -74,7 +74,7 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
 
         List<Long> submissionIds = allSubmissions.stream().map(MissionSubmission::getId).toList();
         List<MissionFeedback> allFeedbacks =
-            loadMissionFeedbackPort.findByMissionSubmissionIdIn(submissionIds);
+            loadMissionFeedbackPort.listByMissionSubmissionIdIn(submissionIds);
 
         // 인메모리 조립용 Map
         Map<Long, List<OriginalWorkbook>> workbooksByWcId = allWorkbooks.stream()

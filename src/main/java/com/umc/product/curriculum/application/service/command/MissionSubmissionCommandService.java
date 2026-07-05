@@ -9,8 +9,8 @@ import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.curriculum.application.port.in.command.ManageMissionSubmissionUseCase;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateMissionSubmissionCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.DeleteMissionSubmissionCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.EditMissionSubmissionCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.WithdrawMissionSubmissionCommand;
 import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
 import com.umc.product.curriculum.application.port.out.LoadMissionSubmissionPort;
 import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
@@ -48,7 +48,7 @@ public class MissionSubmissionCommandService implements ManageMissionSubmissionU
     public Long create(CreateMissionSubmissionCommand command) {
         OriginalWorkbookMission originalWorkbookMission =
             loadOriginalWorkbookMissionPort.getById(command.originalWorkbookMissionId());
-        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.findById(command.challengerWorkbookId());
+        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.getById(command.challengerWorkbookId());
 
         validateRequesterOwnsWorkbook(challengerWorkbook, command.requesterMemberId());
         validateMissionBelongsToWorkbook(originalWorkbookMission, challengerWorkbook);
@@ -73,7 +73,7 @@ public class MissionSubmissionCommandService implements ManageMissionSubmissionU
     }
 
     @Override
-    public void withdraw(DeleteMissionSubmissionCommand command) {
+    public void withdraw(WithdrawMissionSubmissionCommand command) {
         MissionSubmission missionSubmission = loadMissionSubmissionPort.getById(command.missionSubmissionId());
         validateRequesterOwnsSubmission(missionSubmission, command.requesterMemberId());
 

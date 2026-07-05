@@ -10,7 +10,7 @@ import lombok.Builder;
  * @param requesterMemberId   요청 챌린저의 멤버 ID (본인 제출물 여부 검증용)
  */
 @Builder
-public record DeleteMissionSubmissionCommand(
+public record WithdrawMissionSubmissionCommand(
     @NotNull(message = "미션 제출물 ID는 필수입니다")
     Long missionSubmissionId,
 

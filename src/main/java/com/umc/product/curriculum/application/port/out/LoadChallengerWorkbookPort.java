@@ -6,7 +6,7 @@ import java.util.Optional;
 
 public interface LoadChallengerWorkbookPort {
 
-    ChallengerWorkbook findById(Long id);
+    ChallengerWorkbook getById(Long id);
 
     /**
      * memberId + originalWorkbookId로 ChallengerWorkbook 단건 조회

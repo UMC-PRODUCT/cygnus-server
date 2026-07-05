@@ -25,7 +25,7 @@ public class MissionFeedbackPersistenceAdapter implements LoadMissionFeedbackPor
     }
 
     @Override
-    public List<MissionFeedback> findByMissionSubmissionIdIn(List<Long> submissionIds) {
+    public List<MissionFeedback> listByMissionSubmissionIdIn(List<Long> submissionIds) {
         if (submissionIds.isEmpty()) {
             return List.of();
         }

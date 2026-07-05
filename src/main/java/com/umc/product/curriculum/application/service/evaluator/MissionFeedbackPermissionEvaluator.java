@@ -8,7 +8,6 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.curriculum.application.port.out.LoadMissionFeedbackPort;
-import com.umc.product.curriculum.application.port.out.LoadMissionSubmissionPort;
 import com.umc.product.curriculum.domain.MissionFeedback;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 
@@ -18,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MissionFeedbackPermissionEvaluator implements ResourcePermissionEvaluator {
 
-    private final LoadMissionSubmissionPort loadMissionSubmissionPort;
     private final LoadMissionFeedbackPort loadMissionFeedbackPort;
 
     @Override
@@ -41,7 +39,6 @@ public class MissionFeedbackPermissionEvaluator implements ResourcePermissionEva
             return false;
         }
 
-        loadMissionSubmissionPort.getById(missionSubmissionId);
         return subjectAttributes.roleAttributes().stream()
             .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastSchoolAdmin());
     }

@@ -44,7 +44,7 @@ public class MissionSubmissionPermissionEvaluator implements ResourcePermissionE
             return false;
         }
 
-        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.findById(challengerWorkbookId);
+        ChallengerWorkbook challengerWorkbook = loadChallengerWorkbookPort.getById(challengerWorkbookId);
         return Objects.equals(challengerWorkbook.getMemberId(), subjectAttributes.memberId());
     }
 

@@ -1,8 +1,8 @@
 package com.umc.product.curriculum.application.port.in.command;
 
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateMissionSubmissionCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.DeleteMissionSubmissionCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.EditMissionSubmissionCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.WithdrawMissionSubmissionCommand;
 
 /**
  * 미션 제출물 관리 UseCase (챌린저 전용)
@@ -36,5 +36,5 @@ public interface ManageMissionSubmissionUseCase {
      *
      * @param command 철회 커맨드 (미션 제출물 ID, 요청자 멤버 ID)
      */
-    void withdraw(DeleteMissionSubmissionCommand command);
+    void withdraw(WithdrawMissionSubmissionCommand command);
 }

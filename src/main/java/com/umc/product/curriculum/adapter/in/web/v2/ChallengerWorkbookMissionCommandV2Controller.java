@@ -15,10 +15,12 @@ import com.umc.product.curriculum.adapter.in.web.v2.dto.request.CreateMissionFee
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.CreateMissionSubmissionRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.EditMissionFeedbackRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.EditMissionSubmissionRequest;
+import com.umc.product.curriculum.adapter.in.web.v2.dto.response.MissionFeedbackIdResponse;
+import com.umc.product.curriculum.adapter.in.web.v2.dto.response.MissionSubmissionIdResponse;
 import com.umc.product.curriculum.application.port.in.command.ManageMissionFeedbackUseCase;
 import com.umc.product.curriculum.application.port.in.command.ManageMissionSubmissionUseCase;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.DeleteMissionFeedbackCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.DeleteMissionSubmissionCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.WithdrawMissionSubmissionCommand;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 
@@ -62,13 +64,14 @@ public class ChallengerWorkbookMissionCommandV2Controller {
         message = "본인에게 배포된 챌린저 워크북에만 미션을 제출할 수 있어요."
     )
     @PostMapping
-    public Long createMissionSubmission(
+    public MissionSubmissionIdResponse createMissionSubmission(
         @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody CreateMissionSubmissionRequest request
     ) {
         // TODO: 스케쥴러를 매일 KST 기준 00:00 (또는 다른 시간) 에 돌려서, LATE 처리된 미션에 대해서 벌점을 부과할 필요가 있습니다. 단,중복 벌점 부과는 없도록 유의해야 합니다.
 
-        return manageMissionSubmissionUseCase.create(request.toCommand(memberPrincipal.getMemberId()));
+        Long submissionId = manageMissionSubmissionUseCase.create(request.toCommand(memberPrincipal.getMemberId()));
+        return MissionSubmissionIdResponse.from(submissionId);
     }
 
 
@@ -123,7 +126,7 @@ public class ChallengerWorkbookMissionCommandV2Controller {
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long missionSubmissionId
     ) {
-        manageMissionSubmissionUseCase.withdraw(DeleteMissionSubmissionCommand.builder()
+        manageMissionSubmissionUseCase.withdraw(WithdrawMissionSubmissionCommand.builder()
             .missionSubmissionId(missionSubmissionId)
             .requesterMemberId(memberPrincipal.getMemberId())
             .build());
@@ -156,11 +159,12 @@ public class ChallengerWorkbookMissionCommandV2Controller {
         message = "미션 피드백은 운영진만 작성할 수 있어요."
     )
     @PostMapping("/feedback")
-    public Long createMissionFeedback(
+    public MissionFeedbackIdResponse createMissionFeedback(
         @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody CreateMissionFeedbackRequest request
     ) {
-        return manageMissionFeedbackUseCase.create(request.toCommand(memberPrincipal.getMemberId()));
+        Long feedbackId = manageMissionFeedbackUseCase.create(request.toCommand(memberPrincipal.getMemberId()));
+        return MissionFeedbackIdResponse.from(feedbackId);
     }
 
     @Operation(

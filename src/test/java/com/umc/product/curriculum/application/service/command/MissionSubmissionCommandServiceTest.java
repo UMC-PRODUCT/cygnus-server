@@ -20,7 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.CreateMissionSubmissionCommand;
-import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.DeleteMissionSubmissionCommand;
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.WithdrawMissionSubmissionCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.mission.EditMissionSubmissionCommand;
 import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
 import com.umc.product.curriculum.application.port.out.LoadMissionSubmissionPort;
@@ -75,7 +75,7 @@ class MissionSubmissionCommandServiceTest {
             ChallengerWorkbook challengerWorkbook = challengerWorkbook(REQUESTER_MEMBER_ID, workbook);
 
             given(loadOriginalWorkbookMissionPort.getById(ORIGINAL_WORKBOOK_MISSION_ID)).willReturn(mission);
-            given(loadChallengerWorkbookPort.findById(CHALLENGER_WORKBOOK_ID)).willReturn(challengerWorkbook);
+            given(loadChallengerWorkbookPort.getById(CHALLENGER_WORKBOOK_ID)).willReturn(challengerWorkbook);
             given(loadMissionSubmissionPort.existsByOriginalWorkbookMissionIdAndChallengerWorkbookId(
                 ORIGINAL_WORKBOOK_MISSION_ID,
                 CHALLENGER_WORKBOOK_ID
@@ -111,7 +111,7 @@ class MissionSubmissionCommandServiceTest {
 
             given(loadOriginalWorkbookMissionPort.getById(ORIGINAL_WORKBOOK_MISSION_ID))
                 .willReturn(mission);
-            given(loadChallengerWorkbookPort.findById(CHALLENGER_WORKBOOK_ID))
+            given(loadChallengerWorkbookPort.getById(CHALLENGER_WORKBOOK_ID))
                 .willReturn(challengerWorkbook);
             given(loadMissionSubmissionPort.existsByOriginalWorkbookMissionIdAndChallengerWorkbookId(
                 ORIGINAL_WORKBOOK_MISSION_ID,
@@ -137,7 +137,7 @@ class MissionSubmissionCommandServiceTest {
 
             given(loadOriginalWorkbookMissionPort.getById(ORIGINAL_WORKBOOK_MISSION_ID))
                 .willReturn(mission);
-            given(loadChallengerWorkbookPort.findById(CHALLENGER_WORKBOOK_ID))
+            given(loadChallengerWorkbookPort.getById(CHALLENGER_WORKBOOK_ID))
                 .willReturn(challengerWorkbook);
 
             // when & then
@@ -162,7 +162,7 @@ class MissionSubmissionCommandServiceTest {
 
             given(loadOriginalWorkbookMissionPort.getById(ORIGINAL_WORKBOOK_MISSION_ID))
                 .willReturn(mission);
-            given(loadChallengerWorkbookPort.findById(CHALLENGER_WORKBOOK_ID))
+            given(loadChallengerWorkbookPort.getById(CHALLENGER_WORKBOOK_ID))
                 .willReturn(challengerWorkbook);
 
             // when & then
@@ -234,7 +234,7 @@ class MissionSubmissionCommandServiceTest {
             MissionSubmission submission = submission(REQUESTER_MEMBER_ID, "기존 내용");
             given(loadMissionSubmissionPort.getById(MISSION_SUBMISSION_ID)).willReturn(submission);
 
-            DeleteMissionSubmissionCommand command = DeleteMissionSubmissionCommand.builder()
+            WithdrawMissionSubmissionCommand command = WithdrawMissionSubmissionCommand.builder()
                 .missionSubmissionId(MISSION_SUBMISSION_ID)
                 .requesterMemberId(REQUESTER_MEMBER_ID)
                 .build();
