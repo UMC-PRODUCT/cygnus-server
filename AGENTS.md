@@ -1,163 +1,150 @@
-# UMC Product Backend - AI Agent Guidelines
+# PROJECT KNOWLEDGE BASE
 
-This document provides specialized guidelines and instructions for AI Agents when operating within the UMC Product Backend repository. These instructions take absolute precedence over general workflows.
+**Generated:** 2026-07-02 06:00:42 KST
+**Base Commit:** f7f2ccbb
+**Branch:** feature/init-deep-agent-guidelines
 
-## 1. Role & Persona
+## OVERVIEW
 
-You are a **Senior Software Engineer and Expert Technical Collaborator** specializing in Java, Spring Boot, and Domain-Driven Design (DDD) within a strict Hexagonal Architecture (Ports & Adapters).
+UMC Product Backend is a Java 21 / Spring Boot 3.5 API server built with strict Hexagonal Architecture,
+DDD-style domain rules, JPA, QueryDSL, Flyway, JWT/SSO, REST/GraphQL APIs, OpenAPI, REST Docs,
+Prometheus, and OpenTelemetry.
 
-Your objective is to help develop, maintain, and review the UMC PRODUCT API server, ensuring robust performance, high security, and exceptional code quality while strictly adhering to established architectural rules and conventions. All your responses and code reviews must be professional, accurate, and output in **Korean** (unless code or technical identifiers require English).
+All agent responses, generated reviews, and documentation comments must be in Korean unless identifiers or standard technical terms require English.
 
-## 2. Architecture & Domain Rules
+## STRUCTURE
 
-The project strictly follows **Hexagonal Architecture** and separates concerns into `domain`, `application`, and `adapter` layers.
-
-### Package Structure
-
+```text
+umc-product-server/
+├── src/main/java/com/umc/product/
+│   ├── {domain}/domain              # Entity, VO, domain enum, domain exception
+│   ├── {domain}/application/port    # UseCase and outbound Port contracts
+│   ├── {domain}/application/service # Command/Query service implementations
+│   ├── {domain}/adapter/in          # REST/GraphQL controllers, schedulers, aspects
+│   ├── {domain}/adapter/out         # Persistence and external adapters
+│   ├── global/                      # response, exception, security, config, observability
+│   └── common/                      # BaseEntity and shared domain enums
+├── src/main/resources/db/migration/ # Flyway SQL migrations
+├── src/main/resources/graphql/      # Spring GraphQL schema files
+├── src/test/java/com/umc/product/   # domain tests plus shared support package
+├── docs/adr                         # architecture decisions
+├── docs/onboarding                  # domain/test maps
+└── build.gradle.kts                 # Gradle, REST Docs, QueryDSL, quality gates
 ```
-{domain}/
-├── domain/           # Core Business Logic (Entity, Domain Enum, VO)
-├── application/      # Application Layer
-│   ├── port/
-│   │   ├── in/       # Inbound Ports (UseCase interfaces)
-│   │   └── out/      # Outbound Ports (Repository interfaces: Load/Save)
-│   └── service/      # UseCase Implementations (Command/Query separated)
-└── adapter/          # Infrastructure Layer
-    ├── in/           # Driving Adapters (Web Controllers, Schedulers)
-    └── out/          # Driven Adapters (Persistence Repositories, External APIs)
+
+## WHERE TO LOOK
+
+| Task | Location | Notes |
+|------|----------|-------|
+| Boot entry | `src/main/java/com/umc/product/UmcProductApplication.java` | `@SpringBootApplication`, configuration properties scan |
+| Security flow | `global/config/SecurityConfig.java`, `global/security/*` | JWT, `@Public`, access denied/auth entry points |
+| SSO/PKCE auth | `authentication/adapter/in/web/Sso*`, `authentication/application/service/Sso*` | browser login, authorization code, token exchange |
+| Web pipeline | `global/config/WebMvcConfig.java` | current member resolver, logging, rate limit, docs redirect |
+| GraphQL API | `{domain}/adapter/in/graphql`, `src/main/resources/graphql` | Spring GraphQL controllers and schema contracts |
+| Response envelope | `global/response/*`, `global/exception/*` | success wrapping and error response paths |
+| Domain API | `{domain}/adapter/in/web/*Controller.java` | controllers delegate to UseCases only |
+| Application logic | `{domain}/application/service` | split command/query services |
+| Persistence | `{domain}/adapter/out/persistence` | JPA repositories plus QueryDSL query repositories |
+| Public contracts | `{domain}/application/port/in`, `{domain}/application/port/out` | UseCase and Port interfaces |
+| High-complexity project flows | `src/main/java/com/umc/product/project` | application forms, matching, statistics, permissions |
+| Organization model | `src/main/java/com/umc/product/organization` | school, chapter, gisu, study group, UMC product org |
+| Test infrastructure | `src/test/java/com/umc/product/support` | Testcontainers, fixtures, REST Docs, isolation |
+| Migrations | `src/main/resources/db/migration` | `VYYYY.MM.DD.HH.MM__snake_case.sql` |
+
+## CODE MAP
+
+Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but reference counts remain unmeasured here.
+
+| Symbol | Type | Location | Refs | Role |
+|--------|------|----------|------|------|
+| `UmcProductApplication` | class | `src/main/java/com/umc/product/UmcProductApplication.java` | n/a | Boot entry |
+| `SecurityConfig` | class | `global/config/SecurityConfig.java` | n/a | Security filter chain |
+| `WebMvcConfig` | class | `global/config/WebMvcConfig.java` | n/a | MVC interceptors/resolvers |
+| `GlobalResponseWrapper` | class | `global/response/GlobalResponseWrapper.java` | n/a | Success response envelope |
+| `GlobalExceptionHandler` | class | `global/exception/GlobalExceptionHandler.java` | n/a | MVC exception handling |
+| `JwtAuthenticationFilter` | class | `global/security/JwtAuthenticationFilter.java` | n/a | JWT authentication |
+| `GraphQlRuntimeWiringConfig` | class | `global/config/GraphQlRuntimeWiringConfig.java` | n/a | GraphQL scalar/runtime wiring |
+| `GraphQlExceptionAdvice` | class | `global/exception/GraphQlExceptionAdvice.java` | n/a | GraphQL error mapping |
+| `SsoAuthorizationCommandService` | service | `authentication/application/service` | n/a | SSO authorization-code issue |
+| `SsoTokenExchangeCommandService` | service | `authentication/application/service` | n/a | SSO token exchange |
+| `TraceFlowAspect` | class | `global/observability/TraceFlowAspect.java` | n/a | service/adapter tracing |
+| `BaseEntity` | class | `common/BaseEntity.java` | n/a | audit timestamps |
+| `ProjectApplicationCommandService` | service | `project/application/service/command` | n/a | application submit/update flow |
+| `ProjectStatisticsQueryService` | service | `project/application/service/query` | n/a | statistics aggregation |
+| `AdminOperationsAnalyticsQueryRepository` | repository | `analytics/adapter/out/persistence` | n/a | QueryDSL analytics aggregation |
+| `IntegrationTestSupport` | test support | `src/test/java/com/umc/product/support` | n/a | Spring Boot/Testcontainers base |
+
+## ARCHITECTURE RULES
+
+- Layers are `domain`, `application`, and `adapter`; dependency direction must point inward.
+- Allowed: `adapter/in -> application/port/in`, `application/service -> domain`, `adapter/out -> application/port/out`.
+- Forbidden: `domain -> application/adapter`, `application/port -> application/service`, `adapter/in -> adapter/out`.
+- Cross-domain references must use IDs, not another domain aggregate object.
+- When Domain A needs Domain B data, inject Domain B's public Query UseCase. Never access Domain B's entities or repositories directly.
+- Within the same aggregate, `@ManyToOne(fetch = FetchType.LAZY)` is allowed for parent/root references.
+- `@OneToMany` collections are forbidden, even inside the same domain.
+- State changes belong in explicit domain methods. Avoid anemic entities.
+
+## CONVENTIONS
+
+- Command UseCases and Query UseCases stay separate. Command services use `@Transactional`; Query services use `@Transactional(readOnly = true)`.
+- Controllers return adapter `Response` records or application `Info` values. They do not return entities and do not wrap success responses in `ApiResponse`.
+- REST controllers live under `adapter/in/web`; GraphQL controllers live under `adapter/in/graphql`.
+- GraphQL schema files in `src/main/resources/graphql` are API contracts and must stay aligned with GraphQL DTOs.
+- SSO/PKCE flows must not log authorization codes, login tokens, refresh tokens, or client secrets.
+- Request records live under `adapter/in/web/dto/request` and convert to command/query objects near the adapter boundary.
+- Response records live under `adapter/in/web/dto/response` and usually expose `from(Info)`.
+- Query DTOs in `application/port/in/query/dto` end with `Info`; command DTOs end with `Command`.
+- JPA repositories follow Spring Data names (`findById`, `findAllBy...`, `existsBy...`). Custom Ports/UseCases use semantic names.
+- `get[By]` returns `T` and throws if missing; `find[By]` returns `Optional<T>` and never throws not-found; `list[By]` returns a non-null list.
+- `batchGet[By]` requires all inputs to exist; `search[By]` is for dynamic/complex filters.
+- Static factories: `of` for multiple params, `from` for one source, `create`/`newInstance` for guaranteed new instances.
+- QueryDSL code belongs in `*QueryRepository`; avoid N+1 by fetch joins, split queries, or IN/batch maps.
+- Flyway files use `VYYYY.MM.DD.HH.MM__snake_case.sql`; duplicate versions are checked by Gradle.
+- REST Docs snippets use `{class-name}/{method-name}` and are assembled into `docs/static`.
+
+## ANTI-PATTERNS
+
+- No `@Setter` on entities.
+- No `@OneToMany` entity collections.
+- No business logic in controllers.
+- No controller-to-repository or controller-to-adapter/out dependency.
+- No entity exposure from controllers.
+- No missing `@Valid` on request bodies.
+- No missing transaction boundary on command services.
+- No `new` for command/domain entity creation outside adapter/test boundaries; use factories or builders.
+- No direct cross-domain repository/model access.
+- No hidden N+1 query path.
+- No AI authorship trailers or AI committer/author metadata.
+
+## TESTING
+
+- Unit tests prefer JUnit 5 + Mockito with `@ExtendWith(MockitoExtension.class)`.
+- Integration tests reuse `IntegrationTestSupport`; persistence slices reuse `PersistenceAdapterTest`; REST Docs/web slices reuse `DocumentationTest`.
+- Test names and `@DisplayName` values should be Korean and behavior-focused.
+- Given/When/Then structure is expected.
+- Fixture code lives in `src/test/java/com/umc/product/support/fixture` and should persist through SavePorts where possible.
+
+## REVIEW AND GIT
+
+- Review priorities: P1 security/data loss/severe bugs; P2 architecture/performance/scalability; P3 code quality/conventions; P4 alternatives; P5 typos/questions.
+- Commit format is `<type>: <subject>` with `feat`, `fix`, `refactor`, `docs`, `test`, or `chore`.
+- PR titles use `[Feat]`, `[Fix]`, `[HotFix]`, `[Refactor]`, `[Chore]`, `[Docs]`, or `[Release]`; development PRs target `develop`.
+- Never set AI authorship, AI committer metadata, or `Co-authored-by` trailers for AI tools.
+
+## COMMANDS
+
+```bash
+./gradlew bootRun
+./gradlew spotlessCheck checkstyleMain checkstyleTest
+./gradlew compileJava compileTestJava
+./gradlew test
+./gradlew asciidoctor
+./gradlew build
 ```
 
-### Dependency Direction Rules
+## NOTES
 
-- **✅ Allowed:** `adapter/in` → `application/service` → `application/port/in`
-- **✅ Allowed:** `adapter/out` → `application/port/out`
-- **✅ Allowed:** `application/service` → `domain`
-- **❌ Forbidden:** `domain` depending on `application` or `adapter` (Reverse dependency).
-- **❌ Forbidden:** `application/port` depending on `application/service`.
-- **❌ Forbidden:** `adapter/in` depending directly on `adapter/out` or Repositories.
-
-### Domain Integrity & Cross-Domain Communication
-
-- **ID Reference Across Domains**: Never reference another domain's Aggregate (or Aggregate Root) directly. Always use ID reference (`private Long memberId;`) to cross domain boundaries.
-- **Restricted Object Reference (Within the Same Domain):** When working strictly within the same domain (aggregate), follow these JPA relationship rules:
-    - **✅ `@ManyToOne` is ALLOWED (Exception):** You may use `@ManyToOne(fetch = FetchType.LAZY)` to reference a parent/root entity within the same domain. This respects JPA's "owning side" paradigm and allows safe, lazy fetching without memory overhead.
-    - **❌ `@OneToMany` is STRICTLY FORBIDDEN:** Never use `@OneToMany` to hold a collection (`List`, `Set`) of child entities, even within the same domain.
-- **Cross-Domain Fetching:** When another domain's data is needed, call its Query UseCase (e.g., `getMemberInfoUseCase.getById(memberId)`).
-- **Rich Domain Model:** State changes must happen inside the Entity through explicit domain methods (e.g., `challenger.graduate()`). Do not use Anemic Domain Models.
-- **Dependency Rule:** When Domain A needs to interact with Domain B, Domain A is strictly forbidden from directly accessing Domain B's internal models, entities, or repositories. Domain A must ONLY inject and call the publicly exposed Usecase of Domain B.
-
-## 3. Tech Stack & Environment
-
-### Core Technologies
-
-- **Language/Framework:** Java 21, Spring Boot 3.5
-- **Database:** PostgreSQL 18.x, Flyway Migration, PostGIS
-- **ORM:** JPA (Hibernate), QueryDSL
-- **Auth:** JWT (`io.jsonwebtoken` 0.12.5)
-- **Documentation:** OpenAPI/Swagger, Spring REST Docs (AsciiDoc)
-- **Monitoring:** Prometheus Metrics, OpenTelemetry Tracing
-
-### Environment & Commands
-
-- **Default Profile:** `local`
-- **Ports:** Application runs on `8080`, Actuator/Prometheus on `9090`.
-- **Run Application:** `./gradlew bootRun`
-- **Run Tests:** `./gradlew test` (Uses JUnit 5 + Testcontainers)
-- **Build Docs:** `./gradlew asciidoctor` (Generates from RestDocs snippets)
-
-## 4. Tools & Capabilities
-
-When requested to implement, refactor, or review code, utilize your capabilities to:
-
-- **Write comprehensive Tests:** Use JUnit 5 (`@ExtendWith(MockitoExtension.class)`), Spring Boot Test, and Testcontainers. Structure tests using Given/When/Then. Test names should be clearly written in Korean with `@DisplayName` annotation. (e.g., `void 챌린저_등록_성공()`).
-- **Enforce CQRS:** Ensure Command (state-changing) and Query (read-only) UseCases and Services are distinct. Command services need `@Transactional`, and Query services need `@Transactional(readOnly = true)`.
-- **Provide PR/Code Reviews:** Categorize review feedback using the P1-P5 priority levels:
-    - **P1:** Critical (Security, Data Loss, Severe Bugs)
-    - **P2:** Significant (Architecture, Performance, Scalability)
-    - **P3:** Code Quality (Readability, Convention, Best Practices) - *Default*
-    - **P4:** Alternative (Subjective, Stylistic)
-    - **P5:** Minor (Typos, Questions)
-
-## 5. Negative Constraints (Must NOT Do)
-
-- **❌ NO `@Setter` on Entities:** Use `Builder` (private/protected) and domain-specific state mutation methods.
-- **❌ NO Business Logic in Controllers:** Controllers must only delegate to UseCases and return DTOs defined in the `adapter/in` layer and not wrapped in `ApiResponse`, which should be handled by a global response handler.
-- **❌ NO Missing Transactions:** Do not omit `@Transactional` on Command UseCases.
-- **❌ NO Entity Exposure:** Never return Domain Entities directly from Controllers; always map to Response DTOs / Info records.
-- **❌ NO N+1 Query Problems:** Identify and resolve potential N+1 queries using Fetch Joins or IN queries.
-- **❌ NO Unvalidated Inputs:** Always use `@Valid` in controllers and validate input objects (preferably inside `record` constructors).
-- **❌ NO God Services:** Do not combine multiple unrelated responsibilities into a single Service class. Break them down by UseCase.
-- **❌ NO new constructors:** Do not use `new` to create instances of command objects or domain entities outside the Adapter layer. Use Factory methods or Builders instead.
-
-## 6. Output Formatting
-
-### Naming Conventions
-
-- **Entity:** `{Domain}` (e.g., `Challenger`)
-- **UseCase:** `{Action}{Domain}UseCase` (e.g., `RegisterChallengerUseCase`, `GetChallengerUseCase`)
-- **Port In:** Command/Query UseCase interfaces
-- **Port Out:** `{Action}{Domain}Port` (e.g., `LoadChallengerPort`, `SaveChallengerPort`)
-- **Service:** `{Domain}CommandService` or `{Domain}QueryService`
-- **Controller:** `{Domain}Controller`
-- **DTOs:** Request/Response objects should end with `Request` or `Response`. Domain info structures should end with `Info`. Prefer using Java `record`.
-- **Repository:** `{Entity}Repository`, `{Domain}QueryRepository`
-- **Adapter:** `{Domain}PersistenceAdapter`
-
-#### Static Factory Methods
-
-When generating static factory methods for Command objects or Domain Entities, strictly adhere to the following naming conventions:
-
-- `of`: Takes multiple parameters and returns an instance (e.g., `of(String name, int age)`).
-- `from`: Takes a single parameter and returns an instance (e.g., `from(UserEntity entity)`).
-- `valueOf`: Verbose alternative to `of`.
-- `create` / `newInstance`: Guarantees a completely new instance is returned every time.
-- `getInstance`: Returns a shared or singleton instance.
-
-#### Read Operation Methods (Usecase & Adapter/Repository)
-
-**⚠️ Exception for Infrastructure Frameworks:**
-
-- **JPA Repositories (`extends JpaRepository`):** MUST strictly follow standard Spring Data JPA query derivation naming conventions (e.g., `findById`, `findAllByStatus`, `existsByEmail`).
-- **Domain/Application Layers:** Custom Adapters, Ports, and UseCase interfaces MUST abstract these JPA-specific calls and strictly adhere to the semantic naming conventions outlined below to clearly indicate their behavior regarding nullability and exceptions.
-
-Strictly differentiate read methods based on null-safety and exception handling. Do not mix their semantics.
-
-- **`get[By]` -> `T`**
-    - **Rule:** Use when the entity MUST exist.
-    - **Behavior:** Throw an exception immediately if the data is not found.
-- **`find[By]` -> `Optional<T>`**
-    - **Rule:** Use when the entity might not exist (e.g., graceful fallback for deleted users) and normal service flow must continue.
-    - **Behavior:** Return `Optional.empty()`. NEVER throw a "Not Found" exception inside this method; let the caller handle the `Optional`.
-- **`list[By]` -> `List<T>`**
-    - **Behavior:** Returns matching elements. Must return an empty list `[]` (not null) if no elements are found.
-- **`batchGet[By]` -> `List<T>`**
-    - **Behavior:** All elements for the given input list MUST exist. Throw an exception if the result size does not match the input parameter size.
-- **`search[By]` -> `List<T>`**
-    - **Rule:** Use for complex query conditions or dynamic filtering.
-
-### Git & PR Conventions
-
-#### Commit Messages
-
-Follow the standard Conventional Commits specification.
-
-- **Format:** `<type>: <subject>`
-- **Allowed Types:** `feat`, `fix`, `refactor`, `docs`, `test`, `chore`.
-- **Example:** `feat: add registration usecase`
-
-#### Pull Request Titles
-
-Use bracketed tags for Pull Request titles. Do not confuse this with regular commit messages.
-
-- **Format:** `[Type] Subject`
-- **Allowed Tags:** `[Feat]`, `[Fix]`, `[Hotfix]`, `[Refactor]`, `[Chore]`, `[Docs]`
-- **Example:** `[Feat] 챌린저 등록 기능 추가`
-
-#### Strict Authorship Constraint
-
-- ❌ **NO AI Authorship:** NEVER set the Git committer, author, or append `Co-authored-by:` trailers referencing AI agents (e.g., Claude, ChatGPT, Cursor). All commits MUST be attributed strictly to the human user operating the environment.
-
-### Language
-
-- All code comments intended for documentation and generated code reviews MUST be in **Korean**.
-- Variables, classes, methods, and standard technical terms MUST remain in English.
+- Default profile is `local`; app port is `8080`; management/Prometheus port is `9090`.
+- `build` depends on clean/docs copy behavior; `bootJar` is deployment-focused; Checkstyle tasks are diff-oriented.
+- `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` are pointers to this canonical file.
