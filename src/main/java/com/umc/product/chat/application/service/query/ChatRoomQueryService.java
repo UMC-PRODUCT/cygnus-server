@@ -12,6 +12,8 @@ import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatRoom;
+import com.umc.product.chat.domain.exception.ChatDomainException;
+import com.umc.product.chat.domain.exception.ChatErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,7 +26,11 @@ public class ChatRoomQueryService implements GetChatRoomUseCase, CheckChatRoomAc
     private final LoadChatMemberPort loadChatMemberPort;
 
     @Override
-    public ChatRoomInfo getById(Long roomId) {
+    public ChatRoomInfo getById(Long roomId, Long memberId) {
+        if (!loadChatMemberPort.existsByRoomIdAndMemberId(roomId, memberId)) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
+        }
+
         ChatRoom chatRoom = loadChatRoomPort.getById(roomId);
         List<Long> memberIds = loadChatMemberPort.listByRoomId(roomId).stream()
             .map(ChatMember::getMemberId)

@@ -8,6 +8,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.umc.product.chat.adapter.in.web.dto.response.ChatRoomResponse;
 import com.umc.product.chat.adapter.in.web.swagger.ChatRoomQueryApi;
 import com.umc.product.chat.application.port.in.query.GetChatRoomUseCase;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,7 +22,10 @@ public class ChatRoomQueryController implements ChatRoomQueryApi {
 
     @GetMapping("/{roomId}")
     @Override
-    public ChatRoomResponse getById(@PathVariable Long roomId) {
-        return ChatRoomResponse.from(getChatRoomUseCase.getById(roomId));
+    public ChatRoomResponse getById(
+        @PathVariable Long roomId,
+        @CurrentMember MemberPrincipal principal
+    ) {
+        return ChatRoomResponse.from(getChatRoomUseCase.getById(roomId, principal.getMemberId()));
     }
 }
