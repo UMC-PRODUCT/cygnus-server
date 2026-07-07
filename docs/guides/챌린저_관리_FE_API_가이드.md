@@ -148,6 +148,7 @@
 [MemberQueryController.java:50-59](src/main/java/com/umc/product/member/adapter/in/web/MemberQueryController.java#L50-L59)
 
 이름 / 닉네임 / 이메일 / 학교명을 키워드로 검색하고, 기수·파트·지부·학교로 필터링한다.
+챌린저 기록이 하나라도 있는 회원만 사용할 수 있으며, 챌린저 기록이 없으면 `MEMBER-0014`와 함께 403을 반환한다.
 
 ### 요청
 

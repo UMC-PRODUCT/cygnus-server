@@ -27,7 +27,7 @@ import lombok.RequiredArgsConstructor;
  * <p>
  * - /me : 인증된 사용자 본인 정보 (인증 필터로 보호, @CheckAccess 불필요)
  * <p>
- * - /search : v1과 동일 정책. 별도 권한 어노테이션 없음 (v1 회귀 방지). 권한 강화는 별도 PR.
+ * - /search : 챌린저 기록이 하나라도 있는 회원만 검색 가능.
  */
 @RestController
 @RequestMapping("/api/v2/member")
@@ -73,6 +73,7 @@ public class MemberQueryV2Controller {
             - `isAdminInActiveGisu` : 회원이 현재 활성 기수에 운영진 ChallengerRole을 하나라도 보유하는지
 
             검색 조건/필터는 v1과 동일합니다.
+            챌린저 기록이 하나라도 있는 회원만 사용할 수 있습니다. 챌린저 기록이 없으면 403을 반환합니다.
 
             검색 결과에는 본인 외 회원이 포함되므로, 로그인 식별자인 이메일은 평문 노출을 피하기 위해
             컨트롤러 단에서 마스킹 처리되어 응답됩니다.

@@ -8,16 +8,11 @@ public record SearchMemberQuery(
     Long gisuId,
     ChallengerPart part,
     Long chapterId,
-    Long schoolId,
-    SearchMemberAccessScope accessScope
+    Long schoolId
 ) {
 
-    public SearchMemberQuery {
-        accessScope = accessScope == null ? SearchMemberAccessScope.all() : accessScope;
-    }
-
     public SearchMemberQuery(String keyword, Long gisuId, ChallengerPart part, Long chapterId, Long schoolId) {
-        this(null, keyword, gisuId, part, chapterId, schoolId, SearchMemberAccessScope.all());
+        this(null, keyword, gisuId, part, chapterId, schoolId);
     }
 
     public static SearchMemberQuery of(
@@ -34,12 +29,7 @@ public record SearchMemberQuery(
             gisuId,
             part,
             chapterId,
-            schoolId,
-            SearchMemberAccessScope.all()
+            schoolId
         );
-    }
-
-    public SearchMemberQuery withAccessScope(SearchMemberAccessScope accessScope) {
-        return new SearchMemberQuery(requesterMemberId, keyword, gisuId, part, chapterId, schoolId, accessScope);
     }
 }

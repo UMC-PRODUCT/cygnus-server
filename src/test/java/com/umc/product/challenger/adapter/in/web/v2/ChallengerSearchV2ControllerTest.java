@@ -34,6 +34,8 @@ import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchItemV2Info;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchV2Result;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 
 @WebMvcTest(controllers = ChallengerSearchV2Controller.class)
 @Import(JacksonConfig.class)
@@ -97,5 +99,17 @@ class ChallengerSearchV2ControllerTest {
         ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
         then(searchMemberUseCase).should().searchChallengersByV2(queryCaptor.capture(), any());
         assertThat(queryCaptor.getValue().requesterMemberId()).isEqualTo(99L);
+    }
+
+    @Test
+    @DisplayName("챌린저 검색 v2 권한이 없으면 403을 반환한다")
+    void 챌린저_검색_v2_권한이_없으면_403을_반환한다() throws Exception {
+        given(searchMemberUseCase.searchChallengersByV2(any(), any()))
+            .willThrow(new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED));
+
+        mockMvc.perform(get("/api/v2/challenger/search")
+                .param("page", "0")
+                .param("size", "10"))
+            .andExpect(status().isForbidden());
     }
 }

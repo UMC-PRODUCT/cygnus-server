@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.challenger.domain.Challenger;
@@ -24,7 +23,6 @@ import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchItemV2Info;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchV2Result;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemInfo;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info.Participation;
@@ -54,8 +52,8 @@ public class MemberSearchService implements SearchMemberUseCase {
 
     @Override
     public SearchMemberResult searchBy(SearchMemberQuery query, Pageable pageable) {
-        SearchMemberQuery scopedQuery = applyAccessScope(query);
-        Page<Challenger> challengers = searchMemberPort.search(scopedQuery, pageable);
+        assertMemberSearchAccess(query);
+        Page<Challenger> challengers = searchMemberPort.search(query, pageable);
 
         // 배치 데이터 로딩
         Map<Long, MemberInfo> memberProfiles = loadMemberProfiles(challengers.getContent());
@@ -71,8 +69,8 @@ public class MemberSearchService implements SearchMemberUseCase {
 
     @Override
     public ChallengerSearchV2Result searchChallengersByV2(SearchMemberQuery query, Pageable pageable) {
-        SearchMemberQuery scopedQuery = applyAccessScope(query);
-        Page<Challenger> challengers = searchMemberPort.search(scopedQuery, pageable);
+        assertMemberSearchAccess(query);
+        Page<Challenger> challengers = searchMemberPort.search(query, pageable);
         List<Challenger> content = challengers.getContent();
 
         Map<Long, MemberInfo> memberProfiles = loadMemberProfiles(content);
@@ -98,8 +96,8 @@ public class MemberSearchService implements SearchMemberUseCase {
 
     @Override
     public SearchMemberV2Result searchByV2(SearchMemberQuery query, Pageable pageable) {
-        SearchMemberQuery scopedQuery = applyAccessScope(query);
-        Page<Long> memberIdPage = searchMemberPort.searchMemberIds(scopedQuery, pageable);
+        assertMemberSearchAccess(query);
+        Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, pageable);
         List<Long> memberIds = memberIdPage.getContent();
 
         if (memberIds.isEmpty()) {
@@ -138,49 +136,20 @@ public class MemberSearchService implements SearchMemberUseCase {
         return new SearchMemberV2Result(items);
     }
 
-    private SearchMemberQuery applyAccessScope(SearchMemberQuery query) {
+    private void assertMemberSearchAccess(SearchMemberQuery query) {
         if (query.requesterMemberId() == null) {
-            return query;
+            return;
         }
 
-        SearchMemberAccessScope accessScope = resolveAccessScope(query.requesterMemberId());
-        if (accessScope.noAccess()) {
+        if (!hasChallengerRecord(query.requesterMemberId())) {
             throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
         }
-
-        return query.withAccessScope(accessScope);
     }
 
-    private SearchMemberAccessScope resolveAccessScope(Long requesterMemberId) {
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(requesterMemberId);
-
-        if (roles.stream().anyMatch(role -> role.roleType().isAtLeastCentralCore())) {
-            return SearchMemberAccessScope.all();
-        }
-
-        Set<Long> schoolIds = roles.stream()
-            .filter(role -> role.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
-                || role.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
-            .map(ChallengerRoleInfo::organizationId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
-
-        if (!schoolIds.isEmpty()) {
-            return SearchMemberAccessScope.ofSchoolIds(schoolIds);
-        }
-
+    private boolean hasChallengerRecord(Long requesterMemberId) {
         Map<Long, List<ChallengerBasicInfo>> challengersByMemberId =
             getChallengerUseCase.getAllBasicByMemberIds(Set.of(requesterMemberId));
-        Set<Long> gisuIds = challengersByMemberId.getOrDefault(requesterMemberId, List.of()).stream()
-            .map(ChallengerBasicInfo::gisuId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toSet());
-
-        if (!gisuIds.isEmpty()) {
-            return SearchMemberAccessScope.ofGisuIds(gisuIds);
-        }
-
-        return SearchMemberAccessScope.none();
+        return !challengersByMemberId.getOrDefault(requesterMemberId, List.of()).isEmpty();
     }
 
     // ======= PRIVATE — v1 helpers =========

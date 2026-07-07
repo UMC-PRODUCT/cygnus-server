@@ -36,6 +36,8 @@ import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemInfo;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberResult;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 
 @WebMvcTest(controllers = MemberQueryController.class)
 @Import(JacksonConfig.class)
@@ -117,5 +119,17 @@ class MemberQueryControllerTest {
         ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
         then(searchMemberUseCase).should().searchBy(queryCaptor.capture(), any());
         assertThat(queryCaptor.getValue().requesterMemberId()).isEqualTo(99L);
+    }
+
+    @Test
+    @DisplayName("회원 검색 권한이 없으면 403을 반환한다")
+    void 회원_검색_권한이_없으면_403을_반환한다() throws Exception {
+        given(searchMemberUseCase.searchBy(any(), any()))
+            .willThrow(new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED));
+
+        mockMvc.perform(get("/api/v1/member/search")
+                .param("page", "0")
+                .param("size", "10"))
+            .andExpect(status().isForbidden());
     }
 }
