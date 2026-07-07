@@ -20,6 +20,7 @@ import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 
@@ -44,10 +45,15 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
             .max()
             .orElse(0L) + 1L;
 
+        if (command.nextSectionId() != null) {
+            validateNextSectionAllowed(question);
+        }
+
         QuestionOption option = QuestionOption.create(
             command.content(),
             nextOrderNo,
-            command.isOther()
+            command.isOther(),
+            command.nextSectionId()
         );
         option.assignTo(question);
 
@@ -59,7 +65,12 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         QuestionOption option = loadQuestionOptionPort.findById(command.optionId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
 
-        option.update(command.content(), command.isOther());
+        boolean clearNextSectionId = Boolean.TRUE.equals(command.clearNextSectionId());
+        if (command.nextSectionId() != null || clearNextSectionId) {
+            validateNextSectionAllowed(option.getQuestion());
+        }
+
+        option.update(command.content(), command.isOther(), command.nextSectionId(), clearNextSectionId);
         saveQuestionOptionPort.save(option);
     }
 
@@ -92,5 +103,12 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         }
 
         saveQuestionOptionPort.saveAll(options);
+    }
+
+    private static void validateNextSectionAllowed(Question question) {
+        if (question.getType() != QuestionType.RADIO && question.getType() != QuestionType.DROPDOWN) {
+            throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
+                "조건부 섹션 이동은 RADIO, DROPDOWN 타입 질문에만 지정할 수 있습니다.");
+        }
     }
 }
