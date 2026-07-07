@@ -2,9 +2,14 @@ package com.umc.product.form.application.service.command;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -24,6 +29,7 @@ import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCo
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
+import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
@@ -32,6 +38,7 @@ import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.FormResponseStatus;
@@ -49,6 +56,7 @@ import lombok.RequiredArgsConstructor;
 public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     private final LoadFormPort loadFormPort;
+    private final LoadFormSectionPort loadFormSectionPort;
     private final LoadQuestionPort loadQuestionPort;
     private final LoadQuestionOptionPort loadQuestionOptionPort;
     private final LoadFormResponsePort loadFormResponsePort;
@@ -71,7 +79,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         validateDuplicateResponsePolicy(form, command.respondentMemberId());
 
         validateAnswers(command.formId(), command.answers());
-        validateAllRequiredAnswered(command.formId(), extractQuestionIds(command.answers()));
+        validateAllRequiredAnsweredOnPath(
+            command.formId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
 
         FormResponse response = FormResponse.createDraft(form, command.respondentMemberId());
         response.submit(Instant.now(), null);
@@ -93,7 +105,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
         validateAnswers(command.formId(), command.answers());
-        validateAllRequiredAnswered(command.formId(), extractQuestionIds(command.answers()));
+        validateAllRequiredAnsweredOnPath(
+            command.formId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
@@ -159,7 +175,15 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (command.requiredQuestionIds() != null) {
             validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
         } else {
-            validateAllRequiredAnswered(draft.getForm().getId(), answeredQuestionIds);
+            Set<Long> answerIds = savedAnswers.stream().map(Answer::getId).collect(Collectors.toSet());
+            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIds).stream()
+                .filter(c -> c.getQuestionOption() != null)
+                .collect(Collectors.toMap(
+                    c -> c.getAnswer().getQuestion().getId(),
+                    c -> c.getQuestionOption().getId(),
+                    (a, b) -> a
+                ));
+            validateAllRequiredAnsweredOnPath(draft.getForm().getId(), answeredQuestionIds, selectedOptionByQuestion);
         }
 
         saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
@@ -225,7 +249,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
      * 답변 형식 / 질문 소속 / 옵션 소속 등 형식 검증만 수행. 필수 답변 누락 검증은 별도.
      * <p>
      * draft 작성 중 (updateDraft) 에는 필수 누락이 정상이라 형식만 검증.
-     * 제출 시점 (submitImmediately, updateResponse, submitDraft) 에는 별도로 {@link #validateAllRequiredAnswered} 호출 필요.
+     * 제출 시점 (submitImmediately, updateResponse, submitDraft) 에는 별도로 {@link #validateAllRequiredAnsweredOnPath} 호출 필요.
      */
     private void validateAnswers(Long formId, List<AnswerCommand> answers) {
         if (answers == null) {
@@ -252,15 +276,96 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     /**
-     * 폼의 모든 필수 질문이 답변에 포함됐는지 검증. 제출 시점에만 호출.
+     * 응답자가 실제 방문한 섹션 경로 상의 필수 질문만 검증. 제출 시점에만 호출.
+     * 조건부 섹션 이동이 없는 폼은 전체 섹션을 방문하므로 기존 동작과 동일.
      */
-    private void validateAllRequiredAnswered(Long formId, Set<Long> answeredQuestionIds) {
+    private void validateAllRequiredAnsweredOnPath(
+        Long formId,
+        Set<Long> answeredQuestionIds,
+        Map<Long, Long> selectedOptionByQuestion
+    ) {
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(formId, selectedOptionByQuestion);
         List<Question> formQuestions = loadQuestionPort.listByFormId(formId);
         for (Question q : formQuestions) {
-            if (Boolean.TRUE.equals(q.getIsRequired()) && !answeredQuestionIds.contains(q.getId())) {
+            if (visitedSectionIds.contains(q.getFormSection().getId())
+                && Boolean.TRUE.equals(q.getIsRequired())
+                && !answeredQuestionIds.contains(q.getId())) {
                 throw new FormDomainException(FormErrorCode.REQUIRED_QUESTION_NOT_ANSWERED);
             }
         }
+    }
+
+    /**
+     * 제출된 답변의 선택지를 기반으로 응답자가 실제로 방문한 섹션 ID 집합을 계산한다.
+     * RADIO/DROPDOWN 선택지에 nextSectionId가 지정된 경우 해당 섹션으로 점프하고,
+     * 없으면 orderNo 오름차순으로 다음 섹션으로 이동한다.
+     */
+    private Set<Long> resolveVisitedSectionIds(Long formId, Map<Long, Long> selectedOptionByQuestion) {
+        List<FormSection> sections = loadFormSectionPort.listByFormId(formId).stream()
+            .sorted(Comparator.comparing(FormSection::getOrderNo))
+            .toList();
+        if (sections.isEmpty()) {
+            return Set.of();
+        }
+
+        List<Question> questions = loadQuestionPort.listByFormId(formId);
+
+        Set<Long> radioDropdownQuestionIds = questions.stream()
+            .filter(q -> q.getType() == QuestionType.RADIO || q.getType() == QuestionType.DROPDOWN)
+            .map(Question::getId)
+            .collect(Collectors.toSet());
+
+        Map<Long, Long> optionToNextSection = new HashMap<>();
+        if (!radioDropdownQuestionIds.isEmpty()) {
+            loadQuestionOptionPort.listByQuestionIdIn(radioDropdownQuestionIds).stream()
+                .filter(opt -> opt.getNextSectionId() != null)
+                .forEach(opt -> optionToNextSection.put(opt.getId(), opt.getNextSectionId()));
+        }
+
+        Map<Long, List<Question>> questionsBySection = questions.stream()
+            .collect(Collectors.groupingBy(q -> q.getFormSection().getId()));
+        Map<Long, FormSection> sectionById = sections.stream()
+            .collect(Collectors.toMap(FormSection::getId, Function.identity()));
+
+        Set<Long> visited = new LinkedHashSet<>();
+        FormSection current = sections.get(0);
+
+        while (current != null) {
+            visited.add(current.getId());
+
+            FormSection next = null;
+            for (Question q : questionsBySection.getOrDefault(current.getId(), List.of())) {
+                if (q.getType() != QuestionType.RADIO && q.getType() != QuestionType.DROPDOWN) continue;
+                Long selectedOptionId = selectedOptionByQuestion.get(q.getId());
+                if (selectedOptionId == null) continue;
+                Long nextSectionId = optionToNextSection.get(selectedOptionId);
+                if (nextSectionId != null && !visited.contains(nextSectionId)) {
+                    next = sectionById.get(nextSectionId);
+                    break;
+                }
+            }
+
+            if (next == null) {
+                FormSection finalCurrent = current;
+                next = sections.stream()
+                    .filter(s -> s.getOrderNo() > finalCurrent.getOrderNo())
+                    .findFirst()
+                    .orElse(null);
+            }
+
+            current = next;
+        }
+
+        return visited;
+    }
+
+    private static Map<Long, Long> extractSingleSelectedOptionIds(List<AnswerCommand> answers) {
+        return answers.stream()
+            .filter(a -> a.selectedOptionIds() != null && a.selectedOptionIds().size() == 1)
+            .collect(Collectors.toMap(
+                AnswerCommand::questionId,
+                a -> a.selectedOptionIds().get(0)
+            ));
     }
 
     private void validateRequiredAnswered(Set<Long> requiredQuestionIds, Set<Long> answeredQuestionIds) {
