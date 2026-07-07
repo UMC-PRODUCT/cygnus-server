@@ -43,11 +43,19 @@ public class QuestionOption extends BaseEntity {
     @Column(name = "is_other", nullable = false)
     private boolean isOther;
 
+    @Column(name = "next_section_id")
+    private Long nextSectionId;
+
     public static QuestionOption create(String content, long orderNo, boolean isOther) {
+        return create(content, orderNo, isOther, null);
+    }
+
+    public static QuestionOption create(String content, long orderNo, boolean isOther, Long nextSectionId) {
         return QuestionOption.builder()
             .content(content)
             .orderNo(orderNo)
             .isOther(isOther)
+            .nextSectionId(nextSectionId)
             .build();
     }
 
@@ -56,11 +64,20 @@ public class QuestionOption extends BaseEntity {
      * null 인 필드는 기존 값 유지.
      */
     public void update(String content, Boolean isOther) {
+        update(content, isOther, null, false);
+    }
+
+    public void update(String content, Boolean isOther, Long nextSectionId, boolean clearNextSectionId) {
         if (content != null) {
             this.content = content;
         }
         if (isOther != null) {
             this.isOther = isOther;
+        }
+        if (clearNextSectionId) {
+            this.nextSectionId = null;
+        } else if (nextSectionId != null) {
+            this.nextSectionId = nextSectionId;
         }
     }
 
