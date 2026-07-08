@@ -15,9 +15,11 @@ import com.umc.product.form.application.port.in.command.dto.CreateQuestionOption
 import com.umc.product.form.application.port.in.command.dto.DeleteQuestionOptionCommand;
 import com.umc.product.form.application.port.in.command.dto.ReorderQuestionOptionsCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateQuestionOptionCommand;
+import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
+import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
@@ -31,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class QuestionOptionCommandService implements ManageQuestionOptionUseCase {
 
+    private final LoadFormSectionPort loadFormSectionPort;
     private final LoadQuestionPort loadQuestionPort;
     private final LoadQuestionOptionPort loadQuestionOptionPort;
     private final SaveQuestionOptionPort saveQuestionOptionPort;
@@ -47,6 +50,7 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
 
         if (command.nextSectionId() != null) {
             validateNextSectionAllowed(question);
+            validateNextSectionBelongsToForm(command.nextSectionId(), question);
         }
 
         QuestionOption option = QuestionOption.create(
@@ -68,6 +72,9 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         boolean clearNextSectionId = Boolean.TRUE.equals(command.clearNextSectionId());
         if (command.nextSectionId() != null || clearNextSectionId) {
             validateNextSectionAllowed(option.getQuestion());
+        }
+        if (command.nextSectionId() != null) {
+            validateNextSectionBelongsToForm(command.nextSectionId(), option.getQuestion());
         }
 
         option.update(command.content(), command.isOther(), command.nextSectionId(), clearNextSectionId);
@@ -109,6 +116,17 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         if (question.getType() != QuestionType.RADIO && question.getType() != QuestionType.DROPDOWN) {
             throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
                 "조건부 섹션 이동은 RADIO, DROPDOWN 타입 질문에만 지정할 수 있습니다.");
+        }
+    }
+
+    private void validateNextSectionBelongsToForm(Long nextSectionId, Question question) {
+        FormSection section = loadFormSectionPort.findById(nextSectionId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
+                "존재하지 않는 섹션입니다."));
+        Long questionFormId = question.getFormSection().getForm().getId();
+        if (!section.getForm().getId().equals(questionFormId)) {
+            throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
+                "nextSectionId는 동일한 폼의 섹션이어야 합니다.");
         }
     }
 }
