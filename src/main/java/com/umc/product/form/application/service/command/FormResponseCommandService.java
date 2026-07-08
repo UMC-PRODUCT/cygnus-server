@@ -346,11 +346,10 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             }
 
             if (next == null) {
-                FormSection finalCurrent = current;
-                next = sections.stream()
-                    .filter(s -> s.getOrderNo() > finalCurrent.getOrderNo())
-                    .findFirst()
-                    .orElse(null);
+                int currentIndex = sections.indexOf(current);
+                next = (currentIndex != -1 && currentIndex < sections.size() - 1)
+                    ? sections.get(currentIndex + 1)
+                    : null;
             }
 
             current = next;
