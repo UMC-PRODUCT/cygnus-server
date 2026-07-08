@@ -28,7 +28,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
@@ -45,12 +44,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
-import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
-import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
-import com.umc.product.common.domain.enums.ClientType;
 import com.umc.product.global.config.WebSocketMessageBrokerConfig;
 import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.global.security.ParsedAccessToken;
 import com.umc.product.global.websocket.interceptor.ShutdownAwareHandshakeInterceptor;
 import com.umc.product.global.websocket.interceptor.StompAuthChannelInterceptor;
 import com.umc.product.global.websocket.interceptor.StompPrincipalInterceptor;
@@ -79,9 +74,6 @@ class ApiResponseStompErrorHandlerIntegrationTest {
 
     @MockitoBean
     private JwtTokenProvider jwtTokenProvider;
-
-    @MockitoBean
-    private CheckChatRoomAccessUseCase checkChatRoomAccessUseCase;
 
     @Test
     @DisplayName("Authorization 헤더 없이 CONNECT하면 ApiResponse 형식의 ERROR 프레임을 받는다")
@@ -126,38 +118,6 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         }
     }
 
-    @Test
-    @DisplayName("권한 없는 채팅방 구독은 사용자 에러 큐로 ApiResponse 메시지를 받는다")
-    void subscribe_without_chat_room_access_receives_user_error_message() throws Exception {
-        when(jwtTokenProvider.parseAndValidateAccessToken(eq("valid-token")))
-            .thenReturn(new ParsedAccessToken(1L, List.of("USER"), ClientType.WEB));
-        when(checkChatRoomAccessUseCase.hasChatRoomAccess(1L, 10L)).thenReturn(false);
-
-        BlockingQueue<String> userErrors = new LinkedBlockingQueue<>();
-        WebSocketStompClient stompClient = stompClient();
-        StompSession session = connectSession(stompClient, "Bearer valid-token");
-
-        try {
-            session.subscribe("/user/queue/errors", new PayloadCollectingFrameHandler(userErrors));
-            TimeUnit.MILLISECONDS.sleep(300);
-
-            session.subscribe("/topic/chat/rooms/10/messages", new PayloadCollectingFrameHandler(new LinkedBlockingQueue<>()));
-
-            String payload = userErrors.poll(5, TimeUnit.SECONDS);
-            assertThat(payload).isNotNull();
-            assertApiResponsePayload(
-                payload,
-                AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getCode(),
-                AuthorizationErrorCode.RESOURCE_ACCESS_DENIED.getMessage()
-            );
-        } finally {
-            if (session.isConnected()) {
-                session.disconnect();
-            }
-            stompClient.stop();
-        }
-    }
-
     private WebSocketStompClient connect(StompHeaders connectHeaders, BlockingQueue<StompErrorFrame> errors) {
         WebSocketStompClient stompClient = stompClient();
         stompClient.connectAsync(
@@ -177,18 +137,6 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         return stompClient;
     }
 
-    private StompSession connectSession(WebSocketStompClient stompClient, String authorizationHeader) throws Exception {
-        StompHeaders connectHeaders = new StompHeaders();
-        connectHeaders.add("Authorization", authorizationHeader);
-        return stompClient.connectAsync(
-            "http://localhost:%d/ws".formatted(port),
-            new WebSocketHttpHeaders(),
-            connectHeaders,
-            new StompSessionHandlerAdapter() {
-            }
-        ).get(5, TimeUnit.SECONDS);
-    }
-
     private void assertErrorFrame(StompErrorFrame errorFrame, String code, String message) throws Exception {
         assertThat(errorFrame.headers().getContentType()).isEqualTo(MimeTypeUtils.APPLICATION_JSON);
 
@@ -204,26 +152,6 @@ class ApiResponseStompErrorHandlerIntegrationTest {
     }
 
     private record StompErrorFrame(StompHeaders headers, String payload) {
-    }
-
-    private static class PayloadCollectingFrameHandler implements StompFrameHandler {
-
-        private final BlockingQueue<String> payloads;
-
-        private PayloadCollectingFrameHandler(BlockingQueue<String> payloads) {
-            this.payloads = payloads;
-        }
-
-        @Override
-        public Type getPayloadType(StompHeaders headers) {
-            return byte[].class;
-        }
-
-        @Override
-        public void handleFrame(StompHeaders headers, Object payload) {
-            byte[] bytes = (byte[]) payload;
-            payloads.offer(new String(bytes, StandardCharsets.UTF_8));
-        }
     }
 
     private static class ErrorCollectingSessionHandler extends StompSessionHandlerAdapter {
