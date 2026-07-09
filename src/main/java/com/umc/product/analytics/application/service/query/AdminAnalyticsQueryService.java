@@ -21,6 +21,7 @@ import com.umc.product.analytics.application.port.in.query.GetAdminOperationsSig
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsStudyGroupsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminRiskChallengerUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminSchoolSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupListUseCase;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardContextInfo;
@@ -54,6 +55,8 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminRiskChalleng
 import com.umc.product.analytics.application.port.in.query.dto.AdminRiskChallengerQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminStudyGroupListInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminStudyGroupListQuery;
 import com.umc.product.analytics.application.port.out.LoadAdminDashboardAnalyticsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminGisuPointsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminGisuSummaryPort;
@@ -69,7 +72,10 @@ import com.umc.product.analytics.application.port.out.LoadAdminOperationsSignups
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsStudyGroupsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminRiskChallengerAnalyticsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminSchoolAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminStudyGroupListPort;
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
+import com.umc.product.analytics.domain.AnalyticsDomainException;
+import com.umc.product.analytics.domain.AnalyticsErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -93,7 +99,8 @@ public class AdminAnalyticsQueryService implements
     GetAdminOperationsSignupsUseCase,
     GetAdminGisuSummaryUseCase,
     GetAdminGisuPointsUseCase,
-    GetAdminOperationsCommunityActivityUseCase {
+    GetAdminOperationsCommunityActivityUseCase,
+    GetAdminStudyGroupListUseCase {
 
     private final AdminAnalyticsScopeResolver scopeResolver;
     private final LoadAdminDashboardAnalyticsPort loadAdminDashboardAnalyticsPort;
@@ -111,6 +118,7 @@ public class AdminAnalyticsQueryService implements
     private final LoadAdminGisuSummaryPort loadAdminGisuSummaryPort;
     private final LoadAdminGisuPointsPort loadAdminGisuPointsPort;
     private final LoadAdminOperationsCommunityActivityPort loadAdminOperationsCommunityActivityPort;
+    private final LoadAdminStudyGroupListPort loadAdminStudyGroupListPort;
 
     @Override
     public AdminDashboardSummaryInfo getSummary(AdminDashboardQuery query) {
@@ -229,5 +237,21 @@ public class AdminAnalyticsQueryService implements
     public AdminOperationsCommunityActivityInfo getCommunityActivity(AdminOperationsCommunityActivityQuery query) {
         AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
         return loadAdminOperationsCommunityActivityPort.getCommunityActivity(scope, query.from(), query.to(), query.granularity());
+    }
+
+    @Override
+    public AdminStudyGroupListInfo getStudyGroupList(AdminStudyGroupListQuery query) {
+        AdminAnalyticsScope scope = scopeResolver.resolve(
+            query.requesterMemberId(),
+            query.gisuId(),
+            null,
+            query.schoolId(),
+            null
+        );
+        // 교내 운영진이 아닌 경우 schoolId 파라미터 필수
+        if (scope.schoolId() == null) {
+            throw new AnalyticsDomainException(AnalyticsErrorCode.SCHOOL_ID_REQUIRED);
+        }
+        return loadAdminStudyGroupListPort.getStudyGroupList(scope);
     }
 }
