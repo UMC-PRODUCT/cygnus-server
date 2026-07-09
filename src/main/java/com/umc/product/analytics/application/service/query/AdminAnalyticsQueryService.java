@@ -21,6 +21,7 @@ import com.umc.product.analytics.application.port.in.query.GetAdminOperationsSig
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsStudyGroupsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminRiskChallengerUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminSchoolSummaryUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupActivityUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupListUseCase;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueQuery;
@@ -55,6 +56,8 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminRiskChalleng
 import com.umc.product.analytics.application.port.in.query.dto.AdminRiskChallengerQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminStudyGroupActivityInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminStudyGroupActivityQuery;
 import com.umc.product.analytics.application.port.in.query.dto.AdminStudyGroupListInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminStudyGroupListQuery;
 import com.umc.product.analytics.application.port.out.LoadAdminDashboardAnalyticsPort;
@@ -72,6 +75,7 @@ import com.umc.product.analytics.application.port.out.LoadAdminOperationsSignups
 import com.umc.product.analytics.application.port.out.LoadAdminOperationsStudyGroupsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminRiskChallengerAnalyticsPort;
 import com.umc.product.analytics.application.port.out.LoadAdminSchoolAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminStudyGroupActivityPort;
 import com.umc.product.analytics.application.port.out.LoadAdminStudyGroupListPort;
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
 import com.umc.product.analytics.domain.AnalyticsDomainException;
@@ -100,6 +104,7 @@ public class AdminAnalyticsQueryService implements
     GetAdminGisuSummaryUseCase,
     GetAdminGisuPointsUseCase,
     GetAdminOperationsCommunityActivityUseCase,
+    GetAdminStudyGroupActivityUseCase,
     GetAdminStudyGroupListUseCase {
 
     private final AdminAnalyticsScopeResolver scopeResolver;
@@ -118,6 +123,7 @@ public class AdminAnalyticsQueryService implements
     private final LoadAdminGisuSummaryPort loadAdminGisuSummaryPort;
     private final LoadAdminGisuPointsPort loadAdminGisuPointsPort;
     private final LoadAdminOperationsCommunityActivityPort loadAdminOperationsCommunityActivityPort;
+    private final LoadAdminStudyGroupActivityPort loadAdminStudyGroupActivityPort;
     private final LoadAdminStudyGroupListPort loadAdminStudyGroupListPort;
 
     @Override
@@ -237,6 +243,12 @@ public class AdminAnalyticsQueryService implements
     public AdminOperationsCommunityActivityInfo getCommunityActivity(AdminOperationsCommunityActivityQuery query) {
         AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
         return loadAdminOperationsCommunityActivityPort.getCommunityActivity(scope, query.from(), query.to(), query.granularity());
+    }
+
+    @Override
+    public AdminStudyGroupActivityInfo getStudyGroupActivity(AdminStudyGroupActivityQuery query) {
+        AdminAnalyticsScope scope = scopeResolver.resolve(query.requesterMemberId(), query.gisuId(), null, null, null);
+        return loadAdminStudyGroupActivityPort.getStudyGroupActivity(scope);
     }
 
     @Override

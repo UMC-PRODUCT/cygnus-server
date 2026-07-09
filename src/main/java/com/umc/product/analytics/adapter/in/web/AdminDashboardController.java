@@ -11,6 +11,7 @@ import com.umc.product.analytics.adapter.in.web.dto.request.AdminDashboardReques
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminGisuPointsRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminGisuSummaryRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsCommunityActivityRequest;
+import com.umc.product.analytics.adapter.in.web.dto.request.AdminStudyGroupActivityRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminStudyGroupListRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendanceChaptersRequest;
 import com.umc.product.analytics.adapter.in.web.dto.request.AdminOperationsAttendancePartsRequest;
@@ -28,6 +29,7 @@ import com.umc.product.analytics.adapter.in.web.dto.response.AdminDashboardSumma
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminGisuPointsResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminGisuSummaryResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsCommunityActivityResponse;
+import com.umc.product.analytics.adapter.in.web.dto.response.AdminStudyGroupActivityResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminStudyGroupListResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendanceChaptersResponse;
 import com.umc.product.analytics.adapter.in.web.dto.response.AdminOperationsAttendancePartsResponse;
@@ -45,6 +47,7 @@ import com.umc.product.analytics.application.port.in.query.GetAdminDashboardSumm
 import com.umc.product.analytics.application.port.in.query.GetAdminGisuPointsUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminGisuSummaryUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsCommunityActivityUseCase;
+import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupActivityUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminStudyGroupListUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendanceChaptersUseCase;
 import com.umc.product.analytics.application.port.in.query.GetAdminOperationsAttendancePartsUseCase;
@@ -89,6 +92,7 @@ public class AdminDashboardController {
     private final GetAdminGisuSummaryUseCase getAdminGisuSummaryUseCase;
     private final GetAdminGisuPointsUseCase getAdminGisuPointsUseCase;
     private final GetAdminOperationsCommunityActivityUseCase getAdminOperationsCommunityActivityUseCase;
+    private final GetAdminStudyGroupActivityUseCase getAdminStudyGroupActivityUseCase;
     private final GetAdminStudyGroupListUseCase getAdminStudyGroupListUseCase;
 
     @Operation(operationId = "DASHBOARD-001", summary = "운영진 대시보드 요약 조회")
@@ -272,6 +276,18 @@ public class AdminDashboardController {
         return AdminOperationsCommunityActivityResponse.from(
             getAdminOperationsCommunityActivityUseCase.getCommunityActivity(
                 request.toQuery(memberPrincipal.getMemberId()))
+        );
+    }
+
+    @Operation(operationId = "DASHBOARD-022", summary = "스터디 그룹 활성도 - 파트별 집계 조회")
+    @GetMapping("study-groups/activity")
+    @CheckAccess(resourceType = ResourceType.ANALYTICS, permission = PermissionType.READ)
+    public AdminStudyGroupActivityResponse getStudyGroupActivity(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @ParameterObject AdminStudyGroupActivityRequest request
+    ) {
+        return AdminStudyGroupActivityResponse.from(
+            getAdminStudyGroupActivityUseCase.getStudyGroupActivity(request.toQuery(memberPrincipal.getMemberId()))
         );
     }
 
