@@ -21,7 +21,8 @@
 
 #### 📅 2026.03 ~ 2026.08
 
-<img width="1000" alt="2nd-server-team" src="https://github.com/user-attachments/assets/3eebdba2-bd97-4785-b809-2671a8500f5d" />
+<img width="1000" alt="2nd-server-team" src="https://github.com/user-attachments/assets/41fd4398-a0d3-4dd9-9c21-9cea2477e75a" />
+
 
 ### 🥇 1st | Founders
 
