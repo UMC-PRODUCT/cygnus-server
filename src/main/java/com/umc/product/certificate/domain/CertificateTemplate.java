@@ -2,128 +2,160 @@ package com.umc.product.certificate.domain;
 
 public enum CertificateTemplate {
     UMC_COURSE_COMPLETION(
-        CertificateType.COMPLETION,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "CMP",
+        true,
+        true,
         "course",
         "수료증",
         null,
         "certificate/backgrounds/umc-course-completion.pdf"
     ),
     UMC_COURSE_MERIT(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "course",
         "공로증",
         "공로증",
         "certificate/backgrounds/umc-course-completion.pdf"
     ),
     UMC_DEMO_DAY_GRAND_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "demo",
         "대상",
         "대상",
         "certificate/backgrounds/umc-demo-day-grand-prize.pdf"
     ),
     UMC_DEMO_DAY_FIRST_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "demo",
         "최우수상",
         "최우수상",
         "certificate/backgrounds/umc-demo-day-first-prize.pdf"
     ),
     UMC_DEMO_DAY_SECOND_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "demo",
         "우수상",
         "우수상",
         "certificate/backgrounds/umc-demo-day-second-prize.pdf"
     ),
     UMC_DEMO_DAY_PARTICIPATION_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "demo",
         "장려상",
         "장려상",
         "certificate/backgrounds/umc-demo-day-participation-prize.pdf"
     ),
     UMC_DEMO_DAY_AWS_SPECIAL_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "demo",
         "AWS특별상",
         "AWS특별상",
         "certificate/backgrounds/umc-demo-day-aws-special-prize.pdf"
     ),
     UMC_DEMO_DAY_BEST_CHALLENGER(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "demo",
         "베스트 챌린저",
         "베스트 챌린저",
         "certificate/backgrounds/umc-demo-day-best-part-challenger.pdf"
     ),
     UMC_HACKATHON_CERTIFICATION_OF_COMPLETION(
-        CertificateType.COMPLETION,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "CMP",
+        true,
+        false,
         "hackathon",
         "수료증",
         null,
         "certificate/backgrounds/umc-course-completion.pdf"
     ),
     UMC_HACKATHON_GRAND_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "hackathon",
         "대상",
         "대상",
         "certificate/backgrounds/umc-demo-day-grand-prize.pdf"
     ),
     UMC_HACKATHON_FIRST_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "hackathon",
         "최우수상",
         "최우수상",
         "certificate/backgrounds/umc-demo-day-first-prize.pdf"
     ),
     UMC_HACKATHON_SECOND_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+        "MRT",
+        false,
+        false,
         "hackathon",
         "우수상",
         "우수상",
         "certificate/backgrounds/umc-demo-day-second-prize.pdf"
     ),
     NEORDINARY_HACKATHON_GRAND_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.NEORDINARY,
+        "MRT",
+        false,
+        false,
         "hackathon",
         "대상",
         "대상",
         "certificate/backgrounds/neordinary-hackathon-grand-prize.pdf"
     ),
     NEORDINARY_HACKATHON_FIRST_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.NEORDINARY,
+        "MRT",
+        false,
+        false,
         "hackathon",
         "최우수상",
         "최우수상",
         "certificate/backgrounds/neordinary-hackathon-first-prize.pdf"
     ),
     NEORDINARY_HACKATHON_SECOND_PRIZE(
-        CertificateType.MERIT,
         CertificateIssuer.NEORDINARY,
+        "MRT",
+        false,
+        false,
         "hackathon",
         "우수상",
         "우수상",
         "certificate/backgrounds/neordinary-hackathon-second-prize.pdf"
     ),
     NEORDINARY_HACKATHON_CERTIFICATION_OF_COMPLETION(
-        CertificateType.COMPLETION,
         CertificateIssuer.NEORDINARY,
+        "CMP",
+        true,
+        false,
         "hackathon",
         "수료증",
         null,
@@ -132,35 +164,49 @@ public enum CertificateTemplate {
 
     private static final int DEFAULT_ITEM_COUNT = 4;
 
-    private final CertificateType type;
     private final CertificateIssuer issuer;
+    private final String serialCode;
+    private final boolean graduationRequired;
+    private final boolean selfIssuable;
     private final String eventKey;
     private final String awardName;
     private final String defaultMeritTitle;
     private final String backgroundResourcePath;
 
     CertificateTemplate(
-        CertificateType type,
         CertificateIssuer issuer,
+        String serialCode,
+        boolean graduationRequired,
+        boolean selfIssuable,
         String eventKey,
         String awardName,
         String defaultMeritTitle,
         String backgroundResourcePath
     ) {
-        this.type = type;
         this.issuer = issuer;
+        this.serialCode = serialCode;
+        this.graduationRequired = graduationRequired;
+        this.selfIssuable = selfIssuable;
         this.eventKey = eventKey;
         this.awardName = awardName;
         this.defaultMeritTitle = defaultMeritTitle;
         this.backgroundResourcePath = backgroundResourcePath;
     }
 
-    public CertificateType type() {
-        return type;
-    }
-
     public CertificateIssuer issuer() {
         return issuer;
+    }
+
+    public String serialCode() {
+        return serialCode;
+    }
+
+    public boolean requiresGraduation() {
+        return graduationRequired;
+    }
+
+    public boolean supportsSelfIssue() {
+        return selfIssuable;
     }
 
     public String eventKey() {
@@ -188,7 +234,7 @@ public enum CertificateTemplate {
     }
 
     public String englishCertificateTitle() {
-        if (type == CertificateType.COMPLETION || "공로증".equals(awardName)) {
+        if (graduationRequired || "공로증".equals(awardName)) {
             return "Certificate of Completion";
         }
         return "Certificate of Award";
@@ -228,7 +274,7 @@ public enum CertificateTemplate {
     public String defaultDescription(Long generation, String displayAwardName) {
         String generationKo = generation + "기";
         String line1 = englishTitleLine1(generation);
-        if ("course".equals(eventKey) && type == CertificateType.COMPLETION) {
+        if ("course".equals(eventKey) && graduationRequired) {
             return "위 챌린저는 전국 대학생 IT 연합 동아리 University MakeUs Challenge " + generationKo
                 + " 과정을 성실히 수료하였기에 이 증서를 수여합니다.";
         }
@@ -244,7 +290,7 @@ public enum CertificateTemplate {
             return "위 챌린저는 " + line1
                 + " DEMO DAY에서 AWS 기술 활용의 우수성을 인정받아 이 증서를 수여합니다.";
         }
-        if ("hackathon".equals(eventKey) && type == CertificateType.COMPLETION) {
+        if ("hackathon".equals(eventKey) && graduationRequired) {
             return "위 챌린저는 " + line1 + " HACKATHON을 성실히 수료하였기에 이 증서를 수여합니다.";
         }
         return "위 챌린저는 " + line1 + " " + englishTitleLine2()

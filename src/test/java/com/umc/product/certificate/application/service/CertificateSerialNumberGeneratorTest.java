@@ -8,22 +8,22 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 class CertificateSerialNumberGeneratorTest {
 
     @Test
-    @DisplayName("인증서 타입과 발급일을 포함한 일련번호를 생성한다")
-    void 인증서_타입과_발급일을_포함한_일련번호를_생성한다() {
+    @DisplayName("수료증 템플릿과 발급일을 포함한 일련번호를 생성한다")
+    void 수료증_템플릿과_발급일을_포함한_일련번호를_생성한다() {
         // given
         CertificateSerialNumberGenerator generator = new CertificateSerialNumberGenerator(new SecureRandom());
 
         // when
-        String serialNumber = generator.generate(CertificateType.PROJECT_PARTICIPATION,
+        String serialNumber = generator.generate(CertificateTemplate.UMC_COURSE_COMPLETION,
             Instant.parse("2026-07-01T09:00:00Z"));
 
         // then
-        assertThat(serialNumber).matches("UMC-PRJ-20260701-[A-Z2-7]{8}");
+        assertThat(serialNumber).matches("UMC-CMP-20260701-[A-Z2-7]{8}");
     }
 
     @Test
@@ -33,7 +33,7 @@ class CertificateSerialNumberGeneratorTest {
         CertificateSerialNumberGenerator generator = new CertificateSerialNumberGenerator(new SecureRandom());
 
         // when
-        String serialNumber = generator.generate(CertificateType.MERIT,
+        String serialNumber = generator.generate(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE,
             Instant.parse("2026-07-01T09:00:00Z"));
 
         // then

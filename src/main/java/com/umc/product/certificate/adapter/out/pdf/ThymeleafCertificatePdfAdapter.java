@@ -37,7 +37,6 @@ import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import com.umc.product.certificate.application.port.out.RenderCertificatePdfPort;
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
 import com.umc.product.certificate.domain.CertificateTemplate;
-import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
 
@@ -154,20 +153,9 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
         values.put("item_value_2", firstNonBlank(command.recipientSchoolName(), "-"));
         values.put("item_label_3", "기수");
         values.put("item_value_3", generationKo);
-        values.put("item_label_4", itemLabel4(command));
-        values.put("item_value_4", itemValue4(command, displayAwardName));
+        values.put("item_label_4", "구분");
+        values.put("item_value_4", displayAwardName);
         return values;
-    }
-
-    private String itemLabel4(CertificatePdfRenderCommand command) {
-        return command.type() == CertificateType.PROJECT_PARTICIPATION ? "프로젝트" : "구분";
-    }
-
-    private String itemValue4(CertificatePdfRenderCommand command, String displayAwardName) {
-        if (command.type() == CertificateType.PROJECT_PARTICIPATION) {
-            return firstNonBlank(command.projectName(), "-");
-        }
-        return firstNonBlank(displayAwardName, command.type().displayName());
     }
 
     private void drawShapes(PDPageContentStream contentStream, PDPage page, JsonNode shapes) throws IOException {

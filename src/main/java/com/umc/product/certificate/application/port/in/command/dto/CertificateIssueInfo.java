@@ -5,12 +5,12 @@ import java.time.Instant;
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public record CertificateIssueInfo(
     Long certificateId,
     String serialNumber,
-    CertificateType type,
+    CertificateTemplate template,
     CertificateIssuer issuer,
     CertificateStatus status,
     Instant issuedAt,
@@ -21,7 +21,7 @@ public record CertificateIssueInfo(
         return new CertificateIssueInfo(
             certificate.getId(),
             certificate.getSerialNumber(),
-            certificate.getType(),
+            certificate.getTemplate(),
             certificate.getIssuer(),
             certificate.getStatus(),
             certificate.getIssuedAt(),

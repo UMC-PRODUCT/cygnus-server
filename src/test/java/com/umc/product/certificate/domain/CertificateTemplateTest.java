@@ -43,16 +43,27 @@ class CertificateTemplateTest {
     }
 
     @Test
-    @DisplayName("템플릿은 인증서 종류와 발급 주체와 기본 상명을 제공한다")
-    void 템플릿은_인증서_종류와_발급_주체와_기본_상명을_제공한다() {
+    @DisplayName("템플릿은 일련번호 코드와 발급 정책과 기본 상명을 제공한다")
+    void 템플릿은_일련번호_코드와_발급_정책과_기본_상명을_제공한다() {
         // when
         CertificateTemplate template = CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE;
 
         // then
-        assertThat(template.type()).isEqualTo(CertificateType.MERIT);
+        assertThat(template.serialCode()).isEqualTo("MRT");
+        assertThat(template.requiresGraduation()).isFalse();
+        assertThat(template.supportsSelfIssue()).isFalse();
         assertThat(template.issuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
         assertThat(template.defaultMeritTitle()).isEqualTo("최우수상");
         assertThat(template.backgroundResourcePath()).endsWith(".pdf");
+    }
+
+    @Test
+    @DisplayName("UMC 과정 수료증만 셀프 발급할 수 있다")
+    void UMC_과정_수료증만_셀프_발급할_수_있다() {
+        assertThat(CertificateTemplate.UMC_COURSE_COMPLETION.supportsSelfIssue()).isTrue();
+        assertThat(Arrays.stream(CertificateTemplate.values())
+            .filter(CertificateTemplate::supportsSelfIssue))
+            .containsExactly(CertificateTemplate.UMC_COURSE_COMPLETION);
     }
 
     @ParameterizedTest

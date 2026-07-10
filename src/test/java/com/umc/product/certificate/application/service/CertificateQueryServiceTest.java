@@ -21,7 +21,7 @@ import com.umc.product.certificate.application.port.out.LoadCertificatePort;
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssueSpec;
 import com.umc.product.certificate.domain.CertificateIssuer;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
@@ -60,7 +60,7 @@ class CertificateQueryServiceTest {
         // given
         Certificate expired = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber("UMC-CMP-20250701-ABCDEFGH")
-            .type(CertificateType.COMPLETION)
+            .template(CertificateTemplate.UMC_COURSE_COMPLETION)
             .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientMemberId(1L)
             .recipientName("김유엠")
@@ -87,7 +87,7 @@ class CertificateQueryServiceTest {
         assertThat(result.valid()).isFalse();
         assertThat(result.status()).isEqualTo("EXPIRED");
         assertThat(result.recipientName()).isEqualTo("김*엠");
-        assertThat(result.type()).isEqualTo(CertificateType.COMPLETION);
+        assertThat(result.template()).isEqualTo(CertificateTemplate.UMC_COURSE_COMPLETION);
         assertThat(result.issuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
         assertThat(result.gisuGeneration()).isEqualTo(7L);
     }
@@ -98,7 +98,7 @@ class CertificateQueryServiceTest {
         // given
         Certificate certificate = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber("UMC-CMP-20260701-ABCDEFGH")
-            .type(CertificateType.COMPLETION)
+            .template(CertificateTemplate.UMC_COURSE_COMPLETION)
             .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientMemberId(1L)
             .recipientName(" ")
@@ -132,7 +132,7 @@ class CertificateQueryServiceTest {
         given(loadCertificatePort.listByRecipientMemberId(1L)).willReturn(List.of(
             Certificate.issue(CertificateIssueSpec.builder()
                 .serialNumber("UMC-MRT-20260701-ABCDEFGH")
-                .type(CertificateType.MERIT)
+                .template(CertificateTemplate.NEORDINARY_HACKATHON_GRAND_PRIZE)
                 .issuer(CertificateIssuer.NEORDINARY)
                 .recipientMemberId(1L)
                 .recipientName("김유엠")

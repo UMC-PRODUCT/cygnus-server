@@ -5,19 +5,17 @@ import java.time.Instant;
 import com.umc.product.certificate.application.port.in.query.dto.CertificateInfo;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public record CertificateResponse(
     Long certificateId,
     String serialNumber,
-    CertificateType type,
+    CertificateTemplate template,
     CertificateIssuer issuer,
     CertificateStatus status,
     String recipientName,
     Long gisuId,
     Long gisuGeneration,
-    Long projectId,
-    String projectName,
     String meritTitle,
     Instant issuedAt,
     Instant expiresAt
@@ -27,14 +25,12 @@ public record CertificateResponse(
         return new CertificateResponse(
             info.certificateId(),
             info.serialNumber(),
-            info.type(),
+            info.template(),
             info.issuer(),
             info.status(),
             info.recipientName(),
             info.gisuId(),
             info.gisuGeneration(),
-            info.projectId(),
-            info.projectName(),
             info.meritTitle(),
             info.issuedAt(),
             info.expiresAt()

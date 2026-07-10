@@ -9,9 +9,8 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.umc.product.certificate.domain.Certificate;
-import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public interface CertificateRepository extends JpaRepository<Certificate, Long> {
 
@@ -24,22 +23,18 @@ public interface CertificateRepository extends JpaRepository<Certificate, Long> 
     @Query("""
         SELECT c
         FROM Certificate c
-        WHERE c.type = :type
-          AND c.issuer = :issuer
+        WHERE c.template = :template
           AND c.recipientMemberId = :recipientMemberId
           AND c.gisuId = :gisuId
           AND c.status = :status
           AND c.expiresAt > :now
-          AND ((:projectId IS NULL AND c.projectId IS NULL) OR c.projectId = :projectId)
           AND ((:meritTitle IS NULL AND c.meritTitle IS NULL) OR c.meritTitle = :meritTitle)
         ORDER BY c.issuedAt DESC, c.id DESC
         """)
     List<Certificate> findValidByScope(
-        @Param("type") CertificateType type,
-        @Param("issuer") CertificateIssuer issuer,
+        @Param("template") CertificateTemplate template,
         @Param("recipientMemberId") Long recipientMemberId,
         @Param("gisuId") Long gisuId,
-        @Param("projectId") Long projectId,
         @Param("meritTitle") String meritTitle,
         @Param("status") CertificateStatus status,
         @Param("now") Instant now

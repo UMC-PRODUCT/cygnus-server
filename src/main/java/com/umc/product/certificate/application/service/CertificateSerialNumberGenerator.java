@@ -7,7 +7,7 @@ import java.time.format.DateTimeFormatter;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 @Component
 public class CertificateSerialNumberGenerator {
@@ -27,13 +27,13 @@ public class CertificateSerialNumberGenerator {
         this.secureRandom = secureRandom;
     }
 
-    public String generate(CertificateType type, Instant issuedAt) {
+    public String generate(CertificateTemplate template, Instant issuedAt) {
         StringBuilder suffix = new StringBuilder(8);
         for (int i = 0; i < 8; i++) {
             suffix.append(ALPHABET.charAt(secureRandom.nextInt(ALPHABET.length())));
         }
         return "UMC-%s-%s-%s".formatted(
-            type.serialCode(),
+            template.serialCode(),
             DATE_FORMATTER.format(issuedAt),
             suffix
         );

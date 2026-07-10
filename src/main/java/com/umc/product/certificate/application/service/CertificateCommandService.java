@@ -126,11 +126,9 @@ public class CertificateCommandService implements
 
     private CertificateIssuePreparation prepareIssue(CertificateIssueContext context, boolean reissue, Instant now) {
         Certificate existing = loadCertificatePort.findValidByScope(
-            context.type(),
-            context.issuer(),
+            context.template(),
             context.recipientMemberId(),
             context.gisuId(),
-            context.projectId(),
             context.meritTitle(),
             now
         ).orElse(null);
@@ -156,15 +154,13 @@ public class CertificateCommandService implements
     ) {
         Certificate certificate = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber(serialNumber)
-            .type(context.type())
+            .template(context.template())
             .issuer(context.issuer())
             .recipientMemberId(context.recipientMemberId())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
             .gisuId(context.gisuId())
             .gisuGeneration(context.gisuGeneration())
-            .projectId(context.projectId())
-            .projectName(context.projectName())
             .meritTitle(context.meritTitle())
             .meritDescription(context.meritDescription())
             .issuedByMemberId(context.issuedByMemberId())
@@ -179,13 +175,11 @@ public class CertificateCommandService implements
     private byte[] renderPdf(CertificateIssueContext context, String serialNumber, Instant issuedAt, Instant expiresAt) {
         return renderCertificatePdfPort.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(serialNumber)
-            .type(context.type())
             .template(context.template())
             .issuer(context.issuer())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
             .gisuGeneration(context.gisuGeneration())
-            .projectName(context.projectName())
             .meritTitle(context.meritTitle())
             .meritDescription(context.meritDescription())
             .issuedAt(issuedAt)
@@ -200,7 +194,7 @@ public class CertificateCommandService implements
 
     private String generateUniqueSerialNumber(CertificateIssueContext context, Instant issuedAt) {
         for (int attempt = 0; attempt < SERIAL_GENERATION_RETRY_COUNT; attempt++) {
-            String serialNumber = serialNumberGenerator.generate(context.type(), issuedAt);
+            String serialNumber = serialNumberGenerator.generate(context.template(), issuedAt);
             if (!loadCertificatePort.existsBySerialNumber(serialNumber)) {
                 return serialNumber;
             }
