@@ -2,18 +2,14 @@ package com.umc.product.notification.adapter.in.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.umc.product.global.config.JacksonConfig;
-import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.notification.application.port.in.RequestFcmNotificationUseCase;
-import com.umc.product.notification.application.port.in.dto.FcmNotificationRequestInfo;
-import com.umc.product.support.RestDocsConfig;
 import java.time.Instant;
 import java.util.UUID;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +23,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+
+import com.umc.product.global.config.JacksonConfig;
+import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.notification.application.port.in.RequestFcmNotificationUseCase;
+import com.umc.product.notification.application.port.in.dto.FcmNotificationRequestInfo;
+import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = FcmAdminController.class)
 @Import({JacksonConfig.class, RestDocsConfig.class})
@@ -85,5 +88,24 @@ class FcmAdminControllerTest {
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.result.requestId").value(requestId.toString()))
             .andExpect(jsonPath("$.result.queuedAt").value("2026-06-20T00:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("관리자 FCM 알림 발송 대상이 비어 있으면 400을 반환한다")
+    void 빈_발송_대상_거부() throws Exception {
+        mockMvc.perform(post("/api/v1/notifications/admin/fcm/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "target": {},
+                      "message": {
+                        "title": "공지",
+                        "body": "본문"
+                      }
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
+
+        then(requestFcmNotificationUseCase).shouldHaveNoInteractions();
     }
 }

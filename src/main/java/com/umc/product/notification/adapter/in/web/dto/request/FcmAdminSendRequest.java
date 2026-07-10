@@ -1,14 +1,17 @@
 package com.umc.product.notification.adapter.in.web.dto.request;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 public record FcmAdminSendRequest(
     @NotNull @Valid Target target,
@@ -38,6 +41,18 @@ public record FcmAdminSendRequest(
         Long schoolId,
         Set<ChallengerPart> parts
     ) {
+
+        @AssertTrue(message = "FCM 알림 발송 대상은 하나 이상 지정해야 합니다.") public boolean hasAnyTarget() {
+            return hasMemberTarget() || gisuId != null || chapterId != null || schoolId != null || hasPartTarget();
+        }
+
+        private boolean hasMemberTarget() {
+            return memberIds != null && memberIds.stream().anyMatch(memberId -> memberId != null);
+        }
+
+        private boolean hasPartTarget() {
+            return parts != null && !parts.isEmpty();
+        }
     }
 
     public record Message(
