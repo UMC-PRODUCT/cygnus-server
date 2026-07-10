@@ -6,7 +6,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,6 +20,7 @@ import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
 import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.config.FcmProperties;
@@ -28,12 +32,16 @@ import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.application.service.EventOutboxRelayService;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxStatus;
+import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
+import com.umc.product.notification.application.port.out.SaveFcmPort;
+import com.umc.product.notification.application.port.out.dto.FcmSendResult;
 import com.umc.product.notification.application.service.FcmAudienceResolver;
 import com.umc.product.notification.application.service.FcmNotificationCommandService;
 import com.umc.product.notification.domain.FcmToken;
 
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import io.micrometer.tracing.Tracer;
 
 @DisplayName("FCM 알림 event outbox flow")
@@ -68,8 +76,10 @@ class FcmNotificationOutboxFlowTest {
             new FakeLoadFcmPort(createTokens(501)),
             new OutboxDomainEventPublisher(batchOutboxPort, serializer, Tracer.NOOP)
         );
+        AtomicBoolean transactionActiveDuringListener = new AtomicBoolean(true);
         ApplicationEventPublisher springPublisher = event -> {
             if (event instanceof FcmNotificationRequestedEvent fcmEvent) {
+                transactionActiveDuringListener.set(TransactionSynchronizationManager.isActualTransactionActive());
                 listener.handle(fcmEvent);
             }
         };
@@ -86,6 +96,7 @@ class FcmNotificationOutboxFlowTest {
 
         relayService.relay();
 
+        assertThat(transactionActiveDuringListener).isFalse();
         assertThat(requestOutbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
         assertThat(batchOutboxPort.saved)
             .hasSize(2)
@@ -96,6 +107,51 @@ class FcmNotificationOutboxFlowTest {
             .containsOnly(FcmSendBatchRequestedEvent.class.getName());
         assertThat(batchOutboxPort.saved.getFirst().getPayload()).contains("\"tokenIds\":[1,2");
         assertThat(batchOutboxPort.saved.get(1).getPayload()).contains("\"tokenIds\":[501]");
+    }
+
+    @Test
+    @DisplayName("FCM 배치 Firebase 발송은 relay 트랜잭션 밖에서 실행된다")
+    void fcm_batch_delivery_runs_without_relay_transaction() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
+            null,
+            null,
+            UUID.randomUUID(),
+            List.of(1L),
+            "제목",
+            "본문",
+            Map.of(),
+            null,
+            null
+        );
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        AtomicBoolean transactionActiveDuringSend = new AtomicBoolean(true);
+        FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
+            new FcmProperties(true, true),
+            new FakeLoadFcmPort(createTokens(1)),
+            new NoopSaveFcmPort(),
+            request -> {
+                transactionActiveDuringSend.set(TransactionSynchronizationManager.isActualTransactionActive());
+                return FcmSendResult.of(1, 0, List.of());
+            },
+            new OperationalMetrics(new SimpleMeterRegistry())
+        );
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            new SingleEventOutboxPort(outbox),
+            new RecordingSaveEventOutboxPort(),
+            new EventPayloadDeserializer(objectMapper),
+            publishedEvent -> listener.handle((FcmSendBatchRequestedEvent) publishedEvent),
+            new LocalTransactionManager(),
+            new DefaultListableBeanFactory().getBeanProvider(Tracer.class),
+            100,
+            3
+        );
+
+        relayService.relay();
+
+        assertThat(transactionActiveDuringSend).isFalse();
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
     }
 
     private static List<FcmToken> createTokens(int count) {
@@ -167,12 +223,19 @@ class FcmNotificationOutboxFlowTest {
 
         @Override
         public List<FcmToken> listActiveByIds(List<Long> ids) {
-            return List.of();
+            return tokens;
         }
 
         @Override
         public List<FcmToken> listActiveForValidation(Instant validatedBefore, int limit) {
             return List.of();
+        }
+    }
+
+    private static class NoopSaveFcmPort implements SaveFcmPort {
+
+        @Override
+        public void save(FcmToken fcmToken) {
         }
     }
 

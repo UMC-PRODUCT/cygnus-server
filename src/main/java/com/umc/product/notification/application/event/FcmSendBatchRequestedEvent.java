@@ -7,6 +7,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 import com.umc.product.global.event.domain.DomainEvent;
+import com.umc.product.global.event.domain.OutboxDispatchMode;
 
 public record FcmSendBatchRequestedEvent(
     UUID eventId,
@@ -55,6 +56,11 @@ public record FcmSendBatchRequestedEvent(
     @Override
     public String eventType() {
         return "notification.fcm.batch.requested";
+    }
+
+    @Override
+    public OutboxDispatchMode outboxDispatchMode() {
+        return OutboxDispatchMode.NON_TRANSACTIONAL;
     }
 
     private static List<Long> normalizeTokenIds(List<Long> tokenIds) {

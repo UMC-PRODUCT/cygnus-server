@@ -6,8 +6,6 @@ import java.util.Set;
 
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.global.logging.OperationalMetrics;
@@ -34,7 +32,6 @@ public class FcmSendBatchRequestedEventListener {
     private final OperationalMetrics operationalMetrics;
 
     @EventListener
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void handle(FcmSendBatchRequestedEvent event) {
         if (!fcmProperties.enabled()) {
             log.info("[FCM 비활성화] FCM 배치 발송 이벤트를 건너뜁니다: requestId={}", event.requestId());

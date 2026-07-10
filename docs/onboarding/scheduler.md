@@ -52,7 +52,7 @@
 
 ## FCM 배치 발송
 
-`FcmSendBatchRequestedEventListener`는 transient 발송 실패를 공용 event outbox 재시도로 연결하기 위해 동기 이벤트 리스너로 실행한다. Firebase 네트워크 I/O 중 DB 커넥션을 점유하지 않도록 relay 트랜잭션은 `NOT_SUPPORTED`로 중단하며, 무효 토큰의 `saveAll`만 repository의 짧은 쓰기 트랜잭션으로 처리한다.
+`FcmNotificationRequestedEvent`와 `FcmSendBatchRequestedEvent`는 `NON_TRANSACTIONAL` outbox dispatch mode를 사용한다. listener는 DB 트랜잭션 밖에서 동기 실행되어 transient 발송 실패를 공용 event outbox 재시도로 연결하고, Firebase 네트워크 I/O 중 DB 커넥션을 점유하지 않는다. 무효 토큰의 `saveAll`과 event outbox 상태 변경만 각각 짧은 쓰기 트랜잭션으로 처리한다.
 
 발송 보장은 at-least-once다. Firebase 발송 성공 후 event outbox의 `PUBLISHED` 커밋이 실패하면 같은 batch 전체가 재시도되어 최대 500개 토큰에 중복 푸시가 발생할 수 있다. FCM API가 batch 요청의 멱등성 키를 제공하지 않으므로 현재 `requestId`는 서버 추적 용도로만 사용하며, 중복보다 누락 방지를 우선한다.
 
