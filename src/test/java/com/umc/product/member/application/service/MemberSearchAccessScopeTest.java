@@ -7,8 +7,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -22,10 +20,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.out.SearchMemberPort;
@@ -34,7 +30,7 @@ import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("MemberSearchService 검색 접근 범위")
+@DisplayName("MemberSearchService 검색 접근 정책")
 class MemberSearchAccessScopeTest {
 
     private static final Long REQUESTER_MEMBER_ID = 1L;
@@ -44,6 +40,9 @@ class MemberSearchAccessScopeTest {
 
     @Mock
     GetMemberUseCase getMemberUseCase;
+
+    @Mock
+    CheckChallengerHistoryUseCase checkChallengerHistoryUseCase;
 
     @Mock
     GetChallengerUseCase getChallengerUseCase;
@@ -63,7 +62,7 @@ class MemberSearchAccessScopeTest {
         SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
-        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_MEMBER_ID))).willReturn(Map.of());
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
         assertThatThrownBy(() -> sut.searchBy(query, pageable))
             .isInstanceOf(MemberDomainException.class)
@@ -71,6 +70,7 @@ class MemberSearchAccessScopeTest {
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
 
         then(searchMemberPort).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
     }
 
@@ -80,7 +80,7 @@ class MemberSearchAccessScopeTest {
         SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
-        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_MEMBER_ID))).willReturn(Map.of());
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
         assertThatThrownBy(() -> sut.searchByV2(query, pageable))
             .isInstanceOf(MemberDomainException.class)
@@ -88,6 +88,7 @@ class MemberSearchAccessScopeTest {
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
 
         then(searchMemberPort).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
     }
 
@@ -97,7 +98,7 @@ class MemberSearchAccessScopeTest {
         SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
-        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_MEMBER_ID))).willReturn(Map.of());
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
         assertThatThrownBy(() -> sut.searchChallengersByV2(query, pageable))
             .isInstanceOf(MemberDomainException.class)
@@ -105,6 +106,7 @@ class MemberSearchAccessScopeTest {
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
 
         then(searchMemberPort).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
     }
 
@@ -114,8 +116,7 @@ class MemberSearchAccessScopeTest {
         SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
-        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_MEMBER_ID)))
-            .willReturn(challengersByRequester());
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(true);
         given(searchMemberPort.search(any(), any())).willReturn(new PageImpl<>(List.of(), pageable, 0));
 
         sut.searchBy(query, pageable);
@@ -123,6 +124,7 @@ class MemberSearchAccessScopeTest {
         ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
         then(searchMemberPort).should().search(queryCaptor.capture(), any(Pageable.class));
         assertThat(queryCaptor.getValue()).isSameAs(query);
+        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
     }
 
@@ -132,8 +134,7 @@ class MemberSearchAccessScopeTest {
         SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
-        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_MEMBER_ID)))
-            .willReturn(challengersByRequester());
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(true);
         given(searchMemberPort.searchMemberIds(any(), any())).willReturn(new PageImpl<>(List.of(), pageable, 0));
 
         sut.searchByV2(query, pageable);
@@ -141,6 +142,7 @@ class MemberSearchAccessScopeTest {
         ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
         then(searchMemberPort).should().searchMemberIds(queryCaptor.capture(), any(Pageable.class));
         assertThat(queryCaptor.getValue()).isSameAs(query);
+        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
     }
 
@@ -150,7 +152,7 @@ class MemberSearchAccessScopeTest {
         SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
-        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_MEMBER_ID))).willReturn(Map.of());
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
         assertThatThrownBy(() -> sut.searchBy(query, pageable))
             .isInstanceOf(MemberDomainException.class)
@@ -158,19 +160,7 @@ class MemberSearchAccessScopeTest {
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
 
         then(searchMemberPort).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
-    }
-
-    private Map<Long, List<ChallengerBasicInfo>> challengersByRequester() {
-        return Map.of(
-            REQUESTER_MEMBER_ID,
-            List.of(new ChallengerBasicInfo(
-                101L,
-                REQUESTER_MEMBER_ID,
-                10L,
-                ChallengerPart.SPRINGBOOT,
-                ChallengerStatus.ACTIVE
-            ))
-        );
     }
 }

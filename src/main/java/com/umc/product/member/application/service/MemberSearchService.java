@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.challenger.domain.Challenger;
@@ -46,6 +47,7 @@ public class MemberSearchService implements SearchMemberUseCase {
     private final SearchMemberPort searchMemberPort;
 
     private final GetMemberUseCase getMemberUseCase;
+    private final CheckChallengerHistoryUseCase checkChallengerHistoryUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetGisuUseCase getGisuUseCase;
@@ -141,15 +143,9 @@ public class MemberSearchService implements SearchMemberUseCase {
             return;
         }
 
-        if (!hasChallengerRecord(query.requesterMemberId())) {
+        if (!checkChallengerHistoryUseCase.hasChallengerHistory(query.requesterMemberId())) {
             throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
         }
-    }
-
-    private boolean hasChallengerRecord(Long requesterMemberId) {
-        Map<Long, List<ChallengerBasicInfo>> challengersByMemberId =
-            getChallengerUseCase.getAllBasicByMemberIds(Set.of(requesterMemberId));
-        return !challengersByMemberId.getOrDefault(requesterMemberId, List.of()).isEmpty();
     }
 
     // ======= PRIVATE — v1 helpers =========
