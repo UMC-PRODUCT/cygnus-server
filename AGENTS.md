@@ -109,11 +109,13 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 ## AUTHORIZATION
 
 - ChallengerRole-backed staff authority is scoped to a gisu. New resource permission checks that have a resource gisu must use `...InGisu(...)` predicates with the resource's gisu.
-- `...InAnyGisu(...)` predicates are allowed only for intentionally global or gisu-agnostic surfaces, such as audit, analytics, organization-wide admin policy, or other flows whose resource has no meaningful gisu. The reason must be covered by tests or PR review notes.
+- `...InGisu(...)` scopes ChallengerRole evaluation only. Member-wide system roles such as `SUPER_ADMIN` remain global overrides and may short-circuit a gisu-scoped policy.
+- `...InAnyGisu(...)` predicates are allowed for intentionally global or gisu-agnostic surfaces. Existing cross-gisu behavior covered by compatibility tests must not be tightened inside a refactor; move it to `...InGisu(...)` only through an explicitly approved policy change.
 - Use `ListChallengerRoleUseCase` for role read models and `CheckChallengerAuthorityUseCase` for boolean authority decisions. `GetChallengerRoleUseCase` exists as a compatibility facade; do not introduce it in new code unless an existing constructor/API boundary requires it.
+- Boolean authority checks must fail closed for nonexistent members through the member domain's dedicated existence Query UseCase before consulting legacy role data.
 - `ResourcePermissionEvaluator` implementations should evaluate `SubjectAttributes.toAuthoritySnapshot()` instead of re-querying ChallengerRole data or manually streaming raw role lists.
-- When ChallengerRole data or member system role data changes, evict the `AUTHORITY_SNAPSHOT` cache through the authorization cache usecase. Cache serialized DTOs, not domain entities.
-- `SUPER_ADMIN` is a member-bound global system role stored by the member domain (`member_system_role`). Authorization consumes it through the member domain's public usecase and maps it to `SystemRoleType`; do not create new `challenger_role` rows for `SUPER_ADMIN` or force it into gisu-scoped ChallengerRole policy.
+- When ChallengerRole data or member system role data changes, evict the `AUTHORITY_SNAPSHOT` cache through the authorization cache usecase. Cache serialized DTOs, not domain entities. The current Caffeine adapter is instance-local, so do not claim cross-instance immediate revocation without distributed invalidation or authority version checks.
+- `SUPER_ADMIN` is migrating to the member-bound global system role stored by the member domain (`member_system_role`). During the expand/dual-read phase, legacy `challenger_role` rows and APIs remain compatible and the migration trigger keeps legacy mutations synchronized. Do not add a system-role-only production write path until legacy writers are retired or reverse compatibility is implemented. Remove legacy writes, the synchronization trigger/functions, and legacy rows only in a later cleanup migration after all instances and command paths have switched.
 - Authorization refactors must preserve client-visible API paths, request/response shapes, and status semantics unless the issue explicitly includes a client contract change. Add tests that lock existing behavior before replacing predicates.
 
 ## ANTI-PATTERNS
