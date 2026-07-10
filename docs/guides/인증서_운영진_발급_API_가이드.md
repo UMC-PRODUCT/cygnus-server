@@ -74,5 +74,3 @@ CUSTOM 상장:
   "reissue": true
 }
 ```
-
-프로젝트 참가 확인서는 현재 legacy HTML fallback을 제거한 상태라 발급 요청을 받지 않는다. 전용 PDF 배경 템플릿이 추가되면 `CertificateTemplate` enum을 추가해 `template` 방식으로 발급한다.
