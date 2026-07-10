@@ -12,12 +12,15 @@ import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
 
 public record AuthoritySnapshotCacheDto(
+    int schemaVersion,
     Long memberId,
     Long schoolId,
     List<GisuChallengerInfoDto> gisuChallengerInfos,
     List<RoleAttributeDto> challengerRoles,
     Set<SystemRoleType> systemRoles
 ) {
+
+    public static final int CURRENT_SCHEMA_VERSION = 1;
 
     public AuthoritySnapshotCacheDto {
         gisuChallengerInfos = gisuChallengerInfos == null ? List.of() : List.copyOf(gisuChallengerInfos);
@@ -27,6 +30,7 @@ public record AuthoritySnapshotCacheDto(
 
     public static AuthoritySnapshotCacheDto from(AuthoritySnapshot snapshot) {
         return new AuthoritySnapshotCacheDto(
+            CURRENT_SCHEMA_VERSION,
             snapshot.memberId(),
             snapshot.schoolId(),
             snapshot.gisuChallengerInfos().stream()

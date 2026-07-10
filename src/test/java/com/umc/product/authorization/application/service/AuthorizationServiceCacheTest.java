@@ -187,10 +187,45 @@ class AuthorizationServiceCacheTest {
             .isInstanceOf(MemberDomainException.class);
     }
 
+    @Test
+    @DisplayName("지원하지 않는 schema version의 캐시는 제거하고 최신 권한 snapshot을 다시 적재한다")
+    void rebuilds_subject_when_cached_schema_version_is_unsupported() {
+        InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
+        cacheUseCase.seed("{\"schemaVersion\":2}");
+        AuthorizationService sut = new AuthorizationService(
+            loadChallengerRolePort,
+            List.of(),
+            getMemberUseCase,
+            listMemberSystemRoleUseCase,
+            getChapterUseCase,
+            getChallengerUseCase,
+            operationalMetrics,
+            cacheUseCase,
+            new AuthoritySnapshotCacheSerializer(new ObjectMapper().findAndRegisterModules())
+        );
+        given(getMemberUseCase.existsById(MEMBER_ID)).willReturn(true);
+        given(getMemberUseCase.getById(MEMBER_ID))
+            .willReturn(MemberInfo.builder().id(MEMBER_ID).schoolId(SCHOOL_ID).build());
+        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
+
+        SubjectAttributes result = sut.loadSubject(MEMBER_ID);
+
+        assertThat(result.memberId()).isEqualTo(MEMBER_ID);
+        assertThat((String) cacheUseCase.latestValue()).contains("\"schemaVersion\":1");
+        assertThat(cacheUseCase.latestEvictedNamespace()).isEqualTo(CacheNamespace.AUTHORITY_SNAPSHOT);
+        assertThat(cacheUseCase.latestEvictedKey()).isEqualTo(CacheKey.from("member:" + MEMBER_ID));
+        verify(getMemberUseCase).existsById(MEMBER_ID);
+        verify(getMemberUseCase).getById(MEMBER_ID);
+    }
+
     private static class InMemoryCacheUseCase implements CacheUseCase {
 
         private Object value;
         private CacheSpec<?> latestSpec;
+        private CacheNamespace latestEvictedNamespace;
+        private CacheKey latestEvictedKey;
 
         @Override
         public <T> CacheLookup<T> get(CacheSpec<T> spec, CacheKey key) {
@@ -209,6 +244,8 @@ class AuthorizationServiceCacheTest {
 
         @Override
         public void evict(CacheNamespace namespace, CacheKey key) {
+            latestEvictedNamespace = namespace;
+            latestEvictedKey = key;
             value = null;
         }
 
@@ -218,6 +255,18 @@ class AuthorizationServiceCacheTest {
 
         private CacheSpec<?> latestSpec() {
             return latestSpec;
+        }
+
+        private void seed(Object value) {
+            this.value = value;
+        }
+
+        private CacheNamespace latestEvictedNamespace() {
+            return latestEvictedNamespace;
+        }
+
+        private CacheKey latestEvictedKey() {
+            return latestEvictedKey;
         }
     }
 }
