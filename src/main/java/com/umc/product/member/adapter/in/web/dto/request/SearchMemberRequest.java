@@ -15,8 +15,4 @@ public record SearchMemberRequest(
     public SearchMemberQuery toQuery() {
         return new SearchMemberQuery(keyword, gisuId, part, chapterId, schoolId);
     }
-
-    public SearchMemberQuery toQuery(Long requesterMemberId) {
-        return SearchMemberQuery.of(requesterMemberId, keyword, gisuId, part, chapterId, schoolId);
-    }
 }

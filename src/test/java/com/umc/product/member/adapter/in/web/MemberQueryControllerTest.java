@@ -1,7 +1,7 @@
 package com.umc.product.member.adapter.in.web;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -13,7 +13,6 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -34,7 +33,6 @@ import com.umc.product.member.adapter.in.web.assembler.MemberInfoResponseAssembl
 import com.umc.product.member.adapter.in.web.dto.response.MemberInfoResponse;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberResult;
 import com.umc.product.member.domain.exception.MemberDomainException;
 import com.umc.product.member.domain.exception.MemberErrorCode;
@@ -85,7 +83,7 @@ class MemberQueryControllerTest {
     @Test
     @DisplayName("회원 검색 응답은 이메일을 마스킹한다")
     void 회원_검색_응답은_이메일을_마스킹한다() throws Exception {
-        given(searchMemberUseCase.searchBy(any(), any())).willReturn(new SearchMemberResult(
+        given(searchMemberUseCase.searchBy(any(), any(), any())).willReturn(new SearchMemberResult(
             new PageImpl<>(
                 List.of(new SearchMemberItemInfo(
                     1L, "홍길동", "길동", "gildong@example.com",
@@ -105,9 +103,9 @@ class MemberQueryControllerTest {
     }
 
     @Test
-    @DisplayName("회원 검색은 현재 로그인 memberId를 Query에 포함한다")
-    void 회원_검색은_현재_로그인_memberId를_Query에_포함한다() throws Exception {
-        given(searchMemberUseCase.searchBy(any(), any())).willReturn(new SearchMemberResult(
+    @DisplayName("회원 검색은 현재 로그인 memberId를 별도 인자로 전달한다")
+    void 회원_검색은_현재_로그인_memberId를_별도_인자로_전달한다() throws Exception {
+        given(searchMemberUseCase.searchBy(any(), any(), any())).willReturn(new SearchMemberResult(
             new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
         ));
 
@@ -116,15 +114,13 @@ class MemberQueryControllerTest {
                 .param("size", "10"))
             .andExpect(status().isOk());
 
-        ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
-        then(searchMemberUseCase).should().searchBy(queryCaptor.capture(), any());
-        assertThat(queryCaptor.getValue().requesterMemberId()).isEqualTo(99L);
+        then(searchMemberUseCase).should().searchBy(any(), eq(99L), any());
     }
 
     @Test
     @DisplayName("회원 검색 권한이 없으면 403을 반환한다")
     void 회원_검색_권한이_없으면_403을_반환한다() throws Exception {
-        given(searchMemberUseCase.searchBy(any(), any()))
+        given(searchMemberUseCase.searchBy(any(), any(), any()))
             .willThrow(new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED));
 
         mockMvc.perform(get("/api/v1/member/search")

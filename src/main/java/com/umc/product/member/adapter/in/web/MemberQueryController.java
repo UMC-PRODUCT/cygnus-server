@@ -64,7 +64,7 @@ public class MemberQueryController {
         @CurrentMember MemberPrincipal memberPrincipal
     ) {
         return SearchMemberResponse.from(
-            searchMemberUseCase.searchBy(searchRequest.toQuery(memberPrincipal.getMemberId()), pageable)
+            searchMemberUseCase.searchBy(searchRequest.toQuery(), memberPrincipal.getMemberId(), pageable)
         ).withMaskedEmails();
     }
 

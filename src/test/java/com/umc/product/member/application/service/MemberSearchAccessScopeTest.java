@@ -59,12 +59,12 @@ class MemberSearchAccessScopeTest {
     @Test
     @DisplayName("챌린저 기록이 없으면 회원 검색을 거부한다")
     void 챌린저_기록이_없으면_회원_검색을_거부한다() {
-        SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
-        assertThatThrownBy(() -> sut.searchBy(query, pageable))
+        assertThatThrownBy(() -> sut.searchBy(query, REQUESTER_MEMBER_ID, pageable))
             .isInstanceOf(MemberDomainException.class)
             .extracting("baseCode")
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
@@ -77,12 +77,12 @@ class MemberSearchAccessScopeTest {
     @Test
     @DisplayName("챌린저 기록이 없으면 회원 검색 v2를 거부한다")
     void 챌린저_기록이_없으면_회원_검색_v2를_거부한다() {
-        SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
-        assertThatThrownBy(() -> sut.searchByV2(query, pageable))
+        assertThatThrownBy(() -> sut.searchByV2(query, REQUESTER_MEMBER_ID, pageable))
             .isInstanceOf(MemberDomainException.class)
             .extracting("baseCode")
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
@@ -95,12 +95,12 @@ class MemberSearchAccessScopeTest {
     @Test
     @DisplayName("챌린저 기록이 없으면 챌린저 검색 v2를 거부한다")
     void 챌린저_기록이_없으면_챌린저_검색_v2를_거부한다() {
-        SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
-        assertThatThrownBy(() -> sut.searchChallengersByV2(query, pageable))
+        assertThatThrownBy(() -> sut.searchChallengersByV2(query, REQUESTER_MEMBER_ID, pageable))
             .isInstanceOf(MemberDomainException.class)
             .extracting("baseCode")
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
@@ -113,13 +113,13 @@ class MemberSearchAccessScopeTest {
     @Test
     @DisplayName("챌린저 기록이 있으면 회원 검색을 전체 범위로 허용한다")
     void 챌린저_기록이_있으면_회원_검색을_전체_범위로_허용한다() {
-        SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(true);
         given(searchMemberPort.search(any(), any())).willReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        sut.searchBy(query, pageable);
+        sut.searchBy(query, REQUESTER_MEMBER_ID, pageable);
 
         ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
         then(searchMemberPort).should().search(queryCaptor.capture(), any(Pageable.class));
@@ -131,13 +131,13 @@ class MemberSearchAccessScopeTest {
     @Test
     @DisplayName("챌린저 기록이 있으면 회원 검색 v2를 전체 범위로 허용한다")
     void 챌린저_기록이_있으면_회원_검색_v2를_전체_범위로_허용한다() {
-        SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(true);
         given(searchMemberPort.searchMemberIds(any(), any())).willReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        sut.searchByV2(query, pageable);
+        sut.searchByV2(query, REQUESTER_MEMBER_ID, pageable);
 
         ArgumentCaptor<SearchMemberQuery> queryCaptor = ArgumentCaptor.forClass(SearchMemberQuery.class);
         then(searchMemberPort).should().searchMemberIds(queryCaptor.capture(), any(Pageable.class));
@@ -149,12 +149,12 @@ class MemberSearchAccessScopeTest {
     @Test
     @DisplayName("운영진 기록만 있고 챌린저 기록이 없으면 회원 검색을 거부한다")
     void 운영진_기록만_있고_챌린저_기록이_없으면_회원_검색을_거부한다() {
-        SearchMemberQuery query = SearchMemberQuery.of(REQUESTER_MEMBER_ID, null, null, null, null, null);
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
         Pageable pageable = PageRequest.of(0, 10);
 
         given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(false);
 
-        assertThatThrownBy(() -> sut.searchBy(query, pageable))
+        assertThatThrownBy(() -> sut.searchBy(query, REQUESTER_MEMBER_ID, pageable))
             .isInstanceOf(MemberDomainException.class)
             .extracting("baseCode")
             .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
@@ -162,5 +162,20 @@ class MemberSearchAccessScopeTest {
         then(searchMemberPort).shouldHaveNoInteractions();
         then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("요청자 ID가 없으면 회원 검색을 거부한다")
+    void 요청자_ID가_없으면_회원_검색을_거부한다() {
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
+        Pageable pageable = PageRequest.of(0, 10);
+
+        assertThatThrownBy(() -> sut.searchBy(query, null, pageable))
+            .isInstanceOf(MemberDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
+
+        then(checkChallengerHistoryUseCase).should().hasChallengerHistory(null);
+        then(searchMemberPort).shouldHaveNoInteractions();
     }
 }

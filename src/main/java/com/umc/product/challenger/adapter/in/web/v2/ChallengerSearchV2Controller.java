@@ -55,7 +55,11 @@ public class ChallengerSearchV2Controller {
         @CurrentMember MemberPrincipal memberPrincipal
     ) {
         return ChallengerSearchV2Response.from(
-            searchMemberUseCase.searchChallengersByV2(searchRequest.toQuery(memberPrincipal.getMemberId()), pageable)
+            searchMemberUseCase.searchChallengersByV2(
+                searchRequest.toQuery(),
+                memberPrincipal.getMemberId(),
+                pageable
+            )
         ).withMaskedEmails();
     }
 }

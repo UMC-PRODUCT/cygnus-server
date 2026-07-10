@@ -86,7 +86,7 @@ public class MemberQueryV2Controller {
         @CurrentMember MemberPrincipal memberPrincipal
     ) {
         return SearchMemberV2Response.from(
-            searchMemberUseCase.searchByV2(searchRequest.toQuery(memberPrincipal.getMemberId()), pageable)
+            searchMemberUseCase.searchByV2(searchRequest.toQuery(), memberPrincipal.getMemberId(), pageable)
         ).withMaskedEmails();
     }
 }

@@ -53,8 +53,8 @@ public class MemberSearchService implements SearchMemberUseCase {
     private final GetGisuUseCase getGisuUseCase;
 
     @Override
-    public SearchMemberResult searchBy(SearchMemberQuery query, Pageable pageable) {
-        assertMemberSearchAccess(query);
+    public SearchMemberResult searchBy(SearchMemberQuery query, Long requesterMemberId, Pageable pageable) {
+        assertMemberSearchAccess(requesterMemberId);
         Page<Challenger> challengers = searchMemberPort.search(query, pageable);
 
         // 배치 데이터 로딩
@@ -70,8 +70,12 @@ public class MemberSearchService implements SearchMemberUseCase {
     }
 
     @Override
-    public ChallengerSearchV2Result searchChallengersByV2(SearchMemberQuery query, Pageable pageable) {
-        assertMemberSearchAccess(query);
+    public ChallengerSearchV2Result searchChallengersByV2(
+        SearchMemberQuery query,
+        Long requesterMemberId,
+        Pageable pageable
+    ) {
+        assertMemberSearchAccess(requesterMemberId);
         Page<Challenger> challengers = searchMemberPort.search(query, pageable);
         List<Challenger> content = challengers.getContent();
 
@@ -97,8 +101,8 @@ public class MemberSearchService implements SearchMemberUseCase {
     }
 
     @Override
-    public SearchMemberV2Result searchByV2(SearchMemberQuery query, Pageable pageable) {
-        assertMemberSearchAccess(query);
+    public SearchMemberV2Result searchByV2(SearchMemberQuery query, Long requesterMemberId, Pageable pageable) {
+        assertMemberSearchAccess(requesterMemberId);
         Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, pageable);
         List<Long> memberIds = memberIdPage.getContent();
 
@@ -138,12 +142,8 @@ public class MemberSearchService implements SearchMemberUseCase {
         return new SearchMemberV2Result(items);
     }
 
-    private void assertMemberSearchAccess(SearchMemberQuery query) {
-        if (query.requesterMemberId() == null) {
-            return;
-        }
-
-        if (!checkChallengerHistoryUseCase.hasChallengerHistory(query.requesterMemberId())) {
+    private void assertMemberSearchAccess(Long requesterMemberId) {
+        if (!checkChallengerHistoryUseCase.hasChallengerHistory(requesterMemberId)) {
             throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
         }
     }
