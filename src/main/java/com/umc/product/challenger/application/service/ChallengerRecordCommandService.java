@@ -161,10 +161,6 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
             MemberInfo memberInfo = getMemberUseCase.getById(memberId);
             record.validateMember(memberInfo.name(), memberInfo.schoolId());
 
-            // 이메일 소유자 본인 확인: 인증된 이메일이 로그인 계정 이메일과 일치해야 한다.
-            // (운영진 코드 분기는 이 검증을 생략한다.)
-            validateVerifiedEmail(command.verifiedEmail(), memberInfo.email());
-
             // 해당 기수에 챌린저 기록이 없는지 확인
             loadChallengerPort.findByMemberIdAndGisuId(memberId, record.getGisuId())
                 .ifPresent(challenger -> {
@@ -192,12 +188,6 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
         }
 
         record.markAsUsed(memberId);
-    }
-
-    private void validateVerifiedEmail(String verifiedEmail, String memberEmail) {
-        if (verifiedEmail == null || memberEmail == null || !verifiedEmail.equalsIgnoreCase(memberEmail)) {
-            throw new ChallengerDomainException(ChallengerErrorCode.EMAIL_VERIFICATION_MISMATCH);
-        }
     }
 
     private void validateRecord(Long gisuId, Long schoolId, Long chapterId) {

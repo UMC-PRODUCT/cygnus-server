@@ -236,7 +236,6 @@ class ChallengerRecordCommandServiceTest {
         return ConsumeChallengerRecordCommand.builder()
             .targetMemberId(100L)
             .code("ABC123")
-            .verifiedEmail("hong@test.com")
             .build();
     }
 
@@ -249,7 +248,6 @@ class ChallengerRecordCommandServiceTest {
             .id(100L)
             .name(name)
             .nickname("길동")
-            .email("hong@test.com")
             .schoolId(schoolId)
             .schoolName("테스트대학교")
             .build();

@@ -20,10 +20,5 @@ public enum EmailVerificationPurpose {
     /**
      * 기존 회원의 이메일 변경을 위한 새 이메일 소유 인증.
      */
-    CHANGE_EMAIL,
-
-    /**
-     * 챌린저 등록 코드 사용 시, 코드 소유자 본인 확인을 위한 이메일 인증.
-     */
-    CHALLENGER_REGISTER
+    CHANGE_EMAIL
 }
