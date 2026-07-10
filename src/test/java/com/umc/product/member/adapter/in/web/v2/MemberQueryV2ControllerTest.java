@@ -1,7 +1,9 @@
 package com.umc.product.member.adapter.in.web.v2;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -35,6 +37,8 @@ import com.umc.product.member.application.port.in.query.dto.MemberProfileInfo;
 import com.umc.product.member.application.port.in.query.dto.MemberSummaryV2Info;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberV2Result;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 
 @WebMvcTest(controllers = MemberQueryV2Controller.class)
 @Import(JacksonConfig.class)
@@ -94,7 +98,7 @@ class MemberQueryV2ControllerTest {
     @Test
     @DisplayName("회원 검색 v2 응답은 이메일을 마스킹한다")
     void 회원_검색_v2_응답은_이메일을_마스킹한다() throws Exception {
-        given(searchMemberUseCase.searchByV2(any(), any())).willReturn(new SearchMemberV2Result(
+        given(searchMemberUseCase.searchByV2(any(), any(), any())).willReturn(new SearchMemberV2Result(
             new PageImpl<>(
                 List.of(new SearchMemberItemV2Info(
                     1L, "홍길동", "길동", "gildong@example.com",
@@ -115,5 +119,32 @@ class MemberQueryV2ControllerTest {
                 .param("size", "10"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.page.content[0].email").value("gil****@example.com"));
+    }
+
+    @Test
+    @DisplayName("회원 검색 v2는 현재 로그인 memberId를 별도 인자로 전달한다")
+    void 회원_검색_v2는_현재_로그인_memberId를_별도_인자로_전달한다() throws Exception {
+        given(searchMemberUseCase.searchByV2(any(), any(), any())).willReturn(new SearchMemberV2Result(
+            new PageImpl<>(List.of(), PageRequest.of(0, 10), 0)
+        ));
+
+        mockMvc.perform(get("/api/v2/member/search")
+                .param("page", "0")
+                .param("size", "10"))
+            .andExpect(status().isOk());
+
+        then(searchMemberUseCase).should().searchByV2(any(), eq(99L), any());
+    }
+
+    @Test
+    @DisplayName("회원 검색 v2 권한이 없으면 403을 반환한다")
+    void 회원_검색_v2_권한이_없으면_403을_반환한다() throws Exception {
+        given(searchMemberUseCase.searchByV2(any(), any(), any()))
+            .willThrow(new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED));
+
+        mockMvc.perform(get("/api/v2/member/search")
+                .param("page", "0")
+                .param("size", "10"))
+            .andExpect(status().isForbidden());
     }
 }

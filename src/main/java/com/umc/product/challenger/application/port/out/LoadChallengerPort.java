@@ -28,6 +28,8 @@ public interface LoadChallengerPort {
      */
     List<Challenger> getAllByMemberId(Long memberId);
 
+    boolean existsByMemberId(Long memberId);
+
     /**
      * 여러 memberId로 챌린저 목록 조회 (IN 쿼리 1회).
      * <p>

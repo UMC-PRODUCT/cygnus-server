@@ -50,6 +50,11 @@ public class ChallengerPersistenceAdapter implements LoadChallengerPort, SaveCha
     }
 
     @Override
+    public boolean existsByMemberId(Long memberId) {
+        return memberId != null && repository.existsByMemberId(memberId);
+    }
+
+    @Override
     public List<Challenger> listAllByMemberIds(Set<Long> memberIds) {
         if (memberIds == null || memberIds.isEmpty()) {
             return List.of();

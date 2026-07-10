@@ -5,22 +5,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.BDDMockito.given;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.challenger.domain.Challenger;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.common.domain.enums.MemberStatus;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberItemInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberResult;
-import com.umc.product.member.application.port.out.SearchMemberPort;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,14 +23,34 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
+import com.umc.product.challenger.domain.Challenger;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.MemberStatus;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberItemInfo;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberResult;
+import com.umc.product.member.application.port.out.SearchMemberPort;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
+
 @ExtendWith(MockitoExtension.class)
 class MemberSearchServiceTest {
+
+    private static final Long REQUESTER_MEMBER_ID = 1L;
 
     @Mock
     SearchMemberPort searchMemberPort;
 
     @Mock
     GetMemberUseCase getMemberUseCase;
+
+    @Mock
+    CheckChallengerHistoryUseCase checkChallengerHistoryUseCase;
 
     @Mock
     GetChallengerRoleUseCase getChallengerRoleUseCase;
@@ -60,6 +68,7 @@ class MemberSearchServiceTest {
 
     @BeforeEach
     void setUp() {
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(true);
         defaultQuery = new SearchMemberQuery(null, null, null, null, null);
         defaultGisuInfos = List.of(
             new GisuInfo(1L, 7L, Instant.now(), Instant.now(), true),
@@ -123,7 +132,7 @@ class MemberSearchServiceTest {
             given(getGisuUseCase.getByIds(anySet())).willReturn(defaultGisuInfos);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(4);
@@ -143,7 +152,7 @@ class MemberSearchServiceTest {
             given(getGisuUseCase.getByIds(anySet())).willReturn(defaultGisuInfos);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             List<SearchMemberItemInfo> content = result.page().getContent();
@@ -171,7 +180,7 @@ class MemberSearchServiceTest {
             given(getGisuUseCase.getByIds(anySet())).willReturn(defaultGisuInfos);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             List<SearchMemberItemInfo> content = result.page().getContent();
@@ -195,7 +204,7 @@ class MemberSearchServiceTest {
             given(getGisuUseCase.getByIds(anySet())).willReturn(defaultGisuInfos);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             List<SearchMemberItemInfo> content = result.page().getContent();
@@ -221,7 +230,7 @@ class MemberSearchServiceTest {
             given(getGisuUseCase.getByIds(anySet())).willReturn(defaultGisuInfos);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             List<SearchMemberItemInfo> content = result.page().getContent();
@@ -240,7 +249,7 @@ class MemberSearchServiceTest {
             given(searchMemberPort.search(any(), any())).willReturn(emptyPage);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             assertThat(result.page().getContent()).isEmpty();
@@ -259,7 +268,7 @@ class MemberSearchServiceTest {
             given(getGisuUseCase.getByIds(anySet())).willReturn(defaultGisuInfos);
 
             // when
-            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, pageable);
+            SearchMemberResult result = memberSearchService.searchBy(defaultQuery, REQUESTER_MEMBER_ID, pageable);
 
             // then
             SearchMemberItemInfo first = result.page().getContent().get(0);

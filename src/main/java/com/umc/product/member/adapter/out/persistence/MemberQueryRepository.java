@@ -175,4 +175,5 @@ public class MemberQueryRepository {
     private BooleanExpression schoolIdEq(Long schoolId, QMember member) {
         return schoolId != null ? member.schoolId.eq(schoolId) : null;
     }
+
 }
