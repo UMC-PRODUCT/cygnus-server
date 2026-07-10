@@ -21,19 +21,19 @@ public class ChallengerRecordPermissionEvaluator implements ResourcePermissionEv
     public boolean evaluate(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         return switch (resourcePermission.permission()) {
             case READ -> canRead(subjectAttributes);
-            case WRITE, DELETE -> canWriteOrDelete(subjectAttributes);
+            case MANAGE, WRITE, DELETE -> canManageOrWriteOrDelete(subjectAttributes);
             default -> throw new CommonException(CommonErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED); // 지원하지 않는 권한 유형은 거부
         };
     }
 
     private boolean canRead(SubjectAttributes subjectAttributes) {
-        // 교내 회장/부회장 이상만 가능함
+        // 단건 조회(code/id)는 교내 회장/부회장 이상만 가능함
         return subjectAttributes.roleAttributes().stream()
             .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastSchoolCore());
     }
 
-    private boolean canWriteOrDelete(SubjectAttributes subjectAttributes) {
-        // 중앙운영사무국 총괄단만 가능함
+    private boolean canManageOrWriteOrDelete(SubjectAttributes subjectAttributes) {
+        // 코드 목록/통계 조회(MANAGE), 생성(WRITE), 삭제(DELETE)는 중앙운영사무국 총괄단 이상만 가능함
         return subjectAttributes.roleAttributes().stream()
             .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastCentralCore());
     }

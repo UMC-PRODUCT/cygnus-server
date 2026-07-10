@@ -98,7 +98,7 @@ public class ChallengerRecordController {
 
     @CheckAccess(
         resourceType = ResourceType.CHALLENGER_RECORD,
-        permission = PermissionType.READ
+        permission = PermissionType.MANAGE
     )
     @GetMapping
     @Operation(operationId = "CHALLENGER-RECORD-103", summary = "조건별 ChallengerRecord 코드 목록 조회",
@@ -116,7 +116,7 @@ public class ChallengerRecordController {
 
     @CheckAccess(
         resourceType = ResourceType.CHALLENGER_RECORD,
-        permission = PermissionType.READ
+        permission = PermissionType.MANAGE
     )
     @GetMapping("statistics/unused")
     @Operation(operationId = "CHALLENGER-RECORD-104", summary = "기수×학교별 미사용 ChallengerRecord 코드 개수 집계 조회",
