@@ -580,6 +580,12 @@ REST 가 모든 동작을 커버하는 상태에서 실시간 채널을 추가. 
 - 종료된 문의의 보관 / 아카이브 정책.
 - 문의자 측 미읽음 카운트.
 - `@CheckPermission(ResourceType.INQUIRY, ...)` 기반 권한 검증으로 `InquiryAccessGuard` 대체.
+- **WS 구독 인가 공통 틀 (known gap).** chat 을 엔진으로 분리하면서 broadcast 토픽이 `/topic/chat/rooms/{roomId}/messages` 로 바뀌었다.
+  `/topic/**` SUBSCRIBE 는 simple broker 가 직접 처리해 리소스 단위 인가를 걸 지점이 없고, 그 인가를 소유할 소비 도메인이 아직
+  붙지 않았다. 그래서 공통 `StompAuthChannelInterceptor` 가 **`/topic/chat/**` SUBSCRIBE 를 fail-closed 로 전면 차단**한다
+  (broker 직접 SEND 차단과 별개). 실제 접근 규칙은 소비 도메인이 소유하되, 그 규칙을 SUBSCRIBE 프레임에 걸어주는 공통 틀
+  (REST 의 `@CheckAccess` 에 대응)을 도메인 공통 인프라로 한 번만 두고, 소비 도메인(inquiry)이 붙는 시점에 **방별 authorizer 로
+  이 전면 차단을 대체**한다. 그 전까지 chat 토픽 구독은 열리지 않는다.
 
 ## References
 

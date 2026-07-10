@@ -71,11 +71,33 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    @DisplayName("broker destination을 SUBSCRIBE하는 프레임은 통과된다")
-    void subscribe_to_broker_destination_passes() {
+    @DisplayName("chat 이 아닌 broker 토픽을 SUBSCRIBE하는 프레임은 통과된다")
+    void subscribe_to_non_chat_broker_destination_passes() {
         Message<byte[]> message = stompMessage(StompCommand.SUBSCRIBE, "/topic/ws-test/rooms/10/messages");
 
         assertThat(sut.preSend(message, null)).isSameAs(message);
+    }
+
+    @Test
+    @DisplayName("chat 토픽 하위 경로를 SUBSCRIBE하는 프레임은 CommonException이 발생한다(fail-closed)")
+    void subscribe_to_chat_topic_throws() {
+        Message<byte[]> message = stompMessage(StompCommand.SUBSCRIBE, "/topic/chat/rooms/10/messages");
+
+        assertThatThrownBy(() -> sut.preSend(message, null))
+            .isInstanceOf(CommonException.class)
+            .extracting("baseCode")
+            .isEqualTo(CommonErrorCode.SECURITY_WEBSOCKET_INVALID_DESTINATION);
+    }
+
+    @Test
+    @DisplayName("chat 토픽 정확히 일치하는 경로를 SUBSCRIBE하는 프레임은 CommonException이 발생한다(fail-closed)")
+    void subscribe_to_exact_chat_topic_throws() {
+        Message<byte[]> message = stompMessage(StompCommand.SUBSCRIBE, "/topic/chat");
+
+        assertThatThrownBy(() -> sut.preSend(message, null))
+            .isInstanceOf(CommonException.class)
+            .extracting("baseCode")
+            .isEqualTo(CommonErrorCode.SECURITY_WEBSOCKET_INVALID_DESTINATION);
     }
 
     @Test
