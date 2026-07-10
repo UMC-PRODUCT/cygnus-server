@@ -1,6 +1,7 @@
 package com.umc.product.authorization.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -17,6 +18,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -31,6 +33,7 @@ import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.member.application.port.in.query.dto.MemberSystemRoleInfo;
+import com.umc.product.member.domain.exception.MemberDomainException;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 
@@ -63,7 +66,7 @@ class AuthorizationServiceCacheTest {
     OperationalMetrics operationalMetrics;
 
     @Test
-    @DisplayName("loadSubject는 miss 시 DTO JSON 문자열을 캐시하고 hit 시 외부 UseCase를 다시 호출하지 않는다")
+    @DisplayName("loadSubject는 hit 시 회원 존재만 확인하고 권한 구성 UseCase를 다시 호출하지 않는다")
     void load_subject_cache_hit() {
         InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
         AuthorizationService sut = new AuthorizationService(
@@ -81,6 +84,7 @@ class AuthorizationServiceCacheTest {
             .id(MEMBER_ID)
             .schoolId(SCHOOL_ID)
             .build());
+        given(getMemberUseCase.existsById(MEMBER_ID)).willReturn(true);
         given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of(ChallengerInfo.builder()
             .challengerId(CHALLENGER_ID)
             .memberId(MEMBER_ID)
@@ -112,10 +116,75 @@ class AuthorizationServiceCacheTest {
         assertThat((String) cacheUseCase.latestValue()).contains("SCHOOL_PRESIDENT");
         assertThat((String) cacheUseCase.latestValue()).contains("SUPER_ADMIN");
         verify(getMemberUseCase, times(1)).getById(MEMBER_ID);
+        verify(getMemberUseCase, times(1)).existsById(MEMBER_ID);
         verify(getChallengerUseCase, times(1)).getAllByMemberId(MEMBER_ID);
         verify(getChapterUseCase, times(1)).byGisuAndSchool(GISU_ID, SCHOOL_ID);
         verify(loadChallengerRolePort, times(1)).findByMemberId(MEMBER_ID);
         verify(listMemberSystemRoleUseCase, times(1)).listByMemberId(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("전환 기간에는 기존 challenger role SUPER_ADMIN을 system role로 합성한다")
+    void load_subject_maps_legacy_super_admin_to_system_role() {
+        InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
+        AuthorizationService sut = new AuthorizationService(
+            loadChallengerRolePort,
+            List.of(),
+            getMemberUseCase,
+            listMemberSystemRoleUseCase,
+            getChapterUseCase,
+            getChallengerUseCase,
+            operationalMetrics,
+            cacheUseCase,
+            new AuthoritySnapshotCacheSerializer(new ObjectMapper().findAndRegisterModules())
+        );
+        given(getMemberUseCase.getById(MEMBER_ID)).willReturn(MemberInfo.builder()
+            .id(MEMBER_ID)
+            .schoolId(SCHOOL_ID)
+            .build());
+        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(ChallengerRole.create(
+            CHALLENGER_ID,
+            ChallengerRoleType.SUPER_ADMIN,
+            null,
+            null,
+            GISU_ID
+        )));
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
+
+        SubjectAttributes result = sut.loadSubject(MEMBER_ID);
+
+        assertThat(result.toAuthoritySnapshot().isSuperAdmin()).isTrue();
+        assertThat(result.systemRoles()).containsExactly(SystemRoleType.SUPER_ADMIN);
+        assertThat((String) cacheUseCase.latestValue()).contains("SUPER_ADMIN");
+    }
+
+    @Test
+    @DisplayName("캐시 hit에서도 회원이 삭제되었으면 기존 권한 snapshot을 반환하지 않는다")
+    void cache_hit_rejects_deleted_member() {
+        InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
+        AuthorizationService sut = new AuthorizationService(
+            loadChallengerRolePort,
+            List.of(),
+            getMemberUseCase,
+            listMemberSystemRoleUseCase,
+            getChapterUseCase,
+            getChallengerUseCase,
+            operationalMetrics,
+            cacheUseCase,
+            new AuthoritySnapshotCacheSerializer(new ObjectMapper().findAndRegisterModules())
+        );
+        given(getMemberUseCase.getById(MEMBER_ID))
+            .willReturn(MemberInfo.builder().id(MEMBER_ID).schoolId(SCHOOL_ID).build());
+        given(getMemberUseCase.existsById(MEMBER_ID)).willReturn(false);
+        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
+
+        sut.loadSubject(MEMBER_ID);
+
+        assertThatThrownBy(() -> sut.loadSubject(MEMBER_ID))
+            .isInstanceOf(MemberDomainException.class);
     }
 
     private static class InMemoryCacheUseCase implements CacheUseCase {

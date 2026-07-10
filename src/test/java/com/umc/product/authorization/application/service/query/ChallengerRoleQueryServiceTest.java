@@ -3,6 +3,7 @@ package com.umc.product.authorization.application.service.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import com.umc.product.authorization.application.port.out.LoadChallengerRolePort
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.member.application.port.in.query.CheckMemberExistenceUseCase;
 import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberSystemRoleInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -89,6 +91,27 @@ class ChallengerRoleQueryServiceTest {
         assertThat(result).hasSize(1);
         assertThat(result.getFirst().roleType()).isEqualTo(ChallengerRoleType.SCHOOL_PRESIDENT);
         assertThat(result.getFirst().gisu()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("전환 기간에는 기존 프로필 응답에 SUPER_ADMIN challenger role을 유지한다")
+    void list_by_member_id_preserves_legacy_super_admin() {
+        ChallengerRoleQueryService sut = sut();
+        ListChallengerRoleUseCase useCase = sut;
+        ChallengerRole role = ChallengerRole.create(
+            10L,
+            ChallengerRoleType.SUPER_ADMIN,
+            null,
+            null,
+            GISU_ID
+        );
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
+        given(getGisuUseCase.getById(GISU_ID)).willReturn(new GisuInfo(GISU_ID, 10L, null, null, true));
+
+        List<ChallengerRoleInfo> result = useCase.listByMemberId(MEMBER_ID);
+
+        assertThat(result).extracting(ChallengerRoleInfo::roleType)
+            .containsExactly(ChallengerRoleType.SUPER_ADMIN);
     }
 
     @Test
@@ -181,11 +204,61 @@ class ChallengerRoleQueryServiceTest {
         assertThat(result).isTrue();
     }
 
+    @Test
+    @DisplayName("전환 기간에는 기존 challenger role의 SUPER_ADMIN도 판정한다")
+    void check_super_admin_by_legacy_challenger_role() {
+        ChallengerRoleQueryService sut = sut();
+        CheckChallengerAuthorityUseCase useCase = sut;
+        ChallengerRole role = ChallengerRole.create(
+            10L,
+            ChallengerRoleType.SUPER_ADMIN,
+            null,
+            null,
+            GISU_ID
+        );
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
+
+        boolean result = useCase.isSuperAdmin(MEMBER_ID);
+
+        assertThat(result).isTrue();
+    }
+
+    @Test
+    @DisplayName("member system role의 SUPER_ADMIN은 기수와 조직에 관계없이 상위 권한을 통과한다")
+    void system_super_admin_has_all_hierarchical_authorities() {
+        ChallengerRoleQueryService sut = sut();
+        CheckChallengerAuthorityUseCase useCase = sut;
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of(
+            new MemberSystemRoleInfo(MEMBER_ID, "SUPER_ADMIN")
+        ));
+
+        assertThat(useCase.isCentralCoreInGisu(MEMBER_ID, GISU_ID)).isTrue();
+        assertThat(useCase.isSchoolAdminInGisu(MEMBER_ID, GISU_ID, SCHOOL_ID)).isTrue();
+        assertThat(useCase.isChapterPresidentInGisu(MEMBER_ID, GISU_ID, 20L)).isTrue();
+    }
+
+    @Test
+    @DisplayName("삭제된 회원은 역할 저장소를 조회하지 않고 SUPER_ADMIN 권한을 거부한다")
+    void deleted_member_cannot_use_legacy_super_admin() {
+        CheckMemberExistenceUseCase missingMember = memberId -> false;
+        ChallengerRoleQueryService sut = sut(missingMember);
+        CheckChallengerAuthorityUseCase useCase = sut;
+
+        assertThat(useCase.isSuperAdmin(MEMBER_ID)).isFalse();
+        verifyNoInteractions(loadChallengerRolePort, listMemberSystemRoleUseCase);
+    }
+
     private ChallengerRoleQueryService sut() {
+        return sut(memberId -> true);
+    }
+
+    private ChallengerRoleQueryService sut(CheckMemberExistenceUseCase checkMemberExistenceUseCase) {
         return new ChallengerRoleQueryService(
             loadChallengerRolePort,
             getGisuUseCase,
-            listMemberSystemRoleUseCase
+            listMemberSystemRoleUseCase,
+            checkMemberExistenceUseCase
         );
     }
 }

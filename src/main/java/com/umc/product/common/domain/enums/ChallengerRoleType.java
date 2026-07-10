@@ -60,7 +60,9 @@ public enum ChallengerRoleType {
      * 중앙운영사무국 총괄단 여부를 확인합니다. 총괄, 부총괄이 해당됩니다.
      */
     public boolean isAtLeastCentralCore() {
-        return this == CENTRAL_PRESIDENT || this == CENTRAL_VICE_PRESIDENT;
+        return isSuperAdmin()
+            || this == CENTRAL_PRESIDENT
+            || this == CENTRAL_VICE_PRESIDENT;
     }
 
     /**
@@ -76,7 +78,9 @@ public enum ChallengerRoleType {
      * 학교 회장단 여부를 확인합니다. 회장, 부회장이 해당됩니다.
      */
     public boolean isAtLeastSchoolCore() {
-        return this == SCHOOL_PRESIDENT || this == SCHOOL_VICE_PRESIDENT;
+        return isSuperAdmin()
+            || this == SCHOOL_PRESIDENT
+            || this == SCHOOL_VICE_PRESIDENT;
     }
 
     /**

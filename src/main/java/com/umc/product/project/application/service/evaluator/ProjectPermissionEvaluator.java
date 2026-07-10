@@ -78,6 +78,9 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
      * PO target 이 호출자와 다른 경우의 scope 검증은 Service 레벨에서 수행한다.
      */
     private boolean canWrite(SubjectAttributes subject) {
+        if (isSuperAdmin(subject)) {
+            return true;
+        }
         boolean isPlanChallenger = subject.gisuChallengerInfos().stream()
             .anyMatch(info -> info.part() == ChallengerPart.PLAN);
         if (isPlanChallenger) {

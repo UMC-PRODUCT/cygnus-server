@@ -14,12 +14,9 @@ CREATE TABLE public.member_system_role
     )
 );
 
-CREATE INDEX idx_member_system_role_member_id
-    ON public.member_system_role (member_id);
-
 ALTER TABLE ONLY public.member_system_role
     ADD CONSTRAINT fk_member_system_role_member
-        FOREIGN KEY (member_id) REFERENCES public.member (id);
+        FOREIGN KEY (member_id) REFERENCES public.member (id) ON DELETE CASCADE;
 
 INSERT INTO public.member_system_role (created_at, updated_at, member_id, role_type)
 SELECT DISTINCT
@@ -29,26 +26,106 @@ SELECT DISTINCT
     'SUPER_ADMIN'
 FROM public.challenger_role cr
 JOIN public.challenger c ON c.id = cr.challenger_id
+JOIN public.member m ON m.id = c.member_id
 WHERE cr.role_type = 'SUPER_ADMIN'
 ON CONFLICT (member_id, role_type) DO NOTHING;
 
-DELETE FROM public.challenger_role
-WHERE role_type = 'SUPER_ADMIN';
+-- Rolling deployment 중 구버전 인스턴스가 legacy role을 변경해도 신규 저장소와 정합성을 유지한다.
+CREATE OR REPLACE FUNCTION public.reconcile_super_admin_system_role(target_member_id bigint)
+    RETURNS void
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF target_member_id IS NULL
+        OR NOT EXISTS (SELECT 1 FROM public.member m WHERE m.id = target_member_id) THEN
+        RETURN;
+    END IF;
 
-ALTER TABLE public.challenger_role
-    DROP CONSTRAINT challenger_role_role_type_check;
+    IF EXISTS (
+        SELECT 1
+        FROM public.challenger_role cr
+        JOIN public.challenger c ON c.id = cr.challenger_id
+        WHERE c.member_id = target_member_id
+          AND cr.role_type = 'SUPER_ADMIN'
+    ) THEN
+        INSERT INTO public.member_system_role (created_at, updated_at, member_id, role_type)
+        VALUES (now(), now(), target_member_id, 'SUPER_ADMIN')
+        ON CONFLICT (member_id, role_type) DO NOTHING;
+    ELSE
+        DELETE FROM public.member_system_role
+        WHERE member_id = target_member_id
+          AND role_type = 'SUPER_ADMIN';
+    END IF;
+END;
+$$;
 
-ALTER TABLE public.challenger_role
-    ADD CONSTRAINT challenger_role_role_type_check CHECK (
-        (role_type)::text = ANY (ARRAY[
-            ('CENTRAL_PRESIDENT'::character varying)::text,
-            ('CENTRAL_VICE_PRESIDENT'::character varying)::text,
-            ('CENTRAL_OPERATING_TEAM_MEMBER'::character varying)::text,
-            ('CENTRAL_EDUCATION_TEAM_MEMBER'::character varying)::text,
-            ('CHAPTER_PRESIDENT'::character varying)::text,
-            ('SCHOOL_PRESIDENT'::character varying)::text,
-            ('SCHOOL_VICE_PRESIDENT'::character varying)::text,
-            ('SCHOOL_PART_LEADER'::character varying)::text,
-            ('SCHOOL_ETC_ADMIN'::character varying)::text
-        ])
-    );
+CREATE OR REPLACE FUNCTION public.sync_super_admin_system_role_from_challenger_role()
+    RETURNS trigger
+    LANGUAGE plpgsql
+AS $$
+DECLARE
+    old_member_id bigint;
+    new_member_id bigint;
+BEGIN
+    IF TG_OP <> 'INSERT' AND OLD.role_type = 'SUPER_ADMIN' THEN
+        SELECT c.member_id
+        INTO old_member_id
+        FROM public.challenger c
+        WHERE c.id = OLD.challenger_id;
+    END IF;
+
+    IF TG_OP <> 'DELETE' AND NEW.role_type = 'SUPER_ADMIN' THEN
+        SELECT c.member_id
+        INTO new_member_id
+        FROM public.challenger c
+        WHERE c.id = NEW.challenger_id;
+    END IF;
+
+    PERFORM public.reconcile_super_admin_system_role(old_member_id);
+    IF new_member_id IS DISTINCT FROM old_member_id THEN
+        PERFORM public.reconcile_super_admin_system_role(new_member_id);
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER sync_super_admin_system_role
+    AFTER INSERT OR UPDATE OR DELETE ON public.challenger_role
+    FOR EACH ROW
+    EXECUTE FUNCTION public.sync_super_admin_system_role_from_challenger_role();
+
+CREATE OR REPLACE FUNCTION public.sync_super_admin_system_role_before_challenger_delete()
+    RETURNS trigger
+    LANGUAGE plpgsql
+AS $$
+BEGIN
+    IF EXISTS (
+        SELECT 1
+        FROM public.challenger_role cr
+        WHERE cr.challenger_id = OLD.id
+          AND cr.role_type = 'SUPER_ADMIN'
+    ) AND NOT EXISTS (
+        SELECT 1
+        FROM public.challenger_role cr
+        JOIN public.challenger c ON c.id = cr.challenger_id
+        WHERE c.member_id = OLD.member_id
+          AND c.id <> OLD.id
+          AND cr.role_type = 'SUPER_ADMIN'
+    ) THEN
+        DELETE FROM public.member_system_role
+        WHERE member_id = OLD.member_id
+          AND role_type = 'SUPER_ADMIN';
+    END IF;
+
+    RETURN OLD;
+END;
+$$;
+
+CREATE TRIGGER sync_super_admin_system_role_on_challenger_delete
+    BEFORE DELETE ON public.challenger
+    FOR EACH ROW
+    EXECUTE FUNCTION public.sync_super_admin_system_role_before_challenger_delete();

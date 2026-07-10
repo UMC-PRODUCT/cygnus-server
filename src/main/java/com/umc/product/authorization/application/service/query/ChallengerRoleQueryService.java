@@ -23,6 +23,7 @@ import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.member.application.port.in.query.CheckMemberExistenceUseCase;
 import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
@@ -46,6 +47,8 @@ public class ChallengerRoleQueryService implements
     private final GetGisuUseCase getGisuUseCase;
 
     private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
+
+    private final CheckMemberExistenceUseCase checkMemberExistenceUseCase;
 
     private ChallengerRoleInfo getChallengerRoleInfoFromEntity(ChallengerRole role) {
         return ChallengerRoleInfo.from(
@@ -88,6 +91,26 @@ public class ChallengerRoleQueryService implements
 
     @Override
     public boolean isSuperAdmin(Long memberId) {
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        return hasSuperAdminRole(memberId);
+    }
+
+    private boolean hasSuperAdminRole(Long memberId) {
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
+        }
+        return loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(ChallengerRole::getChallengerRoleType)
+            .anyMatch(ChallengerRoleType::isSuperAdmin);
+    }
+
+    private boolean memberExists(Long memberId) {
+        return checkMemberExistenceUseCase.existsById(memberId);
+    }
+
+    private boolean hasSystemSuperAdmin(Long memberId) {
         return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
             .map(role -> SystemRoleType.from(role.roleType()))
             .anyMatch(roleType -> roleType == SystemRoleType.SUPER_ADMIN);
@@ -95,6 +118,12 @@ public class ChallengerRoleQueryService implements
 
     @Override
     public boolean isCentralCoreInAnyGisu(Long memberId) {
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
+        }
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
 
         return roles.stream()
@@ -104,6 +133,12 @@ public class ChallengerRoleQueryService implements
 
     @Override
     public boolean isCentralMemberInAnyGisu(Long memberId) {
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
+        }
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
 
         return roles.stream()
@@ -116,6 +151,12 @@ public class ChallengerRoleQueryService implements
         if (schoolId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -133,6 +174,12 @@ public class ChallengerRoleQueryService implements
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
 
@@ -148,6 +195,12 @@ public class ChallengerRoleQueryService implements
         if (chapterId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "chapterId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -199,6 +252,9 @@ public class ChallengerRoleQueryService implements
         if (role == null) {
             return false;
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
 
@@ -213,6 +269,9 @@ public class ChallengerRoleQueryService implements
                 "gisuId는 null일 수 없습니다.");
         }
         if (roles == null || roles.length == 0) {
+            return false;
+        }
+        if (!memberExists(memberId)) {
             return false;
         }
 
@@ -233,6 +292,9 @@ public class ChallengerRoleQueryService implements
         if (roles == null || roles.length == 0) {
             return true;
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
 
         Set<ChallengerRoleType> targetRoles = Arrays.stream(roles).collect(Collectors.toSet());
         List<ChallengerRole> memberRoles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
@@ -249,6 +311,12 @@ public class ChallengerRoleQueryService implements
         if (gisuId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "gisuId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
@@ -285,6 +353,12 @@ public class ChallengerRoleQueryService implements
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "gisuId는 null일 수 없습니다.");
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
 
@@ -302,6 +376,12 @@ public class ChallengerRoleQueryService implements
         if (schoolId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
@@ -323,6 +403,12 @@ public class ChallengerRoleQueryService implements
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
 
@@ -342,6 +428,12 @@ public class ChallengerRoleQueryService implements
         if (chapterId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "chapterId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSuperAdminRole(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);

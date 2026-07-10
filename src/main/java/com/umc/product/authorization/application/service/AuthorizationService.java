@@ -1,6 +1,7 @@
 package com.umc.product.authorization.application.service;
 
 import java.time.Duration;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,7 @@ import com.umc.product.authorization.domain.exception.AuthorizationDomainExcepti
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.global.cache.application.port.in.CacheUseCase;
 import com.umc.product.global.cache.domain.CacheKey;
 import com.umc.product.global.cache.domain.CacheLookup;
@@ -34,6 +36,8 @@ import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 
 import lombok.extern.slf4j.Slf4j;
@@ -130,15 +134,16 @@ public class AuthorizationService implements CheckPermissionUseCase {
                 .challengerId(challengerInfo.challengerId())
                 .build()
         ).toList();
-        List<RoleAttribute> roles = loadChallengerRolePort.findByMemberId(memberId)
-            .stream().map(RoleAttribute::from).toList();
+        List<RoleAttribute> roles = loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(RoleAttribute::from)
+            .toList();
 
         SubjectAttributes subjectAttributes = SubjectAttributes.builder()
             .memberId(memberId)
             .schoolId(schoolId)
             .gisuChallengerInfos(chapterIds)
             .roleAttributes(roles)
-            .systemRoles(listSystemRoles(memberId))
+            .systemRoles(listSystemRoles(memberId, roles))
             .build();
 
         log.debug("권한 평가 subject를 로드했습니다: memberId={}, roleCount={}, challengerCount={}",
@@ -148,15 +153,24 @@ public class AuthorizationService implements CheckPermissionUseCase {
         return subjectAttributes;
     }
 
-    private Set<SystemRoleType> listSystemRoles(Long memberId) {
-        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+    private Set<SystemRoleType> listSystemRoles(Long memberId, List<RoleAttribute> challengerRoles) {
+        EnumSet<SystemRoleType> systemRoles = listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
             .map(role -> SystemRoleType.from(role.roleType()))
-            .collect(Collectors.toUnmodifiableSet());
+            .collect(Collectors.toCollection(() -> EnumSet.noneOf(SystemRoleType.class)));
+
+        if (challengerRoles.stream().map(RoleAttribute::roleType).anyMatch(ChallengerRoleType::isSuperAdmin)) {
+            systemRoles.add(SystemRoleType.SUPER_ADMIN);
+        }
+        return Set.copyOf(systemRoles);
     }
 
     private Optional<SubjectAttributes> readCachedSubject(CacheKey cacheKey, Long memberId) {
         CacheLookup<String> lookup = cacheUseCase.get(AUTHORITY_SNAPSHOT_CACHE_SPEC, cacheKey);
         if (lookup instanceof CacheLookup.Hit<String> hit) {
+            if (!getMemberUseCase.existsById(memberId)) {
+                cacheUseCase.evict(CacheNamespace.AUTHORITY_SNAPSHOT, cacheKey);
+                throw new MemberDomainException(MemberErrorCode.MEMBER_NOT_FOUND);
+            }
             try {
                 log.debug("권한 평가 subject 캐시 hit: memberId={}", memberId);
                 return Optional.of(authoritySnapshotCacheSerializer.deserialize(hit.value()).toSubjectAttributes());

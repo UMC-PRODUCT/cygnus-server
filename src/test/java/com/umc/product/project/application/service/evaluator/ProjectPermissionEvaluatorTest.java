@@ -357,6 +357,14 @@ class ProjectPermissionEvaluatorTest {
     }
 
     @Test
+    void WRITE는_SUPER_ADMIN_허용() {
+        SubjectAttributes subject = superAdminSubject(20L);
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
+
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
     void WRITE는_지부장_허용() {
         SubjectAttributes subject = subjectWith(1L, List.of(),
             List.of(chapterPresidentRole(1L, 1L)));
