@@ -1,10 +1,12 @@
 package com.umc.product.notification.application.port.in.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+
 import lombok.Builder;
 
 @Builder

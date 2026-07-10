@@ -2,6 +2,16 @@ package com.umc.product.notification.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.in.dto.FcmTokenValidationInfo;
@@ -11,15 +21,8 @@ import com.umc.product.notification.application.port.out.ValidateFcmTokenPort;
 import com.umc.product.notification.application.port.out.dto.FcmTokenValidationRequest;
 import com.umc.product.notification.application.port.out.dto.FcmTokenValidationResult;
 import com.umc.product.notification.domain.FcmToken;
+
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("FCM 토큰 유효성 검증 서비스")
 class FcmTokenValidationServiceTest {

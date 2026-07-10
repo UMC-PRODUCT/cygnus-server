@@ -1,11 +1,12 @@
 package com.umc.product.notification.application.event;
 
-import com.umc.product.global.event.domain.DomainEvent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+
+import com.umc.product.global.event.domain.DomainEvent;
 
 public record FcmSendBatchRequestedEvent(
     UUID eventId,

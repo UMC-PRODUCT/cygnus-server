@@ -1,14 +1,15 @@
 package com.umc.product.notification.application.event;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.global.event.domain.DomainEvent;
-import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.global.event.domain.DomainEvent;
+import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
 
 public record FcmNotificationRequestedEvent(
     UUID eventId,

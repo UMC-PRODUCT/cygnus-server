@@ -2,16 +2,18 @@ package com.umc.product.notification.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.notification.application.event.FcmNotificationRequestedEvent;
 import com.umc.product.notification.application.port.in.dto.FcmNotificationRequestInfo;
 import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 @DisplayName("FCM 알림 요청 서비스")
 class FcmNotificationCommandServiceTest {

@@ -1,8 +1,9 @@
 package com.umc.product.notification.adapter.in.web.dto.response;
 
-import com.umc.product.notification.application.port.in.dto.FcmNotificationRequestInfo;
 import java.time.Instant;
 import java.util.UUID;
+
+import com.umc.product.notification.application.port.in.dto.FcmNotificationRequestInfo;
 
 public record FcmAdminSendResponse(
     UUID requestId,

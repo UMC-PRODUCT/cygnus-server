@@ -2,21 +2,23 @@ package com.umc.product.notification.application.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.umc.product.global.config.FcmProperties;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
-import com.umc.product.global.event.domain.DomainEvent;
-import com.umc.product.notification.application.port.out.LoadFcmPort;
-import com.umc.product.notification.application.service.FcmAudienceResolver;
-import com.umc.product.notification.domain.FcmToken;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import com.umc.product.global.config.FcmProperties;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.event.domain.DomainEvent;
+import com.umc.product.notification.application.port.out.LoadFcmPort;
+import com.umc.product.notification.application.service.FcmAudienceResolver;
+import com.umc.product.notification.domain.FcmToken;
 
 @DisplayName("FCM 알림 요청 이벤트 리스너")
 class FcmNotificationRequestedEventListenerTest {

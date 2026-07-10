@@ -2,6 +2,9 @@ package com.umc.product.notification.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.umc.product.notification.application.port.in.ProcessFcmOutboxUseCase;
 import com.umc.product.notification.application.port.out.LoadFcmOutboxPort;
 import com.umc.product.notification.domain.FcmOutbox;
@@ -9,8 +12,6 @@ import com.umc.product.notification.domain.FcmOutboxStatus;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.FcmOutboxFixture;
 import com.umc.product.support.fixture.MemberFixture;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 class FcmOutboxServiceTest extends UseCaseTestSupport {
 

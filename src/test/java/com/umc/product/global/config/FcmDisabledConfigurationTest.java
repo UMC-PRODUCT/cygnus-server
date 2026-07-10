@@ -2,6 +2,10 @@ package com.umc.product.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.umc.product.notification.adapter.out.external.fcm.FirebaseFcmMessageAdapter;
 import com.umc.product.notification.adapter.out.external.fcm.FirebaseFcmTokenValidationAdapter;
@@ -9,9 +13,6 @@ import com.umc.product.notification.adapter.out.external.fcm.NoopFcmMessageAdapt
 import com.umc.product.notification.adapter.out.external.fcm.NoopFcmTokenValidationAdapter;
 import com.umc.product.notification.application.port.out.SendFcmMessagePort;
 import com.umc.product.notification.application.port.out.ValidateFcmTokenPort;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 
 @DisplayName("FCM disabled configuration")
 class FcmDisabledConfigurationTest {

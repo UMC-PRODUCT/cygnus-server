@@ -1,13 +1,15 @@
 package com.umc.product.notification.adapter.out.persistentce;
 
-import com.umc.product.notification.domain.FcmToken;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.data.jpa.repository.JpaRepository;
+
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
+import com.umc.product.notification.domain.FcmToken;
 
 public interface FcmJpaRepository extends JpaRepository<FcmToken, Long> {
 

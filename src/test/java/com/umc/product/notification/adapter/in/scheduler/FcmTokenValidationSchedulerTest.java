@@ -2,12 +2,14 @@ package com.umc.product.notification.adapter.in.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.notification.application.port.in.ValidateFcmTokensUseCase;
 import com.umc.product.notification.application.port.in.dto.FcmTokenValidationInfo;
-import java.time.Instant;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 @DisplayName("FCM 토큰 유효성 검증 스케줄러")
 class FcmTokenValidationSchedulerTest {

@@ -6,6 +6,14 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.google.firebase.messaging.BatchResponse;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.firebase.messaging.FirebaseMessagingException;
@@ -15,12 +23,6 @@ import com.google.firebase.messaging.SendResponse;
 import com.umc.product.notification.application.port.out.dto.FcmSendTarget;
 import com.umc.product.notification.application.port.out.dto.FcmTokenValidationRequest;
 import com.umc.product.notification.application.port.out.dto.FcmTokenValidationResult;
-import java.util.List;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @DisplayName("Firebase FCM 토큰 유효성 검증 어댑터")
 @ExtendWith(MockitoExtension.class)

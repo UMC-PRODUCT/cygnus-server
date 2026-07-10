@@ -1,6 +1,7 @@
 package com.umc.product.notification.adapter.in.web.dto.request;
 
 import com.umc.product.notification.application.port.in.dto.RegisterFcmTokenCommand;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 

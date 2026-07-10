@@ -1,9 +1,10 @@
 package com.umc.product.notification.application.port.out;
 
-import com.umc.product.notification.domain.FcmToken;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+
+import com.umc.product.notification.domain.FcmToken;
 
 public interface LoadFcmPort {
 

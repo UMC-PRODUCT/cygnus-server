@@ -1,11 +1,12 @@
 package com.umc.product.notification.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
-import org.springframework.stereotype.Component;
 
 @Component
 public class FcmPermissionEvaluator implements ResourcePermissionEvaluator {

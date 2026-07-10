@@ -2,6 +2,11 @@ package com.umc.product.notification.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.umc.product.notification.application.port.in.ManageFcmUseCase;
 import com.umc.product.notification.application.port.in.dto.RegisterFcmTokenCommand;
 import com.umc.product.notification.application.port.in.dto.UnregisterFcmTokenCommand;
@@ -10,9 +15,6 @@ import com.umc.product.notification.domain.FcmToken;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.FcmTokenFixture;
 import com.umc.product.support.fixture.MemberFixture;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 class FcmServiceTest extends UseCaseTestSupport {
 
