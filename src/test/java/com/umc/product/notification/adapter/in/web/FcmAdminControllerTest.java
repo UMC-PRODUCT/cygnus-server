@@ -108,4 +108,25 @@ class FcmAdminControllerTest {
 
         then(requestFcmNotificationUseCase).shouldHaveNoInteractions();
     }
+
+    @Test
+    @DisplayName("관리자 FCM 알림 발송 대상 parts에 null이 있으면 400을 반환한다")
+    void null_part_발송_대상_거부() throws Exception {
+        mockMvc.perform(post("/api/v1/notifications/admin/fcm/messages")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "target": {
+                        "parts": [null]
+                      },
+                      "message": {
+                        "title": "공지",
+                        "body": "본문"
+                      }
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
+
+        then(requestFcmNotificationUseCase).shouldHaveNoInteractions();
+    }
 }

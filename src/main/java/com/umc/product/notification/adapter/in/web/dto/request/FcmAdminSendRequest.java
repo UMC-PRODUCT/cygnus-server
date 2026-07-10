@@ -39,7 +39,7 @@ public record FcmAdminSendRequest(
         Long gisuId,
         Long chapterId,
         Long schoolId,
-        Set<ChallengerPart> parts
+        Set<@NotNull ChallengerPart> parts
     ) {
 
         @AssertTrue(message = "FCM 알림 발송 대상은 하나 이상 지정해야 합니다.") public boolean hasAnyTarget() {
@@ -51,7 +51,7 @@ public record FcmAdminSendRequest(
         }
 
         private boolean hasPartTarget() {
-            return parts != null && !parts.isEmpty();
+            return parts != null && parts.stream().anyMatch(part -> part != null);
         }
     }
 
