@@ -1,5 +1,14 @@
 package com.umc.product.notification.application.event;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
@@ -9,14 +18,9 @@ import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
 import com.umc.product.notification.application.port.out.dto.FcmSendResult;
 import com.umc.product.notification.application.port.out.dto.FcmSendTarget;
 import com.umc.product.notification.domain.FcmToken;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Slf4j
 @Component
@@ -30,7 +34,7 @@ public class FcmSendBatchRequestedEventListener {
     private final OperationalMetrics operationalMetrics;
 
     @EventListener
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void handle(FcmSendBatchRequestedEvent event) {
         if (!fcmProperties.enabled()) {
             log.info("[FCM 비활성화] FCM 배치 발송 이벤트를 건너뜁니다: requestId={}", event.requestId());

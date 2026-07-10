@@ -3,6 +3,20 @@ package com.umc.product.notification.application.event;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.core.annotation.AnnotatedElementUtils;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
@@ -13,19 +27,23 @@ import com.umc.product.notification.application.port.out.dto.FcmSendResult;
 import com.umc.product.notification.domain.FcmToken;
 import com.umc.product.notification.domain.exception.FcmDomainException;
 import com.umc.product.notification.domain.exception.FcmErrorCode;
+
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @DisplayName("FCM 배치 발송 이벤트 리스너")
 class FcmSendBatchRequestedEventListenerTest {
+
+    @Test
+    @DisplayName("FCM 네트워크 발송은 outbox relay 트랜잭션을 중단하고 실행한다")
+    void fcm_발송은_relay_트랜잭션_밖에서_실행한다() throws NoSuchMethodException {
+        Transactional transactional = AnnotatedElementUtils.findMergedAnnotation(
+            FcmSendBatchRequestedEventListener.class.getMethod("handle", FcmSendBatchRequestedEvent.class),
+            Transactional.class
+        );
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.NOT_SUPPORTED);
+    }
 
     @Test
     @DisplayName("UNREGISTERED 결과를 받은 토큰을 비활성화한다")

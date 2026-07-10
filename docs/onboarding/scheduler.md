@@ -22,6 +22,7 @@
 | authentication | `EmailVerificationRetentionScheduler` | 매일 03:00 KST | scheduling enabled profile | 만료 인증 세션 회수. 저빈도 정리 잡으로 적절하다. |
 | curriculum | `WorkbookAutoReleaseScheduler` | 매일 00:00 KST | scheduling enabled profile | 워크북 자동 배포. 저빈도 도메인 batch로 적절하다. |
 | notification | `FcmOutboxScheduler` | `app.fcm.outbox-interval-ms` | `app.fcm.enabled=true` | FCM outbox polling. FCM 미사용 환경에서는 scheduler bean 자체를 등록하지 않는다. |
+| notification | `FcmTokenValidationScheduler` | `app.fcm.token-validation-interval-ms` | `app.fcm.enabled=true`, `app.fcm.token-validation-enabled=true` | 오래 검증되지 않은 활성 토큰을 batch dry-run으로 검증한다. 다중 인스턴스에서는 전용 batch 인스턴스 한 곳에서만 활성화한다. |
 | global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.relay-enabled=true` (기본값) | persistent event outbox relay. 중지해도 publisher는 outbox 적재를 계속하며, 외부 broker 전환 전까지 허용되는 polling 작업이다. |
 
 ## Project 매칭 데드라인
@@ -48,6 +49,12 @@
 4. listener가 `@Async("webhookTaskExecutor")`에서 기존 `send(...)` usecase 호출
 
 이 구조는 트랜잭션 rollback 후 유령 알림이 나가는 문제와 scheduler thread에서 외부 webhook I/O를 수행하는 문제를 줄인다. 여러 알림을 하나의 메시지로 묶는 기능이 다시 필요하면 메모리 큐가 아니라 event outbox 또는 별도 persistent aggregation 테이블을 사용한다.
+
+## FCM 배치 발송
+
+`FcmSendBatchRequestedEventListener`는 transient 발송 실패를 공용 event outbox 재시도로 연결하기 위해 동기 이벤트 리스너로 실행한다. Firebase 네트워크 I/O 중 DB 커넥션을 점유하지 않도록 relay 트랜잭션은 `NOT_SUPPORTED`로 중단하며, 무효 토큰의 `saveAll`만 repository의 짧은 쓰기 트랜잭션으로 처리한다.
+
+발송 보장은 at-least-once다. Firebase 발송 성공 후 event outbox의 `PUBLISHED` 커밋이 실패하면 같은 batch 전체가 재시도되어 최대 500개 토큰에 중복 푸시가 발생할 수 있다. FCM API가 batch 요청의 멱등성 키를 제공하지 않으므로 현재 `requestId`는 서버 추적 용도로만 사용하며, 중복보다 누락 방지를 우선한다.
 
 ## 추가 기준
 

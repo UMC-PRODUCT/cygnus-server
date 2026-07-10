@@ -2,6 +2,22 @@ package com.umc.product.notification.application.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.config.FcmProperties;
 import com.umc.product.global.event.adapter.out.EventPayloadDeserializer;
@@ -17,19 +33,8 @@ import com.umc.product.notification.application.port.out.LoadFcmPort;
 import com.umc.product.notification.application.service.FcmAudienceResolver;
 import com.umc.product.notification.application.service.FcmNotificationCommandService;
 import com.umc.product.notification.domain.FcmToken;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.TransactionDefinition;
-import org.springframework.transaction.TransactionException;
-import org.springframework.transaction.support.AbstractPlatformTransactionManager;
-import org.springframework.transaction.support.DefaultTransactionStatus;
+
+import io.micrometer.tracing.Tracer;
 
 @DisplayName("FCM 알림 event outbox flow")
 class FcmNotificationOutboxFlowTest {
@@ -41,7 +46,7 @@ class FcmNotificationOutboxFlowTest {
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         RecordingSaveEventOutboxPort requestOutboxPort = new RecordingSaveEventOutboxPort();
         FcmNotificationCommandService service = new FcmNotificationCommandService(
-            new OutboxDomainEventPublisher(requestOutboxPort, serializer)
+            new OutboxDomainEventPublisher(requestOutboxPort, serializer, Tracer.NOOP)
         );
 
         service.request(RequestFcmNotificationCommand.builder()
@@ -61,7 +66,7 @@ class FcmNotificationOutboxFlowTest {
             new FcmProperties(true, true),
             new FcmAudienceResolver(null, null, null),
             new FakeLoadFcmPort(createTokens(501)),
-            new OutboxDomainEventPublisher(batchOutboxPort, serializer)
+            new OutboxDomainEventPublisher(batchOutboxPort, serializer, Tracer.NOOP)
         );
         ApplicationEventPublisher springPublisher = event -> {
             if (event instanceof FcmNotificationRequestedEvent fcmEvent) {
@@ -74,6 +79,7 @@ class FcmNotificationOutboxFlowTest {
             new EventPayloadDeserializer(objectMapper),
             springPublisher,
             new LocalTransactionManager(),
+            new DefaultListableBeanFactory().getBeanProvider(Tracer.class),
             100,
             3
         );
