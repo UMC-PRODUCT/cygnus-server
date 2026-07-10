@@ -1,15 +1,16 @@
 package com.umc.product.challenger.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
-import org.springframework.stereotype.Component;
 
 @Component
-public class ChallengerRecordPermissionController implements ResourcePermissionEvaluator {
+public class ChallengerRecordPermissionEvaluator implements ResourcePermissionEvaluator {
 
     @Override
     public ResourceType supportedResourceType() {
