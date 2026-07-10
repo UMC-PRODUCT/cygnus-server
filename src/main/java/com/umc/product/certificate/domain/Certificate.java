@@ -35,8 +35,8 @@ public class Certificate extends BaseEntity {
     private String serialNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private CertificateType type;
+    @Column(nullable = false, length = 80)
+    private CertificateTemplate template;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -60,11 +60,6 @@ public class Certificate extends BaseEntity {
 
     @Column(nullable = false)
     private Long gisuGeneration;
-
-    private Long projectId;
-
-    @Column(length = 100)
-    private String projectName;
 
     @Column(length = 100)
     private String meritTitle;
@@ -97,7 +92,7 @@ public class Certificate extends BaseEntity {
     public static Certificate issue(CertificateIssueSpec spec) {
         Certificate certificate = new Certificate();
         certificate.serialNumber = spec.serialNumber();
-        certificate.type = spec.type();
+        certificate.template = spec.template();
         certificate.status = CertificateStatus.ISSUED;
         certificate.issuer = spec.issuer();
         certificate.recipientMemberId = spec.recipientMemberId();
@@ -105,8 +100,6 @@ public class Certificate extends BaseEntity {
         certificate.recipientSchoolName = spec.recipientSchoolName();
         certificate.gisuId = spec.gisuId();
         certificate.gisuGeneration = spec.gisuGeneration();
-        certificate.projectId = spec.projectId();
-        certificate.projectName = spec.projectName();
         certificate.meritTitle = spec.meritTitle();
         certificate.meritDescription = spec.meritDescription();
         certificate.issuedByMemberId = spec.issuedByMemberId();

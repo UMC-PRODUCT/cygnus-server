@@ -5,8 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import com.umc.product.certificate.domain.Certificate;
-import com.umc.product.certificate.domain.CertificateIssuer;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public interface LoadCertificatePort {
 
@@ -17,11 +16,9 @@ public interface LoadCertificatePort {
     Optional<Certificate> findBySerialNumber(String serialNumber);
 
     Optional<Certificate> findValidByScope(
-        CertificateType type,
-        CertificateIssuer issuer,
+        CertificateTemplate template,
         Long recipientMemberId,
         Long gisuId,
-        Long projectId,
         String meritTitle,
         Instant now
     );

@@ -9,9 +9,8 @@ import org.springframework.stereotype.Component;
 import com.umc.product.certificate.application.port.out.LoadCertificatePort;
 import com.umc.product.certificate.application.port.out.SaveCertificatePort;
 import com.umc.product.certificate.domain.Certificate;
-import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
 
@@ -41,20 +40,16 @@ public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveC
 
     @Override
     public Optional<Certificate> findValidByScope(
-        CertificateType type,
-        CertificateIssuer issuer,
+        CertificateTemplate template,
         Long recipientMemberId,
         Long gisuId,
-        Long projectId,
         String meritTitle,
         Instant now
     ) {
         return certificateRepository.findValidByScope(
-            type,
-            issuer,
+            template,
             recipientMemberId,
             gisuId,
-            projectId,
             meritTitle,
             CertificateStatus.ISSUED,
             now

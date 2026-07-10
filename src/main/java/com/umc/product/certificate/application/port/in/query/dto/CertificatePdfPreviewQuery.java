@@ -13,7 +13,6 @@ public record CertificatePdfPreviewQuery(
     String recipientName,
     String recipientSchoolName,
     Long gisuGeneration,
-    String projectName,
     String meritTitle,
     String meritDescription,
     String verificationUrl,
