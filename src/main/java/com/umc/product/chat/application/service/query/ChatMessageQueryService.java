@@ -11,26 +11,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
-import com.umc.product.chat.application.port.in.query.GetMyChatRoomsUseCase;
+import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
+import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
-import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
 import com.umc.product.chat.domain.ChatMessage;
-import com.umc.product.chat.domain.ChatRoom;
 
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ChatMessageQueryService implements GetChatMessagesUseCase, GetMyChatRoomsUseCase {
+public class ChatMessageQueryService implements GetChatMessagesUseCase, ListChatRoomSummariesUseCase {
 
     private final LoadChatMessagePort loadChatMessagePort;
-    private final LoadChatRoomPort loadChatRoomPort;
+    private final LoadChatMemberPort loadChatMemberPort;
     private final ChatRoomAccessPolicy chatRoomAccessPolicy;
 
     /**
@@ -56,35 +55,38 @@ public class ChatMessageQueryService implements GetChatMessagesUseCase, GetMyCha
     }
 
     /**
-     * 내가 속한 채팅방 목록을 마지막 메시지 미리보기 + 안 읽은 수와 함께 조회한다.
+     * 소비 도메인이 소유한 roomId 집합에 대해 방 요약(마지막 메시지 미리보기 + 안 읽은 수)을 조회한다.
      * <p>
-     * 방 개수와 무관하게 쿼리 3회로 고정한다(N+1 방지): ① 내 멤버십, ② 방별 마지막 메시지(배치),
-     * ③ 방별 안 읽은 수(배치). 이후 메모리에서 조립한다.
+     * 엔진은 멤버의 방을 스스로 열거하지 않는다. 전달받은 roomId 집합을 멤버가 실제 참여 중인 방으로 좁힌 뒤에만 조립하므로, 서로 다른 소비 도메인의 방이 한 응답에 섞이지 않는다(도메인 간 데이터
+     * 격리).
+     * <p>
+     * 방 개수와 무관하게 쿼리 3회로 고정한다(N+1 방지)
      */
     @Override
-    public List<ChatRoomSummaryInfo> getMyChatRooms(Long memberId) {
-        List<Long> roomIds = loadChatRoomPort.listByMemberId(memberId).stream()
-            .map(ChatRoom::getId)
-            .toList();
-
-        if (roomIds.isEmpty()) {
+    public List<ChatRoomSummaryInfo> listRoomSummaries(Long memberId, List<Long> roomIds) {
+        if (roomIds == null || roomIds.isEmpty()) {
             return List.of();
         }
 
-        Map<Long, ChatMessage> lastByRoom = loadChatMessagePort.listLatestPerRoom(roomIds).stream()
+        // 소비 도메인이 넘긴 방 중 멤버가 실제 참여 중인 방으로 한정한다(격리 + 방어).
+        List<Long> scopedRoomIds = loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(memberId, roomIds);
+        if (scopedRoomIds.isEmpty()) {
+            return List.of();
+        }
+
+        Map<Long, ChatMessage> lastByRoom = loadChatMessagePort.listLatestPerRoom(scopedRoomIds).stream()
             .collect(Collectors.toMap(ChatMessage::getRoomId, Function.identity()));
 
-        Map<Long, Long> unreadByRoom = loadChatMessagePort.countUnreadByRooms(memberId, roomIds).stream()
+        Map<Long, Long> unreadByRoom = loadChatMessagePort.countUnreadByRooms(memberId, scopedRoomIds).stream()
             .collect(Collectors.toMap(RoomUnreadCount::roomId, RoomUnreadCount::unreadCount));
 
-        return roomIds.stream()
+        return scopedRoomIds.stream()
             .map(roomId -> {
                 ChatMessage last = lastByRoom.get(roomId);
                 ChatMessageInfo lastInfo = last != null ? ChatMessageInfo.from(last) : null;
                 long unread = unreadByRoom.getOrDefault(roomId, 0L);
                 return new ChatRoomSummaryInfo(roomId, lastInfo, unread);
             })
-            // 마지막 메시지 최신순(메시지 없는 방은 뒤로)
             .sorted(Comparator.comparingLong(
                 (ChatRoomSummaryInfo s) -> s.lastMessage() != null ? s.lastMessage().messageId() : 0L).reversed())
             .toList();

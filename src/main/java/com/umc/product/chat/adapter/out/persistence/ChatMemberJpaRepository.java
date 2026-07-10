@@ -1,5 +1,6 @@
 package com.umc.product.chat.adapter.out.persistence;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -15,6 +16,8 @@ public interface ChatMemberJpaRepository extends JpaRepository<ChatMember, Long>
     List<ChatMember> findAllByRoomId(Long roomId);
 
     List<ChatMember> findAllByMemberId(Long memberId);
+
+    List<ChatMember> findAllByMemberIdAndRoomIdIn(Long memberId, Collection<Long> roomIds);
 
     Optional<ChatMember> findByRoomIdAndMemberId(Long roomId, Long memberId);
 

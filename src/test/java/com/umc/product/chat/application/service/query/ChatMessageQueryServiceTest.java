@@ -23,11 +23,10 @@ import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
+import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
-import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
 import com.umc.product.chat.domain.ChatMessage;
-import com.umc.product.chat.domain.ChatRoom;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
@@ -39,7 +38,7 @@ class ChatMessageQueryServiceTest {
     @Mock
     LoadChatMessagePort loadChatMessagePort;
     @Mock
-    LoadChatRoomPort loadChatRoomPort;
+    LoadChatMemberPort loadChatMemberPort;
     @Mock
     ChatRoomAccessPolicy chatRoomAccessPolicy;
 
@@ -88,21 +87,33 @@ class ChatMessageQueryServiceTest {
     }
 
     @Test
-    @DisplayName("속한 방이 없으면 빈 목록을 반환하고 메시지 포트를 호출하지 않는다")
-    void getMyChatRooms_empty() {
-        given(loadChatRoomPort.listByMemberId(10L)).willReturn(List.of());
+    @DisplayName("roomId 집합이 비어 있으면 어떤 포트도 호출하지 않고 빈 목록을 반환한다")
+    void listRoomSummaries_emptyInput() {
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, List.of());
 
-        List<ChatRoomSummaryInfo> result = sut.getMyChatRooms(10L);
+        assertThat(result).isEmpty();
+        then(loadChatMemberPort).shouldHaveNoInteractions();
+        then(loadChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("전달한 roomId 중 참여 중인 방이 없으면 빈 목록을 반환하고 메시지 포트를 호출하지 않는다")
+    void listRoomSummaries_noMembership_empty() {
+        given(loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(10L, List.of(1L, 2L)))
+            .willReturn(List.of());
+
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, List.of(1L, 2L));
 
         assertThat(result).isEmpty();
         then(loadChatMessagePort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("방별 마지막 메시지와 안 읽은 수를 조립하고, 배치 쿼리를 각각 1회만 호출한다(N+1 없음)")
-    void getMyChatRooms_assemble() {
-        given(loadChatRoomPort.listByMemberId(10L))
-            .willReturn(List.of(room(1L), room(2L), room(3L)));
+    @DisplayName("참여 중인 방만 마지막 메시지와 안 읽은 수를 조립하고, 배치 쿼리를 각각 1회만 호출한다(N+1 없음)")
+    void listRoomSummaries_assemble() {
+        List<Long> ownedRoomIds = List.of(1L, 2L, 3L);
+        given(loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(10L, ownedRoomIds))
+            .willReturn(List.of(1L, 2L, 3L));
         // room1: 마지막 메시지 100, room2: 마지막 메시지 90, room3: 메시지 없음
         given(loadChatMessagePort.listLatestPerRoom(List.of(1L, 2L, 3L)))
             .willReturn(List.of(message(100L, 1L), message(90L, 2L)));
@@ -110,7 +121,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.countUnreadByRooms(10L, List.of(1L, 2L, 3L)))
             .willReturn(List.of(new RoomUnreadCount(1L, 5L)));
 
-        List<ChatRoomSummaryInfo> result = sut.getMyChatRooms(10L);
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, ownedRoomIds);
 
         // 마지막 메시지 최신순 정렬: room1(100) > room2(90) > room3(없음)
         assertThat(result).extracting("roomId").containsExactly(1L, 2L, 3L);
@@ -128,15 +139,29 @@ class ChatMessageQueryServiceTest {
         then(loadChatMessagePort).should(times(1)).countUnreadByRooms(10L, List.of(1L, 2L, 3L));
     }
 
+    @Test
+    @DisplayName("소비 도메인이 소유한 roomId만 넘기면 다른 소비 도메인의 방은 결과·쿼리에 섞이지 않는다(도메인 간 격리)")
+    void listRoomSummaries_isolatesConsumerScopes() {
+        // 멤버 10은 inquiry 방(1)과 community 방(99)에 모두 참여하지만, inquiry consumer 는 자기 방(1)만 넘긴다.
+        List<Long> inquiryOwnedRoomIds = List.of(1L);
+        given(loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(10L, inquiryOwnedRoomIds))
+            .willReturn(List.of(1L));
+        given(loadChatMessagePort.listLatestPerRoom(List.of(1L)))
+            .willReturn(List.of(message(100L, 1L)));
+        given(loadChatMessagePort.countUnreadByRooms(10L, List.of(1L)))
+            .willReturn(List.of());
+
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, inquiryOwnedRoomIds);
+
+        // community 방(99)은 결과에도, 어떤 배치 쿼리에도 등장하지 않는다.
+        assertThat(result).extracting("roomId").containsExactly(1L);
+        then(loadChatMessagePort).should(times(1)).listLatestPerRoom(List.of(1L));
+        then(loadChatMessagePort).should(times(1)).countUnreadByRooms(10L, List.of(1L));
+    }
+
     private ChatMessage message(Long id, Long roomId) {
         ChatMessage message = ChatMessage.create(roomId, 99L, MessageContentType.TEXT, "msg", null);
         ReflectionTestUtils.setField(message, "id", id);
         return message;
-    }
-
-    private ChatRoom room(Long id) {
-        ChatRoom room = ChatRoom.create();
-        ReflectionTestUtils.setField(room, "id", id);
-        return room;
     }
 }
