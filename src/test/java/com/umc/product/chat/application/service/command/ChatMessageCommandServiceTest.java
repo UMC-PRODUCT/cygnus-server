@@ -72,6 +72,7 @@ class ChatMessageCommandServiceTest {
         assertThat(result.messageId()).isEqualTo(100L);
         assertThat(result.roomId()).isEqualTo(1L);
         assertThat(result.content()).isEqualTo("안녕");
+        assertThat(result.replyToMessageId()).isNull();
 
         then(saveChatMessagePort).should().save(any(ChatMessage.class));
 
@@ -80,8 +81,50 @@ class ChatMessageCommandServiceTest {
         assertThat(captor.getValue().messageId()).isEqualTo(100L);
         assertThat(captor.getValue().roomId()).isEqualTo(1L);
         assertThat(captor.getValue().senderMemberId()).isEqualTo(10L);
+        assertThat(captor.getValue().replyToMessageId()).isNull();
         // 이벤트 발생 시각은 메시지의 저장 시각(createdAt)과 일치해야 한다
         assertThat(captor.getValue().occurredAt()).isEqualTo(createdAt);
+    }
+
+    @Test
+    @DisplayName("답장 대상이 같은 방에 있으면 답장 메시지를 저장하고 생성 이벤트에 포함한다")
+    void send_reply_success() {
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "답장", null, 90L);
+        ChatMessage saved = ChatMessage.create(1L, 10L, MessageContentType.TEXT, "답장", null, 90L);
+        ReflectionTestUtils.setField(saved, "id", 100L);
+        Instant createdAt = Instant.parse("2026-06-13T00:00:00Z");
+        ReflectionTestUtils.setField(saved, "createdAt", createdAt);
+        given(loadChatMessagePort.existsByIdAndRoomId(90L, 1L)).willReturn(true);
+        given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
+
+        ChatMessageInfo result = sut.send(command);
+
+        assertThat(result.replyToMessageId()).isEqualTo(90L);
+
+        ArgumentCaptor<ChatMessage> messageCaptor = ArgumentCaptor.forClass(ChatMessage.class);
+        then(saveChatMessagePort).should().save(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().getReplyToMessageId()).isEqualTo(90L);
+
+        ArgumentCaptor<ChatMessageCreatedEvent> eventCaptor = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
+        then(domainEventPublisher).should().publish(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().replyToMessageId()).isEqualTo(90L);
+    }
+
+    @Test
+    @DisplayName("답장 대상이 같은 방에 없으면 전송할 수 없고 저장/발행하지 않는다")
+    void send_invalidReplyTarget() {
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "답장", null, 90L);
+        given(loadChatMessagePort.existsByIdAndRoomId(90L, 1L)).willReturn(false);
+
+        assertThatThrownBy(() -> sut.send(command))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException) e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_INVALID_REPLY_TARGET);
+
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+        then(domainEventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

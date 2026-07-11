@@ -16,8 +16,21 @@ public record ChatMessageInfo(
     MessageContentType contentType,
     String content,
     List<String> fileMetadataIds,
-    Instant createdAt
+    Instant createdAt,
+    Long replyToMessageId
 ) {
+    public ChatMessageInfo(
+        Long messageId,
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds,
+        Instant createdAt
+    ) {
+        this(messageId, roomId, senderMemberId, contentType, content, fileMetadataIds, createdAt, null);
+    }
+
     public static ChatMessageInfo from(ChatMessage message) {
         return new ChatMessageInfo(
             message.getId(),
@@ -26,7 +39,8 @@ public record ChatMessageInfo(
             message.getContentType(),
             message.getContent(),
             message.getFileMetadataIds(),
-            message.getCreatedAt()
+            message.getCreatedAt(),
+            message.getReplyToMessageId()
         );
     }
 }

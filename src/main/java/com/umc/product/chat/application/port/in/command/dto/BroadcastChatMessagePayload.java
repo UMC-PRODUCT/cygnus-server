@@ -19,8 +19,21 @@ public record BroadcastChatMessagePayload(
     MessageContentType contentType,
     String content,
     List<String> fileMetadataIds,
-    Instant createdAt
+    Instant createdAt,
+    Long replyToMessageId
 ) {
+
+    public BroadcastChatMessagePayload(
+        Long messageId,
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds,
+        Instant createdAt
+    ) {
+        this(messageId, roomId, senderMemberId, contentType, content, fileMetadataIds, createdAt, null);
+    }
 
     public static BroadcastChatMessagePayload from(ChatMessageCreatedEvent event) {
         return new BroadcastChatMessagePayload(
@@ -30,7 +43,8 @@ public record BroadcastChatMessagePayload(
             event.contentType(),
             event.content(),
             event.fileMetadataIds(),
-            event.occurredAt()
+            event.occurredAt(),
+            event.replyToMessageId()
         );
     }
 }

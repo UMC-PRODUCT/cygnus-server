@@ -15,6 +15,8 @@ public interface LoadChatMessagePort {
 
     ChatMessage getById(Long messageId);
 
+    boolean existsByIdAndRoomId(Long messageId, Long roomId);
+
     /**
      * 방 단위 메시지 내역을 최신순(id DESC)으로 커서 페이지네이션 조회한다.
      *

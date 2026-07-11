@@ -48,13 +48,15 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
 
         // 방 멤버만 전송 가능
         chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
+        validateReplyTarget(command);
 
         ChatMessage saved = saveChatMessagePort.save(ChatMessage.create(
             command.roomId(),
             command.senderMemberId(),
             command.contentType(),
             command.content(),
-            command.fileMetadataIds()
+            command.fileMetadataIds(),
+            command.replyToMessageId()
         ));
 
         domainEventPublisher.publish(ChatMessageCreatedEvent.from(saved));
@@ -85,6 +87,16 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         boolean noFiles = command.fileMetadataIds() == null || command.fileMetadataIds().isEmpty();
         if (noContent && noFiles) {
             throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_EMPTY);
+        }
+    }
+
+    private void validateReplyTarget(SendChatMessageCommand command) {
+        Long replyToMessageId = command.replyToMessageId();
+        if (replyToMessageId == null) {
+            return;
+        }
+        if (!loadChatMessagePort.existsByIdAndRoomId(replyToMessageId, command.roomId())) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_INVALID_REPLY_TARGET);
         }
     }
 }

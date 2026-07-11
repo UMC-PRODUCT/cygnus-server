@@ -28,8 +28,22 @@ public record ChatMessageCreatedEvent(
     Long senderMemberId,
     MessageContentType contentType,
     String content,
-    List<String> fileMetadataIds
+    List<String> fileMetadataIds,
+    Long replyToMessageId
 ) implements DomainEvent {
+
+    public ChatMessageCreatedEvent(
+        UUID eventId,
+        Instant occurredAt,
+        Long messageId,
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds
+    ) {
+        this(eventId, occurredAt, messageId, roomId, senderMemberId, contentType, content, fileMetadataIds, null);
+    }
 
     public static ChatMessageCreatedEvent from(ChatMessage message) {
         return new ChatMessageCreatedEvent(
@@ -40,7 +54,8 @@ public record ChatMessageCreatedEvent(
             message.getSenderMemberId(),
             message.getContentType(),
             message.getContent(),
-            message.getFileMetadataIds()
+            message.getFileMetadataIds(),
+            message.getReplyToMessageId()
         );
     }
 

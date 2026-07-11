@@ -87,6 +87,18 @@ class ChatMessageQueryServiceTest {
     }
 
     @Test
+    @DisplayName("메시지 조회 결과에 답장 대상 메시지 id를 포함한다")
+    void getMessages_replyToMessageId() {
+        given(loadChatMessagePort.listByRoomId(eq(1L), eq(null), anyInt()))
+            .willReturn(List.of(message(30L, 1L, 20L)));
+
+        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2));
+
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).replyToMessageId()).isEqualTo(20L);
+    }
+
+    @Test
     @DisplayName("roomId 집합이 비어 있으면 어떤 포트도 호출하지 않고 빈 목록을 반환한다")
     void listRoomSummaries_emptyInput() {
         List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, List.of());
@@ -161,6 +173,12 @@ class ChatMessageQueryServiceTest {
 
     private ChatMessage message(Long id, Long roomId) {
         ChatMessage message = ChatMessage.create(roomId, 99L, MessageContentType.TEXT, "msg", null);
+        ReflectionTestUtils.setField(message, "id", id);
+        return message;
+    }
+
+    private ChatMessage message(Long id, Long roomId, Long replyToMessageId) {
+        ChatMessage message = ChatMessage.create(roomId, 99L, MessageContentType.TEXT, "msg", null, replyToMessageId);
         ReflectionTestUtils.setField(message, "id", id);
         return message;
     }

@@ -39,6 +39,9 @@ class ChatMessageQueryRepositoryTest {
     @Autowired
     ChatMessageQueryRepository sut;
 
+    @Autowired
+    ChatMessageJpaRepository chatMessageJpaRepository;
+
     private Long roomId;
 
     @BeforeEach
@@ -112,6 +115,31 @@ class ChatMessageQueryRepositoryTest {
         flushAndClear();
 
         assertThat(sut.findLatestMessageId(emptyRoomId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("replyToMessageId를 저장하고 조회할 수 있다")
+    void replyToMessageId_persist() {
+        Long originalMessageId = persistText(roomId, OTHER, "원본 메시지");
+        Long replyMessageId = em.persist(
+            ChatMessage.create(roomId, ME, MessageContentType.FILE, "답장 메시지", List.of("file-1"), originalMessageId)
+        ).getId();
+        flushAndClear();
+
+        ChatMessage reply = em.find(ChatMessage.class, replyMessageId);
+
+        assertThat(reply.getReplyToMessageId()).isEqualTo(originalMessageId);
+    }
+
+    @Test
+    @DisplayName("existsByIdAndRoomId: 메시지가 해당 방에 있을 때만 true를 반환한다")
+    void existsByIdAndRoomId() {
+        Long messageId = persistText(roomId, OTHER, "방 1 메시지");
+        Long otherRoomId = em.persist(ChatRoom.create()).getId();
+        flushAndClear();
+
+        assertThat(chatMessageJpaRepository.existsByIdAndRoomId(messageId, roomId)).isTrue();
+        assertThat(chatMessageJpaRepository.existsByIdAndRoomId(messageId, otherRoomId)).isFalse();
     }
 
     @Test

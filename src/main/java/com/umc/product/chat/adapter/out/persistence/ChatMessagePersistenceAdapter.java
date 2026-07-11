@@ -35,6 +35,11 @@ public class ChatMessagePersistenceAdapter implements
     }
 
     @Override
+    public boolean existsByIdAndRoomId(Long messageId, Long roomId) {
+        return chatMessageJpaRepository.existsByIdAndRoomId(messageId, roomId);
+    }
+
+    @Override
     public List<ChatMessage> listByRoomId(Long roomId, Long cursorId, int size) {
         return chatMessageQueryRepository.listByRoomId(roomId, cursorId, size);
     }

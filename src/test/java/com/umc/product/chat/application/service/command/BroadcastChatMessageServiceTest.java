@@ -67,6 +67,7 @@ class BroadcastChatMessageServiceTest {
         assertThat(payload.content()).isEqualTo("안녕하세요");
         assertThat(payload.fileMetadataIds()).isEmpty();
         assertThat(payload.createdAt()).isEqualTo(Instant.parse("2026-07-03T07:00:00Z"));
+        assertThat(payload.replyToMessageId()).isNull();
     }
 
     @Test
@@ -96,6 +97,36 @@ class BroadcastChatMessageServiceTest {
         assertThat(payload.contentType()).isEqualTo(MessageContentType.IMAGE);
         assertThat(payload.content()).isEqualTo("이미지 캡션");
         assertThat(payload.fileMetadataIds()).containsExactly("file-1", "file-2");
+    }
+
+    @Test
+    @DisplayName("답장 메시지도 답장 대상 id를 포함하여 브로드캐스트한다")
+    void broadcast_답장_메시지() {
+        // given
+        ChatMessageCreatedEvent event = new ChatMessageCreatedEvent(
+            UUID.randomUUID(),
+            Instant.parse("2026-07-03T08:30:00Z"),
+            300L,
+            20L,
+            15L,
+            MessageContentType.FILE,
+            "파일 답장",
+            List.of("file-1"),
+            200L
+        );
+
+        // when
+        sut.broadcast(event);
+
+        // then
+        ArgumentCaptor<BroadcastChatMessagePayload> payloadCaptor = ArgumentCaptor.forClass(BroadcastChatMessagePayload.class);
+        then(broadcastPort).should().broadcast(eq("/topic/chat/rooms/20/messages"), payloadCaptor.capture());
+
+        BroadcastChatMessagePayload payload = payloadCaptor.getValue();
+        assertThat(payload.messageId()).isEqualTo(300L);
+        assertThat(payload.replyToMessageId()).isEqualTo(200L);
+        assertThat(payload.contentType()).isEqualTo(MessageContentType.FILE);
+        assertThat(payload.fileMetadataIds()).containsExactly("file-1");
     }
 
     @Test
