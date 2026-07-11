@@ -20,6 +20,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
@@ -35,6 +36,11 @@ import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.storage.application.port.in.query.GetFileUseCase;
+import com.umc.product.storage.application.port.in.query.dto.FileMetadataInfo;
+import com.umc.product.storage.domain.enums.FileCategory;
+import com.umc.product.storage.domain.exception.StorageErrorCode;
+import com.umc.product.storage.domain.exception.StorageException;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChatMessageCommandService")
@@ -48,6 +54,10 @@ class ChatMessageCommandServiceTest {
     LoadChatMemberPort loadChatMemberPort;
     @Mock
     SaveChatMemberPort saveChatMemberPort;
+    @Mock
+    GetFileUseCase getFileUseCase;
+    @Mock
+    ChatAttachmentPolicy chatAttachmentPolicy;
     @Mock
     ChatRoomAccessPolicy chatRoomAccessPolicy;
     @Mock
@@ -158,6 +168,99 @@ class ChatMessageCommandServiceTest {
     }
 
     @Test
+    @DisplayName("IMAGE 메시지에 첨부파일이 없으면 전송할 수 없다")
+    void send_imageWithoutAttachmentRejected() {
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(1L, 10L, MessageContentType.IMAGE, "캡션", List.of());
+
+        assertThatThrownBy(() -> sut.send(command))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException)e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_REQUIRED);
+
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+        then(domainEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("TEXT 메시지에는 파일을 첨부할 수 없다")
+    void send_textWithAttachmentRejected() {
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "본문", List.of("file-1"));
+
+        assertThatThrownBy(() -> sut.send(command))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException)e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_NOT_ALLOWED);
+
+        then(getFileUseCase).shouldHaveNoInteractions();
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("중복된 파일 ID는 첨부할 수 없다")
+    void send_duplicateAttachmentRejected() {
+        SendChatMessageCommand command = new SendChatMessageCommand(
+            1L,
+            10L,
+            MessageContentType.IMAGE,
+            null,
+            List.of("file-1", "file-1")
+        );
+
+        assertThatThrownBy(() -> sut.send(command))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException)e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_INVALID_ATTACHMENT);
+
+        then(getFileUseCase).shouldHaveNoInteractions();
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("여러 개의 유효한 첨부파일은 개수 제한 없이 검증 후 저장한다")
+    void send_multipleAttachmentsSuccess() {
+        List<String> fileIds = List.of("file-1", "file-2");
+        List<FileMetadataInfo> files = List.of(
+            fileMetadataInfo("file-1", "jpg", "image/jpeg"),
+            fileMetadataInfo("file-2", "png", "image/png")
+        );
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(1L, 10L, MessageContentType.IMAGE, "캡션", fileIds);
+        ChatMessage saved = ChatMessage.create(1L, 10L, MessageContentType.IMAGE, "캡션", fileIds);
+        ReflectionTestUtils.setField(saved, "id", 100L);
+        ReflectionTestUtils.setField(saved, "createdAt", Instant.parse("2026-06-13T00:00:00Z"));
+        given(getFileUseCase.batchGetUsableByIds(fileIds, 10L)).willReturn(files);
+        given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
+
+        ChatMessageInfo result = sut.send(command);
+
+        assertThat(result.fileMetadataIds()).containsExactly("file-1", "file-2");
+        then(chatAttachmentPolicy).should().validate(MessageContentType.IMAGE, files);
+        then(saveChatMessagePort).should().save(any(ChatMessage.class));
+        then(domainEventPublisher).should().publish(any(ChatMessageCreatedEvent.class));
+    }
+
+    @Test
+    @DisplayName("첨부파일이 storage 검증을 통과하지 못하면 저장하거나 이벤트를 발행하지 않는다")
+    void send_invalidStorageFileRejected() {
+        List<String> fileIds = List.of("file-1");
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(1L, 10L, MessageContentType.IMAGE, null, fileIds);
+        willThrow(new StorageException(StorageErrorCode.FILE_USE_FORBIDDEN))
+            .given(getFileUseCase).batchGetUsableByIds(fileIds, 10L);
+
+        assertThatThrownBy(() -> sut.send(command))
+            .isInstanceOf(StorageException.class)
+            .extracting(e -> ((StorageException)e).getBaseCode())
+            .isEqualTo(StorageErrorCode.FILE_USE_FORBIDDEN);
+
+        then(chatAttachmentPolicy).shouldHaveNoInteractions();
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+        then(domainEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("방 멤버가 아니면 전송할 수 없고 저장/발행하지 않는다")
     void send_notMember() {
         SendChatMessageCommand command =
@@ -185,5 +288,19 @@ class ChatMessageCommandServiceTest {
 
         assertThat(member.getLastReadMessageId()).isEqualTo(42L);
         then(saveChatMemberPort).should().save(member);
+    }
+
+    private FileMetadataInfo fileMetadataInfo(String fileId, String extension, String contentType) {
+        return new FileMetadataInfo(
+            fileId,
+            "file." + extension,
+            extension,
+            FileCategory.ETC,
+            contentType,
+            1024L,
+            true,
+            10L,
+            null
+        );
     }
 }
