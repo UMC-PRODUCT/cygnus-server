@@ -9,7 +9,6 @@ import lombok.Builder;
 public record CertificateIssueSpec(
     String serialNumber,
     CertificateTemplate template,
-    CertificateIssuer issuer,
     Long recipientMemberId,
     String recipientName,
     String recipientSchoolName,
@@ -26,7 +25,6 @@ public record CertificateIssueSpec(
     public CertificateIssueSpec {
         Objects.requireNonNull(serialNumber, "serialNumber must not be null");
         Objects.requireNonNull(template, "template must not be null");
-        Objects.requireNonNull(issuer, "issuer must not be null");
         Objects.requireNonNull(recipientMemberId, "recipientMemberId must not be null");
         Objects.requireNonNull(recipientName, "recipientName must not be null");
         Objects.requireNonNull(gisuId, "gisuId must not be null");

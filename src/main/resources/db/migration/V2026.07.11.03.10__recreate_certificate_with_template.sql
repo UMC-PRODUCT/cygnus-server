@@ -10,7 +10,6 @@ CREATE TABLE certificate
     serial_number          VARCHAR(40)                 NOT NULL,
     template               VARCHAR(80)                 NOT NULL,
     status                 VARCHAR(20)                 NOT NULL,
-    issuer                 VARCHAR(40)                 NOT NULL,
     recipient_member_id    BIGINT                      NOT NULL,
     recipient_name         VARCHAR(100)                NOT NULL,
     recipient_school_name  VARCHAR(100),
@@ -45,8 +44,7 @@ CREATE TABLE certificate
         'NEORDINARY_HACKATHON_SECOND_PRIZE',
         'NEORDINARY_HACKATHON_CERTIFICATION_OF_COMPLETION'
     )),
-    CONSTRAINT certificate_status_check CHECK (status IN ('ISSUED', 'REVOKED', 'EXPIRED')),
-    CONSTRAINT certificate_issuer_check CHECK (issuer IN ('UNIVERSITY_MAKEUS_CHALLENGE', 'NEORDINARY'))
+    CONSTRAINT certificate_status_check CHECK (status IN ('ISSUED', 'REVOKED', 'EXPIRED'))
 );
 
 -- 목적: 사용자가 본인 인증서 목록을 최신 발급순으로 조회할 때 사용하는 정렬 인덱스다.

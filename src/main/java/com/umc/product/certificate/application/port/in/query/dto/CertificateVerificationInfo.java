@@ -28,7 +28,7 @@ public record CertificateVerificationInfo(
             status == CertificateStatus.ISSUED,
             status.name(),
             certificate.getTemplate(),
-            certificate.getIssuer(),
+            certificate.getTemplate().issuer(),
             certificate.getGisuGeneration(),
             maskedName,
             certificate.getIssuedAt(),

@@ -23,6 +23,7 @@ import com.umc.product.certificate.application.port.in.command.dto.CertificateIs
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.RevokeCertificateCommand;
 import com.umc.product.certificate.application.port.out.LoadCertificatePort;
+import com.umc.product.certificate.application.port.out.LockCertificateIssuancePort;
 import com.umc.product.certificate.application.port.out.RenderCertificatePdfPort;
 import com.umc.product.certificate.application.port.out.SaveCertificatePort;
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
@@ -49,6 +50,7 @@ public class CertificateCommandService implements
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     private final LoadCertificatePort loadCertificatePort;
+    private final LockCertificateIssuancePort lockCertificateIssuancePort;
     private final SaveCertificatePort saveCertificatePort;
     private final StoreGeneratedFileUseCase storeGeneratedFileUseCase;
     private final RenderCertificatePdfPort renderCertificatePdfPort;
@@ -121,7 +123,14 @@ public class CertificateCommandService implements
             context.issuedByMemberId()
         ));
 
-        return executeInTransaction(() -> saveIssuedCertificate(context, serialNumber, now, fileInfo, fileSha256));
+        return executeInTransaction(() -> completeIssue(
+            context,
+            reissue,
+            serialNumber,
+            now,
+            fileInfo,
+            fileSha256
+        ));
     }
 
     private CertificateIssuePreparation prepareIssue(CertificateIssueContext context, boolean reissue, Instant now) {
@@ -136,13 +145,40 @@ public class CertificateCommandService implements
         if (existing != null && !reissue) {
             return CertificateIssuePreparation.existing(CertificateIssueInfo.from(existing));
         }
-        if (existing != null) {
-            existing.revoke(context.issuedByMemberId(), now, "재발급");
-            saveCertificatePort.save(existing);
-        }
-
         String serialNumber = generateUniqueSerialNumber(context, now);
         return CertificateIssuePreparation.newIssue(serialNumber);
+    }
+
+    private CertificateIssueInfo completeIssue(
+        CertificateIssueContext context,
+        boolean reissue,
+        String serialNumber,
+        Instant issuedAt,
+        GeneratedFileInfo fileInfo,
+        String fileSha256
+    ) {
+        lockCertificateIssuancePort.lockScope(
+            context.template(),
+            context.recipientMemberId(),
+            context.gisuId(),
+            context.meritTitle()
+        );
+        Certificate existing = loadCertificatePort.findValidByScope(
+            context.template(),
+            context.recipientMemberId(),
+            context.gisuId(),
+            context.meritTitle(),
+            issuedAt
+        ).orElse(null);
+
+        if (existing != null && !reissue) {
+            return CertificateIssueInfo.from(existing);
+        }
+        if (existing != null) {
+            existing.revoke(context.issuedByMemberId(), issuedAt, "재발급");
+            saveCertificatePort.save(existing);
+        }
+        return saveIssuedCertificate(context, serialNumber, issuedAt, fileInfo, fileSha256);
     }
 
     private CertificateIssueInfo saveIssuedCertificate(
@@ -155,7 +191,6 @@ public class CertificateCommandService implements
         Certificate certificate = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber(serialNumber)
             .template(context.template())
-            .issuer(context.issuer())
             .recipientMemberId(context.recipientMemberId())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
@@ -176,7 +211,6 @@ public class CertificateCommandService implements
         return renderCertificatePdfPort.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(serialNumber)
             .template(context.template())
-            .issuer(context.issuer())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
             .gisuGeneration(context.gisuGeneration())

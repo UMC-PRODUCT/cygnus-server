@@ -3,7 +3,6 @@ package com.umc.product.certificate.application.port.out.dto;
 import java.time.Instant;
 import java.util.Objects;
 
-import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateTemplate;
 
 import lombok.Builder;
@@ -13,7 +12,6 @@ public record CertificatePdfRenderCommand(
     String serialNumber,
     String issuanceNumber,
     CertificateTemplate template,
-    CertificateIssuer issuer,
     String recipientName,
     String recipientSchoolName,
     Long gisuGeneration,
@@ -32,7 +30,6 @@ public record CertificatePdfRenderCommand(
             serialNumber = issuanceNumber;
         }
         Objects.requireNonNull(issuanceNumber, "issuanceNumber must not be null");
-        Objects.requireNonNull(issuer, "issuer must not be null");
         Objects.requireNonNull(recipientName, "recipientName must not be null");
         Objects.requireNonNull(gisuGeneration, "gisuGeneration must not be null");
         Objects.requireNonNull(issuedAt, "issuedAt must not be null");

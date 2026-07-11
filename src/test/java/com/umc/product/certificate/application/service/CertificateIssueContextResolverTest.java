@@ -84,7 +84,7 @@ class CertificateIssueContextResolverTest {
 
         // then
         assertThat(result.template()).isEqualTo(CertificateTemplate.NEORDINARY_HACKATHON_GRAND_PRIZE);
-        assertThat(result.issuer()).isEqualTo(CertificateIssuer.NEORDINARY);
+        assertThat(result.template().issuer()).isEqualTo(CertificateIssuer.NEORDINARY);
         assertThat(result.gisuGeneration()).isEqualTo(7L);
         assertThat(result.meritTitle()).isEqualTo("대상");
     }
@@ -107,7 +107,7 @@ class CertificateIssueContextResolverTest {
 
         // then
         assertThat(result.template()).isEqualTo(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE);
-        assertThat(result.issuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
+        assertThat(result.template().issuer()).isEqualTo(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE);
         assertThat(result.meritTitle()).isEqualTo("최우수상");
     }
 

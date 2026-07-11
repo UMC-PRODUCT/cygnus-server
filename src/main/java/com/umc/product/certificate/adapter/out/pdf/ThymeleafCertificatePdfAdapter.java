@@ -145,7 +145,7 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
             template.defaultDescription(command.gisuGeneration(), displayAwardName)
         ));
         values.put("issue_date", ISSUE_DATE_FORMATTER.format(command.issuedAt()));
-        values.put("static_issuer_value", command.issuer().displayName());
+        values.put("static_issuer_value", command.template().issuer().displayName());
         values.put("issuanceNumber", command.issuanceNumber());
         values.put("item_label_1", "성명");
         values.put("item_value_1", command.recipientName());

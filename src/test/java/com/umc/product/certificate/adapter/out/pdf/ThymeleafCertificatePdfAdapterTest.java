@@ -17,7 +17,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
-import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.exception.CertificateException;
 
@@ -33,7 +32,6 @@ class ThymeleafCertificatePdfAdapterTest {
         byte[] result = sut.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber("UMC-MRT-20260701-ABCDEFGH")
             .template(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE)
-            .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")
             .gisuGeneration(7L)
@@ -63,7 +61,6 @@ class ThymeleafCertificatePdfAdapterTest {
         byte[] result = sut.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(issuanceNumber)
             .template(template)
-            .issuer(template.issuer())
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")
             .gisuGeneration(7L)
@@ -75,7 +72,8 @@ class ThymeleafCertificatePdfAdapterTest {
 
         // then
         assertThat(new String(result, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        assertThat(extractText(result)).contains(issuanceNumber);
+        assertThat(extractText(result).replace('\u00A0', ' '))
+            .contains(issuanceNumber, template.issuer().displayName());
     }
 
     @Test
@@ -86,7 +84,6 @@ class ThymeleafCertificatePdfAdapterTest {
 
         CertificatePdfRenderCommand command = CertificatePdfRenderCommand.builder()
             .issuanceNumber("UMC-CMP-20260701-ABCDEFGH")
-            .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")
             .gisuGeneration(7L)

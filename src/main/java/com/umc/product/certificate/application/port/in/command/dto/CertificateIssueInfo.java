@@ -22,7 +22,7 @@ public record CertificateIssueInfo(
             certificate.getId(),
             certificate.getSerialNumber(),
             certificate.getTemplate(),
-            certificate.getIssuer(),
+            certificate.getTemplate().issuer(),
             certificate.getStatus(),
             certificate.getIssuedAt(),
             certificate.getExpiresAt()

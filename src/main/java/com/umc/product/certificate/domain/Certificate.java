@@ -42,10 +42,6 @@ public class Certificate extends BaseEntity {
     @Column(nullable = false, length = 20)
     private CertificateStatus status;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 40)
-    private CertificateIssuer issuer;
-
     @Column(nullable = false)
     private Long recipientMemberId;
 
@@ -94,7 +90,6 @@ public class Certificate extends BaseEntity {
         certificate.serialNumber = spec.serialNumber();
         certificate.template = spec.template();
         certificate.status = CertificateStatus.ISSUED;
-        certificate.issuer = spec.issuer();
         certificate.recipientMemberId = spec.recipientMemberId();
         certificate.recipientName = spec.recipientName();
         certificate.recipientSchoolName = spec.recipientSchoolName();

@@ -1,6 +1,7 @@
 package com.umc.product.certificate.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -28,6 +29,17 @@ class CertificatePersistenceAdapterTest {
 
     @Autowired
     CertificatePersistenceAdapter sut;
+
+    @Test
+    @DisplayName("인증서 발급 범위에 PostgreSQL transaction advisory lock을 획득한다")
+    void 인증서_발급_범위에_PostgreSQL_transaction_advisory_lock을_획득한다() {
+        assertThatCode(() -> sut.lockScope(
+            CertificateTemplate.UMC_COURSE_COMPLETION,
+            1L,
+            7L,
+            null
+        )).doesNotThrowAnyException();
+    }
 
     @Test
     @DisplayName("동일 수신자와 기수라도 템플릿이 다르면 별도 인증서로 조회한다")
@@ -113,7 +125,6 @@ class CertificatePersistenceAdapterTest {
         return em.persist(Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber(serialNumber)
             .template(template)
-            .issuer(template.issuer())
             .recipientMemberId(1L)
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")

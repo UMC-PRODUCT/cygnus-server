@@ -47,7 +47,6 @@ class CertificateTest {
         return CertificateIssueSpec.builder()
             .serialNumber("UMC-CMP-20260701-ABCDEFGH")
             .template(CertificateTemplate.UMC_COURSE_COMPLETION)
-            .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientMemberId(1L)
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")

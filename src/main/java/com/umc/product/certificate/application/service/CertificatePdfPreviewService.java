@@ -33,7 +33,6 @@ public class CertificatePdfPreviewService implements PreviewCertificatePdfUseCas
         byte[] content = renderCertificatePdfPort.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(query.issuanceNumber())
             .template(query.template())
-            .issuer(query.template().issuer())
             .recipientName(query.recipientName())
             .recipientSchoolName(query.recipientSchoolName())
             .gisuGeneration(query.gisuGeneration())

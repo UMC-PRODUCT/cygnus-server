@@ -26,7 +26,7 @@ public record CertificateInfo(
             certificate.getId(),
             certificate.getSerialNumber(),
             certificate.getTemplate(),
-            certificate.getIssuer(),
+            certificate.getTemplate().issuer(),
             certificate.statusAt(now),
             certificate.getRecipientName(),
             certificate.getGisuId(),

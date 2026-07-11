@@ -116,7 +116,6 @@ class CertificateIssueContextResolver {
     ) {
         return new CertificateIssueContext(
             template,
-            template.issuer(),
             member.id(),
             member.name(),
             member.schoolName(),
