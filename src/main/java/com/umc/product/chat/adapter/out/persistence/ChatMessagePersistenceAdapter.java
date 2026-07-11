@@ -35,6 +35,12 @@ public class ChatMessagePersistenceAdapter implements
     }
 
     @Override
+    public ChatMessage getByIdAndRoomId(Long messageId, Long roomId) {
+        return chatMessageJpaRepository.findByIdAndRoomId(messageId, roomId)
+            .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
+    }
+
+    @Override
     public boolean existsByIdAndRoomId(Long messageId, Long roomId) {
         return chatMessageJpaRepository.existsByIdAndRoomId(messageId, roomId);
     }

@@ -143,6 +143,17 @@ class ChatMessageQueryRepositoryTest {
     }
 
     @Test
+    @DisplayName("findByIdAndRoomId: 메시지가 해당 방에 있을 때만 반환한다")
+    void findByIdAndRoomId() {
+        Long messageId = persistText(roomId, OTHER, "방 1 메시지");
+        Long otherRoomId = em.persist(ChatRoom.create()).getId();
+        flushAndClear();
+
+        assertThat(chatMessageJpaRepository.findByIdAndRoomId(messageId, roomId)).isPresent();
+        assertThat(chatMessageJpaRepository.findByIdAndRoomId(messageId, otherRoomId)).isEmpty();
+    }
+
+    @Test
     @DisplayName("countUnreadByRooms: lastRead 초과분만 세고 본인 메시지는 제외, 시스템 메시지는 포함한다")
     void countUnreadByRooms() {
         Long readUpTo = persistText(roomId, OTHER, "읽은 메시지");   // lastRead 기준

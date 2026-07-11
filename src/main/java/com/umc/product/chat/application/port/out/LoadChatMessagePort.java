@@ -15,6 +15,8 @@ public interface LoadChatMessagePort {
 
     ChatMessage getById(Long messageId);
 
+    ChatMessage getByIdAndRoomId(Long messageId, Long roomId);
+
     boolean existsByIdAndRoomId(Long messageId, Long roomId);
 
     /**
