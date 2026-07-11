@@ -139,7 +139,7 @@ public class ProjectCommandService implements
     /**
      * 호출자가 다른 챌린저를 PO 로 지정하는 경우 — 호출자의 운영진 role 과 target 의 scope 일치를 검증한다.
      * <ul>
-     *   <li>총괄단 이상(SUPER_ADMIN/총괄/부총괄): scope 무관 통과</li>
+     *   <li>전역 SUPER_ADMIN 또는 총괄단(총괄/부총괄): scope 무관 통과</li>
      *   <li>지부장(CHAPTER_PRESIDENT): target 의 chapter 가 본인 지부와 일치해야 함</li>
      *   <li>학교 회장단(회장/부회장): target 의 school 이 본인 학교와 일치해야 함</li>
      *   <li>그 외(일반 PLAN 챌린저 등): 다른 사람 임명 권한 없음 — 거부</li>

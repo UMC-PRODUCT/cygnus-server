@@ -10,8 +10,6 @@ import com.umc.product.global.exception.constant.CommonErrorCode;
  * <p>
  * 역할 계층 구조:
  * <p>
- * - SUPER_ADMIN
- * <p>
  * - 중앙운영사무국 (isCentralMember)
  * <p>
  * - 중앙운영사무국 총괄단 (isCentralCore): 총괄, 부총괄
@@ -33,9 +31,6 @@ import com.umc.product.global.exception.constant.CommonErrorCode;
  * - 회원/사용자
  */
 public enum ChallengerRoleType {
-    @Deprecated(since = "v1.6.0", forRemoval = true)
-    SUPER_ADMIN,
-
     // 중앙운영사무국 (isCentralMember)
     CENTRAL_PRESIDENT, // 총괄 (isCentralCore)
     CENTRAL_VICE_PRESIDENT, // 부총괄 (isCentralCore)
@@ -49,19 +44,13 @@ public enum ChallengerRoleType {
     SCHOOL_PRESIDENT, // 회장 (isSchoolCore)
     SCHOOL_VICE_PRESIDENT, // 부회장 (isSchoolCore)
     SCHOOL_PART_LEADER, // 교내 파트장
-    SCHOOL_ETC_ADMIN, // 기타 교내 운영진
-    ;
-
-    public boolean isSuperAdmin() {
-        return this == SUPER_ADMIN;
-    }
+    SCHOOL_ETC_ADMIN; // 기타 교내 운영진
 
     /**
      * 중앙운영사무국 총괄단 여부를 확인합니다. 총괄, 부총괄이 해당됩니다.
      */
     public boolean isAtLeastCentralCore() {
-        return isSuperAdmin()
-            || this == CENTRAL_PRESIDENT
+        return this == CENTRAL_PRESIDENT
             || this == CENTRAL_VICE_PRESIDENT;
     }
 
@@ -78,8 +67,7 @@ public enum ChallengerRoleType {
      * 학교 회장단 여부를 확인합니다. 회장, 부회장이 해당됩니다.
      */
     public boolean isAtLeastSchoolCore() {
-        return isSuperAdmin()
-            || this == SCHOOL_PRESIDENT
+        return this == SCHOOL_PRESIDENT
             || this == SCHOOL_VICE_PRESIDENT;
     }
 
@@ -98,15 +86,11 @@ public enum ChallengerRoleType {
     public OrganizationType organizationType() {
         if (isAtLeastCentralMember()) {
             return OrganizationType.CENTRAL;
-        }
-
-        // 지부장인 경우에는 Chapter 반환
-        else if (this == CHAPTER_PRESIDENT) {
+        } else if (this == CHAPTER_PRESIDENT) {
+            // 지부장인 경우에는 Chapter 반환
             return OrganizationType.CHAPTER;
-        }
-
-        // 교내 운영진은 학교 단위 반환
-        else if (isAtLeastSchoolAdmin()) {
+        } else if (isAtLeastSchoolAdmin()) {
+            // 교내 운영진은 학교 단위 반환
             return OrganizationType.SCHOOL;
         }
 

@@ -55,10 +55,7 @@ public record AuthoritySnapshot(
     }
 
     public boolean isSuperAdmin() {
-        return systemRoles.contains(SystemRoleType.SUPER_ADMIN)
-            || challengerRoles.stream()
-            .map(RoleAttribute::roleType)
-            .anyMatch(ChallengerRoleType::isSuperAdmin);
+        return systemRoles.contains(SystemRoleType.SUPER_ADMIN);
     }
 
     public boolean isCentralCoreInAnyGisu() {

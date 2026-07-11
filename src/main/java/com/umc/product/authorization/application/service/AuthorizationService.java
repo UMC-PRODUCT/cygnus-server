@@ -1,9 +1,9 @@
 package com.umc.product.authorization.application.service;
 
 import java.time.Duration;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -26,7 +26,6 @@ import com.umc.product.authorization.domain.exception.AuthorizationDomainExcepti
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.global.cache.application.port.in.CacheUseCase;
 import com.umc.product.global.cache.domain.CacheKey;
 import com.umc.product.global.cache.domain.CacheLookup;
@@ -143,7 +142,7 @@ public class AuthorizationService implements CheckPermissionUseCase {
             .schoolId(schoolId)
             .gisuChallengerInfos(chapterIds)
             .roleAttributes(roles)
-            .systemRoles(listSystemRoles(memberId, roles))
+            .systemRoles(listSystemRoles(memberId))
             .build();
 
         log.debug("권한 평가 subject를 로드했습니다: memberId={}, roleCount={}, challengerCount={}",
@@ -153,15 +152,10 @@ public class AuthorizationService implements CheckPermissionUseCase {
         return subjectAttributes;
     }
 
-    private Set<SystemRoleType> listSystemRoles(Long memberId, List<RoleAttribute> challengerRoles) {
-        EnumSet<SystemRoleType> systemRoles = listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+    private Set<SystemRoleType> listSystemRoles(Long memberId) {
+        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
             .map(role -> SystemRoleType.from(role.roleType()))
-            .collect(Collectors.toCollection(() -> EnumSet.noneOf(SystemRoleType.class)));
-
-        if (challengerRoles.stream().map(RoleAttribute::roleType).anyMatch(ChallengerRoleType::isSuperAdmin)) {
-            systemRoles.add(SystemRoleType.SUPER_ADMIN);
-        }
-        return Set.copyOf(systemRoles);
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private Optional<SubjectAttributes> readCachedSubject(CacheKey cacheKey, Long memberId) {
@@ -173,7 +167,14 @@ public class AuthorizationService implements CheckPermissionUseCase {
             }
             try {
                 log.debug("권한 평가 subject 캐시 hit: memberId={}", memberId);
-                return Optional.of(authoritySnapshotCacheSerializer.deserialize(hit.value()).toSubjectAttributes());
+                AuthoritySnapshot snapshot = authoritySnapshotCacheSerializer.deserialize(hit.value());
+                if (!Objects.equals(snapshot.memberId(), memberId)) {
+                    throw new AuthorizationDomainException(
+                        AuthorizationErrorCode.POLICY_EVALUATION_FAILED,
+                        "권한 snapshot 캐시의 회원 정보가 일치하지 않습니다."
+                    );
+                }
+                return Optional.of(snapshot.toSubjectAttributes());
             } catch (AuthorizationDomainException e) {
                 log.warn("권한 평가 subject 캐시 역직렬화 실패로 캐시를 제거합니다: memberId={}", memberId);
                 cacheUseCase.evict(CacheNamespace.AUTHORITY_SNAPSHOT, cacheKey);

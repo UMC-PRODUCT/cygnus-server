@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.analytics.domain.AdminAnalyticsRoleType;
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
 import com.umc.product.analytics.domain.AnalyticsDomainException;
@@ -42,7 +43,6 @@ class AdminAnalyticsScopeResolverTest {
 
     @Test
     @DisplayName("SUPER_ADMIN은 member system role로 중앙 스코프를 얻는다")
-    @SuppressWarnings("removal")
     void SUPER_ADMIN은_member_system_role로_중앙_스코프를_얻는다() {
         given(getChallengerRoleUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
 
@@ -53,7 +53,7 @@ class AdminAnalyticsScopeResolverTest {
         assertThat(scope.chapterId()).isEqualTo(10L);
         assertThat(scope.schoolId()).isEqualTo(20L);
         assertThat(scope.responsiblePart()).isEqualTo(ChallengerPart.SPRINGBOOT);
-        assertThat(scope.roleType()).isEqualTo(ChallengerRoleType.SUPER_ADMIN);
+        assertThat(scope.roleType()).isEqualTo(AdminAnalyticsRoleType.SUPER_ADMIN);
     }
 
     @Test
@@ -69,7 +69,7 @@ class AdminAnalyticsScopeResolverTest {
         assertThat(scope.chapterId()).isEqualTo(10L);
         assertThat(scope.schoolId()).isEqualTo(20L);
         assertThat(scope.responsiblePart()).isEqualTo(ChallengerPart.SPRINGBOOT);
-        assertThat(scope.roleType()).isEqualTo(ChallengerRoleType.CENTRAL_PRESIDENT);
+        assertThat(scope.roleType()).isEqualTo(AdminAnalyticsRoleType.CENTRAL_PRESIDENT);
     }
 
     @Test
@@ -96,7 +96,7 @@ class AdminAnalyticsScopeResolverTest {
         assertThat(scope.schoolId()).isEqualTo(30L);
         assertThat(scope.chapterId()).isNull();
         assertThat(scope.responsiblePart()).isNull();
-        assertThat(scope.roleType()).isEqualTo(ChallengerRoleType.SCHOOL_PRESIDENT);
+        assertThat(scope.roleType()).isEqualTo(AdminAnalyticsRoleType.SCHOOL_PRESIDENT);
     }
 
     @Test
@@ -112,7 +112,7 @@ class AdminAnalyticsScopeResolverTest {
         assertThat(scope.type()).isEqualTo(AdminAnalyticsScopeType.SCHOOL_PART);
         assertThat(scope.schoolId()).isEqualTo(30L);
         assertThat(scope.responsiblePart()).isEqualTo(ChallengerPart.ANDROID);
-        assertThat(scope.roleType()).isEqualTo(ChallengerRoleType.SCHOOL_PART_LEADER);
+        assertThat(scope.roleType()).isEqualTo(AdminAnalyticsRoleType.SCHOOL_PART_LEADER);
     }
 
     @Test

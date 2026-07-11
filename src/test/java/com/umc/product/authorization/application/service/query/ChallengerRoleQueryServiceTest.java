@@ -94,27 +94,6 @@ class ChallengerRoleQueryServiceTest {
     }
 
     @Test
-    @DisplayName("전환 기간에는 기존 프로필 응답에 SUPER_ADMIN challenger role을 유지한다")
-    void list_by_member_id_preserves_legacy_super_admin() {
-        ChallengerRoleQueryService sut = sut();
-        ListChallengerRoleUseCase useCase = sut;
-        ChallengerRole role = ChallengerRole.create(
-            10L,
-            ChallengerRoleType.SUPER_ADMIN,
-            null,
-            null,
-            GISU_ID
-        );
-        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
-        given(getGisuUseCase.getById(GISU_ID)).willReturn(new GisuInfo(GISU_ID, 10L, null, null, true));
-
-        List<ChallengerRoleInfo> result = useCase.listByMemberId(MEMBER_ID);
-
-        assertThat(result).extracting(ChallengerRoleInfo::roleType)
-            .containsExactly(ChallengerRoleType.SUPER_ADMIN);
-    }
-
-    @Test
     @DisplayName("권한 판정 UseCase로 특정 기수의 학교 회장단 여부를 확인한다")
     void check_school_core_in_gisu() {
         ChallengerRoleQueryService sut = sut();
@@ -202,26 +181,7 @@ class ChallengerRoleQueryServiceTest {
         boolean result = useCase.isSuperAdmin(MEMBER_ID);
 
         assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("전환 기간에는 기존 challenger role의 SUPER_ADMIN도 판정한다")
-    void check_super_admin_by_legacy_challenger_role() {
-        ChallengerRoleQueryService sut = sut();
-        CheckChallengerAuthorityUseCase useCase = sut;
-        ChallengerRole role = ChallengerRole.create(
-            10L,
-            ChallengerRoleType.SUPER_ADMIN,
-            null,
-            null,
-            GISU_ID
-        );
-        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
-        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
-
-        boolean result = useCase.isSuperAdmin(MEMBER_ID);
-
-        assertThat(result).isTrue();
+        verifyNoInteractions(loadChallengerRolePort);
     }
 
     @Test
@@ -240,7 +200,7 @@ class ChallengerRoleQueryServiceTest {
 
     @Test
     @DisplayName("삭제된 회원은 역할 저장소를 조회하지 않고 SUPER_ADMIN 권한을 거부한다")
-    void deleted_member_cannot_use_legacy_super_admin() {
+    void deleted_member_cannot_use_super_admin() {
         CheckMemberExistenceUseCase missingMember = memberId -> false;
         ChallengerRoleQueryService sut = sut(missingMember);
         CheckChallengerAuthorityUseCase useCase = sut;

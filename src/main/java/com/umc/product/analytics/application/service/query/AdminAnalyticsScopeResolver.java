@@ -25,7 +25,6 @@ public class AdminAnalyticsScopeResolver {
     private final GetChallengerRoleUseCase getGisuChallengerRoleUseCase;
     private final GetGisuUseCase getGisuUseCase;
 
-    @SuppressWarnings("removal")
     public AdminAnalyticsScope resolve(
         Long memberId,
         Long requestedGisuId,
@@ -35,13 +34,11 @@ public class AdminAnalyticsScopeResolver {
     ) {
         Long gisuId = requestedGisuId != null ? requestedGisuId : getGisuUseCase.getActiveGisuId();
         if (getGisuChallengerRoleUseCase.isSuperAdmin(memberId)) {
-            return AdminAnalyticsScope.of(
-                AdminAnalyticsScopeType.CENTRAL,
+            return AdminAnalyticsScope.superAdmin(
                 gisuId,
                 requestedChapterId,
                 requestedSchoolId,
-                requestedPart,
-                ChallengerRoleType.SUPER_ADMIN
+                requestedPart
             );
         }
 

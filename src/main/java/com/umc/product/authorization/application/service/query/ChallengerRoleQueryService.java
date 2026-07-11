@@ -94,16 +94,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        return hasSuperAdminRole(memberId);
-    }
-
-    private boolean hasSuperAdminRole(Long memberId) {
-        if (hasSystemSuperAdmin(memberId)) {
-            return true;
-        }
-        return loadChallengerRolePort.findByMemberId(memberId).stream()
-            .map(ChallengerRole::getChallengerRoleType)
-            .anyMatch(ChallengerRoleType::isSuperAdmin);
+        return hasSystemSuperAdmin(memberId);
     }
 
     private boolean memberExists(Long memberId) {
@@ -121,7 +112,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -136,7 +127,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -155,7 +146,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -177,7 +168,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -199,7 +190,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -315,7 +306,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -356,7 +347,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -380,7 +371,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -406,7 +397,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 
@@ -432,7 +423,7 @@ public class ChallengerRoleQueryService implements
         if (!memberExists(memberId)) {
             return false;
         }
-        if (hasSuperAdminRole(memberId)) {
+        if (hasSystemSuperAdmin(memberId)) {
             return true;
         }
 

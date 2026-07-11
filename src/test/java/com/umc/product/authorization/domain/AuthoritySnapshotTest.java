@@ -37,28 +37,6 @@ class AuthoritySnapshotTest {
     }
 
     @Test
-    @DisplayName("전환 기간에는 기존 challenger role SUPER_ADMIN도 전역 권한으로 인정한다")
-    void legacy_super_admin_challenger_role() {
-        AuthoritySnapshot snapshot = AuthoritySnapshot.of(
-            MEMBER_ID,
-            SCHOOL_ID,
-            List.of(),
-            List.of(new RoleAttribute(
-                ChallengerRoleType.SUPER_ADMIN,
-                OrganizationType.CENTRAL,
-                null,
-                null,
-                GISU_ID
-            )),
-            Set.of()
-        );
-
-        assertThat(snapshot.isSuperAdmin()).isTrue();
-        assertThat(snapshot.isCentralCoreInGisu(OTHER_GISU_ID)).isTrue();
-        assertThat(snapshot.isSchoolCoreInGisu(OTHER_GISU_ID, OTHER_SCHOOL_ID)).isTrue();
-    }
-
-    @Test
     @DisplayName("기수 무관 challenger role 정책은 AnyGisu 이름으로만 사용한다")
     void central_core_in_any_gisu() {
         AuthoritySnapshot snapshot = AuthoritySnapshot.of(

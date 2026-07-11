@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.authorization.domain.SubjectAttributes;
-import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -124,42 +123,6 @@ class AuthorizationServiceCacheTest {
     }
 
     @Test
-    @DisplayName("전환 기간에는 기존 challenger role SUPER_ADMIN을 system role로 합성한다")
-    void load_subject_maps_legacy_super_admin_to_system_role() {
-        InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
-        AuthorizationService sut = new AuthorizationService(
-            loadChallengerRolePort,
-            List.of(),
-            getMemberUseCase,
-            listMemberSystemRoleUseCase,
-            getChapterUseCase,
-            getChallengerUseCase,
-            operationalMetrics,
-            cacheUseCase,
-            new AuthoritySnapshotCacheSerializer(new ObjectMapper().findAndRegisterModules())
-        );
-        given(getMemberUseCase.getById(MEMBER_ID)).willReturn(MemberInfo.builder()
-            .id(MEMBER_ID)
-            .schoolId(SCHOOL_ID)
-            .build());
-        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of());
-        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(ChallengerRole.create(
-            CHALLENGER_ID,
-            ChallengerRoleType.SUPER_ADMIN,
-            null,
-            null,
-            GISU_ID
-        )));
-        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
-
-        SubjectAttributes result = sut.loadSubject(MEMBER_ID);
-
-        assertThat(result.toAuthoritySnapshot().isSuperAdmin()).isTrue();
-        assertThat(result.systemRoles()).containsExactly(SystemRoleType.SUPER_ADMIN);
-        assertThat((String) cacheUseCase.latestValue()).contains("SUPER_ADMIN");
-    }
-
-    @Test
     @DisplayName("캐시 hit에서도 회원이 삭제되었으면 기존 권한 snapshot을 반환하지 않는다")
     void cache_hit_rejects_deleted_member() {
         InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
@@ -217,6 +180,41 @@ class AuthorizationServiceCacheTest {
         assertThat(cacheUseCase.latestEvictedNamespace()).isEqualTo(CacheNamespace.AUTHORITY_SNAPSHOT);
         assertThat(cacheUseCase.latestEvictedKey()).isEqualTo(CacheKey.from("member:" + MEMBER_ID));
         verify(getMemberUseCase).existsById(MEMBER_ID);
+        verify(getMemberUseCase).getById(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("캐시 key와 snapshot 회원이 다르면 캐시를 제거하고 요청 회원의 권한을 다시 적재한다")
+    void rebuilds_subject_when_cached_member_does_not_match_key() {
+        InMemoryCacheUseCase cacheUseCase = new InMemoryCacheUseCase();
+        AuthoritySnapshotCacheSerializer serializer =
+            new AuthoritySnapshotCacheSerializer(new ObjectMapper().findAndRegisterModules());
+        cacheUseCase.seed(serializer.serialize(SubjectAttributes.builder()
+            .memberId(999L)
+            .build()
+            .toAuthoritySnapshot()));
+        AuthorizationService sut = new AuthorizationService(
+            loadChallengerRolePort,
+            List.of(),
+            getMemberUseCase,
+            listMemberSystemRoleUseCase,
+            getChapterUseCase,
+            getChallengerUseCase,
+            operationalMetrics,
+            cacheUseCase,
+            serializer
+        );
+        given(getMemberUseCase.existsById(MEMBER_ID)).willReturn(true);
+        given(getMemberUseCase.getById(MEMBER_ID))
+            .willReturn(MemberInfo.builder().id(MEMBER_ID).schoolId(SCHOOL_ID).build());
+        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
+
+        SubjectAttributes result = sut.loadSubject(MEMBER_ID);
+
+        assertThat(result.memberId()).isEqualTo(MEMBER_ID);
+        assertThat(cacheUseCase.latestEvictedKey()).isEqualTo(CacheKey.from("member:" + MEMBER_ID));
         verify(getMemberUseCase).getById(MEMBER_ID);
     }
 
