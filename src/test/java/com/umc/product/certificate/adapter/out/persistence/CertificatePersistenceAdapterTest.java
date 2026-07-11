@@ -5,12 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssueSpec;
@@ -30,6 +37,9 @@ class CertificatePersistenceAdapterTest {
     @Autowired
     CertificatePersistenceAdapter sut;
 
+    @Autowired
+    PlatformTransactionManager transactionManager;
+
     @Test
     @DisplayName("인증서 발급 범위에 PostgreSQL transaction advisory lock을 획득한다")
     void 인증서_발급_범위에_PostgreSQL_transaction_advisory_lock을_획득한다() {
@@ -39,6 +49,44 @@ class CertificatePersistenceAdapterTest {
             7L,
             null
         )).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("동일 인증서 발급 범위의 transaction advisory lock은 첫 트랜잭션 종료까지 대기한다")
+    void 동일_인증서_발급_범위의_transaction_advisory_lock은_첫_트랜잭션_종료까지_대기한다() throws Exception {
+        // given
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+        CountDownLatch firstAcquired = new CountDownLatch(1);
+        CountDownLatch releaseFirst = new CountDownLatch(1);
+        CountDownLatch secondAttempted = new CountDownLatch(1);
+        CountDownLatch secondAcquired = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<?> first = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+                lockCompletionScope();
+                firstAcquired.countDown();
+                await(releaseFirst);
+            }));
+            assertThat(firstAcquired.await(5, TimeUnit.SECONDS)).isTrue();
+
+            Future<?> second = executor.submit(() -> transactionTemplate.executeWithoutResult(status -> {
+                secondAttempted.countDown();
+                lockCompletionScope();
+                secondAcquired.countDown();
+            }));
+            assertThat(secondAttempted.await(5, TimeUnit.SECONDS)).isTrue();
+
+            // when & then
+            assertThat(secondAcquired.await(300, TimeUnit.MILLISECONDS)).isFalse();
+            releaseFirst.countDown();
+            first.get(5, TimeUnit.SECONDS);
+            assertThat(secondAcquired.await(5, TimeUnit.SECONDS)).isTrue();
+            second.get(5, TimeUnit.SECONDS);
+        } finally {
+            releaseFirst.countDown();
+            executor.shutdownNow();
+        }
     }
 
     @Test
@@ -136,5 +184,20 @@ class CertificatePersistenceAdapterTest {
             .fileId("file-" + serialNumber)
             .fileSha256("a".repeat(64))
             .build()));
+    }
+
+    private void lockCompletionScope() {
+        sut.lockScope(CertificateTemplate.UMC_COURSE_COMPLETION, 1L, 7L, null);
+    }
+
+    private void await(CountDownLatch latch) {
+        try {
+            if (!latch.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("lock wait timed out");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("lock wait interrupted", e);
+        }
     }
 }
