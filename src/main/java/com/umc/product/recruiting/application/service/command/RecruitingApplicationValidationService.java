@@ -5,6 +5,8 @@ import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
@@ -13,8 +15,6 @@ import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.query.GetFormResponseUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
 
 import lombok.RequiredArgsConstructor;
 

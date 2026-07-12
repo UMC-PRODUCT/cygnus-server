@@ -7,12 +7,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
 
 import lombok.RequiredArgsConstructor;
 

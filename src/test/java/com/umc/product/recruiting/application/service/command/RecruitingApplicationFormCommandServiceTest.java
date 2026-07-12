@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ValidateRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
@@ -30,7 +31,6 @@ import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationFormCommandServiceTest {

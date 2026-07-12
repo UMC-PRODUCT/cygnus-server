@@ -7,6 +7,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
@@ -29,11 +34,6 @@ import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.command.dto.AnswerCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.SubmitDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 
 import lombok.RequiredArgsConstructor;
 

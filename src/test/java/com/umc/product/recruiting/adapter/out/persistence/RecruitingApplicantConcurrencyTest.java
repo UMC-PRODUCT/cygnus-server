@@ -24,6 +24,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus;
@@ -44,8 +46,6 @@ import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 import com.umc.product.support.PersistenceAdapterTest;
-import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.query.GetFormResponseUseCase;
 
 @PersistenceAdapterTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)

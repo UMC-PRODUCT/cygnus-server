@@ -5,6 +5,8 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
@@ -19,8 +21,6 @@ import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
-import com.umc.product.survey.application.port.in.command.dto.PublishFormCommand;
 
 import lombok.RequiredArgsConstructor;
 

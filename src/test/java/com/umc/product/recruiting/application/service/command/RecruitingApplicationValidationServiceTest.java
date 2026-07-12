@@ -16,6 +16,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
@@ -26,9 +29,6 @@ import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.query.GetFormResponseUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.survey.domain.enums.FormResponseStatus;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationValidationServiceTest {

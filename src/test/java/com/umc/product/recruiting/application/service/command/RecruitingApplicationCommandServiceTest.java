@@ -20,6 +20,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationCommand;
@@ -40,9 +43,6 @@ import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.command.dto.CreateDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationCommandServiceTest {

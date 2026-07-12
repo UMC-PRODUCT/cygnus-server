@@ -2,7 +2,7 @@
 
 ## 역할과 경계
 
-`recruiting`은 학교별 모집 시즌, 차수, 지원 정책, 지원서 생명주기, 평가, 기본 면접 일정, 합격 후 등록 예약을 소유한다. 지원서 문항과 답변 본문은 `survey`, 실제 Challenger 구성원 정보는 `challenger`, 역할과 권한 판정은 `authorization`이 소유한다.
+`recruiting`은 학교별 모집 시즌, 차수, 지원 정책, 지원서 생명주기, 평가, 기본 면접 일정, 합격 후 등록 예약을 소유한다. 지원서 문항과 답변 본문은 `form`, 실제 Challenger 구성원 정보는 `challenger`, 역할과 권한 판정은 `authorization`이 소유한다.
 
 - 모집 단위는 `RecruitingSeason(gisuId, schoolId)`이다.
 - 한 시즌은 트랙별 TO와 여러 모집 차수를 가진다.
@@ -52,18 +52,18 @@ erDiagram
         instant document_start_at
         instant document_end_at
         boolean interview_required
-        bigint availability_form_id "Survey ID"
+        bigint availability_form_id "Form ID"
     }
     RECRUITING_APPLICATION_FORM {
         bigint id PK
         bigint recruiting_round_id FK
-        bigint form_id "Survey ID"
+        bigint form_id "Form ID"
         string status
     }
     RECRUITING_FORM_SECTION_POLICY {
         bigint id PK
         bigint recruiting_application_form_id FK
-        bigint form_section_id "Survey ID"
+        bigint form_section_id "Form ID"
         string type
         string track
     }
@@ -71,7 +71,7 @@ erDiagram
         bigint id PK
         bigint recruiting_round_id FK
         bigint recruiting_application_form_id FK
-        bigint form_response_id "Survey ID"
+        bigint form_response_id "Form ID"
         bigint applicant_member_id "Member ID"
         string applicant_email "PII"
         string application_key "credential"
@@ -96,7 +96,7 @@ erDiagram
     RECRUITING_INTERVIEW_SCHEDULE {
         bigint id PK
         bigint recruiting_application_id FK
-        bigint availability_form_response_id "Survey ID"
+        bigint availability_form_response_id "Form ID"
         string status
         instant starts_at
         instant ends_at
@@ -111,14 +111,14 @@ erDiagram
 | `RecruitingSeason` | 기수와 학교의 유일한 모집 단위. `DRAFT -> ACTIVE -> CLOSED` 상태를 소유한다. |
 | `RecruitingSeasonTrackQuota` | 시즌/트랙별 목표 인원. 트랙은 모집 지원 트랙만 허용하고 수량은 0 이상이다. |
 | `RecruitingRound` / `RecruitingRoundConfiguration` | 정규/추가 차수, 지원 트랙, 2지망, 서류·면접·결과 시각, 공지와 연락처를 검증한다. `INFRA_PLUS`와 시즌 TO가 0인 트랙은 모집할 수 없다. |
-| `RecruitingApplicationForm` | Round와 Survey Form의 1:1 연결 및 `DRAFT -> PUBLISHED -> CLOSED` 상태를 관리한다. |
-| `RecruitingFormSectionPolicy` | Survey section을 `COMMON` 또는 특정 모집 트랙의 `TRACK` section으로 분류한다. |
-| `RecruitingApplication` / `RecruitingApplicantProfile` | 로그인 지원자의 프로필, 선택 트랙, Survey response ID, 개인정보 동의, 6자리 지원 키, 전형과 등록 상태를 관리한다. |
+| `RecruitingApplicationForm` | Round와 Form의 1:1 연결 및 `DRAFT -> PUBLISHED -> CLOSED` 상태를 관리한다. |
+| `RecruitingFormSectionPolicy` | Form section을 `COMMON` 또는 특정 모집 트랙의 `TRACK` section으로 분류한다. |
+| `RecruitingApplication` / `RecruitingApplicantProfile` | 로그인 지원자의 프로필, 선택 트랙, Form response ID, 개인정보 동의, 6자리 지원 키, 전형과 등록 상태를 관리한다. |
 | `RecruitingRoundEvaluator` | 차수와 `DOCUMENT`/`INTERVIEW` stage별 평가자 whitelist를 관리한다. 최종 합불 권한은 부여하지 않는다. |
 | `RecruitingRoundInterviewQuestion` | 차수 공통 면접 문항과 노출 순서, active 상태를 관리한다. |
 | `RecruitingApplicationInterviewQuestion` | 특정 지원자에게만 묻는 면접 문항을 관리한다. 해당 차수의 INTERVIEW 평가자만 수정할 수 있다. |
 | `RecruitingApplicationEvaluation` | 지원서/평가자/stage별 하나의 `PASS`/`FAIL`/`WAIT` 평가를 관리한다. 제출 후 변경할 수 없다. |
-| `RecruitingInterviewSchedule` | 가능 일정 요청, Survey 응답 연결, 확정 시각·장소·연락처 snapshot과 메일 전달 상태를 보관한다. 실제 메일 발송과 일정 교집합 계산은 아직 연결하지 않는다. |
+| `RecruitingInterviewSchedule` | 가능 일정 요청, Form 응답 연결, 확정 시각·장소·연락처 snapshot과 메일 전달 상태를 보관한다. 실제 메일 발송과 일정 교집합 계산은 아직 연결하지 않는다. |
 
 ## 모집과 지원 흐름
 
@@ -181,7 +181,7 @@ flowchart LR
 | 상태 | 필수 데이터 | 의미 |
 |---|---|---|
 | `AVAILABILITY_REQUESTED` | `contactSnapshot` | 운영진이 가능 일정 제출을 요청한 상태 |
-| `AVAILABILITY_SUBMITTED` | `availabilityFormResponseId` | 지원자가 Survey 가능 일정 응답을 연결한 상태 |
+| `AVAILABILITY_SUBMITTED` | `availabilityFormResponseId` | 지원자가 Form 가능 일정 응답을 연결한 상태 |
 | `CONFIRMED` | 응답 ID, 시작/종료 시각, 장소, 연락처 snapshot | 운영진이 면접 시간을 확정한 상태 |
 
 요청·확정 메일 상태는 각각 `PENDING`, `SENT`, `FAILED`와 시도 횟수·오류·발송 시각을 저장할 수 있다. 현재 API는 기본 schedule 상태만 제공하며 실제 HTML 메일 dispatch는 #1147 이후 연결한다.
@@ -292,7 +292,7 @@ REST에는 현재 서류 결과 결정과 면접 skip route가 없다. 두 동�
 gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt
 ```
 
-원문 email, applicant name, application key, Survey 답변, 개인정보 동의 원문은 포함하지 않는다.
+원문 email, applicant name, application key, Form 답변, 개인정보 동의 원문은 포함하지 않는다.
 
 ## GraphQL API
 
@@ -366,9 +366,9 @@ GraphQL actor는 input의 `memberId`가 아니라 공용 `@CurrentMember MemberP
 
 상세 범위와 완료 조건은 [Recruiting Deferred Integrations](../../backlog/recruiting-deferred-integrations.md)를 따른다.
 
-- [#1146](https://github.com/UMC-PRODUCT/umc-product-server/issues/1146): Survey가 schedule question, 응답 소속 검증, 익명·로그인 FormResponse와 공통 가능 시간 계산을 소유한다. Recruiting은 `availabilityFormId`와 `availabilityFormResponseId`, 확정된 면접 상태만 소유한다.
+- [#1146](https://github.com/UMC-PRODUCT/umc-product-server/issues/1146): Form이 schedule question, 응답 소속 검증, 익명·로그인 FormResponse와 공통 가능 시간 계산을 소유한다. Recruiting은 `availabilityFormId`와 `availabilityFormResponseId`, 확정된 면접 상태만 소유한다.
 - [#1147](https://github.com/UMC-PRODUCT/umc-product-server/issues/1147): Notification이 허용된 Thymeleaf template, 변수 검증, commit 이후 outbox 발송과 재시도를 소유한다. Recruiting은 발송 상태만 추적한다.
-- Form window: 별도 issue 없이 plain TODO다. Survey Form의 published/start/end 공개 계약이 생기면 Round 일정 동기화와 실제 접수창 검증을 연결한다.
+- Form window: 별도 issue 없이 plain TODO다. Form의 published/start/end 공개 계약이 생기면 Round 일정 동기화와 실제 접수창 검증을 연결한다.
 - anonymous/claim: application key 기반 익명 조회·수정·제출과 로그인 후 ownership claim은 후속 범위다. 현재 외부 표면에는 노출하지 않는다.
 
 ## Migration과 rollback 가정
@@ -385,7 +385,7 @@ Recruiting v2 migration은 기존 데이터에 대해 무손실 in-place upgrade
 
 ## PII와 로그 정책
 
-- application key, 원문 email, applicant name, contact snapshot, Survey 답변은 로그·trace·CSV·증거 transcript에 원문으로 남기지 않는다.
+- application key, 원문 email, applicant name, contact snapshot, Form 답변은 로그·trace·CSV·증거 transcript에 원문으로 남기지 않는다.
 - CSV email은 `EmailMasker` 결과만 사용한다. 일반 REST/GraphQL 목록 응답에는 credential과 원문 PII를 추가하지 않는다.
 - prepared SQL은 바인딩 값을 출력하지 않고 `?`를 유지한다. plain SQL literal과 comment는 `[REDACTED]`로 치환한다.
 - 테스트 증거에 생성 결과가 필요하면 application key와 token을 `[REDACTED]`로 기록한다.

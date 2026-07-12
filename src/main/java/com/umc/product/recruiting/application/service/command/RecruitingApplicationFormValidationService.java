@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ValidateRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
@@ -14,7 +15,6 @@ import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingFormSectionPolicy;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
 
 import lombok.RequiredArgsConstructor;
 

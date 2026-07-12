@@ -20,7 +20,7 @@ Recruiting v2가 현재 제공하는 범위는 로그인 회원의 기본 지원
 - Recruiting이 Form 공개 UseCase만으로 일정 후보를 조회한다.
 - 전달된 Question과 FormResponse가 대상 Form에 속함이 보장되고, 다른 Form의 ID를 혼합할 수 없다.
 - 완전·부분 교집합, 교집합 없음, UTC 정규화와 익명·로그인 응답의 동일 동작이 검증된다.
-- REST/GraphQL 계약과 Recruiting/Survey 온보딩 문서가 함께 갱신된다.
+- REST/GraphQL 계약과 Recruiting/Form 온보딩 문서가 함께 갱신된다.
 
 ### 현재 경계
 
@@ -42,7 +42,7 @@ Recruiting v2가 현재 제공하는 범위는 로그인 회원의 기본 지원
 
 - `RecruitingApplicationFormCommandService`: 최초 Form 연결 시 기간 동기화를 plain TODO로 보류한다.
 - `RecruitingRoundCommandService`: Round 일정 변경 후 기간 재동기화를 plain TODO로 보류한다.
-- `RecruitingRound.isLocalApplicationPeriodOpenAt`: Recruiting 내부 Season/Round/ApplicationForm 상태와 Round 서류 기간만 계산한다. 실제 Survey Form의 published 상태와 Form window를 조회하지 않으며, production caller도 없다.
+- `RecruitingRound.isLocalApplicationPeriodOpenAt`: Recruiting 내부 Season/Round/ApplicationForm 상태와 Round 서류 기간만 계산한다. 실제 Form의 published 상태와 Form window를 조회하지 않으며, production caller도 없다.
 
 ## #1147 Thymeleaf 기반 HTML 템플릿 이메일 발송 기능
 

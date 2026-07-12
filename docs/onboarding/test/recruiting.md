@@ -26,7 +26,7 @@
 주요 보호 범위는 다음과 같다.
 
 - Season/Quota/Round: lifecycle, 트랙 subset, `INFRA_PLUS` 거부, 일정 순서와 면접 optional shape
-- Form/Application: Round당 Form 하나, section policy, 로그인 소유권, Survey response 연결, 제출·철회, 재지원
+- Form/Application: Round당 Form 하나, section policy, 로그인 소유권, Form response 연결, 제출·철회, 재지원
 - Evaluator/Question: stage별 whitelist, 공통·개별 문항, 첫 제출 후 mutation freeze
 - Evaluation/Schedule: `DRAFT/SUBMITTED`, peer visibility, 가능 일정 요청·제출·확정, mail state shape
 - Decision/Registration: 최종 합격 track, 중복 합격, READY 예약·취소, REGISTERED 멱등 처리

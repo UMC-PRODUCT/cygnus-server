@@ -15,6 +15,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
@@ -23,10 +27,6 @@ import com.umc.product.recruiting.domain.RecruitingFormSectionPolicy;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationQuestionScopeQueryServiceTest {
