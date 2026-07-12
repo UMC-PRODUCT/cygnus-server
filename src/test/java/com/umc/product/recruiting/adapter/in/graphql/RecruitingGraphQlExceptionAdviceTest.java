@@ -1,7 +1,6 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.util.List;
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.graphql.ResponseError;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -22,68 +20,47 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
-import com.umc.product.global.exception.constant.CommonErrorCode;
-import com.umc.product.global.security.CurrentMemberSecurityConfig;
+import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.recruiting.application.port.in.command.AssignRecruitingInterviewUseCase;
-import com.umc.product.recruiting.application.port.in.command.FindRecruitingInterviewScheduleCandidatesUseCase;
-import com.umc.product.recruiting.application.port.in.command.SaveRecruitingInterviewEvaluationUseCase;
-import com.umc.product.recruiting.application.port.in.command.SendRecruitingInterviewGuideUseCase;
+import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
-import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingInterviewEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
-import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
-import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewEvaluationUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
 
-@GraphQlTest(RecruitingInterviewGraphQlController.class)
+@GraphQlTest(RecruitingScheduleGraphQlController.class)
 @Import({
     GraphQlRuntimeWiringConfig.class,
     GraphQlExceptionAdvice.class,
-    RecruitingGraphQlPermissionSupport.class,
-    CurrentMemberSecurityConfig.class
+    RecruitingGraphQlPermissionSupport.class
 })
 @DisplayName("RecruitingGraphQlExceptionAdvice")
 class RecruitingGraphQlExceptionAdviceTest {
-
-    private static final Long REQUESTER_ID = 40L;
 
     @Autowired
     GraphQlTester graphQlTester;
 
     @MockitoBean
-    GetRecruitingInterviewEvaluationUseCase getEvaluationUseCase;
-
-    @MockitoBean
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
 
     @MockitoBean
-    GetRecruitingFormQueryUseCase getFormQueryUseCase;
+    GetRecruitingInterviewScheduleUseCase getInterviewScheduleUseCase;
 
     @MockitoBean
-    AssignRecruitingInterviewUseCase assignInterviewUseCase;
+    ManageRecruitingInterviewScheduleUseCase manageInterviewScheduleUseCase;
 
     @MockitoBean
     SkipRecruitingInterviewUseCase skipInterviewUseCase;
 
     @MockitoBean
-    FindRecruitingInterviewScheduleCandidatesUseCase findScheduleCandidatesUseCase;
-
-    @MockitoBean
-    SendRecruitingInterviewGuideUseCase sendInterviewGuideUseCase;
-
-    @MockitoBean
-    SaveRecruitingInterviewEvaluationUseCase saveEvaluationUseCase;
-
-    @MockitoBean
-    SubmitRecruitingInterviewEvaluationUseCase submitEvaluationUseCase;
-
-    @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
 
+    @MockitoBean
+    CurrentMemberProvider currentMemberProvider;
+
     @BeforeEach
-    void setUpSecurityContext() {
+    void authenticate() {
         SecurityContextHolder.getContext().setAuthentication(
-            new UsernamePasswordAuthenticationToken(new MemberPrincipal(REQUESTER_ID), null, List.of())
+            new UsernamePasswordAuthenticationToken(new MemberPrincipal(40L), null, List.of())
         );
     }
 
@@ -93,36 +70,24 @@ class RecruitingGraphQlExceptionAdviceTest {
     }
 
     @Test
-    @DisplayName("면접 배정 일시 형식이 올바르지 않으면 BAD_REQUEST GraphQL error를 반환한다")
-    void 면접_배정_일시_형식이_올바르지_않으면_BAD_REQUEST_GraphQL_error를_반환한다() {
-        given(getApplicationQueryUseCase.isApplicationBelongsToSeason(20L, 10L)).willReturn(true);
-
+    @DisplayName("잘못된 Instant 일정은 GraphQL 입력 오류로 거부한다")
+    void 잘못된_Instant_일정은_GraphQL_입력_오류로_거부한다() {
         graphQlTester.document("""
                 mutation {
-                  assignRecruitingInterview(
-                    seasonId: 10,
+                  confirmRecruitingInterviewSchedule(
                     applicationId: 20,
                     input: {
-                      interviewerMemberId: 30,
-                      startsAt: "not-instant",
-                      endsAt: "2026-07-02T10:00:00Z",
-                      location: "Room A"
+                      startsAt: "not-an-instant",
+                      endsAt: "2026-08-11T01:00:00Z",
+                      contactSnapshot: "운영진 문의"
                     }
-                  ) {
-                    id
-                  }
+                  )
                 }
                 """)
             .execute()
             .errors()
-            .satisfy(errors -> assertCommonError(errors, "assignRecruitingInterview", CommonErrorCode.BAD_REQUEST));
+            .satisfy(errors -> assertThat(errors).hasSize(1));
 
-        then(assignInterviewUseCase).shouldHaveNoInteractions();
-    }
-
-    private static void assertCommonError(List<ResponseError> errors, String path, CommonErrorCode code) {
-        assertThat(errors).hasSize(1);
-        assertThat(errors.get(0).getPath()).isEqualTo(path);
-        assertThat(errors.get(0).getExtensions()).containsEntry("code", code.getCode());
+        then(manageInterviewScheduleUseCase).shouldHaveNoInteractions();
     }
 }

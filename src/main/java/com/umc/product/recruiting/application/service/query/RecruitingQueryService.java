@@ -10,8 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
+import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationResultInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
@@ -31,7 +33,11 @@ import lombok.RequiredArgsConstructor;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
-public class RecruitingQueryService implements GetRecruitingApplicationQueryUseCase, GetRecruitingFormQueryUseCase {
+public class RecruitingQueryService implements
+    GetRecruitingApplicationQueryUseCase,
+    GetRecruitingFormQueryUseCase,
+    ValidateRecruitingApplicationScopeUseCase,
+    ValidateRecruitingFormScopeUseCase {
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingSeasonPort loadSeasonPort;
@@ -39,18 +45,17 @@ public class RecruitingQueryService implements GetRecruitingApplicationQueryUseC
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
 
     @Override
+    public RecruitingApplicationInfo getById(Long applicationId, Long requesterMemberId) {
+        RecruitingApplication application = loadApplicationPort.getById(applicationId);
+        application.validateApplicant(requesterMemberId);
+        return RecruitingApplicationInfo.from(application);
+    }
+
+    @Override
     public List<RecruitingApplicationFormInfo> listPublicForms(Long gisuId, Long schoolId) {
         return loadSeasonPort.findByGisuIdAndSchoolId(gisuId, schoolId)
             .map(this::listPublishedForms)
             .orElseGet(List::of);
-    }
-
-    @Override
-    public RecruitingApplicationResultInfo getAnonymousResult(String applicationNo, String applicantIdentityKey) {
-        RecruitingApplication application = loadApplicationPort.findByApplicationNo(applicationNo)
-            .filter(found -> Objects.equals(found.getApplicantIdentityKey(), applicantIdentityKey))
-            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));
-        return RecruitingApplicationResultInfo.from(application);
     }
 
     @Override
@@ -81,6 +86,14 @@ public class RecruitingQueryService implements GetRecruitingApplicationQueryUseC
     }
 
     @Override
+    public void validateRoundScope(Long applicationId, Long roundId) {
+        RecruitingApplication application = loadApplicationPort.getById(applicationId);
+        if (!Objects.equals(application.getRound().getId(), roundId)) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
+        }
+    }
+
+    @Override
     public boolean isApplicationFormBelongsToSeason(Long applicationFormId, Long seasonId) {
         if (applicationFormId == null || seasonId == null) {
             return false;
@@ -89,6 +102,13 @@ public class RecruitingQueryService implements GetRecruitingApplicationQueryUseC
             loadApplicationFormPort.getById(applicationFormId).getRound().getSeason().getId(),
             seasonId
         );
+    }
+
+    @Override
+    public void validateSeasonScope(Long applicationFormId, Long seasonId) {
+        if (!isApplicationFormBelongsToSeason(applicationFormId, seasonId)) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND);
+        }
     }
 
     @Override

@@ -3,6 +3,9 @@ package com.umc.product.recruiting.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
+import java.util.List;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -53,19 +56,14 @@ class RecruitingCoreDomainTest {
     }
 
     @Test
-    @DisplayName("지원 폼은 survey form id와 모집 트랙을 가진다")
-    void 지원_폼은_survey_form_id와_모집_트랙을_가진다() {
+    @DisplayName("지원 폼은 모집 차수와 survey form id를 가진다")
+    void 지원_폼은_모집_차수와_survey_form_id를_가진다() {
         RecruitingRound round = RecruitingRound.createRegular(season());
 
-        RecruitingApplicationForm form = RecruitingApplicationForm.create(
-            round,
-            100L,
-            ChallengerTrack.WEB_PRODUCT_ENGINEER
-        );
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 100L);
 
         assertThat(form.getRound()).isSameAs(round);
         assertThat(form.getFormId()).isEqualTo(100L);
-        assertThat(form.getTrack()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
     }
 
     @Test
@@ -86,7 +84,7 @@ class RecruitingCoreDomainTest {
         RecruitingApplication application = submittedApplication();
 
         application.passDocument(2L, "서류 합격");
-        application.passFinal(3L, "최종 합격");
+        application.passFinal(3L, "최종 합격", application.getFirstChoice());
         application.markRegistrationReady(4L);
 
         assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
@@ -137,22 +135,41 @@ class RecruitingCoreDomainTest {
     }
 
     private RecruitingApplicationForm applicationForm() {
-        return RecruitingApplicationForm.create(
-            RecruitingRound.createRegular(season()),
-            100L,
-            ChallengerTrack.WEB_PRODUCT_ENGINEER
-        );
+        return RecruitingApplicationForm.create(configuredRound(), 100L);
     }
 
     private RecruitingApplication draftApplication() {
-        return RecruitingApplication.createDraft(
-            applicationForm(),
+        RecruitingApplicationForm form = applicationForm();
+        return RecruitingApplication.createMemberDraft(
+            form,
             200L,
             1L,
-            "survey-identity-1",
-            "R-0001",
-            "a***@example.com"
+            RecruitingApplicantProfile.create(
+                form.getRound(),
+                "홍길동",
+                RecruitingApplicantEmail.from("applicant@example.com"),
+                ChallengerTrack.WEB_PRODUCT_ENGINEER,
+                null
+            ),
+            "A1B2C3"
         );
+    }
+
+    private RecruitingRound configuredRound() {
+        return RecruitingRound.createRegular(season(), RecruitingRoundConfiguration.of(
+            List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
+            false,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-08T00:00:00Z"),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            false,
+            null,
+            null,
+            Instant.parse("2026-08-16T00:00:00Z"),
+            null,
+            null,
+            null
+        ));
     }
 
     private RecruitingApplication submittedApplication() {

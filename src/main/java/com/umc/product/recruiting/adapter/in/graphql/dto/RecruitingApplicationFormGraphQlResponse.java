@@ -1,6 +1,5 @@
 package com.umc.product.recruiting.adapter.in.graphql.dto;
 
-import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
@@ -11,7 +10,6 @@ public record RecruitingApplicationFormGraphQlResponse(
     RecruitingRoundType roundType,
     Integer roundNo,
     Long formId,
-    ChallengerTrack track,
     RecruitingApplicationFormStatus status
 ) {
 
@@ -22,7 +20,6 @@ public record RecruitingApplicationFormGraphQlResponse(
             info.roundType(),
             info.roundNo(),
             info.formId(),
-            info.track(),
             info.status()
         );
     }

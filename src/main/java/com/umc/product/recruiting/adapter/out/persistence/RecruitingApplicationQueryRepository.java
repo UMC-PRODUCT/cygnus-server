@@ -11,18 +11,23 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Repository;
 
+import com.querydsl.core.Tuple;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicantLockTarget;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 
+import jakarta.persistence.LockModeType;
 import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
 public class RecruitingApplicationQueryRepository {
+
+    private static final int LOCK_TIMEOUT_MILLIS = 3_000;
 
     private static final List<RecruitingApplicationStatus> BLOCKING_STATUSES = List.of(
         RecruitingApplicationStatus.DRAFT,
@@ -36,42 +41,63 @@ public class RecruitingApplicationQueryRepository {
     private final JPAQueryFactory queryFactory;
 
     public Optional<RecruitingApplication> findByIdWithDetails(Long id) {
-        RecruitingApplication result = queryFactory
+        return findByIdWithDetails(id, null);
+    }
+
+    public Optional<RecruitingApplication> findByIdWithDetailsForUpdate(Long id) {
+        return findByIdWithDetails(id, LockModeType.PESSIMISTIC_WRITE);
+    }
+
+    private Optional<RecruitingApplication> findByIdWithDetails(Long id, LockModeType lockMode) {
+        var query = queryFactory
             .selectFrom(recruitingApplication)
             .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm).fetchJoin()
             .innerJoin(recruitingApplicationForm.round, recruitingRound).fetchJoin()
             .innerJoin(recruitingRound.season, recruitingSeason).fetchJoin()
-            .where(recruitingApplication.id.eq(id))
-            .fetchOne();
+            .where(recruitingApplication.id.eq(id));
+        if (lockMode != null) {
+            query.setLockMode(lockMode);
+            query.setHint("jakarta.persistence.lock.timeout", LOCK_TIMEOUT_MILLIS);
+        }
+        RecruitingApplication result = query.fetchOne();
         return Optional.ofNullable(result);
     }
 
-    public Optional<RecruitingApplication> findActiveByRoundIdAndApplicantIdentityKey(
-        Long roundId,
-        String applicantIdentityKey
-    ) {
-        RecruitingApplication result = queryFactory
-            .selectFrom(recruitingApplication)
-            .where(
-                recruitingApplication.round.id.eq(roundId),
-                recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
-                recruitingApplication.status.in(BLOCKING_STATUSES)
+    public Optional<RecruitingApplicantLockTarget> findApplicantLockTarget(Long applicationId) {
+        Tuple result = queryFactory
+            .select(
+                recruitingSeason.gisuId,
+                recruitingApplication.applicantMemberId,
+                recruitingApplication.applicantProfile.applicantEmail
             )
-            .fetchFirst();
-        return Optional.ofNullable(result);
+            .from(recruitingApplication)
+            .innerJoin(recruitingApplication.round, recruitingRound)
+            .innerJoin(recruitingRound.season, recruitingSeason)
+            .where(recruitingApplication.id.eq(applicationId))
+            .fetchOne();
+        if (result == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new RecruitingApplicantLockTarget(
+            result.get(recruitingSeason.gisuId),
+            result.get(recruitingApplication.applicantMemberId),
+            result.get(recruitingApplication.applicantProfile.applicantEmail)
+        ));
     }
 
-    public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKey(
-        Long gisuId,
-        String applicantIdentityKey
-    ) {
-        return existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(gisuId, applicantIdentityKey, null);
+    public Optional<Long> findRoundIdByApplicationId(Long applicationId) {
+        return Optional.ofNullable(queryFactory
+            .select(recruitingApplication.round.id)
+            .from(recruitingApplication)
+            .where(recruitingApplication.id.eq(applicationId))
+            .fetchOne());
     }
 
-    public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
+    public boolean existsBlockingApplicationByGisuIdAndApplicant(
         Long gisuId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     ) {
         return queryFactory
             .selectOne()
@@ -80,31 +106,19 @@ public class RecruitingApplicationQueryRepository {
             .innerJoin(recruitingRound.season, recruitingSeason)
             .where(
                 recruitingSeason.gisuId.eq(gisuId),
-                recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
+                applicantEq(applicantMemberId, applicantEmail),
                 recruitingApplication.status.in(BLOCKING_STATUSES),
-                applicationIdNotEq(excludedApplicationId)
+                applicationIdNotEq(excludedId)
             )
             .fetchFirst() != null;
     }
 
-    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
+    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicant(
         Long gisuId,
         Long schoolId,
-        String applicantIdentityKey
-    ) {
-        return existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
-            gisuId,
-            schoolId,
-            applicantIdentityKey,
-            null
-        );
-    }
-
-    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
-        Long gisuId,
-        Long schoolId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     ) {
         return queryFactory
             .selectOne()
@@ -114,20 +128,18 @@ public class RecruitingApplicationQueryRepository {
             .where(
                 recruitingSeason.gisuId.eq(gisuId),
                 recruitingSeason.schoolId.ne(schoolId),
-                recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
-                applicationIdNotEq(excludedApplicationId)
+                applicantEq(applicantMemberId, applicantEmail),
+                recruitingApplication.status.in(BLOCKING_STATUSES),
+                applicationIdNotEq(excludedId)
             )
             .fetchFirst() != null;
     }
 
-    public boolean existsFinalPassedByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey) {
-        return existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(gisuId, applicantIdentityKey, null);
-    }
-
-    public boolean existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+    public boolean existsFinalPassedByGisuIdAndApplicant(
         Long gisuId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     ) {
         return queryFactory
             .selectOne()
@@ -136,9 +148,9 @@ public class RecruitingApplicationQueryRepository {
             .innerJoin(recruitingRound.season, recruitingSeason)
             .where(
                 recruitingSeason.gisuId.eq(gisuId),
-                recruitingApplication.applicantIdentityKey.eq(applicantIdentityKey),
+                applicantEq(applicantMemberId, applicantEmail),
                 recruitingApplication.status.eq(RecruitingApplicationStatus.FINAL_PASSED),
-                applicationIdNotEq(excludedApplicationId)
+                applicationIdNotEq(excludedId)
             )
             .fetchFirst() != null;
     }
@@ -159,10 +171,12 @@ public class RecruitingApplicationQueryRepository {
                 recruitingRound.roundNo,
                 recruitingApplicationForm.id,
                 recruitingApplicationForm.formId,
-                recruitingApplicationForm.track,
                 recruitingApplication.id,
-                recruitingApplication.applicationNo,
-                recruitingApplication.maskedEmail,
+                recruitingApplication.applicantProfile.applicantName,
+                recruitingApplication.applicantProfile.applicantEmail,
+                recruitingApplication.applicantProfile.firstChoice,
+                recruitingApplication.applicantProfile.secondChoice,
+                recruitingApplication.acceptedTrack,
                 recruitingApplication.status,
                 recruitingApplication.registrationStatus,
                 recruitingApplication.submittedAt
@@ -178,6 +192,13 @@ public class RecruitingApplicationQueryRepository {
             )
             .orderBy(recruitingSeason.schoolId.asc(), recruitingRound.roundNo.asc(), recruitingApplication.id.asc())
             .fetch();
+    }
+
+    private BooleanExpression applicantEq(Long applicantMemberId, String applicantEmail) {
+        BooleanExpression emailEq = recruitingApplication.applicantProfile.applicantEmail.eq(applicantEmail);
+        return applicantMemberId == null
+            ? emailEq
+            : recruitingApplication.applicantMemberId.eq(applicantMemberId).or(emailEq);
     }
 
     private BooleanExpression schoolIdEq(Long schoolId) {

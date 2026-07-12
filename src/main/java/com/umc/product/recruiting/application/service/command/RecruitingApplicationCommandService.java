@@ -1,10 +1,12 @@
 package com.umc.product.recruiting.application.service.command;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
@@ -14,16 +16,16 @@ import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand.AnswerEntry;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
-import com.umc.product.recruiting.application.port.out.IssueRecruitingApplicationNoPort;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
+import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
+import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
-import com.umc.product.recruiting.domain.RecruitingRound;
-import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -45,53 +47,110 @@ public class RecruitingApplicationCommandService implements
     CancelRecruitingApplicationUseCase {
 
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
-    private final LoadRecruitingApplicationPort loadApplicationPort;
     private final SaveRecruitingApplicationPort saveApplicationPort;
     private final ManageFormResponseUseCase manageFormResponseUseCase;
-    private final IssueRecruitingApplicationNoPort issueApplicationNoPort;
+    private final GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
+    private final RecruitingApplicationValidationService validationService;
+    private final RecruitingApplicationKeyIssuer applicationKeyIssuer;
+    private final RecruitingConcurrencyLockService concurrencyLockService;
 
     @Override
-    public RecruitingApplicationInfo createDraft(CreateRecruitingApplicationDraftCommand command) {
+    public RecruitingApplicationCreatedInfo createDraft(CreateRecruitingApplicationDraftCommand command) {
+        if (command.applicantMemberId() == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_MEMBER_REQUIRED);
+        }
         RecruitingApplicationForm form = loadApplicationFormPort.getById(command.applicationFormId());
-        validatePublished(form);
-        validateNoBlockingApplication(form, command.applicantIdentityKey(), null);
-
+        validationService.validateApplicationPeriod(form, Instant.now());
+        RecruitingApplicantProfile applicantProfile = createApplicantProfile(
+            form,
+            command.applicantName(),
+            command.applicantEmail(),
+            command.firstChoice(),
+            command.secondChoice()
+        );
+        concurrencyLockService.lockNewApplicant(
+            form.getRound(),
+            command.applicantMemberId(),
+            applicantProfile.getApplicantEmail()
+        );
+        validationService.validateNew(
+            form.getRound(),
+            command.applicantMemberId(),
+            applicantProfile.getApplicantEmail()
+        );
+        String applicationKey = applicationKeyIssuer.issue(applicantProfile.getApplicantEmail());
         Long formResponseId = manageFormResponseUseCase.createDraft(CreateDraftFormResponseCommand.builder()
             .formId(form.getFormId())
             .respondentMemberId(command.applicantMemberId())
             .build());
-        RecruitingApplication application = RecruitingApplication.createDraft(
+        RecruitingApplication application = RecruitingApplication.createMemberDraft(
             form,
             formResponseId,
             command.applicantMemberId(),
-            command.applicantIdentityKey(),
-            issueApplicationNoPort.issue(),
-            command.maskedEmail()
+            applicantProfile,
+            applicationKey
         );
-        return toInfo(saveApplicationPort.save(application));
+        RecruitingApplication saved = saveApplicationPort.save(application);
+        return RecruitingApplicationCreatedInfo.of(saved.getId(), applicationKey, saved.getStatus());
     }
 
     @Override
     public RecruitingApplicationInfo updateDraft(UpdateRecruitingApplicationDraftCommand command) {
-        RecruitingApplication application = loadDraft(command.applicationId());
+        String normalizedEmail = RecruitingApplicantEmail.from(command.applicantEmail()).value();
+        RecruitingApplication application = loadDraftForApplicant(
+            command.applicationId(),
+            List.of(normalizedEmail)
+        );
+        application.validateApplicant(command.requesterMemberId());
+        validationService.validateApplicationPeriod(application.getApplicationForm(), Instant.now());
+        validationService.validateFormResponseOwnership(application, command.requesterMemberId());
+        RecruitingApplicantProfile applicantProfile = createApplicantProfile(
+            application.getApplicationForm(),
+            command.applicantName(),
+            command.applicantEmail(),
+            command.firstChoice(),
+            command.secondChoice()
+        );
+        validationService.validateUpdate(
+            application.getRound(),
+            application.getApplicantMemberId(),
+            applicantProfile.getApplicantEmail(),
+            application.getId()
+        );
+        application.updateDraft(command.requesterMemberId(), applicantProfile);
         manageFormResponseUseCase.updateDraft(UpdateDraftFormResponseCommand.builder()
             .formResponseId(application.getFormResponseId())
             .requesterMemberId(command.requesterMemberId())
             .answers(toAnswerCommands(command.answers()))
             .build());
+        saveApplicationPort.save(application);
         return toInfo(application);
     }
 
     @Override
     public RecruitingApplicationInfo submit(SubmitRecruitingApplicationCommand command) {
-        RecruitingApplication application = loadDraft(command.applicationId());
-        validateNoBlockingApplication(application.getApplicationForm(), application.getApplicantIdentityKey(),
-            application.getId());
-
+        RecruitingApplication application = loadDraftForApplicant(command.applicationId(), List.of());
+        application.validateApplicant(command.requesterMemberId());
+        validationService.validateApplicationPeriod(application.getApplicationForm(), Instant.now());
+        validationService.validateFormResponseOwnership(application, command.requesterMemberId());
+        validationService.validateUpdate(
+            application.getRound(),
+            application.getApplicantMemberId(),
+            application.getApplicantEmail(),
+            application.getId()
+        );
+        RecruitingApplicationQuestionScopeInfo scope = getQuestionScopeUseCase.getQuestionScope(
+            application.getApplicationForm().getId(),
+            application.getFirstChoice(),
+            application.getSecondChoice()
+        );
+        // TODO(#1146): Form 도메인이 전달받은 question ID의 Form 소속을 검증하는 공개 계약을 제공해야 한다.
         manageFormResponseUseCase.submitDraft(SubmitDraftFormResponseCommand.builder()
             .formResponseId(application.getFormResponseId())
             .requesterMemberId(command.requesterMemberId())
             .submittedIp(command.submittedIp())
+            .requiredQuestionIds(scope.requiredQuestionIds())
+            .allowedQuestionIds(scope.allowedQuestionIds())
             .build());
         application.submit(command.requesterMemberId());
         saveApplicationPort.save(application);
@@ -100,73 +159,24 @@ public class RecruitingApplicationCommandService implements
 
     @Override
     public RecruitingApplicationInfo cancel(CancelRecruitingApplicationCommand command) {
-        RecruitingApplication application = loadApplicationPort.getByIdWithDetails(command.applicationId());
+        RecruitingApplication application = concurrencyLockService.lockApplicantThenApplication(
+            command.applicationId(),
+            List.of()
+        );
         application.cancel(command.requesterMemberId(), command.reason());
         saveApplicationPort.save(application);
         return toInfo(application);
     }
 
-    private RecruitingApplication loadDraft(Long applicationId) {
-        RecruitingApplication application = loadApplicationPort.getByIdWithDetails(applicationId);
+    private RecruitingApplication loadDraftForApplicant(Long applicationId, List<String> additionalEmails) {
+        RecruitingApplication application = concurrencyLockService.lockApplicantThenApplication(
+            applicationId,
+            additionalEmails
+        );
         if (application.getStatus() != RecruitingApplicationStatus.DRAFT) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
         }
         return application;
-    }
-
-    private void validatePublished(RecruitingApplicationForm form) {
-        if (form.getStatus() != RecruitingApplicationFormStatus.PUBLISHED) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_PUBLISHED);
-        }
-    }
-
-    private void validateNoBlockingApplication(
-        RecruitingApplicationForm form,
-        String applicantIdentityKey,
-        Long excludedApplicationId
-    ) {
-        RecruitingRound round = form.getRound();
-        RecruitingSeason season = round.getSeason();
-        boolean hasSameRoundApplication = excludedApplicationId == null
-            ? loadApplicationPort.existsByRoundIdAndApplicantIdentityKey(round.getId(), applicantIdentityKey)
-            : loadApplicationPort.existsByRoundIdAndApplicantIdentityKeyAndIdNot(
-                round.getId(),
-                applicantIdentityKey,
-                excludedApplicationId
-            );
-        if (hasSameRoundApplication) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_ALREADY_EXISTS);
-        }
-
-        boolean hasDifferentSchoolApplication = excludedApplicationId == null
-            ? loadApplicationPort.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
-                season.getGisuId(),
-                season.getSchoolId(),
-                applicantIdentityKey
-            )
-            : loadApplicationPort.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
-                season.getGisuId(),
-                season.getSchoolId(),
-                applicantIdentityKey,
-                excludedApplicationId
-            );
-        if (hasDifferentSchoolApplication) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_DIFFERENT_SCHOOL_EXISTS);
-        }
-
-        boolean hasBlockingApplication = excludedApplicationId == null
-            ? loadApplicationPort.existsBlockingApplicationByGisuIdAndApplicantIdentityKey(
-                season.getGisuId(),
-                applicantIdentityKey
-            )
-            : loadApplicationPort.existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
-                season.getGisuId(),
-                applicantIdentityKey,
-                excludedApplicationId
-            );
-        if (hasBlockingApplication) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REAPPLICATION_BLOCKED);
-        }
     }
 
     private List<AnswerCommand> toAnswerCommands(List<AnswerEntry> answers) {
@@ -180,11 +190,24 @@ public class RecruitingApplicationCommandService implements
             .toList();
     }
 
-    private RecruitingApplicationInfo toInfo(RecruitingApplication application) {
-        return RecruitingApplicationInfo.from(
-            application.getId(),
-            application.getApplicationNo(),
-            application.getStatus()
+    private RecruitingApplicantProfile createApplicantProfile(
+        RecruitingApplicationForm form,
+        String applicantName,
+        String applicantEmail,
+        ChallengerTrack firstChoice,
+        ChallengerTrack secondChoice
+    ) {
+        return RecruitingApplicantProfile.create(
+            form.getRound(),
+            applicantName,
+            RecruitingApplicantEmail.from(applicantEmail),
+            firstChoice,
+            secondChoice
         );
     }
+
+    private RecruitingApplicationInfo toInfo(RecruitingApplication application) {
+        return RecruitingApplicationInfo.from(application);
+    }
+
 }

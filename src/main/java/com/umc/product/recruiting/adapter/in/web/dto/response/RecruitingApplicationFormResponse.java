@@ -1,6 +1,5 @@
 package com.umc.product.recruiting.adapter.in.web.dto.response;
 
-import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
@@ -19,8 +18,6 @@ public record RecruitingApplicationFormResponse(
     Integer roundNo,
     @Schema(description = "form 엔진의 폼 ID", example = "500")
     Long formId,
-    @Schema(description = "지원 폼이 모집하는 챌린저 track", example = "WEB_PRODUCT_ENGINEER")
-    ChallengerTrack track,
     @Schema(description = "지원 폼 게시 상태", example = "PUBLISHED")
     RecruitingApplicationFormStatus status
 ) {
@@ -32,7 +29,6 @@ public record RecruitingApplicationFormResponse(
             info.roundType(),
             info.roundNo(),
             info.formId(),
-            info.track(),
             info.status()
         );
     }

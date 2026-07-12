@@ -6,10 +6,13 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicantLockTarget;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplication;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -36,17 +39,6 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
-    public Optional<RecruitingApplication> findByApplicationNo(String applicationNo) {
-        return recruitingApplicationJpaRepository.findByApplicationNo(applicationNo);
-    }
-
-    @Override
-    public RecruitingApplication getByApplicationNo(String applicationNo) {
-        return findByApplicationNo(applicationNo)
-            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));
-    }
-
-    @Override
     public Optional<RecruitingApplication> findByIdWithDetails(Long id) {
         return recruitingApplicationQueryRepository.findByIdWithDetails(id);
     }
@@ -58,109 +50,135 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
-    public Optional<RecruitingApplication> findActiveByRoundIdAndApplicantIdentityKey(
+    public RecruitingApplication getByIdWithDetailsForUpdate(Long id) {
+        return RecruitingLockExceptionTranslator.translate(() ->
+            recruitingApplicationQueryRepository.findByIdWithDetailsForUpdate(id)
+                .orElseThrow(() -> new RecruitingDomainException(
+                    RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND
+                ))
+        );
+    }
+
+    @Override
+    public RecruitingApplicantLockTarget getApplicantLockTarget(Long id) {
+        return recruitingApplicationQueryRepository.findApplicantLockTarget(id)
+            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));
+    }
+
+    @Override
+    public Long getRoundIdByApplicationId(Long id) {
+        return recruitingApplicationQueryRepository.findRoundIdByApplicationId(id)
+            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));
+    }
+
+    @Override
+    public boolean existsByApplicantEmailAndApplicationKey(String applicantEmail, String applicationKey) {
+        return recruitingApplicationJpaRepository.existsByApplicantProfile_ApplicantEmailAndApplicationKey(
+            applicantEmail,
+            applicationKey
+        );
+    }
+
+    @Override
+    public boolean existsByRoundIdAndApplicantMemberId(Long roundId, Long applicantMemberId) {
+        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantMemberId(roundId, applicantMemberId);
+    }
+
+    @Override
+    public boolean existsByRoundIdAndApplicantMemberIdAndIdNot(
         Long roundId,
-        String applicantIdentityKey
+        Long applicantMemberId,
+        Long excludedId
     ) {
-        return recruitingApplicationQueryRepository.findActiveByRoundIdAndApplicantIdentityKey(
+        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantMemberIdAndIdNot(
             roundId,
-            applicantIdentityKey
+            applicantMemberId,
+            excludedId
         );
     }
 
     @Override
-    public boolean existsByRoundIdAndApplicantIdentityKey(Long roundId, String applicantIdentityKey) {
-        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantIdentityKey(
+    public boolean existsByRoundIdAndApplicantEmail(Long roundId, String applicantEmail) {
+        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantProfile_ApplicantEmail(
             roundId,
-            applicantIdentityKey
+            applicantEmail
         );
     }
 
     @Override
-    public boolean existsByRoundIdAndApplicantIdentityKeyAndIdNot(
+    public boolean existsByRoundIdAndApplicantEmailAndIdNot(
         Long roundId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        String applicantEmail,
+        Long excludedId
     ) {
-        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantIdentityKeyAndIdNot(
+        return recruitingApplicationJpaRepository.existsByRound_IdAndApplicantProfile_ApplicantEmailAndIdNot(
             roundId,
-            applicantIdentityKey,
-            excludedApplicationId
+            applicantEmail,
+            excludedId
         );
     }
 
     @Override
-    public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKey(
+    public boolean existsByRoundId(Long roundId) {
+        return recruitingApplicationJpaRepository.existsByRound_Id(roundId);
+    }
+
+    @Override
+    public boolean existsBlockingApplicationByGisuIdAndApplicant(
         Long gisuId,
-        String applicantIdentityKey
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     ) {
-        return recruitingApplicationQueryRepository.existsBlockingApplicationByGisuIdAndApplicantIdentityKey(
+        return recruitingApplicationQueryRepository.existsBlockingApplicationByGisuIdAndApplicant(
             gisuId,
-            applicantIdentityKey
+            applicantMemberId,
+            applicantEmail,
+            excludedId
         );
     }
 
     @Override
-    public boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
-        Long gisuId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
-    ) {
-        return recruitingApplicationQueryRepository.existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
-            gisuId,
-            applicantIdentityKey,
-            excludedApplicationId
-        );
-    }
-
-    @Override
-    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
+    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicant(
         Long gisuId,
         Long schoolId,
-        String applicantIdentityKey
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     ) {
-        return recruitingApplicationQueryRepository
-            .existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
-                gisuId,
-                schoolId,
-                applicantIdentityKey
-            );
-    }
-
-    @Override
-    public boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
-        Long gisuId,
-        Long schoolId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
-    ) {
-        return recruitingApplicationQueryRepository
-            .existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
-                gisuId,
-                schoolId,
-                applicantIdentityKey,
-                excludedApplicationId
-            );
-    }
-
-    @Override
-    public boolean existsFinalPassedByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey) {
-        return recruitingApplicationQueryRepository.existsFinalPassedByGisuIdAndApplicantIdentityKey(
+        return recruitingApplicationQueryRepository.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicant(
             gisuId,
-            applicantIdentityKey
+            schoolId,
+            applicantMemberId,
+            applicantEmail,
+            excludedId
         );
     }
 
     @Override
-    public boolean existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+    public boolean existsFinalPassedByGisuIdAndApplicant(
         Long gisuId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     ) {
-        return recruitingApplicationQueryRepository.existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+        return recruitingApplicationQueryRepository.existsFinalPassedByGisuIdAndApplicant(
             gisuId,
-            applicantIdentityKey,
-            excludedApplicationId
+            applicantMemberId,
+            applicantEmail,
+            excludedId
+        );
+    }
+
+    @Override
+    public long countReservedOrRegisteredBySeasonIdAndTrack(Long seasonId, ChallengerTrack track) {
+        return recruitingApplicationJpaRepository.countByRound_Season_IdAndAcceptedTrackAndRegistrationStatusIn(
+            seasonId,
+            track,
+            List.of(
+                RecruitingApplicationRegistrationStatus.READY,
+                RecruitingApplicationRegistrationStatus.REGISTERED
+            )
         );
     }
 

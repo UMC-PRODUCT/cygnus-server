@@ -26,6 +26,13 @@ public class RecruitingGraphQlPermissionSupport {
         );
     }
 
+    public void assertRecruitmentTypePermission(Long memberId, PermissionType permission) {
+        checkPermissionUseCase.checkOrThrow(
+            memberId,
+            ResourcePermission.ofType(ResourceType.RECRUITMENT, permission)
+        );
+    }
+
     public void assertRecruitmentPermission(Long seasonId, PermissionType permission) {
         checkPermissionUseCase.checkOrThrow(currentMemberId(), recruitmentPermission(seasonId, permission));
     }

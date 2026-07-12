@@ -1,0 +1,20 @@
+package com.umc.product.recruiting.application.port.in.command.dto;
+
+import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
+import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
+
+import lombok.Builder;
+
+@Builder
+public record UpdateRecruitingRoundCommand(
+    Long seasonId,
+    Long roundId,
+    RecruitingRoundConfigurationCommand configuration
+) {
+
+    public UpdateRecruitingRoundCommand {
+        if (configuration == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+        }
+    }
+}

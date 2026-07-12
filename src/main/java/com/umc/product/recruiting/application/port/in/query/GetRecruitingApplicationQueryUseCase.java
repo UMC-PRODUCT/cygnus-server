@@ -1,11 +1,11 @@
 package com.umc.product.recruiting.application.port.in.query;
 
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationResultInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 
 public interface GetRecruitingApplicationQueryUseCase {
 
-    RecruitingApplicationResultInfo getAnonymousResult(String applicationNo, String applicantIdentityKey);
+    RecruitingApplicationInfo getById(Long applicationId, Long requesterMemberId);
 
     RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId);
 

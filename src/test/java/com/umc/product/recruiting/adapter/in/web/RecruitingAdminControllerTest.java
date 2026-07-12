@@ -11,9 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.time.Instant;
 import java.util.EnumMap;
-import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -32,37 +30,26 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.recruiting.application.port.in.command.AssignRecruitingInterviewUseCase;
+import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
-import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
-import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
-import com.umc.product.recruiting.application.port.in.command.FindRecruitingInterviewScheduleCandidatesUseCase;
 import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
-import com.umc.product.recruiting.application.port.in.command.SaveRecruitingInterviewEvaluationUseCase;
-import com.umc.product.recruiting.application.port.in.command.SendRecruitingInterviewGuideUseCase;
-import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
-import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingInterviewEvaluationUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingDocumentCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
-import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewEvaluationUseCase;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingInterviewEvaluationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
-import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
-import com.umc.product.recruiting.domain.enums.RecruitingInterviewEvaluationStatus;
 import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = {RecruitingAdminController.class, RecruitingAdminInterviewController.class})
@@ -85,39 +72,21 @@ class RecruitingAdminControllerTest {
     JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
-    CreateRecruitingSeasonUseCase createSeasonUseCase;
-    @MockitoBean
-    UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
-    @MockitoBean
-    CreateRecruitingRoundUseCase createRoundUseCase;
-    @MockitoBean
-    UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
-    @MockitoBean
     LinkRecruitingApplicationFormUseCase linkFormUseCase;
     @MockitoBean
     PublishRecruitingApplicationFormUseCase publishFormUseCase;
     @MockitoBean
     CloseRecruitingApplicationFormUseCase closeFormUseCase;
     @MockitoBean
-    DecideRecruitingDocumentUseCase decideDocumentUseCase;
-    @MockitoBean
     DecideRecruitingFinalUseCase decideFinalUseCase;
+    @MockitoBean
+    PrepareRecruitingRegistrationUseCase prepareRegistrationUseCase;
+    @MockitoBean
+    CancelRecruitingRegistrationUseCase cancelRegistrationUseCase;
     @MockitoBean
     ConfirmRecruitingRegistrationUseCase confirmRegistrationUseCase;
     @MockitoBean
-    AssignRecruitingInterviewUseCase assignInterviewUseCase;
-    @MockitoBean
-    SkipRecruitingInterviewUseCase skipInterviewUseCase;
-    @MockitoBean
-    FindRecruitingInterviewScheduleCandidatesUseCase findScheduleCandidatesUseCase;
-    @MockitoBean
-    SendRecruitingInterviewGuideUseCase sendInterviewGuideUseCase;
-    @MockitoBean
-    SaveRecruitingInterviewEvaluationUseCase saveEvaluationUseCase;
-    @MockitoBean
-    SubmitRecruitingInterviewEvaluationUseCase submitEvaluationUseCase;
-    @MockitoBean
-    GetRecruitingInterviewEvaluationUseCase getEvaluationUseCase;
+    ManageRecruitingInterviewScheduleUseCase manageScheduleUseCase;
     @MockitoBean
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     @MockitoBean
@@ -132,106 +101,85 @@ class RecruitingAdminControllerTest {
     }
 
     @Test
-    @DisplayName("모집 시즌 생성 API는 id를 반환한다")
-    void 모집_시즌_생성_API는_id를_반환한다() throws Exception {
-        given(createSeasonUseCase.createSeason(any())).willReturn(SEASON_ID);
-
-        mockMvc.perform(post("/api/v1/recruiting/admin/seasons")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"gisuId\":11,\"schoolId\":22}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result.id").value(SEASON_ID));
-    }
-
-    @Test
-    @DisplayName("모집 폼 연결 API는 track 기반 command를 전달한다")
-    void 모집_폼_연결_API는_track_기반_command를_전달한다() throws Exception {
+    @DisplayName("모집 폼 연결 API는 차수와 Form ID command를 전달한다")
+    void 모집_폼_연결_API는_차수와_Form_ID를_전달한다() throws Exception {
         given(linkFormUseCase.link(any())).willReturn(APPLICATION_FORM_ID);
 
         mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/forms", SEASON_ID, ROUND_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"formId\":300,\"track\":\"WEB_PRODUCT_ENGINEER\"}"))
+                .content("{\"formId\":300}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.id").value(APPLICATION_FORM_ID));
 
         ArgumentCaptor<LinkRecruitingApplicationFormCommand> captor =
             ArgumentCaptor.forClass(LinkRecruitingApplicationFormCommand.class);
         then(linkFormUseCase).should().link(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
         assertThat(captor.getValue().roundId()).isEqualTo(ROUND_ID);
-        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(captor.getValue().formId()).isEqualTo(300L);
     }
 
     @Test
-    @DisplayName("서류 결정 API는 결정자 memberId를 command로 전달한다")
-    void 서류_결정_API는_결정자_memberId를_command로_전달한다() throws Exception {
-        mockMvc.perform(patch(
-                    "/api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/document-decision",
-                    SEASON_ID, APPLICATION_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"decision\":\"PASS\",\"reason\":\"충분한 역량\"}"))
+    @DisplayName("모집 폼 게시 API는 시즌과 요청자 ID를 command로 전달한다")
+    void publishFormBindsSeasonAndRequester() throws Exception {
+        mockMvc.perform(post(
+                "/api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/publish",
+                SEASON_ID,
+                APPLICATION_FORM_ID
+            ))
             .andExpect(status().isOk());
 
-        ArgumentCaptor<DecideRecruitingDocumentCommand> captor =
-            ArgumentCaptor.forClass(DecideRecruitingDocumentCommand.class);
-        then(decideDocumentUseCase).should().decideDocument(captor.capture());
-        assertThat(captor.getValue().applicationId()).isEqualTo(APPLICATION_ID);
-        assertThat(captor.getValue().decision()).isEqualTo(com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus.PASS);
-        assertThat(captor.getValue().decidedByMemberId()).isEqualTo(MEMBER_ID);
+        ArgumentCaptor<PublishRecruitingApplicationFormCommand> captor =
+            ArgumentCaptor.forClass(PublishRecruitingApplicationFormCommand.class);
+        then(publishFormUseCase).should().publish(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("모집 폼 마감 API는 시즌 ID를 command로 전달한다")
+    void closeFormBindsSeason() throws Exception {
+        mockMvc.perform(post(
+                "/api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/close",
+                SEASON_ID,
+                APPLICATION_FORM_ID
+            ))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<CloseRecruitingApplicationFormCommand> captor =
+            ArgumentCaptor.forClass(CloseRecruitingApplicationFormCommand.class);
+        then(closeFormUseCase).should().close(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
     }
 
     @Test
     @DisplayName("최종 결정 API는 결정자 memberId를 command로 전달한다")
     void 최종_결정_API는_결정자_memberId를_command로_전달한다() throws Exception {
         mockMvc.perform(patch(
-                    "/api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/final-decision",
-                    SEASON_ID, APPLICATION_ID)
+                    "/api/v1/recruiting/admin/applications/{applicationId}/final-decision",
+                    APPLICATION_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"decision\":\"FAIL\",\"reason\":\"정원 초과\"}"))
+                .content("{\"decision\":\"PASS\",\"acceptedTrack\":\"PLAN\",\"reason\":\"적합\"}"))
             .andExpect(status().isOk());
 
         ArgumentCaptor<DecideRecruitingFinalCommand> captor =
             ArgumentCaptor.forClass(DecideRecruitingFinalCommand.class);
         then(decideFinalUseCase).should().decideFinal(captor.capture());
-        assertThat(captor.getValue().decision()).isEqualTo(com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus.FAIL);
+        assertThat(captor.getValue().decision()).isEqualTo(com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus.PASS);
+        assertThat(captor.getValue().acceptedTrack()).isEqualTo(com.umc.product.common.domain.enums.ChallengerTrack.PLAN);
         assertThat(captor.getValue().decidedByMemberId()).isEqualTo(MEMBER_ID);
     }
 
     @Test
-    @DisplayName("면접 일정 후보 API는 survey overlap 결과를 반환한다")
-    void 면접_일정_후보_API는_survey_overlap_결과를_반환한다() throws Exception {
-        given(findScheduleCandidatesUseCase.findScheduleCandidates(any()))
-            .willReturn(List.of(new RecruitingInterviewScheduleCandidate(
-                Instant.parse("2026-07-01T01:00:00Z"),
-                Instant.parse("2026-07-01T02:00:00Z"),
-                3
-            )));
+    @DisplayName("READY API는 CurrentMember actor를 use case로 전달한다")
+    void readyUsesCurrentMemberActor() throws Exception {
+        mockMvc.perform(post("/api/v1/recruiting/admin/applications/{applicationId}/registration/ready", APPLICATION_ID))
+            .andExpect(status().isOk());
 
-        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/interviews/schedule-candidates", SEASON_ID)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"formId\":300,\"formResponseIds\":[1,2,3]}"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result[0].availableApplicantCount").value(3));
-    }
-
-    @Test
-    @DisplayName("어드민 평가 조회 API는 관리자 bypass로 모든 평가를 조회한다")
-    void 어드민_평가_조회_API는_관리자_bypass로_모든_평가를_조회한다() throws Exception {
-        given(getEvaluationUseCase.listVisibleEvaluations(APPLICATION_ID, MEMBER_ID, true))
-            .willReturn(List.of(new RecruitingInterviewEvaluationInfo(
-                77L,
-                MEMBER_ID,
-                RecruitingInterviewEvaluationStatus.DRAFT,
-                4,
-                "좋음",
-                null
-            )));
-
-        mockMvc.perform(get(
-                    "/api/v1/recruiting/admin/seasons/{seasonId}/applications/{applicationId}/interview-evaluations",
-                    SEASON_ID, APPLICATION_ID))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result[0].evaluationId").value(77L))
-            .andExpect(jsonPath("$.result[0].evaluatorMemberId").value(MEMBER_ID));
+        ArgumentCaptor<PrepareRecruitingRegistrationCommand> captor =
+            ArgumentCaptor.forClass(PrepareRecruitingRegistrationCommand.class);
+        then(prepareRegistrationUseCase).should().prepareRegistration(captor.capture());
+        assertThat(captor.getValue().executorMemberId()).isEqualTo(MEMBER_ID);
     }
 
     @Test
@@ -239,8 +187,8 @@ class RecruitingAdminControllerTest {
     void CSV_export_API는_raw_email과_지원서_본문_없이_attachment를_반환한다() throws Exception {
         given(exportRecruitingCsvUseCase.exportSummaryCsv(11L, 22L))
             .willReturn("""
-                gisuId,schoolId,roundType,roundNo,formId,track,applicationNo,maskedEmail,applicationStatus,registrationStatus,submittedAt
-                11,22,REGULAR,1,300,WEB_PRODUCT_ENGINEER,REC-001,h***@example.com,SUBMITTED,NONE,2026-07-01T00:00:00Z
+                gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt
+                11,22,REGULAR,1,40,app****@example.org,WEB_PRODUCT_ENGINEER,,,SUBMITTED,NOT_READY,2026-07-01T00:00:00Z
                 """.getBytes());
 
         mockMvc.perform(get("/api/v1/recruiting/admin/statistics.csv")
@@ -250,8 +198,13 @@ class RecruitingAdminControllerTest {
             .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"recruiting-statistics.csv\""))
             .andExpect(result -> {
                 String body = result.getResponse().getContentAsString();
-                assertThat(body).contains("maskedEmail");
-                assertThat(body).doesNotContain("rawEmail");
+                assertThat(body.lines().findFirst()).contains(
+                    "gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,"
+                        + "secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt"
+                );
+                assertThat(body).doesNotContain("applicantEmail");
+                assertThat(body).doesNotContain("applicantName");
+                assertThat(body).doesNotContain("applicationKey");
                 assertThat(body).doesNotContain("answer");
             });
     }

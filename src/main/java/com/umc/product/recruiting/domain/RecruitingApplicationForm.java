@@ -1,8 +1,13 @@
 package com.umc.product.recruiting.domain;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import com.umc.product.common.BaseEntity;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -27,8 +32,8 @@ import lombok.NoArgsConstructor;
 @Table(
     name = "recruiting_application_form",
     uniqueConstraints = @UniqueConstraint(
-        name = "uk_recruiting_application_form_round_form",
-        columnNames = {"recruiting_round_id", "form_id"}
+        name = "uk_recruiting_application_form_round",
+        columnNames = "recruiting_round_id"
     )
 )
 @Getter
@@ -48,29 +53,35 @@ public class RecruitingApplicationForm extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ChallengerTrack track;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private RecruitingApplicationFormStatus status;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private RecruitingApplicationForm(RecruitingRound round, Long formId, ChallengerTrack track) {
-        if (track == null) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_TRACK_REQUIRED);
+    private RecruitingApplicationForm(RecruitingRound round, Long formId) {
+        if (round == null || formId == null || formId <= 0) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_INVALID);
         }
         this.round = round;
         this.formId = formId;
-        this.track = track;
         this.status = RecruitingApplicationFormStatus.DRAFT;
     }
 
-    public static RecruitingApplicationForm create(RecruitingRound round, Long formId, ChallengerTrack track) {
+    public static RecruitingApplicationForm create(RecruitingRound round, Long formId) {
         return RecruitingApplicationForm.builder()
             .round(round)
             .formId(formId)
-            .track(track)
             .build();
+    }
+
+    public void validatePoliciesForPublish(List<RecruitingFormSectionPolicy> policies) {
+        Set<ChallengerTrack> sectionTracks = policies.stream()
+            .filter(policy -> policy.getType() == RecruitingFormSectionType.TRACK)
+            .map(RecruitingFormSectionPolicy::getTrack)
+            .collect(Collectors.toSet());
+        if (!sectionTracks.containsAll(round.getRecruitableTracks())) {
+            throw new RecruitingDomainException(
+                RecruitingErrorCode.RECRUITING_APPLICATION_FORM_TRACK_SECTION_REQUIRED
+            );
+        }
     }
 
     public void publish() {
@@ -84,7 +95,7 @@ public class RecruitingApplicationForm extends BaseEntity {
     }
 
     private void validateStatus(RecruitingApplicationFormStatus expectedStatus) {
-        if (this.status != expectedStatus) {
+        if (status != expectedStatus) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_INVALID_TRANSITION);
         }
     }

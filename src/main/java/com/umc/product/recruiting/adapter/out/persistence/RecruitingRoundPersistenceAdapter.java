@@ -32,6 +32,14 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
     }
 
     @Override
+    public RecruitingRound getByIdForUpdate(Long id) {
+        return RecruitingLockExceptionTranslator.translate(() ->
+            recruitingRoundJpaRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND))
+        );
+    }
+
+    @Override
     public List<RecruitingRound> listBySeasonId(Long seasonId) {
         return recruitingRoundJpaRepository.findAllBySeason_IdOrderByRoundNoAscIdAsc(seasonId);
     }

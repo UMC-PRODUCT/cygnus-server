@@ -2,40 +2,54 @@ package com.umc.product.recruiting.adapter.in.web.dto.request;
 
 import java.util.List;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand;
+import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "지원서 초안 수정 요청")
 public record UpdateRecruitingApplicationDraftRequest(
-    @Schema(description = "지원서 답변 목록")
-    @NotNull List<@Valid AnswerRequest> answers,
-    @Schema(description = "요청자 회원 ID. 로그인 사용자는 세션의 회원 ID가 우선합니다.", example = "1001")
-    Long requesterMemberId
+    @Schema(description = "지원자 이름", example = "홍길동", maxLength = 100)
+    @NotBlank @Pattern(regexp = "\\S+") @Size(max = 100) String applicantName,
+    @Schema(description = "지원자 이메일", example = "applicant@example.org", maxLength = 254)
+    @NotBlank @Email @Size(max = 254) String applicantEmail,
+    @Schema(description = "1지망 모집 트랙", example = "PLAN") @NotNull ChallengerTrack firstChoice,
+    @Schema(description = "2지망 모집 트랙", example = "DESIGN") ChallengerTrack secondChoice,
+    @Schema(description = "Survey 질문별 답변 목록") @NotNull List<@Valid AnswerRequest> answers
 ) {
 
-    public UpdateRecruitingApplicationDraftCommand toCommand(Long applicationId, Long resolvedRequesterMemberId) {
+    public UpdateRecruitingApplicationDraftRequest {
+        if (applicantEmail != null && !applicantEmail.isBlank()) {
+            applicantEmail = RecruitingApplicantEmail.from(applicantEmail).value();
+        }
+    }
+
+    public UpdateRecruitingApplicationDraftCommand toCommand(Long applicationId, Long requesterMemberId) {
         return UpdateRecruitingApplicationDraftCommand.builder()
             .applicationId(applicationId)
-            .requesterMemberId(resolvedRequesterMemberId)
-            .answers(answers.stream()
-                .map(AnswerRequest::toCommand)
-                .toList())
+            .requesterMemberId(requesterMemberId)
+            .applicantName(applicantName)
+            .applicantEmail(applicantEmail)
+            .firstChoice(firstChoice)
+            .secondChoice(secondChoice)
+            .answers(answers.stream().map(AnswerRequest::toCommand).toList())
             .build();
     }
 
-    @Schema(description = "지원서 문항 답변")
+    @Schema(description = "Survey 질문 답변")
     public record AnswerRequest(
-        @Schema(description = "form 문항 ID", example = "7001")
-        @NotNull Long questionId,
-        @Schema(description = "단답형 또는 서술형 답변", example = "UMC 활동을 통해 서비스 개발 역량을 키우고 싶습니다.")
-        String textValue,
-        @Schema(description = "선택형 문항에서 선택한 option ID 목록", example = "[8001,8002]")
-        List<Long> selectedOptionIds,
-        @Schema(description = "파일 업로드 문항의 파일 ID 목록", example = "[\"file-1\",\"file-2\"]")
-        List<String> fileIds
+        @Schema(description = "Survey 질문 ID", example = "7") @NotNull @Positive Long questionId,
+        @Schema(description = "텍스트 답변") String textValue,
+        @Schema(description = "선택한 Survey 옵션 ID 목록") List<@Positive Long> selectedOptionIds,
+        @Schema(description = "첨부 파일 ID 목록") List<String> fileIds
     ) {
 
         private UpdateRecruitingApplicationDraftCommand.AnswerEntry toCommand() {

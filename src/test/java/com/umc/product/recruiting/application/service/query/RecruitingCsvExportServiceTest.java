@@ -31,8 +31,8 @@ class RecruitingCsvExportServiceTest {
     RecruitingCsvExportService sut;
 
     @Test
-    @DisplayName("CSV는_지원서_본문과_raw_email_없이_최소_현황_필드만_포함한다")
-    void exportSummaryCsvExcludesApplicationBodyAndRawEmail() {
+    @DisplayName("CSV는 정확한 헤더와 마스킹 이메일만 포함한다")
+    void exportSummaryCsvUsesExactHeaderAndMaskedEmail() {
         // Given
         given(loadApplicationPort.searchSummaryRows(1L, 10L, null)).willReturn(List.of(row()));
 
@@ -40,12 +40,12 @@ class RecruitingCsvExportServiceTest {
         String csv = new String(sut.exportSummaryCsv(1L, 10L), StandardCharsets.UTF_8);
 
         // Then
-        assertThat(csv).contains("gisuId,schoolId,roundType,roundNo,formId,track,applicationNo,maskedEmail");
-        assertThat(csv).contains("APP-001");
-        assertThat(csv).contains("a***@umc.test");
-        assertThat(csv).doesNotContain("applicant@umc.test");
-        assertThat(csv).doesNotContain("answer");
-        assertThat(csv).doesNotContain("formResponseId");
+        assertThat(csv.lines().findFirst()).contains(
+            "gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,"
+                + "secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt"
+        );
+        assertThat(csv).contains("900,app******@umc.test,WEB_PRODUCT_ENGINEER");
+        assertThat(csv).doesNotContain("지원자", "applicant@umc.test", "A1B2C3", "answer", "formResponseId");
     }
 
     private RecruitingApplicationSummaryRow row() {
@@ -58,10 +58,12 @@ class RecruitingCsvExportServiceTest {
             2,
             100L,
             500L,
-            ChallengerTrack.WEB_PRODUCT_ENGINEER,
             900L,
-            "APP-001",
-            "a***@umc.test",
+            "지원자",
+            "applicant@umc.test",
+            ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            null,
+            null,
             RecruitingApplicationStatus.SUBMITTED,
             RecruitingApplicationRegistrationStatus.NOT_READY,
             Instant.parse("2026-07-02T01:00:00Z")

@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.in.web;
 
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +15,7 @@ import com.umc.product.recruiting.adapter.in.web.dto.request.CancelRecruitingApp
 import com.umc.product.recruiting.adapter.in.web.dto.request.CreateRecruitingApplicationDraftRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitRecruitingApplicationRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingApplicationDraftRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationCreatedResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationResponse;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
@@ -25,10 +27,12 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/recruiting/applications")
+@Validated
 @Tag(name = "Recruiting | 지원서", description = "지원서 초안 작성, 수정, 제출, 철회를 처리합니다.")
 @RequiredArgsConstructor
 public class RecruitingApplicationController {
@@ -42,17 +46,15 @@ public class RecruitingApplicationController {
     @Operation(
         operationId = "RECRUITING-APPLICATION-001",
         summary = "지원서 초안 생성",
-        description = "지원 폼에 대한 지원서 초안을 생성합니다. 로그인 사용자는 세션의 회원 ID를 사용하고, 익명 지원자는 회원 ID 없이 생성됩니다."
+        description = "로그인 회원이 지원 폼에 대한 지원서 초안을 생성합니다."
     )
-    public RecruitingApplicationResponse createDraft(
+    public RecruitingApplicationCreatedResponse createDraft(
         @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody CreateRecruitingApplicationDraftRequest request
     ) {
-        return RecruitingApplicationResponse.from(
-            createDraftUseCase.createDraft(request.toCommand(
-                resolveMemberId(memberPrincipal, request.applicantMemberId())
-            ))
+        return RecruitingApplicationCreatedResponse.from(
+            createDraftUseCase.createDraft(request.toCommand(resolveMemberId(memberPrincipal)))
         );
     }
 
@@ -60,18 +62,18 @@ public class RecruitingApplicationController {
     @Operation(
         operationId = "RECRUITING-APPLICATION-002",
         summary = "지원서 초안 수정",
-        description = "지원서 답변을 저장합니다. 로그인 사용자는 세션의 회원 ID를 사용하고, 익명 지원자는 익명 식별 키로 검증됩니다."
+        description = "로그인 회원이 본인의 지원 기본 정보와 답변을 저장합니다."
     )
     public RecruitingApplicationResponse updateDraft(
         @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
-        @PathVariable Long applicationId,
+        @PathVariable @Positive Long applicationId,
         @Valid @RequestBody UpdateRecruitingApplicationDraftRequest request
     ) {
         return RecruitingApplicationResponse.from(
             updateDraftUseCase.updateDraft(request.toCommand(
                 applicationId,
-                resolveMemberId(memberPrincipal, request.requesterMemberId())
+                resolveMemberId(memberPrincipal)
             ))
         );
     }
@@ -85,17 +87,17 @@ public class RecruitingApplicationController {
     public RecruitingApplicationResponse submit(
         @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
-        @PathVariable Long applicationId,
+        @PathVariable @Positive Long applicationId,
         @RequestBody(required = false) SubmitRecruitingApplicationRequest request,
         HttpServletRequest servletRequest
     ) {
         SubmitRecruitingApplicationRequest actualRequest = request == null
-            ? new SubmitRecruitingApplicationRequest(null, null)
+            ? new SubmitRecruitingApplicationRequest(null)
             : request;
         return RecruitingApplicationResponse.from(
             submitUseCase.submit(actualRequest.toCommand(
                 applicationId,
-                resolveMemberId(memberPrincipal, actualRequest.requesterMemberId()),
+                resolveMemberId(memberPrincipal),
                 servletRequest.getRemoteAddr()
             ))
         );
@@ -110,24 +112,21 @@ public class RecruitingApplicationController {
     public RecruitingApplicationResponse cancel(
         @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
-        @PathVariable Long applicationId,
+        @PathVariable @Positive Long applicationId,
         @RequestBody(required = false) CancelRecruitingApplicationRequest request
     ) {
         CancelRecruitingApplicationRequest actualRequest = request == null
-            ? new CancelRecruitingApplicationRequest(null, null)
+            ? new CancelRecruitingApplicationRequest(null)
             : request;
         return RecruitingApplicationResponse.from(
             cancelUseCase.cancel(actualRequest.toCommand(
                 applicationId,
-                resolveMemberId(memberPrincipal, actualRequest.requesterMemberId())
+                resolveMemberId(memberPrincipal)
             ))
         );
     }
 
-    private Long resolveMemberId(MemberPrincipal memberPrincipal, Long requestMemberId) {
-        if (memberPrincipal != null) {
-            return memberPrincipal.getMemberId();
-        }
-        return null;
+    private Long resolveMemberId(MemberPrincipal memberPrincipal) {
+        return memberPrincipal.getMemberId();
     }
 }

@@ -1,14 +1,17 @@
 package com.umc.product.recruiting.domain;
 
 import java.time.Instant;
+import java.util.regex.Pattern;
 
 import com.umc.product.common.BaseEntity;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -28,14 +31,26 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(
     name = "recruiting_application",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_recruiting_application_application_no",
-        columnNames = "application_no"
-    )
+    uniqueConstraints = {
+        @UniqueConstraint(
+            name = "uk_recruiting_application_round_email",
+            columnNames = {"recruiting_round_id", "applicant_email"}
+        ),
+        @UniqueConstraint(
+            name = "uk_recruiting_application_round_member",
+            columnNames = {"recruiting_round_id", "applicant_member_id"}
+        ),
+        @UniqueConstraint(
+            name = "uk_recruiting_application_email_key",
+            columnNames = {"applicant_email", "application_key"}
+        )
+    }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RecruitingApplication extends BaseEntity {
+
+    private static final Pattern APPLICATION_KEY_PATTERN = Pattern.compile("[A-Z0-9]{6}");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,14 +70,21 @@ public class RecruitingApplication extends BaseEntity {
     @Column(name = "applicant_member_id")
     private Long applicantMemberId;
 
-    @Column(nullable = false, name = "applicant_identity_key", length = 128)
-    private String applicantIdentityKey;
+    @Embedded
+    private RecruitingApplicantProfile applicantProfile;
 
-    @Column(nullable = false, name = "application_no", length = 64)
-    private String applicationNo;
+    @Column(name = "privacy_term_id")
+    private Long privacyTermId;
 
-    @Column(name = "masked_email", length = 255)
-    private String maskedEmail;
+    @Column(name = "privacy_agreed_at")
+    private Instant privacyAgreedAt;
+
+    @Column(name = "application_key", nullable = false, length = 6)
+    private String applicationKey;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "accepted_track")
+    private ChallengerTrack acceptedTrack;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -89,126 +111,178 @@ public class RecruitingApplication extends BaseEntity {
         RecruitingApplicationForm applicationForm,
         Long formResponseId,
         Long applicantMemberId,
-        String applicantIdentityKey,
-        String applicationNo,
-        String maskedEmail
+        RecruitingApplicantProfile applicantProfile,
+        String applicationKey
     ) {
+        validateRequired(applicationForm, formResponseId, applicantMemberId, applicantProfile, applicationKey);
         this.round = applicationForm.getRound();
         this.applicationForm = applicationForm;
         this.formResponseId = formResponseId;
         this.applicantMemberId = applicantMemberId;
-        this.applicantIdentityKey = applicantIdentityKey;
-        this.applicationNo = applicationNo;
-        this.maskedEmail = maskedEmail;
+        this.applicantProfile = applicantProfile;
+        this.applicationKey = applicationKey;
         this.status = RecruitingApplicationStatus.DRAFT;
         this.registrationStatus = RecruitingApplicationRegistrationStatus.NOT_READY;
     }
 
-    public static RecruitingApplication createDraft(
+    public static RecruitingApplication createMemberDraft(
         RecruitingApplicationForm applicationForm,
         Long formResponseId,
         Long applicantMemberId,
-        String applicantIdentityKey,
-        String applicationNo,
-        String maskedEmail
+        RecruitingApplicantProfile applicantProfile,
+        String applicationKey
     ) {
         return RecruitingApplication.builder()
             .applicationForm(applicationForm)
             .formResponseId(formResponseId)
             .applicantMemberId(applicantMemberId)
-            .applicantIdentityKey(applicantIdentityKey)
-            .applicationNo(applicationNo)
-            .maskedEmail(maskedEmail)
+            .applicantProfile(applicantProfile)
+            .applicationKey(applicationKey)
             .build();
     }
 
+    public void updateDraft(Long requesterMemberId, RecruitingApplicantProfile applicantProfile) {
+        if (status != RecruitingApplicationStatus.DRAFT) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
+        }
+        validateApplicant(requesterMemberId);
+        if (applicantProfile == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REQUIRED_FIELD);
+        }
+        this.applicantProfile = applicantProfile;
+    }
+
+    public void recordPrivacyConsent(Long termId, Instant agreedAt) {
+        if (termId == null || termId <= 0 || agreedAt == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_PRIVACY_CONSENT);
+        }
+        this.privacyTermId = termId;
+        this.privacyAgreedAt = agreedAt;
+    }
+
+    public void acceptTrack(ChallengerTrack track) {
+        if (!applicantProfile.includesTrack(track)) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_ACCEPTED_TRACK);
+        }
+        this.acceptedTrack = track;
+    }
+
+    public void validateApplicant(Long memberId) {
+        if (memberId == null || !memberId.equals(applicantMemberId)) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_APPLICANT_MISMATCH);
+        }
+    }
+
     public void submit(Long memberId) {
-        validateStatus(RecruitingApplicationStatus.DRAFT);
-        this.status = RecruitingApplicationStatus.SUBMITTED;
+        validateApplicant(memberId);
+        transitionTo(RecruitingApplicationStatus.SUBMITTED, memberId, null);
         this.submittedAt = Instant.now();
-        recordStatusChange(memberId, null);
     }
 
     public void cancel(Long memberId, String reason) {
-        if (this.status != RecruitingApplicationStatus.DRAFT && this.status != RecruitingApplicationStatus.SUBMITTED) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
-        }
-        this.status = RecruitingApplicationStatus.CANCELLED;
-        recordStatusChange(memberId, reason);
+        validateApplicant(memberId);
+        transitionTo(RecruitingApplicationStatus.CANCELLED, memberId, reason);
     }
 
     public void passDocument(Long memberId, String reason) {
-        validateStatus(RecruitingApplicationStatus.SUBMITTED);
-        this.status = RecruitingApplicationStatus.DOCUMENT_PASSED;
-        recordStatusChange(memberId, reason);
+        transitionTo(RecruitingApplicationStatus.DOCUMENT_PASSED, memberId, reason);
     }
 
     public void failDocument(Long memberId, String reason) {
-        validateStatus(RecruitingApplicationStatus.SUBMITTED);
-        this.status = RecruitingApplicationStatus.DOCUMENT_FAILED;
-        recordStatusChange(memberId, reason);
+        transitionTo(RecruitingApplicationStatus.DOCUMENT_FAILED, memberId, reason);
     }
 
     public void skipInterview(Long memberId, String reason) {
-        validateStatus(RecruitingApplicationStatus.DOCUMENT_PASSED);
-        this.status = RecruitingApplicationStatus.INTERVIEW_SKIPPED;
-        recordStatusChange(memberId, reason);
+        transitionTo(RecruitingApplicationStatus.INTERVIEW_SKIPPED, memberId, reason);
     }
 
     public void assignInterview(Long memberId, String reason) {
-        validateStatus(RecruitingApplicationStatus.DOCUMENT_PASSED);
-        this.status = RecruitingApplicationStatus.INTERVIEW_ASSIGNED;
-        recordStatusChange(memberId, reason);
+        transitionTo(RecruitingApplicationStatus.INTERVIEW_ASSIGNED, memberId, reason);
     }
 
-    public void passFinal(Long memberId, String reason) {
-        validateFinalDecisionSource();
-        this.status = RecruitingApplicationStatus.FINAL_PASSED;
-        recordStatusChange(memberId, reason);
+    public void passFinal(Long memberId, String reason, ChallengerTrack acceptedTrack) {
+        acceptTrack(acceptedTrack);
+        transitionTo(RecruitingApplicationStatus.FINAL_PASSED, memberId, reason);
     }
 
     public void failFinal(Long memberId, String reason) {
-        validateFinalDecisionSource();
-        this.status = RecruitingApplicationStatus.FINAL_FAILED;
-        recordStatusChange(memberId, reason);
+        transitionTo(RecruitingApplicationStatus.FINAL_FAILED, memberId, reason);
     }
 
     public void markRegistrationReady(Long memberId) {
-        validateStatus(RecruitingApplicationStatus.FINAL_PASSED);
+        RecruitingApplicationLifecyclePolicy.requireFinalPassed(status);
+        requireRegistrationStatus(RecruitingApplicationRegistrationStatus.NOT_READY);
+        if (acceptedTrack == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_ACCEPTED_TRACK);
+        }
         this.registrationStatus = RecruitingApplicationRegistrationStatus.READY;
         recordStatusChange(memberId, null);
     }
 
+    public void cancelRegistrationReady(Long memberId) {
+        RecruitingApplicationLifecyclePolicy.requireFinalPassed(status);
+        requireRegistrationStatus(RecruitingApplicationRegistrationStatus.READY);
+        this.registrationStatus = RecruitingApplicationRegistrationStatus.NOT_READY;
+        recordStatusChange(memberId, null);
+    }
+
     public void register(Long memberId) {
-        validateStatus(RecruitingApplicationStatus.FINAL_PASSED);
-        if (this.registrationStatus != RecruitingApplicationRegistrationStatus.READY) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
-        }
+        RecruitingApplicationLifecyclePolicy.requireFinalPassed(status);
+        requireRegistrationStatus(RecruitingApplicationRegistrationStatus.READY);
         this.registrationStatus = RecruitingApplicationRegistrationStatus.REGISTERED;
         recordStatusChange(memberId, null);
     }
 
     public boolean allowsReapplication() {
-        return this.status == RecruitingApplicationStatus.DOCUMENT_FAILED
-            || this.status == RecruitingApplicationStatus.FINAL_FAILED
-            || this.status == RecruitingApplicationStatus.CANCELLED;
+        return RecruitingApplicationLifecyclePolicy.allowsReapplication(status);
     }
 
     public boolean blocksReapplication() {
         return !allowsReapplication();
     }
 
-    private void validateFinalDecisionSource() {
-        if (this.status == RecruitingApplicationStatus.DOCUMENT_PASSED
-            || this.status == RecruitingApplicationStatus.INTERVIEW_SKIPPED
-            || this.status == RecruitingApplicationStatus.INTERVIEW_ASSIGNED) {
-            return;
+    private static void validateRequired(
+        RecruitingApplicationForm applicationForm,
+        Long formResponseId,
+        Long applicantMemberId,
+        RecruitingApplicantProfile applicantProfile,
+        String applicationKey
+    ) {
+        if (applicationForm == null
+            || formResponseId == null
+            || applicantMemberId == null
+            || applicantProfile == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REQUIRED_FIELD);
         }
-        throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
+        if (applicationKey == null || !APPLICATION_KEY_PATTERN.matcher(applicationKey).matches()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_KEY);
+        }
     }
 
-    private void validateStatus(RecruitingApplicationStatus expectedStatus) {
-        if (this.status != expectedStatus) {
+    public String getApplicantName() {
+        return applicantProfile.getApplicantName();
+    }
+
+    public String getApplicantEmail() {
+        return applicantProfile.getApplicantEmail();
+    }
+
+    public ChallengerTrack getFirstChoice() {
+        return applicantProfile.getFirstChoice();
+    }
+
+    public ChallengerTrack getSecondChoice() {
+        return applicantProfile.getSecondChoice();
+    }
+
+    private void transitionTo(RecruitingApplicationStatus targetStatus, Long memberId, String reason) {
+        RecruitingApplicationLifecyclePolicy.requireTransition(status, targetStatus);
+        this.status = targetStatus;
+        recordStatusChange(memberId, reason);
+    }
+
+    private void requireRegistrationStatus(RecruitingApplicationRegistrationStatus expectedStatus) {
+        if (registrationStatus != expectedStatus) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
         }
     }

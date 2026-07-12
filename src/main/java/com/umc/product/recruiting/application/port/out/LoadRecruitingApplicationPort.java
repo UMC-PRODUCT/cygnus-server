@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicantLockTarget;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
@@ -14,55 +16,51 @@ public interface LoadRecruitingApplicationPort {
 
     RecruitingApplication getById(Long id);
 
-    Optional<RecruitingApplication> findByApplicationNo(String applicationNo);
-
-    RecruitingApplication getByApplicationNo(String applicationNo);
-
     Optional<RecruitingApplication> findByIdWithDetails(Long id);
 
     RecruitingApplication getByIdWithDetails(Long id);
 
-    Optional<RecruitingApplication> findActiveByRoundIdAndApplicantIdentityKey(
-        Long roundId,
-        String applicantIdentityKey
-    );
+    RecruitingApplication getByIdWithDetailsForUpdate(Long id);
 
-    boolean existsByRoundIdAndApplicantIdentityKey(Long roundId, String applicantIdentityKey);
+    RecruitingApplicantLockTarget getApplicantLockTarget(Long id);
 
-    boolean existsByRoundIdAndApplicantIdentityKeyAndIdNot(
-        Long roundId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
-    );
+    Long getRoundIdByApplicationId(Long id);
 
-    boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey);
+    boolean existsByApplicantEmailAndApplicationKey(String applicantEmail, String applicationKey);
 
-    boolean existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
+    boolean existsByRoundIdAndApplicantMemberId(Long roundId, Long applicantMemberId);
+
+    boolean existsByRoundIdAndApplicantMemberIdAndIdNot(Long roundId, Long applicantMemberId, Long excludedId);
+
+    boolean existsByRoundIdAndApplicantEmail(Long roundId, String applicantEmail);
+
+    boolean existsByRoundIdAndApplicantEmailAndIdNot(Long roundId, String applicantEmail, Long excludedId);
+
+    boolean existsByRoundId(Long roundId);
+
+    boolean existsBlockingApplicationByGisuIdAndApplicant(
         Long gisuId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     );
 
-    boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
-        Long gisuId,
-        Long schoolId,
-        String applicantIdentityKey
-    );
-
-    boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
+    boolean existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicant(
         Long gisuId,
         Long schoolId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     );
 
-    boolean existsFinalPassedByGisuIdAndApplicantIdentityKey(Long gisuId, String applicantIdentityKey);
-
-    boolean existsFinalPassedByGisuIdAndApplicantIdentityKeyAndIdNot(
+    boolean existsFinalPassedByGisuIdAndApplicant(
         Long gisuId,
-        String applicantIdentityKey,
-        Long excludedApplicationId
+        Long applicantMemberId,
+        String applicantEmail,
+        Long excludedId
     );
+
+    long countReservedOrRegisteredBySeasonIdAndTrack(Long seasonId, ChallengerTrack track);
 
     List<RecruitingApplication> listByRoundId(Long roundId);
 

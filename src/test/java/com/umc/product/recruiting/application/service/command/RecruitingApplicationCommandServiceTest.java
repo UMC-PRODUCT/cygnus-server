@@ -5,9 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.never;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,24 +24,25 @@ import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand.AnswerEntry;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
-import com.umc.product.recruiting.application.port.out.IssueRecruitingApplicationNoPort;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
+import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
+import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
+import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.survey.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.survey.application.port.in.command.dto.SubmitDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationCommandServiceTest {
@@ -49,35 +51,32 @@ class RecruitingApplicationCommandServiceTest {
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
 
     @Mock
-    LoadRecruitingApplicationPort loadApplicationPort;
-
-    @Mock
     SaveRecruitingApplicationPort saveApplicationPort;
 
     @Mock
     ManageFormResponseUseCase manageFormResponseUseCase;
 
     @Mock
-    IssueRecruitingApplicationNoPort issueApplicationNoPort;
+    GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
+
+    @Mock
+    RecruitingApplicationValidationService validationService;
+
+    @Mock
+    RecruitingApplicationKeyIssuer applicationKeyIssuer;
+
+    @Mock
+    RecruitingConcurrencyLockService concurrencyLockService;
 
     @InjectMocks
     RecruitingApplicationCommandService sut;
 
     @Test
-    @DisplayName("지원서_draft를_생성하며_survey_draft_response를_생성한다")
-    void createDraftCreatesSurveyDraftResponse() {
-        // Given
+    @DisplayName("로그인 회원 지원서 생성은 정규화 이메일과 생성 전용 지원 키를 반환한다")
+    void createMemberDraft() {
         RecruitingApplicationForm form = publishedForm();
         given(loadApplicationFormPort.getById(100L)).willReturn(form);
-        given(loadApplicationPort.existsByRoundIdAndApplicantIdentityKey(10L, "identity:1")).willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
-            1L,
-            10L,
-            "identity:1"
-        )).willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndApplicantIdentityKey(1L, "identity:1"))
-            .willReturn(false);
-        given(issueApplicationNoPort.issue()).willReturn("APP-001");
+        given(applicationKeyIssuer.issue("applicant@example.com")).willReturn("A1B2C3");
         given(manageFormResponseUseCase.createDraft(any())).willReturn(700L);
         given(saveApplicationPort.save(any())).willAnswer(invocation -> {
             RecruitingApplication application = invocation.getArgument(0);
@@ -85,207 +84,179 @@ class RecruitingApplicationCommandServiceTest {
             return application;
         });
 
-        // When
-        RecruitingApplicationInfo result = sut.createDraft(CreateRecruitingApplicationDraftCommand.builder()
+        RecruitingApplicationCreatedInfo result = sut.createDraft(CreateRecruitingApplicationDraftCommand.builder()
             .applicationFormId(100L)
             .applicantMemberId(200L)
-            .applicantIdentityKey("identity:1")
-            .maskedEmail("a***@umc.test")
+            .applicantName("홍길동")
+            .applicantEmail(" Applicant@Example.COM ")
+            .firstChoice(ChallengerTrack.PLAN)
+            .secondChoice(ChallengerTrack.DESIGN)
             .build());
 
-        // Then
         assertThat(result.applicationId()).isEqualTo(900L);
-        assertThat(result.applicationNo()).isEqualTo("APP-001");
-        assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.DRAFT);
-        ArgumentCaptor<CreateDraftFormResponseCommand> responseCaptor =
+        assertThat(result.applicationKey()).isEqualTo("A1B2C3");
+        ArgumentCaptor<CreateDraftFormResponseCommand> captor =
             ArgumentCaptor.forClass(CreateDraftFormResponseCommand.class);
-        then(manageFormResponseUseCase).should().createDraft(responseCaptor.capture());
-        assertThat(responseCaptor.getValue().formId()).isEqualTo(500L);
-        assertThat(responseCaptor.getValue().respondentMemberId()).isEqualTo(200L);
+        then(manageFormResponseUseCase).should().createDraft(captor.capture());
+        assertThat(captor.getValue().respondentMemberId()).isEqualTo(200L);
+        then(validationService).should().validateNew(form.getRound(), 200L, "applicant@example.com");
     }
 
     @Test
-    @DisplayName("같은_차수에_이미_지원한_지원자는_다시_draft를_만들_수_없다")
-    void createDraftRejectsSameRoundDuplicate() {
-        // Given
-        RecruitingApplicationForm form = publishedForm();
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
-        given(loadApplicationPort.existsByRoundIdAndApplicantIdentityKey(10L, "identity:1")).willReturn(true);
-
-        // When & Then
+    @DisplayName("로그인 회원 ID가 없으면 Form 응답을 만들기 전에 거부한다")
+    void rejectDraftWithoutMember() {
         assertThatThrownBy(() -> sut.createDraft(CreateRecruitingApplicationDraftCommand.builder()
             .applicationFormId(100L)
-            .applicantIdentityKey("identity:1")
+            .applicantName("홍길동")
+            .applicantEmail("applicant@example.com")
+            .firstChoice(ChallengerTrack.PLAN)
             .build()))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_ALREADY_EXISTS);
-        then(manageFormResponseUseCase).should(never()).createDraft(any());
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_MEMBER_REQUIRED);
+        then(manageFormResponseUseCase).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("같은_기수의_다른_학교에_지원한_지원자는_지원할_수_없다")
-    void createDraftRejectsDifferentSchoolApplication() {
-        // Given
-        RecruitingApplicationForm form = publishedForm();
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
-        given(loadApplicationPort.existsByRoundIdAndApplicantIdentityKey(10L, "identity:1")).willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
-            1L,
-            10L,
-            "identity:1"
-        )).willReturn(true);
-
-        // When & Then
-        assertThatThrownBy(() -> sut.createDraft(CreateRecruitingApplicationDraftCommand.builder()
-            .applicationFormId(100L)
-            .applicantIdentityKey("identity:1")
-            .build()))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_DIFFERENT_SCHOOL_EXISTS);
-        then(saveApplicationPort).should(never()).save(any());
-    }
-
-    @Test
-    @DisplayName("이전_차수에_진행중이거나_합격한_지원서가_있으면_재지원할_수_없다")
-    void createDraftRejectsBlockingPreviousApplication() {
-        // Given
-        RecruitingApplicationForm form = publishedForm();
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
-        given(loadApplicationPort.existsByRoundIdAndApplicantIdentityKey(10L, "identity:1")).willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKey(
-            1L,
-            10L,
-            "identity:1"
-        )).willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndApplicantIdentityKey(1L, "identity:1"))
-            .willReturn(true);
-
-        // When & Then
-        assertThatThrownBy(() -> sut.createDraft(CreateRecruitingApplicationDraftCommand.builder()
-            .applicationFormId(100L)
-            .applicantIdentityKey("identity:1")
-            .build()))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_REAPPLICATION_BLOCKED);
-    }
-
-    @Test
-    @DisplayName("지원서_draft_수정은_survey_draft_update로_위임한다")
-    void updateDraftDelegatesSurveyDraftUpdate() {
-        // Given
+    @DisplayName("로그인 회원 지원서 수정은 기본 정보와 Form 응답을 함께 갱신한다")
+    void updateMemberDraft() {
         RecruitingApplication application = draftApplication();
-        given(loadApplicationPort.getByIdWithDetails(900L)).willReturn(application);
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of("new@example.com")))
+            .willReturn(application);
 
-        // When
         RecruitingApplicationInfo result = sut.updateDraft(UpdateRecruitingApplicationDraftCommand.builder()
             .applicationId(900L)
             .requesterMemberId(200L)
-            .answers(List.of(AnswerEntry.builder()
-                .questionId(1L)
-                .textValue("답변")
-                .build()))
+            .applicantName("김지원")
+            .applicantEmail("new@example.com")
+            .firstChoice(ChallengerTrack.DESIGN)
+            .secondChoice(ChallengerTrack.PLAN)
+            .answers(List.of())
             .build());
 
-        // Then
         assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.DRAFT);
-        ArgumentCaptor<UpdateDraftFormResponseCommand> captor =
-            ArgumentCaptor.forClass(UpdateDraftFormResponseCommand.class);
-        then(manageFormResponseUseCase).should().updateDraft(captor.capture());
-        assertThat(captor.getValue().formResponseId()).isEqualTo(700L);
-        assertThat(captor.getValue().requesterMemberId()).isEqualTo(200L);
-        assertThat(captor.getValue().answers())
-            .extracting(AnswerCommand::questionId)
-            .containsExactly(1L);
+        assertThat(application.getApplicantName()).isEqualTo("김지원");
+        assertThat(application.getApplicantEmail()).isEqualTo("new@example.com");
+        then(validationService).should().validateFormResponseOwnership(application, 200L);
+        then(manageFormResponseUseCase).should().updateDraft(any());
+        then(saveApplicationPort).should().save(application);
     }
 
     @Test
-    @DisplayName("지원서_draft_제출은_survey_submitDraft_후_SUBMITTED로_변경한다")
-    void submitDraftDelegatesSurveySubmitAndChangesStatus() {
-        // Given
+    @DisplayName("다른 회원의 지원서 수정은 중복 지원 조회 전에 거부한다")
+    void rejectUpdateByDifferentMemberBeforeValidation() {
         RecruitingApplication application = draftApplication();
-        given(loadApplicationPort.getByIdWithDetails(900L)).willReturn(application);
-        given(loadApplicationPort.existsByRoundIdAndApplicantIdentityKeyAndIdNot(10L, "identity:1", 900L))
-            .willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndDifferentSchoolIdAndApplicantIdentityKeyAndIdNot(
-            1L,
-            10L,
-            "identity:1",
-            900L
-        )).willReturn(false);
-        given(loadApplicationPort.existsBlockingApplicationByGisuIdAndApplicantIdentityKeyAndIdNot(
-            1L,
-            "identity:1",
-            900L
-        )).willReturn(false);
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of("new@example.com")))
+            .willReturn(application);
 
-        // When
+        assertThatThrownBy(() -> sut.updateDraft(UpdateRecruitingApplicationDraftCommand.builder()
+            .applicationId(900L)
+            .requesterMemberId(201L)
+            .applicantName("김지원")
+            .applicantEmail("new@example.com")
+            .firstChoice(ChallengerTrack.DESIGN)
+            .secondChoice(ChallengerTrack.PLAN)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_APPLICANT_MISMATCH);
+        then(validationService).shouldHaveNoInteractions();
+        then(manageFormResponseUseCase).shouldHaveNoInteractions();
+        then(saveApplicationPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("지원서 제출은 선택 섹션의 allowed와 required 문항 ID를 Form 응답에 전달한다")
+    void submitWithSelectedQuestionScope() {
+        RecruitingApplication application = draftApplication();
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
+        given(getQuestionScopeUseCase.getQuestionScope(
+            100L,
+            ChallengerTrack.PLAN,
+            ChallengerTrack.DESIGN
+        )).willReturn(new RecruitingApplicationQuestionScopeInfo(Set.of(1L, 2L), Set.of(1L)));
+
         RecruitingApplicationInfo result = sut.submit(SubmitRecruitingApplicationCommand.builder()
             .applicationId(900L)
             .requesterMemberId(200L)
             .submittedIp("127.0.0.1")
             .build());
 
-        // Then
         assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.SUBMITTED);
         ArgumentCaptor<SubmitDraftFormResponseCommand> captor =
             ArgumentCaptor.forClass(SubmitDraftFormResponseCommand.class);
         then(manageFormResponseUseCase).should().submitDraft(captor.capture());
-        assertThat(captor.getValue().formResponseId()).isEqualTo(700L);
-        assertThat(captor.getValue().submittedIp()).isEqualTo("127.0.0.1");
-        then(saveApplicationPort).should().save(application);
+        assertThat(captor.getValue().allowedQuestionIds()).containsExactlyInAnyOrder(1L, 2L);
+        assertThat(captor.getValue().requiredQuestionIds()).containsExactly(1L);
+        then(validationService).should().validateFormResponseOwnership(application, 200L);
+        then(validationService).should().validateUpdate(
+            application.getRound(),
+            200L,
+            "applicant@example.com",
+            900L
+        );
     }
 
     @Test
-    @DisplayName("지원서_철회는_survey_response를_삭제하지_않고_recruiting_상태만_CANCELLED로_변경한다")
-    void cancelDoesNotDeleteSurveyResponse() {
-        // Given
+    @DisplayName("지원서 철회는 Form 응답을 삭제하지 않고 Recruiting 상태만 변경한다")
+    void cancelDoesNotDeleteFormResponse() {
         RecruitingApplication application = draftApplication();
-        given(loadApplicationPort.getByIdWithDetails(900L)).willReturn(application);
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
 
-        // When
         RecruitingApplicationInfo result = sut.cancel(CancelRecruitingApplicationCommand.builder()
             .applicationId(900L)
             .requesterMemberId(200L)
             .reason("지원 취소")
             .build());
 
-        // Then
         assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.CANCELLED);
         then(manageFormResponseUseCase).shouldHaveNoInteractions();
-        then(saveApplicationPort).should().save(application);
     }
 
     private RecruitingApplication draftApplication() {
-        RecruitingApplication application = RecruitingApplication.createDraft(
-            publishedForm(),
+        RecruitingApplicationForm form = publishedForm();
+        RecruitingApplication application = RecruitingApplication.createMemberDraft(
+            form,
             700L,
             200L,
-            "identity:1",
-            "APP-001",
-            "a***@umc.test"
+            RecruitingApplicantProfile.create(
+                form.getRound(),
+                "홍길동",
+                RecruitingApplicantEmail.from("applicant@example.com"),
+                ChallengerTrack.PLAN,
+                ChallengerTrack.DESIGN
+            ),
+            "A1B2C3"
         );
         ReflectionTestUtils.setField(application, "id", 900L);
         return application;
     }
 
     private RecruitingApplicationForm publishedForm() {
-        RecruitingApplicationForm form = RecruitingApplicationForm.create(
-            regularRound(),
-            500L,
-            ChallengerTrack.WEB_PRODUCT_ENGINEER
-        );
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(configuredRound(), 500L);
         ReflectionTestUtils.setField(form, "id", 100L);
         form.publish();
         return form;
     }
 
-    private RecruitingRound regularRound() {
+    private RecruitingRound configuredRound() {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
         ReflectionTestUtils.setField(season, "id", 1L);
-        RecruitingRound round = RecruitingRound.createRegular(season);
+        RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfiguration.of(
+            List.of(ChallengerTrack.PLAN, ChallengerTrack.DESIGN),
+            true,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-08T00:00:00Z"),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            false,
+            null,
+            null,
+            Instant.parse("2026-08-16T00:00:00Z"),
+            null,
+            null,
+            null
+        ));
         ReflectionTestUtils.setField(round, "id", 10L);
         return round;
     }

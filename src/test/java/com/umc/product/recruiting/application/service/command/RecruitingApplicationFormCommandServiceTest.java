@@ -18,7 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.port.in.command.ValidateRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
@@ -28,11 +28,9 @@ import com.umc.product.recruiting.application.port.out.SaveRecruitingApplication
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
-import com.umc.product.survey.application.port.in.command.dto.PublishFormCommand;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationFormCommandServiceTest {
@@ -49,58 +47,49 @@ class RecruitingApplicationFormCommandServiceTest {
     @Mock
     ManageFormUseCase manageFormUseCase;
 
+    @Mock
+    ValidateRecruitingApplicationFormUseCase validateApplicationFormUseCase;
+
     @InjectMocks
     RecruitingApplicationFormCommandService sut;
 
     @Test
-    @DisplayName("모집_차수에_아직_연결되지_않은_form을_지원_폼으로_연결한다")
-    void linkApplicationFormWhenUniqueInRound() {
-        // Given
-        RecruitingRound round = regularRound(10L);
-        LinkRecruitingApplicationFormCommand command = LinkRecruitingApplicationFormCommand.builder()
-            .roundId(10L)
-            .formId(500L)
-            .track(ChallengerTrack.WEB_PRODUCT_ENGINEER)
-            .build();
+    @DisplayName("모집 차수에는 트랙 없이 하나의 지원 Form만 연결한다")
+    void linkSingleFormToRound() {
+        RecruitingRound round = round(10L);
+        given(loadApplicationFormPort.findByRoundId(10L)).willReturn(Optional.empty());
         given(loadRoundPort.getById(10L)).willReturn(round);
-        given(loadApplicationFormPort.findByRoundIdAndFormId(10L, 500L)).willReturn(Optional.empty());
         given(saveApplicationFormPort.save(any())).willAnswer(invocation -> {
             RecruitingApplicationForm form = invocation.getArgument(0);
             ReflectionTestUtils.setField(form, "id", 100L);
             return form;
         });
 
-        // When
-        Long applicationFormId = sut.link(command);
+        Long result = sut.link(LinkRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
+            .roundId(10L)
+            .formId(500L)
+            .build());
 
-        // Then
-        assertThat(applicationFormId).isEqualTo(100L);
-        ArgumentCaptor<RecruitingApplicationForm> captor = ArgumentCaptor.forClass(RecruitingApplicationForm.class);
+        assertThat(result).isEqualTo(100L);
+        ArgumentCaptor<RecruitingApplicationForm> captor =
+            ArgumentCaptor.forClass(RecruitingApplicationForm.class);
         then(saveApplicationFormPort).should().save(captor.capture());
         assertThat(captor.getValue().getFormId()).isEqualTo(500L);
-        assertThat(captor.getValue().getTrack()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
     }
 
     @Test
-    @DisplayName("같은_모집_차수에_이미_연결된_form은_다시_연결할_수_없다")
-    void linkApplicationFormRejectsDuplicateRoundForm() {
-        // Given
-        RecruitingRound round = regularRound(10L);
-        RecruitingApplicationForm existing = RecruitingApplicationForm.create(
-            round,
-            500L,
-            ChallengerTrack.WEB_PRODUCT_ENGINEER
-        );
-        given(loadApplicationFormPort.findByRoundIdAndFormId(10L, 500L)).willReturn(Optional.of(existing));
+    @DisplayName("같은 모집 차수에 두 번째 지원 Form을 연결할 수 없다")
+    void rejectSecondFormForRound() {
+        given(loadRoundPort.getById(10L)).willReturn(round(10L));
+        given(loadApplicationFormPort.findByRoundId(10L))
+            .willReturn(Optional.of(RecruitingApplicationForm.create(round(10L), 400L)));
 
-        LinkRecruitingApplicationFormCommand command = LinkRecruitingApplicationFormCommand.builder()
+        assertThatThrownBy(() -> sut.link(LinkRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
             .roundId(10L)
             .formId(500L)
-            .track(ChallengerTrack.WEB_PRODUCT_ENGINEER)
-            .build();
-
-        // When & Then
-        assertThatThrownBy(() -> sut.link(command))
+            .build()))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_ALREADY_EXISTS);
@@ -108,59 +97,87 @@ class RecruitingApplicationFormCommandServiceTest {
     }
 
     @Test
-    @DisplayName("지원_폼_게시시_survey_form을_publish하고_recruiting_form도_PUBLISHED로_변경한다")
-    void publishApplicationFormDelegatesSurveyPublish() {
-        // Given
-        RecruitingApplicationForm form = applicationForm(100L, 500L);
+    @DisplayName("지원 Form 게시 전 섹션 정책 검증 seam을 호출한다")
+    void validatePoliciesBeforePublish() {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L), 500L);
+        ReflectionTestUtils.setField(form, "id", 100L);
         given(loadApplicationFormPort.getById(100L)).willReturn(form);
 
-        // When
         sut.publish(PublishRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
             .applicationFormId(100L)
-            .requesterMemberId(900L)
+            .requesterMemberId(200L)
             .build());
 
-        // Then
-        ArgumentCaptor<PublishFormCommand> captor = ArgumentCaptor.forClass(PublishFormCommand.class);
-        then(manageFormUseCase).should().publishForm(captor.capture());
-        assertThat(captor.getValue().formId()).isEqualTo(500L);
-        assertThat(captor.getValue().requesterMemberId()).isEqualTo(900L);
-        assertThat(form.getStatus()).isEqualTo(RecruitingApplicationFormStatus.PUBLISHED);
-        then(saveApplicationFormPort).should().save(form);
+        then(validateApplicationFormUseCase).should().validateForPublish(100L);
+        then(manageFormUseCase).should().publishForm(any());
+        assertThat(form.getStatus().name()).isEqualTo("PUBLISHED");
     }
 
     @Test
-    @DisplayName("지원_폼_닫기는_recruiting_form_상태만_CLOSED로_변경한다")
-    void closeApplicationFormChangesRecruitingStatusOnly() {
-        // Given
-        RecruitingApplicationForm form = applicationForm(100L, 500L);
-        form.publish();
+    @DisplayName("다른 시즌의 차수에는 지원 Form을 연결하지 않는다")
+    void rejectLinkForRoundInDifferentSeasonBeforeSave() {
+        given(loadRoundPort.getById(10L)).willReturn(round(10L, 2L));
+
+        assertThatThrownBy(() -> sut.link(LinkRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
+            .roundId(10L)
+            .formId(500L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND);
+
+        then(loadApplicationFormPort).shouldHaveNoInteractions();
+        then(saveApplicationFormPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("다른 시즌의 지원 Form은 게시하지 않는다")
+    void rejectPublishForFormInDifferentSeasonBeforeMutation() {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L, 2L), 500L);
+        ReflectionTestUtils.setField(form, "id", 100L);
         given(loadApplicationFormPort.getById(100L)).willReturn(form);
 
-        // When
-        sut.close(CloseRecruitingApplicationFormCommand.builder()
+        assertThatThrownBy(() -> sut.publish(PublishRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
             .applicationFormId(100L)
-            .build());
+            .requesterMemberId(200L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND);
 
-        // Then
-        assertThat(form.getStatus()).isEqualTo(RecruitingApplicationFormStatus.CLOSED);
-        then(manageFormUseCase).should(never()).publishForm(any());
-        then(saveApplicationFormPort).should().save(form);
+        then(validateApplicationFormUseCase).shouldHaveNoInteractions();
+        then(manageFormUseCase).shouldHaveNoInteractions();
+        then(saveApplicationFormPort).shouldHaveNoInteractions();
     }
 
-    private RecruitingApplicationForm applicationForm(Long applicationFormId, Long formId) {
-        RecruitingApplicationForm form = RecruitingApplicationForm.create(
-            regularRound(10L),
-            formId,
-            ChallengerTrack.WEB_PRODUCT_ENGINEER
-        );
-        ReflectionTestUtils.setField(form, "id", applicationFormId);
-        return form;
+    @Test
+    @DisplayName("다른 시즌의 지원 Form은 마감하지 않는다")
+    void rejectCloseForFormInDifferentSeasonBeforeMutation() {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L, 2L), 500L);
+        ReflectionTestUtils.setField(form, "id", 100L);
+        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+
+        assertThatThrownBy(() -> sut.close(CloseRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
+            .applicationFormId(100L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND);
+
+        then(saveApplicationFormPort).shouldHaveNoInteractions();
     }
 
-    private RecruitingRound regularRound(Long id) {
+    private RecruitingRound round(Long id) {
+        return round(id, 1L);
+    }
+
+    private RecruitingRound round(Long id, Long seasonId) {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
-        ReflectionTestUtils.setField(season, "id", 1L);
+        ReflectionTestUtils.setField(season, "id", seasonId);
         RecruitingRound round = RecruitingRound.createRegular(season);
         ReflectionTestUtils.setField(round, "id", id);
         return round;

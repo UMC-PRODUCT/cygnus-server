@@ -13,6 +13,7 @@ public class UnavailableRecruitingScheduleOverlapAdapter implements FindRecruiti
 
     @Override
     public List<RecruitingInterviewScheduleCandidate> findOverlaps(Long formId, List<Long> formResponseIds) {
+        // TODO(#1146): Form 일정 교집합 Query UseCase가 제공되면 이 unavailable adapter를 실제 연동 adapter로 교체한다.
         throw new NotImplementedException("지원자 가능 일정 겹침 계산은 survey/form 일정 질문 PR이 병합된 뒤 사용할 수 있어요.");
     }
 }

@@ -12,13 +12,11 @@ public interface LoadRecruitingApplicationFormPort {
 
     RecruitingApplicationForm getById(Long id);
 
-    Optional<RecruitingApplicationForm> findByRoundIdAndFormId(Long roundId, Long formId);
+    Optional<RecruitingApplicationForm> findByRoundId(Long roundId);
 
     Optional<RecruitingApplicationForm> findByFormId(Long formId);
 
     boolean existsByFormIdAndSeasonId(Long formId, Long seasonId);
-
-    List<RecruitingApplicationForm> listByRoundId(Long roundId);
 
     List<RecruitingApplicationForm> listByRoundIdsAndStatus(
         List<Long> roundIds,

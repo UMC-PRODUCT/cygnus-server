@@ -2,6 +2,8 @@ package com.umc.product.global.config;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
 import org.springframework.context.annotation.Bean;
@@ -28,13 +30,69 @@ public class GraphQlRuntimeWiringConfig {
         .coercing(new LongCoercing())
         .build();
 
+    private static final GraphQLScalarType INSTANT_SCALAR = GraphQLScalarType.newScalar()
+        .name("Instant")
+        .description("ISO-8601 UTC instant")
+        .coercing(new InstantCoercing())
+        .build();
+
     @Bean
     public RuntimeWiringConfigurer graphQlRuntimeWiringConfigurer() {
         return this::configure;
     }
 
     public void configure(graphql.schema.idl.RuntimeWiring.Builder builder) {
-        builder.scalar(LONG_SCALAR);
+        builder.scalar(LONG_SCALAR).scalar(INSTANT_SCALAR);
+    }
+
+    private static class InstantCoercing implements Coercing<Instant, String> {
+
+        @Override
+        public String serialize(Object dataFetcherResult, GraphQLContext graphQLContext, Locale locale)
+            throws CoercingSerializeException {
+            if (dataFetcherResult instanceof Instant instant) {
+                return instant.toString();
+            }
+            throw new CoercingSerializeException("Instant scalar requires java.time.Instant");
+        }
+
+        @Override
+        public Instant parseValue(Object input, GraphQLContext graphQLContext, Locale locale)
+            throws CoercingParseValueException {
+            if (!(input instanceof String value)) {
+                throw new CoercingParseValueException("Instant scalar requires an ISO-8601 string");
+            }
+            try {
+                return Instant.parse(value);
+            } catch (DateTimeParseException exception) {
+                throw new CoercingParseValueException("Instant scalar cannot parse value", exception);
+            }
+        }
+
+        @Override
+        public Instant parseLiteral(
+            Value<?> input,
+            CoercedVariables variables,
+            GraphQLContext graphQLContext,
+            Locale locale
+        ) throws CoercingParseLiteralException {
+            if (!(input instanceof StringValue value)) {
+                throw new CoercingParseLiteralException("Instant scalar requires an ISO-8601 string literal");
+            }
+            try {
+                return Instant.parse(value.getValue());
+            } catch (DateTimeParseException exception) {
+                throw new CoercingParseLiteralException("Instant scalar cannot parse literal", exception);
+            }
+        }
+
+        @Override
+        public Value<?> valueToLiteral(Object input, GraphQLContext graphQLContext, Locale locale) {
+            if (input instanceof Instant instant) {
+                return new StringValue(instant.toString());
+            }
+            throw new CoercingSerializeException("Instant scalar requires java.time.Instant");
+        }
     }
 
     private static class LongCoercing implements Coercing<Long, Long> {

@@ -12,13 +12,11 @@ import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 
 public interface RecruitingApplicationFormJpaRepository extends JpaRepository<RecruitingApplicationForm, Long> {
 
-    Optional<RecruitingApplicationForm> findByRound_IdAndFormId(Long roundId, Long formId);
+    Optional<RecruitingApplicationForm> findByRound_Id(Long roundId);
 
     Optional<RecruitingApplicationForm> findFirstByFormIdOrderByIdAsc(Long formId);
 
     boolean existsByFormIdAndRound_Season_Id(Long formId, Long seasonId);
-
-    List<RecruitingApplicationForm> findAllByRound_IdOrderByIdAsc(Long roundId);
 
     @Query("""
         select applicationForm

@@ -5,6 +5,7 @@ import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.global.util.EmailMasker;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
@@ -21,11 +22,12 @@ public class RecruitingCsvExportService implements ExportRecruitingCsvUseCase {
         "schoolId",
         "roundType",
         "roundNo",
-        "formId",
-        "track",
-        "applicationNo",
+        "applicationId",
         "maskedEmail",
-        "applicationStatus",
+        "firstChoiceTrack",
+        "secondChoiceTrack",
+        "acceptedTrack",
+        "status",
         "registrationStatus",
         "submittedAt"
     );
@@ -47,10 +49,11 @@ public class RecruitingCsvExportService implements ExportRecruitingCsvUseCase {
             value(row.schoolId()),
             value(row.roundType()),
             value(row.roundNo()),
-            value(row.formId()),
-            value(row.track()),
-            value(row.applicationNo()),
-            value(row.maskedEmail()),
+            value(row.applicationId()),
+            value(EmailMasker.mask(row.applicantEmail())),
+            value(row.firstChoice()),
+            value(row.secondChoice()),
+            value(row.acceptedTrack()),
             value(row.applicationStatus()),
             value(row.registrationStatus()),
             value(row.submittedAt())
