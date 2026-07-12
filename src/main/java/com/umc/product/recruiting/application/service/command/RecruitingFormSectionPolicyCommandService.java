@@ -32,7 +32,7 @@ public class RecruitingFormSectionPolicyCommandService implements ManageRecruiti
 
     @Override
     public Long addPolicy(AddRecruitingFormSectionPolicyCommand command) {
-        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getById(command.applicationFormId());
+        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getByIdForUpdate(command.applicationFormId());
         applicationForm.validateStructureMutable();
         if (loadPolicyPort.findByFormSectionId(command.formSectionId()).isPresent()) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);

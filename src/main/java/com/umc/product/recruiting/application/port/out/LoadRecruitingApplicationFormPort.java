@@ -12,6 +12,8 @@ public interface LoadRecruitingApplicationFormPort {
 
     RecruitingApplicationForm getById(Long id);
 
+    RecruitingApplicationForm getByIdForUpdate(Long id);
+
     Optional<RecruitingApplicationForm> findByRoundId(Long roundId);
 
     Optional<RecruitingApplicationForm> findByFormId(Long formId);

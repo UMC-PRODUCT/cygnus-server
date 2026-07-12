@@ -33,6 +33,12 @@ public class RecruitingApplicationFormPersistenceAdapter
     }
 
     @Override
+    public RecruitingApplicationForm getByIdForUpdate(Long id) {
+        return recruitingApplicationFormJpaRepository.findByIdForUpdate(id)
+            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND));
+    }
+
+    @Override
     public Optional<RecruitingApplicationForm> findByRoundId(Long roundId) {
         return recruitingApplicationFormJpaRepository.findByRound_Id(roundId);
     }

@@ -53,7 +53,7 @@ public class RecruitingApplicationFormCommandService implements
 
     @Override
     public void publish(PublishRecruitingApplicationFormCommand command) {
-        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getById(command.applicationFormId());
+        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getByIdForUpdate(command.applicationFormId());
         validateApplicationFormInSeason(applicationForm, command.seasonId());
         validateApplicationFormUseCase.validateForPublish(applicationForm.getId());
         manageFormUseCase.publishForm(PublishFormCommand.builder()
@@ -66,7 +66,7 @@ public class RecruitingApplicationFormCommandService implements
 
     @Override
     public void close(CloseRecruitingApplicationFormCommand command) {
-        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getById(command.applicationFormId());
+        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getByIdForUpdate(command.applicationFormId());
         validateApplicationFormInSeason(applicationForm, command.seasonId());
         applicationForm.close();
         saveApplicationFormPort.save(applicationForm);

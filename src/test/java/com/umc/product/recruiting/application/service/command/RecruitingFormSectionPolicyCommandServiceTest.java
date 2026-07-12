@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.spy;
 
 import java.util.List;
 import java.util.Optional;
@@ -11,6 +13,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -53,9 +56,9 @@ class RecruitingFormSectionPolicyCommandServiceTest {
     @Test
     @DisplayName("Form 공개 조회로 section 소속을 확인하고 TRACK 정책을 저장한다")
     void addTrackPolicyAfterCheckingFormSection() {
-        RecruitingApplicationForm form = applicationForm();
+        RecruitingApplicationForm form = spy(applicationForm());
         given(loadPolicyPort.findByFormSectionId(10L)).willReturn(Optional.empty());
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
         given(getFormUseCase.getFormWithStructure(500L)).willReturn(FormWithStructureInfo.builder()
             .formId(500L)
             .sections(List.of(SectionWithQuestions.builder().sectionId(10L).questions(List.of()).build()))
@@ -74,6 +77,9 @@ class RecruitingFormSectionPolicyCommandServiceTest {
             .build());
 
         assertThat(result).isEqualTo(200L);
+        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form);
+        then(loadApplicationFormPort).should(lockBeforeStateCheck).getByIdForUpdate(100L);
+        then(form).should(lockBeforeStateCheck).validateStructureMutable();
     }
 
     @Test
@@ -81,7 +87,7 @@ class RecruitingFormSectionPolicyCommandServiceTest {
     void rejectMissingPolicyType() {
         RecruitingApplicationForm form = applicationForm();
         given(loadPolicyPort.findByFormSectionId(10L)).willReturn(Optional.empty());
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
         given(getFormUseCase.getFormWithStructure(500L)).willReturn(FormWithStructureInfo.builder()
             .formId(500L)
             .sections(List.of(SectionWithQuestions.builder().sectionId(10L).questions(List.of()).build()))
@@ -103,7 +109,7 @@ class RecruitingFormSectionPolicyCommandServiceTest {
     void rejectPolicyForPublishedForm() {
         RecruitingApplicationForm form = applicationForm();
         form.publish();
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 
         assertThatThrownBy(() -> sut.addPolicy(policyCommand()))
             .isInstanceOf(RecruitingDomainException.class)
@@ -119,7 +125,7 @@ class RecruitingFormSectionPolicyCommandServiceTest {
         RecruitingApplicationForm form = applicationForm();
         form.publish();
         form.close();
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 
         assertThatThrownBy(() -> sut.addPolicy(policyCommand()))
             .isInstanceOf(RecruitingDomainException.class)

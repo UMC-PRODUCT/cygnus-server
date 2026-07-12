@@ -5,7 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 
 import java.util.Optional;
 
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -99,9 +102,9 @@ class RecruitingApplicationFormCommandServiceTest {
     @Test
     @DisplayName("지원 Form 게시 전 섹션 정책 검증 seam을 호출한다")
     void validatePoliciesBeforePublish() {
-        RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L), 500L);
+        RecruitingApplicationForm form = spy(RecruitingApplicationForm.create(round(10L), 500L));
         ReflectionTestUtils.setField(form, "id", 100L);
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 
         sut.publish(PublishRecruitingApplicationFormCommand.builder()
             .seasonId(1L)
@@ -111,7 +114,30 @@ class RecruitingApplicationFormCommandServiceTest {
 
         then(validateApplicationFormUseCase).should().validateForPublish(100L);
         then(manageFormUseCase).should().publishForm(any());
+        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form);
+        then(loadApplicationFormPort).should(lockBeforeStateCheck).getByIdForUpdate(100L);
+        then(form).should(lockBeforeStateCheck).publish();
         assertThat(form.getStatus().name()).isEqualTo("PUBLISHED");
+    }
+
+    @Test
+    @DisplayName("지원 Form root lock을 획득한 뒤 마감 상태를 검사한다")
+    void lockFormBeforeCloseStateCheck() {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L), 500L);
+        form.publish();
+        form = spy(form);
+        ReflectionTestUtils.setField(form, "id", 100L);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
+
+        sut.close(CloseRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
+            .applicationFormId(100L)
+            .build());
+
+        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form);
+        then(loadApplicationFormPort).should(lockBeforeStateCheck).getByIdForUpdate(100L);
+        then(form).should(lockBeforeStateCheck).close();
+        assertThat(form.getStatus().name()).isEqualTo("CLOSED");
     }
 
     @Test
@@ -137,7 +163,7 @@ class RecruitingApplicationFormCommandServiceTest {
     void rejectPublishForFormInDifferentSeasonBeforeMutation() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L, 2L), 500L);
         ReflectionTestUtils.setField(form, "id", 100L);
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 
         assertThatThrownBy(() -> sut.publish(PublishRecruitingApplicationFormCommand.builder()
             .seasonId(1L)
@@ -158,7 +184,7 @@ class RecruitingApplicationFormCommandServiceTest {
     void rejectCloseForFormInDifferentSeasonBeforeMutation() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L, 2L), 500L);
         ReflectionTestUtils.setField(form, "id", 100L);
-        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 
         assertThatThrownBy(() -> sut.close(CloseRecruitingApplicationFormCommand.builder()
             .seasonId(1L)
