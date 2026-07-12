@@ -24,6 +24,14 @@ public interface ChatMemberJpaRepository extends JpaRepository<ChatMember, Long>
     boolean existsByRoomIdAndMemberId(Long roomId, Long memberId);
 
     @Modifying
+    @Query(value = """
+        INSERT INTO chat_member (room_id, member_id, created_at, updated_at)
+        VALUES (:roomId, :memberId, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (room_id, member_id) DO NOTHING
+        """, nativeQuery = true)
+    int insertIfAbsent(@Param("roomId") Long roomId, @Param("memberId") Long memberId);
+
+    @Modifying
     @Query("DELETE FROM ChatMember cm WHERE cm.roomId = :roomId AND cm.memberId = :memberId")
     void deleteByRoomIdAndMemberId(@Param("roomId") Long roomId, @Param("memberId") Long memberId);
 }

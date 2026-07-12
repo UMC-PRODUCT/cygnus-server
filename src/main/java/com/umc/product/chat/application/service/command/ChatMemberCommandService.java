@@ -28,10 +28,9 @@ public class ChatMemberCommandService implements JoinChatRoomUseCase, LeaveChatR
     @Override
     public void joinChatRoom(JoinChatRoomCommand command) {
         loadChatRoomPort.getById(command.roomId());
-        if (loadChatMemberPort.existsByRoomIdAndMemberId(command.roomId(), command.memberId())) {
+        if (!saveChatMemberPort.saveIfAbsent(ChatMember.of(command.roomId(), command.memberId()))) {
             throw new ChatDomainException(ChatErrorCode.CHAT_MEMBER_ALREADY_EXISTS);
         }
-        saveChatMemberPort.save(ChatMember.of(command.roomId(), command.memberId()));
     }
 
     @Override

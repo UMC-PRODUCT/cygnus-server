@@ -6,5 +6,7 @@ public interface SaveChatMemberPort {
 
     ChatMember save(ChatMember chatMember);
 
+    boolean saveIfAbsent(ChatMember chatMember);
+
     void delete(Long roomId, Long memberId);
 }
