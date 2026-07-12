@@ -1,73 +1,114 @@
-# Recruiting 테스트 케이스
+# Recruiting v2 테스트 가이드
 
-- 테스트 파일: 20개
-- 테스트 케이스: 86개
-- 분류 기준: `Controller`, `GraphQL`, `UseCase`, `Repository`, `Domain`, `Permission`
+## 범위
 
-| 카테고리 | 케이스 수 | 주요 파일 |
+현재 `src/test/java/com/umc/product/recruiting`에는 실행 가능한 `*Test.java` 73개가 있다. Task 12 격리 JUnit XML snapshot 기준 Recruiting은 73 suites, 304 tests, failures 0, errors 0, skipped 0이고, 전체는 446 suites, 2,172 tests, failures 0, errors 0, skipped 40이다. snapshot과 원시 로그는 로컬 evidence `.omo/evidence/recruiting-v2-redesign/raw/task-12/full-test-xml/` 및 `task-12-integrated.txt`에 기록한다.
+
+| 계층 | 테스트 클래스 수 | 주요 검증 |
 |---|---:|---|
-| Controller / Inbound Adapter | 14 | `RecruitingPublicControllerTest`, `RecruitingApplicationControllerTest`, `RecruitingAdminControllerTest` |
-| GraphQL / Inbound Adapter | 12 | `RecruitingGraphQlControllerTest`, `RecruitingGraphQlSecurityTest`, `RecruitingGraphQlArchitectureTest` |
-| UseCase / Application Service | 37 | command/query service tests |
-| Repository / Outbound Persistence | 7 | `RecruitingPersistenceAdapterTest` |
-| Domain | 8 | `RecruitingCoreDomainTest`, `RecruitingEvaluationDomainTest` |
-| Permission | 8 | `RecruitingPermissionEvaluatorTest` |
+| Domain | 10 | 시즌·차수·지원서·평가·일정 상태와 불변식 |
+| Application command | 20 | 지원, 평가, 권한, 판정, quota 예약, 등록 |
+| Application query/evaluator | 8 | visibility, question scope, CSV, 권한 판정 |
+| REST adapter | 10 | route, OpenAPI, 인증·인가, DTO mapping, 실제 HTTP |
+| GraphQL adapter | 12 | 실행 schema, introspection, CurrentMember, 실제 HTTP |
+| Persistence/ID adapter | 13 | migration, DB constraint, repository, key 충돌, concurrency |
 
-## Controller / Inbound Adapter
+## 검증 층위
 
-| 테스트 파일 | 검증 범위 |
-|---|---|
-| `RecruitingPublicControllerTest` | 학교별 public form 목록, 지원서 번호와 applicant identity key 기반 익명 결과 조회, raw email 미노출 |
-| `RecruitingApplicationControllerTest` | draft 생성, draft 답변 수정, 제출 IP 전달, 철회 요청 매핑 |
-| `RecruitingAdminControllerTest` | 시즌 생성, form-track 연결, 서류/최종 결정자 memberId 전달, 면접 일정 후보 반환, 평가 visibility 결과 반환, CSV attachment와 개인정보 제외, 상태 요약 |
+### Focused domain/application/controller
 
-## GraphQL / Inbound Adapter
-
-| 테스트 파일 | 검증 범위 |
-|---|---|
-| `RecruitingGraphQlControllerTest` | public form 조회, 익명/로그인 지원서 생성 시 command 매핑, GraphQL 응답 필드 |
-| `RecruitingGraphQlSecurityTest` | 비로그인 입력 memberId spoofing 차단, 다른 season 소속 application/assignment 조작 차단 |
-| `RecruitingGraphQlExceptionAdviceTest` | 잘못된 interview datetime 입력을 `BAD_REQUEST`로 매핑하고 command 호출 전 차단 |
-| `RecruitingGraphQlArchitectureTest` | GraphQL adapter가 REST adapter DTO, outbound adapter, JPA repository, recruiting domain entity에 직접 의존하지 않는지 검사 |
-| `RecruitingGraphQlSurfaceTest` | schema introspection으로 recruiting Query/Mutation 표면과 CSV REST-only 정책 확인 |
-
-## UseCase / Application Service
-
-| 테스트 파일 | 검증 범위 |
-|---|---|
-| `RecruitingSeasonCommandServiceTest` | 시즌 생성/중복, 시즌 상태 전이, 본모집/추가모집 차수 생성과 중복 차수 차단 |
-| `RecruitingApplicationFormCommandServiceTest` | survey form 연결, publish/close 전이, survey publish 위임 |
-| `RecruitingApplicationCommandServiceTest` | draft/update/submit/cancel, 같은 차수 중복 차단, 다른 학교 지원 차단, 이전 실패/철회 후 재지원 허용, 이전 합격/진행 중 재지원 차단 |
-| `RecruitingDecisionCommandServiceTest` | 서류/최종 합불 전이, 최종 합격 한 건 제한, 중앙 총괄단 이상 등록 확정, challenger track 전달 |
-| `RecruitingInterviewCommandServiceTest` | 면접 배정, 면접 스킵, survey 일정 겹침 port 호출, 안내 이메일 port 호출, 평가 저장/제출 |
-| `RecruitingInterviewQueryServiceTest` | 본인 평가 제출 전/후 타 면접관 평가 visibility |
-| `RecruitingQueryServiceTest` | 익명 결과 조회 identity 검증, 상태 요약 count |
-| `RecruitingCsvExportServiceTest` | CSV header/body, comma/quote escaping, raw email과 지원서 본문 제외 |
-
-## Repository / Outbound Persistence
-
-`RecruitingPersistenceAdapterTest`는 recruiting aggregate의 save/load, 중복 체크 query, 상태 필터, evaluation lookup, CSV summary row 조회를 검증한다. public form list는 round와 season을 fetch join하여 form 응답 DTO 조립 시 lazy loading 의존을 줄인다.
-
-## Domain
-
-| 테스트 파일 | 검증 범위 |
-|---|---|
-| `RecruitingCoreDomainTest` | 시즌/차수/폼/지원서 생성, 상태 전이, invalid transition, reapplication block status |
-| `RecruitingEvaluationDomainTest` | 평가 템플릿 기본 기준, custom criteria 교체, 평가 draft/submit, 중복 제출 차단, visibility rule |
-
-## Permission
-
-`RecruitingPermissionEvaluatorTest`는 `ResourceType.RECRUITMENT`에 대해 학교 회장단 자기 학교 허용, 다른 학교 거부, 중앙운영사무국 총괄단 허용, 교내 파트장 거부, 미구현 permission 예외를 검증한다.
-
-## 실행 명령
+빠른 개발 루프에서는 전체 Recruiting package를 먼저 실행한다.
 
 ```bash
 ./gradlew test --tests 'com.umc.product.recruiting.*'
-./gradlew test --tests 'com.umc.product.recruiting.adapter.in.web.*Test'
-./gradlew test --tests 'com.umc.product.recruiting.adapter.in.graphql.*Test'
-./gradlew test --tests 'com.umc.product.recruiting.application.service.evaluator.RecruitingPermissionEvaluatorTest'
 ```
 
-## 검증 evidence
+주요 보호 범위는 다음과 같다.
 
-이번 GraphQL 후속 구현 검증은 [recruiting-graphql-verification-evidence.md](../../analysis/recruiting-graphql-verification-evidence.md)에 별도 요약했다.
+- Season/Quota/Round: lifecycle, 트랙 subset, `INFRA_PLUS` 거부, 일정 순서와 면접 optional shape
+- Form/Application: Round당 Form 하나, section policy, 로그인 소유권, Survey response 연결, 제출·철회, 재지원
+- Evaluator/Question: stage별 whitelist, 공통·개별 문항, 첫 제출 후 mutation freeze
+- Evaluation/Schedule: `DRAFT/SUBMITTED`, peer visibility, 가능 일정 요청·제출·확정, mail state shape
+- Decision/Registration: 최종 합격 track, 중복 합격, READY 예약·취소, REGISTERED 멱등 처리
+- REST/GraphQL/CSV: actor spoofing 차단, deferred/legacy surface 부재, exact CSV header와 PII 제외
+
+### PostgreSQL integration과 migration
+
+DB 검증은 H2/in-memory 대체가 아니라 Testcontainers PostgreSQL을 사용한다.
+
+| 테스트 | 검증 내용 |
+|---|---|
+| `RecruitingSeasonRoundMigrationTest` | 시즌 quota와 Round 설정 migration, constraint |
+| `RecruitingRoundScheduleMigrationTest` | 서류·면접·결과 시각의 DB invariant |
+| `RecruitingFormApplicationMigrationTest` | 기존 form/application 제거와 v2 schema, unique/check constraint |
+| `RecruitingEvaluationScheduleMigrationTest` | legacy score/assignment 제거, 평가·일정 schema |
+| `RecruitingApplicationDatabaseInvariantTest` | 지원서 email/member/track/application key invariant |
+| `RecruitingRegistrationDatabaseInvariantTest` | `FINAL_PASSED`와 registration status/accepted track 정합성 |
+| `RecruitingPersistenceAdapterTest` 및 세부 adapter tests | 실제 JPA save/load/search, scope와 ordering |
+
+Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 테스트는 이전 migration 지점까지 적용한 뒤 v2 migration을 실행해 upgrade path를 검증한다.
+
+### Quota concurrency
+
+`RecruitingQuotaReservationConcurrencyTest`는 실제 PostgreSQL에서 동일 시즌·트랙의 마지막 한 자리를 동시에 READY로 요청한다.
+
+- quota row와 application row의 pessimistic lock이 실제 transaction 사이에서 동작해야 한다.
+- 두 요청 중 하나만 성공하고 다른 하나는 `RECRUITING_QUOTA_EXCEEDED`로 거부되어야 한다.
+- 최종 `READY + REGISTERED` 수가 `targetCount`를 초과하지 않아야 한다.
+- in-memory fake나 순차 호출만으로 이 근거를 대체하지 않는다.
+
+단독 재실행:
+
+```bash
+./gradlew test --tests 'com.umc.product.recruiting.adapter.out.persistence.RecruitingQuotaReservationConcurrencyTest'
+```
+
+### RANDOM_PORT 실제 HTTP
+
+`MockMvc`와 `GraphQlTester` slice 외에 실제 socket과 Spring Security filter chain을 통과한다.
+
+| 테스트 | 실제 관찰 |
+|---|---|
+| `RecruitingApplicationRandomPortIntegrationTest` | JWT 지원서 생성, 비로그인·malformed 요청 거부, CSV allow/deny와 exact redaction, PostgreSQL P6Spy binding redaction |
+| `RecruitingGraphQlRandomPortIntegrationTest` | `/graphql` JWT CurrentMember 성공, 비로그인 `COMMON-403`, 제거된 익명 query의 validation 실패 |
+
+대표 재실행:
+
+```bash
+./gradlew test \
+  --tests 'com.umc.product.recruiting.adapter.in.web.RecruitingApplicationRandomPortIntegrationTest' \
+  --tests 'com.umc.product.recruiting.adapter.in.graphql.RecruitingGraphQlRandomPortIntegrationTest'
+```
+
+실행 transcript에는 JWT, application key, 원문 email을 기록하지 않는다. SQL redaction 기준은 [P6Spy SQL 로그 보안 정책](../../guides/P6Spy_SQL_로그_보안_정책.md)을 따른다.
+
+## 통합 gate
+
+Task 12에서는 다음 gate를 각각 독립 실행하고 exit code와 원시 로그를 보존한다.
+
+```bash
+./gradlew clean compileJava compileTestJava
+./gradlew test
+./gradlew asciidoctor
+./gradlew spotlessCheck
+git diff --check
+```
+
+Migration version 중복은 파일명에서 `V<version>__` 부분을 추출해 같은 version이 두 번 이상 존재하는지 검사한다. 중복 0건이어야 한다.
+
+전체 `test`가 통과한 뒤 RANDOM_PORT 두 클래스를 다시 실행한다. 실패 시 XML의 `tests`, `failures`, `errors`, `skipped` 합계를 근거로 보고하고, 테스트 task stdout의 추정치로 건수를 만들지 않는다.
+
+## Evidence
+
+- `.omo/evidence/recruiting-v2-redesign/task-10-rest-csv.txt`: focused 295, RANDOM_PORT REST 6
+- `.omo/evidence/recruiting-v2-redesign/task-11-graphql.txt`: GraphQL slice 27, RANDOM_PORT GraphQL 3
+- `.omo/evidence/recruiting-v2-redesign/task-12-integrated.txt`: clean compile, full test, docs, format, diff, migration duplicate, representative RANDOM_PORT
+- [GraphQL verification summary](../../analysis/recruiting-graphql-verification-evidence.md)
+
+## 실패 분류
+
+- domain/service 실패: 상태 전이와 business invariant를 먼저 확인한다.
+- controller/schema 실패: 실제 route/schema와 actor source가 문서 계약과 일치하는지 확인한다.
+- PostgreSQL/Testcontainers 실패: Docker availability와 migration failure를 분리한다.
+- concurrency 실패: test flake로 치부하지 않고 lock acquisition과 transaction boundary를 조사한다.
+- P6Spy redaction 실패: 로그 레벨을 낮춰 숨기지 말고 formatter/listener의 원문 값 노출을 수정한다.

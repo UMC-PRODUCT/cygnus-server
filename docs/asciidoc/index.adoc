@@ -107,7 +107,61 @@ operation::school-command-controller-test/총괄_학교정보를_수정한다[sn
 
 === 학교_링크를_조회합니다
 operation::school-link-query-controller-test/학교_링크를_조회합니다[snippets='http-request,http-response,path-parameters,response-fields']
+== Recruiting admin
 
+=== csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다
+operation::recruiting-admin-controller-test/csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다[snippets='http-request,http-response']
+
+=== ready-uses-current-member-actor
+operation::recruiting-admin-controller-test/ready-uses-current-member-actor[snippets='http-request,http-response']
+
+=== 모집_폼_연결_api는_차수와_-form_id를_전달한다
+operation::recruiting-admin-controller-test/모집_폼_연결_api는_차수와_-form_id를_전달한다[snippets='http-request,http-response']
+
+=== 상태_요약_api는_status별_count를_반환한다
+operation::recruiting-admin-controller-test/상태_요약_api는_status별_count를_반환한다[snippets='http-request,http-response']
+
+=== 최종_결정_api는_결정자_member-id를_command로_전달한다
+operation::recruiting-admin-controller-test/최종_결정_api는_결정자_member-id를_command로_전달한다[snippets='http-request,http-response']
+
+== Recruiting application
+
+=== create-draft-uses-authenticated-actor
+operation::recruiting-application-controller-test/create-draft-uses-authenticated-actor[snippets='http-request,http-response']
+
+=== reject-malformed-email-when-other-create-fields-are-valid
+operation::recruiting-application-controller-test/reject-malformed-email-when-other-create-fields-are-valid[snippets='http-request,http-response']
+
+=== reject-non-positive-form-id-when-other-create-fields-are-valid
+operation::recruiting-application-controller-test/reject-non-positive-form-id-when-other-create-fields-are-valid[snippets='http-request,http-response']
+
+=== reject-unauthenticated-create
+operation::recruiting-application-controller-test/reject-unauthenticated-create[snippets='http-request,http-response']
+
+== Recruiting application mutation
+
+=== cancel-uses-authenticated-actor
+operation::recruiting-application-mutation-controller-test/cancel-uses-authenticated-actor[snippets='http-request,http-response']
+
+=== reject-malformed-email-when-other-update-fields-are-valid
+operation::recruiting-application-mutation-controller-test/reject-malformed-email-when-other-update-fields-are-valid[snippets='http-request,http-response']
+
+=== reject-non-positive-application-id
+operation::recruiting-application-mutation-controller-test/reject-non-positive-application-id[snippets='http-request,http-response']
+
+=== reject-non-positive-question-id-when-other-update-fields-are-valid
+operation::recruiting-application-mutation-controller-test/reject-non-positive-question-id-when-other-update-fields-are-valid[snippets='http-request,http-response']
+
+=== submit-uses-authenticated-actor
+operation::recruiting-application-mutation-controller-test/submit-uses-authenticated-actor[snippets='http-request,http-response']
+
+=== update-draft-uses-authenticated-actor
+operation::recruiting-application-mutation-controller-test/update-draft-uses-authenticated-actor[snippets='http-request,http-response']
+
+== Recruiting public
+
+=== public_forms_api는_학교별_게시된_모집_폼을_반환한다
+operation::recruiting-public-controller-test/public_forms_api는_학교별_게시된_모집_폼을_반환한다[snippets='http-request,http-response']
 == System status
 
 === 점검중이_아닐_때_in-maintenance_false
@@ -215,4 +269,3 @@ operation::umc-product-squad-controller-documentation-test/umc_product_-squad를
 
 === 제거된_-squad_참여자_전체_교체_api는_404를_반환한다
 operation::umc-product-squad-controller-documentation-test/제거된_-squad_참여자_전체_교체_api는_404를_반환한다[snippets='http-request,http-response']
-
