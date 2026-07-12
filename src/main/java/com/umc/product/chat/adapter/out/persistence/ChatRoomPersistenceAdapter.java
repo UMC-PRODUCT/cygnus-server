@@ -58,6 +58,11 @@ public class ChatRoomPersistenceAdapter implements
     }
 
     @Override
+    public boolean saveIfAbsent(ChatMember chatMember) {
+        return chatMemberJpaRepository.insertIfAbsent(chatMember.getRoomId(), chatMember.getMemberId()) > 0;
+    }
+
+    @Override
     public void delete(Long roomId, Long memberId) {
         chatMemberJpaRepository.deleteByRoomIdAndMemberId(roomId, memberId);
     }
