@@ -70,10 +70,8 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
 
         boolean clearNextSectionId = Boolean.TRUE.equals(command.clearNextSectionId());
-        if (command.nextSectionId() != null || clearNextSectionId) {
-            validateNextSectionAllowed(option.getQuestion());
-        }
         if (command.nextSectionId() != null) {
+            validateNextSectionAllowed(option.getQuestion());
             validateNextSectionBelongsToForm(command.nextSectionId(), option.getQuestion());
         }
 
