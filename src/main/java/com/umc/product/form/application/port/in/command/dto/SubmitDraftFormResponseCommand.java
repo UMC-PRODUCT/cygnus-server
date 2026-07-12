@@ -13,6 +13,9 @@ import lombok.Builder;
  * draft 가 아닌 응답을 submit 시도하면 예외. {@code submittedIp} 는 감사/분석용 (선택, null 가능).
  * {@code requiredQuestionIds} / {@code allowedQuestionIds} 는 특정 제품 흐름에서 제출 검증 범위를 좁힐 때 사용한다.
  * 둘 다 {@code null} 이면 기존처럼 form 전체 기준으로 검증한다.
+ * <p>
+ * (기명 전용) {@code requesterMemberId} 는 권한 검증용 — draft 소유자 본인만 가능.
+ * 소유자와 다르거나, draft 가 익명이거나, null 이면 FORM_RESPONSE_FORBIDDEN 예외.
  */
 @Builder
 public record SubmitDraftFormResponseCommand(

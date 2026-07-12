@@ -23,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
@@ -507,6 +508,133 @@ class FormResponseCommandServiceTest {
             .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
 
         then(saveAnswerPort).should(never()).saveAll(any());
+    }
+
+    // ============================================================
+    //          Draft 조작 owner 검증 (Phase 2)
+    // ============================================================
+
+    @Test
+    @DisplayName("updateDraft: requesterMemberId=null 이면 FORM_RESPONSE_FORBIDDEN (auth 계층에서 걸러졌어야 하는 방어)")
+    void updateDraft_requesterMemberIdNull_예외() {
+        FormResponse draft = draftResponse();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(null)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("updateDraft: draft 가 익명(respondentMemberId=null) 이면 FORM_RESPONSE_FORBIDDEN")
+    void updateDraft_익명_draft_는_기명_usecase_에서_거부() {
+        FormResponse anonymousDraft = FormResponse.createDraft(publishedForm(true), null);
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
+
+        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("updateDraft: 요청자가 draft 소유자가 아니면 FORM_RESPONSE_FORBIDDEN")
+    void updateDraft_요청자가_소유자가_아니면_FORBIDDEN() {
+        FormResponse draft = draftResponse(); // 소유자 = MEMBER_ID
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID + 1) // 다른 사용자
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("submitDraft: requesterMemberId=null 이면 FORM_RESPONSE_FORBIDDEN (auth 계층에서 걸러졌어야 하는 방어)")
+    void submitDraft_requesterMemberIdNull_예외() {
+        FormResponse draft = draftResponse();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("submitDraft: 요청자가 draft 소유자가 아니면 FORM_RESPONSE_FORBIDDEN")
+    void submitDraft_요청자가_소유자가_아니면_FORBIDDEN() {
+        FormResponse draft = draftResponse();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID + 1)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("deleteDraft: requesterMemberId=null 이면 FORM_RESPONSE_FORBIDDEN (auth 계층에서 걸러졌어야 하는 방어)")
+    void deleteDraft_requesterMemberIdNull_예외() {
+        FormResponse draft = draftResponse();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.deleteDraft(DeleteDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("deleteDraft: 요청자가 draft 소유자가 아니면 FORM_RESPONSE_FORBIDDEN")
+    void deleteDraft_요청자가_소유자가_아니면_FORBIDDEN() {
+        FormResponse draft = draftResponse();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.deleteDraft(DeleteDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID + 1)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
     }
 
     private Form publishedForm(boolean allowDuplicateResponses) {

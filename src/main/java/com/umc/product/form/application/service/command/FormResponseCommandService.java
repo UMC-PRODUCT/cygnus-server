@@ -149,7 +149,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void updateDraft(UpdateDraftFormResponseCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
 
         // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
         validateAnswers(draft.getForm().getId(), command.answers());
@@ -165,7 +165,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void submitDraft(SubmitDraftFormResponseCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
         Set<Long> answeredQuestionIds = savedAnswers.stream()
@@ -198,7 +198,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void deleteDraft(DeleteDraftFormResponseCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
 
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
@@ -214,6 +214,28 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
         return formResponse;
+    }
+
+    /**
+     * 소유자 검증까지 포함한 DRAFT 응답 로드 (기명 전용).
+     * <p>
+     * 순서: DRAFT 로드({@link #loadDraft}) → 소유자 대조.
+     * 소유자와 일치하지 않으면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
+     * <p>
+     * 다음 경우 모두 FORBIDDEN 처리:
+     * <ul>
+     *   <li>익명 draft({@code respondentMemberId=null}) — 기명 UseCase 로 접근 불가, 별도 익명 UseCase(추후 도입) 사용</li>
+     *   <li>요청자 memberId 가 draft 소유자와 다름</li>
+     *   <li>요청자 memberId 가 null (auth 계층에서 걸러졌어야 하는 케이스, 방어 목적)</li>
+     * </ul>
+     */
+    private FormResponse loadDraftAsOwner(Long formResponseId, Long requesterMemberId) {
+        FormResponse draft = loadDraft(formResponseId);
+        if (draft.getRespondentMemberId() == null
+            || !draft.getRespondentMemberId().equals(requesterMemberId)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return draft;
     }
 
     private static Set<Long> extractQuestionIds(List<AnswerCommand> answers) {

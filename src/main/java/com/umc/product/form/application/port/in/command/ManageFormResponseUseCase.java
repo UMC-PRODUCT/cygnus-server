@@ -67,29 +67,39 @@ public interface ManageFormResponseUseCase {
     Long createDraft(CreateDraftFormResponseCommand command);
 
     /**
-     * 기존 draft 응답의 답변을 전체 교체한다 (작성 중 임시저장).
+     * (기명 전용) 기존 draft 응답의 답변을 전체 교체한다 (작성 중 임시저장).
      * <p>
      * 결과 status 는 DRAFT 그대로 유지되며, 작성 중이라는 의미상 필수 답변 누락 허용.
      * 형식 / 옵션 소속 / OTHER 텍스트 등 형식 검증 만 수행한다.
      * 필수 누락은 {@link #submitDraft} 시점에 검증.
      * <p>
      * draft가 아닌 응답(SUBMITTED) 또는 존재하지 않는 응답 ID면 예외.
+     * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
+     * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
+     * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
      */
     void updateDraft(UpdateDraftFormResponseCommand command);
 
     /**
-     * draft 응답을 SUBMITTED 로 전환(최종 제출)한다.
+     * (기명 전용) draft 응답을 SUBMITTED 로 전환(최종 제출)한다.
      * <p>
      * 답변 내용은 이전 {@link #updateDraft} 로 저장된 값 그대로 유지 — status 만 DRAFT -> SUBMITTED.
      * 결과 status 가 SUBMITTED 가 되므로 저장된 답변 기준으로 필수 답변 누락 검증을 수행.
      * <p>
      * draft 가 아닌 응답이면 예외.
+     * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
+     * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
+     * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
      */
     void submitDraft(SubmitDraftFormResponseCommand command);
 
     /**
-     * draft 응답을 삭제한다. (연관 Answer 포함)
+     * (기명 전용) draft 응답을 삭제한다. (연관 Answer 포함)
      * SUBMITTED 상태인 응답을 이 메서드로 삭제하면 예외 — SUBMITTED 삭제는 {@link #deleteResponse} 사용.
+     * <p>
+     * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
+     * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
+     * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
      */
     void deleteDraft(DeleteDraftFormResponseCommand command);
 }
