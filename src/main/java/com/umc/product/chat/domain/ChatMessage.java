@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
  * <p>
  * 순수 채팅 도메인 엔티티로, 발신자 역할(운영진/문의자)이나 문의 상태 같은 inquiry 개념을 알지 못한다.
  * "누가({@code senderMemberId}) 어느 방({@code roomId})에 무엇을({@code content}/{@code contentType})
- * 언제({@code createdAt}) 보냈는가"만 표현한다.
+ * 언제({@code createdAt}) 보냈고, 어떤 메시지에 답장했는가({@code replyToMessageId})"만 표현한다.
  */
 @Entity
 @Getter
@@ -62,8 +62,25 @@ public class ChatMessage extends BaseEntity {
     @Column(name = "file_metadata_ids", columnDefinition = "text[]", nullable = false)
     private List<String> fileMetadataIds;
 
+    // 답장 대상 메시지 id. 일반 메시지는 null.
+    @Column(name = "reply_to_message_id")
+    private Long replyToMessageId;
+
     /**
      * 일반 메시지(TEXT/IMAGE/FILE)를 생성한다.
+     */
+    public static ChatMessage create(
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds
+    ) {
+        return create(roomId, senderMemberId, contentType, content, fileMetadataIds, null);
+    }
+
+    /**
+     * 답장 대상이 있는 일반 메시지(TEXT/IMAGE/FILE)를 생성한다.
      * <p>
      * 콘텐츠 타입과 페이로드(content/fileMetadataIds)의 정합성은 이 팩토리가 보장한다.
      * 정합성에 위배되면 엔티티가 생성되지 않으므로, 무효한 상태의 {@link ChatMessage}는 존재할 수 없다.
@@ -73,7 +90,8 @@ public class ChatMessage extends BaseEntity {
         Long senderMemberId,
         MessageContentType contentType,
         String content,
-        List<String> fileMetadataIds
+        List<String> fileMetadataIds,
+        Long replyToMessageId
     ) {
         List<String> files = fileMetadataIds != null ? List.copyOf(fileMetadataIds) : List.of();
         validateContentConsistency(contentType, content, files);
@@ -84,6 +102,7 @@ public class ChatMessage extends BaseEntity {
             .contentType(contentType)
             .content(content)
             .fileMetadataIds(files)
+            .replyToMessageId(replyToMessageId)
             .build();
     }
 
@@ -106,7 +125,7 @@ public class ChatMessage extends BaseEntity {
 
         ChatErrorCode violation = switch (contentType) {
             case TEXT -> hasContent ? null : ChatErrorCode.CHAT_MESSAGE_EMPTY;
-            case IMAGE, FILE -> hasFiles ? null : ChatErrorCode.CHAT_MESSAGE_MISSING_ATTACHMENT;
+            case IMAGE, FILE -> hasFiles ? null : ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_REQUIRED;
             case SYSTEM -> ChatErrorCode.CHAT_MESSAGE_INVALID_CONTENT_TYPE;
         };
 
@@ -125,6 +144,7 @@ public class ChatMessage extends BaseEntity {
             .contentType(MessageContentType.SYSTEM)
             .content(content)
             .fileMetadataIds(List.of())
+            .replyToMessageId(null)
             .build();
     }
 }

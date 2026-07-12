@@ -39,6 +39,9 @@ class ChatMessageQueryRepositoryTest {
     @Autowired
     ChatMessageQueryRepository sut;
 
+    @Autowired
+    ChatMessageJpaRepository chatMessageJpaRepository;
+
     private Long roomId;
 
     @BeforeEach
@@ -115,22 +118,58 @@ class ChatMessageQueryRepositoryTest {
     }
 
     @Test
-    @DisplayName("countUnreadByRooms: lastRead 초과분만 세고 본인 메시지는 제외, 시스템 메시지는 포함한다")
+    @DisplayName("replyToMessageId를 저장하고 조회할 수 있다")
+    void replyToMessageId_persist() {
+        Long originalMessageId = persistText(roomId, OTHER, "원본 메시지");
+        Long replyMessageId = em.persist(
+            ChatMessage.create(roomId, ME, MessageContentType.FILE, "답장 메시지", List.of("file-1"), originalMessageId)
+        ).getId();
+        flushAndClear();
+
+        ChatMessage reply = em.find(ChatMessage.class, replyMessageId);
+
+        assertThat(reply.getReplyToMessageId()).isEqualTo(originalMessageId);
+    }
+
+    @Test
+    @DisplayName("existsByIdAndRoomId: 메시지가 해당 방에 있을 때만 true를 반환한다")
+    void existsByIdAndRoomId() {
+        Long messageId = persistText(roomId, OTHER, "방 1 메시지");
+        Long otherRoomId = em.persist(ChatRoom.create()).getId();
+        flushAndClear();
+
+        assertThat(chatMessageJpaRepository.existsByIdAndRoomId(messageId, roomId)).isTrue();
+        assertThat(chatMessageJpaRepository.existsByIdAndRoomId(messageId, otherRoomId)).isFalse();
+    }
+
+    @Test
+    @DisplayName("findByIdAndRoomId: 메시지가 해당 방에 있을 때만 반환한다")
+    void findByIdAndRoomId() {
+        Long messageId = persistText(roomId, OTHER, "방 1 메시지");
+        Long otherRoomId = em.persist(ChatRoom.create()).getId();
+        flushAndClear();
+
+        assertThat(chatMessageJpaRepository.findByIdAndRoomId(messageId, roomId)).isPresent();
+        assertThat(chatMessageJpaRepository.findByIdAndRoomId(messageId, otherRoomId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("countUnreadByRooms: lastRead 초과분은 본인 메시지와 시스템 메시지를 포함해 센다")
     void countUnreadByRooms() {
-        Long readUpTo = persistText(roomId, OTHER, "읽은 메시지");   // lastRead 기준
-        persistText(roomId, ME, "내가 보낸 메시지");                  // 제외 (본인)
-        persistText(roomId, OTHER, "안 읽은 상대 메시지");           // 카운트
-        persistSystem(roomId, "시스템 메시지");                       // 카운트 (sender null)
+        Long readUpTo = persistText(roomId, OTHER, "읽은 메시지");
+        persistText(roomId, ME, "내가 보낸 메시지");
+        persistText(roomId, OTHER, "안 읽은 상대 메시지");
+        persistSystem(roomId, "시스템 메시지");
         persistMember(roomId, ME, readUpTo);
         flushAndClear();
 
         List<RoomUnreadCount> result = sut.countUnreadByRooms(ME, List.of(roomId));
 
-        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 2L));
+        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 3L));
     }
 
     @Test
-    @DisplayName("countUnreadByRooms: lastRead가 null이면 본인 외 모든 메시지를 센다")
+    @DisplayName("countUnreadByRooms: lastRead가 null이면 본인 메시지도 포함해 모든 메시지를 센다")
     void countUnreadByRooms_nullLastRead() {
         persistText(roomId, OTHER, "상대 메시지");
         persistText(roomId, ME, "내 메시지");
@@ -139,7 +178,7 @@ class ChatMessageQueryRepositoryTest {
 
         List<RoomUnreadCount> result = sut.countUnreadByRooms(ME, List.of(roomId));
 
-        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 1L));
+        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 2L));
     }
 
     private Long persistText(Long roomId, Long senderMemberId, String content) {

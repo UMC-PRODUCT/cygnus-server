@@ -21,11 +21,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
+import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
+import com.umc.product.chat.application.port.in.query.dto.CheckChatMessageReadQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
+import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.exception.ChatDomainException;
@@ -84,6 +87,117 @@ class ChatMessageQueryServiceTest {
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
 
         then(loadChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("메시지 조회 결과에 답장 대상 메시지 id를 포함한다")
+    void getMessages_replyToMessageId() {
+        given(loadChatMessagePort.listByRoomId(eq(1L), eq(null), anyInt()))
+            .willReturn(List.of(message(30L, 1L, 20L)));
+
+        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2));
+
+        assertThat(result.content()).hasSize(1);
+        assertThat(result.content().get(0).replyToMessageId()).isEqualTo(20L);
+    }
+
+    @Test
+    @DisplayName("대상 멤버의 lastReadMessageId가 메시지 id 이상이면 읽음으로 반환한다")
+    void checkRead_read() {
+        ChatMember targetMember = ChatMember.of(1L, 20L);
+        targetMember.markRead(30L);
+        given(loadChatMessagePort.getByIdAndRoomId(20L, 1L)).willReturn(messageFrom(20L, 1L, 99L));
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
+
+        ChatMessageReadStatusInfo result =
+            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+
+        assertThat(result.roomId()).isEqualTo(1L);
+        assertThat(result.messageId()).isEqualTo(20L);
+        assertThat(result.targetMemberId()).isEqualTo(20L);
+        assertThat(result.read()).isTrue();
+    }
+
+    @Test
+    @DisplayName("대상 멤버의 lastReadMessageId가 null이면 안 읽음으로 반환한다")
+    void checkRead_unread_nullLastRead() {
+        ChatMember targetMember = ChatMember.of(1L, 20L);
+        given(loadChatMessagePort.getByIdAndRoomId(20L, 1L)).willReturn(messageFrom(20L, 1L, 99L));
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
+
+        ChatMessageReadStatusInfo result =
+            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+
+        assertThat(result.read()).isFalse();
+    }
+
+    @Test
+    @DisplayName("대상 멤버의 lastReadMessageId가 메시지 id보다 작으면 안 읽음으로 반환한다")
+    void checkRead_unread_lowerLastRead() {
+        ChatMember targetMember = ChatMember.of(1L, 20L);
+        targetMember.markRead(19L);
+        given(loadChatMessagePort.getByIdAndRoomId(20L, 1L)).willReturn(messageFrom(20L, 1L, 99L));
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
+
+        ChatMessageReadStatusInfo result =
+            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+
+        assertThat(result.read()).isFalse();
+    }
+
+    @Test
+    @DisplayName("대상 멤버가 보낸 메시지도 lastReadMessageId가 null이면 안 읽음으로 반환한다")
+    void checkRead_senderIsTarget_unreadWhenLastReadIsNull() {
+        ChatMember targetMember = ChatMember.of(1L, 20L);
+        given(loadChatMessagePort.getByIdAndRoomId(20L, 1L)).willReturn(messageFrom(20L, 1L, 20L));
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
+
+        ChatMessageReadStatusInfo result =
+            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+
+        assertThat(result.read()).isFalse();
+    }
+
+    @Test
+    @DisplayName("요청자가 방 멤버가 아니면 읽음 여부를 조회하지 않고 접근 거부 예외를 던진다")
+    void checkRead_requesterAccessDenied() {
+        willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
+            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+
+        assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException) e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
+
+        then(loadChatMessagePort).shouldHaveNoInteractions();
+        then(loadChatMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("메시지가 없거나 다른 방 메시지이면 읽음 여부를 조회하지 않고 메시지 없음 예외를 던진다")
+    void checkRead_messageNotFound() {
+        given(loadChatMessagePort.getByIdAndRoomId(20L, 1L))
+            .willThrow(new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
+
+        assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException) e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
+
+        then(loadChatMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("대상 멤버가 방 멤버가 아니면 멤버 없음 예외를 던진다")
+    void checkRead_targetMemberNotFound() {
+        given(loadChatMessagePort.getByIdAndRoomId(20L, 1L)).willReturn(messageFrom(20L, 1L, 99L));
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 30L))
+            .willThrow(new ChatDomainException(ChatErrorCode.CHAT_MEMBER_NOT_FOUND));
+
+        assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException) e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MEMBER_NOT_FOUND);
     }
 
     @Test
@@ -161,6 +275,18 @@ class ChatMessageQueryServiceTest {
 
     private ChatMessage message(Long id, Long roomId) {
         ChatMessage message = ChatMessage.create(roomId, 99L, MessageContentType.TEXT, "msg", null);
+        ReflectionTestUtils.setField(message, "id", id);
+        return message;
+    }
+
+    private ChatMessage message(Long id, Long roomId, Long replyToMessageId) {
+        ChatMessage message = ChatMessage.create(roomId, 99L, MessageContentType.TEXT, "msg", null, replyToMessageId);
+        ReflectionTestUtils.setField(message, "id", id);
+        return message;
+    }
+
+    private ChatMessage messageFrom(Long id, Long roomId, Long senderMemberId) {
+        ChatMessage message = ChatMessage.create(roomId, senderMemberId, MessageContentType.TEXT, "msg", null);
         ReflectionTestUtils.setField(message, "id", id);
         return message;
     }

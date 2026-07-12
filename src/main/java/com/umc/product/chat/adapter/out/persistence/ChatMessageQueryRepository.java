@@ -76,8 +76,7 @@ public class ChatMessageQueryRepository {
     /**
      * 멤버 기준 방별 안 읽은 메시지 수.
      * <p>
-     * 각 방의 {@code chat_member.last_read_message_id}를 임계값으로, 그보다 큰 id이면서
-     * 본인이 보내지 않은 메시지(시스템 메시지 포함)를 카운트한다.
+     * 각 방의 {@code chat_member.last_read_message_id}를 임계값으로, 그보다 큰 id를 카운트한다.
      */
     public List<RoomUnreadCount> countUnreadByRooms(Long memberId, List<Long> roomIds) {
         if (roomIds == null || roomIds.isEmpty()) {
@@ -94,8 +93,7 @@ public class ChatMessageQueryRepository {
                     .and(chatMember.memberId.eq(memberId)))
             .where(
                 chatMessage.roomId.in(roomIds),
-                chatMessage.id.gt(chatMember.lastReadMessageId.coalesce(0L)),
-                notSentByMe(memberId)
+                chatMessage.id.gt(chatMember.lastReadMessageId.coalesce(0L))
             )
             .groupBy(chatMessage.roomId)
             .fetch();
@@ -103,11 +101,5 @@ public class ChatMessageQueryRepository {
 
     private BooleanExpression cursorLt(Long cursorId) {
         return cursorId != null ? chatMessage.id.lt(cursorId) : null;
-    }
-
-    // 시스템 메시지(senderMemberId IS NULL)도 안 읽은 메시지로 포함한다.
-    private BooleanExpression notSentByMe(Long memberId) {
-        return chatMessage.senderMemberId.isNull()
-            .or(chatMessage.senderMemberId.ne(memberId));
     }
 }

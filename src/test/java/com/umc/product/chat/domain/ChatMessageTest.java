@@ -25,6 +25,23 @@ class ChatMessageTest {
         assertThat(message.getContentType()).isEqualTo(MessageContentType.TEXT);
         assertThat(message.getContent()).isEqualTo("안녕하세요");
         assertThat(message.getFileMetadataIds()).containsExactly("file-1");
+        assertThat(message.getReplyToMessageId()).isNull();
+    }
+
+    @Test
+    @DisplayName("답장 대상 메시지 id를 가진 일반 메시지를 생성한다")
+    void create_withReplyToMessageId() {
+        ChatMessage message = ChatMessage.create(
+            1L,
+            10L,
+            MessageContentType.IMAGE,
+            "이미지 답장",
+            List.of("file-1"),
+            100L
+        );
+
+        assertThat(message.getReplyToMessageId()).isEqualTo(100L);
+        assertThat(message.getFileMetadataIds()).containsExactly("file-1");
     }
 
     @Test
@@ -44,6 +61,7 @@ class ChatMessageTest {
         assertThat(message.getContentType()).isEqualTo(MessageContentType.SYSTEM);
         assertThat(message.getContent()).isEqualTo("님이 입장했습니다");
         assertThat(message.getFileMetadataIds()).isEmpty();
+        assertThat(message.getReplyToMessageId()).isNull();
     }
 
     @Test
@@ -61,7 +79,7 @@ class ChatMessageTest {
         assertThatThrownBy(() -> ChatMessage.create(1L, 10L, MessageContentType.IMAGE, "캡션", List.of()))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
-            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_MISSING_ATTACHMENT);
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_REQUIRED);
     }
 
     @Test
@@ -70,7 +88,7 @@ class ChatMessageTest {
         assertThatThrownBy(() -> ChatMessage.create(1L, 10L, MessageContentType.FILE, null, null))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
-            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_MISSING_ATTACHMENT);
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_REQUIRED);
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.umc.product.chat.domain;
 
 import com.umc.product.common.BaseEntity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -25,7 +26,18 @@ public class ChatRoom extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "pinned_message_id")
+    private Long pinnedMessageId;
+
     public static ChatRoom create() {
         return ChatRoom.builder().build();
+    }
+
+    public void pinMessage(Long messageId) {
+        this.pinnedMessageId = messageId;
+    }
+
+    public void unpinMessage() {
+        this.pinnedMessageId = null;
     }
 }

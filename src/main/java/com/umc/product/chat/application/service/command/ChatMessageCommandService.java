@@ -1,8 +1,11 @@
 package com.umc.product.chat.application.service.command;
 
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
 import com.umc.product.chat.application.port.in.command.SendChatMessageUseCase;
@@ -20,6 +23,8 @@ import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.storage.application.port.in.query.GetFileUseCase;
+import com.umc.product.storage.application.port.in.query.dto.FileMetadataInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +37,8 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     private final LoadChatMessagePort loadChatMessagePort;
     private final LoadChatMemberPort loadChatMemberPort;
     private final SaveChatMemberPort saveChatMemberPort;
+    private final GetFileUseCase getFileUseCase;
+    private final ChatAttachmentPolicy chatAttachmentPolicy;
     private final ChatRoomAccessPolicy chatRoomAccessPolicy;
     private final DomainEventPublisher domainEventPublisher;
 
@@ -48,14 +55,19 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
 
         // 방 멤버만 전송 가능
         chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
+        validateReplyTarget(command);
+        validateAttachments(command);
 
         ChatMessage saved = saveChatMessagePort.save(ChatMessage.create(
             command.roomId(),
             command.senderMemberId(),
             command.contentType(),
             command.content(),
-            command.fileMetadataIds()
+            command.fileMetadataIds(),
+            command.replyToMessageId()
         ));
+
+        markSenderRead(command, saved);
 
         domainEventPublisher.publish(ChatMessageCreatedEvent.from(saved));
 
@@ -76,15 +88,58 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         saveChatMemberPort.save(member);
     }
 
-    /**
-     * 클라이언트 입력의 신뢰경계 검증만 담당한다.
-     * <p>
-     * SYSTEM 메시지는 서버 내부({@code ChatMessage.createSystem})에서만 생성하므로 클라이언트 전송을 차단한다.
-     * 콘텐츠 타입과 페이로드의 정합성 불변식은 {@code ChatMessage.create}가 책임진다(도메인 불변식).
-     */
     private void validate(SendChatMessageCommand command) {
-        if (command.contentType() == MessageContentType.SYSTEM) {
+        // SYSTEM 메시지는 서버 내부에서만 생성한다(클라이언트 전송 불가).
+        if (command.contentType() == null || command.contentType() == MessageContentType.SYSTEM) {
             throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_INVALID_CONTENT_TYPE);
+        }
+        boolean noContent = command.content() == null || command.content().isBlank();
+        boolean noFiles = command.fileMetadataIds() == null || command.fileMetadataIds().isEmpty();
+        if (command.contentType() == MessageContentType.TEXT && !noFiles) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_NOT_ALLOWED);
+        }
+        if ((command.contentType() == MessageContentType.IMAGE || command.contentType() == MessageContentType.FILE)
+            && noFiles) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_REQUIRED);
+        }
+        if (noContent && noFiles) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_EMPTY);
+        }
+        if (!noFiles && hasInvalidFileId(command.fileMetadataIds())) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_INVALID_ATTACHMENT);
+        }
+    }
+
+    private boolean hasInvalidFileId(List<String> fileIds) {
+        return fileIds.stream().anyMatch(fileId -> fileId == null || fileId.isBlank())
+            || fileIds.stream().distinct().count() != fileIds.size();
+    }
+
+    private void validateAttachments(SendChatMessageCommand command) {
+        if (command.fileMetadataIds() == null || command.fileMetadataIds().isEmpty()) {
+            return;
+        }
+
+        List<FileMetadataInfo> files = getFileUseCase.batchGetUsableByIds(
+            command.fileMetadataIds(),
+            command.senderMemberId()
+        );
+        chatAttachmentPolicy.validate(command.contentType(), files);
+    }
+
+    private void markSenderRead(SendChatMessageCommand command, ChatMessage saved) {
+        ChatMember sender = loadChatMemberPort.getByRoomIdAndMemberId(command.roomId(), command.senderMemberId());
+        sender.markRead(saved.getId());
+        saveChatMemberPort.save(sender);
+    }
+
+    private void validateReplyTarget(SendChatMessageCommand command) {
+        Long replyToMessageId = command.replyToMessageId();
+        if (replyToMessageId == null) {
+            return;
+        }
+        if (!loadChatMessagePort.existsByIdAndRoomId(replyToMessageId, command.roomId())) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_INVALID_REPLY_TARGET);
         }
     }
 }

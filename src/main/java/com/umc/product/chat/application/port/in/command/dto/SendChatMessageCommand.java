@@ -9,6 +9,17 @@ public record SendChatMessageCommand(
     Long senderMemberId,
     MessageContentType contentType,
     String content,
-    List<String> fileMetadataIds
+    List<String> fileMetadataIds,
+    Long replyToMessageId
 ) {
+
+    public SendChatMessageCommand(
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds
+    ) {
+        this(roomId, senderMemberId, contentType, content, fileMetadataIds, null);
+    }
 }

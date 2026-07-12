@@ -10,15 +10,19 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
+import com.umc.product.chat.application.port.in.query.CheckChatMessageReadUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
 import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
+import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
+import com.umc.product.chat.application.port.in.query.dto.CheckChatMessageReadQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
+import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
 
 import lombok.RequiredArgsConstructor;
@@ -26,7 +30,10 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ChatMessageQueryService implements GetChatMessagesUseCase, ListChatRoomSummariesUseCase {
+public class ChatMessageQueryService implements
+    GetChatMessagesUseCase,
+    ListChatRoomSummariesUseCase,
+    CheckChatMessageReadUseCase {
 
     private final LoadChatMessagePort loadChatMessagePort;
     private final LoadChatMemberPort loadChatMemberPort;
@@ -52,6 +59,22 @@ public class ChatMessageQueryService implements GetChatMessagesUseCase, ListChat
             .toList();
 
         return new ChatMessageCursorResult(content, nextCursor, hasNext);
+    }
+
+    /**
+     * 특정 방의 특정 메시지를 대상 멤버가 읽었는지 확인한다.
+     * <p>
+     * 요청자와 대상자 모두 방 멤버여야 하며, 메시지는 해당 방에 속해야 한다.
+     */
+    @Override
+    public ChatMessageReadStatusInfo checkRead(CheckChatMessageReadQuery query) {
+        chatRoomAccessPolicy.verifyMember(query.roomId(), query.requesterMemberId());
+
+        ChatMessage message = loadChatMessagePort.getByIdAndRoomId(query.messageId(), query.roomId());
+        ChatMember targetMember = loadChatMemberPort.getByRoomIdAndMemberId(query.roomId(), query.targetMemberId());
+
+        boolean read = isReadByTarget(message, targetMember);
+        return new ChatMessageReadStatusInfo(query.roomId(), query.messageId(), query.targetMemberId(), read);
     }
 
     /**
@@ -90,5 +113,10 @@ public class ChatMessageQueryService implements GetChatMessagesUseCase, ListChat
             .sorted(Comparator.comparingLong(
                 (ChatRoomSummaryInfo s) -> s.lastMessage() != null ? s.lastMessage().messageId() : 0L).reversed())
             .toList();
+    }
+
+    private boolean isReadByTarget(ChatMessage message, ChatMember targetMember) {
+        Long lastReadMessageId = targetMember.getLastReadMessageId();
+        return lastReadMessageId != null && lastReadMessageId >= message.getId();
     }
 }
