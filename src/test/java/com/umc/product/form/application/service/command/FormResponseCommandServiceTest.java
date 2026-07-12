@@ -30,6 +30,7 @@ import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmediatelyFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
@@ -521,6 +522,41 @@ class FormResponseCommandServiceTest {
     // ============================================================
     //          익명 응답
     // ============================================================
+
+    @Test
+    @DisplayName("submitAnonymousImmediately: 토큰 발급 + sha256 저장 + SUBMITTED 상태 + rawKey 반환")
+    void submitAnonymousImmediately_토큰_발급_및_저장() {
+        String rawKey = "raw-key-example";
+        String hash = "hash-of-raw-key";
+
+        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of());
+        given(secureTokenGenerator.generateOpaqueToken()).willReturn(rawKey);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(invocation -> {
+            FormResponse response = invocation.getArgument(0);
+            ReflectionTestUtils.setField(response, "id", FORM_RESPONSE_ID);
+            return response;
+        });
+
+        AnonymousFormResponseResult result = sut.submitAnonymousImmediately(
+            SubmitAnonymousImmediatelyFormResponseCommand.builder()
+                .formId(FORM_ID)
+                .answers(List.of())
+                .build()
+        );
+
+        assertThat(result.formResponseId()).isEqualTo(FORM_RESPONSE_ID);
+        assertThat(result.responseAccessKey()).isEqualTo(rawKey);
+
+        then(saveFormResponsePort).should().save(argThat(fr ->
+            fr.getRespondentMemberId() == null
+                && hash.equals(fr.getResponseAccessKeyHash())
+                && fr.getStatus() == com.umc.product.form.domain.enums.FormResponseStatus.SUBMITTED
+        ));
+        // 익명은 중복 정책 검사 skip
+        then(loadFormResponsePort).should(never()).existsByFormIdAndMemberId(any(), any());
+    }
 
     @Test
     @DisplayName("createAnonymousDraft: opaque token 발급 + sha256 저장 + rawKey 반환")

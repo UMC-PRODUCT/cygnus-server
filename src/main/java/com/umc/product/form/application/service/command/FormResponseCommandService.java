@@ -27,6 +27,7 @@ import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmediatelyFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
@@ -211,6 +212,34 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
+    }
+
+    @Override
+    public AnonymousFormResponseResult submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand command) {
+        Form form = loadPublishedForm(command.formId());
+
+        // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
+        validateAnswers(command.formId(), command.answers());
+        validateAllRequiredAnsweredOnPath(
+            command.formId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+
+        String rawAccessKey = secureTokenGenerator.generateOpaqueToken();
+        String accessKeyHash = secureTokenGenerator.sha256Hex(rawAccessKey);
+
+        FormResponse response = FormResponse.createAnonymousDraft(form, accessKeyHash);
+        response.submit(Instant.now(), null);
+        FormResponse saved = saveFormResponsePort.save(response);
+
+        List<AnswerWithOptions> data = buildAnswerData(saved, command.answers());
+        saveAnswers(data);
+
+        return AnonymousFormResponseResult.builder()
+            .formResponseId(saved.getId())
+            .responseAccessKey(rawAccessKey)
+            .build();
     }
 
     @Override

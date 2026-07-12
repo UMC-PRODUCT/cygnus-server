@@ -7,6 +7,7 @@ import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmediatelyFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
@@ -107,6 +108,18 @@ public interface ManageFormResponseUseCase {
      * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
      */
     void deleteDraft(DeleteDraftFormResponseCommand command);
+
+    /**
+     * (익명 전용) 폼에 대한 익명 응답을 즉시 제출한다. (draft 없이 바로 SUBMITTED 상태 생성)
+     * Vote 같이 한 번에 제출하는 익명 플로우에서 사용.
+     * <p>
+     * 결과 status 는 SUBMITTED라 제출 무결성을 위해 형식 검증 + 필수 답변 누락 검증을 모두 수행.
+     * 서버가 랜덤 {@code responseAccessKey} 를 발급하고 sha256 해시만 저장한다.
+     * 반환된 raw key 는 이후 익명 조작(update / delete) 시 재제출용.
+     * <p>
+     * 익명 응답의 중복 정책은 form 엔진에서 강제하지 않는다 — 소비 도메인 책임.
+     */
+    AnonymousFormResponseResult submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand command);
 
     /**
      * (익명 전용) 익명 draft 응답을 최초 생성한다.
