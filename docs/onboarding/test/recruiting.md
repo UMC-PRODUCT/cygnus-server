@@ -2,7 +2,7 @@
 
 ## 범위
 
-현재 `src/test/java/com/umc/product/recruiting`에는 실행 가능한 `*Test.java` 77개가 있다. 최종 remediation focused 실행의 JUnit XML 기준 Recruiting은 77 suites, 344 tests, failures 0, errors 0, skipped 0이다. 원시 로그와 집계는 로컬 evidence `.omo/evidence/recruiting-v2-final-remediation.md`에 기록한다.
+현재 `src/test/java/com/umc/product/recruiting`에는 실행 가능한 `*Test.java` 78개가 있다. 최종 remediation focused 실행의 JUnit XML 기준 Recruiting은 78 suites/classes, 346 tests, failures 0, errors 0, skipped 0이다. 원시 로그와 집계는 로컬 evidence `.omo/evidence/recruiting-v2-final-doc-count-remediation.md`에 기록한다.
 
 | 계층 | 테스트 클래스 수 | 주요 검증 |
 |---|---:|---|
@@ -44,6 +44,7 @@ DB 검증은 H2/in-memory 대체가 아니라 Testcontainers PostgreSQL을 사�
 | `RecruitingEvaluationScheduleMigrationTest` | legacy score/assignment 제거, 평가·일정 schema |
 | `RecruitingApplicationDatabaseInvariantTest` | 지원서 email/member/track/application key invariant |
 | `RecruitingRegistrationDatabaseInvariantTest` | `FINAL_PASSED`와 registration status/accepted track 정합성 |
+| `RecruitingApplicationFormPolicyConcurrencyTest` | PostgreSQL에서 Form 게시와 section policy 추가의 동일 root `PESSIMISTIC_WRITE` lock 직렬화 |
 | `RecruitingPersistenceAdapterTest` 및 세부 adapter tests | 실제 JPA save/load/search, scope와 ordering |
 
 Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 테스트는 이전 migration 지점까지 적용한 뒤 v2 migration을 실행해 upgrade path를 검증한다.
@@ -61,6 +62,16 @@ Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 �
 
 ```bash
 ./gradlew test --tests 'com.umc.product.recruiting.adapter.out.persistence.RecruitingQuotaReservationConcurrencyTest'
+```
+
+### Form policy concurrency
+
+`RecruitingApplicationFormPolicyConcurrencyTest`는 실제 PostgreSQL에서 같은 `RecruitingApplicationForm` root에 대한 게시와 section policy 추가를 동시에 실행한다. 게시가 root의 `PESSIMISTIC_WRITE` lock을 획득한 동안 정책 추가는 같은 lock에서 직렬화되고, 게시가 커밋된 뒤 `addPolicy`가 `PUBLISHED` 상태를 관찰해 `RECRUITING_APPLICATION_FORM_INVALID_TRANSITION`으로 실패한다. 최종 Form 상태는 `PUBLISHED`이고 policy는 저장되지 않는다.
+
+단독 재실행:
+
+```bash
+./gradlew test --tests 'com.umc.product.recruiting.adapter.out.persistence.RecruitingApplicationFormPolicyConcurrencyTest'
 ```
 
 ### RANDOM_PORT 실제 HTTP
@@ -100,7 +111,7 @@ Migration version 중복은 파일명에서 `V<version>__` 부분을 추출해 �
 
 ## Evidence
 
-- `.omo/evidence/recruiting-v2-final-remediation.md`: 77 suites/344 tests focused 실행, REST/GraphQL 인가, CSV, Form 상태, root-only lock, format/diff 검증
+- `.omo/evidence/recruiting-v2-final-doc-count-remediation.md`: 78 suites/346 tests focused 실행, REST/GraphQL 인가, CSV, Form 상태, root-only lock, format/diff 검증
 
 ## 실패 분류
 

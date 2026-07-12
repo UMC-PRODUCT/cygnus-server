@@ -21,7 +21,7 @@
 | Notification | 3 | 10 | [notification.md](notification.md) |
 | Organization | 32 | 168 | [organization.md](organization.md) |
 | Project | 37 | 526 | [project.md](project.md) |
-| Recruiting | 77 | 344 | [recruiting.md](recruiting.md) |
+| Recruiting | 78 | 346 | [recruiting.md](recruiting.md) |
 | Schedule | 2 | 16 | [schedule.md](schedule.md) |
 | Storage | 5 | 40 | [storage.md](storage.md) |
 | Support | 1 | 1 | [support.md](support.md) |
