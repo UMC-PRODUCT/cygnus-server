@@ -12,11 +12,10 @@ import com.umc.product.chat.application.port.in.command.SendChatMessageUseCase;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
-import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
+import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatMessagePort;
-import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
@@ -35,7 +34,7 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
 
     private final SaveChatMessagePort saveChatMessagePort;
     private final LoadChatMessagePort loadChatMessagePort;
-    private final LoadChatMemberPort loadChatMemberPort;
+    private final LoadChatRoomPort loadChatRoomPort;
     private final SaveChatMemberPort saveChatMemberPort;
     private final GetFileUseCase getFileUseCase;
     private final ChatAttachmentPolicy chatAttachmentPolicy;
@@ -45,9 +44,8 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     /**
      * 메시지를 저장하고 생성 이벤트를 발행한다.
      * <p>
-     * broadcast 및 문의 상태 전환은 이 이벤트를 수신하는 다른 컴포넌트가 처리한다. chat은 알지 못한다.
-     * 이벤트 발행은 {@link DomainEventPublisher} 한 곳에만 위임하며, outbox 적재 / 인메모리 발행 분기는
-     * 어댑터 구성(app.event-outbox.enabled)이 결정한다.
+     * broadcast 및 문의 상태 전환은 이 이벤트를 수신하는 다른 컴포넌트가 처리한다. chat은 알지 못한다. 이벤트 발행은 {@link DomainEventPublisher} 한 곳에만 위임하며,
+     * outbox 적재 / 인메모리 발행 분기는 어댑터 구성(app.event-outbox.enabled)이 결정한다.
      */
     @Override
     public ChatMessageInfo send(SendChatMessageCommand command) {
@@ -57,6 +55,10 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
         validateReplyTarget(command);
         validateAttachments(command);
+
+        // 같은 방의 동시 전송을 직렬화한다(방 row 락). insert 이전에 락을 잡아야 방 안에서 message id 배정
+        // 순서가 commit 순서와 일치하고, 그 결과 읽음 watermark(id 기준)가 안전해진다.
+        loadChatRoomPort.getByIdForUpdate(command.roomId());
 
         ChatMessage saved = saveChatMessagePort.save(ChatMessage.create(
             command.roomId(),
@@ -77,15 +79,15 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     /**
      * 방을 현재 최신 메시지까지 읽음 처리한다.
      * <p>
-     * 읽음 위치는 클라이언트 값이 아니라 서버가 조회한 방 최신 메시지 id를 기준으로 한다(조작 불가).
-     * 메시지가 아직 없는 방이면 갱신 없이 종료한다.
+     * 읽음 위치는 클라이언트 값이 아니라 서버가 조회한 방 최신 메시지 id를 기준으로 한다(조작 불가). 메시지가 아직 없는 방이면 갱신 없이 종료한다.
      */
     @Override
     public void markRead(MarkChatRoomReadCommand command) {
-        ChatMember member = loadChatMemberPort.getByRoomIdAndMemberId(command.roomId(), command.memberId());
+        // 방 멤버만 읽음 처리 가능(원자 갱신은 비멤버면 no-op이라 여기서 명시적으로 검증한다).
+        chatRoomAccessPolicy.verifyMember(command.roomId(), command.memberId());
         loadChatMessagePort.findLatestMessageId(command.roomId())
-            .ifPresent(member::markRead);
-        saveChatMemberPort.save(member);
+            .ifPresent(latest -> saveChatMemberPort.bumpLastReadMessageId(
+                command.roomId(), command.memberId(), latest));
     }
 
     private void validate(SendChatMessageCommand command) {
@@ -128,9 +130,9 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     }
 
     private void markSenderRead(SendChatMessageCommand command, ChatMessage saved) {
-        ChatMember sender = loadChatMemberPort.getByRoomIdAndMemberId(command.roomId(), command.senderMemberId());
-        sender.markRead(saved.getId());
-        saveChatMemberPort.save(sender);
+        // 발신자는 자기 메시지를 읽은 것으로 처리한다. markRead 와 동일하게 원자 단조 갱신을 사용해
+        // 다른 기기의 동시 읽음 처리와 lost update 가 나지 않도록 한다.
+        saveChatMemberPort.bumpLastReadMessageId(command.roomId(), command.senderMemberId(), saved.getId());
     }
 
     private void validateReplyTarget(SendChatMessageCommand command) {

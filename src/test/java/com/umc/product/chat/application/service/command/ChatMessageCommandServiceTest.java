@@ -25,11 +25,10 @@ import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
-import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
+import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatMessagePort;
-import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
@@ -51,7 +50,7 @@ class ChatMessageCommandServiceTest {
     @Mock
     LoadChatMessagePort loadChatMessagePort;
     @Mock
-    LoadChatMemberPort loadChatMemberPort;
+    LoadChatRoomPort loadChatRoomPort;
     @Mock
     SaveChatMemberPort saveChatMemberPort;
     @Mock
@@ -75,9 +74,7 @@ class ChatMessageCommandServiceTest {
         ReflectionTestUtils.setField(saved, "id", 100L);
         Instant createdAt = Instant.parse("2026-06-13T00:00:00Z");
         ReflectionTestUtils.setField(saved, "createdAt", createdAt);
-        ChatMember sender = ChatMember.of(1L, 10L);
         given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
-        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(sender);
 
         ChatMessageInfo result = sut.send(command);
 
@@ -86,9 +83,11 @@ class ChatMessageCommandServiceTest {
         assertThat(result.content()).isEqualTo("안녕");
         assertThat(result.replyToMessageId()).isNull();
 
+        // 방 row 락을 잡은 뒤 저장한다(동시 전송 직렬화)
+        then(loadChatRoomPort).should().getByIdForUpdate(1L);
         then(saveChatMessagePort).should().save(any(ChatMessage.class));
-        assertThat(sender.getLastReadMessageId()).isEqualTo(100L);
-        then(saveChatMemberPort).should().save(sender);
+        // 발신자 읽음 위치는 원자 단조 갱신으로 처리한다
+        then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 100L);
 
         ArgumentCaptor<ChatMessageCreatedEvent> captor = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
         then(domainEventPublisher).should().publish(captor.capture());
@@ -111,7 +110,6 @@ class ChatMessageCommandServiceTest {
         ReflectionTestUtils.setField(saved, "createdAt", createdAt);
         given(loadChatMessagePort.existsByIdAndRoomId(90L, 1L)).willReturn(true);
         given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
-        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(ChatMember.of(1L, 10L));
 
         ChatMessageInfo result = sut.send(command);
 
@@ -237,7 +235,6 @@ class ChatMessageCommandServiceTest {
         ReflectionTestUtils.setField(saved, "createdAt", Instant.parse("2026-06-13T00:00:00Z"));
         given(getFileUseCase.batchGetUsableByIds(fileIds, 10L)).willReturn(files);
         given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
-        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(ChatMember.of(1L, 10L));
 
         ChatMessageInfo result = sut.send(command);
 
@@ -284,16 +281,39 @@ class ChatMessageCommandServiceTest {
     }
 
     @Test
-    @DisplayName("읽음 처리 시 멤버의 읽음 위치를 갱신하고 저장한다")
+    @DisplayName("읽음 처리 시 방 최신 메시지 id로 읽음 위치를 원자 단조 갱신한다")
     void markRead() {
-        ChatMember member = ChatMember.of(1L, 10L);
-        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(member);
         given(loadChatMessagePort.findLatestMessageId(1L)).willReturn(Optional.of(42L));
 
         sut.markRead(MarkChatRoomReadCommand.of(1L, 10L));
 
-        assertThat(member.getLastReadMessageId()).isEqualTo(42L);
-        then(saveChatMemberPort).should().save(member);
+        then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
+        then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 42L);
+    }
+
+    @Test
+    @DisplayName("방에 메시지가 없으면 읽음 위치를 갱신하지 않는다")
+    void markRead_noMessage() {
+        given(loadChatMessagePort.findLatestMessageId(1L)).willReturn(Optional.empty());
+
+        sut.markRead(MarkChatRoomReadCommand.of(1L, 10L));
+
+        then(saveChatMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("읽음 처리 요청자가 방 멤버가 아니면 예외를 던지고 최신 메시지 조회/갱신을 하지 않는다")
+    void markRead_notMember() {
+        willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
+            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+
+        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L)))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException) e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
+
+        then(loadChatMessagePort).shouldHaveNoInteractions();
+        then(saveChatMemberPort).shouldHaveNoInteractions();
     }
 
     private FileMetadataInfo fileMetadataInfo(String fileId, String extension, String contentType) {

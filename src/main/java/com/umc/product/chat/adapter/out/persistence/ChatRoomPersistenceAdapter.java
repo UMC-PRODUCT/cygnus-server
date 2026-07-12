@@ -44,6 +44,12 @@ public class ChatRoomPersistenceAdapter implements
             .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
     }
 
+    @Override
+    public ChatRoom getByIdForUpdate(Long roomId) {
+        return chatRoomJpaRepository.findByIdForUpdate(roomId)
+            .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+    }
+
     // ===== ChatMember ====================================
 
     @Override
@@ -77,5 +83,10 @@ public class ChatRoomPersistenceAdapter implements
         return chatMemberJpaRepository.findAllByMemberIdAndRoomIdIn(memberId, roomIds).stream()
             .map(ChatMember::getRoomId)
             .toList();
+    }
+
+    @Override
+    public void bumpLastReadMessageId(Long roomId, Long memberId, long candidateMessageId) {
+        chatMemberJpaRepository.bumpLastReadMessageId(roomId, memberId, candidateMessageId);
     }
 }
