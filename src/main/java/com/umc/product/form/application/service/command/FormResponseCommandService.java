@@ -191,11 +191,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (command.requiredQuestionIds() != null) {
             validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
         } else {
-            Set<Long> answerIds = savedAnswers.stream().map(Answer::getId).collect(Collectors.toSet());
-            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIds).stream()
+            // 이미 메모리에 있는 savedAnswers 로 (answerId → questionId) 매핑 미리 만들어서
+            // AnswerChoice 순회 시 Answer 프록시 초기화(N+1) 회피.
+            Map<Long, Long> answerIdToQuestionId = savedAnswers.stream()
+                .collect(Collectors.toMap(Answer::getId, a -> a.getQuestion().getId()));
+            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIdToQuestionId.keySet()).stream()
                 .filter(c -> c.getQuestionOption() != null)
                 .collect(Collectors.toMap(
-                    c -> c.getAnswer().getQuestion().getId(),
+                    c -> answerIdToQuestionId.get(c.getAnswer().getId()),
                     c -> c.getQuestionOption().getId(),
                     (a, b) -> a
                 ));
@@ -321,11 +324,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (command.requiredQuestionIds() != null) {
             validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
         } else {
-            Set<Long> answerIds = savedAnswers.stream().map(Answer::getId).collect(Collectors.toSet());
-            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIds).stream()
+            // 이미 메모리에 있는 savedAnswers 로 (answerId → questionId) 매핑 미리 만들어서
+            // AnswerChoice 순회 시 Answer 프록시 초기화(N+1) 회피.
+            Map<Long, Long> answerIdToQuestionId = savedAnswers.stream()
+                .collect(Collectors.toMap(Answer::getId, a -> a.getQuestion().getId()));
+            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIdToQuestionId.keySet()).stream()
                 .filter(c -> c.getQuestionOption() != null)
                 .collect(Collectors.toMap(
-                    c -> c.getAnswer().getQuestion().getId(),
+                    c -> answerIdToQuestionId.get(c.getAnswer().getId()),
                     c -> c.getQuestionOption().getId(),
                     (a, b) -> a
                 ));
