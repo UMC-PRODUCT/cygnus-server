@@ -57,6 +57,7 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
+        // TODO: simple broker는 인스턴스 메모리 기반이므로 다중 인스턴스 배포 전 외부 broker relay 또는 분산 BroadcastPort로 교체해야 함
         registry.enableSimpleBroker("/topic", "/queue")
             .setHeartbeatValue(new long[]{4000, 4000})
             .setTaskScheduler(webSocketHeartbeatScheduler());
