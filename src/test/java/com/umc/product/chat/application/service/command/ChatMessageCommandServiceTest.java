@@ -8,7 +8,6 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -94,21 +93,6 @@ class ChatMessageCommandServiceTest {
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_MESSAGE_INVALID_CONTENT_TYPE);
-
-        then(saveChatMessagePort).shouldHaveNoInteractions();
-        then(domainEventPublisher).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("내용과 첨부가 모두 비어 있으면 전송할 수 없다")
-    void send_emptyRejected() {
-        SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "   ", List.of());
-
-        assertThatThrownBy(() -> sut.send(command))
-            .isInstanceOf(ChatDomainException.class)
-            .extracting(e -> ((ChatDomainException) e).getBaseCode())
-            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_EMPTY);
 
         then(saveChatMessagePort).shouldHaveNoInteractions();
         then(domainEventPublisher).shouldHaveNoInteractions();

@@ -76,15 +76,15 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         saveChatMemberPort.save(member);
     }
 
+    /**
+     * 클라이언트 입력의 신뢰경계 검증만 담당한다.
+     * <p>
+     * SYSTEM 메시지는 서버 내부({@code ChatMessage.createSystem})에서만 생성하므로 클라이언트 전송을 차단한다.
+     * 콘텐츠 타입과 페이로드의 정합성 불변식은 {@code ChatMessage.create}가 책임진다(도메인 불변식).
+     */
     private void validate(SendChatMessageCommand command) {
-        // SYSTEM 메시지는 서버 내부에서만 생성한다(클라이언트 전송 불가).
         if (command.contentType() == MessageContentType.SYSTEM) {
             throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_INVALID_CONTENT_TYPE);
-        }
-        boolean noContent = command.content() == null || command.content().isBlank();
-        boolean noFiles = command.fileMetadataIds() == null || command.fileMetadataIds().isEmpty();
-        if (noContent && noFiles) {
-            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_EMPTY);
         }
     }
 }

@@ -5,6 +5,8 @@ import java.util.List;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import com.umc.product.chat.domain.exception.ChatDomainException;
+import com.umc.product.chat.domain.exception.ChatErrorCode;
 import com.umc.product.common.BaseEntity;
 
 import jakarta.persistence.Column;
@@ -62,6 +64,9 @@ public class ChatMessage extends BaseEntity {
 
     /**
      * 일반 메시지(TEXT/IMAGE/FILE)를 생성한다.
+     * <p>
+     * 콘텐츠 타입과 페이로드(content/fileMetadataIds)의 정합성은 이 팩토리가 보장한다.
+     * 정합성에 위배되면 엔티티가 생성되지 않으므로, 무효한 상태의 {@link ChatMessage}는 존재할 수 없다.
      */
     public static ChatMessage create(
         Long roomId,
@@ -70,13 +75,44 @@ public class ChatMessage extends BaseEntity {
         String content,
         List<String> fileMetadataIds
     ) {
+        List<String> files = fileMetadataIds != null ? List.copyOf(fileMetadataIds) : List.of();
+        validateContentConsistency(contentType, content, files);
+
         return ChatMessage.builder()
             .roomId(roomId)
             .senderMemberId(senderMemberId)
             .contentType(contentType)
             .content(content)
-            .fileMetadataIds(fileMetadataIds != null ? List.copyOf(fileMetadataIds) : List.of())
+            .fileMetadataIds(files)
             .build();
+    }
+
+    /**
+     * 콘텐츠 타입별 페이로드 정합성 불변식을 검증한다.
+     * <ul>
+     *     <li>{@code TEXT} — 본문(content)이 반드시 있어야 한다.</li>
+     *     <li>{@code IMAGE}/{@code FILE} — 첨부(fileMetadataIds)가 반드시 있어야 한다. content는 캡션이라 없어도 된다.</li>
+     *     <li>{@code SYSTEM} — 이 팩토리로 생성할 수 없다({@link #createSystem(Long, String)} 전용).</li>
+     * </ul>
+     * switch 표현식이라 {@link MessageContentType}에 상수가 추가되면 컴파일 에러로 이 검증의 갱신을 강제한다.
+     */
+    private static void validateContentConsistency(
+        MessageContentType contentType,
+        String content,
+        List<String> files
+    ) {
+        boolean hasContent = content != null && !content.isBlank();
+        boolean hasFiles = !files.isEmpty();
+
+        ChatErrorCode violation = switch (contentType) {
+            case TEXT -> hasContent ? null : ChatErrorCode.CHAT_MESSAGE_EMPTY;
+            case IMAGE, FILE -> hasFiles ? null : ChatErrorCode.CHAT_MESSAGE_MISSING_ATTACHMENT;
+            case SYSTEM -> ChatErrorCode.CHAT_MESSAGE_INVALID_CONTENT_TYPE;
+        };
+
+        if (violation != null) {
+            throw new ChatDomainException(violation);
+        }
     }
 
     /**
