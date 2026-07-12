@@ -22,18 +22,28 @@ import com.umc.product.form.domain.exception.FormErrorCode;
  * <p>
  * 두 가지 응답 플로우를 지원한다:
  * <ol>
- *   <li><b>즉시 제출</b> (vote 등) — {@link #submitImmediately} 한 번 호출. draft 없음.
- *       이후 {@link #updateResponse} / {@link #deleteResponse} 로 수정·취소 가능.</li>
- *   <li><b>draft 플로우</b> (지원서 등) — {@link #createDraft} 로 시작,
- *       {@link #updateDraft} 로 임시저장 반복, {@link #submitDraft} 로 최종 제출.
- *       최종 제출 전에 {@link #deleteDraft} 로 포기 가능.</li>
+ *   <li><b>즉시 제출</b> (vote 등) — {@link #submitImmediately} / {@link #submitAnonymousImmediately} 한 번 호출.
+ *       draft 없음. 이후 {@link #updateResponse} / {@link #deleteResponse} 또는
+ *       {@link #updateAnonymousResponse} / {@link #deleteAnonymousResponse} 로 수정·취소 가능.</li>
+ *   <li><b>draft 플로우</b> (지원서 등) — {@link #createDraft} / {@link #createAnonymousDraft} 로 시작,
+ *       {@link #updateDraft} / {@link #updateAnonymousDraft} 로 임시저장 반복,
+ *       {@link #submitDraft} / {@link #submitAnonymousDraft} 로 최종 제출.
+ *       최종 제출 전에 {@link #deleteDraft} / {@link #deleteAnonymousDraft} 로 포기 가능.</li>
  * </ol>
- * 제출 후에는 두 플로우 모두 {@link #updateResponse} / {@link #deleteResponse} 로 관리된다.
  * <p>
- * <b>기명/익명 구분</b>: 아래 메서드들은 모두 <b>기명 응답 전용</b>이다.
- * {@code respondentMemberId} 가 필수이며 null 을 넘기면
- * {@link FormErrorCode#RESPONDENT_MEMBER_ID_REQUIRED} 예외.
- * 익명 응답은 별도의 익명 전용 메서드(추후 도입 예정)에서 처리한다.
+ * <b>기명/익명 구분</b>: 각 플로우가 기명/익명 두 벌로 나뉜다.
+ * <ul>
+ *   <li><b>기명 응답</b> ({@code submitImmediately}, {@code updateResponse}, {@code deleteResponse},
+ *       {@code createDraft}, {@code updateDraft}, {@code submitDraft}, {@code deleteDraft}):
+ *       {@code respondentMemberId} (SUBMITTED 계열) 또는 {@code requesterMemberId} (DRAFT 계열) 필수.
+ *       null 이거나 소유자와 다르면 예외.</li>
+ *   <li><b>익명 응답</b> ({@code submitAnonymousImmediately}, {@code updateAnonymousResponse},
+ *       {@code deleteAnonymousResponse}, {@code createAnonymousDraft}, {@code updateAnonymousDraft},
+ *       {@code submitAnonymousDraft}, {@code deleteAnonymousDraft}):
+ *       서버가 발급한 {@code responseAccessKey}(raw) 를 sha256 매칭으로 인증. UX 코드(예: 지원 코드) 는
+ *       소비 도메인이 raw key 와 매핑해서 관리.</li>
+ * </ul>
+ * 상세 설계: docs/analysis/form-anonymous-response-design.md
  */
 public interface ManageFormResponseUseCase {
 
@@ -84,7 +94,7 @@ public interface ManageFormResponseUseCase {
      * draft가 아닌 응답(SUBMITTED) 또는 존재하지 않는 응답 ID면 예외.
      * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
      * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
-     * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
+     * 익명 draft 조작은 {@link #updateAnonymousDraft} 사용.
      */
     void updateDraft(UpdateDraftFormResponseCommand command);
 
@@ -97,7 +107,7 @@ public interface ManageFormResponseUseCase {
      * draft 가 아닌 응답이면 예외.
      * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
      * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
-     * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
+     * 익명 draft 조작은 {@link #submitAnonymousDraft} 사용.
      */
     void submitDraft(SubmitDraftFormResponseCommand command);
 
@@ -107,7 +117,7 @@ public interface ManageFormResponseUseCase {
      * <p>
      * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
      * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
-     * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
+     * 익명 draft 조작은 {@link #deleteAnonymousDraft} 사용.
      */
     void deleteDraft(DeleteDraftFormResponseCommand command);
 
