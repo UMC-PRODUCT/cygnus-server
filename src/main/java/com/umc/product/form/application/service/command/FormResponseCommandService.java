@@ -17,13 +17,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
@@ -64,6 +68,9 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private final SaveFormResponsePort saveFormResponsePort;
     private final SaveAnswerPort saveAnswerPort;
     private final GetFileUseCase getFileUseCase;
+    // authentication 도메인의 공용 crypto util 재사용 (SSO Auth Code 발급과 동일 패턴).
+    // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
+    private final SecureTokenGenerator secureTokenGenerator;
 
     @Audited(
         domain = Domain.FORM,
@@ -204,6 +211,39 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         saveFormResponsePort.deleteById(draft.getId());
     }
 
+    @Override
+    public AnonymousFormResponseResult createAnonymousDraft(CreateAnonymousDraftFormResponseCommand command) {
+        Form form = loadPublishedForm(command.formId());
+
+        // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
+        String rawAccessKey = secureTokenGenerator.generateOpaqueToken();
+        String accessKeyHash = secureTokenGenerator.sha256Hex(rawAccessKey);
+
+        FormResponse draft = FormResponse.createAnonymousDraft(form, accessKeyHash);
+        FormResponse saved = saveFormResponsePort.save(draft);
+
+        return AnonymousFormResponseResult.builder()
+            .formResponseId(saved.getId())
+            .responseAccessKey(rawAccessKey)
+            .build();
+    }
+
+    @Override
+    public void updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+
+        // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
+        validateAnswers(draft.getForm().getId(), command.answers());
+
+        // 기존 답변 전체 교체
+        saveAnswerPort.deleteAllByFormResponseId(draft.getId());
+        List<AnswerWithOptions> data = buildAnswerData(draft, command.answers());
+        saveAnswers(data);
+
+        draft.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(draft);
+    }
+
     /**
      * 응답 ID 로 DRAFT 응답 로드. 없으면 NOT_FOUND, DRAFT 가 아니면 NOT_DRAFT 예외.
      */
@@ -214,6 +254,31 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
         return formResponse;
+    }
+
+    /**
+     * 익명 draft 응답 로드 + 검증 (익명 전용).
+     * <p>
+     * 순서: rawKey null 방어 → sha256 계산 → hash 매칭으로 DRAFT 조회 → 익명 여부 확인.
+     * <p>
+     * 다음 경우 모두 FORBIDDEN 처리:
+     * <ul>
+     *   <li>hash 매칭 실패 (잘못된 key 또는 이미 SUBMITTED 로 전이됨)</li>
+     *   <li>기명 draft ({@code respondentMemberId != null}) — 익명 UseCase 로 접근 불가</li>
+     * </ul>
+     * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     */
+    private FormResponse loadDraftAsAnonymous(String rawAccessKey) {
+        if (rawAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        if (draft.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return draft;
     }
 
     /**

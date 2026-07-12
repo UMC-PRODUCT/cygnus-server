@@ -73,4 +73,9 @@ public interface FormResponseJpaRepository extends JpaRepository<FormResponse, L
     @Modifying(clearAutomatically = true)
     @Query("DELETE FROM FormResponse fr WHERE fr.form.id = :formId")
     int deleteByFormId(@Param("formId") Long formId);
+
+    Optional<FormResponse> findByResponseAccessKeyHashAndStatus(
+        String responseAccessKeyHash,
+        FormResponseStatus status
+    );
 }

@@ -21,12 +21,16 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
+import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
@@ -73,6 +77,8 @@ class FormResponseCommandServiceTest {
     SaveAnswerPort saveAnswerPort;
     @Mock
     GetFileUseCase getFileUseCase;
+    @Mock
+    SecureTokenGenerator secureTokenGenerator;
 
     @InjectMocks
     FormResponseCommandService sut;
@@ -508,6 +514,95 @@ class FormResponseCommandServiceTest {
             .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
 
         then(saveAnswerPort).should(never()).saveAll(any());
+    }
+
+    // ============================================================
+    //          익명 응답
+    // ============================================================
+
+    @Test
+    @DisplayName("createAnonymousDraft: opaque token 발급 + sha256 저장 + rawKey 반환")
+    void createAnonymousDraft_토큰_발급_및_저장() {
+        String rawKey = "raw-key-example";
+        String hash = "hash-of-raw-key";
+
+        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
+        given(secureTokenGenerator.generateOpaqueToken()).willReturn(rawKey);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(invocation -> {
+            FormResponse response = invocation.getArgument(0);
+            ReflectionTestUtils.setField(response, "id", FORM_RESPONSE_ID);
+            return response;
+        });
+
+        AnonymousFormResponseResult result = sut.createAnonymousDraft(
+            CreateAnonymousDraftFormResponseCommand.builder()
+                .formId(FORM_ID)
+                .build()
+        );
+
+        assertThat(result.formResponseId()).isEqualTo(FORM_RESPONSE_ID);
+        assertThat(result.responseAccessKey()).isEqualTo(rawKey);
+
+        then(saveFormResponsePort).should().save(argThat(fr ->
+            fr.getRespondentMemberId() == null
+                && hash.equals(fr.getResponseAccessKeyHash())
+        ));
+        // 익명은 중복 정책 검사 skip
+        then(loadFormResponsePort).should(never()).existsByFormIdAndMemberId(any(), any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousDraft: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void updateAnonymousDraft_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(null)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findDraftByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousDraft: hash 매칭 실패면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnonymousDraft_hash_매칭_실패_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousDraft: 매칭된 draft 가 기명이면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnonymousDraft_기명_draft_거부_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse namedDraft = draftResponse(); // 기명 (MEMBER_ID)
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.of(namedDraft));
+
+        assertThatThrownBy(() -> sut.updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
     }
 
     // ============================================================

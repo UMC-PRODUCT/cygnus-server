@@ -1,10 +1,13 @@
 package com.umc.product.form.application.port.in.command;
 
+import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
+import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.domain.exception.FormErrorCode;
@@ -102,4 +105,25 @@ public interface ManageFormResponseUseCase {
      * 익명 draft 조작은 별도 UseCase(추후 도입 예정) 사용.
      */
     void deleteDraft(DeleteDraftFormResponseCommand command);
+
+    /**
+     * (익명 전용) 익명 draft 응답을 최초 생성한다.
+     * <p>
+     * 서버가 랜덤 {@code responseAccessKey} 를 발급하고 sha256 해시만 저장한다.
+     * 반환된 raw key 는 이후 익명 조작(update / delete / submit) 시 재제출용.
+     * <p>
+     * 익명 응답의 중복 정책은 form 엔진에서 강제하지 않는다 — 소비 도메인 책임.
+     */
+    AnonymousFormResponseResult createAnonymousDraft(CreateAnonymousDraftFormResponseCommand command);
+
+    /**
+     * (익명 전용) 익명 draft 응답의 답변을 전체 교체한다 (익명 임시저장).
+     * <p>
+     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 draft 를 찾는다.
+     * 매칭 실패, DRAFT 아님, 기명 draft 인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
+     * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * <p>
+     * 답변 검증 정책은 {@link #updateDraft} 와 동일 — 형식만, 필수 누락은 submit 시점 검증.
+     */
+    void updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand command);
 }

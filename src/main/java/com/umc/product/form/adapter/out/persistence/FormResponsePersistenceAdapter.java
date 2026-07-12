@@ -108,4 +108,11 @@ public class FormResponsePersistenceAdapter implements LoadFormResponsePort, Sav
     public void deleteByFormId(Long formId) {
         formResponseJpaRepository.deleteByFormId(formId);
     }
+
+    @Override
+    public Optional<FormResponse> findDraftByAccessKeyHash(String accessKeyHash) {
+        return formResponseJpaRepository.findByResponseAccessKeyHashAndStatus(
+            accessKeyHash, FormResponseStatus.DRAFT
+        );
+    }
 }
