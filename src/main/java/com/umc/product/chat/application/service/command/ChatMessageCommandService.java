@@ -67,6 +67,8 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
             command.replyToMessageId()
         ));
 
+        markSenderRead(command, saved);
+
         domainEventPublisher.publish(ChatMessageCreatedEvent.from(saved));
 
         return ChatMessageInfo.from(saved);
@@ -123,6 +125,12 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
             command.senderMemberId()
         );
         chatAttachmentPolicy.validate(command.contentType(), files);
+    }
+
+    private void markSenderRead(SendChatMessageCommand command, ChatMessage saved) {
+        ChatMember sender = loadChatMemberPort.getByRoomIdAndMemberId(command.roomId(), command.senderMemberId());
+        sender.markRead(saved.getId());
+        saveChatMemberPort.save(sender);
     }
 
     private void validateReplyTarget(SendChatMessageCommand command) {

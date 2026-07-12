@@ -75,7 +75,9 @@ class ChatMessageCommandServiceTest {
         ReflectionTestUtils.setField(saved, "id", 100L);
         Instant createdAt = Instant.parse("2026-06-13T00:00:00Z");
         ReflectionTestUtils.setField(saved, "createdAt", createdAt);
+        ChatMember sender = ChatMember.of(1L, 10L);
         given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(sender);
 
         ChatMessageInfo result = sut.send(command);
 
@@ -85,6 +87,8 @@ class ChatMessageCommandServiceTest {
         assertThat(result.replyToMessageId()).isNull();
 
         then(saveChatMessagePort).should().save(any(ChatMessage.class));
+        assertThat(sender.getLastReadMessageId()).isEqualTo(100L);
+        then(saveChatMemberPort).should().save(sender);
 
         ArgumentCaptor<ChatMessageCreatedEvent> captor = ArgumentCaptor.forClass(ChatMessageCreatedEvent.class);
         then(domainEventPublisher).should().publish(captor.capture());
@@ -107,6 +111,7 @@ class ChatMessageCommandServiceTest {
         ReflectionTestUtils.setField(saved, "createdAt", createdAt);
         given(loadChatMessagePort.existsByIdAndRoomId(90L, 1L)).willReturn(true);
         given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(ChatMember.of(1L, 10L));
 
         ChatMessageInfo result = sut.send(command);
 
@@ -232,6 +237,7 @@ class ChatMessageCommandServiceTest {
         ReflectionTestUtils.setField(saved, "createdAt", Instant.parse("2026-06-13T00:00:00Z"));
         given(getFileUseCase.batchGetUsableByIds(fileIds, 10L)).willReturn(files);
         given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
+        given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 10L)).willReturn(ChatMember.of(1L, 10L));
 
         ChatMessageInfo result = sut.send(command);
 

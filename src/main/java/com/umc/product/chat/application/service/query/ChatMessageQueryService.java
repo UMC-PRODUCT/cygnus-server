@@ -65,7 +65,6 @@ public class ChatMessageQueryService implements
      * 특정 방의 특정 메시지를 대상 멤버가 읽었는지 확인한다.
      * <p>
      * 요청자와 대상자 모두 방 멤버여야 하며, 메시지는 해당 방에 속해야 한다.
-     * 대상자가 직접 보낸 메시지는 본인이 읽은 것으로 본다.
      */
     @Override
     public ChatMessageReadStatusInfo checkRead(CheckChatMessageReadQuery query) {
@@ -117,10 +116,6 @@ public class ChatMessageQueryService implements
     }
 
     private boolean isReadByTarget(ChatMessage message, ChatMember targetMember) {
-        if (message.getSenderMemberId() != null && message.getSenderMemberId().equals(targetMember.getMemberId())) {
-            return true;
-        }
-
         Long lastReadMessageId = targetMember.getLastReadMessageId();
         return lastReadMessageId != null && lastReadMessageId >= message.getId();
     }

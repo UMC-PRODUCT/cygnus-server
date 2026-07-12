@@ -154,22 +154,22 @@ class ChatMessageQueryRepositoryTest {
     }
 
     @Test
-    @DisplayName("countUnreadByRooms: lastRead 초과분만 세고 본인 메시지는 제외, 시스템 메시지는 포함한다")
+    @DisplayName("countUnreadByRooms: lastRead 초과분은 본인 메시지와 시스템 메시지를 포함해 센다")
     void countUnreadByRooms() {
-        Long readUpTo = persistText(roomId, OTHER, "읽은 메시지");   // lastRead 기준
-        persistText(roomId, ME, "내가 보낸 메시지");                  // 제외 (본인)
-        persistText(roomId, OTHER, "안 읽은 상대 메시지");           // 카운트
-        persistSystem(roomId, "시스템 메시지");                       // 카운트 (sender null)
+        Long readUpTo = persistText(roomId, OTHER, "읽은 메시지");
+        persistText(roomId, ME, "내가 보낸 메시지");
+        persistText(roomId, OTHER, "안 읽은 상대 메시지");
+        persistSystem(roomId, "시스템 메시지");
         persistMember(roomId, ME, readUpTo);
         flushAndClear();
 
         List<RoomUnreadCount> result = sut.countUnreadByRooms(ME, List.of(roomId));
 
-        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 2L));
+        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 3L));
     }
 
     @Test
-    @DisplayName("countUnreadByRooms: lastRead가 null이면 본인 외 모든 메시지를 센다")
+    @DisplayName("countUnreadByRooms: lastRead가 null이면 본인 메시지도 포함해 모든 메시지를 센다")
     void countUnreadByRooms_nullLastRead() {
         persistText(roomId, OTHER, "상대 메시지");
         persistText(roomId, ME, "내 메시지");
@@ -178,7 +178,7 @@ class ChatMessageQueryRepositoryTest {
 
         List<RoomUnreadCount> result = sut.countUnreadByRooms(ME, List.of(roomId));
 
-        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 1L));
+        assertThat(result).containsExactly(new RoomUnreadCount(roomId, 2L));
     }
 
     private Long persistText(Long roomId, Long senderMemberId, String content) {

@@ -146,8 +146,8 @@ class ChatMessageQueryServiceTest {
     }
 
     @Test
-    @DisplayName("대상 멤버가 보낸 메시지는 읽음으로 반환한다")
-    void checkRead_senderIsTarget_read() {
+    @DisplayName("대상 멤버가 보낸 메시지도 lastReadMessageId가 null이면 안 읽음으로 반환한다")
+    void checkRead_senderIsTarget_unreadWhenLastReadIsNull() {
         ChatMember targetMember = ChatMember.of(1L, 20L);
         given(loadChatMessagePort.getByIdAndRoomId(20L, 1L)).willReturn(messageFrom(20L, 1L, 20L));
         given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
@@ -155,7 +155,7 @@ class ChatMessageQueryServiceTest {
         ChatMessageReadStatusInfo result =
             sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
 
-        assertThat(result.read()).isTrue();
+        assertThat(result.read()).isFalse();
     }
 
     @Test
