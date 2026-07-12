@@ -1,7 +1,11 @@
 package com.umc.product.challenger.domain;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
@@ -10,16 +14,13 @@ import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 
-import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -50,8 +51,9 @@ public class Challenger extends BaseEntity {
     private ChallengerPart part;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "track")
-    private ChallengerTrack track;
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(nullable = false, name = "tracks", columnDefinition = "text[]")
+    private List<ChallengerTrack> tracks = new ArrayList<>();
 
     @Column(nullable = false, name = "gisu_id")
     private Long gisuId;
@@ -66,29 +68,21 @@ public class Challenger extends BaseEntity {
     @Column(name = "modified_by")
     private Long modifiedBy;
 
-    @OneToMany(
-        mappedBy = "challenger",
-        fetch = FetchType.LAZY,
-        cascade = CascadeType.ALL,
-        orphanRemoval = true
-    )
-    private List<ChallengerPoint> challengerPoints = new ArrayList<>();
-
-
     @Builder
-    public Challenger(Long memberId, ChallengerPart part, ChallengerTrack track, Long gisuId) {
-        if (part == null && track == null) {
+    public Challenger(Long memberId, ChallengerPart part, List<ChallengerTrack> tracks, Long gisuId) {
+        List<ChallengerTrack> normalizedTracks = normalizeTracks(tracks);
+        if (part == null && normalizedTracks.isEmpty()) {
             throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);
         }
         this.memberId = memberId;
         this.part = part;
-        this.track = track;
+        this.tracks = normalizedTracks;
         this.gisuId = gisuId;
         this.status = ChallengerStatus.ACTIVE;
     }
 
     public Challenger(Long memberId, ChallengerPart part, Long gisuId) {
-        this(memberId, part, null, gisuId);
+        this(memberId, part, List.of(), gisuId);
     }
 
     public void validateChallengerStatus() {
@@ -105,16 +99,30 @@ public class Challenger extends BaseEntity {
         this.part = newPart;
     }
 
-    public void changeTrack(ChallengerTrack newTrack) {
+    public boolean addTrack(ChallengerTrack newTrack) {
         validateChallengerStatus();
-        this.track = newTrack;
+        if (newTrack == null) {
+            throw new IllegalArgumentException("추가할 트랙은 null일 수 없습니다.");
+        }
+        if (this.tracks.contains(newTrack)) {
+            return false;
+        }
+        this.tracks.add(newTrack);
+        return true;
     }
 
-    public ChallengerTrack getEffectiveTrack() {
-        if (this.track != null) {
-            return this.track;
+    public List<ChallengerTrack> getTracks() {
+        return List.copyOf(this.tracks);
+    }
+
+    public List<ChallengerTrack> getEffectiveTracks() {
+        if (!this.tracks.isEmpty()) {
+            return List.copyOf(this.tracks);
         }
-        return ChallengerTrack.from(this.part);
+        if (this.part == null || this.part == ChallengerPart.ADMIN) {
+            return List.of();
+        }
+        return List.of(ChallengerTrack.from(this.part));
     }
 
     /**
@@ -128,21 +136,13 @@ public class Challenger extends BaseEntity {
         this.modificationReason = reason;
     }
 
-    /**
-     * 챌린저에게 상벌점을 추가합니다.
-     */
-    public void addPoint(ChallengerPoint point) {
-        this.challengerPoints.add(point);
-    }
-
-    /**
-     * 챌린저가 가진 총 상벌점의 합을 계산합니다.
-     * <p>
-     * {@link com.umc.product.challenger.application.port.out.SearchChallengerPort#sumPointsByChallengerIds} 참고하세요.
-     */
-    public Double getTotalPoints() {
-        return challengerPoints.stream()
-            .mapToDouble(ChallengerPoint::getPointValue)
-            .sum();
+    private static List<ChallengerTrack> normalizeTracks(List<ChallengerTrack> tracks) {
+        if (tracks == null || tracks.isEmpty()) {
+            return new ArrayList<>();
+        }
+        if (tracks.stream().anyMatch(track -> track == null)) {
+            throw new IllegalArgumentException("트랙 목록에 null을 포함할 수 없습니다.");
+        }
+        return new ArrayList<>(new LinkedHashSet<>(tracks));
     }
 }

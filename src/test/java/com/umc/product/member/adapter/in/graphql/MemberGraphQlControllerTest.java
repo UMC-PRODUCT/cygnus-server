@@ -6,8 +6,6 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.times;
 
-import java.time.Instant;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -34,9 +32,6 @@ import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
@@ -1008,38 +1003,4 @@ class MemberGraphQlControllerTest {
         return ResourcePermission.of(ResourceType.MEMBER, memberId, PermissionType.READ);
     }
 
-    private SchoolDetailInfo school(Long schoolId, String schoolName) {
-        return new SchoolDetailInfo(
-            1L,
-            "1지부",
-            schoolName,
-            schoolId,
-            "비고",
-            null,
-            List.of(),
-            true,
-            Instant.parse("2026-01-01T00:00:00Z"),
-            Instant.parse("2026-01-02T00:00:00Z")
-        );
-    }
-
-    private ChallengerBasicInfo challenger(
-        Long challengerId,
-        Long memberId,
-        Long gisuId,
-        ChallengerPart part,
-        ChallengerStatus status
-    ) {
-        return new ChallengerBasicInfo(challengerId, memberId, gisuId, part, status);
-    }
-
-    private GisuInfo gisu(Long gisuId, Long generation) {
-        return new GisuInfo(
-            gisuId,
-            generation,
-            Instant.parse("2026-01-01T00:00:00Z"),
-            Instant.parse("2026-12-31T00:00:00Z"),
-            true
-        );
-    }
 }

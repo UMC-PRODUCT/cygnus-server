@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 
 import java.util.List;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -113,7 +115,7 @@ class ChallengerCommandServiceTest {
         void 트랙_기반_챌린저는_파트_없이_생성한다() {
             CreateChallengerCommand command = CreateChallengerCommand.builder()
                 .memberId(1L)
-                .track(ChallengerTrack.WEB_PRODUCT_ENGINEER)
+                .tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER))
                 .gisuId(9L)
                 .build();
             given(loadChallengerPort.findByMemberIdAndGisuId(1L, 9L)).willReturn(Optional.empty());
@@ -129,7 +131,7 @@ class ChallengerCommandServiceTest {
             assertThat(result).isEqualTo(101L);
             then(saveChallengerPort).should().save(captor.capture());
             assertThat(captor.getValue().getPart()).isNull();
-            assertThat(captor.getValue().getTrack()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+            assertThat(captor.getValue().getTracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         }
 
         @Test
@@ -257,9 +259,22 @@ class ChallengerCommandServiceTest {
     void 챌린저_삭제_후_해당_회원의_권한_snapshot_캐시를_제거한다() {
         given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
 
-        sut.deleteChallenger(new DeleteChallengerCommand(1L, "잘못 생성된 기록"));
+        sut.deleteChallenger(DeleteChallengerCommand.of(1L, "잘못 생성된 기록"));
 
         then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+    }
+
+    @Test
+    @DisplayName("Challenger 삭제 전에 소속 Point를 port로 삭제한다")
+    void Challenger_삭제_전에_소속_Point를_port로_삭제한다() {
+        Challenger challenger = challenger(1L, ChallengerStatus.ACTIVE);
+        given(loadChallengerPort.getById(1L)).willReturn(challenger);
+
+        sut.deleteChallenger(DeleteChallengerCommand.of(1L, "잘못 생성"));
+
+        InOrder order = inOrder(saveChallengerPointPort, saveChallengerPort);
+        order.verify(saveChallengerPointPort).deleteAllByChallengerId(1L);
+        order.verify(saveChallengerPort).delete(challenger);
     }
 
     @Test
@@ -278,6 +293,55 @@ class ChallengerCommandServiceTest {
             .isEqualTo(ChallengerErrorCode.CHALLENGER_NOT_ACTIVE);
 
         then(saveChallengerPort).should(never()).save(any());
+        then(saveChallengerPointPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상벌점은 Challenger 컬렉션 cascade 없이 Point port로 저장한다")
+    void 상벌점은_Challenger_컬렉션_cascade_없이_Point_port로_저장한다() {
+        Challenger challenger = challenger(1L, ChallengerStatus.ACTIVE);
+        given(loadChallengerPort.getById(1L)).willReturn(challenger);
+
+        sut.grantChallengerPoint(GrantChallengerPointCommand.builder()
+            .challengerId(1L)
+            .pointType(PointType.CUSTOM)
+            .pointValue(3)
+            .description("기여")
+            .build());
+
+        ArgumentCaptor<ChallengerPoint> captor = ArgumentCaptor.forClass(ChallengerPoint.class);
+        then(saveChallengerPointPort).should().save(captor.capture());
+        assertThat(captor.getValue().getChallengerId()).isEqualTo(1L);
+        assertThat(captor.getValue().getPointValue()).isEqualTo(3.0);
+        then(saveChallengerPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상벌점 일괄 부여는 Point port로 한 번에 저장한다")
+    void 상벌점_일괄_부여는_Point_port로_한_번에_저장한다() {
+        Challenger challenger = challenger(1L, ChallengerStatus.ACTIVE);
+        given(environment.getActiveProfiles()).willReturn(new String[]{"test"});
+        given(loadChallengerPort.getAllByIds(java.util.Set.of(1L))).willReturn(List.of(challenger));
+
+        sut.grantChallengerPointBulk(List.of(
+            GrantChallengerPointCommand.builder()
+                .challengerId(1L)
+                .pointType(PointType.BEST_WORKBOOK)
+                .description("워크북")
+                .build(),
+            GrantChallengerPointCommand.builder()
+                .challengerId(1L)
+                .pointType(PointType.WARNING)
+                .description("경고")
+                .build()
+        ));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ChallengerPoint>> captor = ArgumentCaptor.forClass(List.class);
+        then(saveChallengerPointPort).should().saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2)
+            .allSatisfy(point -> assertThat(point.getChallengerId()).isEqualTo(1L));
+        then(saveChallengerPort).shouldHaveNoInteractions();
     }
 
     @Test
