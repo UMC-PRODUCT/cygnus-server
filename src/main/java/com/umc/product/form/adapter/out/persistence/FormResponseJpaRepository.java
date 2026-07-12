@@ -78,4 +78,6 @@ public interface FormResponseJpaRepository extends JpaRepository<FormResponse, L
         String responseAccessKeyHash,
         FormResponseStatus status
     );
+
+    Optional<FormResponse> findByResponseAccessKeyHash(String responseAccessKeyHash);
 }

@@ -1,10 +1,15 @@
 package com.umc.product.form.application.service.query;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+
+import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,9 +17,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.query.GetAnswerUseCase;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
+import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 
@@ -27,6 +36,8 @@ class FormResponseQueryServiceTest {
     LoadFormResponsePort loadFormResponsePort;
     @Mock
     GetAnswerUseCase getAnswerUseCase;
+    @Mock
+    SecureTokenGenerator secureTokenGenerator;
 
     @InjectMocks
     FormResponseQueryService sut;
@@ -62,5 +73,125 @@ class FormResponseQueryServiceTest {
             .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
 
         then(loadFormResponsePort).should(never()).findSubmittedByFormIdAndRespondentMemberId(anyLong(), any());
+    }
+
+    // ============================================================
+    //          익명 응답 조회 (Phase 4.7)
+    // ============================================================
+
+    @Test
+    @DisplayName("findByAccessKey: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void findByAccessKey_null_예외() {
+        assertThatThrownBy(() -> sut.findByAccessKey(null))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("findByAccessKey: 매칭 실패면 Optional.empty")
+    void findByAccessKey_매칭_실패_empty() {
+        String rawKey = "raw";
+        String hash = "hash";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.empty());
+
+        assertThat(sut.findByAccessKey(rawKey)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByAccessKey: 기명 응답이 매칭되면 방어 목적으로 Optional.empty")
+    void findByAccessKey_기명_응답이면_empty() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse namedResponse = anonymousDraftWithMember(200L);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
+
+        assertThat(sut.findByAccessKey(rawKey)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByAccessKey: 익명 응답이 매칭되면 반환")
+    void findByAccessKey_익명_응답이면_반환() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse anonymousResponse = anonymousResponseWithId(300L);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(anonymousResponse));
+
+        assertThat(sut.findByAccessKey(rawKey)).isPresent();
+    }
+
+    @Test
+    @DisplayName("getResponseWithAnswersByAccessKey: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void getResponseWithAnswersByAccessKey_null_예외() {
+        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(null))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("getResponseWithAnswersByAccessKey: 매칭 실패면 FORM_RESPONSE_NOT_FOUND")
+    void getResponseWithAnswersByAccessKey_매칭_실패_NOT_FOUND() {
+        String rawKey = "raw";
+        String hash = "hash";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(rawKey))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("getResponseWithAnswersByAccessKey: 기명 응답이 매칭되면 FORM_RESPONSE_NOT_FOUND")
+    void getResponseWithAnswersByAccessKey_기명_응답이면_NOT_FOUND() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse namedResponse = anonymousDraftWithMember(200L);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
+
+        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(rawKey))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("getResponseWithAnswersByAccessKey: 익명 응답이 매칭되면 상세 반환")
+    void getResponseWithAnswersByAccessKey_익명_응답이면_반환() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse anonymousResponse = anonymousResponseWithId(300L);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(anonymousResponse));
+        given(getAnswerUseCase.listByFormResponseId(300L)).willReturn(List.of());
+
+        assertThat(sut.getResponseWithAnswersByAccessKey(rawKey)).isNotNull();
+    }
+
+    private FormResponse anonymousDraftWithMember(Long memberId) {
+        Form form = Form.createDraft("폼", 1L, false);
+        ReflectionTestUtils.setField(form, "id", FORM_ID);
+        form.publish();
+        FormResponse response = FormResponse.createDraft(form, memberId);
+        return response;
+    }
+
+    private FormResponse anonymousResponseWithId(Long id) {
+        Form form = Form.createDraft("폼", 1L, false);
+        ReflectionTestUtils.setField(form, "id", FORM_ID);
+        form.publish();
+        FormResponse response = FormResponse.createAnonymousDraft(form, "hash-value");
+        ReflectionTestUtils.setField(response, "id", id);
+        return response;
     }
 }

@@ -81,4 +81,24 @@ public interface GetFormResponseUseCase {
      * @return formResponseId -> 응답 상세. 미존재 ID는 결과에 포함하지 않는다.
      */
     Map<Long, FormResponseWithAnswersInfo> findResponsesWithAnswers(Set<Long> formResponseIds);
+
+    /**
+     * (익명 전용) {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답 단건 조회.
+     * <p>
+     * 매칭 없으면 Optional.empty. 기명 응답이 매칭되면 방어 목적으로 Optional.empty.
+     * {@code rawKey} 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * <p>
+     * 소비 도메인(리크루팅 등) 이 응답 존재 확인 용도로 사용.
+     */
+    Optional<FormResponseInfo> findByAccessKey(String rawKey);
+
+    /**
+     * (익명 전용) {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답 + 답변 상세 조회.
+     * <p>
+     * 매칭 없거나 기명 응답이 매칭되면 {@link FormErrorCode#FORM_RESPONSE_NOT_FOUND}.
+     * {@code rawKey} 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * <p>
+     * 응답자 본인이 자기 응답 상세를 확인하는 용도.
+     */
+    FormResponseWithAnswersInfo getResponseWithAnswersByAccessKey(String rawKey);
 }

@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.query.GetAnswerUseCase;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
@@ -29,6 +30,9 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
 
     private final LoadFormResponsePort loadFormResponsePort;
     private final GetAnswerUseCase getAnswerUseCase;
+    // authentication 도메인의 공용 crypto util 재사용 (SSO Auth Code 발급과 동일 패턴).
+    // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
+    private final SecureTokenGenerator secureTokenGenerator;
 
     @Override
     public Optional<FormResponseInfo> findById(Long formResponseId) {
@@ -98,6 +102,36 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
         if (respondentMemberId == null) {
             throw new FormDomainException(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
         }
+    }
+
+    @Override
+    public Optional<FormResponseInfo> findByAccessKey(String rawKey) {
+        return loadAnonymousResponseByAccessKey(rawKey)
+            .map(FormResponseInfo::from);
+    }
+
+    @Override
+    public FormResponseWithAnswersInfo getResponseWithAnswersByAccessKey(String rawKey) {
+        FormResponse response = loadAnonymousResponseByAccessKey(rawKey)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
+        return FormResponseWithAnswersInfo.from(
+            response,
+            getAnswerUseCase.listByFormResponseId(response.getId())
+        );
+    }
+
+    /**
+     * 익명 응답 조회 헬퍼 — rawKey 를 sha256 뜨고 hash 매칭. 기명 응답이 조회되면 방어 목적으로 empty.
+     * <p>
+     * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     */
+    private Optional<FormResponse> loadAnonymousResponseByAccessKey(String rawKey) {
+        if (rawKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawKey);
+        return loadFormResponsePort.findByAccessKeyHash(hash)
+            .filter(fr -> fr.getRespondentMemberId() == null);
     }
 
     @Override

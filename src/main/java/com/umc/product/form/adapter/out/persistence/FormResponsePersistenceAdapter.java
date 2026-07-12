@@ -122,4 +122,9 @@ public class FormResponsePersistenceAdapter implements LoadFormResponsePort, Sav
             accessKeyHash, FormResponseStatus.SUBMITTED
         );
     }
+
+    @Override
+    public Optional<FormResponse> findByAccessKeyHash(String accessKeyHash) {
+        return formResponseJpaRepository.findByResponseAccessKeyHash(accessKeyHash);
+    }
 }
