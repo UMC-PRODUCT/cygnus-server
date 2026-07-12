@@ -59,6 +59,7 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
 
     @Override
     public List<FormResponseInfo> listDraftByRespondentMemberId(Long respondentMemberId) {
+        requireRespondentMemberId(respondentMemberId);
         return loadFormResponsePort.findAllDraftByRespondentMemberId(respondentMemberId).stream()
             .map(FormResponseInfo::from)
             .toList();
@@ -66,12 +67,14 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
 
     @Override
     public Optional<FormResponseInfo> findDraftByFormIdAndRespondentMemberId(Long formId, Long respondentMemberId) {
+        requireRespondentMemberId(respondentMemberId);
         return loadFormResponsePort.findDraftByFormIdAndRespondentMemberId(formId, respondentMemberId)
             .map(FormResponseInfo::from);
     }
 
     @Override
     public Optional<FormResponseInfo> findSubmittedByFormIdAndRespondentMemberId(Long formId, Long respondentMemberId) {
+        requireRespondentMemberId(respondentMemberId);
         return loadFormResponsePort.findSubmittedByFormIdAndRespondentMemberId(formId, respondentMemberId)
             .map(FormResponseInfo::from);
     }
@@ -89,6 +92,12 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
                 formResponse,
                 getAnswerUseCase.listByFormResponseId(formResponseId)
             ));
+    }
+
+    private static void requireRespondentMemberId(Long respondentMemberId) {
+        if (respondentMemberId == null) {
+            throw new FormDomainException(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
+        }
     }
 
     @Override

@@ -356,21 +356,62 @@ class FormResponseCommandServiceTest {
     }
 
     @Test
-    @DisplayName("비로그인 응답자(memberId=null)는 중복 응답 검사를 skip한다")
-    void 비로그인_응답자는_중복_응답_검사를_skip한다() {
-        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
-        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(invocation -> {
-            FormResponse response = invocation.getArgument(0);
-            ReflectionTestUtils.setField(response, "id", FORM_RESPONSE_ID);
-            return response;
-        });
-
-        sut.createDraft(CreateDraftFormResponseCommand.builder()
+    @DisplayName("createDraft: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
+    void createDraft_respondentMemberIdNull_예외() {
+        assertThatThrownBy(() -> sut.createDraft(CreateDraftFormResponseCommand.builder()
             .formId(FORM_ID)
             .respondentMemberId(null)
-            .build());
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
 
+        then(loadFormPort).should(never()).findById(any());
         then(loadFormResponsePort).should(never()).existsByFormIdAndMemberId(any(), any());
+    }
+
+    @Test
+    @DisplayName("submitImmediately: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
+    void submitImmediately_respondentMemberIdNull_예외() {
+        assertThatThrownBy(() -> sut.submitImmediately(SubmitFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .respondentMemberId(null)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
+
+        then(loadFormPort).should(never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("updateResponse: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
+    void updateResponse_respondentMemberIdNull_예외() {
+        assertThatThrownBy(() -> sut.updateResponse(UpdateFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .respondentMemberId(null)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
+
+        then(loadFormPort).should(never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("deleteResponse: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
+    void deleteResponse_respondentMemberIdNull_예외() {
+        assertThatThrownBy(() -> sut.deleteResponse(DeleteFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .respondentMemberId(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
+
+        then(loadFormPort).should(never()).findById(any());
     }
 
     @Test

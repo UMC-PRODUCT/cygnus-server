@@ -7,6 +7,7 @@ import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormRespo
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
+import com.umc.product.form.domain.exception.FormErrorCode;
 
 /**
  * FormResponse(폼 응답) 관리 UseCase.
@@ -20,11 +21,16 @@ import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCo
  *       최종 제출 전에 {@link #deleteDraft} 로 포기 가능.</li>
  * </ol>
  * 제출 후에는 두 플로우 모두 {@link #updateResponse} / {@link #deleteResponse} 로 관리된다.
+ * <p>
+ * <b>기명/익명 구분</b>: 아래 메서드들은 모두 <b>기명 응답 전용</b>이다.
+ * {@code respondentMemberId} 가 필수이며 null 을 넘기면
+ * {@link FormErrorCode#RESPONDENT_MEMBER_ID_REQUIRED} 예외.
+ * 익명 응답은 별도의 익명 전용 메서드(추후 도입 예정)에서 처리한다.
  */
 public interface ManageFormResponseUseCase {
 
     /**
-     * 폼에 대한 응답을 즉시 제출한다. (draft 없이 바로 SUBMITTED 상태 생성)
+     * (기명 전용) 폼에 대한 응답을 즉시 제출한다. (draft 없이 바로 SUBMITTED 상태 생성)
      * vote 같이 한 번에 제출하는 플로우에서 사용.
      * <p>
      * 결과 status 는 SUBMITTED라 제출 무결성 을 위해 형식 검증 + 필수 답변 누락 검증을 모두 수행.
@@ -35,7 +41,7 @@ public interface ManageFormResponseUseCase {
     Long submitImmediately(SubmitFormResponseCommand command);
 
     /**
-     * 기존 SUBMITTED 응답의 답변을 전체 교체한다 (재제출 의미).
+     * (기명 전용) 기존 SUBMITTED 응답의 답변을 전체 교체한다 (재제출 의미).
      * <p>
      * 결과 status 는 SUBMITTED 그대로 유지되므로 제출 무결성을 위해 필수 답변 누락 검증을 수행한다 ({@link #submitImmediately} 와 동일).
      * <p>
@@ -45,14 +51,14 @@ public interface ManageFormResponseUseCase {
     void updateResponse(UpdateFormResponseCommand command);
 
     /**
-     * 본인이 제출한 SUBMITTED 응답을 삭제한다. (FormResponse + 연관 Answer 모두 삭제)
+     * (기명 전용) 본인이 제출한 SUBMITTED 응답을 삭제한다. (FormResponse + 연관 Answer 모두 삭제)
      * 삭제 후 다시 제출 가능. 기존 응답이 없으면 예외.
      * DRAFT 상태 응답 삭제는 {@link #deleteDraft} 사용.
      */
     void deleteResponse(DeleteFormResponseCommand command);
 
     /**
-     * 폼에 대한 draft 응답을 최초 생성한다. (빈 draft).
+     * (기명 전용) 폼에 대한 draft 응답을 최초 생성한다. (빈 draft).
      * 이후 {@link #updateDraft} 로 답변을 채워나가고 {@link #submitDraft} 로 최종 제출.
      * 같은 폼에 이미 draft 또는 SUBMITTED 응답이 있으면 예외.
      *

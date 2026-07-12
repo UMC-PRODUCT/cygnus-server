@@ -74,6 +74,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     )
     @Override
     public Long submitImmediately(SubmitFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
 
         validateDuplicateResponsePolicy(form, command.respondentMemberId());
@@ -97,6 +98,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void updateResponse(UpdateFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
         validateSingleResponseLookupPolicy(form);
 
@@ -122,6 +124,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void deleteResponse(DeleteFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
         validateSingleResponseLookupPolicy(form);
 
@@ -135,6 +138,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public Long createDraft(CreateDraftFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
 
         validateDuplicateResponsePolicy(form, command.respondentMemberId());
@@ -242,6 +246,12 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private static void validateSingleResponseLookupPolicy(Form form) {
         if (form.isAllowDuplicateResponses()) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_LOOKUP_AMBIGUOUS);
+        }
+    }
+
+    private static void requireRespondentMemberId(Long respondentMemberId) {
+        if (respondentMemberId == null) {
+            throw new FormDomainException(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
         }
     }
 

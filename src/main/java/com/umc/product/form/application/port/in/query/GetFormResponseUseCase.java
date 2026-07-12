@@ -7,6 +7,7 @@ import java.util.Set;
 
 import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
 import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
+import com.umc.product.form.domain.exception.FormErrorCode;
 
 /**
  * FormResponse 조회 UseCase.
@@ -36,21 +37,30 @@ public interface GetFormResponseUseCase {
     List<FormResponseInfo> listSubmittedByFormId(Long formId);
 
     /**
-     * 특정 사용자의 모든 draft 응답을 반환한다. "내가 작성 중인 응답 목록" 용도.
+     * (기명 전용) 특정 사용자의 모든 draft 응답을 반환한다. "내가 작성 중인 응답 목록" 용도.
+     * <p>
+     * {@code respondentMemberId} 가 필수이며 null 을 넘기면
+     * {@link FormErrorCode#RESPONDENT_MEMBER_ID_REQUIRED} 예외.
      */
     List<FormResponseInfo> listDraftByRespondentMemberId(Long respondentMemberId);
 
     /**
-     * 특정 폼에 대한 특정 사용자의 draft 응답을 조회. 없으면 Optional.empty. "작성 중 응답 이어서 보기" 용도.
+     * (기명 전용) 특정 폼에 대한 특정 사용자의 draft 응답을 조회. 없으면 Optional.empty. "작성 중 응답 이어서 보기" 용도.
      * <p>
      * 중복 응답을 허용하지 않는 폼 전용 단건 조회다. 중복 허용 폼은 {@code formResponseId} 기준으로 조회해야 한다.
+     * <p>
+     * {@code respondentMemberId} 가 필수이며 null 을 넘기면
+     * {@link FormErrorCode#RESPONDENT_MEMBER_ID_REQUIRED} 예외.
      */
     Optional<FormResponseInfo> findDraftByFormIdAndRespondentMemberId(Long formId, Long respondentMemberId);
 
     /**
-     * 특정 폼에 대한 특정 사용자의 SUBMITTED 응답을 조회. 없으면 Optional.empty.
+     * (기명 전용) 특정 폼에 대한 특정 사용자의 SUBMITTED 응답을 조회. 없으면 Optional.empty.
      * <p>
      * 중복 응답을 허용하지 않는 폼 전용 단건 조회다. 중복 허용 폼은 {@code formResponseId} 기준으로 조회해야 한다.
+     * <p>
+     * {@code respondentMemberId} 가 필수이며 null 을 넘기면
+     * {@link FormErrorCode#RESPONDENT_MEMBER_ID_REQUIRED} 예외.
      */
     Optional<FormResponseInfo> findSubmittedByFormIdAndRespondentMemberId(Long formId, Long respondentMemberId);
 
