@@ -5,6 +5,7 @@ import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
@@ -126,4 +127,15 @@ public interface ManageFormResponseUseCase {
      * 답변 검증 정책은 {@link #updateDraft} 와 동일 — 형식만, 필수 누락은 submit 시점 검증.
      */
     void updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand command);
+
+    /**
+     * (익명 전용) 익명 draft 응답을 SUBMITTED 로 전환(최종 제출)한다.
+     * <p>
+     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 draft 를 찾는다.
+     * 매칭 실패, DRAFT 아님, 기명 draft 인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
+     * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * <p>
+     * 검증 정책은 {@link #submitDraft} 와 동일 — 저장된 답변 기준으로 필수 답변 누락 검증 수행.
+     */
+    void submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand command);
 }

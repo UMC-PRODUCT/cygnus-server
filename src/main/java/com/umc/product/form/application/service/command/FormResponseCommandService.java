@@ -25,6 +25,7 @@ import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
@@ -241,6 +242,39 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         saveAnswers(data);
 
         draft.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(draft);
+    }
+
+    @Override
+    public void submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+
+        List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
+        Set<Long> answeredQuestionIds = savedAnswers.stream()
+            .map(answer -> answer.getQuestion().getId())
+            .collect(Collectors.toSet());
+
+        if (command.allowedQuestionIds() != null) {
+            validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
+        }
+
+        if (command.requiredQuestionIds() != null) {
+            validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
+        } else {
+            Set<Long> answerIds = savedAnswers.stream().map(Answer::getId).collect(Collectors.toSet());
+            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIds).stream()
+                .filter(c -> c.getQuestionOption() != null)
+                .collect(Collectors.toMap(
+                    c -> c.getAnswer().getQuestion().getId(),
+                    c -> c.getQuestionOption().getId(),
+                    (a, b) -> a
+                ));
+            validateAllRequiredAnsweredOnPath(draft.getForm().getId(), answeredQuestionIds, selectedOptionByQuestion);
+        }
+
+        saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
+
+        draft.submit(Instant.now(), command.submittedIp());
         saveFormResponsePort.save(draft);
     }
 
