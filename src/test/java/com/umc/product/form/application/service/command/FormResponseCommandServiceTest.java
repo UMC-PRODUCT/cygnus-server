@@ -26,6 +26,7 @@ import com.umc.product.form.application.port.in.command.dto.AnonymousFormRespons
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
@@ -654,6 +655,56 @@ class FormResponseCommandServiceTest {
             .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
 
         then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousDraft: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void deleteAnonymousDraft_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findDraftByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousDraft: hash 매칭 실패면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnonymousDraft_hash_매칭_실패_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousDraft: 매칭된 draft 가 기명이면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnonymousDraft_기명_draft_거부_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse namedDraft = draftResponse();
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.of(namedDraft));
+
+        assertThatThrownBy(() -> sut.deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
     }
 
     // ============================================================

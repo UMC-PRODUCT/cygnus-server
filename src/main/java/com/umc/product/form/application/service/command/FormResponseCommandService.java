@@ -23,6 +23,7 @@ import com.umc.product.form.application.port.in.command.dto.AnonymousFormRespons
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
@@ -276,6 +277,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
         draft.submit(Instant.now(), command.submittedIp());
         saveFormResponsePort.save(draft);
+    }
+
+    @Override
+    public void deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+
+        saveAnswerPort.deleteAllByFormResponseId(draft.getId());
+        saveFormResponsePort.deleteById(draft.getId());
     }
 
     /**
