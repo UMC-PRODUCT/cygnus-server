@@ -2,7 +2,7 @@
 
 ## 범위
 
-현재 `src/test/java/com/umc/product/recruiting`에는 실행 가능한 `*Test.java` 73개가 있다. Task 12 격리 JUnit XML snapshot 기준 Recruiting은 73 suites, 304 tests, failures 0, errors 0, skipped 0이고, 전체는 446 suites, 2,172 tests, failures 0, errors 0, skipped 40이다. snapshot과 원시 로그는 로컬 evidence `.omo/evidence/recruiting-v2-redesign/raw/task-12/full-test-xml/` 및 `task-12-integrated.txt`에 기록한다.
+현재 `src/test/java/com/umc/product/recruiting`에는 실행 가능한 `*Test.java` 77개가 있다. 최종 remediation focused 실행의 JUnit XML 기준 Recruiting은 77 suites, 344 tests, failures 0, errors 0, skipped 0이다. 원시 로그와 집계는 로컬 evidence `.omo/evidence/recruiting-v2-final-remediation.md`에 기록한다.
 
 | 계층 | 테스트 클래스 수 | 주요 검증 |
 |---|---:|---|
@@ -11,7 +11,7 @@
 | Application query/evaluator | 8 | visibility, question scope, CSV, 권한 판정 |
 | REST adapter | 10 | route, OpenAPI, 인증·인가, DTO mapping, 실제 HTTP |
 | GraphQL adapter | 12 | 실행 schema, introspection, CurrentMember, 실제 HTTP |
-| Persistence/ID adapter | 13 | migration, DB constraint, repository, key 충돌, concurrency |
+| Persistence/ID adapter | 17 | migration, DB constraint, repository, key 충돌, concurrency |
 
 ## 검증 층위
 
@@ -69,7 +69,7 @@ Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 �
 
 | 테스트 | 실제 관찰 |
 |---|---|
-| `RecruitingApplicationRandomPortIntegrationTest` | JWT 지원서 생성, 비로그인·malformed 요청 거부, CSV allow/deny와 exact redaction, PostgreSQL P6Spy binding redaction |
+| `RecruitingApplicationRandomPortIntegrationTest` | JWT 지원서 생성, 비로그인·malformed 요청 거부, 공개 Form 익명 접근, CSV actor 결속과 exact redaction, PostgreSQL P6Spy binding redaction |
 | `RecruitingGraphQlRandomPortIntegrationTest` | `/graphql` JWT CurrentMember 성공, 비로그인 `COMMON-403`, 제거된 익명 query의 validation 실패 |
 
 대표 재실행:
@@ -100,10 +100,7 @@ Migration version 중복은 파일명에서 `V<version>__` 부분을 추출해 �
 
 ## Evidence
 
-- `.omo/evidence/recruiting-v2-redesign/task-10-rest-csv.txt`: focused 295, RANDOM_PORT REST 6
-- `.omo/evidence/recruiting-v2-redesign/task-11-graphql.txt`: GraphQL slice 27, RANDOM_PORT GraphQL 3
-- `.omo/evidence/recruiting-v2-redesign/task-12-integrated.txt`: clean compile, full test, docs, format, diff, migration duplicate, representative RANDOM_PORT
-- [GraphQL verification summary](../../analysis/recruiting-graphql-verification-evidence.md)
+- `.omo/evidence/recruiting-v2-final-remediation.md`: 77 suites/344 tests focused 실행, REST/GraphQL 인가, CSV, Form 상태, root-only lock, format/diff 검증
 
 ## 실패 분류
 

@@ -6,6 +6,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Import;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -18,6 +19,10 @@ import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.support.PersistenceAdapterTest;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 @PersistenceAdapterTest
 @Import({
@@ -79,6 +84,52 @@ class RecruitingPersistenceAdapterTest extends RecruitingPersistenceAdapterTestS
             application.getId() + 1
         )).isTrue();
         assertThat(reloaded.getApplicationForm().getRound().getSeason().getSchoolId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("지원서 mutation lock은 application root만 잠근 뒤 상세 연관을 별도 조회한다")
+    void mutationLockTargetsApplicationRootBeforeLoadingDetails() {
+        RecruitingGraph graph = persistApplicationGraph(
+            7L,
+            70L,
+            1,
+            "identity:root-lock",
+            RecruitingApplicationStatus.SUBMITTED
+        );
+        em.flush();
+        em.clear();
+        ch.qos.logback.classic.Logger sqlLogger =
+            (ch.qos.logback.classic.Logger)LoggerFactory.getLogger("org.hibernate.SQL");
+        Level previousLevel = sqlLogger.getLevel();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        sqlLogger.addAppender(appender);
+        sqlLogger.setLevel(Level.DEBUG);
+        try {
+            RecruitingApplication locked = applicationAdapter.getByIdWithDetailsForUpdate(
+                graph.application().getId()
+            );
+
+            assertThat(locked.getRound().getSeason().getGisuId()).isEqualTo(7L);
+            List<String> sql = appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .map(statement -> statement.replaceAll("\\s+", " ").toLowerCase())
+                .toList();
+            String lockSql = sql.stream()
+                .filter(statement -> statement.contains("for no key update") || statement.contains("for update"))
+                .findFirst()
+                .orElseThrow();
+            assertThat(lockSql)
+                .contains("from public.recruiting_application")
+                .doesNotContain(" join ");
+            assertThat(sql.stream().filter(statement -> statement.contains(" join ")))
+                .anyMatch(statement -> !statement.contains("for no key update")
+                    && !statement.contains("for update"));
+        } finally {
+            sqlLogger.detachAppender(appender);
+            appender.stop();
+            sqlLogger.setLevel(previousLevel);
+        }
     }
 
     @Test

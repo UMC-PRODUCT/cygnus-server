@@ -60,7 +60,7 @@ public record RecruitingSeasonConfigurationResponse(
         @Schema(description = "면접 기간 시작 시각") Instant interviewStartAt,
         @Schema(description = "면접 기간 종료 시각") Instant interviewEndAt,
         @Schema(description = "최종 결과 공개 시각") Instant finalResultPublishedAt,
-        @Schema(description = "면접 가능 일정 Survey 폼 ID", example = "100") Long availabilityFormId,
+        @Schema(description = "면접 가능 일정 Form ID", example = "100") Long availabilityFormId,
         @Schema(description = "지원자 안내 문구") String announcement,
         @Schema(description = "문의 연락처") String contactText
     ) {

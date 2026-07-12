@@ -115,7 +115,7 @@ class RecruitingApplicationValidationServiceTest {
     }
 
     @Test
-    @DisplayName("Survey 응답의 회원과 Form 연결이 일치하면 수정할 수 있다")
+    @DisplayName("Form 응답의 회원과 Form 연결이 일치하면 수정할 수 있다")
     void allowOwnedLinkedFormResponse() {
         RecruitingApplication application = application();
         given(getFormResponseUseCase.findById(700L)).willReturn(java.util.Optional.of(
@@ -127,7 +127,7 @@ class RecruitingApplicationValidationServiceTest {
     }
 
     @Test
-    @DisplayName("Survey 응답의 회원 또는 Form 연결이 다르면 수정을 거부한다")
+    @DisplayName("Form 응답의 회원 또는 Form 연결이 다르면 수정을 거부한다")
     void rejectMismatchedFormResponseOwnership() {
         RecruitingApplication application = application();
         given(getFormResponseUseCase.findById(700L)).willReturn(java.util.Optional.of(

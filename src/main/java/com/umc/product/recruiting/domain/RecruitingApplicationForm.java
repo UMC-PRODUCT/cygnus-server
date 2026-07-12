@@ -84,6 +84,10 @@ public class RecruitingApplicationForm extends BaseEntity {
         }
     }
 
+    public void validateStructureMutable() {
+        validateStatus(RecruitingApplicationFormStatus.DRAFT);
+    }
+
     public void publish() {
         validateStatus(RecruitingApplicationFormStatus.DRAFT);
         this.status = RecruitingApplicationFormStatus.PUBLISHED;

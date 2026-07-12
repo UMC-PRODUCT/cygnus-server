@@ -39,7 +39,7 @@ public class RecruitingAdminFormPolicyController {
     @Operation(
         operationId = "RECRUITING-ADMIN-FORM-POLICY-001",
         summary = "지원 폼 섹션 정책 추가",
-        description = "Survey 폼 섹션을 공통 또는 단일 모집 트랙 전용 섹션으로 연결합니다."
+        description = "Form 섹션을 공통 또는 단일 모집 트랙 전용 섹션으로 연결합니다."
     )
     public RecruitingIdResponse addPolicy(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,

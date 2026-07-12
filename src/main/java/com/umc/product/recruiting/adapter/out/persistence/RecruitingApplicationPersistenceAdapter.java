@@ -51,12 +51,13 @@ public class RecruitingApplicationPersistenceAdapter
 
     @Override
     public RecruitingApplication getByIdWithDetailsForUpdate(Long id) {
-        return RecruitingLockExceptionTranslator.translate(() ->
-            recruitingApplicationQueryRepository.findByIdWithDetailsForUpdate(id)
+        return RecruitingLockExceptionTranslator.translate(() -> {
+            recruitingApplicationQueryRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new RecruitingDomainException(
                     RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND
-                ))
-        );
+                ));
+            return getByIdWithDetails(id);
+        });
     }
 
     @Override

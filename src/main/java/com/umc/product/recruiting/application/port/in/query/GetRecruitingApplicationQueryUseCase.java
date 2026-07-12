@@ -7,7 +7,7 @@ public interface GetRecruitingApplicationQueryUseCase {
 
     RecruitingApplicationInfo getById(Long applicationId, Long requesterMemberId);
 
-    RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId);
+    RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId, Long requesterMemberId);
 
     boolean isRoundBelongsToSeason(Long roundId, Long seasonId);
 

@@ -11,14 +11,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.notification.application.port.out.SendEmailPort;
-import com.umc.product.notification.application.port.out.dto.EmailMessage;
 import com.umc.product.recruiting.application.port.in.command.dto.FindRecruitingInterviewScheduleCandidatesCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.SendRecruitingInterviewGuideCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.out.FindRecruitingScheduleOverlapPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
@@ -38,9 +34,6 @@ class RecruitingInterviewCommandServiceTest {
     @Mock
     FindRecruitingScheduleOverlapPort findScheduleOverlapPort;
 
-    @Mock
-    SendEmailPort sendEmailPort;
-
     RecruitingInterviewCommandService sut;
 
     @BeforeEach
@@ -48,8 +41,7 @@ class RecruitingInterviewCommandServiceTest {
         sut = new RecruitingInterviewCommandService(
             loadApplicationPort,
             saveApplicationPort,
-            findScheduleOverlapPort,
-            sendEmailPort
+            findScheduleOverlapPort
         );
     }
 
@@ -73,26 +65,6 @@ class RecruitingInterviewCommandServiceTest {
         );
 
         assertThat(result).isEqualTo(expected);
-    }
-
-    @Test
-    @DisplayName("legacy 면접 안내 API는 기존 메일 포트 호출을 유지한다")
-    void legacy_면접_안내_API는_기존_메일_포트_호출을_유지한다() {
-        RecruitingApplication application = org.mockito.Mockito.mock(RecruitingApplication.class);
-        given(application.getId()).willReturn(900L);
-        given(loadApplicationPort.getByIdWithDetails(900L)).willReturn(application);
-
-        sut.sendGuide(SendRecruitingInterviewGuideCommand.builder()
-            .applicationId(900L)
-            .recipientEmail("recipient@example.com")
-            .startsAt(Instant.parse("2026-08-12T01:00:00Z"))
-            .location("온라인")
-            .build());
-
-        ArgumentCaptor<EmailMessage> captor = ArgumentCaptor.forClass(EmailMessage.class);
-        verify(sendEmailPort).send(captor.capture());
-        assertThat(captor.getValue().to()).isEqualTo("recipient@example.com");
-        assertThat(captor.getValue().htmlBody()).contains("지원서 ID: 900", "온라인");
     }
 
     @Test

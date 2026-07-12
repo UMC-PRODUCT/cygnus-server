@@ -56,8 +56,8 @@ class RecruitingCoreDomainTest {
     }
 
     @Test
-    @DisplayName("지원 폼은 모집 차수와 survey form id를 가진다")
-    void 지원_폼은_모집_차수와_survey_form_id를_가진다() {
+    @DisplayName("지원 Form은 모집 차수와 form id를 가진다")
+    void 지원_Form은_모집_차수와_form_id를_가진다() {
         RecruitingRound round = RecruitingRound.createRegular(season());
 
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 100L);

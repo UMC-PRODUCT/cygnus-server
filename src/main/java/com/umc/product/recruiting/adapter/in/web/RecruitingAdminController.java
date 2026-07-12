@@ -180,31 +180,33 @@ public class RecruitingAdminController {
     }
 
     @GetMapping("/summary")
-    @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.MANAGE)
     @Operation(
         operationId = "RECRUITING-ADMIN-011",
         summary = "지원 현황 요약 조회",
         description = "기수와 학교 기준으로 지원서 상태별 집계와 전체 건수를 조회합니다."
     )
     public RecruitingStatusSummaryResponse getSummary(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam @Positive Long gisuId,
         @RequestParam @Positive Long schoolId
     ) {
-        return RecruitingStatusSummaryResponse.from(getApplicationQueryUseCase.getStatusSummary(gisuId, schoolId));
+        return RecruitingStatusSummaryResponse.from(
+            getApplicationQueryUseCase.getStatusSummary(gisuId, schoolId, memberId(memberPrincipal))
+        );
     }
 
     @GetMapping("/statistics.csv")
-    @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.MANAGE)
     @Operation(
         operationId = "RECRUITING-ADMIN-012",
         summary = "지원 현황 CSV 다운로드",
         description = "지원서 본문과 원본 이메일을 제외한 학교별 지원 현황 CSV를 다운로드합니다."
     )
     public ResponseEntity<byte[]> exportCsv(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam @Positive Long gisuId,
         @RequestParam(required = false) @Positive Long schoolId
     ) {
-        byte[] csv = exportRecruitingCsvUseCase.exportSummaryCsv(gisuId, schoolId);
+        byte[] csv = exportRecruitingCsvUseCase.exportSummaryCsv(gisuId, schoolId, memberId(memberPrincipal));
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION,
                 ContentDisposition.attachment()

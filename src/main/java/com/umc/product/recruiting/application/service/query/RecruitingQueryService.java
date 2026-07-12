@@ -8,6 +8,7 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
@@ -43,6 +44,7 @@ public class RecruitingQueryService implements
     private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
+    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     @Override
     public RecruitingApplicationInfo getById(Long applicationId, Long requesterMemberId) {
@@ -59,13 +61,22 @@ public class RecruitingQueryService implements
     }
 
     @Override
-    public RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId) {
+    public RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId, Long requesterMemberId) {
+        validateCentralGisuAccess(requesterMemberId, gisuId);
         List<RecruitingApplicationSummaryRow> rows = loadApplicationPort.searchSummaryRows(gisuId, schoolId, null);
         Map<RecruitingApplicationStatus, Long> countByStatus = new EnumMap<>(RecruitingApplicationStatus.class);
         for (RecruitingApplicationSummaryRow row : rows) {
             countByStatus.merge(row.applicationStatus(), 1L, Long::sum);
         }
         return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus);
+    }
+
+    private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {
+        if (getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, gisuId)
+            || getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
+            return;
+        }
+        throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SUMMARY_ACCESS_DENIED);
     }
 
     @Override

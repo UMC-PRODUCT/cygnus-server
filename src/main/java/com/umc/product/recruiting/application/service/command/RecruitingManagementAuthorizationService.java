@@ -25,4 +25,12 @@ public class RecruitingManagementAuthorizationService implements AuthorizeRecrui
             ResourcePermission.of(ResourceType.RECRUITMENT, seasonId, PermissionType.EDIT)
         );
     }
+
+    @Override
+    public boolean canManageSeason(Long requesterMemberId, Long seasonId) {
+        return checkPermissionUseCase.check(
+            requesterMemberId,
+            ResourcePermission.of(ResourceType.RECRUITMENT, seasonId, PermissionType.EDIT)
+        );
+    }
 }

@@ -23,7 +23,7 @@ public record UpdateRecruitingApplicationDraftRequest(
     @NotBlank @Email @Size(max = 254) String applicantEmail,
     @Schema(description = "1지망 모집 트랙", example = "PLAN") @NotNull ChallengerTrack firstChoice,
     @Schema(description = "2지망 모집 트랙", example = "DESIGN") ChallengerTrack secondChoice,
-    @Schema(description = "Survey 질문별 답변 목록") @NotNull List<@Valid AnswerRequest> answers
+    @Schema(description = "Form 질문별 답변 목록") @NotNull List<@Valid AnswerRequest> answers
 ) {
 
     public UpdateRecruitingApplicationDraftRequest {
@@ -44,11 +44,11 @@ public record UpdateRecruitingApplicationDraftRequest(
             .build();
     }
 
-    @Schema(description = "Survey 질문 답변")
+    @Schema(description = "Form 질문 답변")
     public record AnswerRequest(
-        @Schema(description = "Survey 질문 ID", example = "7") @NotNull @Positive Long questionId,
+        @Schema(description = "Form 질문 ID", example = "7") @NotNull @Positive Long questionId,
         @Schema(description = "텍스트 답변") String textValue,
-        @Schema(description = "선택한 Survey 옵션 ID 목록") List<@Positive Long> selectedOptionIds,
+        @Schema(description = "선택한 Form 옵션 ID 목록") List<@Positive Long> selectedOptionIds,
         @Schema(description = "첨부 파일 ID 목록") List<String> fileIds
     ) {
 

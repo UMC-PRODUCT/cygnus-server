@@ -98,6 +98,45 @@ class RecruitingFormSectionPolicyCommandServiceTest {
         then(savePolicyPort).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("게시된 Form에는 section policy를 추가할 수 없다")
+    void rejectPolicyForPublishedForm() {
+        RecruitingApplicationForm form = applicationForm();
+        form.publish();
+        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+
+        assertThatThrownBy(() -> sut.addPolicy(policyCommand()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_INVALID_TRANSITION);
+        then(savePolicyPort).shouldHaveNoInteractions();
+        then(getFormUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("마감된 Form에는 section policy를 추가할 수 없다")
+    void rejectPolicyForClosedForm() {
+        RecruitingApplicationForm form = applicationForm();
+        form.publish();
+        form.close();
+        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+
+        assertThatThrownBy(() -> sut.addPolicy(policyCommand()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_INVALID_TRANSITION);
+        then(savePolicyPort).shouldHaveNoInteractions();
+        then(getFormUseCase).shouldHaveNoInteractions();
+    }
+
+    private AddRecruitingFormSectionPolicyCommand policyCommand() {
+        return AddRecruitingFormSectionPolicyCommand.builder()
+            .applicationFormId(100L)
+            .formSectionId(10L)
+            .type(RecruitingFormSectionType.COMMON)
+            .build();
+    }
+
     private RecruitingApplicationForm applicationForm() {
         RecruitingRound round = RecruitingRound.createRegular(RecruitingSeason.create(1L, 10L));
         ReflectionTestUtils.setField(round, "recruitableTracks", List.of(ChallengerTrack.PLAN));

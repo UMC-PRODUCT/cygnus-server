@@ -33,6 +33,8 @@ import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoun
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewQuestionUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInterviewQuestionInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundInterviewQuestionInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 @GraphQlTest({RecruitingEvaluatorAdminGraphQlController.class, RecruitingQuestionGraphQlController.class})
@@ -134,5 +136,94 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
             ArgumentCaptor.forClass(CreateRecruitingRoundInterviewQuestionCommand.class);
         then(manageRoundQuestionUseCase).should().createRoundQuestion(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
+    }
+
+    @Test
+    @DisplayName("INTERVIEW 평가자는 GraphQL에서 담당 차수의 공통 질문을 조회한다")
+    void interviewEvaluatorReadsRoundQuestionsThroughActorScopedUseCase() {
+        given(getInterviewQuestionUseCase.listActiveRoundQuestions(20L, REQUESTER_ID))
+            .willReturn(List.of(new RecruitingRoundInterviewQuestionInfo(80L, 20L, "공통 질문", 1, true)));
+
+        graphQlTester.document("""
+                query {
+                  recruitingRoundInterviewQuestions(seasonId: 10, roundId: 20) {
+                    id
+                    roundId
+                    content
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingRoundInterviewQuestions[0].content")
+            .entity(String.class)
+            .isEqualTo("공통 질문");
+
+        then(getApplicationQueryUseCase).should().isRoundBelongsToSeason(20L, 10L);
+        then(getInterviewQuestionUseCase).should().listActiveRoundQuestions(20L, REQUESTER_ID);
+    }
+
+    @Test
+    @DisplayName("INTERVIEW 평가자는 GraphQL에서 담당 지원서의 개별 질문을 조회한다")
+    void interviewEvaluatorReadsApplicationQuestionsThroughActorScopedUseCase() {
+        given(getApplicationQueryUseCase.isApplicationBelongsToSeason(30L, 10L)).willReturn(true);
+        given(getInterviewQuestionUseCase.listActiveApplicationQuestions(30L, REQUESTER_ID))
+            .willReturn(List.of(new RecruitingApplicationInterviewQuestionInfo(
+                90L,
+                30L,
+                "개별 질문",
+                1,
+                true
+            )));
+
+        graphQlTester.document("""
+                query {
+                  recruitingApplicationInterviewQuestions(seasonId: 10, applicationId: 30) {
+                    id
+                    applicationId
+                    content
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingApplicationInterviewQuestions[0].content")
+            .entity(String.class)
+            .isEqualTo("개별 질문");
+
+        then(getApplicationQueryUseCase).should().isApplicationBelongsToSeason(30L, 10L);
+        then(getInterviewQuestionUseCase).should().listActiveApplicationQuestions(30L, REQUESTER_ID);
+    }
+
+    @Test
+    @DisplayName("GraphQL 공통 질문은 요청 season과 round scope가 다르면 거부한다")
+    void rejectRoundQuestionsOutsideRequestedSeason() {
+        given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(false);
+
+        graphQlTester.document("""
+                query {
+                  recruitingRoundInterviewQuestions(seasonId: 10, roundId: 20) { id }
+                }
+                """)
+            .execute()
+            .errors()
+            .satisfy(errors -> assertThat(errors).hasSize(1));
+
+        then(getInterviewQuestionUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("GraphQL 개별 질문은 요청 season과 application scope가 다르면 거부한다")
+    void rejectApplicationQuestionsOutsideRequestedSeason() {
+        given(getApplicationQueryUseCase.isApplicationBelongsToSeason(30L, 10L)).willReturn(false);
+
+        graphQlTester.document("""
+                query {
+                  recruitingApplicationInterviewQuestions(seasonId: 10, applicationId: 30) { id }
+                }
+                """)
+            .execute()
+            .errors()
+            .satisfy(errors -> assertThat(errors).hasSize(1));
+
+        then(getInterviewQuestionUseCase).shouldHaveNoInteractions();
     }
 }

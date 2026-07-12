@@ -8,7 +8,7 @@
 - 한 시즌은 트랙별 TO와 여러 모집 차수를 가진다.
 - 한 차수는 지원 가능한 트랙, 일정, 2지망 허용 여부, 면접 여부를 가진다.
 - 한 차수에는 `RecruitingApplicationForm` 하나만 연결할 수 있다.
-- Recruiting은 Survey의 `formId`, `formSectionId`, `formResponseId`만 보관한다. 문항과 답변을 복제하지 않는다.
+- Recruiting은 Form의 `formId`, `formSectionId`, `formResponseId`만 보관한다. 문항과 답변을 복제하지 않는다.
 - 다른 도메인의 aggregate는 JPA 관계로 참조하지 않는다. `gisuId`, `schoolId`, `memberId`, `formId`, `formSectionId`, `formResponseId`, `termId` 같은 ID와 공개 UseCase만 사용한다.
 - Recruiting 내부 child는 owning side의 `@ManyToOne(fetch = LAZY)`만 사용한다. 부모의 `@OneToMany` collection은 두지 않는다.
 

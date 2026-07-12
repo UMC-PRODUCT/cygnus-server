@@ -37,7 +37,7 @@ public class RecruitingInterviewScheduleController {
     @Operation(
         operationId = "RECRUITING-SCHEDULE-001",
         summary = "면접 가능 일정 제출",
-        description = "CurrentMember 지원자가 Survey 가능 일정 응답 ID를 저장합니다."
+        description = "CurrentMember 지원자가 Form 가능 일정 응답 ID를 저장합니다."
     )
     public void submitAvailability(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,

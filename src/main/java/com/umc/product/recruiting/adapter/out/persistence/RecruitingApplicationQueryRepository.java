@@ -41,25 +41,23 @@ public class RecruitingApplicationQueryRepository {
     private final JPAQueryFactory queryFactory;
 
     public Optional<RecruitingApplication> findByIdWithDetails(Long id) {
-        return findByIdWithDetails(id, null);
-    }
-
-    public Optional<RecruitingApplication> findByIdWithDetailsForUpdate(Long id) {
-        return findByIdWithDetails(id, LockModeType.PESSIMISTIC_WRITE);
-    }
-
-    private Optional<RecruitingApplication> findByIdWithDetails(Long id, LockModeType lockMode) {
-        var query = queryFactory
+        RecruitingApplication result = queryFactory
             .selectFrom(recruitingApplication)
             .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm).fetchJoin()
             .innerJoin(recruitingApplicationForm.round, recruitingRound).fetchJoin()
             .innerJoin(recruitingRound.season, recruitingSeason).fetchJoin()
-            .where(recruitingApplication.id.eq(id));
-        if (lockMode != null) {
-            query.setLockMode(lockMode);
-            query.setHint("jakarta.persistence.lock.timeout", LOCK_TIMEOUT_MILLIS);
-        }
-        RecruitingApplication result = query.fetchOne();
+            .where(recruitingApplication.id.eq(id))
+            .fetchOne();
+        return Optional.ofNullable(result);
+    }
+
+    public Optional<RecruitingApplication> findByIdForUpdate(Long id) {
+        RecruitingApplication result = queryFactory
+            .selectFrom(recruitingApplication)
+            .where(recruitingApplication.id.eq(id))
+            .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+            .setHint("jakarta.persistence.lock.timeout", LOCK_TIMEOUT_MILLIS)
+            .fetchOne();
         return Optional.ofNullable(result);
     }
 

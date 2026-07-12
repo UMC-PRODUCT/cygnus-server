@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.umc.product.global.security.annotation.Public;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationFormResponse;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 
@@ -26,6 +27,7 @@ public class RecruitingPublicController {
     private final GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
 
     @GetMapping("/forms")
+    @Public
     @Operation(
         operationId = "RECRUITING-PUBLIC-001",
         summary = "공개 지원 폼 목록 조회",

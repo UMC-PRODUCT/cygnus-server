@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -36,6 +37,8 @@ import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 
 @GraphQlTest(RecruitingAdminGraphQlController.class)
 @Import({
@@ -132,5 +135,30 @@ class RecruitingSeasonAdminGraphQlControllerTest {
         assertThat(captor.getValue().seasonId()).isEqualTo(10L);
         assertThat(captor.getValue().quotas().getFirst().track())
             .isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    @DisplayName("GraphQL 상태 요약은 CurrentMember와 요청 기수를 public UseCase에 전달한다")
+    void statusSummaryBindsCurrentMemberAndRequestedGisu() {
+        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, 40L))
+            .willReturn(new RecruitingStatusSummaryInfo(
+                3L,
+                Map.of(RecruitingApplicationStatus.SUBMITTED, 3L)
+            ));
+
+        graphQlTester.document("""
+                query {
+                  recruitingStatusSummary(input: {gisuId: 11, schoolId: 22}) {
+                    totalCount
+                    countByStatus { status count }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingStatusSummary.totalCount")
+            .entity(Long.class)
+            .isEqualTo(3L);
+
+        then(getApplicationQueryUseCase).should().getStatusSummary(11L, 22L, 40L);
     }
 }

@@ -11,7 +11,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 public record RecruitingInterviewScheduleResponse(
     @Schema(description = "면접 일정 ID", example = "1") Long id,
     @Schema(description = "지원서 ID", example = "40") Long applicationId,
-    @Schema(description = "가능 일정 Survey 응답 ID", example = "700") Long availabilityFormResponseId,
+    @Schema(description = "가능 일정 Form 응답 ID", example = "700") Long availabilityFormResponseId,
     @Schema(description = "면접 일정 상태", example = "CONFIRMED") RecruitingInterviewScheduleStatus status,
     @Schema(description = "면접 시작 시각") Instant startsAt,
     @Schema(description = "면접 종료 시각") Instant endsAt,

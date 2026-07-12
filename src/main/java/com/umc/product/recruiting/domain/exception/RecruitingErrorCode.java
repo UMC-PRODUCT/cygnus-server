@@ -64,6 +64,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_QUOTA_BELOW_RESERVED(HttpStatus.CONFLICT, "RECRUITING-0320", "모집 정원을 현재 예약 및 등록 인원보다 작게 줄일 수 없어요."),
     RECRUITING_APPLICATION_PERIOD_CLOSED(HttpStatus.BAD_REQUEST, "RECRUITING-0321", "현재 지원서를 작성하거나 제출할 수 있는 기간이 아니에요."),
     RECRUITING_CONCURRENCY_LOCK_TIMEOUT(HttpStatus.CONFLICT, "RECRUITING-0322", "동시 요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요."),
+    RECRUITING_SUMMARY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0323", "해당 기수의 지원 현황을 조회할 권한이 없어요."),
     RECRUITING_EVALUATION_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0400", "현재 평가 상태에서는 할 수 없는 작업이에요."),
     RECRUITING_EVALUATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "RECRUITING-0401", "이미 제출한 지원자 평가가 있어요."),
     RECRUITING_EVALUATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0402", "지원자 평가를 조회할 권한이 없어요."),

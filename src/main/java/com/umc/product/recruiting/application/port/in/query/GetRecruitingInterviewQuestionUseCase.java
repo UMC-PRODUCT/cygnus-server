@@ -7,11 +7,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundI
 
 public interface GetRecruitingInterviewQuestionUseCase {
 
-    List<RecruitingRoundInterviewQuestionInfo> listActiveRoundQuestions(Long roundId);
-
     List<RecruitingRoundInterviewQuestionInfo> listActiveRoundQuestions(Long roundId, Long requesterMemberId);
-
-    List<RecruitingApplicationInterviewQuestionInfo> listActiveApplicationQuestions(Long applicationId);
 
     List<RecruitingApplicationInterviewQuestionInfo> listActiveApplicationQuestions(
         Long applicationId,

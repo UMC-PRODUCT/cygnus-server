@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Positive;
 
 @Schema(description = "지원자 면접 가능 일정 응답 제출 요청")
 public record SubmitRecruitingInterviewAvailabilityRequest(
-    @Schema(description = "Survey 가능 일정 FormResponse ID", example = "700")
+    @Schema(description = "Form 가능 일정 FormResponse ID", example = "700")
     @NotNull @Positive Long availabilityFormResponseId
 ) {
 

@@ -15,6 +15,7 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundEvalua
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
+import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -34,28 +35,14 @@ public class RecruitingInterviewQuestionQueryService implements GetRecruitingInt
     private final AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
 
     @Override
-    public List<RecruitingRoundInterviewQuestionInfo> listActiveRoundQuestions(Long roundId) {
-        return loadRoundQuestionPort.listActiveByRoundId(roundId).stream()
-            .map(RecruitingRoundInterviewQuestionInfo::from)
-            .toList();
-    }
-
-    @Override
     public List<RecruitingRoundInterviewQuestionInfo> listActiveRoundQuestions(
         Long roundId,
         Long requesterMemberId
     ) {
-        authorizeManagementUseCase.authorizeSeasonManagement(
-            requesterMemberId,
-            loadRoundPort.getById(roundId).getSeason().getId()
-        );
-        return listActiveRoundQuestions(roundId);
-    }
-
-    @Override
-    public List<RecruitingApplicationInterviewQuestionInfo> listActiveApplicationQuestions(Long applicationId) {
-        return loadApplicationQuestionPort.listActiveByApplicationId(applicationId).stream()
-            .map(RecruitingApplicationInterviewQuestionInfo::from)
+        RecruitingRound round = loadRoundPort.getById(roundId);
+        authorizeQuestionRead(requesterMemberId, round.getId(), round.getSeason().getId());
+        return loadRoundQuestionPort.listActiveByRoundId(roundId).stream()
+            .map(RecruitingRoundInterviewQuestionInfo::from)
             .toList();
     }
 
@@ -65,13 +52,27 @@ public class RecruitingInterviewQuestionQueryService implements GetRecruitingInt
         Long requesterMemberId
     ) {
         RecruitingApplication application = loadApplicationPort.getById(applicationId);
-        if (!loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
+        authorizeQuestionRead(
+            requesterMemberId,
             application.getRound().getId(),
+            application.getRound().getSeason().getId()
+        );
+        return loadApplicationQuestionPort.listActiveByApplicationId(applicationId).stream()
+            .map(RecruitingApplicationInterviewQuestionInfo::from)
+            .toList();
+    }
+
+    private void authorizeQuestionRead(Long requesterMemberId, Long roundId, Long seasonId) {
+        if (authorizeManagementUseCase.canManageSeason(requesterMemberId, seasonId)) {
+            return;
+        }
+        if (loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
+            roundId,
             requesterMemberId,
             RecruitingEvaluatorStage.INTERVIEW
         )) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED);
+            return;
         }
-        return listActiveApplicationQuestions(applicationId);
+        throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED);
     }
 }

@@ -62,9 +62,8 @@ public class RecruitingAdminGraphQlController {
         @Argument RecruitingStatusSummaryGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentTypePermission(requesterMemberId, PermissionType.MANAGE);
         return RecruitingStatusSummaryGraphQlResponse.from(
-            getApplicationQueryUseCase.getStatusSummary(input.gisuId(), input.schoolId())
+            getApplicationQueryUseCase.getStatusSummary(input.gisuId(), input.schoolId(), requesterMemberId)
         );
     }
 

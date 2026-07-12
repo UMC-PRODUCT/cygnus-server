@@ -185,7 +185,7 @@ class RecruitingAdminControllerTest {
     @Test
     @DisplayName("CSV export API는 raw email과 지원서 본문 없이 attachment를 반환한다")
     void CSV_export_API는_raw_email과_지원서_본문_없이_attachment를_반환한다() throws Exception {
-        given(exportRecruitingCsvUseCase.exportSummaryCsv(11L, 22L))
+        given(exportRecruitingCsvUseCase.exportSummaryCsv(11L, 22L, MEMBER_ID))
             .willReturn("""
                 gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt
                 11,22,REGULAR,1,40,app****@example.org,WEB_PRODUCT_ENGINEER,,,SUBMITTED,NOT_READY,2026-07-01T00:00:00Z
@@ -214,7 +214,7 @@ class RecruitingAdminControllerTest {
     void 상태_요약_API는_status별_count를_반환한다() throws Exception {
         Map<RecruitingApplicationStatus, Long> counts = new EnumMap<>(RecruitingApplicationStatus.class);
         counts.put(RecruitingApplicationStatus.SUBMITTED, 3L);
-        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L))
+        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, MEMBER_ID))
             .willReturn(new RecruitingStatusSummaryInfo(3L, counts));
 
         mockMvc.perform(get("/api/v1/recruiting/admin/summary")

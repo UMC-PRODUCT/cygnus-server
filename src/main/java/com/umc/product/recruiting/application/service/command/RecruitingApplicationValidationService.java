@@ -35,7 +35,7 @@ public class RecruitingApplicationValidationService {
         )) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_PERIOD_CLOSED);
         }
-        // TODO: Survey Form 공개 상태와 응답 기간 조회 계약이 제공되면 local 접수창과 함께 검증한다.
+        // TODO: Form 공개 상태와 응답 기간 조회 계약이 제공되면 local 접수창과 함께 검증한다.
     }
 
     public void validateNew(

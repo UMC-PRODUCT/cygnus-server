@@ -8,7 +8,6 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 
-import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
@@ -48,8 +47,7 @@ public class RecruitingQuestionGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isRoundBelongsToSeason(roundId, seasonId)
         );
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
-        return getInterviewQuestionUseCase.listActiveRoundQuestions(roundId).stream()
+        return getInterviewQuestionUseCase.listActiveRoundQuestions(roundId, requesterMemberId).stream()
             .map(RoundQuestion::from)
             .toList();
     }
@@ -64,8 +62,7 @@ public class RecruitingQuestionGraphQlController {
         permissionSupport.assertResourceBelongsToSeason(
             getApplicationQueryUseCase.isApplicationBelongsToSeason(applicationId, seasonId)
         );
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
-        return getInterviewQuestionUseCase.listActiveApplicationQuestions(applicationId).stream()
+        return getInterviewQuestionUseCase.listActiveApplicationQuestions(applicationId, requesterMemberId).stream()
             .map(ApplicationQuestion::from)
             .toList();
     }

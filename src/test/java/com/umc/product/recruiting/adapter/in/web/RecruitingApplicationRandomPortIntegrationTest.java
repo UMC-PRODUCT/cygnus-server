@@ -2,7 +2,6 @@ package com.umc.product.recruiting.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -41,8 +40,6 @@ import com.p6spy.engine.spy.P6ModuleManager;
 import com.p6spy.engine.spy.P6SpyFactory;
 import com.p6spy.engine.spy.appender.Slf4JLogger;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
-import com.umc.product.authorization.domain.PermissionType;
-import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
@@ -208,36 +205,39 @@ class RecruitingApplicationRandomPortIntegrationTest {
     }
 
     @Test
-    @DisplayName("실제 REST socket에서 중앙 aggregate CSV 권한을 허용하고 일반 권한을 거부한다")
-    void 실제_REST_socket_중앙_aggregate_CSV_권한() {
+    @DisplayName("실제 Security chain에서 공개 Form 목록은 익명 요청을 허용한다")
+    void 실제_Security_chain은_공개_Form_익명_요청을_허용한다() {
+        given(recruitingQueryService.listPublicForms(11L, 22L)).willReturn(List.of());
+
+        ResponseEntity<String> response = restTemplate.exchange(
+            "/api/v1/recruiting/public/forms?gisuId=11&schoolId=22",
+            HttpMethod.GET,
+            new HttpEntity<>(jsonHeaders()),
+            String.class
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("실제 REST socket에서 CSV 요청자를 use case 경계에 전달한다")
+    void 실제_REST_socket_CSV_요청자_결속() {
         byte[] csv = ("gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,"
             + "secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt\n")
             .getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        given(exportRecruitingCsvUseCase.exportSummaryCsv(15L, null)).willReturn(csv);
-        given(checkPermissionUseCase.check(eq(MEMBER_ID), argThat(permission ->
-            permission.resourceType() == ResourceType.RECRUITMENT
-                && permission.resourceId() == null
-                && permission.permission() == PermissionType.MANAGE
-        ))).willReturn(true, false);
-
-        ResponseEntity<byte[]> allowed = restTemplate.exchange(
-            "/api/v1/recruiting/admin/statistics.csv?gisuId=15",
-            HttpMethod.GET,
-            new HttpEntity<>(authorizationHeaders()),
-            byte[].class
-        );
-        ResponseEntity<byte[]> denied = restTemplate.exchange(
+        given(exportRecruitingCsvUseCase.exportSummaryCsv(15L, null, MEMBER_ID)).willReturn(csv);
+        ResponseEntity<byte[]> response = restTemplate.exchange(
             "/api/v1/recruiting/admin/statistics.csv?gisuId=15",
             HttpMethod.GET,
             new HttpEntity<>(authorizationHeaders()),
             byte[].class
         );
 
-        assertThat(allowed.getStatusCode()).isEqualTo(HttpStatus.OK);
-        assertThat(new String(allowed.getBody(), java.nio.charset.StandardCharsets.UTF_8))
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(new String(response.getBody(), java.nio.charset.StandardCharsets.UTF_8))
             .startsWith("gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail")
             .doesNotContain("applicantName", "applicantEmail", "applicationKey");
-        assertThat(denied.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+        then(exportRecruitingCsvUseCase).should().exportSummaryCsv(15L, null, MEMBER_ID);
     }
 
     @Test

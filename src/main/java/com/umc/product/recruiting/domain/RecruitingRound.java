@@ -177,8 +177,8 @@ public class RecruitingRound extends BaseEntity {
 
     /**
      * Recruiting 내부에 저장된 Season/Round/ApplicationForm 상태와 Round 서류 기간만 검사한다.
-     * 인자로 받는 상태는 RecruitingApplicationForm의 local 상태이며 Survey Form 공개 상태가 아니다.
-     * 실제 Survey Form의 공개 상태와 Form window는 이 메서드의 책임이 아니다.
+     * 인자로 받는 상태는 RecruitingApplicationForm의 local 상태이며 Form 엔진의 공개 상태가 아니다.
+     * 실제 Form 엔진의 공개 상태와 Form window는 이 메서드의 책임이 아니다.
      * TODO: Form 공개 상태/기간 조회 계약이 제공되면 application 호출 경계에서 별도로 함께 검증한다.
      */
     public boolean isLocalApplicationPeriodOpenAt(

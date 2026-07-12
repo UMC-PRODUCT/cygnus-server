@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Positive;
 
 @Schema(description = "지원 폼 섹션 정책 추가 요청")
 public record RecruitingFormSectionPolicyRequest(
-    @Schema(description = "Survey 폼 섹션 ID", example = "300")
+    @Schema(description = "Form 섹션 ID", example = "300")
     @NotNull @Positive Long formSectionId,
     @Schema(description = "공통 또는 트랙 전용 섹션 유형", example = "TRACK")
     @NotNull RecruitingFormSectionType type,

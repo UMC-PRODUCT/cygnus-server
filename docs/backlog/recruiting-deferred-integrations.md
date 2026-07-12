@@ -67,9 +67,9 @@ Recruiting v2가 현재 제공하는 범위는 로그인 회원의 기본 지원
 
 ### 현재 경계
 
-- `RecruitingInterviewCommandService.sendGuide`의 기존 `SendEmailPort` 직접 호출과 inline body는 legacy seam이다.
-- `TODO(#1147)`은 Thymeleaf 기반 HTML `SendEmailUseCase`가 병합된 뒤 이 호출을 교체할 위치를 표시한다.
-- Task4에서는 template, generic HTML command, outbox 또는 신규 email dispatch를 구현하지 않는다.
+- Recruiting에는 면접 안내 메일을 발송하는 public UseCase, Notification outbound port 의존, inline HTML dispatch가 없다.
+- `RecruitingInterviewScheduleCommandService`는 면접 일정과 delivery 상태만 저장하며, 두 `TODO(#1147)`이 후속 Notification 공개 UseCase 연결 지점을 표시한다.
+- #1147 전까지 template, generic HTML command, outbox 또는 email dispatch를 구현하지 않는다.
 
 ## 명시적 보류 범위
 
