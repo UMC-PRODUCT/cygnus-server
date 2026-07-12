@@ -55,6 +55,17 @@ public class FormResponse extends BaseEntity {
     @Column(name = "last_saved_at", nullable = false)
     private Instant lastSavedAt;
 
+    /**
+     * 익명 응답 인증용 access key 의 SHA-256 해시(hex 64자).
+     * <p>
+     * 기명 응답은 {@code null}. 익명 응답은 발급 시점에 {@code SecureTokenGenerator.sha256Hex(rawKey)} 로 저장.
+     * UNIQUE — 익명 응답 간 hash 충돌 방지 (MySQL 은 NULL 여러 개 허용하므로 기명 여러 행은 문제 없음).
+     * <p>
+     * 상세 설계: docs/analysis/form-anonymous-response-design.md
+     */
+    @Column(name = "response_access_key_hash", unique = true, length = 64)
+    private String responseAccessKeyHash;
+
     public static FormResponse createDraft(Form form, Long respondentMemberId) {
         FormResponse fr = new FormResponse();
         fr.form = form;
