@@ -27,6 +27,7 @@ import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
@@ -34,6 +35,7 @@ import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmed
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
@@ -556,6 +558,109 @@ class FormResponseCommandServiceTest {
         ));
         // 익명은 중복 정책 검사 skip
         then(loadFormResponsePort).should(never()).existsByFormIdAndMemberId(any(), any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousResponse: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void updateAnonymousResponse_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
+            .responseAccessKey(null)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findSubmittedByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousResponse: hash 매칭 실패면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnonymousResponse_hash_매칭_실패_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousResponse: 매칭된 응답이 기명이면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnonymousResponse_기명_응답_거부_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse namedResponse = draftResponse(); // 기명
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
+
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousResponse: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void deleteAnonymousResponse_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.deleteAnonymousResponse(DeleteAnonymousFormResponseCommand.builder()
+            .responseAccessKey(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findSubmittedByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousResponse: hash 매칭 실패면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnonymousResponse_hash_매칭_실패_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.deleteAnonymousResponse(DeleteAnonymousFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousResponse: 매칭된 응답이 기명이면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnonymousResponse_기명_응답_거부_FORBIDDEN() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse namedResponse = draftResponse();
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
+
+        assertThatThrownBy(() -> sut.deleteAnonymousResponse(DeleteAnonymousFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
     }
 
     @Test

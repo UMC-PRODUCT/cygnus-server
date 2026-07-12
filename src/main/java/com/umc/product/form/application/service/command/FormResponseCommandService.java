@@ -24,6 +24,7 @@ import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
@@ -31,6 +32,7 @@ import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmed
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
@@ -243,6 +245,34 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
+    public void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command) {
+        FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
+
+        validateAnswers(existing.getForm().getId(), command.answers());
+        validateAllRequiredAnsweredOnPath(
+            existing.getForm().getId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+
+        saveAnswerPort.deleteAllByFormResponseId(existing.getId());
+
+        List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
+        saveAnswers(data);
+
+        existing.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(existing);
+    }
+
+    @Override
+    public void deleteAnonymousResponse(DeleteAnonymousFormResponseCommand command) {
+        FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
+
+        saveAnswerPort.deleteAllByFormResponseId(existing.getId());
+        saveFormResponsePort.deleteById(existing.getId());
+    }
+
+    @Override
     public AnonymousFormResponseResult createAnonymousDraft(CreateAnonymousDraftFormResponseCommand command) {
         Form form = loadPublishedForm(command.formId());
 
@@ -351,6 +381,31 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
         return draft;
+    }
+
+    /**
+     * 익명 SUBMITTED 응답 로드 + 검증 (익명 전용).
+     * <p>
+     * 순서: rawKey null 방어 → sha256 계산 → hash 매칭으로 SUBMITTED 조회 → 익명 여부 확인.
+     * <p>
+     * 다음 경우 모두 FORBIDDEN 처리:
+     * <ul>
+     *   <li>hash 매칭 실패 (잘못된 key 또는 아직 DRAFT 상태)</li>
+     *   <li>기명 응답 ({@code respondentMemberId != null}) — 익명 UseCase 로 접근 불가</li>
+     * </ul>
+     * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     */
+    private FormResponse loadSubmittedAsAnonymous(String rawAccessKey) {
+        if (rawAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        FormResponse response = loadFormResponsePort.findSubmittedByAccessKeyHash(hash)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        if (response.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return response;
     }
 
     /**

@@ -4,6 +4,7 @@ import com.umc.product.form.application.port.in.command.dto.AnonymousFormRespons
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
@@ -11,6 +12,7 @@ import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmed
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.domain.exception.FormErrorCode;
@@ -120,6 +122,27 @@ public interface ManageFormResponseUseCase {
      * 익명 응답의 중복 정책은 form 엔진에서 강제하지 않는다 — 소비 도메인 책임.
      */
     AnonymousFormResponseResult submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand command);
+
+    /**
+     * (익명 전용) 이미 SUBMITTED 상태인 익명 응답의 답변을 전체 교체한다 (재제출).
+     * <p>
+     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답을 찾는다.
+     * 매칭 실패, SUBMITTED 아님, 기명 응답인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
+     * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * <p>
+     * 검증 정책은 기명 {@link #updateResponse} 와 동일 — 형식 + 필수 답변 누락 검증.
+     */
+    void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command);
+
+    /**
+     * (익명 전용) 이미 SUBMITTED 상태인 익명 응답을 삭제한다. (FormResponse + 연관 Answer 모두 삭제)
+     * <p>
+     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답을 찾는다.
+     * 매칭 실패, SUBMITTED 아님, 기명 응답인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
+     * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * DRAFT 상태 익명 응답 삭제는 {@link #deleteAnonymousDraft} 사용.
+     */
+    void deleteAnonymousResponse(DeleteAnonymousFormResponseCommand command);
 
     /**
      * (익명 전용) 익명 draft 응답을 최초 생성한다.

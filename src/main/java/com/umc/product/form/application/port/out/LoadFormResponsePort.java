@@ -42,4 +42,10 @@ public interface LoadFormResponsePort {
      * 매칭 없거나 SUBMITTED 인 경우 Optional.empty.
      */
     Optional<FormResponse> findDraftByAccessKeyHash(String accessKeyHash);
+
+    /**
+     * (익명 전용) sha256 해시 매칭으로 SUBMITTED 응답 조회.
+     * 매칭 없거나 DRAFT 인 경우 Optional.empty.
+     */
+    Optional<FormResponse> findSubmittedByAccessKeyHash(String accessKeyHash);
 }
