@@ -414,7 +414,7 @@ app:
 
   event-outbox:
     enabled: ${EVENT_OUTBOX_ENABLED:false}
-    poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:5000}
+    poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${EVENT_OUTBOX_BATCH_SIZE:100}
     max-attempts: ${EVENT_OUTBOX_MAX_ATTEMPTS:5}
 
