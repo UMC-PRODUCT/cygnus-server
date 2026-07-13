@@ -182,7 +182,8 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [27](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L27) | 과거 비활성화 property가 있어도 outbox publisher와 poller를 사용한다 | `app.event-outbox.enabled=false` | `OutboxDomainEventPublisher`와 `EventOutboxPoller` 단일 bean 등록 |
+| [27](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L27) | 과거 비활성화 property가 있어도 outbox publisher와 relay poller를 사용한다 | `app.event-outbox.enabled=false` | `OutboxDomainEventPublisher`와 `EventOutboxPoller` 단일 bean 등록 |
+| [40](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L40) | relay를 중지해도 outbox publisher는 유지한다 | `app.event-outbox.relay-enabled=false` | `OutboxDomainEventPublisher`는 등록하고 `EventOutboxPoller`는 등록하지 않음 |
 
 ## Support / Config / Utility
 

@@ -24,7 +24,7 @@ class EventOutboxPublisherConfigurationTest {
         .withUserConfiguration(OutboxDomainEventPublisher.class, EventOutboxPoller.class);
 
     @Test
-    @DisplayName("과거 비활성화 property가 있어도 outbox publisher와 poller를 사용한다")
+    @DisplayName("과거 비활성화 property가 있어도 outbox publisher와 relay poller를 사용한다")
     void legacy_disabled_property_does_not_disable_outbox() {
         contextRunner
             .withPropertyValues("app.event-outbox.enabled=false")
@@ -33,6 +33,19 @@ class EventOutboxPublisherConfigurationTest {
                 assertThat(context.getBean(DomainEventPublisher.class))
                     .isInstanceOf(OutboxDomainEventPublisher.class);
                 assertThat(context).hasSingleBean(EventOutboxPoller.class);
+            });
+    }
+
+    @Test
+    @DisplayName("relay를 중지해도 outbox publisher는 유지한다")
+    void relay_can_be_disabled_without_disabling_outbox_publisher() {
+        contextRunner
+            .withPropertyValues("app.event-outbox.relay-enabled=false")
+            .run(context -> {
+                assertThat(context).hasSingleBean(DomainEventPublisher.class);
+                assertThat(context.getBean(DomainEventPublisher.class))
+                    .isInstanceOf(OutboxDomainEventPublisher.class);
+                assertThat(context).doesNotHaveBean(EventOutboxPoller.class);
             });
     }
 }
