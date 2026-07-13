@@ -76,18 +76,13 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         return ChatMessageInfo.from(saved);
     }
 
-    /**
-     * 방을 현재 최신 메시지까지 읽음 처리한다.
-     * <p>
-     * 읽음 위치는 클라이언트 값이 아니라 서버가 조회한 방 최신 메시지 id를 기준으로 한다(조작 불가). 메시지가 아직 없는 방이면 갱신 없이 종료한다.
-     */
     @Override
     public void markRead(MarkChatRoomReadCommand command) {
         // 방 멤버만 읽음 처리 가능(원자 갱신은 비멤버면 no-op이라 여기서 명시적으로 검증한다).
         chatRoomAccessPolicy.verifyMember(command.roomId(), command.memberId());
-        loadChatMessagePort.findLatestMessageId(command.roomId())
-            .ifPresent(latest -> saveChatMemberPort.bumpLastReadMessageId(
-                command.roomId(), command.memberId(), latest));
+        loadChatMessagePort.getByIdAndRoomId(command.lastSeenMessageId(), command.roomId());
+        saveChatMemberPort.bumpLastReadMessageId(
+            command.roomId(), command.memberId(), command.lastSeenMessageId());
     }
 
     private void validate(SendChatMessageCommand command) {

@@ -9,7 +9,6 @@ import static org.mockito.BDDMockito.willThrow;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -281,22 +280,27 @@ class ChatMessageCommandServiceTest {
     }
 
     @Test
-    @DisplayName("읽음 처리 시 방 최신 메시지 id로 읽음 위치를 원자 단조 갱신한다")
+    @DisplayName("읽음 처리 시 클라이언트가 확인한 메시지 id로 읽음 위치를 원자 단조 갱신한다")
     void markRead() {
-        given(loadChatMessagePort.findLatestMessageId(1L)).willReturn(Optional.of(42L));
+        given(loadChatMessagePort.getByIdAndRoomId(40L, 1L))
+            .willReturn(ChatMessage.create(1L, 20L, MessageContentType.TEXT, "확인한 메시지", null));
 
-        sut.markRead(MarkChatRoomReadCommand.of(1L, 10L));
+        sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L));
 
         then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
-        then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 42L);
+        then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 40L);
     }
 
     @Test
-    @DisplayName("방에 메시지가 없으면 읽음 위치를 갱신하지 않는다")
-    void markRead_noMessage() {
-        given(loadChatMessagePort.findLatestMessageId(1L)).willReturn(Optional.empty());
+    @DisplayName("확인한 메시지가 해당 방에 없으면 읽음 위치를 갱신하지 않는다")
+    void markRead_messageNotFound() {
+        willThrow(new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND))
+            .given(loadChatMessagePort).getByIdAndRoomId(40L, 1L);
 
-        sut.markRead(MarkChatRoomReadCommand.of(1L, 10L));
+        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L)))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(e -> ((ChatDomainException) e).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
 
         then(saveChatMemberPort).shouldHaveNoInteractions();
     }
@@ -307,7 +311,7 @@ class ChatMessageCommandServiceTest {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
             .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
 
-        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L)))
+        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
