@@ -252,6 +252,36 @@ class EventOutboxRelayServiceTest {
         assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PUBLISHED);
     }
 
+    @Test
+    @DisplayName("non-transactional listener 예외는 attempts를 증가시키고 pending 재시도로 연결한다")
+    void relay_non_transactional_listener_failure() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        NonTransactionalTestEvent event = NonTransactionalTestEvent.create("test.external.created", "hello");
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
+        ApplicationEventPublisher publisher = ignored -> {
+            throw new IllegalStateException("external call failed");
+        };
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            savePort,
+            new EventPayloadDeserializer(objectMapper),
+            publisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            100,
+            3
+        );
+
+        relayService.relay();
+
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
+        assertThat(outbox.getAttempts()).isEqualTo(1);
+        assertThat(outbox.getLastError()).contains("external call failed");
+        assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING);
+    }
+
     private static class FailOnPublishedSaveEventOutboxPort implements SaveEventOutboxPort {
 
         private final List<EventOutboxStatus> savedStatuses = new ArrayList<>();
