@@ -178,6 +178,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     @Override
     public void submitDraft(SubmitDraftFormResponseCommand command) {
         FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
+        validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
         Set<Long> answeredQuestionIds = savedAnswers.stream()
@@ -311,6 +312,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     @Override
     public void submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand command) {
         FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+        validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
         Set<Long> answeredQuestionIds = savedAnswers.stream()
@@ -610,6 +612,30 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             if (!allowedQuestionIds.contains(questionId)) {
                 throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
             }
+        }
+    }
+
+    /**
+     * 제출 scope 검증 — allowedQuestionIds / requiredQuestionIds 가 현재 폼 소속이고 required ⊆ allowed 인지 확인.
+     * <p>
+     * 미검증 시 폼 A draft 에 폼 B 질문 ID 를 넘겨 교차 폼 Answer 저장 등의 무결성 파괴가 가능하다.
+     */
+    private void validateSubmitScope(Long formId, Set<Long> allowedQuestionIds, Set<Long> requiredQuestionIds) {
+        if (allowedQuestionIds == null && requiredQuestionIds == null) {
+            return;
+        }
+        Set<Long> formQuestionIds = loadQuestionPort.listByFormId(formId).stream()
+            .map(Question::getId)
+            .collect(Collectors.toSet());
+        if (allowedQuestionIds != null && !formQuestionIds.containsAll(allowedQuestionIds)) {
+            throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+        }
+        if (requiredQuestionIds != null && !formQuestionIds.containsAll(requiredQuestionIds)) {
+            throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+        }
+        if (allowedQuestionIds != null && requiredQuestionIds != null
+            && !allowedQuestionIds.containsAll(requiredQuestionIds)) {
+            throw new FormDomainException(FormErrorCode.INVALID_SUBMIT_SCOPE);
         }
     }
 

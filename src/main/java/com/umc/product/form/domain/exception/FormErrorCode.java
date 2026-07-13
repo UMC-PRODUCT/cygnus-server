@@ -43,6 +43,8 @@ public enum FormErrorCode implements BaseCode {
         "응답자 정보가 필요해요. 이 문제가 계속되면 운영진에게 문의해주세요."),
     RESPONSE_ACCESS_KEY_REQUIRED(HttpStatus.BAD_REQUEST, "FORM-0035",
         "응답 접근 키가 필요해요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    INVALID_SUBMIT_SCOPE(HttpStatus.BAD_REQUEST, "FORM-0036",
+        "제출 범위가 올바르지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
     ;
 
     private final HttpStatus httpStatus;

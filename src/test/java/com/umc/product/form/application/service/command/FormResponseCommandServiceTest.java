@@ -207,6 +207,7 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(answer(draft, commonRequiredQuestion)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(commonRequiredQuestion));
 
         sut.submitDraft(SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
@@ -215,7 +216,6 @@ class FormResponseCommandServiceTest {
             .allowedQuestionIds(Set.of(commonRequiredQuestion.getId()))
             .build());
 
-        then(loadQuestionPort).should(never()).listByFormId(FORM_ID);
         then(saveFormResponsePort).should().save(draft);
     }
 
@@ -244,13 +244,77 @@ class FormResponseCommandServiceTest {
     }
 
     @Test
+    @DisplayName("submitDraft: allowedQuestionIds 에 폼 소속 아닌 질문 있으면 QUESTION_IS_NOT_OWNED_BY_FORM")
+    void submitDraft_allowedQuestionIds_교차폼_질문_거부() {
+        FormResponse draft = draftResponse();
+        Question formQuestion = question(10L, false);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(formQuestion));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .allowedQuestionIds(Set.of(10L, 999L)) // 999L 은 폼 소속 아님
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("submitDraft: requiredQuestionIds 에 폼 소속 아닌 질문 있으면 QUESTION_IS_NOT_OWNED_BY_FORM")
+    void submitDraft_requiredQuestionIds_교차폼_질문_거부() {
+        FormResponse draft = draftResponse();
+        Question formQuestion = question(10L, false);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(formQuestion));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .requiredQuestionIds(Set.of(999L)) // 폼 소속 아님
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("submitDraft: required 가 allowed 부분집합 아니면 INVALID_SUBMIT_SCOPE")
+    void submitDraft_required_allowed_부분집합_아니면_거부() {
+        FormResponse draft = draftResponse();
+        Question q10 = question(10L, false);
+        Question q20 = question(20L, false);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .allowedQuestionIds(Set.of(10L))
+            .requiredQuestionIds(Set.of(10L, 20L)) // Q20 은 allowed 밖
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_SUBMIT_SCOPE);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
     @DisplayName("draft 제출 scope의 allowed question 밖에 저장된 답변이 있으면 실패한다")
     void draft_제출_scope의_allowed_question_밖에_저장된_답변이면_실패한다() {
         FormResponse draft = draftResponse();
+        Question q10 = question(10L, false);
         Question hiddenQuestion = question(20L, false);
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(answer(draft, hiddenQuestion)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, hiddenQuestion));
 
         assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
@@ -276,6 +340,8 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(answer(draft, requiredAnswered)));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(requiredAnswered, optionalUnanswered));
         given(loadQuestionPort.listByIdIn(Set.of(20L)))
             .willReturn(List.of(optionalUnanswered));
 
@@ -302,10 +368,12 @@ class FormResponseCommandServiceTest {
         // given — allowedQuestionIds = {Q10} (파트 필터링 결과), Q20은 범위 밖
         FormResponse draft = draftResponse();
         Question q10 = question(10L, true);
+        Question q20 = question(20L, false);
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(answer(draft, q10)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
         // when
         sut.submitDraft(SubmitDraftFormResponseCommand.builder()
@@ -330,6 +398,7 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(answer(draft, q10), answer(draft, q20)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
         // when
         sut.submitDraft(SubmitDraftFormResponseCommand.builder()
