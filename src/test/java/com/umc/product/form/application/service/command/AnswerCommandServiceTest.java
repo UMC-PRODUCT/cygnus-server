@@ -1,0 +1,286 @@
+package com.umc.product.form.application.service.command;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
+
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.umc.product.form.application.port.in.command.dto.CreateAnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnswerCommand;
+import com.umc.product.form.application.port.out.LoadAnswerPort;
+import com.umc.product.form.application.port.out.LoadFormResponsePort;
+import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
+import com.umc.product.form.application.port.out.LoadQuestionPort;
+import com.umc.product.form.application.port.out.SaveAnswerPort;
+import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.domain.Answer;
+import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.FormSection;
+import com.umc.product.form.domain.Question;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.form.domain.exception.FormErrorCode;
+import com.umc.product.storage.application.port.in.query.GetFileUseCase;
+
+@ExtendWith(MockitoExtension.class)
+class AnswerCommandServiceTest {
+
+    private static final Long FORM_ID = 100L;
+    private static final Long FORM_RESPONSE_ID = 200L;
+    private static final Long OWNER_MEMBER_ID = 300L;
+    private static final Long OTHER_MEMBER_ID = 301L;
+    private static final Long QUESTION_ID = 400L;
+    private static final Long ANSWER_ID = 500L;
+
+    @Mock
+    LoadFormResponsePort loadFormResponsePort;
+    @Mock
+    LoadQuestionPort loadQuestionPort;
+    @Mock
+    LoadQuestionOptionPort loadQuestionOptionPort;
+    @Mock
+    LoadAnswerPort loadAnswerPort;
+    @Mock
+    SaveAnswerPort saveAnswerPort;
+    @Mock
+    SaveFormResponsePort saveFormResponsePort;
+    @Mock
+    GetFileUseCase getFileUseCase;
+
+    @InjectMocks
+    AnswerCommandService sut;
+
+    // ============================================================
+    //          createAnswer — 기명 owner 검증
+    // ============================================================
+
+    @Test
+    @DisplayName("createAnswer: requesterMemberId=null 이면 FORM_RESPONSE_FORBIDDEN")
+    void createAnswer_requesterMemberId_null_FORBIDDEN() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(null)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnswer: 소유자 불일치면 FORM_RESPONSE_FORBIDDEN")
+    void createAnswer_소유자_불일치_FORBIDDEN() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OTHER_MEMBER_ID)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnswer: 익명 draft 면 FORM_RESPONSE_FORBIDDEN")
+    void createAnswer_익명_draft_FORBIDDEN() {
+        FormResponse anonymousDraft = anonymousDraft();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    // ============================================================
+    //          updateAnswer — 기명 owner 검증
+    // ============================================================
+
+    @Test
+    @DisplayName("updateAnswer: 소유자 불일치면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnswer_소유자_불일치_FORBIDDEN() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Answer answer = shortTextAnswer(draft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+
+        assertThatThrownBy(() -> sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OTHER_MEMBER_ID)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateAnswer: 익명 draft 답변이면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnswer_익명_draft_답변_FORBIDDEN() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Answer answer = shortTextAnswer(anonymousDraft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+
+        assertThatThrownBy(() -> sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateAnswer: 답변 없으면 ANSWER_NOT_FOUND")
+    void updateAnswer_답변_없으면_NOT_FOUND() {
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.ANSWER_NOT_FOUND);
+    }
+
+    // ============================================================
+    //          deleteAnswer — 기명 owner 검증
+    // ============================================================
+
+    @Test
+    @DisplayName("deleteAnswer: 소유자 불일치면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnswer_소유자_불일치_FORBIDDEN() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Answer answer = shortTextAnswer(draft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+
+        assertThatThrownBy(() -> sut.deleteAnswer(DeleteAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OTHER_MEMBER_ID)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteByAnswerId(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnswer: 익명 draft 답변이면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnswer_익명_draft_답변_FORBIDDEN() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Answer answer = shortTextAnswer(anonymousDraft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+
+        assertThatThrownBy(() -> sut.deleteAnswer(DeleteAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteByAnswerId(any());
+    }
+
+    // ============================================================
+    //          happy path — createAnswer 소유자 일치
+    // ============================================================
+
+    @Test
+    @DisplayName("createAnswer: 소유자 일치면 답변 저장한다")
+    void createAnswer_소유자_일치_저장() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Form form = draft.getForm();
+        FormSection section = FormSection.create(form, "섹션", null, 1L);
+        Question question = Question.create("질문", QuestionType.SHORT_TEXT, false, 1L);
+        question.assignTo(section);
+        ReflectionTestUtils.setField(question, "id", QUESTION_ID);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+        given(saveAnswerPort.save(any(Answer.class))).willAnswer(inv -> {
+            Answer saved = inv.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", ANSWER_ID);
+            return saved;
+        });
+
+        Long result = sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .textValue("답")
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ANSWER_ID);
+    }
+
+    private FormResponse namedDraft(Long memberId) {
+        Form form = publishedForm();
+        FormResponse draft = FormResponse.createDraft(form, memberId);
+        ReflectionTestUtils.setField(draft, "id", FORM_RESPONSE_ID);
+        return draft;
+    }
+
+    private FormResponse anonymousDraft() {
+        Form form = publishedForm();
+        FormResponse draft = FormResponse.createAnonymousDraft(form, "hash-value");
+        ReflectionTestUtils.setField(draft, "id", FORM_RESPONSE_ID);
+        return draft;
+    }
+
+    private Form publishedForm() {
+        Form form = Form.createDraft("폼", 1L, false);
+        ReflectionTestUtils.setField(form, "id", FORM_ID);
+        form.publish();
+        return form;
+    }
+
+    private Answer shortTextAnswer(FormResponse formResponse) {
+        Question question = Question.create("질문", QuestionType.SHORT_TEXT, false, 1L);
+        ReflectionTestUtils.setField(question, "id", QUESTION_ID);
+        Answer answer = Answer.create(formResponse, question, QuestionType.SHORT_TEXT, "답", null);
+        ReflectionTestUtils.setField(answer, "id", ANSWER_ID);
+        return answer;
+    }
+}

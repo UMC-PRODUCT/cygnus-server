@@ -47,7 +47,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
 
     @Override
     public Long createAnswer(CreateAnswerCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
         Question question = loadQuestionInForm(command.questionId(), draft.getForm().getId());
 
         // 같은 질문에 대한 답변이 이미 있으면 예외
@@ -78,14 +78,8 @@ public class AnswerCommandService implements ManageAnswerUseCase {
 
     @Override
     public void updateAnswer(UpdateAnswerCommand command) {
-        Answer existing = loadAnswerPort.findById(command.answerId())
-            .orElseThrow(() -> new FormDomainException(FormErrorCode.ANSWER_NOT_FOUND));
-
+        Answer existing = loadAnswerAndDraftAsOwner(command.answerId(), command.requesterMemberId());
         FormResponse draft = existing.getFormResponse();
-        if (draft.getStatus() != FormResponseStatus.DRAFT) {
-            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
-        }
-
         Question question = existing.getQuestion();
         validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
 
@@ -111,13 +105,8 @@ public class AnswerCommandService implements ManageAnswerUseCase {
 
     @Override
     public void deleteAnswer(DeleteAnswerCommand command) {
-        Answer existing = loadAnswerPort.findById(command.answerId())
-            .orElseThrow(() -> new FormDomainException(FormErrorCode.ANSWER_NOT_FOUND));
-
+        Answer existing = loadAnswerAndDraftAsOwner(command.answerId(), command.requesterMemberId());
         FormResponse draft = existing.getFormResponse();
-        if (draft.getStatus() != FormResponseStatus.DRAFT) {
-            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
-        }
 
         saveAnswerPort.deleteByAnswerId(existing.getId());
         draft.updateLastSavedAt(Instant.now());
@@ -134,6 +123,46 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
         return formResponse;
+    }
+
+    /**
+     * 소유자 검증까지 포함한 DRAFT 응답 로드 (기명 전용). {@code FormResponseCommandService.loadDraftAsOwner} 와 대칭.
+     * <p>
+     * 순서: DRAFT 로드 → 익명/소유자 대조.
+     * 다음 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 처리:
+     * <ul>
+     *   <li>익명 draft({@code respondentMemberId=null}) — 기명 UseCase 로 접근 불가, 익명 UseCase 사용</li>
+     *   <li>요청자 memberId 가 draft 소유자와 다름</li>
+     *   <li>요청자 memberId 가 null (auth 계층에서 걸러졌어야 하는 케이스, 방어 목적)</li>
+     * </ul>
+     */
+    private FormResponse loadDraftAsOwner(Long formResponseId, Long requesterMemberId) {
+        FormResponse draft = loadDraft(formResponseId);
+        if (draft.getRespondentMemberId() == null
+            || !draft.getRespondentMemberId().equals(requesterMemberId)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return draft;
+    }
+
+    /**
+     * answerId 로 Answer 를 로드하고 그 FormResponse 에 대한 소유자 검증까지 수행 (기명 전용).
+     * <p>
+     * Answer 없으면 {@link FormErrorCode#ANSWER_NOT_FOUND}. FormResponse 가 DRAFT 아니거나 소유자 불일치/익명이면
+     * {@link #loadDraftAsOwner} 규칙에 따라 예외.
+     */
+    private Answer loadAnswerAndDraftAsOwner(Long answerId, Long requesterMemberId) {
+        Answer existing = loadAnswerPort.findById(answerId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.ANSWER_NOT_FOUND));
+        FormResponse draft = existing.getFormResponse();
+        if (draft.getStatus() != FormResponseStatus.DRAFT) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
+        }
+        if (draft.getRespondentMemberId() == null
+            || !draft.getRespondentMemberId().equals(requesterMemberId)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return existing;
     }
 
     /**
