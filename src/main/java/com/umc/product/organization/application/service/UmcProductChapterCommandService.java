@@ -33,7 +33,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
         action = AuditAction.CREATE,
         targetType = "UmcProductChapter",
         targetId = "#result",
-        description = "'UMC Product 챕터를 생성했습니다.'"
+        description = "'UMC PRODUCT 챕터를 생성했습니다.'"
     )
     @Override
     public Long create(CreateUmcProductChapterCommand command) {
@@ -50,7 +50,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
         action = AuditAction.UPDATE,
         targetType = "UmcProductChapter",
         targetId = "#command.chapterId()",
-        description = "'UMC Product 챕터를 수정했습니다.'"
+        description = "'UMC PRODUCT 챕터를 수정했습니다.'"
     )
     @Override
     public void update(UpdateUmcProductChapterCommand command) {
@@ -70,7 +70,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
         action = AuditAction.DELETE,
         targetType = "UmcProductChapter",
         targetId = "#chapterId",
-        description = "'UMC Product 챕터를 삭제했습니다.'"
+        description = "'UMC PRODUCT 챕터를 삭제했습니다.'"
     )
     @Override
     public void delete(Long chapterId, Long requesterMemberId) {

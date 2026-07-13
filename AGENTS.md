@@ -6,7 +6,7 @@
 
 ## OVERVIEW
 
-UMC Product Backend is a Java 21 / Spring Boot 3.5 API server built with strict Hexagonal Architecture,
+UMC PRODUCT Backend is a Java 21 / Spring Boot 3.5 API server built with strict Hexagonal Architecture,
 DDD-style domain rules, JPA, QueryDSL, Flyway, JWT/SSO, REST/GraphQL APIs, OpenAPI, REST Docs,
 Prometheus, and OpenTelemetry.
 
@@ -47,7 +47,7 @@ umc-product-server/
 | Persistence | `{domain}/adapter/out/persistence` | JPA repositories plus QueryDSL query repositories |
 | Public contracts | `{domain}/application/port/in`, `{domain}/application/port/out` | UseCase and Port interfaces |
 | High-complexity project flows | `src/main/java/com/umc/product/project` | application forms, matching, statistics, permissions |
-| Organization model | `src/main/java/com/umc/product/organization` | school, chapter, gisu, study group, UMC product org |
+| Organization model | `src/main/java/com/umc/product/organization` | school, chapter, gisu, study group, UMC PRODUCT org |
 | Test infrastructure | `src/test/java/com/umc/product/support` | Testcontainers, fixtures, REST Docs, isolation |
 | Migrations | `src/main/resources/db/migration` | `VYYYY.MM.DD.HH.MM__snake_case.sql` |
 

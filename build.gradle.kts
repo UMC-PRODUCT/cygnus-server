@@ -443,7 +443,7 @@ tasks.register("generateRestDocsIndex") {
         val indexFile = file("docs/asciidoc/index.adoc")
 
         val content = buildString {
-            appendLine("= UMC Product API Documentation")
+            appendLine("= UMC PRODUCT API Documentation")
             appendLine(":doctype: book")
             appendLine(":icons: font")
             appendLine(":source-highlighter: highlightjs")

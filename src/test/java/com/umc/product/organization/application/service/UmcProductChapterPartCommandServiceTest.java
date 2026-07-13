@@ -27,7 +27,7 @@ import com.umc.product.organization.domain.UmcProductPart;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UMC Product Chapter-Part 명령 서비스")
+@DisplayName("UMC PRODUCT Chapter-Part 명령 서비스")
 class UmcProductChapterPartCommandServiceTest {
 
     @Mock

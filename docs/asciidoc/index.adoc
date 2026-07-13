@@ -1,4 +1,4 @@
-= UMC Product API Documentation
+= UMC PRODUCT API Documentation
 :doctype: book
 :icons: font
 :source-highlighter: highlightjs

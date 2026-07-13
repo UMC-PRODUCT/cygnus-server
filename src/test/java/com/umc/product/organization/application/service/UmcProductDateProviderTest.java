@@ -10,7 +10,7 @@ import java.time.ZoneOffset;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("UMC Product 기준 날짜 제공자")
+@DisplayName("UMC PRODUCT 기준 날짜 제공자")
 class UmcProductDateProviderTest {
 
     @Test

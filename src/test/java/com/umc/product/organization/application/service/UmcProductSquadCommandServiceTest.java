@@ -31,7 +31,7 @@ import com.umc.product.organization.domain.UmcProductSquadParticipant;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UMC Product Squad 명령 서비스")
+@DisplayName("UMC PRODUCT Squad 명령 서비스")
 class UmcProductSquadCommandServiceTest {
 
     private static final LocalDate START_DATE = LocalDate.of(2026, 1, 1);

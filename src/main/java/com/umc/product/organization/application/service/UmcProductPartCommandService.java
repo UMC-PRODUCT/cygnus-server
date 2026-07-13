@@ -36,7 +36,7 @@ public class UmcProductPartCommandService implements ManageUmcProductPartUseCase
         action = AuditAction.CREATE,
         targetType = "UmcProductPart",
         targetId = "#result",
-        description = "'UMC Product 파트를 생성했습니다.'"
+        description = "'UMC PRODUCT 파트를 생성했습니다.'"
     )
     @Override
     public Long create(CreateUmcProductPartCommand command) {
@@ -59,7 +59,7 @@ public class UmcProductPartCommandService implements ManageUmcProductPartUseCase
         action = AuditAction.UPDATE,
         targetType = "UmcProductPart",
         targetId = "#command.partId()",
-        description = "'UMC Product 파트를 수정했습니다.'"
+        description = "'UMC PRODUCT 파트를 수정했습니다.'"
     )
     @Override
     public void update(UpdateUmcProductPartCommand command) {
@@ -77,7 +77,7 @@ public class UmcProductPartCommandService implements ManageUmcProductPartUseCase
         action = AuditAction.DELETE,
         targetType = "UmcProductPart",
         targetId = "#partId",
-        description = "'UMC Product 파트를 삭제했습니다.'"
+        description = "'UMC PRODUCT 파트를 삭제했습니다.'"
     )
     @Override
     public void delete(Long partId, Long requesterMemberId) {

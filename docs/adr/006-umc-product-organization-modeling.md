@@ -1,4 +1,4 @@
-# ADR-006: UMC Product는 Chapter-Part와 기간 기반 활동 이력으로 관리한다
+# ADR-006: UMC PRODUCT는 Chapter-Part와 기간 기반 활동 이력으로 관리한다
 
 ## Status
 
@@ -6,16 +6,16 @@ Accepted
 
 ## Context
 
-UMC Product 멤버는 더 이상 별도 기수에 소속되지 않는다. 한 멤버의 활동은 중간에 중단되었다가 다시 시작될 수 있고, Part 소속, Product Leadership, Squad 참여 역시 각자 유효 기간을 가진다. 따라서 `UmcProductGeneration`과 기수별 `UmcProductFunctionalUnit` tree로는 실제 이력을 정확히 표현할 수 없다.
+UMC PRODUCT 멤버는 더 이상 별도 기수에 소속되지 않는다. 한 멤버의 활동은 중간에 중단되었다가 다시 시작될 수 있고, Part 소속, Product Leadership, Squad 참여 역시 각자 유효 기간을 가진다. 따라서 `UmcProductGeneration`과 기수별 `UmcProductFunctionalUnit` tree로는 실제 이력을 정확히 표현할 수 없다.
 
-UMC Product의 고정 조직 구조는 Chapter와 그 하위 Part다. Chapter를 이끄는 별도 역할은 없고 `PART_LEAD`만 존재한다. Product 전체의 Lead와 Vice Lead는 Part 소속과 다른 책임이므로 별도 이력으로 관리한다. 특히 Operation Part 소속 여부와 Product Leadership은 서로 독립적인 사실이며 어느 한쪽을 다른 쪽의 전제 조건으로 두지 않는다.
+UMC PRODUCT의 고정 조직 구조는 Chapter와 그 하위 Part다. Chapter를 이끄는 별도 역할은 없고 `PART_LEAD`만 존재한다. Product 전체의 Lead와 Vice Lead는 Part 소속과 다른 책임이므로 별도 이력으로 관리한다. 특히 Operation Part 소속 여부와 Product Leadership은 서로 독립적인 사실이며 어느 한쪽을 다른 쪽의 전제 조건으로 두지 않는다.
 
 활동 기간은 시각이 아니라 달력 날짜의 의미를 가진다. 감사 시각인 `createdAt`, `updatedAt`과 달리 시간대 변환이 필요하지 않으므로 Java `LocalDate`와 PostgreSQL `DATE`를 사용해야 한다.
 
 이 모델은 `organization` 도메인 하위에 두되 다음 기존 모델과 혼합하지 않는다.
 
 - 전역 `Gisu`와 `Chapter`는 UMC 전체 조직을 위한 기존 모델이며 그대로 유지한다.
-- UMC Product는 별도 `UmcProductChapter`, `UmcProductPart`를 사용한다.
+- UMC PRODUCT는 별도 `UmcProductChapter`, `UmcProductPart`를 사용한다.
 - 멤버 도메인은 aggregate가 아닌 `memberId`로만 참조한다.
 - 부모 aggregate에 `@OneToMany`를 추가하지 않고 자식이 FK를 소유한다.
 
@@ -23,7 +23,7 @@ UMC Product의 고정 조직 구조는 Chapter와 그 하위 Part다. Chapter를
 
 ### 1. 날짜 계약
 
-- 모든 UMC Product 활동 이력은 필수 `startDate`와 nullable `endDate`를 가진다.
+- 모든 UMC PRODUCT 활동 이력은 필수 `startDate`와 nullable `endDate`를 가진다.
 - 날짜 범위는 양 끝을 포함하며 같은 날 시작하고 종료할 수 있다.
 - `endDate == null`은 진행 중을 뜻하고 `endDate < startDate`는 거부한다.
 - Java와 JSON에서는 `LocalDate`/`yyyy-MM-dd`, DB에서는 `DATE`를 사용한다.
@@ -42,7 +42,7 @@ UMC Product의 고정 조직 구조는 Chapter와 그 하위 Part다. Chapter를
 
 ### 3. Chapter와 Part
 
-UMC Product의 기능 조직을 일반화된 tree가 아니라 실제 구조 그대로 모델링한다.
+UMC PRODUCT의 기능 조직을 일반화된 tree가 아니라 실제 구조 그대로 모델링한다.
 
 - `UmcProductChapter`는 `code`, `name`, `description`, `sortOrder`, `isActive`를 가진다.
 - `UmcProductPart`는 필수 `chapterId`와 동일한 표시·관리 필드를 가진다.
@@ -97,7 +97,7 @@ UMC Product의 기능 조직을 일반화된 tree가 아니라 실제 구조 그
 
 ## Alternatives Considered
 
-### 대안 A: UMC Product 기수를 유지한다
+### 대안 A: UMC PRODUCT 기수를 유지한다
 
 선택하지 않았다. 멤버 활동은 기수 경계와 일치하지 않고 중단과 재개가 가능하며, Squad도 기수에 종속되지 않는다.
 
@@ -130,8 +130,8 @@ UMC Product의 기능 조직을 일반화된 tree가 아니라 실제 구조 그
 
 ## Implementation Notes
 
-- 기존 UMC Product 데이터와 v1 계약은 폐기 가능하므로 백필, `Instant` 변환, dual-read, 호환 API를 제공하지 않는다.
-- 새 migration은 기존 UMC Product 전용 테이블만 초기화하고 다음 테이블을 생성한다: member, member activity period, chapter, part, part membership, leadership, squad, squad participant.
+- 기존 UMC PRODUCT 데이터와 v1 계약은 폐기 가능하므로 백필, `Instant` 변환, dual-read, 호환 API를 제공하지 않는다.
+- 새 migration은 기존 UMC PRODUCT 전용 테이블만 초기화하고 다음 테이블을 생성한다: member, member activity period, chapter, part, part membership, leadership, squad, squad participant.
 - 전역 Gisu, 일반 Chapter, Challenger, Project, Schedule와 GraphQL schema는 변경하지 않는다.
 - 하위 활동 FK는 삭제 제한을 기본으로 하며 전체 멤버 삭제는 application service가 의존 순서대로 명시적으로 수행한다.
 

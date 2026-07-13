@@ -42,7 +42,7 @@ import com.umc.product.organization.exception.OrganizationErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UMC Product 멤버 명령 서비스")
+@DisplayName("UMC PRODUCT 멤버 명령 서비스")
 class UmcProductMemberCommandServiceTest {
 
     @Mock

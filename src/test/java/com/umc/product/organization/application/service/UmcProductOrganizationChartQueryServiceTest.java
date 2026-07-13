@@ -24,7 +24,7 @@ import com.umc.product.organization.domain.UmcProductPart;
 import com.umc.product.organization.domain.UmcProductSquad;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UMC Product 조직도 조회 서비스")
+@DisplayName("UMC PRODUCT 조직도 조회 서비스")
 class UmcProductOrganizationChartQueryServiceTest {
 
     @Mock

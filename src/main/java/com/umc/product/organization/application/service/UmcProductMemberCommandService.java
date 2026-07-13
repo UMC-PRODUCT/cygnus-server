@@ -74,7 +74,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.CREATE,
         targetType = "UmcProductMember",
         targetId = "#result",
-        description = "'UMC Product 멤버를 생성했습니다.'"
+        description = "'UMC PRODUCT 멤버를 생성했습니다.'"
     )
     @Override
     public Long create(CreateUmcProductMemberCommand command) {
@@ -98,7 +98,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.UPDATE,
         targetType = "UmcProductMember",
         targetId = "#command.umcProductMemberId()",
-        description = "'UMC Product 멤버 프로필을 수정했습니다.'"
+        description = "'UMC PRODUCT 멤버 프로필을 수정했습니다.'"
     )
     @Override
     public void updateProfile(UpdateUmcProductMemberProfileCommand command) {
@@ -117,7 +117,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.DELETE,
         targetType = "UmcProductMember",
         targetId = "#umcProductMemberId",
-        description = "'UMC Product 멤버를 삭제했습니다.'"
+        description = "'UMC PRODUCT 멤버를 삭제했습니다.'"
     )
     public void delete(Long umcProductMemberId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
@@ -135,7 +135,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.CREATE,
         targetType = "UmcProductMemberActivityPeriod",
         targetId = "#result",
-        description = "'UMC Product 멤버 활동 기간을 생성했습니다.'"
+        description = "'UMC PRODUCT 멤버 활동 기간을 생성했습니다.'"
     )
     public Long createActivityPeriod(CreateUmcProductMemberActivityPeriodCommand command) {
         validateCanManage(command.requesterMemberId());
@@ -153,7 +153,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.UPDATE,
         targetType = "UmcProductMemberActivityPeriod",
         targetId = "#command.activityPeriodId()",
-        description = "'UMC Product 멤버 활동 기간을 수정했습니다.'"
+        description = "'UMC PRODUCT 멤버 활동 기간을 수정했습니다.'"
     )
     public void updateActivityPeriod(UpdateUmcProductMemberActivityPeriodCommand command) {
         validateCanManage(command.requesterMemberId());
@@ -176,7 +176,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.DELETE,
         targetType = "UmcProductMemberActivityPeriod",
         targetId = "#activityPeriodId",
-        description = "'UMC Product 멤버 활동 기간을 삭제했습니다.'"
+        description = "'UMC PRODUCT 멤버 활동 기간을 삭제했습니다.'"
     )
     public void deleteActivityPeriod(Long umcProductMemberId, Long activityPeriodId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
@@ -198,7 +198,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.CREATE,
         targetType = "UmcProductPartMembership",
         targetId = "#result",
-        description = "'UMC Product Part 소속을 생성했습니다.'"
+        description = "'UMC PRODUCT Part 소속을 생성했습니다.'"
     )
     public Long createPartMembership(CreateUmcProductPartMembershipCommand command) {
         validateCanManage(command.requesterMemberId());
@@ -228,7 +228,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.UPDATE,
         targetType = "UmcProductPartMembership",
         targetId = "#command.partMembershipId()",
-        description = "'UMC Product Part 소속을 수정했습니다.'"
+        description = "'UMC PRODUCT Part 소속을 수정했습니다.'"
     )
     public void updatePartMembership(UpdateUmcProductPartMembershipCommand command) {
         validateCanManage(command.requesterMemberId());
@@ -260,7 +260,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.DELETE,
         targetType = "UmcProductPartMembership",
         targetId = "#partMembershipId",
-        description = "'UMC Product Part 소속을 삭제했습니다.'"
+        description = "'UMC PRODUCT Part 소속을 삭제했습니다.'"
     )
     public void deletePartMembership(Long umcProductMemberId, Long partMembershipId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
@@ -276,7 +276,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.CREATE,
         targetType = "UmcProductLeadership",
         targetId = "#result",
-        description = "'UMC Product Leadership을 생성했습니다.'"
+        description = "'UMC PRODUCT Leadership을 생성했습니다.'"
     )
     public Long createLeadership(CreateUmcProductLeadershipCommand command) {
         validateCanManage(command.requesterMemberId());
@@ -299,7 +299,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.UPDATE,
         targetType = "UmcProductLeadership",
         targetId = "#command.leadershipId()",
-        description = "'UMC Product Leadership을 수정했습니다.'"
+        description = "'UMC PRODUCT Leadership을 수정했습니다.'"
     )
     public void updateLeadership(UpdateUmcProductLeadershipCommand command) {
         validateCanManage(command.requesterMemberId());
@@ -323,7 +323,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         action = AuditAction.DELETE,
         targetType = "UmcProductLeadership",
         targetId = "#leadershipId",
-        description = "'UMC Product Leadership을 삭제했습니다.'"
+        description = "'UMC PRODUCT Leadership을 삭제했습니다.'"
     )
     public void deleteLeadership(Long umcProductMemberId, Long leadershipId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);

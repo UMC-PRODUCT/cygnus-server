@@ -48,7 +48,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         action = AuditAction.CREATE,
         targetType = "UmcProductSquad",
         targetId = "#result",
-        description = "'UMC Product 스쿼드를 생성했습니다.'"
+        description = "'UMC PRODUCT 스쿼드를 생성했습니다.'"
     )
     @Override
     public Long create(CreateUmcProductSquadCommand command) {
@@ -71,7 +71,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         action = AuditAction.UPDATE,
         targetType = "UmcProductSquad",
         targetId = "#command.squadId()",
-        description = "'UMC Product 스쿼드를 수정했습니다.'"
+        description = "'UMC PRODUCT 스쿼드를 수정했습니다.'"
     )
     @Override
     public void update(UpdateUmcProductSquadCommand command) {
@@ -100,7 +100,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         action = AuditAction.DELETE,
         targetType = "UmcProductSquad",
         targetId = "#squadId",
-        description = "'UMC Product 스쿼드를 삭제했습니다.'"
+        description = "'UMC PRODUCT 스쿼드를 삭제했습니다.'"
     )
     @Override
     public void delete(Long squadId, Long requesterMemberId) {
@@ -117,7 +117,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         action = AuditAction.CREATE,
         targetType = "UmcProductSquadParticipant",
         targetId = "#result",
-        description = "'UMC Product 스쿼드 참여 이력을 생성했습니다.'"
+        description = "'UMC PRODUCT 스쿼드 참여 이력을 생성했습니다.'"
     )
     @Override
     public Long createParticipant(CreateUmcProductSquadParticipantCommand command) {
@@ -155,7 +155,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         action = AuditAction.UPDATE,
         targetType = "UmcProductSquadParticipant",
         targetId = "#command.participantId()",
-        description = "'UMC Product 스쿼드 참여 이력을 수정했습니다.'"
+        description = "'UMC PRODUCT 스쿼드 참여 이력을 수정했습니다.'"
     )
     @Override
     public void updateParticipant(UpdateUmcProductSquadParticipantCommand command) {
@@ -196,7 +196,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         action = AuditAction.DELETE,
         targetType = "UmcProductSquadParticipant",
         targetId = "#participantId",
-        description = "'UMC Product 스쿼드 참여 이력을 삭제했습니다.'"
+        description = "'UMC PRODUCT 스쿼드 참여 이력을 삭제했습니다.'"
     )
     @Override
     public void deleteParticipant(Long squadId, Long participantId, Long requesterMemberId) {

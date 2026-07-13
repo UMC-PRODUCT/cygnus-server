@@ -19,7 +19,7 @@ import com.umc.product.organization.application.port.out.query.LoadUmcProductLea
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("UMC Product 접근 정책")
+@DisplayName("UMC PRODUCT 접근 정책")
 class UmcProductAccessPolicyTest {
 
     @Mock
