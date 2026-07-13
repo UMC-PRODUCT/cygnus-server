@@ -209,6 +209,19 @@ class ChallengerRoleQueryServiceTest {
         verifyNoInteractions(loadChallengerRolePort, listMemberSystemRoleUseCase);
     }
 
+    @Test
+    @DisplayName("삭제된 회원은 빈 역할 조건에서도 권한을 얻지 못한다")
+    void deleted_member_cannot_satisfy_empty_all_role_condition() {
+        CheckMemberExistenceUseCase missingMember = memberId -> false;
+        ChallengerRoleQueryService sut = sut(missingMember);
+        CheckChallengerAuthorityUseCase useCase = sut;
+
+        boolean result = useCase.hasAllRoleTypeInGisu(MEMBER_ID, GISU_ID);
+
+        assertThat(result).isFalse();
+        verifyNoInteractions(loadChallengerRolePort, listMemberSystemRoleUseCase);
+    }
+
     private ChallengerRoleQueryService sut() {
         return sut(memberId -> true);
     }

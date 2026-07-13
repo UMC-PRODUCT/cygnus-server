@@ -34,11 +34,8 @@ public class SchedulePermissionEvaluator implements ResourcePermissionEvaluator 
         PermissionType permission = resourcePermission.permission();
         Long memberId = subjectAttributes.memberId();
 
-        // READ (일정 조회), WRITE (일정 생성)
-        // '챌린저 활동 기록이 있는 사용자'만 가능
         if (permission == PermissionType.READ || permission == PermissionType.WRITE) {
-            // 챌린저 활동 기록이 있는 사용자인지 확인
-            return !subjectAttributes.gisuChallengerInfos().isEmpty();
+            return isSuperAdmin(subjectAttributes) || !subjectAttributes.gisuChallengerInfos().isEmpty();
         }
 
         if (permission == PermissionType.EDIT || permission == PermissionType.DELETE) {

@@ -48,6 +48,16 @@ class SchedulePermissionEvaluatorTest {
         assertThat(sut.supportedResourceType()).isEqualTo(ResourceType.SCHEDULE);
     }
 
+    @Test
+    @DisplayName("챌린저 활동 기록이 없는 SUPER_ADMIN도 일정을 생성할 수 있다")
+    void 챌린저_활동_기록이_없는_SUPER_ADMIN도_일정_생성_허용() {
+        SubjectAttributes subject = superAdminSubject(20L);
+        ResourcePermission permission = ResourcePermission.of(
+            ResourceType.SCHEDULE, SCHEDULE_ID, PermissionType.WRITE);
+
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
     private void givenSchedule() {
         Schedule schedule = schedule();
         given(loadSchedulePort.findById(SCHEDULE_ID)).willReturn(Optional.of(schedule));

@@ -280,11 +280,11 @@ public class ChallengerRoleQueryService implements
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "gisuId는 null일 수 없습니다.");
         }
-        if (roles == null || roles.length == 0) {
-            return true;
-        }
         if (!memberExists(memberId)) {
             return false;
+        }
+        if (roles == null || roles.length == 0) {
+            return true;
         }
 
         Set<ChallengerRoleType> targetRoles = Arrays.stream(roles).collect(Collectors.toSet());
