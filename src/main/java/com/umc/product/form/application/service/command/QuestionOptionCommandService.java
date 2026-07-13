@@ -3,6 +3,7 @@ package com.umc.product.form.application.service.command;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -50,6 +51,7 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
 
         if (command.nextSectionId() != null) {
             validateNextSectionAllowed(question);
+            validateNextSectionNotSelfLoop(command.nextSectionId(), question);
             validateNextSectionBelongsToForm(command.nextSectionId(), question);
         }
 
@@ -72,6 +74,7 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         boolean clearNextSectionId = Boolean.TRUE.equals(command.clearNextSectionId());
         if (command.nextSectionId() != null) {
             validateNextSectionAllowed(option.getQuestion());
+            validateNextSectionNotSelfLoop(command.nextSectionId(), option.getQuestion());
             validateNextSectionBelongsToForm(command.nextSectionId(), option.getQuestion());
         }
 
@@ -114,6 +117,13 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         if (question.getType() != QuestionType.RADIO && question.getType() != QuestionType.DROPDOWN) {
             throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
                 "조건부 섹션 이동은 RADIO, DROPDOWN 타입 질문에만 지정할 수 있습니다.");
+        }
+    }
+
+    private static void validateNextSectionNotSelfLoop(Long nextSectionId, Question question) {
+        FormSection currentSection = question.getFormSection();
+        if (currentSection != null && Objects.equals(nextSectionId, currentSection.getId())) {
+            throw new FormDomainException(FormErrorCode.INVALID_NEXT_SECTION_SELF_LOOP);
         }
     }
 
