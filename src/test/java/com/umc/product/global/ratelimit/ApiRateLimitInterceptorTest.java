@@ -3,6 +3,7 @@ package com.umc.product.global.ratelimit;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -11,9 +12,12 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.converter.json.MappingJackson2HttpMessageConverter;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,10 +34,52 @@ import com.umc.product.global.config.LoggingInterceptor;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.global.response.ApiErrorResponseWriter;
+import com.umc.product.global.security.MemberPrincipal;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class ApiRateLimitInterceptorTest {
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("인증된 POST /graphql 요청은 인증 사용자 기본 한도를 적용한다")
+    void graphql_authenticated_request_uses_authenticated_default_policy() throws Exception {
+        GraphQlController controller = new GraphQlController();
+        MockMvc mockMvc = mockMvc(controller, ApiRateLimitProperties.defaults());
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(new MemberPrincipal(1L), null, List.of())
+        );
+
+        mockMvc.perform(post("/graphql"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-RateLimit-Limit", "20"));
+
+        assertThat(controller.invocations()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("익명 POST /graphql 요청은 익명 기본 한도 초과 시 429를 반환한다")
+    void graphql_anonymous_request_returns_429_after_default_limit() throws Exception {
+        GraphQlController controller = new GraphQlController();
+        MockMvc mockMvc = mockMvc(controller, ApiRateLimitProperties.defaults());
+
+        for (int request = 0; request < 5; request++) {
+            mockMvc.perform(post("/graphql"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("X-RateLimit-Limit", "5"));
+        }
+        mockMvc.perform(post("/graphql"))
+            .andExpect(status().isTooManyRequests())
+            .andExpect(header().exists("Retry-After"))
+            .andExpect(header().string("X-RateLimit-Limit", "5"))
+            .andExpect(jsonPath("$.code").value(CommonErrorCode.TOO_MANY_REQUESTS.getCode()));
+
+        assertThat(controller.invocations()).isEqualTo(5);
+    }
 
     @Test
     @DisplayName("path variable 값이 달라도 같은 route pattern bucket을 공유해 한도 초과 시 429를 반환한다")
@@ -82,7 +128,7 @@ class ApiRateLimitInterceptorTest {
         assertThat(controller.invocations()).isEqualTo(1);
     }
 
-    private static MockMvc mockMvc(ProductController controller, ApiRateLimitProperties properties) {
+    private static MockMvc mockMvc(Object controller, ApiRateLimitProperties properties) {
         ApiRateLimitMetrics metrics = new ApiRateLimitMetrics(new SimpleMeterRegistry());
         ApiRateLimitInterceptor rateLimitInterceptor = new ApiRateLimitInterceptor(
             new RateLimitClientKeyResolver(),
@@ -135,6 +181,22 @@ class ApiRateLimitInterceptorTest {
 
         @RequestMapping(method = RequestMethod.OPTIONS, path = "/api/v1/products/{productId}")
         void options() {
+        }
+
+        int invocations() {
+            return invocations.get();
+        }
+    }
+
+    @RestController
+    private static class GraphQlController {
+
+        private final AtomicInteger invocations = new AtomicInteger();
+
+        @RequestMapping(method = RequestMethod.POST, path = "/graphql")
+        String graphql() {
+            invocations.incrementAndGet();
+            return "graphql";
         }
 
         int invocations() {

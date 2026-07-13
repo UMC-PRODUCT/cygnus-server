@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import java.time.Instant;
 import java.util.List;
@@ -25,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
@@ -51,6 +53,9 @@ class MemberSearchServiceTest {
 
     @Mock
     CheckChallengerHistoryUseCase checkChallengerHistoryUseCase;
+
+    @Mock
+    GetChallengerUseCase getChallengerUseCase;
 
     @Mock
     GetChallengerRoleUseCase getChallengerRoleUseCase;
@@ -118,6 +123,23 @@ class MemberSearchServiceTest {
     @Nested
     @DisplayName("search")
     class SearchTest {
+
+        @Test
+        @DisplayName("기존 REST V2 검색은 챌린저 이력을 확인한 뒤 비범위 포트를 호출한다")
+        void 기존_rest_v2_검색은_챌린저_이력_확인_후_비범위_포트를_호출한다() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            given(searchMemberPort.searchMemberIds(defaultQuery, pageable))
+                .willReturn(Page.empty(pageable));
+
+            // when
+            var result = memberSearchService.searchByV2(defaultQuery, REQUESTER_MEMBER_ID, pageable);
+
+            // then
+            assertThat(result.page()).isEmpty();
+            then(checkChallengerHistoryUseCase).should().hasChallengerHistory(REQUESTER_MEMBER_ID);
+            then(searchMemberPort).should().searchMemberIds(defaultQuery, pageable);
+        }
 
         @Test
         void 첫_페이지_조회_시_정상적으로_결과를_반환한다() {

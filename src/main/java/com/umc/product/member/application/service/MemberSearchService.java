@@ -19,6 +19,7 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchItemV2Info;
@@ -51,6 +52,7 @@ public class MemberSearchService implements SearchMemberUseCase {
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetGisuUseCase getGisuUseCase;
+    private final MemberSearchAccessScopeResolver memberSearchAccessScopeResolver;
 
     @Override
     public SearchMemberResult searchBy(SearchMemberQuery query, Long requesterMemberId, Pageable pageable) {
@@ -104,6 +106,25 @@ public class MemberSearchService implements SearchMemberUseCase {
     public SearchMemberV2Result searchByV2(SearchMemberQuery query, Long requesterMemberId, Pageable pageable) {
         assertMemberSearchAccess(requesterMemberId);
         Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, pageable);
+        return assembleV2Result(memberIdPage);
+    }
+
+    @Override
+    public SearchMemberV2Result searchByV2ForGraphQl(
+        SearchMemberQuery query,
+        Long requesterMemberId,
+        Pageable pageable
+    ) {
+        MemberSearchAccessScope scope = memberSearchAccessScopeResolver.resolve(requesterMemberId);
+        if (scope.denied()) {
+            throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
+        }
+
+        Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, scope, pageable);
+        return assembleV2Result(memberIdPage);
+    }
+
+    private SearchMemberV2Result assembleV2Result(Page<Long> memberIdPage) {
         List<Long> memberIds = memberIdPage.getContent();
 
         if (memberIds.isEmpty()) {

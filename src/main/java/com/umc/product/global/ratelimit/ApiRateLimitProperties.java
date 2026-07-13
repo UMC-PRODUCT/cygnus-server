@@ -18,7 +18,7 @@ public record ApiRateLimitProperties(
 
     public ApiRateLimitProperties {
         enabled = enabled == null || enabled;
-        includePaths = copyOrDefault(includePaths, List.of("/api/**"));
+        includePaths = copyOrDefault(includePaths, List.of("/api/**", "/graphql"));
         excludePaths = copyOrDefault(excludePaths, defaultExcludedPaths());
         authenticatedDefault = authenticatedDefault == null ? new Limit(20, 300) : authenticatedDefault;
         anonymousDefault = anonymousDefault == null ? new Limit(5, 60) : anonymousDefault;
@@ -29,7 +29,7 @@ public record ApiRateLimitProperties(
     public static ApiRateLimitProperties defaults() {
         return new ApiRateLimitProperties(
             true,
-            List.of("/api/**"),
+            List.of("/api/**", "/graphql"),
             defaultExcludedPaths(),
             new Limit(20, 300),
             new Limit(5, 60),

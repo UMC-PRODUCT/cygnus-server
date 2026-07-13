@@ -30,6 +30,9 @@ GraphQL endpoint는 하나다.
 POST /graphql
 ```
 
+`/graphql`은 transport 계층 rate limit 대상이다. 기본 한도는 인증 요청 초당 20회·분당 300회,
+익명 요청 초당 5회·분당 60회이며, 한도 초과 시 HTTP 429를 반환한다. `OPTIONS`와 제외 경로에는 적용하지 않는다.
+
 로컬 실행 예시는 다음과 같다.
 
 ```bash
@@ -255,6 +258,72 @@ query {
 ```
 
 `members`는 입력 ID를 중복 제거한 뒤 batch 조회한다.
+
+회원 검색은 `memberSearch`에 검색 조건과 페이지를 전달한다. 관계 필드는 필요한 항목만 선택할 수 있으며,
+`school`, `currentChallenger.gisu`, `challengerRecords.gisu`는 batch resolver로 조회한다.
+
+```graphql
+query {
+  memberSearch(
+    input: { keyword: "kim", part: SPRINGBOOT }
+    page: { page: 0, size: 20 }
+  ) {
+    content {
+      memberId
+      name
+      nickname
+      email
+      school {
+        schoolId
+        schoolName
+      }
+      currentChallenger {
+        challengerId
+        part
+        challengerStatus
+        gisu {
+          gisuId
+          generation
+        }
+      }
+      challengerRecords {
+        challengerId
+        part
+        challengerStatus
+        gisu {
+          gisuId
+          generation
+        }
+      }
+    }
+    page
+    size
+    totalElements
+    totalPages
+    hasNext
+  }
+}
+```
+
+`memberSearch`의 검색 가능 범위는 현재 활성 기수가 아니라 요청자의 전체 챌린저·운영진 이력을 기준으로 계산한다.
+
+| 요청자 이력 또는 역할 | 검색 가능 범위 |
+| --- | --- |
+| 챌린저 이력과 상위 역할이 모두 없는 단순 회원 | 검색 거부 |
+| 챌린저 이력 보유 | 본인이 보유한 기수 ID에 속한 회원만 조회 |
+| 과거 교내 회장 또는 부회장 | 본인 학교의 모든 기수 조회 |
+| 중앙운영사무국 총괄 또는 부총괄 기록, `SUPER_ADMIN` | 기존 member-search 모집단 내 제한 없이 조회 |
+
+학교 범위와 기수 범위를 동시에 가지면 두 범위를 OR로 결합한다. 사용자 검색 조건은 이 권한 범위와
+AND로 결합되며, 권한 scope는 pagination과 count보다 먼저 DB query에 적용된다. 따라서
+`totalElements`, `totalPages`, `hasNext`는 응답 후 필터링된 값이 아니라 동일한 scoped DB count를 반영한다.
+
+페이지 입력을 생략하면 `page: 0`, `size: 20`을 사용한다. `size`는 최대 100이며 첫 버전은 sort 입력을
+지원하지 않고 서버의 안정 정렬을 따른다. `page * size`로 계산한 offset은 최대 10,000이며, 10,000은 허용하고
+초과하면 `BAD_REQUEST`로 거부한다. 검색 결과의 `email`은 `null`이면 `null`로 유지하고, 값이 있으면
+원문을 마스킹해 반환한다. 한 글자 local-part처럼 원문과 달라지지 않는 값은 `[masked-email]`으로 대체하며,
+raw email은 응답하지 않는다. `memberSearch` 복잡도는 요청한 `size`에 가중되며, alias별 비용은 전역 최대 복잡도까지
+누적된다. 잘못된 입력은 최대 크기 비용으로 처리한다.
 
 ## Project 예시
 

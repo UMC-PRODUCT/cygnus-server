@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
@@ -18,6 +19,8 @@ public interface GetChallengerRoleUseCase {
     ChallengerRoleInfo getById(Long challengerRoleId);
 
     List<ChallengerRoleInfo> findAllByMemberId(Long memberId);
+
+    List<ChallengerRoleBasicInfo> findAllBasicByMemberId(Long memberId);
 
     /**
      * 슈퍼어드민 여부를 확인합니다. 기수와 무관하게 모든 권한을 가집니다.

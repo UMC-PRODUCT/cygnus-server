@@ -392,6 +392,7 @@ app:
     enabled: ${API_RATE_LIMIT_ENABLED:true}
     include-paths:
       - /api/**
+      - /graphql
     exclude-paths:
       - /actuator/**
       - /docs

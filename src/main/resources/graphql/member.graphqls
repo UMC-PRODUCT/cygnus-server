@@ -2,6 +2,51 @@ extend type Query {
   me: Member!
   member(id: ID!): Member
   members(ids: [ID!]!): [Member!]!
+  memberSearch(input: MemberSearchInput!, page: MemberPageInput): MemberPage!
+}
+
+input MemberSearchInput {
+  keyword: String
+  gisuId: ID
+  part: ChallengerPart
+  chapterId: ID
+  schoolId: ID
+}
+
+input MemberPageInput {
+  page: Int = 0
+  size: Int = 20
+}
+
+type MemberPage {
+  content: [MemberSearchResult!]!
+  page: Int!
+  size: Int!
+  totalElements: Long!
+  totalPages: Int!
+  hasNext: Boolean!
+}
+
+type MemberSearchResult {
+  memberId: ID!
+  name: String
+  nickname: String
+  email: String
+  schoolId: ID
+  school: SchoolDetail
+  profileImageLink: String
+  currentChallenger: MemberSearchChallenger
+  isAdminInActiveGisu: Boolean!
+  challengerRecords: [MemberSearchChallenger!]!
+}
+
+type MemberSearchChallenger {
+  challengerId: ID!
+  gisuId: ID!
+  gisu: Gisu
+  generation: ID!
+  part: ChallengerPart!
+  challengerStatus: ChallengerStatus!
 }
 
 type Member {

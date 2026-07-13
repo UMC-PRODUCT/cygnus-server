@@ -2,6 +2,8 @@ package com.umc.product.member.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Set;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.domain.Member;
 import com.umc.product.organization.domain.School;
@@ -28,6 +31,174 @@ class MemberQueryRepositoryTest {
 
     @Autowired
     MemberQueryRepository sut;
+
+    @Test
+    @DisplayName("기존 회원 검색은 중복 챌린저를 제거한 안정 순서와 전체 개수로 페이지한다")
+    void 기존_회원_검색은_distinct_회원_기준으로_페이지한다() {
+        // given
+        School school = persistSchool("기존대학교");
+        Member first = persistMember("가회원", "first", "first@test.com", school.getId());
+        Member second = persistMember("나회원", "second", "second@test.com", school.getId());
+        Member third = persistMember("다회원", "third", "third@test.com", school.getId());
+        persistChallenger(first.getId(), ChallengerPart.PLAN, 1L);
+        persistChallenger(first.getId(), ChallengerPart.WEB, 2L);
+        persistChallenger(second.getId(), ChallengerPart.DESIGN, 1L);
+        persistChallenger(third.getId(), ChallengerPart.SPRINGBOOT, 1L);
+        em.flush();
+        em.clear();
+
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, null, null);
+
+        // when
+        var page = sut.searchMemberIdsBy(query, PageRequest.of(0, 2));
+
+        // then
+        assertThat(page.getContent()).containsExactly(first.getId(), second.getId());
+        assertThat(page.getTotalElements()).isEqualTo(3);
+        assertThat(page.getSize()).isEqualTo(2);
+        assertThat(page.hasNext()).isTrue();
+    }
+
+    @Test
+    @DisplayName("기수 범위는 해당 기수 챌린저가 있는 회원만 집계한다")
+    void 기수_범위는_해당_기수_회원만_집계한다() {
+        School school = persistSchool("기수대학교");
+        Member allowed = persistMember("가허용", "allowed", "allowed-gisu@test.com", school.getId());
+        Member denied = persistMember("나제한", "denied", "denied-gisu@test.com", school.getId());
+        persistChallenger(allowed.getId(), ChallengerPart.PLAN, 3L);
+        persistChallenger(denied.getId(), ChallengerPart.PLAN, 9L);
+        em.flush();
+        em.clear();
+
+        var page = sut.searchMemberIdsBy(emptyQuery(),
+            MemberSearchAccessScope.restrictedTo(Set.of(), Set.of(3L)),
+            PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).containsExactly(allowed.getId());
+        assertThat(page.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("학교 범위는 챌린저 이력이 없는 회원도 기수와 무관하게 포함한다")
+    void 학교_범위는_챌린저_없는_회원도_포함한다() {
+        School allowedSchool = persistSchool("허용대학교");
+        School deniedSchool = persistSchool("제한대학교");
+        Member withoutChallenger = persistMember("가무이력", "none", "none@test.com", allowedSchool.getId());
+        Member otherGisu = persistMember("나타기수", "other", "other@test.com", allowedSchool.getId());
+        Member outside = persistMember("다외부", "outside", "outside@test.com", deniedSchool.getId());
+        persistChallenger(otherGisu.getId(), ChallengerPart.WEB, 99L);
+        persistChallenger(outside.getId(), ChallengerPart.WEB, 3L);
+        em.flush();
+        em.clear();
+
+        var page = sut.searchMemberIdsBy(emptyQuery(),
+            MemberSearchAccessScope.restrictedTo(Set.of(allowedSchool.getId()), Set.of()),
+            PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).containsExactly(withoutChallenger.getId(), otherGisu.getId());
+        assertThat(page.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("학교와 기수 범위는 OR로 결합하고 중복 챌린저는 한 회원으로 집계한다")
+    void 학교와_기수_범위는_or이고_중복은_distinct로_집계한다() {
+        School allowedSchool = persistSchool("학교범위대학교");
+        School outsideSchool = persistSchool("외부대학교");
+        Member schoolMember = persistMember("가학교", "school", "school@test.com", allowedSchool.getId());
+        Member gisuMember = persistMember("나기수", "gisu", "gisu@test.com", outsideSchool.getId());
+        Member denied = persistMember("다제한", "denied", "denied@test.com", outsideSchool.getId());
+        persistChallenger(schoolMember.getId(), ChallengerPart.PLAN, 3L);
+        persistChallenger(schoolMember.getId(), ChallengerPart.WEB, 4L);
+        persistChallenger(gisuMember.getId(), ChallengerPart.DESIGN, 3L);
+        persistChallenger(denied.getId(), ChallengerPart.IOS, 9L);
+        em.flush();
+        em.clear();
+
+        var page = sut.searchMemberIdsBy(emptyQuery(),
+            MemberSearchAccessScope.restrictedTo(Set.of(allowedSchool.getId()), Set.of(3L)),
+            PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).containsExactly(schoolMember.getId(), gisuMember.getId());
+        assertThat(page.getTotalElements()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("무제한 범위는 기존 회원 검색의 내용과 개수를 보존한다")
+    void 무제한_범위는_기존_검색과_같다() {
+        School school = persistSchool("무제한대학교");
+        Member first = persistMember("가회원", "first-all", "first-all@test.com", school.getId());
+        Member second = persistMember("나회원", "second-all", "second-all@test.com", school.getId());
+        persistChallenger(first.getId(), ChallengerPart.PLAN, 1L);
+        persistChallenger(first.getId(), ChallengerPart.WEB, 2L);
+        persistChallenger(second.getId(), ChallengerPart.DESIGN, 1L);
+        em.flush();
+        em.clear();
+
+        var oldPage = sut.searchMemberIdsBy(emptyQuery(), PageRequest.of(0, 10));
+        var scopedPage = sut.searchMemberIdsBy(emptyQuery(), MemberSearchAccessScope.allowAll(),
+            PageRequest.of(0, 10));
+
+        assertThat(scopedPage.getContent()).isEqualTo(oldPage.getContent());
+        assertThat(scopedPage.getTotalElements()).isEqualTo(oldPage.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("사용자 필터는 접근 범위와 AND로 결합한다")
+    void 사용자_필터는_scope와_and로_결합한다() {
+        School school = persistSchool("필터대학교");
+        Member matched = persistMember("검색허용", "match", "match@test.com", school.getId());
+        Member keywordMiss = persistMember("다른이름", "other-filter", "other-filter@test.com", school.getId());
+        Member scopeMiss = persistMember("검색제한", "match-denied", "match-denied@test.com", school.getId());
+        persistChallenger(matched.getId(), ChallengerPart.PLAN, 3L);
+        persistChallenger(keywordMiss.getId(), ChallengerPart.PLAN, 3L);
+        persistChallenger(scopeMiss.getId(), ChallengerPart.PLAN, 9L);
+        em.flush();
+        em.clear();
+
+        SearchMemberQuery query = new SearchMemberQuery("검색", null, null, null, null);
+        var page = sut.searchMemberIdsBy(query,
+            MemberSearchAccessScope.restrictedTo(Set.of(), Set.of(3L)),
+            PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).containsExactly(matched.getId());
+        assertThat(page.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("제한 범위 페이지의 크기 다음 페이지 여부 전체 개수는 DB 범위 집계를 따른다")
+    void 제한_범위_페이지_메타데이터는_db_집계를_따른다() {
+        School school = persistSchool("페이지대학교");
+        for (int index = 1; index <= 4; index++) {
+            Member member = persistMember("회원" + index, "page" + index, "page" + index + "@test.com", school.getId());
+            persistChallenger(member.getId(), ChallengerPart.PLAN, index <= 3 ? 3L : 9L);
+        }
+        em.flush();
+        em.clear();
+
+        var page = sut.searchMemberIdsBy(emptyQuery(),
+            MemberSearchAccessScope.restrictedTo(Set.of(), Set.of(3L)),
+            PageRequest.of(0, 2));
+
+        assertThat(page.getContent()).hasSize(2);
+        assertThat(page.getSize()).isEqualTo(2);
+        assertThat(page.getTotalElements()).isEqualTo(3);
+        assertThat(page.hasNext()).isTrue();
+    }
+
+    @Test
+    @DisplayName("방어적으로 거부 범위가 저장소에 전달되어도 빈 페이지를 반환한다")
+    void 거부_범위는_빈_페이지를_반환한다() {
+        School school = persistSchool("거부대학교");
+        Member member = persistMember("거부회원", "denied-scope", "denied-scope@test.com", school.getId());
+        persistChallenger(member.getId(), ChallengerPart.PLAN, 3L);
+        em.flush();
+        em.clear();
+
+        var page = sut.searchMemberIdsBy(emptyQuery(), MemberSearchAccessScope.denyAll(), PageRequest.of(0, 10));
+
+        assertThat(page.getContent()).isEmpty();
+        assertThat(page.getTotalElements()).isZero();
+    }
 
     @Test
     @DisplayName("keyword는 학교명만 일치하는 회원을 검색하지 않는다")
@@ -112,6 +283,10 @@ class MemberQueryRepositoryTest {
         School school = School.create(name, null);
         em.persist(school);
         return school;
+    }
+
+    private SearchMemberQuery emptyQuery() {
+        return new SearchMemberQuery(null, null, null, null, null);
     }
 
     private Member persistMember(String name, String nickname, String email, Long schoolId) {
