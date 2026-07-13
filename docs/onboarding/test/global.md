@@ -58,14 +58,13 @@
 | [24](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L24) | SecurityConfig 통합 테스트 / 인증된 요청이어도 Swagger UI 경로는 접근할 수 없다 | HTTP GET /swagger-ui/index.html | 실패: HTTP 403 Forbidden |
 | [38](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L38) | SecurityConfig 통합 테스트 / 인증된 요청이어도 기존 OpenAPI JSON 경로는 접근할 수 없다 | HTTP GET /v3/api-docs | 실패: HTTP 403 Forbidden |
 
-### SpringDomainEventPublisherIntegrationTest
-- 테스트 설명: SpringDomainEventPublisher local pub/sub
-- 위치: `src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherIntegrationTest.java`
+### EventOutboxRelayJdbcIntegrationTest
+- 테스트 설명: non-transactional relay의 실제 JDBC connection 경계
+- 위치: `src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java`
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [26](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherIntegrationTest.java#L26) | 트랜잭션 commit 이후 같은 JVM의 여러 subscriber가 이벤트를 수신한다 | 조건 트랜잭션 commit 이후 같은 JVM의 여러 subscriber가 이벤트를 수신한다 | 성공: 검증 assertThat(first.handled()).containsExactly(event.eventId()); assertThat(second.handled()).containsExactly(event.eventId()); |
-| [46](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherIntegrationTest.java#L46) | SpringDomainEventPublisher local pub/sub / 트랜잭션 rollback 시 AFTER_COMMIT subscriber는 이벤트를 수신하지 않는다 | 조건 SpringDomainEventPublisher local pub/sub / 트랜잭션 rollback 시 AFTER_COMMIT subscriber는 이벤트를 수신하지 않는다 | 실패: 예외 IllegalStateException; 검증 assertThat(first.handled()).isEmpty(); assertThat(second.handled()).isEmpty(); |
+| [40](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L40) | non-transactional listener 실행 중에는 JDBC connection을 점유하지 않는다 | 실제 PostgreSQL DataSource와 Hikari pool | 트랜잭션 비활성, active connection 0, PUBLISHED 처리 |
 
 ## Scheduler
 
@@ -178,14 +177,12 @@
 | [15](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java#L15) | publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다 | 조건 publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다 | 성공: 검증 assertThat(savePort.saved).hasSize(1); assertThat(outbox.getEventId()).isEqualTo(event.eventId()); assertThat(outbox.getEventType()).isEqualTo("test.created"); assertThat(outbox.getPayload()).contains("\"message\":\"h... |
 | [37](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java#L37) | OutboxDomainEventPublisher / publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다 | 조건 OutboxDomainEventPublisher / publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다 | 성공: 검증 assertThat(savePort.saved); .containsExactly(first.eventId(), second.eventId()); assertThat(savePort.saveAllCalled).isTrue(); |
 
-### SpringDomainEventPublisherTest
-- 위치: `src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java`
+### EventOutboxPublisherConfigurationTest
+- 위치: `src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java`
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [26](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java#L26) | publish는 ApplicationEventPublisher로 위임된다 | 조건 publish는 ApplicationEventPublisher로 위임된다 | 성공: publish는 ApplicationEventPublisher로 위임된다 |
-| [40](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java#L40) | publishAll은 입력 컬렉션 순서대로 모든 이벤트를 위임한다 | 조건 publishAll은 입력 컬렉션 순서대로 모든 이벤트를 위임한다 | 성공: publishAll은 입력 컬렉션 순서대로 모든 이벤트를 위임한다 |
-| [56](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java#L56) | publishAll에 빈 컬렉션이 주어지면 위임 없이 정상 종료된다 | 조건 publishAll에 빈 컬렉션이 주어지면 위임 없이 정상 종료된다 | 성공: publishAll에 빈 컬렉션이 주어지면 위임 없이 정상 종료된다 |
+| [27](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L27) | 과거 비활성화 property가 있어도 outbox publisher와 poller를 사용한다 | `app.event-outbox.enabled=false` | `OutboxDomainEventPublisher`와 `EventOutboxPoller` 단일 bean 등록 |
 
 ## Support / Config / Utility
 

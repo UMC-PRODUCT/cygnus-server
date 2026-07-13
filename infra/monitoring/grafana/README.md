@@ -96,11 +96,11 @@ Grafana > **Explore** > 데이터소스 **Tempo** > **TraceQL** 탭에서 아래
 | 특정 API 한 요청 (이메일 인증)         | `{ name = "http post /api/v1/auth/email-verification" }` |
 | 도메인별 처리 흐름                   | `{ span.app.domain = "organization" }`              |
 | 유스케이스 span 만                 | `{ span.app.usecase != "" }`                        |
-| 아웃박스 relay (원 요청과 span link) — *`app.event-outbox.enabled=true` 일 때만* | `{ name = "outbox.relay.publish" }`                 |
+| 아웃박스 relay (원 요청과 span link) | `{ name = "outbox.relay.publish" }`                 |
 
 > HTTP 서버 root span 이름은 **`http <method> <path>`** 형식이다(대문자 `GET` 이 아니라 소문자, 예: `http get /api/v1/schools/all`). trace 샘플링이 1.0 미만이면 HTTP 요청 일부가 누락될 수 있으니, 시연 시 같은 API 를 여러 번 호출한다.
 >
-> 계층 흐름 쿼리(`app.domain` / `app.usecase` 등)는 `TraceFlowAspect` 가 **모든 요청에 자동 생성**하므로 아웃박스 on/off 와 무관하게 동작한다. 반면 `outbox.relay.publish` span 은 **아웃박스가 활성화(`app.event-outbox.enabled=true`)된 경우에만** 생성되므로, 비활성 상태에서는 결과가 비어 있는 것이 정상이다.
+> 계층 흐름 쿼리(`app.domain` / `app.usecase` 등)는 `TraceFlowAspect`가 모든 요청에 자동 생성한다. `outbox.relay.publish` span은 poller가 처리한 domain event가 있을 때 생성된다.
 >
 > 집계형 서비스 토폴로지(여러 trace 를 합친 service graph)는 Tempo `metrics_generator` 활성화가 필요한 Phase 2 과제다. 위는 **요청 단위(per-trace) 처리 흐름**을 보는 방법이다.
 
