@@ -178,11 +178,69 @@ class FormResponseQueryServiceTest {
         assertThat(sut.getResponseWithAnswersByAccessKey(rawKey)).isNotNull();
     }
 
+    // ============================================================
+    //          ID 기반 상세 조회의 익명 응답 방어
+    // ============================================================
+
+    @Test
+    @DisplayName("findResponseWithAnswers: 익명 응답이면 Optional.empty")
+    void findResponseWithAnswers_익명_응답이면_empty() {
+        FormResponse anonymousResponse = anonymousResponseWithId(300L);
+        given(loadFormResponsePort.findById(300L)).willReturn(Optional.of(anonymousResponse));
+
+        assertThat(sut.findResponseWithAnswers(300L)).isEmpty();
+
+        then(getAnswerUseCase).should(never()).listByFormResponseId(anyLong());
+    }
+
+    @Test
+    @DisplayName("findResponseWithAnswers: 기명 응답이면 반환")
+    void findResponseWithAnswers_기명_응답이면_반환() {
+        FormResponse namedResponse = namedResponseWithId(300L, 200L);
+        given(loadFormResponsePort.findById(300L)).willReturn(Optional.of(namedResponse));
+        given(getAnswerUseCase.listByFormResponseId(300L)).willReturn(List.of());
+
+        assertThat(sut.findResponseWithAnswers(300L)).isPresent();
+    }
+
+    @Test
+    @DisplayName("getResponseWithAnswers: 익명 응답이면 FORM_RESPONSE_NOT_FOUND")
+    void getResponseWithAnswers_익명_응답이면_NOT_FOUND() {
+        FormResponse anonymousResponse = anonymousResponseWithId(300L);
+        given(loadFormResponsePort.findById(300L)).willReturn(Optional.of(anonymousResponse));
+
+        assertThatThrownBy(() -> sut.getResponseWithAnswers(300L))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("findResponsesWithAnswers: 익명 응답은 결과 map 에서 제외")
+    void findResponsesWithAnswers_익명_응답은_제외() {
+        FormResponse named = namedResponseWithId(300L, 200L);
+        FormResponse anonymous = anonymousResponseWithId(301L);
+        given(loadFormResponsePort.listByIdsWithForm(java.util.Set.of(300L, 301L)))
+            .willReturn(List.of(named, anonymous));
+        given(getAnswerUseCase.listByFormResponseIds(java.util.Set.of(300L, 301L)))
+            .willReturn(java.util.Map.of());
+
+        var result = sut.findResponsesWithAnswers(java.util.Set.of(300L, 301L));
+
+        assertThat(result).containsOnlyKeys(300L);
+    }
+
     private FormResponse anonymousDraftWithMember(Long memberId) {
         Form form = Form.createDraft("폼", 1L, false);
         ReflectionTestUtils.setField(form, "id", FORM_ID);
         form.publish();
         FormResponse response = FormResponse.createDraft(form, memberId);
+        return response;
+    }
+
+    private FormResponse namedResponseWithId(Long id, Long memberId) {
+        FormResponse response = anonymousDraftWithMember(memberId);
+        ReflectionTestUtils.setField(response, "id", id);
         return response;
     }
 

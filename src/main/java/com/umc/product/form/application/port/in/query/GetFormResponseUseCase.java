@@ -65,20 +65,29 @@ public interface GetFormResponseUseCase {
     Optional<FormResponseInfo> findSubmittedByFormIdAndRespondentMemberId(Long formId, Long respondentMemberId);
 
     /**
-     * 특정 응답의 메타 + 모든 답변을 한 번에 조회 (facade). 응답 상세 화면 (응답자 본인 / 폼 작성자) 용도. 없으면 FORM_RESPONSE_NOT_FOUND 예외.
+     * (기명 전용) 특정 응답의 메타 + 모든 답변을 한 번에 조회 (facade). 응답 상세 화면 (응답자 본인 / 폼 작성자) 용도.
+     * 없으면 FORM_RESPONSE_NOT_FOUND 예외.
+     * <p>
+     * 익명 응답 (respondentMemberId=null) 은 조회되지 않고 FORM_RESPONSE_NOT_FOUND 로 처리된다.
+     * 익명 응답 상세 조회는 {@link #getResponseWithAnswersByAccessKey} 를 사용해야 한다.
      */
     FormResponseWithAnswersInfo getResponseWithAnswers(Long formResponseId);
 
     /**
-     * {@link #getResponseWithAnswers} 의 graceful 버전. 미존재 시 Optional.empty() 를 반환하므로 호출 도메인의 invariant(예: dangling
-     * formResponseId)를 자체 에러 코드로 통일하고 싶은 경우 사용한다.
+     * (기명 전용) {@link #getResponseWithAnswers} 의 graceful 버전. 미존재 시 Optional.empty() 를 반환하므로
+     * 호출 도메인의 invariant(예: dangling formResponseId)를 자체 에러 코드로 통일하고 싶은 경우 사용한다.
+     * <p>
+     * 익명 응답 (respondentMemberId=null) 은 조회되지 않고 Optional.empty() 로 처리된다.
+     * 익명 응답 조회는 {@link #findByAccessKey} 를 사용해야 한다.
      */
     Optional<FormResponseWithAnswersInfo> findResponseWithAnswers(Long formResponseId);
 
     /**
-     * 여러 응답의 메타 + 답변을 한 번에 조회한다.
+     * (기명 전용) 여러 응답의 메타 + 답변을 한 번에 조회한다.
+     * <p>
+     * 익명 응답 (respondentMemberId=null) 은 결과 map 에서 제외된다. 미존재 ID 도 결과에 포함하지 않는다.
      *
-     * @return formResponseId -> 응답 상세. 미존재 ID는 결과에 포함하지 않는다.
+     * @return formResponseId -> 응답 상세
      */
     Map<Long, FormResponseWithAnswersInfo> findResponsesWithAnswers(Set<Long> formResponseIds);
 

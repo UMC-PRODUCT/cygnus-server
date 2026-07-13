@@ -92,6 +92,7 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
     @Override
     public Optional<FormResponseWithAnswersInfo> findResponseWithAnswers(Long formResponseId) {
         return loadFormResponsePort.findById(formResponseId)
+            .filter(fr -> fr.getRespondentMemberId() != null)
             .map(formResponse -> FormResponseWithAnswersInfo.from(
                 formResponse,
                 getAnswerUseCase.listByFormResponseId(formResponseId)
@@ -140,7 +141,9 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
             return Map.of();
         }
 
-        List<FormResponse> formResponses = loadFormResponsePort.listByIdsWithForm(formResponseIds);
+        List<FormResponse> formResponses = loadFormResponsePort.listByIdsWithForm(formResponseIds).stream()
+            .filter(fr -> fr.getRespondentMemberId() != null)
+            .toList();
         Map<Long, List<AnswerInfo>> answersByFormResponseId =
             getAnswerUseCase.listByFormResponseIds(formResponseIds);
 
