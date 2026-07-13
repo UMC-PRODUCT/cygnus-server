@@ -8,6 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -25,7 +26,9 @@ import io.micrometer.tracing.Link;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class EventOutboxRelayService {
 
@@ -109,9 +112,22 @@ public class EventOutboxRelayService {
     private void relayOne(EventOutbox outbox) {
         try {
             publish(outbox);
+        } catch (OptimisticLockingFailureException e) {
+            logLeaseOwnershipLost(outbox);
         } catch (RuntimeException e) {
-            recordFailure(outbox, e);
+            try {
+                recordFailure(outbox, e);
+            } catch (OptimisticLockingFailureException ignored) {
+                logLeaseOwnershipLost(outbox);
+            }
         }
+    }
+
+    private void logLeaseOwnershipLost(EventOutbox outbox) {
+        log.info(
+            "Event outbox 처리 소유권이 변경되어 현재 worker의 상태 저장을 생략합니다: eventId={}",
+            outbox.getEventId()
+        );
     }
 
     private void publish(EventOutbox outbox) {
@@ -159,9 +175,9 @@ public class EventOutboxRelayService {
         });
     }
 
-    private void recordFailure(EventOutbox outbox, RuntimeException e) {
+    private void recordFailure(EventOutbox outbox, RuntimeException exception) {
         transactionTemplate.executeWithoutResult(status -> {
-            outbox.recordFailure(errorMessage(e), nextAttemptAt(outbox), maxAttempts);
+            outbox.recordFailure(errorMessage(exception), nextAttemptAt(outbox), maxAttempts);
             saveEventOutboxPort.save(outbox);
         });
     }
@@ -175,10 +191,10 @@ public class EventOutboxRelayService {
         return Instant.now().plus(backoff);
     }
 
-    private String errorMessage(RuntimeException e) {
-        if (e.getMessage() == null || e.getMessage().isBlank()) {
-            return e.getClass().getName();
+    private String errorMessage(RuntimeException exception) {
+        if (exception.getMessage() == null || exception.getMessage().isBlank()) {
+            return exception.getClass().getName();
         }
-        return e.getMessage();
+        return exception.getMessage();
     }
 }

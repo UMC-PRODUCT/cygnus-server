@@ -25,12 +25,16 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 
 우리는 모든 `DomainEventPublisher` 발행을 공용 `event_outbox` 영속화로 고정하기로 결정한다.
 
-1. `OutboxDomainEventPublisher`와 `EventOutboxPoller`를 조건 없이 등록한다.
+1. `OutboxDomainEventPublisher`를 조건 없이 등록한다.
 2. `SpringDomainEventPublisher`와 `app.event-outbox.enabled` 설정을 제거한다.
 3. Spring `ApplicationEventPublisher`는 최초 발행 수단이 아니라 relay 내부의 local dispatch bus로만 사용한다.
 4. 기본 이벤트는 relay 트랜잭션에서 dispatch한다.
 5. 외부 I/O 이벤트는 `OutboxDispatchMode.NON_TRANSACTIONAL`을 선택해 listener를 트랜잭션 밖에서
    동기 실행하고, 성공 상태와 실패 상태는 각각 짧은 별도 트랜잭션으로 기록한다.
+6. 운영 장애 시 `app.event-outbox.relay-enabled=false`로 poller만 중지할 수 있다. 이 경우에도 publisher는
+   계속 outbox에 적재하며 Spring local publisher로 우회하지 않는다.
+7. `event_outbox.version` optimistic lock으로 lease를 다시 획득한 worker의 상태를 이전 worker가
+   덮어쓰지 못하게 한다.
 
 ### 단계적 진행 / PR 분할
 
@@ -103,6 +107,8 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 ### Neutral / Trade-offs
 
 - 전달 보장은 at-least-once이며 consumer의 멱등성 책임은 유지된다.
+- optimistic lock은 stale 상태 갱신을 차단하지만, lease 만료 경계에서 외부 side effect 자체가 중복
+  실행되는 것까지 막지는 않는다.
 - Spring event는 제거되지 않고 relay 이후 동일 JVM listener를 찾는 dispatch mechanism으로 제한된다.
 
 ## Implementation Notes
@@ -111,16 +117,20 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 
 1. **도메인**: `DomainEvent`에 `OutboxDispatchMode` 기본 계약을 추가한다.
 2. **응용 / Port**: `DomainEventPublisher`는 항상 event outbox 영속화를 의미한다.
-3. **어댑터 (in)**: `EventOutboxPoller`를 항상 등록한다.
+3. **어댑터 (in)**: `EventOutboxPoller`는 기본 활성화하되 relay 전용 운영 스위치로 중지할 수 있다.
 4. **어댑터 (out)**: `SpringDomainEventPublisher`를 제거하고 `OutboxDomainEventPublisher`만 등록한다.
-5. **설정 / 환경**: `EVENT_OUTBOX_ENABLED`를 제거하고 poll interval, batch size, max attempts만 유지한다.
+5. **설정 / 환경**: `EVENT_OUTBOX_ENABLED`를 제거하고 relay enabled, poll interval, batch size,
+   max attempts를 유지한다.
 6. **테스트**: publisher 고정 구성과 non-transactional dispatch의 transaction/connection 경계를 검증한다.
+7. **동시성**: JPA `@Version`과 Flyway migration으로 lease 소유권 변경 이후 stale 상태 저장을 차단한다.
 
 ### 기타 참고
 
 - `NON_TRANSACTIONAL`은 최초 outbox 저장을 비트랜잭션으로 바꾸는 옵션이 아니다. relay listener 실행
   구간만 DB 트랜잭션 밖으로 이동한다.
 - 과거 `EVENT_OUTBOX_ENABLED=false` 환경 변수는 더 이상 동작에 영향을 주지 않는다.
+- `EVENT_OUTBOX_RELAY_ENABLED=false`는 신규 이벤트 유실 없이 전달만 정지한다. 적체 원인을 해소한 뒤
+  다시 활성화하면 저장된 이벤트를 이어서 처리한다.
 
 ## References
 

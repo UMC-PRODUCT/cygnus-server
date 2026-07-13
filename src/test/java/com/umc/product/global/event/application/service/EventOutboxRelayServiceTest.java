@@ -12,6 +12,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionException;
 import org.springframework.transaction.support.AbstractPlatformTransactionManager;
@@ -282,6 +283,32 @@ class EventOutboxRelayServiceTest {
         assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING);
     }
 
+    @Test
+    @DisplayName("lease 소유권을 잃은 worker는 published 상태 저장 실패를 재시도로 덮어쓰지 않는다")
+    void relay_optimistic_lock_failure_does_not_overwrite_new_owner() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        NonTransactionalTestEvent event = NonTransactionalTestEvent.create("test.external.created", "hello");
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        LoseLeaseOnPublishedSaveEventOutboxPort savePort = new LoseLeaseOnPublishedSaveEventOutboxPort();
+        CapturingApplicationEventPublisher publisher = new CapturingApplicationEventPublisher();
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            savePort,
+            new EventPayloadDeserializer(objectMapper),
+            publisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            100,
+            3
+        );
+
+        relayService.relay();
+
+        assertThat(publisher.events).hasSize(1);
+        assertThat(savePort.savedStatuses).containsExactly(EventOutboxStatus.PROCESSING);
+    }
+
     private static class FailOnPublishedSaveEventOutboxPort implements SaveEventOutboxPort {
 
         private final List<EventOutboxStatus> savedStatuses = new ArrayList<>();
@@ -291,6 +318,24 @@ class EventOutboxRelayServiceTest {
             // published 상태 저장(= markPublished 영속화)만 실패시켜, 발행 단위 트랜잭션 실패를 재현한다.
             if (eventOutbox.getStatus() == EventOutboxStatus.PUBLISHED) {
                 throw new IllegalStateException("published 저장 실패");
+            }
+            savedStatuses.add(eventOutbox.getStatus());
+        }
+
+        @Override
+        public void saveAll(Collection<EventOutbox> eventOutboxes) {
+            eventOutboxes.forEach(eventOutbox -> savedStatuses.add(eventOutbox.getStatus()));
+        }
+    }
+
+    private static class LoseLeaseOnPublishedSaveEventOutboxPort implements SaveEventOutboxPort {
+
+        private final List<EventOutboxStatus> savedStatuses = new ArrayList<>();
+
+        @Override
+        public void save(EventOutbox eventOutbox) {
+            if (eventOutbox.getStatus() == EventOutboxStatus.PUBLISHED) {
+                throw new OptimisticLockingFailureException("outbox lease 소유권 변경");
             }
             savedStatuses.add(eventOutbox.getStatus());
         }
