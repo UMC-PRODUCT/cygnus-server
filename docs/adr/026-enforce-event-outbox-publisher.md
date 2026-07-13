@@ -124,6 +124,7 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 
 ## References
 
-- 이슈: `#1035`
+- 선행 PR: `#1150`
+- 후속 이슈: `#1035`
 - [ADR-018](./018-abstract-spring-event-publisher-for-future-broker.md)
 - [ADR-019](./019-introduce-transactional-event-outbox.md)

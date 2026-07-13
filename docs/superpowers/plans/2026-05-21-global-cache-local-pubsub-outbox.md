@@ -1,5 +1,8 @@
 # Global Cache, Local Pub/Sub, Event Outbox 실행 계획
 
+> 이 문서는 구현 당시 계획의 기록이다. publisher 선택 feature flag는
+> [ADR-026](../../adr/026-enforce-event-outbox-publisher.md)으로 대체되었다.
+
 > 작성일: 2026-05-21
 > 기준 브랜치: `origin/develop`
 > 목표 PR 수: 2개
@@ -177,5 +180,3 @@ PR title: `[Feat] 범용 이벤트 outbox 릴레이 도입`
 - audit event의 outbox 전환 여부 검토
 - Redis cache adapter 도입 시 `CacheStorePort` 구현체만 교체하고, 도메인 wrapper는 유지
 - 외부 broker 도입 시 outbox relay를 Redis Streams/Kafka/Debezium relay로 교체
-> 이 문서는 구현 당시 계획의 기록이다. publisher 선택 feature flag는
-> [ADR-026](../../adr/026-enforce-event-outbox-publisher.md)으로 대체되었다.

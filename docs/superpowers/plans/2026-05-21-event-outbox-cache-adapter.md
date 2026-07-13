@@ -1,5 +1,8 @@
 # Event Outbox 및 Cache Adapter 초기 검토 계획
 
+> 이 문서는 구현 당시 계획의 기록이다. Spring local publisher 결정은
+> [ADR-026](../../adr/026-enforce-event-outbox-publisher.md)으로 대체되었다.
+
 > 작성일: 2026-05-21
 > 상태: superseded
 
@@ -38,5 +41,3 @@ Caffeine은 adapter 구조가 아니라 Figma 서비스 내부 구현 세부사�
 3. `SpringDomainEventPublisher` local pub/sub의 fan-out 및 transaction commit/rollback 동작을 테스트로 고정한다.
 4. ADR-019에 맞춰 `event_outbox` 테이블, `OutboxDomainEventPublisher`, relay poller를 feature flag 뒤에 추가한다.
 5. 작업은 cache/local pubsub PR과 outbox PR 두 개로 나눈다.
-> 이 문서는 구현 당시 계획의 기록이다. Spring local publisher 결정은
-> [ADR-026](../../adr/026-enforce-event-outbox-publisher.md)으로 대체되었다.
