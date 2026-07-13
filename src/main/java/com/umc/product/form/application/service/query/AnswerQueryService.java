@@ -9,11 +9,13 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.query.GetAnswerUseCase;
 import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
+import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 
@@ -25,45 +27,35 @@ import lombok.RequiredArgsConstructor;
 public class AnswerQueryService implements GetAnswerUseCase {
 
     private final LoadAnswerPort loadAnswerPort;
+    // 익명 조회의 access-key 매칭용 (AnswerCommandService 와 동일 패턴)
+    private final SecureTokenGenerator secureTokenGenerator;
 
     @Override
     public Optional<AnswerInfo> findById(Long answerId) {
         return loadAnswerPort.findById(answerId)
+            .filter(a -> a.getFormResponse().getRespondentMemberId() != null)
             .map(this::toAnswerInfo);
     }
 
     @Override
     public AnswerInfo getById(Long answerId) {
         Answer answer = loadAnswerPort.findById(answerId)
+            .filter(a -> a.getFormResponse().getRespondentMemberId() != null)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.ANSWER_NOT_FOUND));
         return toAnswerInfo(answer);
     }
 
     @Override
     public List<AnswerInfo> listByFormResponseId(Long formResponseId) {
-        // 1. 답변 로드 (섹션/질문 orderNo 정렬)
         List<Answer> answers = loadAnswerPort.listByFormResponseId(formResponseId);
         if (answers.isEmpty()) {
             return List.of();
         }
-
-        // 2. 답변 ID 셋으로 AnswerChoice 벌크 로드 (N+1 회피)
-        Set<Long> answerIds = answers.stream()
-            .map(Answer::getId)
-            .collect(Collectors.toSet());
-        List<AnswerChoice> allChoices = loadAnswerPort.listChoicesByAnswerIdIn(answerIds);
-
-        // 3. answerId -> choices 그룹핑
-        Map<Long, List<AnswerChoice>> choicesByAnswer = allChoices.stream()
-            .collect(Collectors.groupingBy(c -> c.getAnswer().getId()));
-
-        // 4. DTO 조립 (answers 의 정렬 순서 보존)
-        return answers.stream()
-            .map(answer -> AnswerInfo.from(
-                answer,
-                choicesByAnswer.getOrDefault(answer.getId(), List.of())
-            ))
-            .toList();
+        // 익명 응답의 답변은 노출 안 함 (기명 전용). 같은 formResponseId 는 응답도 동일하므로 첫 원소로 판정.
+        if (answers.get(0).getFormResponse().getRespondentMemberId() == null) {
+            return List.of();
+        }
+        return buildAnswerInfos(answers);
     }
 
     @Override
@@ -72,7 +64,9 @@ public class AnswerQueryService implements GetAnswerUseCase {
             return Map.of();
         }
 
-        List<Answer> answers = loadAnswerPort.listByFormResponseIds(formResponseIds);
+        List<Answer> answers = loadAnswerPort.listByFormResponseIds(formResponseIds).stream()
+            .filter(a -> a.getFormResponse().getRespondentMemberId() != null)
+            .toList();
         if (answers.isEmpty()) {
             return Map.of();
         }
@@ -92,6 +86,77 @@ public class AnswerQueryService implements GetAnswerUseCase {
                     Collectors.toList()
                 )
             ));
+    }
+
+    @Override
+    public Optional<AnswerInfo> findByIdAsAnonymous(Long answerId, String responseAccessKey) {
+        if (responseAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        // 인증 실패 유출 방지 — 익명/hash 검증 실패 시 silently empty
+        return loadAnswerPort.findById(answerId)
+            .filter(answer -> isAuthorizedAnonymous(answer.getFormResponse(), responseAccessKey))
+            .map(this::toAnswerInfo);
+    }
+
+    @Override
+    public AnswerInfo getByIdAsAnonymous(Long answerId, String responseAccessKey) {
+        if (responseAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        // 익명 경계 유출 방지 — 답변 없음 / 기명 응답 / hash 불일치 모두 FORBIDDEN 으로 통일
+        Answer answer = loadAnswerPort.findById(answerId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        if (!isAuthorizedAnonymous(answer.getFormResponse(), responseAccessKey)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return toAnswerInfo(answer);
+    }
+
+    @Override
+    public List<AnswerInfo> listByFormResponseIdAsAnonymous(Long formResponseId, String responseAccessKey) {
+        if (responseAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        List<Answer> answers = loadAnswerPort.listByFormResponseId(formResponseId);
+        if (answers.isEmpty()) {
+            // 응답 존재 여부 유출 방지 — 빈 리스트로 통일
+            return List.of();
+        }
+        if (!isAuthorizedAnonymous(answers.get(0).getFormResponse(), responseAccessKey)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return buildAnswerInfos(answers);
+    }
+
+    /**
+     * FormResponse 가 익명이고 저장된 hash 가 rawKey 의 sha256 과 일치하는지 확인.
+     */
+    private boolean isAuthorizedAnonymous(FormResponse response, String rawAccessKey) {
+        if (response.getRespondentMemberId() != null) {
+            return false;
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        return hash.equals(response.getResponseAccessKeyHash());
+    }
+
+    /**
+     * 답변 목록에서 AnswerChoice 를 벌크 로드해 AnswerInfo 로 조립.
+     */
+    private List<AnswerInfo> buildAnswerInfos(List<Answer> answers) {
+        Set<Long> answerIds = answers.stream()
+            .map(Answer::getId)
+            .collect(Collectors.toSet());
+        List<AnswerChoice> allChoices = loadAnswerPort.listChoicesByAnswerIdIn(answerIds);
+        Map<Long, List<AnswerChoice>> choicesByAnswer = allChoices.stream()
+            .collect(Collectors.groupingBy(c -> c.getAnswer().getId()));
+
+        return answers.stream()
+            .map(answer -> AnswerInfo.from(
+                answer,
+                choicesByAnswer.getOrDefault(answer.getId(), List.of())
+            ))
+            .toList();
     }
 
     /**

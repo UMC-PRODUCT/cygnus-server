@@ -173,7 +173,7 @@ class FormResponseQueryServiceTest {
         FormResponse anonymousResponse = anonymousResponseWithId(300L);
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(anonymousResponse));
-        given(getAnswerUseCase.listByFormResponseId(300L)).willReturn(List.of());
+        given(getAnswerUseCase.listByFormResponseIdAsAnonymous(300L, rawKey)).willReturn(List.of());
 
         assertThat(sut.getResponseWithAnswersByAccessKey(rawKey)).isNotNull();
     }

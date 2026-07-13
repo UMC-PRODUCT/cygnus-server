@@ -117,7 +117,7 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
         return FormResponseWithAnswersInfo.from(
             response,
-            getAnswerUseCase.listByFormResponseId(response.getId())
+            getAnswerUseCase.listByFormResponseIdAsAnonymous(response.getId(), rawKey)
         );
     }
 
