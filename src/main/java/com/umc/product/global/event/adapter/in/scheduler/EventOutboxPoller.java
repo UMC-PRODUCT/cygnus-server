@@ -1,6 +1,5 @@
 package com.umc.product.global.event.adapter.in.scheduler;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -10,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "app.event-outbox.enabled", havingValue = "true")
 public class EventOutboxPoller {
 
     private final EventOutboxRelayService relayService;
