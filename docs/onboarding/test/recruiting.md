@@ -1,4 +1,4 @@
-# Recruiting v2 테스트 가이드
+# Recruiting 테스트 가이드
 
 ## 범위
 
@@ -40,14 +40,14 @@ DB 검증은 H2/in-memory 대체가 아니라 Testcontainers PostgreSQL을 사�
 |---|---|
 | `RecruitingSeasonRoundMigrationTest` | 시즌 quota와 Round 설정 migration, constraint |
 | `RecruitingRoundScheduleMigrationTest` | 서류·면접·결과 시각의 DB invariant |
-| `RecruitingFormApplicationMigrationTest` | 기존 form/application 제거와 v2 schema, unique/check constraint |
+| `RecruitingFormApplicationMigrationTest` | 기존 form/application 제거와 현재 schema, unique/check constraint |
 | `RecruitingEvaluationScheduleMigrationTest` | legacy score/assignment 제거, 평가·일정 schema |
 | `RecruitingApplicationDatabaseInvariantTest` | 지원서 email/member/track/application key invariant |
 | `RecruitingRegistrationDatabaseInvariantTest` | `FINAL_PASSED`와 registration status/accepted track 정합성 |
 | `RecruitingApplicationFormPolicyConcurrencyTest` | PostgreSQL에서 Form 게시와 section policy 추가의 동일 root `PESSIMISTIC_WRITE` lock 직렬화 |
 | `RecruitingPersistenceAdapterTest` 및 세부 adapter tests | 실제 JPA save/load/search, scope와 ordering |
 
-Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 테스트는 이전 migration 지점까지 적용한 뒤 v2 migration을 실행해 upgrade path를 검증한다.
+Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 테스트는 이전 migration 지점까지 적용한 뒤 Recruiting migration을 실행해 upgrade path를 검증한다.
 
 ### Quota concurrency
 

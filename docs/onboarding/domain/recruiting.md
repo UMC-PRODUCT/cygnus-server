@@ -1,4 +1,4 @@
-# Recruiting v2 Domain
+# Recruiting Domain
 
 ## 역할과 경계
 
@@ -11,6 +11,8 @@
 - Recruiting은 Form의 `formId`, `formSectionId`, `formResponseId`만 보관한다. 문항과 답변을 복제하지 않는다.
 - 다른 도메인의 aggregate는 JPA 관계로 참조하지 않는다. `gisuId`, `schoolId`, `memberId`, `formId`, `formSectionId`, `formResponseId`, `termId` 같은 ID와 공개 UseCase만 사용한다.
 - Recruiting 내부 child는 owning side의 `@ManyToOne(fetch = LAZY)`만 사용한다. 부모의 `@OneToMany` collection은 두지 않는다.
+
+엔티티 FK, 외부 도메인 ID 경계, 지원·평가·일정·등록의 실제 호출 순서는 [Recruiting Entity and Flow Diagrams](recruiting-diagrams.md)에 정리한다.
 
 ## ERD
 
@@ -373,14 +375,14 @@ GraphQL actor는 input의 `memberId`가 아니라 공용 `@CurrentMember MemberP
 
 ## Migration과 rollback 가정
 
-Recruiting v2 migration은 기존 데이터에 대해 무손실 in-place upgrade가 아니다.
+Recruiting migration은 기존 데이터에 대해 무손실 in-place upgrade가 아니다.
 
 - `V2026.07.12.00.00`은 기존 Challenger 단일 `track`을 `tracks` singleton array로 옮긴 뒤 기존 컬럼을 삭제한다.
-- `V2026.07.12.17.00`은 기존 recruiting application/form을 `TRUNCATE ... CASCADE`한 뒤 v2 shape로 바꾼다.
+- `V2026.07.12.17.00`은 기존 recruiting application/form을 `TRUNCATE ... CASCADE`한 뒤 현재 schema로 바꾼다.
 - `V2026.07.13.10.00`은 assignment/template/criterion/score 평가 테이블을 삭제하고 새 평가·일정 테이블을 만든다.
 - Flyway down migration은 제공하지 않는다. 운영 반영 전 DB snapshot과 백업을 확보하고 모집이 닫힌 maintenance window에서 적용한다.
 - rollback은 트래픽을 중단하고 pre-migration DB snapshot을 복원한 뒤 이전 application binary를 배포하는 방식이다. DB를 복원하지 않은 채 이전 binary만 재배포하면 안 된다.
-- 적용 후 문제가 발견됐지만 v2 데이터 보존이 필요하면 rollback SQL을 즉석 작성하지 않고 forward-fix migration을 추가한다.
+- 적용 후 문제가 발견됐지만 현재 Recruiting 데이터 보존이 필요하면 rollback SQL을 즉석 작성하지 않고 forward-fix migration을 추가한다.
 - migration version 중복, checksum, PostgreSQL constraint와 concurrent quota 동작은 [Recruiting 테스트 문서](../test/recruiting.md)의 검증 절차를 따른다.
 
 ## PII와 로그 정책
