@@ -1,7 +1,9 @@
 package com.umc.product.global.config;
 
 import java.util.List;
+import java.util.Optional;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
@@ -22,8 +24,10 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 public class OpenApiConfig {
 
+    private static final String DEFAULT_API_VERSION = "local";
+
     private final String accessToken = "Access Token";
-    private final BuildProperties buildProperties;
+    private final ObjectProvider<BuildProperties> buildPropertiesProvider;
 
     @Value("${server.port:8080}")
     private String serverPort;
@@ -39,7 +43,7 @@ public class OpenApiConfig {
     }
 
     private Info apiInfo() {
-        String version = buildProperties.getVersion();
+        String version = apiVersion();
 
         String description = """
             #### 국내 최대 규모 대학생 개발 연합 동아리, University MakeUs Challenge
@@ -68,6 +72,13 @@ public class OpenApiConfig {
             .title("UMC PRODUCT API")
             .version(version)
             .description(description);
+    }
+
+    private String apiVersion() {
+        return Optional.ofNullable(buildPropertiesProvider.getIfAvailable())
+            .map(BuildProperties::getVersion)
+            .filter(version -> !version.isBlank())
+            .orElse(DEFAULT_API_VERSION);
     }
 
     private List<Server> servers() {
