@@ -32,11 +32,13 @@ public class MemberSearchAccessScopeResolver {
         Set<Long> allowedSchoolIds = roles.stream()
             .filter(role -> grantsSchoolAccess(role.roleType()))
             .map(ChallengerRoleBasicInfo::organizationId)
+            .filter(this::isPositiveId)
             .collect(Collectors.toUnmodifiableSet());
 
         Set<Long> allowedGisuIds = getChallengerUseCase.getAllBasicByMemberIds(Set.of(memberId))
             .getOrDefault(memberId, List.of()).stream()
             .map(ChallengerBasicInfo::gisuId)
+            .filter(this::isPositiveId)
             .collect(Collectors.toUnmodifiableSet());
 
         if (allowedSchoolIds.isEmpty() && allowedGisuIds.isEmpty()) {
@@ -55,5 +57,9 @@ public class MemberSearchAccessScopeResolver {
     private boolean grantsSchoolAccess(ChallengerRoleType roleType) {
         return roleType == ChallengerRoleType.SCHOOL_PRESIDENT
             || roleType == ChallengerRoleType.SCHOOL_VICE_PRESIDENT;
+    }
+
+    private boolean isPositiveId(Long id) {
+        return id != null && id > 0;
     }
 }

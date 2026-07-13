@@ -139,6 +139,49 @@ class MemberSearchAccessScopeResolverTest {
     }
 
     @Test
+    @DisplayName("유효하지 않은 학교와 기수 ID는 권한 범위에서 제외한다")
+    void 유효하지_않은_학교와_기수_ID는_권한_범위에서_제외한다() {
+        // given
+        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+            role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, null),
+            role(ChallengerRoleType.SCHOOL_VICE_PRESIDENT, OrganizationType.SCHOOL, 0L),
+            role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 7L)
+        ));
+        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(MEMBER_ID))).willReturn(Map.of(
+            MEMBER_ID, List.of(challenger(10L, null), challenger(11L, -1L), challenger(12L, 3L))
+        ));
+
+        // when
+        MemberSearchAccessScope scope = resolver.resolve(MEMBER_ID);
+
+        // then
+        assertThat(scope.denied()).isFalse();
+        assertThat(scope.allowedSchoolIds()).containsExactly(7L);
+        assertThat(scope.allowedGisuIds()).containsExactly(3L);
+    }
+
+    @Test
+    @DisplayName("학교와 기수 ID가 모두 유효하지 않으면 검색 범위가 거부된다")
+    void 학교와_기수_ID가_모두_유효하지_않으면_거부된다() {
+        // given
+        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+            role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, null),
+            role(ChallengerRoleType.SCHOOL_VICE_PRESIDENT, OrganizationType.SCHOOL, 0L)
+        ));
+        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(MEMBER_ID))).willReturn(Map.of(
+            MEMBER_ID, List.of(challenger(10L, null), challenger(11L, -1L))
+        ));
+
+        // when
+        MemberSearchAccessScope scope = resolver.resolve(MEMBER_ID);
+
+        // then
+        assertThat(scope.denied()).isTrue();
+        assertThat(scope.allowedSchoolIds()).isEmpty();
+        assertThat(scope.allowedGisuIds()).isEmpty();
+    }
+
+    @Test
     @DisplayName("제한 범위는 입력 Set을 방어적으로 복사하고 수정 불가능하게 노출한다")
     void 제한_범위는_입력_set을_방어적으로_복사한다() {
         // given

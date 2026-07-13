@@ -49,6 +49,9 @@ public class GraphQlExecutionConfig {
         }
 
         Object size = pageMap.get("size");
+        if (size == null) {
+            return DEFAULT_SIZE;
+        }
         if (!(size instanceof Number number)) {
             return MAX_SIZE;
         }

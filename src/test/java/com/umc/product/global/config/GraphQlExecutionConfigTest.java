@@ -17,6 +17,7 @@ import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.Scalars;
 import graphql.execution.instrumentation.Instrumentation;
+import graphql.schema.GraphQLInputObjectType;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLSchema;
 
@@ -35,6 +36,20 @@ class GraphQlExecutionConfigTest {
         assertThat(result.getErrors()).isEmpty();
         Map<String, Object> data = result.getData();
         assertThat(data).isEqualTo(Map.of("memberSearch", Map.of("page", 0)));
+        assertThat(dataFetcherInvocations.get()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("page에서 size를 생략하면 기본 page.size 비용으로 실행된다")
+    void page에서_size를_생략하면_기본_page_size_비용으로_실행된다() {
+        AtomicInteger dataFetcherInvocations = new AtomicInteger();
+        ExecutionResult result = pageWithoutSizeDefaultGraphQl(dataFetcherInvocations, 22).execute("""
+            query {
+              memberSearch(input: { keyword: "kim" }, page: { page: 1 }) { page }
+            }
+            """);
+
+        assertThat(result.getErrors()).isEmpty();
         assertThat(dataFetcherInvocations.get()).isEqualTo(1);
     }
 
@@ -164,6 +179,42 @@ class GraphQlExecutionConfigTest {
                 .dataFetcher(environment -> {
                     dataFetcherInvocations.incrementAndGet();
                     return Map.of("page", 0);
+                }))
+            .build();
+        GraphQLSchema schema = GraphQLSchema.newSchema().query(queryType).build();
+
+        return GraphQL.newGraphQL(schema)
+            .instrumentation(complexityInstrumentation(maxComplexity))
+            .build();
+    }
+
+    private static GraphQL pageWithoutSizeDefaultGraphQl(
+        AtomicInteger dataFetcherInvocations,
+        int maxComplexity
+    ) {
+        GraphQLInputObjectType searchInputType = GraphQLInputObjectType.newInputObject()
+            .name("MemberSearchInput")
+            .field(field -> field.name("keyword").type(Scalars.GraphQLString))
+            .build();
+        GraphQLInputObjectType pageInputType = GraphQLInputObjectType.newInputObject()
+            .name("MemberPageInput")
+            .field(field -> field.name("page").type(Scalars.GraphQLInt))
+            .field(field -> field.name("size").type(Scalars.GraphQLInt))
+            .build();
+        GraphQLObjectType pageType = GraphQLObjectType.newObject()
+            .name("MemberPage")
+            .field(field -> field.name("page").type(Scalars.GraphQLInt))
+            .build();
+        GraphQLObjectType queryType = GraphQLObjectType.newObject()
+            .name("Query")
+            .field(field -> field
+                .name("memberSearch")
+                .type(pageType)
+                .argument(argument -> argument.name("input").type(searchInputType))
+                .argument(argument -> argument.name("page").type(pageInputType))
+                .dataFetcher(environment -> {
+                    dataFetcherInvocations.incrementAndGet();
+                    return Map.of("page", 1);
                 }))
             .build();
         GraphQLSchema schema = GraphQLSchema.newSchema().query(queryType).build();
