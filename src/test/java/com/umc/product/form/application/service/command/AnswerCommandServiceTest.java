@@ -16,8 +16,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
+import com.umc.product.form.application.port.in.command.dto.CreateAnonymousAnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousAnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousAnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnswerCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
@@ -59,9 +63,15 @@ class AnswerCommandServiceTest {
     SaveFormResponsePort saveFormResponsePort;
     @Mock
     GetFileUseCase getFileUseCase;
+    @Mock
+    SecureTokenGenerator secureTokenGenerator;
 
     @InjectMocks
     AnswerCommandService sut;
+
+    private static final String RAW_KEY = "raw-key";
+    private static final String KEY_HASH = "hash-value";
+    private static final String OTHER_HASH = "other-hash";
 
     // ============================================================
     //          createAnswer — 기명 owner 검증
@@ -253,6 +263,218 @@ class AnswerCommandServiceTest {
             .build());
 
         org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ANSWER_ID);
+    }
+
+    // ============================================================
+    //          createAnonymousAnswer — 익명 access key 검증
+    // ============================================================
+
+    @Test
+    @DisplayName("createAnonymousAnswer: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void createAnonymousAnswer_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.createAnonymousAnswer(CreateAnonymousAnswerCommand.builder()
+            .responseAccessKey(null)
+            .questionId(QUESTION_ID)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadFormResponsePort).should(never()).findDraftByAccessKeyHash(any());
+    }
+
+    @Test
+    @DisplayName("createAnonymousAnswer: hash 매칭 실패면 FORM_RESPONSE_FORBIDDEN")
+    void createAnonymousAnswer_hash_매칭_실패_FORBIDDEN() {
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(KEY_HASH)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.createAnonymousAnswer(CreateAnonymousAnswerCommand.builder()
+            .responseAccessKey(RAW_KEY)
+            .questionId(QUESTION_ID)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnonymousAnswer: 매칭된 draft 가 기명이면 FORM_RESPONSE_FORBIDDEN")
+    void createAnonymousAnswer_기명_draft_FORBIDDEN() {
+        FormResponse namedDraft = namedDraft(OWNER_MEMBER_ID);
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(KEY_HASH)).willReturn(Optional.of(namedDraft));
+
+        assertThatThrownBy(() -> sut.createAnonymousAnswer(CreateAnonymousAnswerCommand.builder()
+            .responseAccessKey(RAW_KEY)
+            .questionId(QUESTION_ID)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnonymousAnswer: 익명 draft 면 답변 저장한다")
+    void createAnonymousAnswer_익명_draft_저장() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Form form = anonymousDraft.getForm();
+        FormSection section = FormSection.create(form, "섹션", null, 1L);
+        Question question = Question.create("질문", QuestionType.SHORT_TEXT, false, 1L);
+        question.assignTo(section);
+        ReflectionTestUtils.setField(question, "id", QUESTION_ID);
+
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(KEY_HASH)).willReturn(Optional.of(anonymousDraft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+        given(saveAnswerPort.save(any(Answer.class))).willAnswer(inv -> {
+            Answer saved = inv.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", ANSWER_ID);
+            return saved;
+        });
+
+        Long result = sut.createAnonymousAnswer(CreateAnonymousAnswerCommand.builder()
+            .responseAccessKey(RAW_KEY)
+            .questionId(QUESTION_ID)
+            .textValue("답")
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ANSWER_ID);
+    }
+
+    // ============================================================
+    //          updateAnonymousAnswer — 익명 access key 검증
+    // ============================================================
+
+    @Test
+    @DisplayName("updateAnonymousAnswer: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void updateAnonymousAnswer_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.updateAnonymousAnswer(UpdateAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(null)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadAnswerPort).should(never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousAnswer: 답변의 draft 가 기명이면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnonymousAnswer_기명_draft_답변_FORBIDDEN() {
+        FormResponse namedDraft = namedDraft(OWNER_MEMBER_ID);
+        Answer answer = shortTextAnswer(namedDraft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+
+        assertThatThrownBy(() -> sut.updateAnonymousAnswer(UpdateAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousAnswer: Answer 없으면 FORM_RESPONSE_FORBIDDEN (익명 경계 유출 방지)")
+    void updateAnonymousAnswer_Answer_없으면_FORBIDDEN() {
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.updateAnonymousAnswer(UpdateAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("updateAnonymousAnswer: hash 불일치면 FORM_RESPONSE_FORBIDDEN")
+    void updateAnonymousAnswer_hash_불일치_FORBIDDEN() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Answer answer = shortTextAnswer(anonymousDraft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(OTHER_HASH);
+
+        assertThatThrownBy(() -> sut.updateAnonymousAnswer(UpdateAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .textValue("변경")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    // ============================================================
+    //          deleteAnonymousAnswer — 익명 access key 검증
+    // ============================================================
+
+    @Test
+    @DisplayName("deleteAnonymousAnswer: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
+    void deleteAnonymousAnswer_rawKey_null_예외() {
+        assertThatThrownBy(() -> sut.deleteAnonymousAnswer(DeleteAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+
+        then(loadAnswerPort).should(never()).findById(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousAnswer: hash 불일치면 FORM_RESPONSE_FORBIDDEN")
+    void deleteAnonymousAnswer_hash_불일치_FORBIDDEN() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Answer answer = shortTextAnswer(anonymousDraft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(OTHER_HASH);
+
+        assertThatThrownBy(() -> sut.deleteAnonymousAnswer(DeleteAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteByAnswerId(any());
+    }
+
+    @Test
+    @DisplayName("deleteAnonymousAnswer: hash 일치하는 익명 draft 답변이면 삭제한다")
+    void deleteAnonymousAnswer_hash_일치_삭제() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Answer answer = shortTextAnswer(anonymousDraft);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+
+        sut.deleteAnonymousAnswer(DeleteAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .build());
+
+        then(saveAnswerPort).should().deleteByAnswerId(ANSWER_ID);
     }
 
     private FormResponse namedDraft(Long memberId) {

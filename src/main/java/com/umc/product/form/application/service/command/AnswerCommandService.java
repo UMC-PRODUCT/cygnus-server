@@ -9,9 +9,13 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.command.ManageAnswerUseCase;
+import com.umc.product.form.application.port.in.command.dto.CreateAnonymousAnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousAnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousAnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnswerCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
@@ -44,6 +48,9 @@ public class AnswerCommandService implements ManageAnswerUseCase {
     private final SaveAnswerPort saveAnswerPort;
     private final SaveFormResponsePort saveFormResponsePort;
     private final GetFileUseCase getFileUseCase;
+    // authentication 도메인의 crypto util
+    // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
+    private final SecureTokenGenerator secureTokenGenerator;
 
     @Override
     public Long createAnswer(CreateAnswerCommand command) {
@@ -113,6 +120,74 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         saveFormResponsePort.save(draft);
     }
 
+    @Override
+    public Long createAnonymousAnswer(CreateAnonymousAnswerCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+        Question question = loadQuestionInForm(command.questionId(), draft.getForm().getId());
+
+        // 같은 질문에 대한 답변이 이미 있으면 예외
+        if (loadAnswerPort.existsByFormResponseIdAndQuestionId(draft.getId(), question.getId())) {
+            throw new FormDomainException(FormErrorCode.ANSWER_ALREADY_EXISTS);
+        }
+
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+
+        Answer answer = Answer.create(
+            draft, question, question.getType(),
+            command.textValue(),
+            toFileIdSet(command.fileIds())
+        );
+        Answer saved = saveAnswerPort.save(answer);
+
+        // 객관식이면 AnswerChoice도 같이 저장
+        List<AnswerChoice> choices = buildChoices(saved, question, command.selectedOptionIds());
+        if (!choices.isEmpty()) {
+            saveAnswerPort.saveAllChoices(choices);
+        }
+
+        draft.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(draft);
+
+        return saved.getId();
+    }
+
+    @Override
+    public void updateAnonymousAnswer(UpdateAnonymousAnswerCommand command) {
+        Answer existing = loadAnswerAndDraftAsAnonymous(command.answerId(), command.responseAccessKey());
+        FormResponse draft = existing.getFormResponse();
+        Question question = existing.getQuestion();
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+
+        // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
+        saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
+
+        // 2. Answer 의 textValue / fileIds 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
+        Set<String> requestedFileIds = command.fileIds() == null
+            ? null  // null = keep
+            : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
+        existing.update(command.textValue(), requestedFileIds);
+        saveAnswerPort.save(existing);
+
+        // 3. 새 AnswerChoice 저장 (객관식인 경우)
+        List<AnswerChoice> choices = buildChoices(existing, question, command.selectedOptionIds());
+        if (!choices.isEmpty()) {
+            saveAnswerPort.saveAllChoices(choices);
+        }
+
+        draft.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(draft);
+    }
+
+    @Override
+    public void deleteAnonymousAnswer(DeleteAnonymousAnswerCommand command) {
+        Answer existing = loadAnswerAndDraftAsAnonymous(command.answerId(), command.responseAccessKey());
+        FormResponse draft = existing.getFormResponse();
+
+        saveAnswerPort.deleteByAnswerId(existing.getId());
+        draft.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(draft);
+    }
+
     /**
      * 응답 ID로 DRAFT 응답 로드. 없으면 NOT_FOUND, DRAFT가 아니면 NOT_DRAFT 예외.
      */
@@ -160,6 +235,50 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         }
         if (draft.getRespondentMemberId() == null
             || !draft.getRespondentMemberId().equals(requesterMemberId)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return existing;
+    }
+
+    /**
+     * 익명 draft 응답 로드 + 검증 (익명 전용). {@code FormResponseCommandService.loadDraftAsAnonymous} 와 대칭.
+     * <p>
+     * rawKey null → {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     * hash 매칭 실패 / 기명 draft → {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
+     */
+    private FormResponse loadDraftAsAnonymous(String rawAccessKey) {
+        if (rawAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        if (draft.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return draft;
+    }
+
+    /**
+     * answerId 로 Answer 로드 + 그 FormResponse 가 익명 draft 인지 및 access key hash 매칭 검증 (익명 전용).
+     * <p>
+     * 익명 경계 유출 방지를 위해 {@code FormResponseCommandService.loadDraftAsAnonymous} 와 동일하게
+     * rawKey null 을 제외한 모든 실패 케이스는 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 로 통일한다
+     * (Answer 존재 여부 / DRAFT 여부 / 기명 여부 / hash 매칭 결과 어느 것도 응답 코드로 유출하지 않음).
+     */
+    private Answer loadAnswerAndDraftAsAnonymous(Long answerId, String rawAccessKey) {
+        if (rawAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        Answer existing = loadAnswerPort.findById(answerId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        FormResponse draft = existing.getFormResponse();
+        if (draft.getStatus() != FormResponseStatus.DRAFT
+            || draft.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        if (!hash.equals(draft.getResponseAccessKeyHash())) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
         return existing;
