@@ -72,7 +72,7 @@ ADR-018 본문에 "Phase 2는 `FcmOutbox` 패턴을 일반화한다"라고 적�
 │      WHERE status IN                     │
 │        ('PENDING', 'PROCESSING')         │
 │        AND next_attempt_at <= now()      │
-│      ORDER BY id                         │
+│      ORDER BY next_attempt_at, id        │
 │      FOR UPDATE SKIP LOCKED              │
 │      LIMIT N;                            │
 │    → status = 'PROCESSING'               │
@@ -82,13 +82,13 @@ ADR-018 본문에 "Phase 2는 `FcmOutbox` 패턴을 일반화한다"라고 적�
 │      → dispatch transaction 시작          │
 │      → 역직렬화 → ApplicationEventPublisher │
 │        .publishEvent(event)              │
+│      → status = 'PUBLISHED'             │
 │      → dispatch transaction commit       │
 │      → 기존 @TransactionalEventListener  │
 │        listener 가 받아 처리              │
-│      → 별도 status transaction에서        │
-│        성공: status = 'PUBLISHED'        │
-│        실패: attempts++, next_attempt_at │
-│              지수 백오프 적용              │
+│      → dispatch 실패 시 별도 transaction  │
+│        attempts++, next_attempt_at       │
+│        지수 백오프 적용                    │
 └──────────────────────────────────────────┘
 ```
 
@@ -109,7 +109,7 @@ ADR-018 본문에 "Phase 2는 `FcmOutbox` 패턴을 일반화한다"라고 적�
    동기 listener 또는 broker consumer로 별도 전환해야 한다.
 4. **트랜잭션 동작 변경**: 발행 시점이 "비즈니스 commit 직후"가 아닌 "비즈니스 commit과 동시에
    outbox INSERT 영속화 + poller 다음 주기에 처리"가 된다. 즉 발행 가시성에 **poller 주기만큼
-   지연**이 생긴다 (초기 설정 5초).
+   지연**이 생긴다 (현재 기본 설정 1초).
 5. **멱등성**: outbox row와 발행 이벤트는 `eventId(UUID)`로 1:1 대응된다. Phase 3 broker 도입
    시점에 consumer가 `eventId` 기반 dedup으로 exactly-once-effect를 달성할 수 있다.
 6. **단계적 적용**: SendVerificationEmailEvent부터 우선 적용 (가장 임팩트 큼). AuditLogEvent,
@@ -214,9 +214,10 @@ outbox 패턴의 본질은 "비즈니스 데이터와 같은 트랜잭션에서 
 
 - **이벤트 손실 방지**: 비즈니스 commit과 이벤트 영속화가 같은 트랜잭션이므로 JVM 비정상
   종료에도 이벤트는 outbox에 남아 재시작 후 처리된다.
-- **자동 재시도**: SMTP 일시 장애 등 일시적 실패가 자동 복구된다. `attempts` 컬럼과
-  지수 백오프 정책으로 영구 실패와 일시 실패가 자연스럽게 구분된다.
-- **At-least-once 전달 보장**: 분산 시스템에서 현실적인 최상의 보장이다.
+- **자동 재시도**: local Spring event bus dispatch 이전의 일시적 실패는 `attempts` 컬럼과
+  지수 백오프로 재시도된다. `AFTER_COMMIT` listener의 downstream side effect 실패는 재시도 범위 밖이다.
+- **At-least-once relay 시도**: outbox row를 local event bus에 전달하는 단계까지 재시도한다.
+  이메일·웹훅 등 downstream side effect의 end-to-end 전달 보장은 consumer별 별도 설계가 필요하다.
 - **멱등성 hooks**: `eventId(UUID)`가 영속화되므로 consumer가 dedup 가능. Phase 3에서
   exactly-once-effect 달성의 토대.
 - **점진적 broker 전환**: Phase 3에서 KafkaRelay가 outbox를 폴링하도록 어댑터만 추가하면 됨.
@@ -226,7 +227,7 @@ outbox 패턴의 본질은 "비즈니스 데이터와 같은 트랜잭션에서 
 
 ### Negative
 
-- **지연 추가**: 발행 시점이 "commit 직후 즉시"가 아닌 "다음 poller 주기"가 된다 (초기 5초).
+- **지연 추가**: 발행 시점이 "commit 직후 즉시"가 아닌 "다음 poller 주기"가 된다 (현재 기본 1초).
   대부분 use case는 영향 없지만, 즉시 발행이 필요한 use case가 있다면 별도 설계 필요.
 - **DB 테이블 hot path**: `event_outbox` INSERT/SELECT/UPDATE가 빈번해진다. Index 설계와
   cleanup 정책이 필수.
@@ -237,8 +238,10 @@ outbox 패턴의 본질은 "비즈니스 데이터와 같은 트랜잭션에서 
 
 ### Neutral / Trade-offs
 
-- **Exactly-once는 여전히 환상**: outbox는 at-least-once를 보장할 뿐이고, exactly-once는
-  consumer 측 멱등성으로만 흉내낼 수 있다. 분산 시스템의 근본 제약이다.
+- **Exactly-once는 여전히 환상**: relay와 consumer side effect 사이에는 원자적 transaction이 없으므로
+  중복과 유실 가능성이 남는다. DB side effect는 `(consumer, eventId)` unique inbox 기록과 실제 변경을
+  같은 transaction으로 묶고, 외부 API는 `eventId` 기반 idempotency key를 지원해야
+  exactly-once-effect에 가깝게 만들 수 있다.
 - **`@TransactionalEventListener(AFTER_COMMIT)`의 진화**: outbox 도입 후 listener의
   `AFTER_COMMIT` phase가 사실상 불필요해진다 (poller가 commit 이후의 상태에서만 row를 읽으니까).
   단순화 가능하지만 호환성 유지를 위해 즉시 제거하지 않는다.
@@ -299,8 +302,10 @@ CREATE TABLE event_outbox (
 -- 멱등성을 위한 UNIQUE: 같은 eventId가 두 번 들어오지 않음
 CREATE UNIQUE INDEX uix_event_outbox_event_id ON event_outbox(event_id);
 
--- 폴링 효율을 위한 index
-CREATE INDEX ix_event_outbox_pending ON event_outbox(status, next_attempt_at, id);
+-- 폴링 효율을 위한 partial index. PUBLISHED/FAILED 누적 row는 polling index에서 제외한다.
+CREATE INDEX idx_event_outbox_publishable
+    ON event_outbox(next_attempt_at, id)
+    WHERE status IN ('PENDING', 'PROCESSING');
 
 -- cleanup scheduler를 도입할 때 status/published_at 인덱스를 추가로 검토한다.
 ```
@@ -314,14 +319,18 @@ CREATE INDEX ix_event_outbox_pending ON event_outbox(status, next_attempt_at, id
 
 초기 도입은 `SKIP LOCKED`로 충분. 적체가 보이면 leader election 추가 검토.
 
-Relay는 다음 세 transaction을 분리한다.
+Relay는 claim transaction과 이벤트별 결과 transaction을 분리한다.
 
 1. **claim transaction**: publishable row를 조회하고 `PROCESSING` 상태와 lease deadline을 저장한 뒤 즉시 commit한다.
-2. **dispatch transaction**: `ApplicationEventPublisher.publishEvent(event)`를 호출한다. 기존
-   `@TransactionalEventListener(AFTER_COMMIT)` listener를 유지하기 위해 publish 자체는 transaction 안에서 수행한다.
-3. **status transaction**: dispatch 결과에 따라 `PUBLISHED`, `PENDING`, `FAILED` 상태를 별도로 저장한다.
+2. **dispatch transaction**: `ApplicationEventPublisher.publishEvent(event)` 호출과 `PUBLISHED` 상태 변경을
+   같은 transaction에서 수행한다. commit 이후 기존 `@TransactionalEventListener(AFTER_COMMIT)` listener가 실행된다.
+3. **failure transaction**: dispatch transaction이 실패하면 별도 transaction에서 `PENDING` 또는 `FAILED`와
+   failure metadata를 저장한다.
 
-이 구조는 row lock을 listener 실행 시간 동안 잡지 않도록 하고, dispatch transaction이 rollback-only가 되더라도 failure metadata가 별도 transaction에서 보존되도록 하기 위한 것이다. `PROCESSING` 상태의 `next_attempt_at`은 lease deadline으로 사용하며, lease가 만료된 row는 다시 claim 대상이 된다.
+이 구조는 row lock을 listener 실행 시간 동안 잡지 않도록 하고, dispatch transaction이 rollback-only가 되더라도
+failure metadata가 별도 transaction에서 보존되도록 하기 위한 것이다. `PROCESSING` 상태의 `next_attempt_at`은
+lease deadline으로 사용하며, lease가 만료된 row는 다시 claim 대상이 된다. 다만 `PUBLISHED` commit 이후 실행되는
+listener side effect의 성공은 이 상태에 반영되지 않는다.
 
 ### 직렬화 / 역직렬화
 
@@ -353,8 +362,8 @@ Relay는 다음 세 transaction을 분리한다.
 ```yaml
 app:
   event-outbox:
-    enabled: false        # 초기 false (SpringDomainEventPublisher 활성)
-    poll-interval-ms: 5000
+    enabled: true         # 기본 OutboxDomainEventPublisher 활성
+    poll-interval-ms: 1000
     batch-size: 100
     max-attempts: 5
     cleanup:
@@ -362,13 +371,12 @@ app:
       run-interval-minutes: 60
 ```
 
-`enabled=true` 전환 전 사전 단계:
+활성화 및 롤백 절차:
 
-1. DB 마이그레이션 적용 (테이블 생성). 어댑터 동작 미변경.
-2. 운영 환경에서 `enabled=false` 상태로 배포 → 회귀 없음 확인.
-3. 통합 테스트에서만 `enabled=true`로 동작 검증.
-4. 운영에서 `enabled=true` 전환. Prometheus 메트릭으로 PENDING 적체 감시.
-5. 회귀 시 즉시 `enabled=false` 롤백 가능.
+1. 애플리케이션 시작 전 Flyway가 Outbox 테이블과 polling index migration을 적용한다.
+2. 기본값 `enabled=true`로 `OutboxDomainEventPublisher`와 poller를 활성화한다.
+3. PENDING 적체, FAILED row, polling lag와 DB 부하를 감시한다.
+4. 회귀 시 `EVENT_OUTBOX_ENABLED=false`로 `SpringDomainEventPublisher`에 롤백한다.
 
 ### 모니터링 메트릭 (Prometheus)
 
