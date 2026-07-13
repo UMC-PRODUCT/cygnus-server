@@ -40,6 +40,7 @@ class ChatRoomQueryServiceTest {
     @DisplayName("방 멤버이면 채팅방 상세 정보와 참여자 목록을 조회한다")
     void getById_success() {
         ChatRoom room = room(1L);
+        room.pinMessage(100L);
         Instant createdAt = Instant.parse("2026-06-13T00:00:00Z");
         ReflectionTestUtils.setField(room, "createdAt", createdAt);
 
@@ -52,6 +53,7 @@ class ChatRoomQueryServiceTest {
 
         assertThat(result.roomId()).isEqualTo(1L);
         assertThat(result.createdAt()).isEqualTo(createdAt);
+        assertThat(result.pinnedMessageId()).isEqualTo(100L);
         assertThat(result.memberIds()).containsExactly(10L, 20L);
     }
 

@@ -9,6 +9,7 @@ import static org.mockito.BDDMockito.willThrow;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -22,8 +23,10 @@ import com.umc.product.chat.application.port.out.SaveChatRoomPort;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.ChatRoom;
 import com.umc.product.chat.domain.MessageContentType;
+import com.umc.product.chat.domain.event.ChatRoomPinnedMessageChangedEvent;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChatRoomCommandService")
@@ -37,6 +40,8 @@ class ChatRoomCommandServiceTest {
     LoadChatMessagePort loadChatMessagePort;
     @Mock
     SaveChatMemberPort saveChatMemberPort;
+    @Mock
+    DomainEventPublisher domainEventPublisher;
 
     @InjectMocks
     ChatRoomCommandService sut;
@@ -53,6 +58,12 @@ class ChatRoomCommandServiceTest {
 
         assertThat(room.getPinnedMessageId()).isEqualTo(100L);
         then(saveChatRoomPort).should().save(room);
+        ArgumentCaptor<ChatRoomPinnedMessageChangedEvent> eventCaptor =
+            ArgumentCaptor.forClass(ChatRoomPinnedMessageChangedEvent.class);
+        then(domainEventPublisher).should().publish(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().roomId()).isEqualTo(1L);
+        assertThat(eventCaptor.getValue().pinnedMessageId()).isEqualTo(100L);
+        assertThat(eventCaptor.getValue().eventType()).isEqualTo("chat.room.pinned-message.changed");
     }
 
     @Test
@@ -69,6 +80,7 @@ class ChatRoomCommandServiceTest {
             .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
 
         then(saveChatRoomPort).shouldHaveNoInteractions();
+        then(domainEventPublisher).shouldHaveNoInteractions();
     }
 
     @Test
@@ -82,6 +94,11 @@ class ChatRoomCommandServiceTest {
 
         assertThat(room.getPinnedMessageId()).isNull();
         then(saveChatRoomPort).should().save(room);
+        ArgumentCaptor<ChatRoomPinnedMessageChangedEvent> eventCaptor =
+            ArgumentCaptor.forClass(ChatRoomPinnedMessageChangedEvent.class);
+        then(domainEventPublisher).should().publish(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().roomId()).isEqualTo(1L);
+        assertThat(eventCaptor.getValue().pinnedMessageId()).isNull();
     }
 
     private ChatRoom room(Long id) {

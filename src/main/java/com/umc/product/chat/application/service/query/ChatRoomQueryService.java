@@ -35,7 +35,7 @@ public class ChatRoomQueryService implements GetChatRoomUseCase, CheckChatRoomAc
         List<Long> memberIds = loadChatMemberPort.listByRoomId(roomId).stream()
             .map(ChatMember::getMemberId)
             .toList();
-        return new ChatRoomInfo(chatRoom.getId(), chatRoom.getCreatedAt(), memberIds);
+        return new ChatRoomInfo(chatRoom.getId(), chatRoom.getCreatedAt(), chatRoom.getPinnedMessageId(), memberIds);
     }
 
     @Override

@@ -17,6 +17,8 @@ import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatRoomPort;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatRoom;
+import com.umc.product.chat.domain.event.ChatRoomPinnedMessageChangedEvent;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,12 +34,18 @@ public class ChatRoomCommandService implements
     private final LoadChatRoomPort loadChatRoomPort;
     private final LoadChatMessagePort loadChatMessagePort;
     private final SaveChatMemberPort saveChatMemberPort;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Override
     public ChatRoomInfo create(CreateChatRoomCommand command) {
         ChatRoom chatRoom = saveChatRoomPort.save(ChatRoom.create());
         saveChatMemberPort.save(ChatMember.of(chatRoom.getId(), command.creatorMemberId()));
-        return new ChatRoomInfo(chatRoom.getId(), chatRoom.getCreatedAt(), List.of(command.creatorMemberId()));
+        return new ChatRoomInfo(
+            chatRoom.getId(),
+            chatRoom.getCreatedAt(),
+            chatRoom.getPinnedMessageId(),
+            List.of(command.creatorMemberId())
+        );
     }
 
     @Override
@@ -52,6 +60,7 @@ public class ChatRoomCommandService implements
         loadChatMessagePort.getByIdAndRoomId(command.messageId(), command.roomId());
         chatRoom.pinMessage(command.messageId());
         saveChatRoomPort.save(chatRoom);
+        domainEventPublisher.publish(ChatRoomPinnedMessageChangedEvent.of(command.roomId(), command.messageId()));
     }
 
     @Override
@@ -59,5 +68,6 @@ public class ChatRoomCommandService implements
         ChatRoom chatRoom = loadChatRoomPort.getById(roomId);
         chatRoom.unpinMessage();
         saveChatRoomPort.save(chatRoom);
+        domainEventPublisher.publish(ChatRoomPinnedMessageChangedEvent.of(roomId, null));
     }
 }
