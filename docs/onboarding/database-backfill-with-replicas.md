@@ -322,16 +322,16 @@ Table이 비어 있거나 해당 기능이 비활성화돼 write가 발생하지
 
 ## Event Outbox 적용
 
-현재 Event Outbox는 `app.event-outbox.enabled=false`가 기본값이므로 poller와 Outbox publisher가 활성화되지 않고 `event_outbox` write도 발생하지 않는다.
+현재 Event Outbox는 `app.event-outbox.enabled=true`가 기본값이므로 `OutboxDomainEventPublisher`와 poller가 활성화된다. 회귀 시에는 `EVENT_OUTBOX_ENABLED=false`로 Spring local event publisher에 롤백할 수 있다.
 
-따라서 현재 polling index 변경에는 일반 transactional index DDL을 사용한다. 향후 Event Outbox를 활성화할 때는 다음 순서로 진행한다.
+Outbox가 활성화되기 전에는 write가 발생하지 않았으므로 polling index 변경에는 일반 transactional index DDL을 사용한다. 활성 배포는 다음 순서로 진행한다.
 
 1. Partial index migration을 먼저 배포한다.
 2. Physical replica의 migration replay 또는 logical subscriber의 별도 index 생성을 확인한다.
 3. 모든 replica가 따라잡고 DB 지표가 안정적인지 확인한다.
 4. 통합 환경에서 Outbox write와 polling을 검증한다.
-5. 운영 feature flag를 점진적으로 활성화한다.
-6. Pending 적체, polling lag, replica lag와 WAL 증가량을 함께 관측한다.
+5. 기본 활성화 상태로 애플리케이션을 시작한다.
+6. Pending 적체, FAILED row, polling lag, replica lag와 WAL 증가량을 함께 관측한다.
 
 빈 Outbox table에 index를 먼저 생성하면 별도 data backfill 없이 가장 안전하게 활성화를 시작할 수 있다.
 

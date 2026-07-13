@@ -362,7 +362,7 @@ listener side effect의 성공은 이 상태에 반영되지 않는다.
 ```yaml
 app:
   event-outbox:
-    enabled: false        # 초기 false (SpringDomainEventPublisher 활성)
+    enabled: true         # 기본 OutboxDomainEventPublisher 활성
     poll-interval-ms: 1000
     batch-size: 100
     max-attempts: 5
@@ -371,13 +371,12 @@ app:
       run-interval-minutes: 60
 ```
 
-`enabled=true` 전환 전 사전 단계:
+활성화 및 롤백 절차:
 
-1. DB 마이그레이션 적용 (테이블 생성). 어댑터 동작 미변경.
-2. 운영 환경에서 `enabled=false` 상태로 배포 → 회귀 없음 확인.
-3. 통합 테스트에서만 `enabled=true`로 동작 검증.
-4. 운영에서 `enabled=true` 전환. Prometheus 메트릭으로 PENDING 적체 감시.
-5. 회귀 시 즉시 `enabled=false` 롤백 가능.
+1. 애플리케이션 시작 전 Flyway가 Outbox 테이블과 polling index migration을 적용한다.
+2. 기본값 `enabled=true`로 `OutboxDomainEventPublisher`와 poller를 활성화한다.
+3. PENDING 적체, FAILED row, polling lag와 DB 부하를 감시한다.
+4. 회귀 시 `EVENT_OUTBOX_ENABLED=false`로 `SpringDomainEventPublisher`에 롤백한다.
 
 ### 모니터링 메트릭 (Prometheus)
 
