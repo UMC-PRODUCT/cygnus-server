@@ -11,4 +11,8 @@ public class OrganizationDomainException extends BusinessException {
     public OrganizationDomainException(OrganizationErrorCode errorCode, String message) {
         super(Domain.ORGANIZATION, errorCode, message);
     }
+
+    public OrganizationDomainException(OrganizationErrorCode errorCode, Throwable cause) {
+        super(Domain.ORGANIZATION, errorCode, cause);
+    }
 }

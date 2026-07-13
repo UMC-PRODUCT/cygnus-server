@@ -7,24 +7,21 @@ public record CreateUmcProductMemberCommand(
     Long memberId,
     String introduction,
     String profileImageId,
-    List<UmcProductFunctionalMembershipCommand> functionalMemberships,
-    List<UmcProductSquadParticipationCommand> squadParticipations
+    List<UmcProductActivityPeriodCommand> activityPeriods
 ) {
     public static CreateUmcProductMemberCommand of(
         Long requesterMemberId,
         Long memberId,
         String introduction,
         String profileImageId,
-        List<UmcProductFunctionalMembershipCommand> functionalMemberships,
-        List<UmcProductSquadParticipationCommand> squadParticipations
+        List<UmcProductActivityPeriodCommand> activityPeriods
     ) {
         return new CreateUmcProductMemberCommand(
             requesterMemberId,
             memberId,
             introduction,
             profileImageId,
-            functionalMemberships,
-            squadParticipations
+            activityPeriods
         );
     }
 }

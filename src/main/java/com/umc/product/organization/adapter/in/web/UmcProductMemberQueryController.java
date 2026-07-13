@@ -1,6 +1,9 @@
 package com.umc.product.organization.adapter.in.web;
 
+import java.time.LocalDate;
+
 import org.springframework.data.domain.Pageable;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,11 +16,13 @@ import com.umc.product.organization.adapter.in.web.dto.response.umcproduct.UmcPr
 import com.umc.product.organization.adapter.in.web.dto.response.umcproduct.UmcProductMemberResponse;
 import com.umc.product.organization.application.port.in.query.GetUmcProductMemberUseCase;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductMemberSearchCondition;
-import com.umc.product.organization.domain.enums.UmcProductFunctionalRole;
-import com.umc.product.organization.domain.enums.UmcProductFunctionalUnitType;
+import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
+import com.umc.product.organization.domain.enums.UmcProductPartRole;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -34,24 +39,29 @@ public class UmcProductMemberQueryController {
     @Operation(
         operationId = "UMC-PRODUCT-MEMBER-101",
         summary = "UMC PRODUCT 멤버 검색",
-        description = "기수, 기능 조직, 역할, 포지션, 스쿼드 조건으로 UMC PRODUCT 멤버를 페이지 조회합니다. 멤버 기본 정보, 기능 조직 소속, 스쿼드 참여 정보를 함께 반환합니다."
+        description = "Chapter, Part, Part 역할, Product Leadership, 포지션, Squad, 활동 기준일로 멤버를 페이지 조회합니다."
     )
     public UmcProductMemberPageResponse search(
-        @RequestParam(required = false) Long umcProductGenerationId,
-        @RequestParam(required = false) Long functionalUnitId,
-        @RequestParam(required = false) UmcProductFunctionalUnitType functionalUnitType,
-        @RequestParam(required = false) UmcProductFunctionalRole role,
+        @RequestParam(required = false) Long chapterId,
+        @RequestParam(required = false) Long partId,
+        @RequestParam(required = false) UmcProductPartRole partRole,
+        @RequestParam(required = false) UmcProductLeadershipRole leadershipRole,
         @RequestParam(required = false) UmcProductPosition position,
         @RequestParam(required = false) Long squadId,
+        @RequestParam(required = false)
+        @DateTimeFormat(pattern = "uuuu-MM-dd")
+        @Parameter(schema = @Schema(type = "string", format = "date", example = "2026-07-13"))
+        LocalDate activeOn,
         Pageable pageable
     ) {
         UmcProductMemberSearchCondition condition = UmcProductMemberSearchCondition.of(
-            umcProductGenerationId,
-            functionalUnitId,
-            functionalUnitType,
-            role,
+            chapterId,
+            partId,
+            partRole,
+            leadershipRole,
             position,
-            squadId
+            squadId,
+            activeOn
         );
         PageResponse<UmcProductMemberResponse> pageResponse = PageResponse.of(
             getUmcProductMemberUseCase.search(condition, pageable),
@@ -60,13 +70,13 @@ public class UmcProductMemberQueryController {
         return UmcProductMemberPageResponse.from(pageResponse);
     }
 
-    @GetMapping("/{umcProductMemberId}")
+    @GetMapping("/{memberId}")
     @Operation(
         operationId = "UMC-PRODUCT-MEMBER-102",
         summary = "UMC PRODUCT 멤버 상세 조회",
-        description = "UMC PRODUCT 멤버 ID로 단건 상세 정보를 조회합니다. 멤버 기본 정보, UMC PRODUCT 전용 프로필, 기능 조직 소속, 스쿼드 참여 정보를 반환합니다."
+        description = "멤버 기본 정보와 활동 기간, Part 소속, Product Leadership, Squad 참여 이력을 반환합니다."
     )
-    public UmcProductMemberResponse get(@PathVariable Long umcProductMemberId) {
-        return UmcProductMemberResponse.from(getUmcProductMemberUseCase.getById(umcProductMemberId));
+    public UmcProductMemberResponse get(@PathVariable Long memberId) {
+        return UmcProductMemberResponse.from(getUmcProductMemberUseCase.getById(memberId));
     }
 }

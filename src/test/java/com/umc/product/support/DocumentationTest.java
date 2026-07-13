@@ -1,5 +1,16 @@
 package com.umc.product.support;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
+import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.config.JacksonConfig;
@@ -19,24 +30,31 @@ import com.umc.product.organization.adapter.in.web.GisuCommandController;
 import com.umc.product.organization.adapter.in.web.GisuQueryController;
 import com.umc.product.organization.adapter.in.web.SchoolCommandController;
 import com.umc.product.organization.adapter.in.web.SchoolQueryController;
+import com.umc.product.organization.adapter.in.web.UmcProductChapterCommandController;
+import com.umc.product.organization.adapter.in.web.UmcProductChapterQueryController;
+import com.umc.product.organization.adapter.in.web.UmcProductMemberCommandController;
+import com.umc.product.organization.adapter.in.web.UmcProductMemberQueryController;
+import com.umc.product.organization.adapter.in.web.UmcProductOrganizationChartQueryController;
+import com.umc.product.organization.adapter.in.web.UmcProductPartCommandController;
+import com.umc.product.organization.adapter.in.web.UmcProductPartQueryController;
+import com.umc.product.organization.adapter.in.web.UmcProductSquadCommandController;
+import com.umc.product.organization.adapter.in.web.UmcProductSquadQueryController;
 import com.umc.product.organization.application.port.in.command.ManageChapterUseCase;
 import com.umc.product.organization.application.port.in.command.ManageGisuUseCase;
 import com.umc.product.organization.application.port.in.command.ManageSchoolUseCase;
+import com.umc.product.organization.application.port.in.command.ManageUmcProductChapterUseCase;
+import com.umc.product.organization.application.port.in.command.ManageUmcProductMemberUseCase;
+import com.umc.product.organization.application.port.in.command.ManageUmcProductPartUseCase;
+import com.umc.product.organization.application.port.in.command.ManageUmcProductSquadUseCase;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.GetUmcProductChapterUseCase;
+import com.umc.product.organization.application.port.in.query.GetUmcProductMemberUseCase;
+import com.umc.product.organization.application.port.in.query.GetUmcProductOrganizationChartUseCase;
+import com.umc.product.organization.application.port.in.query.GetUmcProductPartUseCase;
+import com.umc.product.organization.application.port.in.query.GetUmcProductSquadUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
-import org.junit.jupiter.api.BeforeEach;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
-import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = {
     SchoolCommandController.class,
@@ -45,6 +63,15 @@ import org.springframework.test.web.servlet.MockMvc;
     ChapterQueryController.class,
     GisuCommandController.class,
     GisuQueryController.class,
+    UmcProductChapterCommandController.class,
+    UmcProductChapterQueryController.class,
+    UmcProductPartCommandController.class,
+    UmcProductPartQueryController.class,
+    UmcProductMemberCommandController.class,
+    UmcProductMemberQueryController.class,
+    UmcProductSquadCommandController.class,
+    UmcProductSquadQueryController.class,
+    UmcProductOrganizationChartQueryController.class,
     NoticeCommandController.class,
     NoticeQueryController.class,
     NoticeQueryController.class,
@@ -94,6 +121,33 @@ public class DocumentationTest {
     protected GetGisuUseCase getGisuUseCase;
 
     @MockitoBean
+    protected ManageUmcProductChapterUseCase manageUmcProductChapterUseCase;
+
+    @MockitoBean
+    protected GetUmcProductChapterUseCase getUmcProductChapterUseCase;
+
+    @MockitoBean
+    protected ManageUmcProductPartUseCase manageUmcProductPartUseCase;
+
+    @MockitoBean
+    protected GetUmcProductPartUseCase getUmcProductPartUseCase;
+
+    @MockitoBean
+    protected ManageUmcProductMemberUseCase manageUmcProductMemberUseCase;
+
+    @MockitoBean
+    protected GetUmcProductMemberUseCase getUmcProductMemberUseCase;
+
+    @MockitoBean
+    protected ManageUmcProductSquadUseCase manageUmcProductSquadUseCase;
+
+    @MockitoBean
+    protected GetUmcProductSquadUseCase getUmcProductSquadUseCase;
+
+    @MockitoBean
+    protected GetUmcProductOrganizationChartUseCase getUmcProductOrganizationChartUseCase;
+
+    @MockitoBean
     protected GetFileUseCase getFileUseCase;
 
     @MockitoBean
@@ -107,7 +161,7 @@ public class DocumentationTest {
 
     @MockitoBean
     protected GetNoticeUseCase getNoticeUseCase;
-    
+
     @MockitoBean
     protected NoticeViewerInfoAssembler noticeViewerInfoAssembler;
 

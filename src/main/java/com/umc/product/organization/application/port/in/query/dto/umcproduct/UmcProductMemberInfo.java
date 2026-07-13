@@ -13,7 +13,9 @@ public record UmcProductMemberInfo(
     String introduction,
     String umcProductProfileImageId,
     String umcProductProfileImageUrl,
-    List<UmcProductFunctionalMembershipInfo> functionalMemberships,
+    List<UmcProductMemberActivityPeriodInfo> activityPeriods,
+    List<UmcProductPartMembershipInfo> partMemberships,
+    List<UmcProductLeadershipInfo> productLeaderships,
     List<UmcProductSquadParticipationInfo> squadParticipations
 ) {
 }
