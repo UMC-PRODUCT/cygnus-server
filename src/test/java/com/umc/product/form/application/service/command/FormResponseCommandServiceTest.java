@@ -203,10 +203,13 @@ class FormResponseCommandServiceTest {
     @DisplayName("draft 제출 scope가 있으면 전달된 required question만 필수 응답 검증한다")
     void draft_제출_scope가_있으면_전달된_required_question만_검증한다() {
         FormResponse draft = draftResponse();
-        Question commonRequiredQuestion = question(10L, true);
+        FormSection section = section(1L, 1L);
+        Question commonRequiredQuestion = questionInSection(10L, section, true);
+        Answer answered = answer(draft, commonRequiredQuestion);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
-        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, commonRequiredQuestion)));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(commonRequiredQuestion));
 
         sut.submitDraft(SubmitDraftFormResponseCommand.builder()
@@ -334,12 +337,15 @@ class FormResponseCommandServiceTest {
     void submitDraft_미답변_선택_질문에_null_answer_저장() {
         // given — Q10(필수, 답변됨) + Q20(선택, 미답변)
         FormResponse draft = draftResponse();
-        Question requiredAnswered = question(10L, QuestionType.SHORT_TEXT, true);
-        Question optionalUnanswered = question(20L, QuestionType.LONG_TEXT, false);
+        FormSection section = section(1L, 1L);
+        Question requiredAnswered = questionInSection(10L, QuestionType.SHORT_TEXT, true, section);
+        Question optionalUnanswered = questionInSection(20L, QuestionType.LONG_TEXT, false, section);
+        Answer answered = answer(draft, requiredAnswered);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
-        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, requiredAnswered)));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(requiredAnswered, optionalUnanswered));
         given(loadQuestionPort.listByIdIn(Set.of(20L)))
@@ -367,12 +373,15 @@ class FormResponseCommandServiceTest {
     void submitDraft_allowedQuestionIds_밖_질문에_null_answer_미생성() {
         // given — allowedQuestionIds = {Q10} (파트 필터링 결과), Q20은 범위 밖
         FormResponse draft = draftResponse();
-        Question q10 = question(10L, true);
-        Question q20 = question(20L, false);
+        FormSection section = section(1L, 1L);
+        Question q10 = questionInSection(10L, section, true);
+        Question q20 = questionInSection(20L, section, false);
+        Answer answered = answer(draft, q10);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
-        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, q10)));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
         // when
@@ -392,12 +401,18 @@ class FormResponseCommandServiceTest {
     void submitDraft_전체_답변_완료시_null_answer_미저장() {
         // given — Q10, Q20 모두 답변됨
         FormResponse draft = draftResponse();
-        Question q10 = question(10L, true);
-        Question q20 = question(20L, false);
+        FormSection section = section(1L, 1L);
+        Question q10 = questionInSection(10L, section, true);
+        Question q20 = questionInSection(20L, section, false);
+        Answer answered10 = answer(draft, q10);
+        Answer answered20 = answer(draft, q20);
+        ReflectionTestUtils.setField(answered10, "id", 1000L);
+        ReflectionTestUtils.setField(answered20, "id", 1001L);
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, q10), answer(draft, q20)));
+            .willReturn(List.of(answered10, answered20));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
         // when
@@ -542,6 +557,80 @@ class FormResponseCommandServiceTest {
             .build());
 
         then(saveFormResponsePort).should().save(draft);
+    }
+
+    @Test
+    @DisplayName("submitDraft: caller required 라도 조건부 이동으로 건너뛴 섹션의 질문은 검증하지 않는다")
+    void submitDraft_caller_required_건너뛴_섹션_질문은_검증_제외() {
+        // given — S1 → (O1 선택 시 S3으로 점프) → S3, S2는 건너뜀
+        FormSection s1 = section(1L, 1L);
+        FormSection s2 = section(2L, 2L);
+        FormSection s3 = section(3L, 3L);
+
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, s1);
+        Question qRequiredInSkipped = questionInSection(20L, QuestionType.SHORT_TEXT, true, s2);
+        Question qOptional = questionInSection(30L, QuestionType.SHORT_TEXT, false, s3);
+
+        QuestionOption o1 = QuestionOption.create("선택지", 1L, false, s3.getId());
+        ReflectionTestUtils.setField(o1, "id", 100L);
+        ReflectionTestUtils.setField(o1, "question", qRadio);
+
+        FormResponse draft = draftResponse();
+        Answer radioAnswer = answer(draft, qRadio);
+        ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(radioAnswer));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
+            var mockChoice = org.mockito.Mockito.mock(
+                com.umc.product.form.domain.AnswerChoice.class);
+            given(mockChoice.getAnswer()).willReturn(radioAnswer);
+            given(mockChoice.getQuestionOption()).willReturn(o1);
+            return List.of(mockChoice);
+        });
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(qRadio, qRequiredInSkipped, qOptional));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+            .willReturn(List.of(o1));
+
+        // when — caller 가 Q20(건너뛴 섹션 소속)을 required 로 넘겨도 건너뛴 섹션이므로 통과
+        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .allowedQuestionIds(Set.of(10L, 20L, 30L))
+            .requiredQuestionIds(Set.of(10L, 20L))
+            .build());
+
+        then(saveFormResponsePort).should().save(draft);
+    }
+
+    @Test
+    @DisplayName("submitDraft: 방문 경로의 caller required 질문 미답변이면 REQUIRED_QUESTION_NOT_ANSWERED")
+    void submitDraft_방문경로의_caller_required_미답변시_거부() {
+        // given — S1 → S2 (조건부 이동 없음, 전체 방문). caller required = {Q10, Q20}. Q20 미답변.
+        FormSection section = section(1L, 1L);
+        Question q10 = questionInSection(10L, section, true);
+        Question q20 = questionInSection(20L, section, false);
+
+        FormResponse draft = draftResponse();
+        Answer answered = answer(draft, q10);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .allowedQuestionIds(Set.of(10L, 20L))
+            .requiredQuestionIds(Set.of(10L, 20L))
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.REQUIRED_QUESTION_NOT_ANSWERED);
     }
 
     @Test

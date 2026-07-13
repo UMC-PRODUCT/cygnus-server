@@ -189,22 +189,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
         }
 
-        if (command.requiredQuestionIds() != null) {
-            validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
-        } else {
-            // 이미 메모리에 있는 savedAnswers 로 (answerId → questionId) 매핑 미리 만들어서
-            // AnswerChoice 순회 시 Answer 프록시 초기화(N+1) 회피.
-            Map<Long, Long> answerIdToQuestionId = savedAnswers.stream()
-                .collect(Collectors.toMap(Answer::getId, a -> a.getQuestion().getId()));
-            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIdToQuestionId.keySet()).stream()
-                .filter(c -> c.getQuestionOption() != null)
-                .collect(Collectors.toMap(
-                    c -> answerIdToQuestionId.get(c.getAnswer().getId()),
-                    c -> c.getQuestionOption().getId(),
-                    (a, b) -> a
-                ));
-            validateAllRequiredAnsweredOnPath(draft.getForm().getId(), answeredQuestionIds, selectedOptionByQuestion);
-        }
+        Map<Long, Long> selectedOptionByQuestion = loadSelectedOptionByQuestion(savedAnswers);
+        validateAllRequiredAnsweredOnPath(
+            draft.getForm().getId(),
+            answeredQuestionIds,
+            selectedOptionByQuestion,
+            command.requiredQuestionIds()
+        );
 
         saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
 
@@ -323,22 +314,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
         }
 
-        if (command.requiredQuestionIds() != null) {
-            validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
-        } else {
-            // 이미 메모리에 있는 savedAnswers 로 (answerId → questionId) 매핑 미리 만들어서
-            // AnswerChoice 순회 시 Answer 프록시 초기화(N+1) 회피.
-            Map<Long, Long> answerIdToQuestionId = savedAnswers.stream()
-                .collect(Collectors.toMap(Answer::getId, a -> a.getQuestion().getId()));
-            Map<Long, Long> selectedOptionByQuestion = loadAnswerPort.listChoicesByAnswerIdIn(answerIdToQuestionId.keySet()).stream()
-                .filter(c -> c.getQuestionOption() != null)
-                .collect(Collectors.toMap(
-                    c -> answerIdToQuestionId.get(c.getAnswer().getId()),
-                    c -> c.getQuestionOption().getId(),
-                    (a, b) -> a
-                ));
-            validateAllRequiredAnsweredOnPath(draft.getForm().getId(), answeredQuestionIds, selectedOptionByQuestion);
-        }
+        Map<Long, Long> selectedOptionByQuestion = loadSelectedOptionByQuestion(savedAnswers);
+        validateAllRequiredAnsweredOnPath(
+            draft.getForm().getId(),
+            answeredQuestionIds,
+            selectedOptionByQuestion,
+            command.requiredQuestionIds()
+        );
 
         saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
 
@@ -516,15 +498,57 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         Set<Long> answeredQuestionIds,
         Map<Long, Long> selectedOptionByQuestion
     ) {
+        validateAllRequiredAnsweredOnPath(formId, answeredQuestionIds, selectedOptionByQuestion, null);
+    }
+
+    /**
+     * 방문 경로와 caller 제공 required 를 통합해 검증한다.
+     * <p>
+     * {@code callerRequiredQuestionIds} 가 {@code null} 이면 폼 질문의 {@code isRequired} 를 사용하고,
+     * 제공되면 방문 경로 질문과의 교집합만 필수로 취급한다. 조건부 섹션 이동으로 건너뛴 질문은 caller 가 required 로 전달했더라도 검증에서 제외된다.
+     */
+    private void validateAllRequiredAnsweredOnPath(
+        Long formId,
+        Set<Long> answeredQuestionIds,
+        Map<Long, Long> selectedOptionByQuestion,
+        Set<Long> callerRequiredQuestionIds
+    ) {
         Set<Long> visitedSectionIds = resolveVisitedSectionIds(formId, selectedOptionByQuestion);
         List<Question> formQuestions = loadQuestionPort.listByFormId(formId);
         for (Question q : formQuestions) {
-            if (visitedSectionIds.contains(q.getFormSection().getId())
-                && Boolean.TRUE.equals(q.getIsRequired())
-                && !answeredQuestionIds.contains(q.getId())) {
+            if (!visitedSectionIds.contains(q.getFormSection().getId())) {
+                continue;
+            }
+            boolean required = callerRequiredQuestionIds != null
+                ? callerRequiredQuestionIds.contains(q.getId())
+                : Boolean.TRUE.equals(q.getIsRequired());
+            if (required && !answeredQuestionIds.contains(q.getId())) {
                 throw new FormDomainException(FormErrorCode.REQUIRED_QUESTION_NOT_ANSWERED);
             }
         }
+    }
+
+    /**
+     * savedAnswers 로부터 (questionId → selectedOptionId) 맵을 계산한다.
+     * <p>
+     * 방문 경로 계산용. 이미 메모리에 있는 savedAnswers 로 answerId → questionId 매핑을 미리 만들어
+     * AnswerChoice 순회 시 Answer 프록시 초기화로 인한 N+1 을 회피한다.
+     * RADIO/DROPDOWN 이 아닌 답변의 선택지는 방문 경로 계산에 사용되지 않지만,
+     * 이 헬퍼는 관심 없이 모든 선택지를 담아 리턴한다. 소비 측에서 필터링한다.
+     */
+    private Map<Long, Long> loadSelectedOptionByQuestion(List<Answer> savedAnswers) {
+        if (savedAnswers.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, Long> answerIdToQuestionId = savedAnswers.stream()
+            .collect(Collectors.toMap(Answer::getId, a -> a.getQuestion().getId()));
+        return loadAnswerPort.listChoicesByAnswerIdIn(answerIdToQuestionId.keySet()).stream()
+            .filter(c -> c.getQuestionOption() != null)
+            .collect(Collectors.toMap(
+                c -> answerIdToQuestionId.get(c.getAnswer().getId()),
+                c -> c.getQuestionOption().getId(),
+                (a, b) -> a
+            ));
     }
 
     /**
@@ -597,14 +621,6 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
                 AnswerCommand::questionId,
                 a -> a.selectedOptionIds().get(0)
             ));
-    }
-
-    private void validateRequiredAnswered(Set<Long> requiredQuestionIds, Set<Long> answeredQuestionIds) {
-        for (Long questionId : requiredQuestionIds) {
-            if (!answeredQuestionIds.contains(questionId)) {
-                throw new FormDomainException(FormErrorCode.REQUIRED_QUESTION_NOT_ANSWERED);
-            }
-        }
     }
 
     private void validateAnsweredQuestionsAllowed(Set<Long> allowedQuestionIds, Set<Long> answeredQuestionIds) {
