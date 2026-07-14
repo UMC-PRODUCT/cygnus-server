@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
@@ -54,6 +55,13 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     public List<ChallengerRoleInfo> findAllByMemberId(Long memberId) {
         return loadChallengerRolePort.findByMemberId(memberId).stream()
             .map(this::getChallengerRoleInfoFromEntity)
+            .toList();
+    }
+
+    @Override
+    public List<ChallengerRoleBasicInfo> findAllBasicByMemberId(Long memberId) {
+        return loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(ChallengerRoleBasicInfo::from)
             .toList();
     }
 

@@ -16,6 +16,7 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.challenger.domain.QChallenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.domain.Member;
 import com.umc.product.member.domain.QMember;
@@ -121,6 +122,48 @@ public class MemberQueryRepository {
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
+    public Page<Long> searchMemberIdsBy(
+        SearchMemberQuery query,
+        MemberSearchAccessScope scope,
+        Pageable pageable
+    ) {
+        if (scope.denied()) {
+            return Page.empty(pageable);
+        }
+        if (scope.unrestricted()) {
+            return searchMemberIdsBy(query, pageable);
+        }
+
+        QChallenger challenger = QChallenger.challenger;
+        QMember member = QMember.member;
+        BooleanBuilder condition = buildSearchCondition(query, challenger, member);
+        condition.and(buildAccessCondition(scope, challenger, member));
+
+        List<Tuple> rows = queryFactory
+            .select(member.id, member.schoolId, member.name)
+            .distinct()
+            .from(member)
+            .leftJoin(challenger).on(challenger.memberId.eq(member.id))
+            .where(condition)
+            .orderBy(member.schoolId.asc(), member.name.asc(), member.id.asc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+        List<Long> content = rows.stream()
+            .map(tuple -> tuple.get(member.id))
+            .toList();
+
+        Long total = queryFactory
+            .select(member.id.countDistinct())
+            .from(member)
+            .leftJoin(challenger).on(challenger.memberId.eq(member.id))
+            .where(condition)
+            .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
     // ========= PRIVATE ============
 
     // 필터링
@@ -134,6 +177,24 @@ public class MemberQueryRepository {
         builder.and(partEq(query.part(), challenger));
 
         return builder;
+    }
+
+    private BooleanExpression buildAccessCondition(
+        MemberSearchAccessScope scope,
+        QChallenger challenger,
+        QMember member
+    ) {
+        BooleanExpression schoolCondition = scope.allowedSchoolIds().isEmpty()
+            ? null
+            : member.schoolId.in(scope.allowedSchoolIds());
+        BooleanExpression gisuCondition = scope.allowedGisuIds().isEmpty()
+            ? null
+            : challenger.gisuId.in(scope.allowedGisuIds());
+
+        if (schoolCondition == null) {
+            return gisuCondition != null ? gisuCondition : member.id.isNull();
+        }
+        return gisuCondition == null ? schoolCondition : schoolCondition.or(gisuCondition);
     }
 
     // 검색 관련 조건

@@ -11,6 +11,30 @@ import org.junit.jupiter.api.Test;
 class RateLimitPolicyResolverTest {
 
     @Test
+    @DisplayName("기본 설정은 POST /graphql에 인증 사용자 기본 정책을 적용한다")
+    void resolve_graphql_authenticated_default_policy() {
+        RateLimitPolicyResolver resolver = new RateLimitPolicyResolver(ApiRateLimitProperties.defaults());
+
+        RateLimitPolicy policy = resolver.resolve("POST", "/graphql", "/graphql", true).orElseThrow();
+
+        assertThat(policy.name()).isEqualTo("authenticated-default");
+        assertThat(policy.requestsPerSecond()).isEqualTo(20);
+        assertThat(policy.requestsPerMinute()).isEqualTo(300);
+    }
+
+    @Test
+    @DisplayName("기본 설정은 POST /graphql에 익명 사용자 기본 정책을 적용한다")
+    void resolve_graphql_anonymous_default_policy() {
+        RateLimitPolicyResolver resolver = new RateLimitPolicyResolver(ApiRateLimitProperties.defaults());
+
+        RateLimitPolicy policy = resolver.resolve("POST", "/graphql", "/graphql", false).orElseThrow();
+
+        assertThat(policy.name()).isEqualTo("anonymous-default");
+        assertThat(policy.requestsPerSecond()).isEqualTo(5);
+        assertThat(policy.requestsPerMinute()).isEqualTo(60);
+    }
+
+    @Test
     @DisplayName("기본 설정은 활성화되어 있고 /api/** GET 요청에는 인증 사용자 기본 정책을 적용한다")
     void resolve_authenticated_default_policy() {
         RateLimitPolicyResolver resolver = new RateLimitPolicyResolver(ApiRateLimitProperties.defaults());
@@ -82,6 +106,7 @@ class RateLimitPolicyResolverTest {
         RateLimitPolicyResolver resolver = new RateLimitPolicyResolver(ApiRateLimitProperties.defaults());
 
         assertThat(resolver.resolve("OPTIONS", "/api/v1/projects", "/api/v1/projects", false)).isEmpty();
+        assertThat(resolver.resolve("OPTIONS", "/graphql", "/graphql", false)).isEmpty();
         assertThat(resolver.resolve("GET", "/docs/scalar.html", "/docs/scalar.html", false)).isEmpty();
         assertThat(resolver.resolve("GET", "/actuator/health", "/actuator/health", false)).isEmpty();
     }

@@ -17,6 +17,8 @@ public interface SearchMemberUseCase {
      */
     SearchMemberV2Result searchByV2(SearchMemberQuery query, Long requesterMemberId, Pageable pageable);
 
+    SearchMemberV2Result searchByV2ForGraphQl(SearchMemberQuery query, Long requesterMemberId, Pageable pageable);
+
     /**
      * v2 챌린저 검색 — 챌린저 단위 페이지네이션. 같은 회원의 여러 기수 챌린저 이력은
      * 각각 별도 row로 반환됩니다. v1 검색 응답 + challengerStatus + isAdminInActiveGisu 필드를 포함합니다.
