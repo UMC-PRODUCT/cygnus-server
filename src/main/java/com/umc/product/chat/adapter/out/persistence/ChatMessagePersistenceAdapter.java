@@ -1,7 +1,6 @@
 package com.umc.product.chat.adapter.out.persistence;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
@@ -53,11 +52,6 @@ public class ChatMessagePersistenceAdapter implements
     @Override
     public List<ChatMessage> listLatestPerRoom(List<Long> roomIds) {
         return chatMessageQueryRepository.listLatestPerRoom(roomIds);
-    }
-
-    @Override
-    public Optional<Long> findLatestMessageId(Long roomId) {
-        return chatMessageQueryRepository.findLatestMessageId(roomId);
     }
 
     @Override

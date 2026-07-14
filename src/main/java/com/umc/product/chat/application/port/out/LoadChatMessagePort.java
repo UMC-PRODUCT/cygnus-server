@@ -1,7 +1,6 @@
 package com.umc.product.chat.application.port.out;
 
 import java.util.List;
-import java.util.Optional;
 
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
 import com.umc.product.chat.domain.ChatMessage;
@@ -31,11 +30,6 @@ public interface LoadChatMessagePort {
      * 여러 방의 마지막(가장 최신) 메시지를 한 번에 조회한다. (채팅방 목록 미리보기용)
      */
     List<ChatMessage> listLatestPerRoom(List<Long> roomIds);
-
-    /**
-     * 방의 가장 최신 메시지 id를 조회한다. 메시지가 없으면 {@code Optional.empty()}. (서버 주도 읽음 처리용)
-     */
-    Optional<Long> findLatestMessageId(Long roomId);
 
     /**
      * 멤버 기준으로 여러 방의 안 읽은 메시지 수를 한 번에 조회한다. 안 읽은 메시지가 0개인 방은 결과에 포함되지 않을 수 있다.

@@ -43,7 +43,7 @@ public class ChatRoomCommandService implements
         return new ChatRoomInfo(
             chatRoom.getId(),
             chatRoom.getCreatedAt(),
-            chatRoom.getPinnedMessageId(),
+            null,
             List.of(command.creatorMemberId())
         );
     }

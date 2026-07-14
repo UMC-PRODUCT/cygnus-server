@@ -6,7 +6,7 @@ import java.util.List;
 public record ChatRoomInfo(
     Long roomId,
     Instant createdAt,
-    Long pinnedMessageId,
+    ChatMessageInfo pinnedMessage,
     List<Long> memberIds
 ) {
 }

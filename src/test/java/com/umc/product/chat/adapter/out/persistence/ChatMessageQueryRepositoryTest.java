@@ -99,25 +99,6 @@ class ChatMessageQueryRepositoryTest {
     }
 
     @Test
-    @DisplayName("findLatestMessageId: 방의 가장 최신 메시지 id를 반환한다")
-    void findLatestMessageId() {
-        persistText(roomId, OTHER, "1");
-        Long last = persistText(roomId, OTHER, "2");
-        flushAndClear();
-
-        assertThat(sut.findLatestMessageId(roomId)).contains(last);
-    }
-
-    @Test
-    @DisplayName("findLatestMessageId: 메시지가 없는 방이면 Optional.empty를 반환한다")
-    void findLatestMessageId_emptyRoom() {
-        Long emptyRoomId = em.persist(ChatRoom.create()).getId();
-        flushAndClear();
-
-        assertThat(sut.findLatestMessageId(emptyRoomId)).isEmpty();
-    }
-
-    @Test
     @DisplayName("replyToMessageId를 저장하고 조회할 수 있다")
     void replyToMessageId_persist() {
         Long originalMessageId = persistText(roomId, OTHER, "원본 메시지");
