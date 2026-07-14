@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.data.domain.Pageable;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.project.application.access.ScopeClause;
 import com.umc.product.project.domain.enums.PartQuotaStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 
@@ -36,6 +37,7 @@ public record SearchProjectQuery(
     PartQuotaStatus partQuotaStatus,
     List<ProjectStatus> statuses,
     List<ProjectStatus> includedOwnerStatuses,
+    List<ScopeClause> scopeClauses,
     Pageable pageable
 ) {
     public SearchProjectQuery {
@@ -45,11 +47,21 @@ public record SearchProjectQuery(
             throw new IllegalArgumentException("statuses must contain at least one ProjectStatus");
         }
         if (includedOwnerMemberId == null && includedOwnerStatuses != null && !includedOwnerStatuses.isEmpty()) {
-            throw new IllegalArgumentException("includedOwnerMemberId must not be null when includedOwnerStatuses exists");
+            throw new IllegalArgumentException(
+                "includedOwnerMemberId must not be null when includedOwnerStatuses exists");
         }
         if (includedOwnerMemberId != null && (includedOwnerStatuses == null || includedOwnerStatuses.isEmpty())) {
             throw new IllegalArgumentException("includedOwnerStatuses must contain at least one ProjectStatus");
         }
+        scopeClauses = scopeClauses == null
+            ? legacyScopeClauses(
+                gisuId,
+                chapterId,
+                productOwnerMemberId,
+                statuses,
+                includedOwnerMemberId,
+                includedOwnerStatuses)
+            : List.copyOf(scopeClauses);
     }
 
     /**
@@ -108,34 +120,65 @@ public record SearchProjectQuery(
 
     /** scope 적용 — 상태 필터만 교체. */
     public SearchProjectQuery withStatuses(Set<ProjectStatus> newStatuses) {
+        Set<ProjectStatus> effectiveStatuses = toSet(newStatuses);
         return copyBuilder()
-            .statuses(toList(newStatuses))
+            .statuses(new ArrayList<>(effectiveStatuses))
+            .scopeClauses(scopeClauses.stream()
+                .map(clause -> clause.withStatuses(effectiveStatuses))
+                .toList())
             .build();
     }
 
     /** scope 적용 — 지부 한정 + 상태 교체. */
     public SearchProjectQuery withChapterFilter(Long chapterId, Set<ProjectStatus> newStatuses) {
+        Set<ProjectStatus> effectiveStatuses = toSet(newStatuses);
         return copyBuilder()
             .chapterId(chapterId)
-            .statuses(toList(newStatuses))
+            .statuses(new ArrayList<>(effectiveStatuses))
+            .scopeClauses(List.of(ScopeClause.gisu(Set.of(gisuId), effectiveStatuses)
+                .andChapterIds(Set.of(chapterId))))
             .build();
     }
 
     /** scope 적용 — owner 한정 + 상태 교체. */
     public SearchProjectQuery withOwnerFilter(Long memberId, Set<ProjectStatus> newStatuses) {
+        Set<ProjectStatus> effectiveStatuses = toSet(newStatuses);
         return copyBuilder()
             .productOwnerMemberId(memberId)
-            .statuses(toList(newStatuses))
+            .statuses(new ArrayList<>(effectiveStatuses))
+            .scopeClauses(List.of(ScopeClause.gisu(Set.of(gisuId), effectiveStatuses)
+                .andOwnerMemberIds(Set.of(memberId))))
             .build();
     }
 
     /** scope 적용 — 기존 scope 조건에 본인 PO 프로젝트를 OR 로 추가 포함. */
     public SearchProjectQuery withIncludedOwner(Long memberId, Set<ProjectStatus> ownerStatuses) {
         Objects.requireNonNull(memberId, "memberId must not be null");
+        Set<ProjectStatus> effectiveOwnerStatuses = toRequiredSet(ownerStatuses);
+        List<ScopeClause> clauses = new ArrayList<>(scopeClauses);
+        clauses.add(ScopeClause.owner(Set.of(memberId), effectiveOwnerStatuses));
         return copyBuilder()
             .includedOwnerMemberId(memberId)
-            .includedOwnerStatuses(toRequiredList(ownerStatuses))
+            .includedOwnerStatuses(new ArrayList<>(effectiveOwnerStatuses))
+            .scopeClauses(clauses)
             .build();
+    }
+
+    public SearchProjectQuery withScopeClauses(List<ScopeClause> clauses) {
+        return copyBuilder()
+            .scopeClauses(constrainToRequestedChapter(clauses, chapterId))
+            .build();
+    }
+
+    private static List<ScopeClause> constrainToRequestedChapter(List<ScopeClause> clauses, Long chapterId) {
+        List<ScopeClause> immutableClauses = List.copyOf(clauses);
+        if (chapterId == null) {
+            return immutableClauses;
+        }
+        return immutableClauses.stream()
+            .filter(clause -> clause.chapterIds().map(ids -> ids.contains(chapterId)).orElse(true))
+            .map(clause -> clause.andChapterIds(Set.of(chapterId)))
+            .toList();
     }
 
     private SearchProjectQueryBuilder copyBuilder() {
@@ -150,20 +193,48 @@ public record SearchProjectQuery(
             .partQuotaStatus(partQuotaStatus)
             .statuses(statuses)
             .includedOwnerStatuses(includedOwnerStatuses)
+            .scopeClauses(scopeClauses)
             .pageable(pageable);
     }
 
     private static List<ProjectStatus> toList(Set<ProjectStatus> set) {
-        if (set == null || set.isEmpty()) {
-            return List.of(ProjectStatus.IN_PROGRESS);
-        }
-        return new ArrayList<>(set);
+        return new ArrayList<>(toSet(set));
     }
 
-    private static List<ProjectStatus> toRequiredList(Set<ProjectStatus> set) {
+    private static Set<ProjectStatus> toSet(Set<ProjectStatus> set) {
+        return set == null || set.isEmpty()
+            ? Set.of(ProjectStatus.IN_PROGRESS)
+            : Set.copyOf(set);
+    }
+
+    private static Set<ProjectStatus> toRequiredSet(Set<ProjectStatus> set) {
         if (set == null || set.isEmpty()) {
             throw new IllegalArgumentException("ownerStatuses must contain at least one ProjectStatus");
         }
-        return new ArrayList<>(set);
+        return Set.copyOf(set);
+    }
+
+    private static List<ScopeClause> legacyScopeClauses(
+        Long gisuId,
+        Long chapterId,
+        Long productOwnerMemberId,
+        List<ProjectStatus> statuses,
+        Long includedOwnerMemberId,
+        List<ProjectStatus> includedOwnerStatuses
+    ) {
+        ScopeClause base = ScopeClause.gisu(Set.of(gisuId), Set.copyOf(statuses));
+        if (chapterId != null) {
+            base = base.andChapterIds(Set.of(chapterId));
+        }
+        if (productOwnerMemberId != null) {
+            base = base.andOwnerMemberIds(Set.of(productOwnerMemberId));
+        }
+
+        List<ScopeClause> clauses = new ArrayList<>();
+        clauses.add(base);
+        if (includedOwnerMemberId != null) {
+            clauses.add(ScopeClause.owner(Set.of(includedOwnerMemberId), Set.copyOf(includedOwnerStatuses)));
+        }
+        return List.copyOf(clauses);
     }
 }

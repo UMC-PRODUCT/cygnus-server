@@ -1,7 +1,7 @@
 package com.umc.product.project.adapter.in.scheduler;
 
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.BDDMockito.willThrow;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,6 +11,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.project.application.port.in.command.AutoDecideProjectMatchingRoundUseCase;
+import com.umc.product.project.application.port.in.command.AutoDecisionActor;
 
 @ExtendWith(MockitoExtension.class)
 class MatchingRoundDeadlineHandlerTest {
@@ -25,15 +26,16 @@ class MatchingRoundDeadlineHandlerTest {
     MatchingRoundDeadlineHandler sut;
 
     @Test
-    void handle은_autoDecide를_null_executor로_호출한다() {
+    void handleCallsAutoDecideWithSchedulerActor() {
         sut.handle(42L);
 
-        then(autoDecideUseCase).should().autoDecide(42L, null);
+        then(autoDecideUseCase).should().autoDecide(42L, AutoDecisionActor.matchingRoundScheduler());
     }
 
     @Test
-    void autoDecide_예외는_swallow되어_상위로_전파되지_않는다() {
-        willThrow(new RuntimeException("boom")).given(autoDecideUseCase).autoDecide(42L, null);
+    void autoDecideFailureIsNotPropagated() {
+        given(autoDecideUseCase.autoDecide(42L, AutoDecisionActor.matchingRoundScheduler()))
+            .willThrow(new RuntimeException("boom"));
 
         sut.handle(42L);
         // 예외 미전파 — 호출이 정상 종료

@@ -15,6 +15,8 @@ import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.project.adapter.in.web.dto.request.UpsertApplicationFormRequest;
 import com.umc.product.project.adapter.in.web.dto.response.GetApplicationFormResponse;
 import com.umc.product.project.adapter.in.web.dto.response.UpsertApplicationFormResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.command.UpsertProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
@@ -34,6 +36,7 @@ public class ProjectApplicationFormController {
     private final GetProjectApplicationFormUseCase getProjectApplicationFormUseCase;
 
     @PutMapping("/{projectId}/application-form")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_FORM_UPDATE)
     @Operation(
         operationId = "PROJECT-106",
         summary = "지원 폼 저장",
@@ -43,6 +46,7 @@ public class ProjectApplicationFormController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project-form:update",
         message = "지원 폼을 저장할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public UpsertApplicationFormResponse upsert(
@@ -56,6 +60,7 @@ public class ProjectApplicationFormController {
     }
 
     @GetMapping("/{projectId}/application-form")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_FORM_READ)
     @Operation(
         operationId = "PROJECT-106-GET",
         summary = "지원 폼 조회",

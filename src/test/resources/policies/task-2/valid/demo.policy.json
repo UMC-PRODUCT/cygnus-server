@@ -1,0 +1,30 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "test-1.0",
+  "namespace": "test",
+  "policyVersion": "1.0.0",
+  "moduleId": "demo",
+  "statements": [
+    {
+      "id": "allow-active",
+      "actions": [
+        "project:read"
+      ],
+      "effect": "ALLOW",
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "subject.active"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

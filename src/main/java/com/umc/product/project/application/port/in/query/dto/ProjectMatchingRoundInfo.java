@@ -1,9 +1,11 @@
 package com.umc.product.project.application.port.in.query.dto;
 
+import java.time.Instant;
+
 import com.umc.product.project.domain.ProjectMatchingRound;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
-import java.time.Instant;
+
 import lombok.Builder;
 
 @Builder
@@ -13,6 +15,7 @@ public record ProjectMatchingRoundInfo(
     String description,
     MatchingType type,
     MatchingPhase phase,
+    Long gisuId,
     Long chapterId,
     Instant startsAt,
     Instant endsAt,
@@ -29,6 +32,7 @@ public record ProjectMatchingRoundInfo(
             .description(matchingRound.getDescription())
             .type(matchingRound.getType())
             .phase(matchingRound.getPhase())
+            .gisuId(matchingRound.getGisuId())
             .chapterId(matchingRound.getChapterId())
             .startsAt(matchingRound.getStartsAt())
             .endsAt(matchingRound.getEndsAt())

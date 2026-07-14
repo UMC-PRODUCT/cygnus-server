@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "test-1.0",
+  "namespace": "test",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "moduleId": "project-resource",
+  "statements": [
+    {
+      "id": "allow-active",
+      "actions": [
+        "project:list"
+      ],
+      "effect": "ALLOW",
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "operands": [
+          {
+            "type": "ATTRIBUTE",
+            "name": "subject.active"
+          },
+          {
+            "type": "BOOLEAN",
+            "value": true
+          }
+        ]
+      },
+      "outcomes": []
+    }
+  ]
+}

@@ -2,11 +2,13 @@ package com.umc.product.project.adapter.in.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 import java.time.Instant;
 import java.util.List;
@@ -40,6 +42,7 @@ import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -106,6 +109,8 @@ class ProjectGraphQlControllerTest {
     @Test
     @DisplayName("project 단건 조회는 PROJECT READ 권한을 먼저 검사한다")
     void project_단건_조회는_PROJECT_READ_권한을_먼저_검사한다() {
+        SubjectAttributes subject = subject();
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
         given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfo());
 
         graphQlTester.document("""
@@ -123,16 +128,26 @@ class ProjectGraphQlControllerTest {
 
         InOrder inOrder = inOrder(checkPermissionUseCase, getProjectUseCase);
         inOrder.verify(checkPermissionUseCase)
-            .checkOrThrow(REQUESTER_ID, projectReadPermission(PROJECT_ID));
+            .checkOrThrow(
+                subject,
+                projectReadPermission(PROJECT_ID),
+                ProjectPolicyAction.PROJECT_READ.id()
+            );
         inOrder.verify(getProjectUseCase).getById(PROJECT_ID);
     }
 
     @Test
     @DisplayName("project 권한이 거부되면 프로젝트 usecase를 호출하지 않는다")
     void project_권한이_거부되면_프로젝트_usecase를_호출하지_않는다() {
+        SubjectAttributes subject = subject();
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
         willThrow(new AccessDeniedException("프로젝트를 볼 권한이 없어요."))
             .given(checkPermissionUseCase)
-            .checkOrThrow(REQUESTER_ID, projectReadPermission(PROJECT_ID));
+            .checkOrThrow(
+                subject,
+                projectReadPermission(PROJECT_ID),
+                ProjectPolicyAction.PROJECT_READ.id()
+            );
 
         graphQlTester.document("""
                 query {
@@ -171,7 +186,11 @@ class ProjectGraphQlControllerTest {
         SubjectAttributes subject = subject();
         given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfo());
         given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
-        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(true);
+        given(checkPermissionUseCase.check(
+            subject,
+            projectReadPermission(PROJECT_ID),
+            ProjectPolicyAction.PROJECT_MEMBER_LIST.id()
+        )).willReturn(true);
         given(getProjectMemberUseCase.listByProjectIds(List.of(PROJECT_ID))).willReturn(Map.of(
             PROJECT_ID,
             List.of(projectMemberInfo(APPLICATION_ID))
@@ -196,7 +215,11 @@ class ProjectGraphQlControllerTest {
             .path("project.members[0].leader").entity(Boolean.class).isEqualTo(false);
 
         then(checkPermissionUseCase).should().loadSubject(REQUESTER_ID);
-        then(checkPermissionUseCase).should().check(subject, projectReadPermission(PROJECT_ID));
+        then(checkPermissionUseCase).should().check(
+            subject,
+            projectReadPermission(PROJECT_ID),
+            ProjectPolicyAction.PROJECT_MEMBER_LIST.id()
+        );
         then(getProjectMemberUseCase).should().listByProjectIds(List.of(PROJECT_ID));
         then(getProjectApplicationFormUseCase).shouldHaveNoInteractions();
     }
@@ -207,8 +230,12 @@ class ProjectGraphQlControllerTest {
         SubjectAttributes subject = subject();
         given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfo());
         given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
-        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(true);
-        given(getProjectApplicationFormUseCase.findAllByProjectIds(List.of(PROJECT_ID), REQUESTER_ID))
+        given(checkPermissionUseCase.check(
+            subject,
+            projectReadPermission(PROJECT_ID),
+            ProjectPolicyAction.PROJECT_READ.id()
+        )).willReturn(true);
+        given(getProjectApplicationFormUseCase.findAllByProjectIds(List.of(PROJECT_ID), subject))
             .willReturn(Map.of(PROJECT_ID, applicationFormInfo()));
 
         graphQlTester.document("""
@@ -246,8 +273,12 @@ class ProjectGraphQlControllerTest {
             .path("project.applicationForm.sections[0].questions[0].options[0].other").entity(Boolean.class)
             .isEqualTo(false);
 
-        then(checkPermissionUseCase).should().check(subject, projectReadPermission(PROJECT_ID));
-        then(getProjectApplicationFormUseCase).should().findAllByProjectIds(List.of(PROJECT_ID), REQUESTER_ID);
+        then(checkPermissionUseCase).should().check(
+            subject,
+            projectReadPermission(PROJECT_ID),
+            ProjectPolicyAction.PROJECT_READ.id()
+        );
+        then(getProjectApplicationFormUseCase).should().findAllByProjectIds(List.of(PROJECT_ID), subject);
     }
 
     @Test
@@ -256,8 +287,16 @@ class ProjectGraphQlControllerTest {
         SubjectAttributes subject = subject();
         given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfo());
         given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
-        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(true);
-        given(checkPermissionUseCase.check(subject, applicationReadPermission(APPLICATION_ID))).willReturn(false);
+        given(checkPermissionUseCase.check(
+            subject,
+            projectReadPermission(PROJECT_ID),
+            ProjectPolicyAction.PROJECT_MEMBER_LIST.id()
+        )).willReturn(true);
+        given(checkPermissionUseCase.check(
+            subject,
+            applicationReadPermission(APPLICATION_ID),
+            ProjectPolicyAction.APPLICATION_READ.id()
+        )).willReturn(false);
         given(getProjectMemberUseCase.listByProjectIds(List.of(PROJECT_ID))).willReturn(Map.of(
             PROJECT_ID,
             List.of(projectMemberInfo(APPLICATION_ID))
@@ -277,7 +316,7 @@ class ProjectGraphQlControllerTest {
             .execute()
             .path("project.members[0].application").valueIsNull();
 
-        then(getProjectApplicationDetailUseCase).should(never()).batchGetDetails(any());
+        then(getProjectApplicationDetailUseCase).should(never()).batchGetDetails(any(), any());
     }
 
     @Test
@@ -286,13 +325,21 @@ class ProjectGraphQlControllerTest {
         SubjectAttributes subject = subject();
         given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfo());
         given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
-        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(true);
-        given(checkPermissionUseCase.check(subject, applicationReadPermission(APPLICATION_ID))).willReturn(true);
+        given(checkPermissionUseCase.check(
+            subject,
+            projectReadPermission(PROJECT_ID),
+            ProjectPolicyAction.PROJECT_MEMBER_LIST.id()
+        )).willReturn(true);
+        given(checkPermissionUseCase.check(
+            subject,
+            applicationReadPermission(APPLICATION_ID),
+            ProjectPolicyAction.APPLICATION_READ.id()
+        )).willReturn(true);
         given(getProjectMemberUseCase.listByProjectIds(List.of(PROJECT_ID))).willReturn(Map.of(
             PROJECT_ID,
             List.of(projectMemberInfo(APPLICATION_ID))
         ));
-        given(getProjectApplicationDetailUseCase.batchGetDetails(any()))
+        given(getProjectApplicationDetailUseCase.batchGetDetails(any(), same(subject)))
             .willReturn(Map.of(APPLICATION_ID, applicationDetailInfo()));
 
         graphQlTester.document("""
@@ -319,7 +366,9 @@ class ProjectGraphQlControllerTest {
             .path("project.members[0].application.applicant.memberId").entity(String.class).isEqualTo("200")
             .path("project.members[0].application.applicant.part").entity(String.class).isEqualTo("WEB");
 
-        then(getProjectApplicationDetailUseCase).should().batchGetDetails(any());
+        then(getProjectApplicationDetailUseCase).should().batchGetDetails(any(), same(subject));
+        then(getProjectApplicationDetailUseCase).should(never()).batchGetDetails(any());
+        then(checkPermissionUseCase).should(times(1)).loadSubject(REQUESTER_ID);
     }
 
     private void assertCommonError(

@@ -25,7 +25,7 @@ import jakarta.persistence.EntityManager;
  * <ul>
  *   <li>{@code @SpringBootTest} - 전체 ApplicationContext 부트업 (webEnvironment=MOCK)</li>
  *   <li>{@code @ActiveProfiles("test")} - 테스트 프로필 명시 활성화</li>
- *   <li>{@code @Import(TestContainersConfig.class)} - PostgreSQL/PostGIS Testcontainer 기동 및 PostGIS 확장 설치</li>
+ *   <li>{@code @Import} - PostgreSQL/PostGIS Testcontainer와 test profile 전용 scheduler Port 구성</li>
  *   <li>{@code @DatabaseIsolation} - 각 테스트 종료 후 모든 테이블 TRUNCATE 로 격리 (FK CASCADE, IDENTITY RESTART)</li>
  *   <li>{@code @AutoConfigureMockMvc} - 웹 통합 테스트를 위한 {@link MockMvc} 자동 구성</li>
  *   <li>외부 시스템 의존(메일, JWT, FCM, S3 Storage)은 {@link MockitoBean} 으로 대체</li>
@@ -84,7 +84,7 @@ import jakarta.persistence.EntityManager;
  */
 @SpringBootTest
 @ActiveProfiles("test")
-@Import(TestContainersConfig.class)
+@Import({TestContainersConfig.class, TestMatchingDeadlineSchedulerConfig.class})
 @Testcontainers
 @DatabaseIsolation
 @AutoConfigureMockMvc

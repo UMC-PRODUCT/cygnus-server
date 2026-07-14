@@ -2,6 +2,7 @@ package com.umc.product.project.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -225,7 +226,7 @@ class ProjectStatisticsQueryControllerTest {
     @DisplayName("GET_statistics_matchings_chapterId_공개_프로젝트_매칭_요약을_반환한다")
     void 공개_프로젝트_매칭_요약_조회() throws Exception {
         // given
-        given(assembler.matchingStatisticsForChapter(3L))
+        given(assembler.matchingStatisticsForChapter(3L, TEST_MEMBER_ID))
             .willReturn(matchingResponse(3L));
 
         // when & then
@@ -238,6 +239,8 @@ class ProjectStatisticsQueryControllerTest {
             .andExpect(jsonPath("$.result.roundMatchingStatistics[0].projects[0].projectId").value(10L))
             .andExpect(jsonPath("$.result.schoolMatchingStatistics[0].matchedMemberCount").value(2))
             .andExpect(jsonPath("$.result.unclassifiedMatchingStatistics.matchedMemberCount").value(1));
+
+        then(assembler).should().matchingStatisticsForChapter(3L, TEST_MEMBER_ID);
     }
 
     private static ProjectStatisticsResponse response(

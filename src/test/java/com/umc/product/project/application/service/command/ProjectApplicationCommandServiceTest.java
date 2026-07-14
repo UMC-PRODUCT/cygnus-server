@@ -29,7 +29,10 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -41,8 +44,16 @@ import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyPrincipal;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationEvaluationPoint;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationInternalOrigin;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationResourceSnapshot;
 import com.umc.product.project.application.port.in.command.dto.ApplicationDecisionStatus;
 import com.umc.product.project.application.port.in.command.dto.CancelProjectApplicationCommand;
+import com.umc.product.project.application.port.in.command.dto.CreateDraftProjectApplicationCommand;
 import com.umc.product.project.application.port.in.command.dto.SubmitProjectApplicationCommand;
 import com.umc.product.project.application.port.in.command.dto.UpdateProjectApplicationDraftCommand;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationInfo;
@@ -64,6 +75,7 @@ import com.umc.product.project.domain.ProjectPartQuota;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
+import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
 
@@ -113,11 +125,105 @@ class ProjectApplicationCommandServiceTest {
     @Mock
     GetChallengerUseCase getChallengerUseCase;
     @Mock
-    CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
+    ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
+    @Mock
+    PolicyDecision policyDecision;
     @Mock
     GetFormUseCase getFormUseCase;
 
     ProjectApplicationCommandService sut;
+
+    @Nested
+    class applicationScopeInvariant {
+
+        @Test
+        @DisplayName("프로젝트와 매칭 차수 범위가 같으면 초안을 한 번만 생성한다")
+        void 프로젝트와_매칭_차수_범위가_같으면_초안을_한_번만_생성한다() {
+            ProjectApplicationForm form = applicationForm();
+            ReflectionTestUtils.setField(form.getProject(), "status", ProjectStatus.IN_PROGRESS);
+            ProjectMatchingRound round = openRound(MatchingType.PLAN_DEVELOPER);
+            ReflectionTestUtils.setField(round, "id", MATCHING_ROUND_ID);
+            ReflectionTestUtils.setField(round, "endsAt", NOW.plusSeconds(43_200));
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+            given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.WEB))
+                .willReturn(true);
+            given(loadProjectMemberPort.existsByGisuAndMember(1L, APPLICANT_MEMBER_ID)).willReturn(false);
+            given(loadProjectMatchingRoundPort.getById(MATCHING_ROUND_ID)).willReturn(round);
+            given(manageFormResponseUseCase.createDraft(any())).willReturn(FORM_RESPONSE_ID);
+            given(saveProjectApplicationPort.save(any())).willAnswer(invocation -> {
+                ProjectApplication saved = invocation.getArgument(0);
+                ReflectionTestUtils.setField(saved, "id", APPLICATION_ID);
+                return saved;
+            });
+
+            ProjectApplicationInfo result = sut.create(CreateDraftProjectApplicationCommand.builder()
+                .projectId(PROJECT_ID)
+                .matchingRoundId(MATCHING_ROUND_ID)
+                .applicantMemberId(APPLICANT_MEMBER_ID)
+                .build());
+
+            assertThat(result.status()).isEqualTo(ProjectApplicationStatus.DRAFT);
+            then(manageFormResponseUseCase).should().createDraft(any());
+            then(saveProjectApplicationPort).should().save(any());
+            then(projectPolicyAuthorizationService).should(never()).snapshot(anyLong());
+        }
+
+        @Test
+        @DisplayName("프로젝트와 매칭 차수의 기수가 다르면 초안 생성 전에 거부한다")
+        void 프로젝트와_매칭_차수의_기수가_다르면_초안_생성_전에_거부한다() {
+            ProjectApplicationForm form = applicationForm();
+            Project project = form.getProject();
+            ReflectionTestUtils.setField(project, "status", ProjectStatus.IN_PROGRESS);
+            ProjectMatchingRound round = openRound();
+            ReflectionTestUtils.setField(round, "gisuId", 2L);
+            ReflectionTestUtils.setField(round, "endsAt", NOW.plusSeconds(43_200));
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+            given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.WEB))
+                .willReturn(true);
+            given(loadProjectMemberPort.existsByGisuAndMember(1L, APPLICANT_MEMBER_ID)).willReturn(false);
+            given(loadProjectMatchingRoundPort.getById(MATCHING_ROUND_ID)).willReturn(round);
+            ProjectPolicySubjectSnapshot snapshot = memberSnapshot();
+            given(projectPolicyAuthorizationService.snapshot(APPLICANT_MEMBER_ID)).willReturn(snapshot);
+
+            assertThatThrownBy(() -> sut.create(CreateDraftProjectApplicationCommand.builder()
+                .projectId(PROJECT_ID)
+                .matchingRoundId(MATCHING_ROUND_ID)
+                .applicantMemberId(APPLICANT_MEMBER_ID)
+                .build()))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting(e -> ((ProjectDomainException) e).getBaseCode().getCode())
+                .isEqualTo("PROJECT-0217");
+
+            then(manageFormResponseUseCase).should(never()).createDraft(any());
+            then(saveProjectApplicationPort).should(never()).save(any());
+            assertRoundScopeMismatchEvaluated(snapshot, ProjectPolicyAction.APPLICATION_CREATE);
+        }
+
+        @Test
+        @DisplayName("프로젝트와 매칭 차수의 지부가 다르면 제출 전에 거부한다")
+        void 프로젝트와_매칭_차수의_지부가_다르면_제출_전에_거부한다() {
+            ProjectApplication application = applicationWithStatus(ProjectApplicationStatus.DRAFT);
+            ReflectionTestUtils.setField(application.getAppliedMatchingRound(), "chapterId", 1L);
+            ReflectionTestUtils.setField(application.getAppliedMatchingRound(), "endsAt", NOW.plusSeconds(43_200));
+            given(loadProjectApplicationPort.findByIdWithDetails(APPLICATION_ID))
+                .willReturn(Optional.of(application));
+            ProjectPolicySubjectSnapshot snapshot = memberSnapshot();
+            given(projectPolicyAuthorizationService.snapshot(APPLICANT_MEMBER_ID)).willReturn(snapshot);
+
+            assertThatThrownBy(() -> sut.submit(SubmitProjectApplicationCommand.builder()
+                .projectId(PROJECT_ID)
+                .applicationId(APPLICATION_ID)
+                .requesterMemberId(APPLICANT_MEMBER_ID)
+                .build()))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting(e -> ((ProjectDomainException) e).getBaseCode().getCode())
+                .isEqualTo("PROJECT-0217");
+
+            then(manageFormResponseUseCase).should(never()).submitDraft(any());
+            then(saveProjectApplicationPort).should(never()).save(any());
+            assertRoundScopeMismatchEvaluated(snapshot, ProjectPolicyAction.APPLICATION_SUBMIT);
+        }
+    }
 
     @BeforeEach
     void setUpQuotaMocks() {
@@ -131,10 +237,16 @@ class ProjectApplicationCommandServiceTest {
             loadProjectMatchingRoundPort,
             manageFormResponseUseCase,
             getChallengerUseCase,
-            checkChallengerAuthorityUseCase,
             List.of(new DeveloperMatchingPolicy(), new DesignerMatchingPolicy()),
-            getFormUseCase
+            getFormUseCase,
+            projectPolicyAuthorizationService
         );
+
+        given(projectPolicyAuthorizationService.evaluate(
+            anyLong(), eq(ProjectPolicyAction.APPLICATION_DECIDE), any()
+        )).willReturn(policyDecision);
+        given(policyDecision.effect()).willReturn(PolicyEffect.ALLOW);
+        given(projectPolicyAuthorizationService.forceDecision(policyDecision)).willReturn(false);
 
         // 기본: quota 충분 (ChallengerPart.WEB, TO 6, active 0, 같은 차수 APPROVED 0)
         given(getChallengerUseCase.getByMemberIdAndGisuId(any(), any()))
@@ -224,6 +336,8 @@ class ProjectApplicationCommandServiceTest {
             assertThat(captor.getValue().allowedQuestionIds())
                 .containsExactlyInAnyOrder(COMMON_QUESTION_ID, WEB_QUESTION_ID);
             then(loadProjectApplicationPort).should(never()).getDraftByProjectAndMember(anyLong(), anyLong());
+            then(saveProjectApplicationPort).should().save(application);
+            then(projectPolicyAuthorizationService).should(never()).snapshot(anyLong());
         }
 
         @Test
@@ -268,6 +382,25 @@ class ProjectApplicationCommandServiceTest {
 
     @Nested
     class decide {
+
+        @Test
+        void APPLICATION_DECIDE_정책이_DENY이면_조회_후_어떤_변경도_하지_않는다() {
+            ProjectApplication application = applicationWithStatus(ProjectApplicationStatus.SUBMITTED);
+            given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.of(application));
+            given(policyDecision.effect()).willReturn(PolicyEffect.DENY);
+
+            assertThatThrownBy(() -> sut.decide(
+                APPLICATION_ID, ApplicationDecisionStatus.APPROVED, null, DECIDER_MEMBER_ID
+            ))
+                .isInstanceOf(AuthorizationDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED);
+
+            assertThat(application.getStatus()).isEqualTo(ProjectApplicationStatus.SUBMITTED);
+            then(loadProjectPartQuotaPort).should(never()).listByProjectId(any());
+            then(loadProjectMemberPort).should(never()).countByProjectIdGroupByPart(any());
+            then(saveProjectApplicationPort).should(never()).save(any());
+        }
 
         @Test
         void APPROVED_입력시_도메인_approve_호출_후_저장한다() {
@@ -485,7 +618,7 @@ class ProjectApplicationCommandServiceTest {
             ReflectionTestUtils.setField(application, "id", APPLICATION_ID);
             ReflectionTestUtils.setField(application, "status", ProjectApplicationStatus.SUBMITTED);
             given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.of(application));
-            given(checkChallengerAuthorityUseCase.isSuperAdmin(DECIDER_MEMBER_ID)).willReturn(true);
+            given(projectPolicyAuthorizationService.forceDecision(policyDecision)).willReturn(true);
 
             ProjectApplicationInfo result = sut.decide(
                 APPLICATION_ID, ApplicationDecisionStatus.APPROVED, "슈퍼어드민 수정", DECIDER_MEMBER_ID
@@ -666,6 +799,30 @@ class ProjectApplicationCommandServiceTest {
         return applicationWithStatus(status, openRound());
     }
 
+    private ProjectPolicySubjectSnapshot memberSnapshot() {
+        return new ProjectPolicySubjectSnapshot(
+            new ProjectPolicyPrincipal.Member(APPLICANT_MEMBER_ID), NOW, List.of(), List.of(), Map.of());
+    }
+
+    private void assertRoundScopeMismatchEvaluated(
+        ProjectPolicySubjectSnapshot snapshot,
+        ProjectPolicyAction action
+    ) {
+        ArgumentCaptor<ProjectAuthorizationResourceSnapshot> resourceCaptor =
+            ArgumentCaptor.forClass(ProjectAuthorizationResourceSnapshot.class);
+        then(projectPolicyAuthorizationService).should().snapshot(APPLICANT_MEMBER_ID);
+        then(projectPolicyAuthorizationService).should().evaluate(
+            eq(snapshot),
+            eq(action),
+            resourceCaptor.capture(),
+            eq(ProjectAuthorizationEvaluationPoint.internal(
+                ProjectAuthorizationInternalOrigin.RESOURCE_PERMISSION_EVALUATOR))
+        );
+        assertThat(resourceCaptor.getValue().applicationRoundScopeMismatch()).isTrue();
+        assertThat(resourceCaptor.getValue().policyContext().gisuId()).contains(1L);
+        assertThat(resourceCaptor.getValue().policyContext().chapterId()).contains(2L);
+    }
+
     private ProjectApplication applicationWithStatus(ProjectApplicationStatus status, ProjectMatchingRound round) {
         ProjectApplication application = ProjectApplication.create(
             applicationForm(), FORM_RESPONSE_ID, APPLICANT_MEMBER_ID, round
@@ -678,7 +835,7 @@ class ProjectApplicationCommandServiceTest {
     private ProjectMatchingRound openRound() {
         ProjectMatchingRound round = ProjectMatchingRound.create(
             "기획-디자인 1차 매칭", null,
-            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L,
+            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L, 2L,
             ROUND_STARTS_AT, ROUND_ENDS_AT, ROUND_DECISION_DEADLINE
         );
         ReflectionTestUtils.setField(round, "id", MATCHING_ROUND_ID);
@@ -688,7 +845,7 @@ class ProjectApplicationCommandServiceTest {
     private ProjectMatchingRound openRound(MatchingType matchingType) {
         return ProjectMatchingRound.create(
             "프로젝트 매칭", null,
-            matchingType, MatchingPhase.FIRST, 1L,
+            matchingType, MatchingPhase.FIRST, 1L, 2L,
             ROUND_STARTS_AT, ROUND_ENDS_AT, ROUND_DECISION_DEADLINE
         );
     }

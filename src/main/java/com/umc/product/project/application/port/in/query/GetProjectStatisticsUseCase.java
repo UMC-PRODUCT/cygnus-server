@@ -39,5 +39,8 @@ public interface GetProjectStatisticsUseCase {
      * <p>
      * 멤버/지원서 식별자는 노출하지 않고 ProjectMember 기준 집계 숫자만 반환한다.
      */
-    ChapterProjectMatchingStatisticsInfo getPublicMatchingStatisticsByChapterId(Long chapterId);
+    ChapterProjectMatchingStatisticsInfo getPublicMatchingStatisticsByChapterId(
+        Long chapterId,
+        Long requesterMemberId
+    );
 }

@@ -182,7 +182,7 @@ class MatchingRoundDeadlineSchedulerTest {
     private ProjectMatchingRound roundWithId(Long id) {
         ProjectMatchingRound round = ProjectMatchingRound.create(
             "테스트 매칭 " + id, null,
-            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L,
+            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L, 1L,
             Instant.now().plusSeconds(86_400),
             Instant.now().plusSeconds(172_800),
             Instant.now().plusSeconds(259_200)

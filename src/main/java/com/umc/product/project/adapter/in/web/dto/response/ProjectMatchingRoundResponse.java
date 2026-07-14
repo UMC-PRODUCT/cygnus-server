@@ -1,9 +1,10 @@
 package com.umc.product.project.adapter.in.web.dto.response;
 
+import java.time.Instant;
+
 import com.umc.product.project.application.port.in.query.dto.ProjectMatchingRoundInfo;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
-import java.time.Instant;
 
 public record ProjectMatchingRoundResponse(
     Long id,
@@ -11,6 +12,7 @@ public record ProjectMatchingRoundResponse(
     String description,
     MatchingType type,
     MatchingPhase phase,
+    Long gisuId,
     Long chapterId,
     Instant startsAt,
     Instant endsAt,
@@ -27,6 +29,7 @@ public record ProjectMatchingRoundResponse(
             info.description(),
             info.type(),
             info.phase(),
+            info.gisuId(),
             info.chapterId(),
             info.startsAt(),
             info.endsAt(),

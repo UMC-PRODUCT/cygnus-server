@@ -46,6 +46,8 @@ public enum ProjectErrorCode implements BaseCode {
     PROJECT_DELETE_NOT_ALLOWED_IN_STATUS(HttpStatus.CONFLICT, "PROJECT-0022",
         "프로젝트는 DRAFT 또는 PENDING_REVIEW 상태에서만 삭제할 수 있어요. 상태를 확인해주세요."),
     PROJECT_ABORT_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "PROJECT-0023", "프로젝트 중단 사유를 입력해주세요."),
+    PROJECT_TRANSFER_OWNERSHIP_APPLICATION_SCOPE_CONFLICT(HttpStatus.CONFLICT, "PROJECT-0024",
+        "지원서가 연결된 프로젝트는 소유자 학교나 지부를 변경할 수 없어요."),
 
     // ProjectMember (PROJECT-003/004/005)
     PROJECT_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "PROJECT-0100", "프로젝트 멤버를 찾을 수 없어요. 멤버 목록을 확인해주세요."),
@@ -81,6 +83,10 @@ public enum ProjectErrorCode implements BaseCode {
         "이 매칭 종류의 자동 선발 정책을 찾지 못했어요. 관리자에게 문의해주세요."),
     PROJECT_MATCHING_ROUND_PHASE_SEQUENCE_INVALID(HttpStatus.CONFLICT, "PROJECT-0309",
         "매칭 차수는 FIRST, SECOND, THIRD 순서로 배치하고 이전 차수 결정 마감 이후 1분 이상 간격을 둬야 해요."),
+    PROJECT_MATCHING_ROUND_GISU_CHAPTER_MISMATCH(HttpStatus.BAD_REQUEST, "PROJECT-0312",
+        "선택한 지부가 매칭 차수의 기수에 속하지 않아요. 기수와 지부를 다시 확인해주세요."),
+    PROJECT_MATCHING_ROUND_OUTSIDE_GISU_PERIOD(HttpStatus.BAD_REQUEST, "PROJECT-0313",
+        "매칭 차수 기간은 기수 활동 기간 안에 있어야 해요. 시간을 다시 선택해주세요."),
 
     // ProjectApplication (APPLY-001/002/003)
     PROJECT_DRAFT_APPLICATION_NOT_FOUND(HttpStatus.NOT_FOUND, "PROJECT-0204", "작성 중인 지원서를 찾을 수 없어요. 지원서 목록을 확인해주세요."),
@@ -99,6 +105,8 @@ public enum ProjectErrorCode implements BaseCode {
     PROJECT_APPLICATION_CANCEL_ROUND_CLOSED(HttpStatus.BAD_REQUEST, "PROJECT-0215", "매칭 차수가 종료되어 지원서를 철회할 수 없어요. 차수 기간을 확인해주세요."),
     PROJECT_APPLICATION_MINIMUM_SELECTION_REQUIRED(HttpStatus.CONFLICT, "PROJECT-0216",
         "매칭 규칙의 최소 선발 인원을 충족하지 않아 불합격 처리할 수 없어요. 합격 인원을 확인해주세요."),
+    PROJECT_APPLICATION_ROUND_SCOPE_MISMATCH(HttpStatus.BAD_REQUEST, "PROJECT-0217",
+        "프로젝트와 매칭 차수의 기수 또는 지부가 일치하지 않아요. 매칭 차수를 다시 선택해주세요."),
 
     ;
 

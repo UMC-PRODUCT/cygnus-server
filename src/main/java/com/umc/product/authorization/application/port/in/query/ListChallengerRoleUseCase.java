@@ -6,6 +6,7 @@ import java.util.Set;
 
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRolePolicyInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 
@@ -19,6 +20,8 @@ public interface ListChallengerRoleUseCase {
     List<ChallengerRoleInfo> listByMemberId(Long memberId);
 
     List<ChallengerRoleBasicInfo> listBasicByMemberId(Long memberId);
+
+    List<ChallengerRolePolicyInfo> listPolicyFactsByMemberId(Long memberId);
 
     List<ChallengerRoleInfo> listByMemberIdAndGisuId(Long memberId, Long gisuId);
 

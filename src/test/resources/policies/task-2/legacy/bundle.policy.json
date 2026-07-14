@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "test-1.0",
+  "namespace": "test",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "modules": [
+    {
+      "id": "project-resource",
+      "file": "project-resource.policy.json"
+    }
+  ]
+}

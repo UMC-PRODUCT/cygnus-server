@@ -3,6 +3,7 @@ package com.umc.product.project.application.port.in.query;
 import java.util.Collection;
 import java.util.Map;
 
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.project.application.port.in.query.dto.GetProjectApplicationDetailQuery;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 
@@ -21,6 +22,11 @@ public interface GetProjectApplicationDetailUseCase {
      */
     ProjectApplicationDetailInfo getDetail(GetProjectApplicationDetailQuery query);
 
+    ProjectApplicationDetailInfo getDetail(
+        GetProjectApplicationDetailQuery query,
+        SubjectAttributes subject
+    );
+
     /**
      * 지원서 상세를 여러 건 조회한다.
      * <p>
@@ -29,4 +35,9 @@ public interface GetProjectApplicationDetailUseCase {
      * @return applicationId -> 상세 정보
      */
     Map<Long, ProjectApplicationDetailInfo> batchGetDetails(Collection<GetProjectApplicationDetailQuery> queries);
+
+    Map<Long, ProjectApplicationDetailInfo> batchGetDetails(
+        Collection<GetProjectApplicationDetailQuery> queries,
+        SubjectAttributes subject
+    );
 }

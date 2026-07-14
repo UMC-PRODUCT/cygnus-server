@@ -6,7 +6,10 @@ import java.time.Instant;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.command.AutoDecideProjectMatchingRoundUseCase;
+import com.umc.product.project.application.port.in.command.AutoDecisionActor;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,10 +33,11 @@ public class MatchingRoundDeadlineHandler {
     /**
      * deadline 시점에 1회 호출되어 자동 선발을 실행한다. 예외는 swallow 하여 다음 task 진행을 막지 않는다.
      */
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.SCHEDULER_MATCHING_ROUND_DEADLINE)
     public void handle(Long matchingRoundId) {
         Instant startedAt = Instant.now();
         try {
-            autoDecideUseCase.autoDecide(matchingRoundId, null);
+            autoDecideUseCase.autoDecide(matchingRoundId, AutoDecisionActor.matchingRoundScheduler());
             Duration duration = Duration.between(startedAt, Instant.now());
             operationalMetrics.recordBatchJob(JOB_NAME, "success", duration, 1);
         } catch (Exception e) {

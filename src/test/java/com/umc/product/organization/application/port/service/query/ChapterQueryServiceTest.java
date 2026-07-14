@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterScopeInfo;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
 import com.umc.product.organization.application.port.out.query.LoadChapterPort;
 import com.umc.product.organization.application.port.out.query.LoadChapterSchoolPort;
@@ -55,6 +56,30 @@ class ChapterQueryServiceTest {
 
         assertThat(result.get(1L)).extracting(ChapterInfo::name).containsExactly("Scorpio");
         assertThat(result.get(2L)).extracting(ChapterInfo::name).containsExactly("Ain");
+    }
+
+    @Test
+    @DisplayName("belongsToGisu는 지부와 기수의 영속 관계를 반환한다")
+    void belongsToGisu는_지부와_기수의_영속_관계를_반환한다() {
+        given(loadChapterPort.existsByIdAndGisuId(10L, 1L)).willReturn(true);
+
+        boolean result = chapterQueryService.belongsToGisu(10L, 1L);
+
+        assertThat(result).isTrue();
+        then(loadChapterPort).should().existsByIdAndGisuId(10L, 1L);
+    }
+
+    @Test
+    @DisplayName("getChapterScopeById는 프로젝트가 없는 지부도 영속된 기수 좌표를 반환한다")
+    void getChapterScopeById는_지부의_기수_좌표를_반환한다() {
+        Gisu gisu = gisu(1L, 9L);
+        Chapter chapter = chapter(10L, gisu, "Scorpio");
+        given(loadChapterPort.findById(10L)).willReturn(chapter);
+
+        ChapterScopeInfo result = chapterQueryService.getChapterScopeById(10L);
+
+        assertThat(result).isEqualTo(new ChapterScopeInfo(10L, 1L));
+        then(loadChapterPort).should().findById(10L);
     }
 
     @Test

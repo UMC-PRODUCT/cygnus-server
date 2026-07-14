@@ -8,6 +8,7 @@ import java.util.Set;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfoWithStatus;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerPolicyInfo;
 
 public interface GetChallengerUseCase {
     // TODO: 챌린저에 대해서 public/private 정보 구분 필요 시 method 추가해서 진행하여야 함
@@ -46,6 +47,8 @@ public interface GetChallengerUseCase {
      * memberId로 해당 사용자가 가지고 있는 모든 챌린저 정보 조회
      */
     List<ChallengerInfo> getAllByMemberId(Long memberId);
+
+    List<ChallengerPolicyInfo> listPolicyFactsByMemberId(Long memberId);
 
     /**
      * 여러 memberId로 회원별 모든 챌린저 정보를 IN 쿼리 1회로 일괄 조회합니다.

@@ -1,11 +1,13 @@
 package com.umc.product.project.application.service.policy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
+import java.time.Instant;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -15,116 +17,231 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.common.domain.enums.OrganizationType;
-import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
-import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
-import com.umc.product.project.application.port.out.LoadProjectMemberPort;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterScopeInfo;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyPrincipal;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
 import com.umc.product.project.domain.Project;
+import com.umc.product.project.domain.enums.ProjectStatus;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectStatisticsAccessPolicyTest {
 
-    private static final Long MEMBER_ID = 10L;
-    private static final Long PROJECT_ID = 100L;
-    private static final Long CHAPTER_ID = 7L;
-    private static final Long SCHOOL_ID = 3L;
+    private static final long MEMBER_ID = 10L;
+    private static final long OWNER_MEMBER_ID = 20L;
+    private static final long PROJECT_ID = 100L;
+    private static final long GISU_ID = 1L;
+    private static final long OTHER_GISU_ID = 2L;
+    private static final long CHAPTER_ID = 7L;
+    private static final Instant EVALUATED_AT = Instant.parse("2026-07-14T00:00:00Z");
 
     @Mock
-    LoadProjectMemberPort loadProjectMemberPort;
-    @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
-    @Mock
-    GetChapterUseCase getChapterUseCase;
+    ProjectPolicyAuthorizationService policyAuthorizationService;
 
     @InjectMocks
     ProjectStatisticsAccessPolicy sut;
 
     @Test
-    @DisplayName("프로젝트 PO는 통계를 조회할 수 있다")
-    void 프로젝트_PO는_통계를_조회할_수_있다() {
-        Project project = project(MEMBER_ID);
+    @DisplayName("통계 정책용 subject snapshot 생성을 공용 정책 서비스에 위임한다")
+    void 통계_정책용_subject_snapshot_생성을_공용_정책_서비스에_위임한다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        given(policyAuthorizationService.snapshot(MEMBER_ID)).willReturn(snapshot);
 
-        boolean result = sut.canReadProjectStatistics(MEMBER_ID, project);
+        ProjectPolicySubjectSnapshot result = sut.snapshot(MEMBER_ID);
 
-        assertThat(result).isTrue();
-        verifyNoInteractions(loadProjectMemberPort, getChallengerRoleUseCase, getChapterUseCase);
+        assertThat(result).isSameAs(snapshot);
+        verify(policyAuthorizationService).snapshot(MEMBER_ID);
     }
 
     @Test
-    @DisplayName("보조 PM은 프로젝트 통계를 조회할 수 있다")
-    void 보조_PM은_프로젝트_통계를_조회할_수_있다() {
-        Project project = project(999L);
-        given(loadProjectMemberPort.isActivePlanMember(PROJECT_ID, MEMBER_ID)).willReturn(true);
+    @DisplayName("프로젝트 통계 정책이 허용하면 프로젝트 통계를 조회할 수 있다")
+    void 프로젝트_통계_정책이_허용하면_프로젝트_통계를_조회할_수_있다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        Project project = project();
+        ProjectPolicyResourceContext resource = projectResource(true);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PROJECT,
+            resource
+        )).willReturn(decision(PolicyEffect.ALLOW));
 
-        boolean result = sut.canReadProjectStatistics(MEMBER_ID, project);
+        boolean result = sut.canReadProjectStatistics(snapshot, project, true);
 
         assertThat(result).isTrue();
+        verify(policyAuthorizationService).evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PROJECT,
+            resource
+        );
     }
 
     @Test
-    @DisplayName("중앙 운영진은 지부 통계를 조회할 수 있다")
-    void 중앙_운영진은_지부_통계를_조회할_수_있다() {
-        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))
-            .willReturn(List.of(role(ChallengerRoleType.CENTRAL_PRESIDENT, OrganizationType.CENTRAL, null)));
+    @DisplayName("프로젝트 통계 정책이 거부하면 프로젝트 통계를 조회할 수 없다")
+    void 프로젝트_통계_정책이_거부하면_프로젝트_통계를_조회할_수_없다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        Project project = project();
+        ProjectPolicyResourceContext resource = projectResource(false);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PROJECT,
+            resource
+        )).willReturn(decision(PolicyEffect.DENY));
 
-        boolean result = sut.canReadChapterStatistics(MEMBER_ID, CHAPTER_ID);
-
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("해당 지부장은 지부 통계를 조회할 수 있다")
-    void 해당_지부장은_지부_통계를_조회할_수_있다() {
-        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))
-            .willReturn(List.of(role(ChallengerRoleType.CHAPTER_PRESIDENT, OrganizationType.CHAPTER, CHAPTER_ID)));
-
-        boolean result = sut.canReadChapterStatistics(MEMBER_ID, CHAPTER_ID);
-
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("해당 지부 소속 학교 회장단은 지부 통계를 조회할 수 있다")
-    void 해당_지부_소속_학교_회장단은_지부_통계를_조회할_수_있다() {
-        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))
-            .willReturn(List.of(role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID)));
-        given(getChapterUseCase.getChaptersBySchoolIds(Set.of(SCHOOL_ID)))
-            .willReturn(List.of(new ChapterInfo(CHAPTER_ID, "테스트 지부")));
-
-        boolean result = sut.canReadChapterStatistics(MEMBER_ID, CHAPTER_ID);
-
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    @DisplayName("역할이 없으면 지부 통계를 조회할 수 없다")
-    void 역할이_없으면_지부_통계를_조회할_수_없다() {
-        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID)).willReturn(List.of());
-
-        boolean result = sut.canReadChapterStatistics(MEMBER_ID, CHAPTER_ID);
+        boolean result = sut.canReadProjectStatistics(snapshot, project, false);
 
         assertThat(result).isFalse();
     }
 
-    private static Project project(Long ownerMemberId) {
-        Project project = Project.createDraft(1L, CHAPTER_ID, ownerMemberId, 1L, ownerMemberId);
+    @Test
+    @DisplayName("지부 통계 정책이 허용하면 지부 통계를 조회할 수 있다")
+    void 지부_통계_정책이_허용하면_지부_통계를_조회할_수_있다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        ChapterScopeInfo chapter = new ChapterScopeInfo(CHAPTER_ID, GISU_ID);
+        ProjectPolicyResourceContext resource = chapterResource(GISU_ID);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_CHAPTER,
+            resource
+        )).willReturn(decision(PolicyEffect.ALLOW));
+
+        boolean result = sut.canReadChapterStatistics(snapshot, chapter);
+
+        assertThat(result).isTrue();
+        verify(policyAuthorizationService).evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_CHAPTER,
+            resource
+        );
+    }
+
+    @Test
+    @DisplayName("다른 기수의 운영진에 대한 target 거부 결정은 지부 통계 조회를 거부한다")
+    void 다른_기수의_운영진에_대한_target_거부_결정은_지부_통계_조회를_거부한다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        ChapterScopeInfo chapter = new ChapterScopeInfo(CHAPTER_ID, OTHER_GISU_ID);
+        ProjectPolicyResourceContext resource = chapterResource(OTHER_GISU_ID);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_CHAPTER,
+            resource
+        )).willReturn(decision(PolicyEffect.DENY));
+
+        boolean result = sut.canReadChapterStatistics(snapshot, chapter);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("공개 매칭 통계 정책이 허용하면 공개 매칭 통계를 조회할 수 있다")
+    void 공개_매칭_통계_정책이_허용하면_공개_매칭_통계를_조회할_수_있다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        ChapterScopeInfo chapter = new ChapterScopeInfo(CHAPTER_ID, GISU_ID);
+        ProjectPolicyResourceContext resource = chapterResource(GISU_ID);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PUBLIC_MATCHING,
+            resource
+        )).willReturn(decision(PolicyEffect.ALLOW));
+
+        boolean result = sut.canReadPublicMatchingStatistics(snapshot, chapter);
+
+        assertThat(result).isTrue();
+        verify(policyAuthorizationService).evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PUBLIC_MATCHING,
+            resource
+        );
+    }
+
+    @Test
+    @DisplayName("공개 매칭 통계 정책이 거부하면 공개 매칭 통계를 조회할 수 없다")
+    void 공개_매칭_통계_정책이_거부하면_공개_매칭_통계를_조회할_수_없다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        ChapterScopeInfo chapter = new ChapterScopeInfo(CHAPTER_ID, GISU_ID);
+        ProjectPolicyResourceContext resource = chapterResource(GISU_ID);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PUBLIC_MATCHING,
+            resource
+        )).willReturn(decision(PolicyEffect.DENY));
+
+        boolean result = sut.canReadPublicMatchingStatistics(snapshot, chapter);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    @DisplayName("정책 평가 실패는 통계 정책에서 숨기지 않고 전파한다")
+    void 정책_평가_실패는_통계_정책에서_숨기지_않고_전파한다() {
+        ProjectPolicySubjectSnapshot snapshot = snapshot();
+        Project project = project();
+        ProjectPolicyResourceContext resource = projectResource(true);
+        AuthorizationDomainException failure = new AuthorizationDomainException(
+            AuthorizationErrorCode.POLICY_EVALUATION_FAILED
+        );
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.STATISTICS_PROJECT,
+            resource
+        )).willThrow(failure);
+
+        assertThatThrownBy(() -> sut.canReadProjectStatistics(snapshot, project, true))
+            .isSameAs(failure);
+    }
+
+    private static Project project() {
+        Project project = Project.createDraft(
+            GISU_ID,
+            CHAPTER_ID,
+            OWNER_MEMBER_ID,
+            3L,
+            OWNER_MEMBER_ID
+        );
         ReflectionTestUtils.setField(project, "id", PROJECT_ID);
         return project;
     }
 
-    private static ChallengerRoleInfo role(
-        ChallengerRoleType roleType,
-        OrganizationType organizationType,
-        Long organizationId
-    ) {
-        return ChallengerRoleInfo.builder()
-            .roleType(roleType)
-            .organizationType(organizationType)
-            .organizationId(organizationId)
-            .gisuId(1L)
+    private static ProjectPolicyResourceContext projectResource(boolean activePlanMember) {
+        return ProjectPolicyResourceContext.builder()
+            .project(PROJECT_ID, GISU_ID, CHAPTER_ID, ProjectStatus.DRAFT)
+            .productOwnerMemberId(OWNER_MEMBER_ID)
+            .activePlanMember(activePlanMember)
             .build();
+    }
+
+    private static ProjectPolicyResourceContext chapterResource(long gisuId) {
+        return ProjectPolicyResourceContext.builder()
+            .chapterScope(gisuId, CHAPTER_ID)
+            .build();
+    }
+
+    private static ProjectPolicySubjectSnapshot snapshot() {
+        return new ProjectPolicySubjectSnapshot(
+            new ProjectPolicyPrincipal.Member(MEMBER_ID),
+            EVALUATED_AT,
+            List.of(),
+            List.of(),
+            Map.of()
+        );
+    }
+
+    private static PolicyDecision decision(PolicyEffect effect) {
+        return new PolicyDecision(
+            effect,
+            effect == PolicyEffect.ALLOW ? List.of("allow") : List.of(),
+            effect == PolicyEffect.DENY ? List.of("deny") : List.of(),
+            List.of(),
+            EVALUATED_AT,
+            "1.0",
+            "project-1.0",
+            "1.0.0",
+            "fingerprint"
+        );
     }
 }

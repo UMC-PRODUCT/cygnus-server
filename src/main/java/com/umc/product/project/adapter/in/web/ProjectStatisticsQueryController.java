@@ -16,6 +16,8 @@ import com.umc.product.project.adapter.in.web.assembler.ProjectResponseAssembler
 import com.umc.product.project.adapter.in.web.dto.response.statistics.ChapterProjectMatchingStatisticsResponse;
 import com.umc.product.project.adapter.in.web.dto.response.statistics.ChapterProjectStatisticsResponse;
 import com.umc.product.project.adapter.in.web.dto.response.statistics.ProjectStatisticsResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -31,6 +33,7 @@ public class ProjectStatisticsQueryController {
     private final ProjectResponseAssembler assembler;
 
     @GetMapping("/{projectId}/statistics")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_STATISTICS_PROJECT)
     @Operation(
         operationId = "PROJECT-STAT-001",
         summary = "단건 프로젝트 지원/매칭 현황 조회 (Deprecated)",
@@ -58,6 +61,7 @@ public class ProjectStatisticsQueryController {
     }
 
     @GetMapping("/statistics")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_STATISTICS_CHAPTER)
     @Operation(
         operationId = "PROJECT-STAT-002",
         summary = "프로젝트 지원 현황 조회",
@@ -105,6 +109,7 @@ public class ProjectStatisticsQueryController {
     }
 
     @GetMapping("/statistics/matchings")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_STATISTICS_PUBLIC_MATCHING)
     @Operation(
         operationId = "PROJECT-STAT-003",
         summary = "지부 공개 프로젝트 매칭 요약 조회",
@@ -118,9 +123,10 @@ public class ProjectStatisticsQueryController {
             """
     )
     public ChapterProjectMatchingStatisticsResponse getPublicMatchingStatistics(
+        @CurrentMember MemberPrincipal memberPrincipal,
         @Parameter(description = "지부 ID", required = true) @RequestParam Long chapterId
     ) {
-        return assembler.matchingStatisticsForChapter(chapterId);
+        return assembler.matchingStatisticsForChapter(chapterId, memberPrincipal.getMemberId());
     }
 
     private void validateSingleStatisticsTarget(List<Long> projectIds, Long chapterId) {

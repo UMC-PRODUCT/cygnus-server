@@ -18,8 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.SearchChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
@@ -27,10 +26,13 @@ import com.umc.product.challenger.application.port.in.query.dto.SearchChallenger
 import com.umc.product.challenger.application.port.in.query.dto.SearchChallengerItemInfo;
 import com.umc.product.challenger.application.port.in.query.dto.SearchChallengerQuery;
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
 import com.umc.product.project.application.port.in.command.AutoDecideProjectMatchingRoundUseCase;
+import com.umc.product.project.application.port.in.command.AutoDecisionActor;
 import com.umc.product.project.application.port.out.LoadProjectApplicationPort;
 import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
@@ -87,28 +89,27 @@ public class ProjectMatchingRoundFinalizationCommandService implements
     private final SaveProjectMemberPort saveProjectMemberPort;
     private final List<MatchingDecisionPolicy> matchingDecisionPolicies;
     private final Random matchingRandom;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final SearchChallengerUseCase searchChallengerUseCase;
+    private final ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
 
     @Audited(
         domain = Domain.PROJECT,
         action = AuditAction.FINALIZE,
         targetType = "ProjectMatchingRound",
         targetId = "#matchingRoundId",
-        description = "'프로젝트 매칭 라운드를 자동 확정했습니다.'"
+        description = "'프로젝트 매칭 라운드를 자동 확정했습니다.'",
+        publishOnTrueResultOnly = true
     )
     @Override
-    public void autoDecide(Long matchingRoundId, Long executedByMemberId) {
-        ProjectMatchingRound round = loadProjectMatchingRoundPort.getById(matchingRoundId);
-
-        // executedByMemberId == null 은 스케줄러 호출. 권한 검증은 운영진 수동 호출에만 적용.
-        if (executedByMemberId != null) {
-            validateManageAccess(executedByMemberId, round.getChapterId());
-        }
+    public boolean autoDecide(Long matchingRoundId, AutoDecisionActor actor) {
+        Objects.requireNonNull(actor, "actor must not be null");
+        ProjectMatchingRound round = loadProjectMatchingRoundPort.getByIdForUpdate(matchingRoundId);
+        validateManageAccess(actor, round);
+        Long executedByMemberId = actor.memberId().orElse(null);
 
         if (round.getAutoDecisionExecutedAt() != null) {
-            return;
+            return false;
         }
         if (!round.isDecisionDeadlinePassed(Instant.now())) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_NOT_FINALIZABLE);
@@ -142,13 +143,18 @@ public class ProjectMatchingRoundFinalizationCommandService implements
             membersToSave.addAll(buildApprovedMembers(applicants, approvedIds, applicantPart, executedByMemberId));
         }
 
-        membersToSave.addAll(buildRandomAssignedMembersAfterThirdDeveloperRound(round, membersToSave, executedByMemberId));
+        membersToSave.addAll(buildRandomAssignedMembersAfterThirdDeveloperRound(
+            round,
+            membersToSave,
+            executedByMemberId
+        ));
 
         if (!membersToSave.isEmpty()) {
             saveProjectMemberPort.saveAll(membersToSave);
         }
 
         round.executeAutoDecision(executedByMemberId);
+        return true;
     }
 
     private MatchingDecisionPolicy resolvePolicy(MatchingType type) {
@@ -426,20 +432,26 @@ public class ProjectMatchingRoundFinalizationCommandService implements
         return DEVELOPER_PARTS.contains(part);
     }
 
-    private void validateManageAccess(Long memberId, Long chapterId) {
-        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
-            return;
+    private void validateManageAccess(AutoDecisionActor actor, ProjectMatchingRound round) {
+        ProjectPolicyResourceContext resource = ProjectPolicyResourceContext.builder()
+            .matchingRound(round.getId(), round.getGisuId(), round.getChapterId())
+            .build();
+        PolicyEffect effect;
+        if (actor instanceof AutoDecisionActor.Member member) {
+            effect = projectPolicyAuthorizationService.evaluate(
+                member.value(), ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE, resource
+            ).effect();
+        } else if (actor instanceof AutoDecisionActor.SystemActor system) {
+            effect = projectPolicyAuthorizationService.evaluateSystem(
+                system.systemId(), ProjectPolicyAction.MATCHING_SYSTEM_AUTO_DECIDE, resource
+            ).effect();
+        } else {
+            throw new IllegalStateException("등록되지 않은 매칭 자동 선발 actor입니다.");
         }
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-        boolean allowed = roles.stream()
-            .anyMatch(role -> role.roleType().isAtLeastCentralCore()
-                || (role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT
-                && Objects.equals(role.organizationId(), chapterId)));
-
-        if (!allowed) {
+        if (effect != PolicyEffect.ALLOW) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
         }
     }
 
-    private record ProjectPartKey(Long projectId, ChallengerPart part) {}
+    private record ProjectPartKey(Long projectId, ChallengerPart part) { }
 }

@@ -1,0 +1,39 @@
+{
+  "$schema": "urn:umc:authorization:policy-bundle:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "project-1.0",
+  "namespace": "project",
+  "policyVersion": "1.1.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "modules": [
+    {
+      "id": "project-resource",
+      "resource": "project-resource.policy.json"
+    },
+    {
+      "id": "project-scope",
+      "resource": "project-scope.policy.json"
+    },
+    {
+      "id": "application-resource",
+      "resource": "application-resource.policy.json"
+    },
+    {
+      "id": "application-scope",
+      "resource": "application-scope.policy.json"
+    },
+    {
+      "id": "form",
+      "resource": "form.policy.json"
+    },
+    {
+      "id": "statistics",
+      "resource": "statistics.policy.json"
+    },
+    {
+      "id": "matching-round",
+      "resource": "matching-round.policy.json"
+    }
+  ]
+}

@@ -29,6 +29,8 @@ public interface CheckPermissionUseCase {
      */
     boolean check(Long memberId, ResourcePermission permission);
 
+    boolean check(Long memberId, ResourcePermission permission, String actionId);
+
     /**
      * 이미 조회된 주체 속성으로 특정 리소스에 대한 권한이 있는지 확인
      *
@@ -38,6 +40,8 @@ public interface CheckPermissionUseCase {
      */
     boolean check(SubjectAttributes subjectAttributes, ResourcePermission permission);
 
+    boolean check(SubjectAttributes subjectAttributes, ResourcePermission permission, String actionId);
+
     /**
      * 권한이 없으면 예외를 발생시키는 메서드
      *
@@ -46,4 +50,8 @@ public interface CheckPermissionUseCase {
      * @throws com.umc.product.authorization.domain.exception.AuthorizationDomainException 권한이 없는 경우
      */
     void checkOrThrow(Long memberId, ResourcePermission permission);
+
+    void checkOrThrow(Long memberId, ResourcePermission permission, String actionId);
+
+    void checkOrThrow(SubjectAttributes subjectAttributes, ResourcePermission permission, String actionId);
 }

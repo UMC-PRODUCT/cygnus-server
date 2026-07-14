@@ -34,5 +34,7 @@ public interface ChapterJpaRepository extends Repository<Chapter, Long> {
 
     boolean existsByGisuId(Long gisuId);
 
+    boolean existsByIdAndGisuId(Long chapterId, Long gisuId);
+
     void delete(Chapter chapter);
 }

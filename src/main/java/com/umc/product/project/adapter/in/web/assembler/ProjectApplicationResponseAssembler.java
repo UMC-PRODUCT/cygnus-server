@@ -14,6 +14,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
@@ -308,6 +309,19 @@ public class ProjectApplicationResponseAssembler {
     public ProjectApplicationDetailResponse detailFor(GetProjectApplicationDetailQuery query) {
         ProjectApplicationDetailInfo info = getProjectApplicationDetailUseCase.getDetail(query);
 
+        return detailResponse(info);
+    }
+
+    public ProjectApplicationDetailResponse detailFor(
+        GetProjectApplicationDetailQuery query,
+        SubjectAttributes subject
+    ) {
+        ProjectApplicationDetailInfo info = getProjectApplicationDetailUseCase.getDetail(query, subject);
+
+        return detailResponse(info);
+    }
+
+    private ProjectApplicationDetailResponse detailResponse(ProjectApplicationDetailInfo info) {
         MemberInfo memberInfo = getMemberUseCase.findAllByIds(Set.of(info.applicantMemberId()))
             .get(info.applicantMemberId());
         return ProjectApplicationDetailResponse.from(info, toBrief(memberInfo));

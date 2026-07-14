@@ -61,6 +61,7 @@ class ProjectApplicationPermissionEvaluatorTest {
     private ProjectApplicationPermissionEvaluator newSut(boolean allowDraftRead) {
         return new ProjectApplicationPermissionEvaluator(
             loadProjectPort, loadProjectApplicationPort, loadProjectMemberPort,
+            ProjectPolicyEvaluatorTestSupport.authorizationService(),
             new SuperAdminProperties(allowDraftRead));
     }
 
@@ -112,12 +113,12 @@ class ProjectApplicationPermissionEvaluatorTest {
     // --- READ (resourceId 없으면 통과 / 있으면 단건 검증) ---
 
     @Test
-    void READ는_resourceId_없으면_무조건_허용() {
+    void generic_READ는_resourceId가_없으면_거부한다() {
         SubjectAttributes subject = subjectWith(APPLICANT_MEMBER_ID, List.of(), List.of());
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT_APPLICATION,
             PermissionType.READ);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     @Test

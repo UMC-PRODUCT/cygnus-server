@@ -2,8 +2,9 @@ package com.umc.product.project.adapter.in.web.assembler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import java.lang.reflect.RecordComponent;
 import java.time.Instant;
@@ -23,6 +24,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.domain.ResourcePermission;
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.response.PageResponse;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
@@ -32,12 +34,15 @@ import com.umc.product.project.adapter.in.web.dto.response.DraftProjectResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ManagedProjectSummaryResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectDetailResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectMembersResponse;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
 import com.umc.product.project.application.port.in.query.GetProjectStatisticsUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectUseCase;
 import com.umc.product.project.application.port.in.query.SearchManagedProjectUseCase;
 import com.umc.product.project.application.port.in.query.SearchProjectUseCase;
 import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.SearchManagedProjectQuery;
+import com.umc.product.project.application.port.in.query.dto.statistics.ChapterProjectMatchingStatisticsInfo;
+import com.umc.product.project.application.port.in.query.dto.statistics.UnclassifiedMatchingStatisticsInfo;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationPort;
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
@@ -73,6 +78,28 @@ class ProjectResponseAssemblerTest {
 
     @InjectMocks
     ProjectResponseAssembler sut;
+
+    @Test
+    @DisplayName("matchingStatisticsForChapter는 요청자 ID를 공개 매칭 통계 조회에 전달한다")
+    void matchingStatisticsForChapter_요청자_ID_전달() {
+        // given
+        ChapterProjectMatchingStatisticsInfo info = new ChapterProjectMatchingStatisticsInfo(
+            3L,
+            List.of(),
+            List.of(),
+            new UnclassifiedMatchingStatisticsInfo(0L, List.of())
+        );
+        given(getProjectStatisticsUseCase.getPublicMatchingStatisticsByChapterId(3L, 99L))
+            .willReturn(info);
+
+        // when
+        var response = sut.matchingStatisticsForChapter(3L, 99L);
+
+        // then
+        assertThat(response.chapterId()).isEqualTo(3L);
+        then(getProjectStatisticsUseCase).should()
+            .getPublicMatchingStatisticsByChapterId(3L, 99L);
+    }
 
     @Test
     void detailFor_폼이_있으면_applicationFormId가_채워진다() {
@@ -248,7 +275,18 @@ class ProjectResponseAssemblerTest {
     void listProjectMembersMapsApprovedMatchedRoundByProjectAndMember() {
         ProjectInfo project42 = projectInfo(42L);
         ProjectInfo project43 = projectInfoWithOwner(43L, 199L);
-        given(checkPermissionUseCase.check(anyLong(), any(ResourcePermission.class))).willReturn(true);
+        SubjectAttributes subject = SubjectAttributes.builder()
+            .memberId(900L)
+            .schoolId(1L)
+            .gisuChallengerInfos(List.of())
+            .roleAttributes(List.of())
+            .build();
+        given(checkPermissionUseCase.loadSubject(900L)).willReturn(subject);
+        given(checkPermissionUseCase.check(
+            eq(subject),
+            any(ResourcePermission.class),
+            eq(ProjectPolicyAction.PROJECT_MEMBER_LIST.id())
+        )).willReturn(true);
         given(getProjectUseCase.getById(42L)).willReturn(project42);
         given(getProjectUseCase.getById(43L)).willReturn(project43);
         given(loadProjectMemberPort.listByProjectIds(Set.of(42L, 43L))).willReturn(Map.of(

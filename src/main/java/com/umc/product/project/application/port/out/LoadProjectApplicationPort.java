@@ -23,6 +23,8 @@ public interface LoadProjectApplicationPort {
 
     boolean existsByAppliedMatchingRoundId(Long matchingRoundId);
 
+    boolean existsByProjectId(Long projectId);
+
     /**
      * (projectId, applicantMemberId, status) 조합으로 본인 지원서를 조회합니다.
      * 멱등 처리(APPLY-001) 및 본인 지원서 식별(APPLY-002/003)에 사용됩니다.

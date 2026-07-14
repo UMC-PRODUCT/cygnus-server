@@ -47,6 +47,8 @@ public @interface CheckAccess {
      */
     PermissionType permission();
 
+    String action() default "";
+
     /**
      * 권한이 없을 때 표시할 메시지
      */

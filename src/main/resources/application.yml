@@ -370,6 +370,8 @@ app:
         allowed-origins: []
 
   project:
+    authorization-rollout:
+      default-mode: ${PROJECT_AUTHORIZATION_ROLLOUT_DEFAULT_MODE:SHADOW}
     matching-round:
       # FIRST, SECOND, THIRD 차수 사이 최소 간격. 환경변수 단위는 minute.
       min-phase-interval-minutes: ${PROJECT_MATCHING_ROUND_MIN_PHASE_INTERVAL_MINUTES:1}

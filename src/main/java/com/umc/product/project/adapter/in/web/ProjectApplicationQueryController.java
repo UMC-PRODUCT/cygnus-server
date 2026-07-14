@@ -12,9 +12,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.umc.product.authorization.adapter.in.aspect.AuthorizationRequestSubjectContext;
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -22,6 +24,8 @@ import com.umc.product.project.adapter.in.web.assembler.ProjectApplicationRespon
 import com.umc.product.project.adapter.in.web.dto.response.MyProjectApplicationResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectApplicantResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectApplicationDetailResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.query.dto.GetMyProjectApplicationsQuery;
 import com.umc.product.project.application.port.in.query.dto.GetProjectApplicationDetailQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
@@ -44,8 +48,10 @@ import lombok.RequiredArgsConstructor;
 public class ProjectApplicationQueryController {
 
     private final ProjectApplicationResponseAssembler assembler;
+    private final AuthorizationRequestSubjectContext requestSubjectContext;
 
     @GetMapping("/me/applications")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_LIST_SELF)
     @Operation(
         operationId = "APPLY-004",
         summary = "본인 지원 내역 목록 조회",
@@ -93,6 +99,7 @@ public class ProjectApplicationQueryController {
     }
 
     @GetMapping("/applications")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_LIST_BATCH)
     @Operation(
         operationId = "APPLY-101-BATCH",
         summary = "PM/운영진 복수 프로젝트 지원자 목록 조회",
@@ -135,6 +142,7 @@ public class ProjectApplicationQueryController {
     }
 
     @GetMapping("/{projectId}/applications")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_LIST_PROJECT)
     @Operation(
         operationId = "APPLY-101",
         summary = "PM/운영진 단일 프로젝트 지원자 목록 조회",
@@ -158,7 +166,6 @@ public class ProjectApplicationQueryController {
               <li>SUPER_ADMIN</li>
               <li>해당 프로젝트 기수의 Central Core (총괄/부총괄)</li>
               <li>해당 프로젝트 지부의 지부장 (같은 기수)</li>
-              <li>해당 프로젝트 지부에 속한 학교 회장단 (SCHOOL_PRESIDENT/SCHOOL_VICE_PRESIDENT, 같은 기수)</li>
             </ul>
             """
     )
@@ -188,9 +195,11 @@ public class ProjectApplicationQueryController {
         resourceType = ResourceType.PROJECT_APPLICATION,
         resourceId = "#applicationId",
         permission = PermissionType.READ,
+        action = "project-application:read",
         message = "지원서 상세는 지원자 본인, PO, Sub-PO, 해당 기수 Central Core, 해당 기수 지부장만 볼 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     @GetMapping("/{projectId}/applications/{applicationId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_READ)
     @Operation(
         operationId = "APPLY-102",
         summary = "지원서 단건 상세 조회",
@@ -230,6 +239,7 @@ public class ProjectApplicationQueryController {
             .requesterMemberId(memberPrincipal.getMemberId())
             .build();
 
-        return assembler.detailFor(query);
+        SubjectAttributes subject = requestSubjectContext.require(memberPrincipal.getMemberId());
+        return assembler.detailFor(query, subject);
     }
 }

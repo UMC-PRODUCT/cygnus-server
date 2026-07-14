@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterScopeInfo;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
 
 public interface GetChapterUseCase {
@@ -33,6 +34,10 @@ public interface GetChapterUseCase {
     Map<Long, List<ChapterWithSchoolsInfo>> getChaptersWithSchoolsByGisuIds(Set<Long> gisuIds);
 
     ChapterInfo getChapterById(Long chapterId);
+
+    ChapterScopeInfo getChapterScopeById(Long chapterId);
+
+    boolean belongsToGisu(Long chapterId, Long gisuId);
 
     /**
      * 여러 gisuId와 schoolId 조합에 해당하는 ChapterInfo를 1번 쿼리로 일괄 조회

@@ -2,7 +2,6 @@ package com.umc.product.project.application.service.command;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.List;
 import java.util.Objects;
 
 import org.springframework.stereotype.Service;
@@ -10,9 +9,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
 import com.umc.product.project.application.port.in.command.CreateProjectMatchingRoundUseCase;
 import com.umc.product.project.application.port.in.command.DeleteProjectMatchingRoundUseCase;
 import com.umc.product.project.application.port.in.command.UpdateProjectMatchingRoundUseCase;
@@ -50,13 +53,24 @@ public class ProjectMatchingRoundCommandService implements
     private final LoadProjectApplicationPort loadProjectApplicationPort;
     private final ScheduleMatchingRoundDeadlinePort scheduleMatchingRoundDeadlinePort;
 
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final GetGisuUseCase getGisuUseCase;
+    private final GetChapterUseCase getChapterUseCase;
     private final ProjectMatchingRoundProperties projectMatchingRoundProperties;
+    private final ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
 
     @Override
     public Long create(CreateProjectMatchingRoundCommand command) {
+        validateGisuAndChapter(command.gisuId(), command.chapterId());
+        validateWithinGisuPeriod(
+            command.gisuId(), command.startsAt(), command.endsAt(), command.decisionDeadline());
         // 지부장 이상부터 매칭 차수에 대한 수정이 가능합니다.
-        validateManageAccess(command.requesterMemberId(), command.chapterId());
+        validateManageAccess(
+            command.requesterMemberId(),
+            ProjectPolicyAction.MATCHING_CREATE,
+            ProjectPolicyResourceContext.builder()
+                .matchingRound(null, command.gisuId(), command.chapterId())
+                .build()
+        );
         // 매칭 차수는 중복될 수 없습니다.
         validateNoOverlap(
             command.chapterId(), command.startsAt(), command.endsAt(), command.decisionDeadline());
@@ -74,6 +88,7 @@ public class ProjectMatchingRoundCommandService implements
             command.description(),
             command.type(),
             command.phase(),
+            command.gisuId(),
             command.chapterId(),
             command.startsAt(),
             command.endsAt(),
@@ -99,7 +114,13 @@ public class ProjectMatchingRoundCommandService implements
             ? command.decisionDeadline()
             : matchingRound.getDecisionDeadline();
 
-        validateManageAccess(command.requesterMemberId(), matchingRound.getChapterId());
+        validateGisuAndChapter(matchingRound.getGisuId(), matchingRound.getChapterId());
+        validateWithinGisuPeriod(matchingRound.getGisuId(), startsAt, endsAt, decisionDeadline);
+        validateManageAccess(
+            command.requesterMemberId(),
+            ProjectPolicyAction.MATCHING_UPDATE,
+            matchingRoundContext(matchingRound)
+        );
         validateNoOverlapExceptId(
             matchingRound.getId(),
             matchingRound.getChapterId(),
@@ -131,7 +152,11 @@ public class ProjectMatchingRoundCommandService implements
     @Override
     public void delete(Long matchingRoundId, Long requesterMemberId) {
         ProjectMatchingRound matchingRound = loadProjectMatchingRoundPort.getById(matchingRoundId);
-        validateManageAccess(requesterMemberId, matchingRound.getChapterId());
+        validateManageAccess(
+            requesterMemberId,
+            ProjectPolicyAction.MATCHING_DELETE,
+            matchingRoundContext(matchingRound)
+        );
 
         if (loadProjectApplicationPort.existsByAppliedMatchingRoundId(matchingRoundId)) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_DELETE_CONFLICT);
@@ -147,6 +172,22 @@ public class ProjectMatchingRoundCommandService implements
         ProjectMatchingRound.validateDates(startsAt, endsAt, decisionDeadline);
         if (!loadProjectMatchingRoundPort.listOverlapping(chapterId, startsAt, decisionDeadline).isEmpty()) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_PERIOD_OVERLAPPED);
+        }
+    }
+
+    private void validateGisuAndChapter(Long gisuId, Long chapterId) {
+        if (!getChapterUseCase.belongsToGisu(chapterId, gisuId)) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_GISU_CHAPTER_MISMATCH);
+        }
+    }
+
+    private void validateWithinGisuPeriod(
+        Long gisuId, Instant startsAt, Instant endsAt, Instant decisionDeadline
+    ) {
+        ProjectMatchingRound.validateDates(startsAt, endsAt, decisionDeadline);
+        GisuInfo gisu = getGisuUseCase.getById(gisuId);
+        if (startsAt.isBefore(gisu.startAt()) || !decisionDeadline.isBefore(gisu.endAt())) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_OUTSIDE_GISU_PERIOD);
         }
     }
 
@@ -193,19 +234,24 @@ public class ProjectMatchingRoundCommandService implements
         action.run();
     }
 
-    private void validateManageAccess(Long memberId, Long chapterId) {
-        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
-            return;
-        }
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-        boolean allowed = roles.stream()
-            .anyMatch(role -> role.roleType().isAtLeastCentralCore()
-                || (role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT
-                && Objects.equals(role.organizationId(), chapterId)));
-
-        if (!allowed) {
+    private void validateManageAccess(
+        Long memberId,
+        ProjectPolicyAction action,
+        ProjectPolicyResourceContext resource
+    ) {
+        if (projectPolicyAuthorizationService.evaluate(memberId, action, resource).effect() != PolicyEffect.ALLOW) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
         }
+    }
+
+    private ProjectPolicyResourceContext matchingRoundContext(ProjectMatchingRound matchingRound) {
+        return ProjectPolicyResourceContext.builder()
+            .matchingRound(
+                matchingRound.getId(),
+                matchingRound.getGisuId(),
+                matchingRound.getChapterId()
+            )
+            .build();
     }
 
     private void validatePhaseSequence(

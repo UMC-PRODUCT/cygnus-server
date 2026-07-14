@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,6 +18,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.project.application.access.ScopeClause;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
 import com.umc.product.project.domain.Project;
 import com.umc.product.project.domain.ProjectMember;
@@ -453,6 +455,48 @@ class ProjectQueryRepositoryTest {
             .extracting(Project::getName)
             .contains("내 초안")
             .doesNotContain("다른 사람 초안");
+    }
+
+    @Test
+    void scope_clause_내부는_AND_clause_간은_OR로_조합한다() {
+        // given — (gisu=1 AND chapter=10) OR owner=7 조건의 두 분기와 평면 교차 반례
+        persistProject("기수-지부 분기", ProjectStatus.IN_PROGRESS, 1L, 10L, 8L);
+        persistProject("owner 분기", ProjectStatus.IN_PROGRESS, 2L, 99L, 7L);
+        persistProject("평면 교차 반례", ProjectStatus.IN_PROGRESS, 1L, 99L, 8L);
+        em.flush();
+        em.clear();
+
+        SearchProjectQuery query = SearchProjectQuery.builder()
+            .gisuId(1L)
+            .chapterId(10L)
+            .statuses(List.of(ProjectStatus.IN_PROGRESS))
+            .pageable(PageRequest.of(0, 20))
+            .build()
+            .withIncludedOwner(7L, java.util.EnumSet.allOf(ProjectStatus.class));
+
+        // when
+        Page<Project> result = sut.search(query);
+
+        // then — 독립 owner 분기는 유지하고 평면 교차 반례는 제외한다
+        assertThat(result.getContent())
+            .extracting(Project::getName)
+            .containsExactlyInAnyOrder("기수-지부 분기", "owner 분기")
+            .doesNotContain("평면 교차 반례");
+    }
+
+    @Test
+    void target_scope의_허용_지부와_요청_지부가_다르면_결과가_없다() {
+        SearchProjectQuery query = SearchProjectQuery.forChallenger(
+            gisuId, null, 2L, null, null, null, PageRequest.of(0, 20))
+            .withScopeClauses(List.of(
+                ScopeClause.gisu(Set.of(gisuId), Set.of(ProjectStatus.IN_PROGRESS))
+                    .andChapterIds(Set.of(1L))
+            ));
+
+        Page<Project> result = sut.search(query);
+
+        assertThat(result.getContent()).isEmpty();
+        assertThat(result.getTotalElements()).isZero();
     }
 
     // ========== Helper ==========

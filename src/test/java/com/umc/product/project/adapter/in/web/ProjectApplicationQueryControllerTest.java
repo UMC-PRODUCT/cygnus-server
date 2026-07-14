@@ -26,6 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.umc.product.authorization.adapter.in.aspect.AuthorizationRequestSubjectContext;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
@@ -51,6 +52,9 @@ class ProjectApplicationQueryControllerTest {
 
     @MockitoBean
     ProjectApplicationResponseAssembler assembler;
+
+    @MockitoBean
+    AuthorizationRequestSubjectContext requestSubjectContext;
 
     @BeforeEach
     void setUpSecurityContext() {

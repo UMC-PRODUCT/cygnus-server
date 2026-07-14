@@ -6,7 +6,6 @@ import static org.mockito.BDDMockito.given;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -45,7 +44,11 @@ class ProjectPermissionEvaluatorTest {
     }
 
     private ProjectPermissionEvaluator newSut(boolean allowDraftRead) {
-        return new ProjectPermissionEvaluator(loadProjectPort, new SuperAdminProperties(allowDraftRead));
+        return new ProjectPermissionEvaluator(
+            loadProjectPort,
+            ProjectPolicyEvaluatorTestSupport.authorizationService(),
+            new SuperAdminProperties(allowDraftRead)
+        );
     }
 
     @Test
@@ -216,17 +219,16 @@ class ProjectPermissionEvaluatorTest {
     }
 
     @Test
-    void READ는_PENDING_REVIEW_프로젝트를_지부장_허용_scope_무관() {
+    void READ는_PENDING_REVIEW_프로젝트를_다른_지부장이면_거부() {
         Long projectId = 100L;
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.PENDING_REVIEW)));
 
-        // 본 프로젝트의 chapterId=1 인데 지부장은 다른 지부(2) — 일반 조회는 scope 무관 통과
         SubjectAttributes subject = subjectWith(20L, List.of(),
             List.of(chapterPresidentRole(2L, 1L)));
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     @Test
@@ -267,7 +269,7 @@ class ProjectPermissionEvaluatorTest {
     }
 
     @Test
-    void READ는_ABORTED_프로젝트를_지부장_허용_scope_무관() {
+    void READ는_ABORTED_프로젝트를_다른_지부장이면_거부() {
         Long projectId = 100L;
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.ABORTED)));
@@ -276,7 +278,7 @@ class ProjectPermissionEvaluatorTest {
             List.of(chapterPresidentRole(2L, 1L)));
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     @Test
@@ -321,17 +323,17 @@ class ProjectPermissionEvaluatorTest {
     // --- WRITE ---
 
     @Test
-    void WRITE는_PLAN_파트_챌린저_허용() {
+    void generic_WRITE는_PLAN_파트_챌린저라도_거부한다() {
         SubjectAttributes subject = subjectWith(1L,
             List.of(gisuInfo(1L, 1L, ChallengerPart.PLAN, 1L)),
             List.of());
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     @Test
-    void WRITE는_비PLAN_파트_거부() {
+    void WRITE는_비PLAN_파트_챌린저이면_거부한다() {
         SubjectAttributes subject = subjectWith(1L,
             List.of(gisuInfo(1L, 1L, ChallengerPart.SPRINGBOOT, 1L)),
             List.of());
@@ -341,7 +343,7 @@ class ProjectPermissionEvaluatorTest {
     }
 
     @Test
-    void WRITE는_챌린저_정보_없으면_거부() {
+    void WRITE는_챌린저와_운영진_사실이_없으면_거부한다() {
         SubjectAttributes subject = subjectWith(1L, List.of(), List.of());
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
@@ -349,37 +351,29 @@ class ProjectPermissionEvaluatorTest {
     }
 
     @Test
-    void WRITE는_총괄단_허용() {
+    void generic_WRITE는_총괄단이라도_거부한다() {
         SubjectAttributes subject = subjectWith(1L, List.of(), List.of(centralCoreRole()));
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     @Test
-    void WRITE는_SUPER_ADMIN_허용() {
-        SubjectAttributes subject = superAdminSubject(20L);
-        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
-
-        assertThat(sut.evaluate(subject, permission)).isTrue();
-    }
-
-    @Test
-    void WRITE는_지부장_허용() {
+    void generic_WRITE는_지부장이라도_거부한다() {
         SubjectAttributes subject = subjectWith(1L, List.of(),
             List.of(chapterPresidentRole(1L, 1L)));
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     @Test
-    void WRITE는_학교_회장단_허용() {
+    void generic_WRITE는_학교_회장단이라도_거부한다() {
         SubjectAttributes subject = subjectWith(1L, List.of(),
             List.of(schoolPresidentRole(1L, 1L)));
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
-        assertThat(sut.evaluate(subject, permission)).isTrue();
+        assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
     // --- EDIT ---
@@ -876,9 +870,7 @@ class ProjectPermissionEvaluatorTest {
         return SubjectAttributes.builder()
             .memberId(memberId)
             .schoolId(1L)
-            .gisuChallengerInfos(List.of())
-            .roleAttributes(List.of())
-            .systemRoles(Set.of(SystemRoleType.SUPER_ADMIN))
+            .systemRoles(java.util.Set.of(SystemRoleType.SUPER_ADMIN))
             .build();
     }
 

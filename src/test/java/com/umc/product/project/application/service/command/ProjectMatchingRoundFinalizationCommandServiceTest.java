@@ -29,8 +29,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.SearchChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
@@ -38,9 +38,11 @@ import com.umc.product.challenger.application.port.in.query.dto.SearchChallenger
 import com.umc.product.challenger.application.port.in.query.dto.SearchChallengerItemInfo;
 import com.umc.product.challenger.application.port.in.query.dto.SearchChallengerQuery;
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerStatus;
-import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.port.in.command.AutoDecisionActor;
 import com.umc.product.project.application.port.out.LoadProjectApplicationPort;
 import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
@@ -90,11 +92,15 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
     @Mock
     SaveProjectMemberPort saveProjectMemberPort;
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
-    @Mock
     GetChallengerUseCase getChallengerUseCase;
     @Mock
     SearchChallengerUseCase searchChallengerUseCase;
+    @Mock
+    ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
+    @Mock
+    PolicyDecision allowedDecision;
+    @Mock
+    PolicyDecision deniedDecision;
 
     ProjectMatchingRoundFinalizationCommandService sut;
 
@@ -110,12 +116,21 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             saveProjectMemberPort,
             List.<MatchingDecisionPolicy>of(new DesignerMatchingPolicy(), new DeveloperMatchingPolicy()),
             new Random(42L),
-            getChallengerRoleUseCase,
             getChallengerUseCase,
-            searchChallengerUseCase
+            searchChallengerUseCase,
+            projectPolicyAuthorizationService
         );
-        given(getChallengerRoleUseCase.findAllByMemberId(EXECUTOR_MEMBER_ID))
-            .willReturn(List.of(centralCoreRole()));
+        given(allowedDecision.effect()).willReturn(PolicyEffect.ALLOW);
+        given(deniedDecision.effect()).willReturn(PolicyEffect.DENY);
+        given(projectPolicyAuthorizationService.evaluate(
+            anyLong(), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+            any(ProjectPolicyResourceContext.class)
+        )).willReturn(allowedDecision);
+        given(projectPolicyAuthorizationService.evaluateSystem(
+            eq(AutoDecisionActor.MATCHING_ROUND_SCHEDULER_ID),
+            eq(ProjectPolicyAction.MATCHING_SYSTEM_AUTO_DECIDE),
+            any(ProjectPolicyResourceContext.class)
+        )).willReturn(allowedDecision);
     }
 
     @Nested
@@ -125,9 +140,9 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
         void 차수가_이미_자동선발_실행됐으면_no_op() {
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
             ReflectionTestUtils.setField(round, "autoDecisionExecutedAt", Instant.now());
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             then(loadProjectApplicationPort).should(never()).listByMatchingRoundId(any());
             then(saveProjectApplicationPort).should(never()).saveAll(any());
@@ -135,11 +150,46 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
         }
 
         @Test
+        void 다른_기수_중앙_운영진은_수동_자동선발을_실행할_수_없다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
+            ReflectionTestUtils.setField(round, "autoDecisionExecutedAt", Instant.now());
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(EXECUTOR_MEMBER_ID), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(deniedDecision);
+
+            assertThatThrownBy(() -> sut.autoDecide(
+                ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID)))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
+        }
+
+        @Test
+        void 만료된_기수_중앙_운영진은_수동_자동선발을_실행할_수_없다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
+            ReflectionTestUtils.setField(round, "autoDecisionExecutedAt", Instant.now());
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(EXECUTOR_MEMBER_ID), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(deniedDecision);
+
+            assertThatThrownBy(() -> sut.autoDecide(
+                ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID)))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
+        }
+
+        @Test
         void 결정_마감_전이면_PROJECT_MATCHING_ROUND_NOT_FINALIZABLE() {
             ProjectMatchingRound round = futureDeadlineRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
 
-            assertThatThrownBy(() -> sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID))
+            assertThatThrownBy(() -> sut.autoDecide(
+                ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID)))
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_NOT_FINALIZABLE);
@@ -148,10 +198,10 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
         @Test
         void 지원자가_없으면_round만_executeAutoDecision_처리하고_종료() {
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             assertThat(round.getAutoDecisionExecutedAt()).isNotNull();
             assertThat(round.getAutoDecisionExecutedMemberId()).isEqualTo(EXECUTOR_MEMBER_ID);
@@ -166,7 +216,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication app1 = application(101L, 11L, ProjectApplicationStatus.SUBMITTED, project, round);
             ProjectApplication app2 = application(102L, 12L, ProjectApplicationStatus.SUBMITTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(app1, app2));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -177,7 +227,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
                 .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.DESIGN, 1L))));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             long approvedCount = List.of(app1, app2).stream()
                 .filter(a -> a.getStatus() == ProjectApplicationStatus.APPROVED).count();
@@ -196,7 +246,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication approved = application(101L, 11L, ProjectApplicationStatus.APPROVED, project, round);
             ProjectApplication submitted = application(102L, 12L, ProjectApplicationStatus.SUBMITTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(approved, submitted));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -207,7 +257,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
                 .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.DESIGN, 1L))));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             assertThat(approved.getStatus()).isEqualTo(ProjectApplicationStatus.APPROVED);
             assertThat(submitted.getStatus()).isEqualTo(ProjectApplicationStatus.REJECTED);
@@ -225,7 +275,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication rejected1 = application(101L, 11L, ProjectApplicationStatus.REJECTED, project, round);
             ProjectApplication rejected2 = application(102L, 12L, ProjectApplicationStatus.REJECTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(rejected1, rejected2));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -236,7 +286,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
                 .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.DESIGN, 1L))));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             long approvedCount = List.of(rejected1, rejected2).stream()
                 .filter(a -> a.getStatus() == ProjectApplicationStatus.APPROVED).count();
@@ -250,14 +300,14 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             Project project = projectWithId(PROJECT_ID);
             ProjectApplication app = application(101L, 11L, ProjectApplicationStatus.SUBMITTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of(app));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
                 .willReturn(Map.of(11L, challenger(11L, ChallengerPart.DESIGN)));
             given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
                 .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.DESIGN, 1L))));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             assertThat(app.getStatus()).isEqualTo(ProjectApplicationStatus.REJECTED);
             then(saveProjectMemberPort).should(never()).saveAll(any());
@@ -271,7 +321,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication web2 = application(202L, 22L, ProjectApplicationStatus.SUBMITTED, project, round);
             ProjectApplication ios1 = application(203L, 23L, ProjectApplicationStatus.SUBMITTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(web1, web2, ios1));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -286,7 +336,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
                     partQuota(project, ChallengerPart.IOS, 4L)
                 )));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             // WEB: 지원자 2명, TO 2 (100% 이상) → ceil(2*0.5) = 1명 합격 의무
             long webApproved = List.of(web1, web2).stream()
@@ -304,7 +354,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication submitted = application(101L, 11L, ProjectApplicationStatus.SUBMITTED, project, round);
             ProjectApplication draft = application(102L, 12L, ProjectApplicationStatus.DRAFT, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(submitted, draft));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -312,7 +362,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
                 .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.DESIGN, 1L))));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             assertThat(draft.getStatus()).isEqualTo(ProjectApplicationStatus.DRAFT);
             assertThat(submitted.getStatus()).isEqualTo(ProjectApplicationStatus.REJECTED);
@@ -331,75 +381,85 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
                     saveProjectMemberPort,
                     List.<MatchingDecisionPolicy>of(),
                     new Random(42L),
-                    getChallengerRoleUseCase,
                     getChallengerUseCase,
-                    searchChallengerUseCase
+                    searchChallengerUseCase,
+                    projectPolicyAuthorizationService
                 );
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
 
-            assertThatThrownBy(() -> sutWithoutPolicy.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID))
+            assertThatThrownBy(() -> sutWithoutPolicy.autoDecide(
+                ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID)))
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_POLICY_NOT_FOUND);
         }
 
         @Test
-        void 자동_선발_실행_정보가_round에_기록된다_운영진_호출() {
+        void 같은_기수_active_중앙_운영진을_ALLOW한_정책이면_실행_정보가_기록된다() {
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(EXECUTOR_MEMBER_ID), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(allowedDecision);
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             assertThat(round.getAutoDecisionExecutedAt()).isNotNull();
             assertThat(round.getAutoDecisionExecutedMemberId()).isEqualTo(EXECUTOR_MEMBER_ID);
+
+            ArgumentCaptor<ProjectPolicyResourceContext> resourceCaptor =
+                ArgumentCaptor.forClass(ProjectPolicyResourceContext.class);
+            then(projectPolicyAuthorizationService).should().evaluate(
+                eq(EXECUTOR_MEMBER_ID), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                resourceCaptor.capture()
+            );
+            assertThat(resourceCaptor.getValue().matchingRoundId()).contains(ROUND_ID);
+            assertThat(resourceCaptor.getValue().gisuId()).contains(GISU_ID);
+            assertThat(resourceCaptor.getValue().chapterId()).contains(1L);
         }
 
         @Test
-        void 자동_선발_실행_정보가_round에_기록된다_스케줄러_호출_null() {
+        void 자동_선발_실행_정보가_round에_기록된다_스케줄러_호출() {
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
 
-            sut.autoDecide(ROUND_ID, null);
+            sut.autoDecide(ROUND_ID, AutoDecisionActor.matchingRoundScheduler());
 
             assertThat(round.getAutoDecisionExecutedAt()).isNotNull();
             assertThat(round.getAutoDecisionExecutedMemberId()).isNull();
         }
 
         @Test
-        void 스케줄러_호출은_권한_검증을_우회한다_executedByMemberId_null() {
+        void 스케줄러_호출은_SYSTEM_정책으로_권한을_검증한다() {
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
 
-            sut.autoDecide(ROUND_ID, null);
+            sut.autoDecide(ROUND_ID, AutoDecisionActor.matchingRoundScheduler());
 
-            then(getChallengerRoleUseCase).should(never()).findAllByMemberId(any());
-        }
-
-        @Test
-        void system_role_super_admin은_challenger_role_없이_차수를_확정한다() {
-            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
-            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
-            given(getChallengerRoleUseCase.isSuperAdmin(EXECUTOR_MEMBER_ID)).willReturn(true);
-
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
-
-            assertThat(round.getAutoDecisionExecutedMemberId()).isEqualTo(EXECUTOR_MEMBER_ID);
-            then(getChallengerRoleUseCase).should(never()).findAllByMemberId(EXECUTOR_MEMBER_ID);
+            then(projectPolicyAuthorizationService).should().evaluateSystem(
+                eq(AutoDecisionActor.MATCHING_ROUND_SCHEDULER_ID),
+                eq(ProjectPolicyAction.MATCHING_SYSTEM_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            );
         }
 
         @Test
         void 운영진이_아닌_사용자가_호출하면_PROJECT_MATCHING_ROUND_ACCESS_DENIED() {
             Long unauthorizedMemberId = 555L;
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
-            given(getChallengerRoleUseCase.findAllByMemberId(unauthorizedMemberId)).willReturn(List.of());
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(unauthorizedMemberId), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(deniedDecision);
 
-            assertThatThrownBy(() -> sut.autoDecide(ROUND_ID, unauthorizedMemberId))
+            assertThatThrownBy(() -> sut.autoDecide(
+                ROUND_ID, new AutoDecisionActor.Member(unauthorizedMemberId)))
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
@@ -410,11 +470,14 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             Long otherChapterPresidentId = 777L;
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
             ReflectionTestUtils.setField(round, "chapterId", 1L);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
-            given(getChallengerRoleUseCase.findAllByMemberId(otherChapterPresidentId))
-                .willReturn(List.of(chapterPresidentRole(99L)));
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(otherChapterPresidentId), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(deniedDecision);
 
-            assertThatThrownBy(() -> sut.autoDecide(ROUND_ID, otherChapterPresidentId))
+            assertThatThrownBy(() -> sut.autoDecide(
+                ROUND_ID, new AutoDecisionActor.Member(otherChapterPresidentId)))
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
@@ -425,14 +488,33 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             Long chapterPresidentId = 888L;
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
             ReflectionTestUtils.setField(round, "chapterId", 1L);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
-            given(getChallengerRoleUseCase.findAllByMemberId(chapterPresidentId))
-                .willReturn(List.of(chapterPresidentRole(1L)));
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(chapterPresidentId), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(allowedDecision);
 
-            sut.autoDecide(ROUND_ID, chapterPresidentId);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(chapterPresidentId));
 
             assertThat(round.getAutoDecisionExecutedAt()).isNotNull();
+        }
+
+        @Test
+        void active_SUPER_ADMIN을_ALLOW한_정책이면_권한을_통과한다() {
+            Long superAdminMemberId = 889L;
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
+            given(projectPolicyAuthorizationService.evaluate(
+                eq(superAdminMemberId), eq(ProjectPolicyAction.MATCHING_HUMAN_AUTO_DECIDE),
+                any(ProjectPolicyResourceContext.class)
+            )).willReturn(allowedDecision);
+
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(superAdminMemberId));
+
+            assertThat(round.getAutoDecisionExecutedAt()).isNotNull();
+            assertThat(round.getAutoDecisionExecutedMemberId()).isEqualTo(superAdminMemberId);
         }
 
         @Test
@@ -446,7 +528,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication app3 = application(203L, 23L, ProjectApplicationStatus.SUBMITTED, project, round);
             ProjectApplication app4 = application(204L, 24L, ProjectApplicationStatus.SUBMITTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(app1, app2, app3, app4));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -461,7 +543,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(any()))
                 .willReturn(Map.of(PROJECT_ID, Map.of(ChallengerPart.WEB, 4L)));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             long approvedCount = List.of(app1, app2, app3, app4).stream()
                 .filter(a -> a.getStatus() == ProjectApplicationStatus.APPROVED).count();
@@ -477,7 +559,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             ProjectApplication app1 = application(201L, 21L, ProjectApplicationStatus.SUBMITTED, project, round);
             ProjectApplication app2 = application(202L, 22L, ProjectApplicationStatus.SUBMITTED, project, round);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID))
                 .willReturn(List.of(app1, app2));
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
@@ -490,7 +572,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(any()))
                 .willReturn(Map.of(PROJECT_ID, Map.of(ChallengerPart.WEB, 6L)));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             assertThat(app1.getStatus()).isEqualTo(ProjectApplicationStatus.REJECTED);
             assertThat(app2.getStatus()).isEqualTo(ProjectApplicationStatus.REJECTED);
@@ -510,7 +592,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
                 challengerByMember.put(20L + i, challenger(20L + i, ChallengerPart.WEB));
             }
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(apps);
             given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
                 .willReturn(challengerByMember);
@@ -519,7 +601,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(any()))
                 .willReturn(Map.of());
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             long approvedCount = apps.stream()
                 .filter(a -> a.getStatus() == ProjectApplicationStatus.APPROVED).count();
@@ -532,7 +614,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             Project project = projectWithId(PROJECT_ID);
             ProjectMember existingMember = ProjectMember.create(project, 20L, ChallengerPart.WEB, EXECUTOR_MEMBER_ID);
 
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
             given(loadProjectPort.listByChapterIdAndStatus(1L, ProjectStatus.IN_PROGRESS))
                 .willReturn(List.of(project));
@@ -562,7 +644,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
                     Map.of()
                 ));
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             @SuppressWarnings("unchecked")
             ArgumentCaptor<Collection<ProjectMember>> membersCaptor = ArgumentCaptor.forClass(Collection.class);
@@ -583,10 +665,10 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
         @Test
         void PLAN_DEVELOPER_2차_종료_후에는_잔여_TO_랜덤_배정을_하지_않는다() {
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DEVELOPER, MatchingPhase.SECOND);
-            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectMatchingRoundPort.getByIdForUpdate(ROUND_ID)).willReturn(round);
             given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
 
-            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+            sut.autoDecide(ROUND_ID, new AutoDecisionActor.Member(EXECUTOR_MEMBER_ID));
 
             then(loadProjectPort).should(never()).listByChapterIdAndStatus(any(), any());
             then(searchChallengerUseCase).should(never()).cursorSearch(any(), any(), anyInt());
@@ -601,7 +683,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
     private ProjectMatchingRound expiredRound(MatchingType type, MatchingPhase phase) {
         ProjectMatchingRound round = ProjectMatchingRound.create(
             "테스트 매칭", null,
-            type, phase, 1L,
+            type, phase, GISU_ID, 1L,
             Instant.now().minusSeconds(7_200),
             Instant.now().minusSeconds(3_600),
             ROUND_DECISION_DEADLINE
@@ -629,7 +711,7 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
     private ProjectMatchingRound futureDeadlineRound(MatchingType type) {
         ProjectMatchingRound round = ProjectMatchingRound.create(
             "테스트 매칭", null,
-            type, MatchingPhase.FIRST, 1L,
+            type, MatchingPhase.FIRST, GISU_ID, 1L,
             Instant.now().minusSeconds(86_400),
             Instant.now().plusSeconds(43_200),
             Instant.now().plusSeconds(86_400)
@@ -670,21 +752,4 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
         return ProjectPartQuota.create(project, part, quota, 999L);
     }
 
-    private ChallengerRoleInfo centralCoreRole() {
-        return ChallengerRoleInfo.builder()
-            .roleType(ChallengerRoleType.CENTRAL_PRESIDENT)
-            .organizationType(OrganizationType.CENTRAL)
-            .organizationId(null)
-            .gisuId(GISU_ID)
-            .build();
-    }
-
-    private ChallengerRoleInfo chapterPresidentRole(Long chapterId) {
-        return ChallengerRoleInfo.builder()
-            .roleType(ChallengerRoleType.CHAPTER_PRESIDENT)
-            .organizationType(OrganizationType.CHAPTER)
-            .organizationId(chapterId)
-            .gisuId(GISU_ID)
-            .build();
-    }
 }

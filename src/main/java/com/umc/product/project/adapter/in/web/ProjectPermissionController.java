@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectPermissionsResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.query.GetProjectPermissionsUseCase;
 import com.umc.product.project.application.port.in.query.dto.ProjectPermissionInfo;
 
@@ -33,6 +35,7 @@ public class ProjectPermissionController {
     private final GetProjectPermissionsUseCase getProjectPermissionsUseCase;
 
     @GetMapping("/permissions")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_CAPABILITY_LIST)
     @Operation(
         operationId = "PROJECT-PERMISSIONS-001",
         summary = "프로젝트 capability 일괄 조회",

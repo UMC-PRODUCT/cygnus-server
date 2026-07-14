@@ -18,6 +18,7 @@
 
 | 변수                                   | 설명                        | 예시 값   |
 |--------------------------------------|---------------------------|--------|
+| `GISU_ID`                            | 매칭 차수와 지부가 속한 기수 ID       | `10`   |
 | `CHAPTER_ID_OWNED`                   | 요청자가 지부장 권한을 가진 지부 ID     | `1`    |
 | `CHAPTER_ID_NOT_OWNED`               | 요청자가 관리 권한을 가지지 않은 지부 ID  | `2`    |
 | `MATCHING_ROUND_ID`                  | 수정/삭제 대상 매칭 차수 ID         | `101`  |
@@ -36,6 +37,7 @@
 | 4  | 매칭 차수 부분 수정 가능         | `PATCH`  | `200 OK` 또는 빈 응답   |
 | 5  | 관련 지원서가 있는 매칭 차수 삭제 요청 | `DELETE` | `409 PROJECT-0304` |
 | 6  | 조회 API 정상 동작           | `GET`    | 필터 조건에 맞는 배열 반환    |
+| 7  | 기수 ID 누락/지부 불일치        | `POST`   | `400 Bad Request`  |
 
 ---
 
@@ -57,6 +59,7 @@
     "description": "관리 권한이 없는 지부에 생성 요청",
     "type": "PLAN_DESIGN",
     "phase": "FIRST",
+    "gisuId": 10,
     "chapterId": 2,
     "startsAt": "2026-05-10T00:00:00Z",
     "endsAt": "2026-05-12T00:00:00Z",
@@ -83,6 +86,7 @@
     "description": "기존 매칭 차수 기간과 일부 겹치는 요청",
     "type": "PLAN_DEVELOPER",
     "phase": "FIRST",
+    "gisuId": 10,
     "chapterId": 1,
     "startsAt": "2026-05-11T00:00:00Z",
     "endsAt": "2026-05-14T00:00:00Z",
@@ -92,7 +96,7 @@
 
 ## 3. 매칭 차수 생성 요청 시 날짜 순서가 잘못된 경우
 
-`startsAt < endsAt < decisionDeadline` 조건을 만족하지 않는 요청을 검증합니다.
+`gisu.startAt <= startsAt < endsAt < decisionDeadline < gisu.endAt` 조건을 만족하지 않는 요청을 검증합니다.
 
 | 항목       | 값                                                 |
 |----------|---------------------------------------------------|
@@ -110,6 +114,7 @@
     "description": "startsAt이 endsAt보다 늦은 잘못된 요청",
     "type": "PLAN_DESIGN",
     "phase": "SECOND",
+    "gisuId": 10,
     "chapterId": 1,
     "startsAt": "2026-05-12T00:00:00Z",
     "endsAt": "2026-05-10T00:00:00Z",
@@ -125,6 +130,7 @@
     "description": "endsAt이 decisionDeadline보다 늦은 잘못된 요청",
     "type": "PLAN_DEVELOPER",
     "phase": "SECOND",
+    "gisuId": 10,
     "chapterId": 1,
     "startsAt": "2026-05-14T00:00:00Z",
     "endsAt": "2026-05-18T00:00:00Z",
@@ -136,7 +142,7 @@
 
 기존 매칭 차수의 이름, 설명, 유형, 차수, 기간을 수정할 수 있음을 검증합니다.
 
-> 수정 API는 부분 수정 성격의 `PATCH`입니다. 요청 본문에는 수정할 필드만 포함합니다. 제공되지 않은 필드는 기존 매칭 차수 값을 유지합니다. 요청 본문에는 `chapterId`를 포함하지 않습니다. 매칭 차수가 소속된 지부는 수정할 수 없고, 권한 및 기간 중복 검증은 기존 매칭 차수의 `chapterId` 기준으로 수행됩니다.
+> 수정 API는 부분 수정 성격의 `PATCH`입니다. 요청 본문에는 수정할 필드만 포함합니다. `gisuId`와 `chapterId`는 생성 후 불변이므로 포함하면 400을 반환합니다.
 
 | 항목     | 값                                                     |
 |--------|-------------------------------------------------------|
@@ -166,6 +172,7 @@
 | `startsAt`         | `2026-05-20T00:00:00Z` |
 | `endsAt`           | `2026-05-22T00:00:00Z` |
 | `decisionDeadline` | `2026-05-23T00:00:00Z` |
+| `gisuId`           | 기존 매칭 차수의 `gisuId`     |
 | `chapterId`        | 기존 매칭 차수의 `chapterId`  |
 
 ### 4-1. 부분 수정 결과의 기간 순서가 잘못된 경우
@@ -185,7 +192,7 @@
 }
 ```
 
-### 4-2. 수정 요청에 `chapterId`가 포함된 경우
+### 4-2. 수정 요청에 `gisuId` 또는 `chapterId`가 포함된 경우
 
 | 항목     | 값                                                     |
 |--------|-------------------------------------------------------|
@@ -195,14 +202,7 @@
 
 ```json
 {
-    "name": "기획-디자인 1차 매칭 수정",
-    "description": "chapterId를 포함한 잘못된 수정 요청",
-    "type": "PLAN_DESIGN",
-    "phase": "FIRST",
-    "chapterId": 999,
-    "startsAt": "2026-05-20T00:00:00Z",
-    "endsAt": "2026-05-22T00:00:00Z",
-    "decisionDeadline": "2026-05-23T00:00:00Z"
+    "gisuId": 11
 }
 ```
 
@@ -241,6 +241,7 @@
         "description": "1지부 기획-디자인 1차 매칭",
         "type": "PLAN_DESIGN",
         "phase": "FIRST",
+        "gisuId": 10,
         "chapterId": 1,
         "startsAt": "2026-05-10T00:00:00Z",
         "endsAt": "2026-05-12T00:00:00Z",
@@ -273,6 +274,7 @@
         "description": "1지부 기획-디자인 1차 매칭",
         "type": "PLAN_DESIGN",
         "phase": "FIRST",
+        "gisuId": 10,
         "chapterId": 1,
         "startsAt": "2026-05-10T00:00:00Z",
         "endsAt": "2026-05-12T00:00:00Z",
@@ -285,14 +287,14 @@
 ]
 ```
 
-### 6-3. `time`만 있고 `chapterId`가 없는 조회
+### 6-3. `gisuId`, `chapterId`, `time` 선택적 AND 조회
 
 | 항목       | 값                                                           |
 |----------|-------------------------------------------------------------|
 | Method   | `GET`                                                       |
-| URL      | `/api/v1/project/matching-rounds?time=2026-05-11T00:00:00Z` |
-| 기대 상태    | `400 Bad Request`                                           |
-| 기대 에러 코드 | `PROJECT-0305`                                              |
+| URL      | `/api/v1/project/matching-rounds?gisuId=10&chapterId=1&time=2026-05-11T00:00:00Z` |
+| 기대 상태    | `200 OK`                                           |
+| 기대 결과    | 제공된 조건을 모두 만족하는 배열                              |
 
 요청 바디 없음.
 
@@ -313,6 +315,7 @@
     "description": "기간이 겹치지 않는 정상 생성 요청",
     "type": "PLAN_DESIGN",
     "phase": "THIRD",
+    "gisuId": 10,
     "chapterId": 1,
     "startsAt": "2026-06-01T00:00:00Z",
     "endsAt": "2026-06-03T00:00:00Z",

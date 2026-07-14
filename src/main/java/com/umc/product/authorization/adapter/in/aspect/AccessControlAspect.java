@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.domain.ResourcePermission;
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.global.security.MemberPrincipal;
@@ -32,6 +33,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AccessControlAspect {
 
     private final CheckPermissionUseCase checkPermissionUseCase;
+    private final AuthorizationRequestSubjectContext requestSubjectContext;
     private final ExpressionParser parser = new SpelExpressionParser();
 
     @Around("@annotation(checkAccess)")
@@ -52,7 +54,13 @@ public class AccessControlAspect {
                 : ResourcePermission.of(checkAccess.resourceType(), resourceId, checkAccess.permission());
 
         // 4. 권한 체크
-        boolean hasAccess = checkPermissionUseCase.check(memberId, permission);
+        SubjectAttributes subject = requestSubjectContext.getOrLoad(
+            memberId,
+            checkPermissionUseCase::loadSubject
+        );
+        boolean hasAccess = checkAccess.action().isBlank()
+            ? checkPermissionUseCase.check(subject, permission)
+            : checkPermissionUseCase.check(subject, permission, checkAccess.action());
 
         if (!hasAccess) {
             log.warn("요청한 리소스에 접근 권한이 없습니다. - memberId: {}, resource: {}:{}, permission: {}",

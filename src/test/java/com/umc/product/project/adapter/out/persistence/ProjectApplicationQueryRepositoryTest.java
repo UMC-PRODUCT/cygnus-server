@@ -53,31 +53,31 @@ class ProjectApplicationQueryRepositoryTest {
             "1차",
             MatchingType.PLAN_DEVELOPER,
             MatchingPhase.FIRST,
-            Instant.parse("2026-05-01T00:00:00Z")
+            Instant.parse("2024-05-01T00:00:00Z")
         );
         ProjectMatchingRound latestApprovedRound = persistRound(
             "2차",
             MatchingType.PLAN_DEVELOPER,
             MatchingPhase.SECOND,
-            Instant.parse("2026-05-03T00:00:00Z")
+            Instant.parse("2024-05-03T00:00:00Z")
         );
         ProjectMatchingRound tieApprovedRound = persistRound(
             "디자인 1차",
             MatchingType.PLAN_DESIGN,
             MatchingPhase.FIRST,
-            Instant.parse("2026-05-03T00:00:00Z")
+            Instant.parse("2024-05-03T00:00:00Z")
         );
         ProjectMatchingRound rejectedRound = persistRound(
             "3차",
             MatchingType.PLAN_DEVELOPER,
             MatchingPhase.THIRD,
-            Instant.parse("2026-05-05T00:00:00Z")
+            Instant.parse("2024-05-05T00:00:00Z")
         );
         ProjectMatchingRound submittedRound = persistRound(
             "디자인 2차",
             MatchingType.PLAN_DESIGN,
             MatchingPhase.SECOND,
-            Instant.parse("2026-05-06T00:00:00Z")
+            Instant.parse("2024-05-06T00:00:00Z")
         );
 
         persistApplication(memberId, oldApprovedRound, ProjectApplicationStatus.APPROVED);
@@ -110,7 +110,7 @@ class ProjectApplicationQueryRepositoryTest {
     @DisplayName("searchProjectApplications_지원_종료(endsAt<now)된_차수의_지원서만_반환한다")
     void searchProjectApplicationsReturnsOnlyEndedRounds() {
         // given - endedRound 는 종료, ongoingRound 는 진행 중
-        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Instant now = Instant.parse("2024-05-10T00:00:00Z");
         ProjectMatchingRound endedRound = persistRound(
             "종료 차수", MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST,
             now.minusSeconds(7_200)); // endsAt = now - 3600 (과거)
@@ -137,7 +137,7 @@ class ProjectApplicationQueryRepositoryTest {
     @DisplayName("searchProjectApplications_특정_차수가_아직_진행_중이면_빈_리스트")
     void searchProjectApplicationsEmptyWhenRoundOngoing() {
         // given
-        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Instant now = Instant.parse("2024-05-10T00:00:00Z");
         ProjectMatchingRound ongoingRound = persistRound(
             "진행 차수", MatchingType.PLAN_DESIGN, MatchingPhase.FIRST,
             now.minusSeconds(1_800)); // endsAt = now + 1800 (미래)
@@ -157,7 +157,7 @@ class ProjectApplicationQueryRepositoryTest {
     @DisplayName("searchProjectApplications_includeOngoingMatchingRounds_true면_진행_중_차수의_지원서도_반환한다")
     void searchProjectApplicationsReturnsOngoingRoundsWhenIncluded() {
         // given
-        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Instant now = Instant.parse("2024-05-10T00:00:00Z");
         ProjectMatchingRound ongoingRound = persistRound(
             "진행 차수", MatchingType.PLAN_DESIGN, MatchingPhase.FIRST,
             now.minusSeconds(1_800)); // endsAt = now + 1800 (미래)
@@ -179,7 +179,7 @@ class ProjectApplicationQueryRepositoryTest {
     @DisplayName("searchProjectApplicationsByProjectIds_includeOngoingProjectIds에_포함된_프로젝트만_진행중_차수_지원서를_반환한다")
     void searchProjectApplicationsByProjectIdsIncludesOngoingOnlyForAllowedProjects() {
         // given
-        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Instant now = Instant.parse("2024-05-10T00:00:00Z");
         Project projectB = persistProject("프로젝트 베타", 20L);
         ProjectApplicationForm formB = ProjectApplicationForm.create(projectB, 600L);
         em.persist(formB);
@@ -220,7 +220,7 @@ class ProjectApplicationQueryRepositoryTest {
     @DisplayName("searchProjectApplicationsByProjectIds_matchingRoundId_status_필터를_적용한다")
     void searchProjectApplicationsByProjectIdsAppliesMatchingRoundAndStatusFilters() {
         // given
-        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Instant now = Instant.parse("2024-05-10T00:00:00Z");
         Project projectB = persistProject("프로젝트 베타", 20L);
         ProjectApplicationForm formB = ProjectApplicationForm.create(projectB, 600L);
         em.persist(formB);
@@ -285,6 +285,7 @@ class ProjectApplicationQueryRepositoryTest {
             null,
             type,
             phase,
+            1L,
             1L,
             startsAt,
             startsAt.plusSeconds(3_600),

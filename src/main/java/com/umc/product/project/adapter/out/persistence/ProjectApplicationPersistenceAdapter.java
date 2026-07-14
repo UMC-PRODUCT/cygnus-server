@@ -36,6 +36,11 @@ public class ProjectApplicationPersistenceAdapter implements LoadProjectApplicat
     }
 
     @Override
+    public boolean existsByProjectId(Long projectId) {
+        return projectApplicationJpaRepository.existsByApplicationForm_Project_Id(projectId);
+    }
+
+    @Override
     public Optional<ProjectApplication> findByProjectIdAndApplicantMemberIdAndStatus(
         Long projectId,
         Long applicantMemberId,

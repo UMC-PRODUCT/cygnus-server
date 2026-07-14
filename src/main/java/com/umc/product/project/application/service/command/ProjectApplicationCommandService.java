@@ -14,7 +14,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -26,6 +29,13 @@ import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormRespo
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationEvaluationPoint;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationInternalOrigin;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationResourceSnapshot;
 import com.umc.product.project.application.port.in.command.CancelProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.DecideApplicationUseCase;
@@ -76,9 +86,9 @@ public class ProjectApplicationCommandService implements
     private final LoadProjectMatchingRoundPort loadProjectMatchingRoundPort;
     private final ManageFormResponseUseCase manageFormResponseUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     private final List<MatchingDecisionPolicy> matchingDecisionPolicies;
     private final GetFormUseCase getFormUseCase;
+    private final ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
 
     @Audited(
         domain = Domain.PROJECT,
@@ -119,6 +129,7 @@ public class ProjectApplicationCommandService implements
 
         // 4. FE가 지정한 매칭 차수 조회 + 검증
         ProjectMatchingRound round = loadProjectMatchingRoundPort.getById(command.matchingRoundId());
+        validateCreateProjectRoundScope(project, round, command.applicantMemberId());
 
         if (!round.isOpenAt(Instant.now())) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_ROUND_NOT_OPEN);
@@ -192,6 +203,7 @@ public class ProjectApplicationCommandService implements
         ProjectApplication application = loadDraftApplication(
             command.projectId(), command.applicationId(), command.requesterMemberId()
         );
+        validateSubmitProjectRoundScope(application, command.requesterMemberId());
 
         // 차수 마감 여부 체크 - 제출 시점에 차수가 닫혀있으면 불가
         if (application.getAppliedMatchingRound() != null
@@ -226,6 +238,58 @@ public class ProjectApplicationCommandService implements
         return ProjectApplicationInfo.of(application.getId(), application.getStatus());
     }
 
+    private void validateCreateProjectRoundScope(
+        Project project,
+        ProjectMatchingRound round,
+        long applicantMemberId
+    ) {
+        if (hasSameProjectRoundScope(project, round)) {
+            return;
+        }
+        evaluateRoundScopeMismatch(
+            applicantMemberId,
+            ProjectPolicyAction.APPLICATION_CREATE,
+            projectAuthorizationContext(project)
+        );
+        throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_ROUND_SCOPE_MISMATCH);
+    }
+
+    private void validateSubmitProjectRoundScope(
+        ProjectApplication application,
+        long requesterMemberId
+    ) {
+        Project project = application.getApplicationForm().getProject();
+        if (hasSameProjectRoundScope(project, application.getAppliedMatchingRound())) {
+            return;
+        }
+        evaluateRoundScopeMismatch(
+            requesterMemberId,
+            ProjectPolicyAction.APPLICATION_SUBMIT,
+            authorizationContext(application)
+        );
+        throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_ROUND_SCOPE_MISMATCH);
+    }
+
+    private boolean hasSameProjectRoundScope(Project project, ProjectMatchingRound round) {
+        return Objects.equals(project.getGisuId(), round.getGisuId())
+            && Objects.equals(project.getChapterId(), round.getChapterId());
+    }
+
+    private void evaluateRoundScopeMismatch(
+        long memberId,
+        ProjectPolicyAction action,
+        ProjectPolicyResourceContext resource
+    ) {
+        ProjectPolicySubjectSnapshot snapshot = projectPolicyAuthorizationService.snapshot(memberId);
+        projectPolicyAuthorizationService.evaluate(
+            snapshot,
+            action,
+            ProjectAuthorizationResourceSnapshot.withApplicationRoundScopeMismatch(resource),
+            ProjectAuthorizationEvaluationPoint.internal(
+                ProjectAuthorizationInternalOrigin.RESOURCE_PERMISSION_EVALUATOR)
+        );
+    }
+
     @Override
     public ProjectApplicationInfo cancel(CancelProjectApplicationCommand command) {
         ProjectApplication application = loadProjectApplicationPort.findById(command.applicationId())
@@ -252,6 +316,15 @@ public class ProjectApplicationCommandService implements
     ) {
         ProjectApplication application = loadProjectApplicationPort.findById(applicationId)
             .orElseThrow(() -> new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND));
+        PolicyDecision authorization = projectPolicyAuthorizationService.evaluate(
+            decidedByMemberId,
+            ProjectPolicyAction.APPLICATION_DECIDE,
+            authorizationContext(application)
+        );
+        if (authorization.effect() != PolicyEffect.ALLOW) {
+            throw new AuthorizationDomainException(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED);
+        }
+        boolean forceDecision = projectPolicyAuthorizationService.forceDecision(authorization);
 
         if (targetStatus == ApplicationDecisionStatus.APPROVED
             && application.getStatus() != ProjectApplicationStatus.APPROVED) {
@@ -261,7 +334,7 @@ public class ProjectApplicationCommandService implements
             validateMinimumSelectionAfterRejection(application);
         }
 
-        applyDecision(application, targetStatus, reason, decidedByMemberId);
+        applyDecision(application, targetStatus, reason, decidedByMemberId, forceDecision);
 
         saveProjectApplicationPort.save(application);
         return ProjectApplicationInfo.of(application.getId(), application.getStatus());
@@ -271,27 +344,43 @@ public class ProjectApplicationCommandService implements
         ProjectApplication application,
         ApplicationDecisionStatus targetStatus,
         String reason,
-        Long decidedByMemberId
+        Long decidedByMemberId,
+        boolean forceDecision
     ) {
-        boolean superAdmin = decidedByMemberId != null
-            && checkChallengerAuthorityUseCase.isSuperAdmin(decidedByMemberId);
-
         switch (targetStatus) {
             case APPROVED -> {
-                if (superAdmin) {
+                if (forceDecision) {
                     application.forceApprove(decidedByMemberId, reason);
                 } else {
                     application.approve(decidedByMemberId, reason);
                 }
             }
             case REJECTED -> {
-                if (superAdmin) {
+                if (forceDecision) {
                     application.forceReject(decidedByMemberId, reason);
                 } else {
                     application.reject(decidedByMemberId, reason);
                 }
             }
         }
+    }
+
+    private ProjectPolicyResourceContext authorizationContext(ProjectApplication application) {
+        Project project = application.getApplicationForm().getProject();
+        return ProjectPolicyResourceContext.builder()
+            .project(project.getId(), project.getGisuId(), project.getChapterId(), project.getStatus())
+            .creatorMemberId(project.getCreatorMemberId())
+            .productOwnerMemberId(project.getProductOwnerMemberId())
+            .application(application.getId(), application.getStatus(), application.getApplicantMemberId())
+            .build();
+    }
+
+    private ProjectPolicyResourceContext projectAuthorizationContext(Project project) {
+        return ProjectPolicyResourceContext.builder()
+            .project(project.getId(), project.getGisuId(), project.getChapterId(), project.getStatus())
+            .creatorMemberId(project.getCreatorMemberId())
+            .productOwnerMemberId(project.getProductOwnerMemberId())
+            .build();
     }
 
     /**

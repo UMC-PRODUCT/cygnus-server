@@ -110,3 +110,4 @@ app:
   oauth2:
     google:
       client-id-list: apps.googleusercontent.com
+scheduler.matching-round-deadline.enabled: false

@@ -1,11 +1,13 @@
 package com.umc.product.project.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 
 import java.time.Instant;
@@ -13,7 +15,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,16 +26,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
-import com.umc.product.authorization.domain.PermissionType;
-import com.umc.product.authorization.domain.ResourcePermission;
-import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
+import com.umc.product.authorization.domain.policy.PolicyValue;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
-import com.umc.product.project.application.access.ProjectApplicationAccessScope;
-import com.umc.product.project.application.access.ProjectApplicationAccessScopeResolver;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyOutcomes;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
 import com.umc.product.project.application.port.in.query.dto.ProjectPermissionInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectPermissionReason;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
@@ -39,7 +48,6 @@ import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
 import com.umc.product.project.application.port.out.LoadProjectPartQuotaPort;
 import com.umc.product.project.application.port.out.LoadProjectPort;
-import com.umc.product.project.application.service.policy.ProjectStatisticsAccessPolicy;
 import com.umc.product.project.domain.Project;
 import com.umc.product.project.domain.ProjectApplicationForm;
 import com.umc.product.project.domain.ProjectMatchingRound;
@@ -56,6 +64,7 @@ class ProjectPermissionQueryServiceTest {
     private static final Long SECOND_PROJECT_ID = 101L;
     private static final Long GISU_ID = 1L;
     private static final Long CHAPTER_ID = 7L;
+    private static final Instant EVALUATED_AT = Instant.parse("2026-07-01T00:00:00Z");
 
     @Mock
     CheckPermissionUseCase checkPermissionUseCase;
@@ -72,12 +81,38 @@ class ProjectPermissionQueryServiceTest {
     @Mock
     GetChallengerUseCase getChallengerUseCase;
     @Mock
-    ProjectApplicationAccessScopeResolver projectApplicationAccessScopeResolver;
+    ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
     @Mock
-    ProjectStatisticsAccessPolicy projectStatisticsAccessPolicy;
+    ProjectPolicySubjectSnapshot projectPolicySubjectSnapshot;
+    @Mock
+    PolicyDecision allowedDecision;
+    @Mock
+    PolicyDecision deniedDecision;
 
     @InjectMocks
     ProjectPermissionQueryService sut;
+
+    @BeforeEach
+    void setUpPolicyDecisions() {
+        lenient().when(projectPolicyAuthorizationService.snapshot(any(SubjectAttributes.class)))
+            .thenReturn(projectPolicySubjectSnapshot);
+        lenient().when(projectPolicyAuthorizationService.evaluate(
+            eq(projectPolicySubjectSnapshot), any(ProjectPolicyAction.class), any(ProjectPolicyResourceContext.class)
+        )).thenReturn(deniedDecision);
+        lenient().when(projectPolicyAuthorizationService.evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.CAPABILITY_LIST),
+            any(ProjectPolicyResourceContext.class)
+        )).thenReturn(allowedDecision);
+        lenient().when(allowedDecision.effect()).thenReturn(PolicyEffect.ALLOW);
+        lenient().when(deniedDecision.effect()).thenReturn(PolicyEffect.DENY);
+        lenient().when(projectPolicySubjectSnapshot.evaluatedAt())
+            .thenReturn(EVALUATED_AT);
+        lenient().when(allowedDecision.outcome(ProjectPolicyOutcomes.FORM_VIEW))
+            .thenReturn(Optional.of(new PolicyValue.EnumValue("FULL")));
+        lenient().when(allowedDecision.outcome(ProjectPolicyOutcomes.APPLICATION_PROJECT_IDS))
+            .thenReturn(Optional.of(new PolicyValue.LongSetValue(Set.of(PROJECT_ID))));
+    }
 
     @Test
     void DRAFT_프로젝트는_작성자이고_이름과_지원폼이_있으면_검토_요청이_가능하다() {
@@ -86,17 +121,17 @@ class ProjectPermissionQueryServiceTest {
         SubjectAttributes subject = subject();
         givenBase(project, subject);
         givenForms(form);
-        givenProjectPermission(subject, PermissionType.READ, true);
-        givenProjectPermission(subject, PermissionType.EDIT, true);
-        givenProjectPermission(subject, PermissionType.DELETE, true);
-        givenProjectPermission(subject, PermissionType.MANAGE, false);
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, project))
-            .willReturn(new ProjectApplicationAccessScope.ProjectScoped(PROJECT_ID));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, project)).willReturn(true);
+        givenProjectPermissions(true, true, true, false);
+        givenPolicyDecision(ProjectPolicyAction.FORM_READ, true);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_LIST_PROJECT, true);
+        givenPolicyDecision(ProjectPolicyAction.STATISTICS_PROJECT, true);
 
         ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
 
         assertThat(result.status().canRequestReview().allowed()).isTrue();
+        assertThat(result.applicationForm().canRead().allowed()).isTrue();
+        assertThat(result.application().canReadList().allowed()).isTrue();
+        assertThat(result.statistics().canRead().allowed()).isTrue();
         assertThat(result.applicationForm().canCreate().allowed()).isFalse();
         assertThat(result.applicationForm().canCreate().reasonCode())
             .isEqualTo(ProjectPermissionReason.NOT_IMPLEMENTED.name());
@@ -110,6 +145,22 @@ class ProjectPermissionQueryServiceTest {
             .isEqualTo(ProjectPermissionReason.NOT_IMPLEMENTED.name());
         assertThat(result.status().canComplete().reason())
             .isEqualTo("아직 프로젝트 완료 처리를 지원하지 않아요.");
+        then(allowedDecision).should().outcome(ProjectPolicyOutcomes.FORM_VIEW);
+        then(projectPolicyAuthorizationService).should().evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.FORM_READ),
+            any(ProjectPolicyResourceContext.class)
+        );
+        then(projectPolicyAuthorizationService).should().evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.APPLICATION_LIST_PROJECT),
+            any(ProjectPolicyResourceContext.class)
+        );
+        then(projectPolicyAuthorizationService).should().evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.STATISTICS_PROJECT),
+            any(ProjectPolicyResourceContext.class)
+        );
     }
 
     @Test
@@ -118,13 +169,7 @@ class ProjectPermissionQueryServiceTest {
         SubjectAttributes subject = subject();
         givenBase(project, subject);
         givenForms();
-        givenProjectPermission(subject, PermissionType.EDIT, false);
-        givenProjectPermission(subject, PermissionType.READ, false);
-        givenProjectPermission(subject, PermissionType.DELETE, false);
-        givenProjectPermission(subject, PermissionType.MANAGE, false);
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, project))
-            .willReturn(new ProjectApplicationAccessScope.None());
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, project)).willReturn(false);
+        givenProjectPermissions(false, false, false, false);
 
         ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
 
@@ -143,19 +188,17 @@ class ProjectPermissionQueryServiceTest {
         givenBase(project, subject);
         givenForms(form);
         givenQuotas(project, ChallengerPart.WEB);
-        givenProjectPermission(subject, PermissionType.READ, true);
-        givenProjectPermission(subject, PermissionType.EDIT, false);
-        givenProjectPermission(subject, PermissionType.DELETE, false);
-        givenProjectPermission(subject, PermissionType.MANAGE, true);
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, project))
-            .willReturn(new ProjectApplicationAccessScope.ProjectScoped(PROJECT_ID));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, project)).willReturn(true);
+        givenProjectPermissions(true, false, false, true);
+        givenPolicyDecision(ProjectPolicyAction.FORM_READ, true);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_LIST_PROJECT, true);
+        givenPolicyDecision(ProjectPolicyAction.STATISTICS_PROJECT, true);
 
         ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
 
         assertThat(result.status().canPublish().allowed()).isTrue();
         assertThat(result.status().canAbort().allowed()).isFalse();
-        assertThat(result.status().canAbort().reasonCode()).isEqualTo(ProjectPermissionReason.INVALID_PROJECT_STATUS.name());
+        assertThat(result.status().canAbort().reasonCode())
+            .isEqualTo(ProjectPermissionReason.INVALID_PROJECT_STATUS.name());
         assertThat(result.status().canAbort().reason()).isEqualTo("현재 진행 중인 프로젝트만 중단 시킬 수 있어요.");
     }
 
@@ -166,15 +209,12 @@ class ProjectPermissionQueryServiceTest {
         SubjectAttributes subject = subject();
         givenBase(project, subject);
         givenForms(form);
-        givenProjectPermission(subject, PermissionType.READ, true);
-        givenProjectPermission(subject, PermissionType.EDIT, true);
-        givenProjectPermission(subject, PermissionType.DELETE, true);
-        givenProjectPermission(subject, PermissionType.MANAGE, true);
+        givenProjectPermissions(true, true, true, true);
+        givenPolicyDecision(ProjectPolicyAction.FORM_READ, true);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_LIST_PROJECT, true);
+        givenPolicyDecision(ProjectPolicyAction.STATISTICS_PROJECT, true);
         given(loadProjectMatchingRoundPort.listOpenAt(eq(CHAPTER_ID), any(Instant.class)))
             .willReturn(List.of(openRound()));
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, project))
-            .willReturn(new ProjectApplicationAccessScope.ProjectScoped(PROJECT_ID));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, project)).willReturn(true);
 
         ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
 
@@ -193,19 +233,14 @@ class ProjectPermissionQueryServiceTest {
         givenBase(project, subject);
         givenForms(form);
         givenQuotas(project, ChallengerPart.WEB);
-        givenProjectPermission(subject, PermissionType.READ, true);
-        givenProjectPermission(subject, PermissionType.EDIT, false);
-        givenProjectPermission(subject, PermissionType.DELETE, false);
-        givenProjectPermission(subject, PermissionType.MANAGE, false);
-        givenApplicationPermission(subject, true);
+        givenProjectPermissions(true, false, false, false);
+        givenPolicyDecision(ProjectPolicyAction.FORM_READ, true);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_CREATE, true);
         given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_ID, GISU_ID))
             .willReturn(Optional.of(challenger(ChallengerPart.WEB)));
         given(loadProjectMemberPort.existsByGisuAndMember(GISU_ID, REQUESTER_ID)).willReturn(false);
         given(loadProjectMatchingRoundPort.listOpenAt(eq(CHAPTER_ID), any(Instant.class)))
             .willReturn(List.of(openRound()));
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, project))
-            .willReturn(new ProjectApplicationAccessScope.None());
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, project)).willReturn(false);
 
         ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
 
@@ -213,8 +248,28 @@ class ProjectPermissionQueryServiceTest {
     }
 
     @Test
+    void 지원서_결정_capability는_APPLICATION_DECIDE_정책_결과를_사용한다() {
+        Project project = project(ProjectStatus.IN_PROGRESS, 999L, 999L, "서비스 리뉴얼");
+        SubjectAttributes subject = subject();
+        givenBase(project, subject);
+        givenForms();
+        givenProjectPermissions(false, false, false, false);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_DECIDE, true);
+
+        ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
+
+        assertThat(result.application().canDecide().allowed()).isTrue();
+        then(projectPolicyAuthorizationService).should().evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.APPLICATION_DECIDE),
+            any(ProjectPolicyResourceContext.class)
+        );
+    }
+
+    @Test
     void 같은_지부와_기수의_프로젝트는_권한_계산용_조회_결과를_캐시한다() {
-        Project firstProject = project(PROJECT_ID, GISU_ID, CHAPTER_ID, ProjectStatus.IN_PROGRESS, 999L, 999L, "서비스 리뉴얼");
+        Project firstProject = project(
+            PROJECT_ID, GISU_ID, CHAPTER_ID, ProjectStatus.IN_PROGRESS, 999L, 999L, "서비스 리뉴얼");
         Project secondProject = project(
             SECOND_PROJECT_ID,
             GISU_ID,
@@ -239,19 +294,14 @@ class ProjectPermissionQueryServiceTest {
                 SECOND_PROJECT_ID,
                 List.of(ProjectPartQuota.create(secondProject, ChallengerPart.WEB, 1L, REQUESTER_ID))
             ));
-        givenApplicationCreatePermissions(subject, PROJECT_ID);
-        givenApplicationCreatePermissions(subject, SECOND_PROJECT_ID);
+        givenProjectPermissions(true, false, false, false);
+        givenPolicyDecision(ProjectPolicyAction.FORM_READ, true);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_CREATE, true);
         given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_ID, GISU_ID))
             .willReturn(Optional.of(challenger(ChallengerPart.WEB)));
         given(loadProjectMemberPort.existsByGisuAndMember(GISU_ID, REQUESTER_ID)).willReturn(false);
         given(loadProjectMatchingRoundPort.listOpenAt(eq(CHAPTER_ID), any(Instant.class)))
             .willReturn(List.of(openRound()));
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, firstProject))
-            .willReturn(new ProjectApplicationAccessScope.None());
-        given(projectApplicationAccessScopeResolver.resolveForProjectApplicantList(REQUESTER_ID, secondProject))
-            .willReturn(new ProjectApplicationAccessScope.None());
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, firstProject)).willReturn(false);
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(REQUESTER_ID, secondProject)).willReturn(false);
 
         List<ProjectPermissionInfo> results = sut.listByProjectIds(
             REQUESTER_ID,
@@ -262,9 +312,16 @@ class ProjectPermissionQueryServiceTest {
         assertThat(results)
             .extracting(result -> result.application().canCreate().allowed())
             .containsExactly(true, true);
-        then(loadProjectMatchingRoundPort).should(times(1)).listOpenAt(eq(CHAPTER_ID), any(Instant.class));
+        then(loadProjectMatchingRoundPort).should(times(1)).listOpenAt(CHAPTER_ID, EVALUATED_AT);
         then(getChallengerUseCase).should(times(1)).findByMemberIdAndGisuId(REQUESTER_ID, GISU_ID);
         then(loadProjectMemberPort).should(times(1)).existsByGisuAndMember(GISU_ID, REQUESTER_ID);
+        then(checkPermissionUseCase).should(times(1)).loadSubject(REQUESTER_ID);
+        then(projectPolicyAuthorizationService).should(times(1)).snapshot(subject);
+        then(projectPolicyAuthorizationService).should(times(1)).evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.CAPABILITY_LIST),
+            any(ProjectPolicyResourceContext.class)
+        );
     }
 
     @Test
@@ -279,6 +336,60 @@ class ProjectPermissionQueryServiceTest {
         assertThat(result.canEditInfo().reasonCode()).isEqualTo(ProjectPermissionReason.PROJECT_NOT_FOUND.name());
         assertThat(result.application().canCreate().reasonCode())
             .isEqualTo(ProjectPermissionReason.PROJECT_NOT_FOUND.name());
+    }
+
+    @Test
+    void CAPABILITY_LIST_정책이_DENY이면_프로젝트_조회_전에_403으로_거부한다() {
+        SubjectAttributes subject = subject();
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(projectPolicyAuthorizationService.evaluate(
+            eq(projectPolicySubjectSnapshot),
+            eq(ProjectPolicyAction.CAPABILITY_LIST),
+            any(ProjectPolicyResourceContext.class)
+        )).willReturn(deniedDecision);
+
+        assertThatThrownBy(() -> sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)))
+            .isInstanceOf(AuthorizationDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED);
+
+        then(loadProjectPort).should(never()).listByIds(any());
+    }
+
+    @Test
+    void 지원서_목록_정책이_ALLOW여도_projectIds_outcome이_없으면_capability를_거부한다() {
+        Project project = project(ProjectStatus.IN_PROGRESS, REQUESTER_ID, REQUESTER_ID, "서비스 리뉴얼");
+        SubjectAttributes subject = subject();
+        givenBase(project, subject);
+        givenForms();
+        givenProjectPermissions(false, false, false, false);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_LIST_PROJECT, true);
+        given(allowedDecision.outcome(ProjectPolicyOutcomes.APPLICATION_PROJECT_IDS))
+            .willReturn(Optional.empty());
+
+        ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
+
+        assertThat(result.application().canReadList().allowed()).isFalse();
+        assertThat(result.application().canReadList().reasonCode())
+            .isEqualTo(ProjectPermissionReason.PERMISSION_DENIED.name());
+    }
+
+    @Test
+    void 지원서_목록_정책의_projectIds가_현재_프로젝트를_포함하지_않으면_capability를_거부한다() {
+        Project project = project(ProjectStatus.IN_PROGRESS, REQUESTER_ID, REQUESTER_ID, "서비스 리뉴얼");
+        SubjectAttributes subject = subject();
+        givenBase(project, subject);
+        givenForms();
+        givenProjectPermissions(false, false, false, false);
+        givenPolicyDecision(ProjectPolicyAction.APPLICATION_LIST_PROJECT, true);
+        given(allowedDecision.outcome(ProjectPolicyOutcomes.APPLICATION_PROJECT_IDS))
+            .willReturn(Optional.of(new PolicyValue.LongSetValue(Set.of(999L))));
+
+        ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
+
+        assertThat(result.application().canReadList().allowed()).isFalse();
+        assertThat(result.application().canReadList().reasonCode())
+            .isEqualTo(ProjectPermissionReason.PERMISSION_DENIED.name());
     }
 
     private void givenBase(Project project, SubjectAttributes subject) {
@@ -302,39 +413,24 @@ class ProjectPermissionQueryServiceTest {
             .willReturn(Map.of(PROJECT_ID, List.of(ProjectPartQuota.create(project, part, 1L, REQUESTER_ID))));
     }
 
-    private void givenProjectPermission(SubjectAttributes subject, PermissionType permissionType, boolean allowed) {
-        givenProjectPermission(subject, PROJECT_ID, permissionType, allowed);
+    private void givenProjectPermissions(boolean read, boolean edit, boolean delete, boolean manage) {
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_MEMBER_LIST, read);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_UPDATE, edit);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_SUBMIT, edit);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_TRANSFER_OWNERSHIP, edit);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_MEMBER_ADD, edit);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_MEMBER_REMOVE, edit);
+        givenPolicyDecision(ProjectPolicyAction.FORM_UPDATE, edit);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_PUBLISH, manage);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_QUOTA_UPDATE, manage);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_ABORT, manage);
+        givenPolicyDecision(ProjectPolicyAction.PROJECT_DELETE, delete);
     }
 
-    private void givenProjectPermission(
-        SubjectAttributes subject,
-        Long projectId,
-        PermissionType permissionType,
-        boolean allowed
-    ) {
-        given(checkPermissionUseCase.check(
-            eq(subject),
-            eq(ResourcePermission.of(ResourceType.PROJECT, projectId, permissionType))
-        )).willReturn(allowed);
-    }
-
-    private void givenApplicationPermission(SubjectAttributes subject, boolean allowed) {
-        givenApplicationPermission(subject, PROJECT_ID, allowed);
-    }
-
-    private void givenApplicationPermission(SubjectAttributes subject, Long projectId, boolean allowed) {
-        given(checkPermissionUseCase.check(
-            eq(subject),
-            eq(ResourcePermission.of(ResourceType.PROJECT_APPLICATION, projectId, PermissionType.WRITE))
-        )).willReturn(allowed);
-    }
-
-    private void givenApplicationCreatePermissions(SubjectAttributes subject, Long projectId) {
-        givenProjectPermission(subject, projectId, PermissionType.READ, true);
-        givenProjectPermission(subject, projectId, PermissionType.EDIT, false);
-        givenProjectPermission(subject, projectId, PermissionType.DELETE, false);
-        givenProjectPermission(subject, projectId, PermissionType.MANAGE, false);
-        givenApplicationPermission(subject, projectId, true);
+    private void givenPolicyDecision(ProjectPolicyAction action, boolean allowed) {
+        given(projectPolicyAuthorizationService.evaluate(
+            eq(projectPolicySubjectSnapshot), eq(action), any(ProjectPolicyResourceContext.class)
+        )).willReturn(allowed ? allowedDecision : deniedDecision);
     }
 
     private SubjectAttributes subject() {
@@ -381,6 +477,7 @@ class ProjectPermissionQueryServiceTest {
             null,
             MatchingType.PLAN_DEVELOPER,
             MatchingPhase.FIRST,
+            GISU_ID,
             CHAPTER_ID,
             Instant.now().minusSeconds(60),
             Instant.now().plusSeconds(60),

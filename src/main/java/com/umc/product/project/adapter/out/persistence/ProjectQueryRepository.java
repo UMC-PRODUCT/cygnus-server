@@ -5,6 +5,7 @@ import static com.umc.product.project.domain.QProjectMember.projectMember;
 import static com.umc.product.project.domain.QProjectPartQuota.projectPartQuota;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -22,6 +23,7 @@ import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.project.application.access.ScopeClause;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
 import com.umc.product.project.domain.Project;
 import com.umc.product.project.domain.enums.PartQuotaStatus;
@@ -72,53 +74,40 @@ public class ProjectQueryRepository {
 
     private BooleanBuilder buildCondition(SearchProjectQuery query) {
         BooleanBuilder common = new BooleanBuilder()
-            .and(gisuIdEq(query.gisuId()))
             .and(keywordContains(query.keyword()))
+            .and(productOwnerSchoolIdsIn(query.productOwnerSchoolIds()))
             .and(partAndQuotaFilter(query.parts(), query.partQuotaStatus()));
 
-        BooleanBuilder scoped = new BooleanBuilder()
-            .and(chapterIdEq(query.chapterId()))
-            .and(productOwnerSchoolIdsIn(query.productOwnerSchoolIds()))
-            .and(productOwnerMemberIdEq(query.productOwnerMemberId()))
-            .and(statusIn(query.statuses()));
+        return common.and(scopeCondition(query.scopeClauses()));
+    }
 
-        BooleanExpression includedOwner = includedOwnerCond(query);
-        if (includedOwner != null) {
-            scoped.or(includedOwner);
+    private BooleanBuilder scopeCondition(List<ScopeClause> clauses) {
+        BooleanBuilder condition = new BooleanBuilder();
+        if (clauses.isEmpty()) {
+            return condition.and(project.id.isNull());
         }
-
-        return common.and(scoped);
+        clauses.forEach(clause -> condition.or(scopeClauseCondition(clause)));
+        return condition;
     }
 
-    private BooleanExpression productOwnerMemberIdEq(Long memberId) {
-        return memberId != null ? project.productOwnerMemberId.eq(memberId) : null;
-    }
-
-    private BooleanExpression includedOwnerCond(SearchProjectQuery query) {
-        return query.includedOwnerMemberId() != null
-            ? project.productOwnerMemberId.eq(query.includedOwnerMemberId())
-                .and(project.status.in(query.includedOwnerStatuses()))
-            : null;
-    }
-
-    private BooleanExpression gisuIdEq(Long gisuId) {
-        return project.gisuId.eq(gisuId);
-    }
-
-    private BooleanExpression keywordContains(String keyword) {
-        return (keyword != null && !keyword.isBlank())
-            ? project.name.containsIgnoreCase(keyword)
-            : null;
-    }
-
-    private BooleanExpression chapterIdEq(Long chapterId) {
-        return chapterId != null ? project.chapterId.eq(chapterId) : null;
+    private BooleanBuilder scopeClauseCondition(ScopeClause clause) {
+        BooleanBuilder condition = new BooleanBuilder().and(statusIn(clause.statuses()));
+        clause.gisuIds().ifPresent(ids -> condition.and(project.gisuId.in(ids)));
+        clause.chapterIds().ifPresent(ids -> condition.and(project.chapterId.in(ids)));
+        clause.ownerMemberIds().ifPresent(ids -> condition.and(project.productOwnerMemberId.in(ids)));
+        return condition;
     }
 
     private BooleanExpression productOwnerSchoolIdsIn(List<Long> schoolIds) {
         return (schoolIds == null || schoolIds.isEmpty())
             ? null
             : project.productOwnerSchoolId.in(schoolIds);
+    }
+
+    private BooleanExpression keywordContains(String keyword) {
+        return (keyword != null && !keyword.isBlank())
+            ? project.name.containsIgnoreCase(keyword)
+            : null;
     }
 
     /**
@@ -207,7 +196,7 @@ public class ProjectQueryRepository {
             );
     }
 
-    private BooleanExpression statusIn(List<ProjectStatus> statuses) {
+    private BooleanExpression statusIn(Collection<ProjectStatus> statuses) {
         return (statuses != null && !statuses.isEmpty())
             ? project.status.in(statuses)
             : null;

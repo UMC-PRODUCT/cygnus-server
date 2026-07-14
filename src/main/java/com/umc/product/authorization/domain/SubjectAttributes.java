@@ -19,7 +19,8 @@ public record SubjectAttributes(
     // 지부, 기수, 역할은 기수에 따라 달라짐
     List<GisuChallengerInfo> gisuChallengerInfos,
     List<RoleAttribute> roleAttributes,
-    Set<SystemRoleType> systemRoles
+    Set<SystemRoleType> systemRoles,
+    SubjectPolicyFacts policyFacts
 
     // Environment Attributes
     // 선택 사항, 고려해볼만한 사항들을 추가할 수는 있을 것 같음

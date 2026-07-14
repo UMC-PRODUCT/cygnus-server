@@ -9,6 +9,10 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authorization.domain.policy.PolicyEffect;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
 import com.umc.product.project.application.port.in.query.GetProjectMatchingRoundUseCase;
 import com.umc.product.project.application.port.in.query.dto.ProjectMatchingRoundInfo;
 import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
@@ -24,22 +28,23 @@ import lombok.RequiredArgsConstructor;
 public class ProjectMatchingRoundQueryService implements GetProjectMatchingRoundUseCase {
 
     private final LoadProjectMatchingRoundPort loadProjectMatchingRoundPort;
+    private final ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
 
     @Override
-    public List<ProjectMatchingRoundInfo> list(Long chapterId, Instant time) {
-        List<ProjectMatchingRound> rounds;
-        if (time != null) {
-            if (chapterId == null) {
-                throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_TIME_REQUIRES_CHAPTER);
-            }
-            rounds = loadProjectMatchingRoundPort.listOpenAt(chapterId, time);
-        } else if (chapterId != null) {
-            rounds = loadProjectMatchingRoundPort.listByChapterId(chapterId);
-        } else {
-            rounds = loadProjectMatchingRoundPort.listAll();
+    public List<ProjectMatchingRoundInfo> list(
+        Long requesterMemberId,
+        Long gisuId,
+        Long chapterId,
+        Instant time
+    ) {
+        if (projectPolicyAuthorizationService.evaluate(
+            requesterMemberId,
+            ProjectPolicyAction.MATCHING_LIST,
+            ProjectPolicyResourceContext.builder().build()
+        ).effect() != PolicyEffect.ALLOW) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_MATCHING_ROUND_ACCESS_DENIED);
         }
-
-        return rounds.stream()
+        return loadProjectMatchingRoundPort.listByFilters(gisuId, chapterId, time).stream()
             .map(ProjectMatchingRoundInfo::from)
             .toList();
     }

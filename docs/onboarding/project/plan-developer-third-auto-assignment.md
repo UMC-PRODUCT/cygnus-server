@@ -8,12 +8,16 @@
 
 ## 실행 진입점
 
-자동 선발 진입점은 `AutoDecideProjectMatchingRoundUseCase.autoDecide(matchingRoundId, executedByMemberId)` 하나다.
+자동 선발 진입점은 `AutoDecideProjectMatchingRoundUseCase.autoDecide(matchingRoundId, actor)` 하나다.
 
 - 스케줄러 호출: `decisionDeadline + app.project.matching-round.deadline-buffer-minutes` 시점에 실행한다. 기본 buffer는 1분이다.
 - 운영진 수동 호출: `POST /api/v1/project/matching-rounds/{matchingRoundId}/auto-decide`.
-- `executedByMemberId == null`이면 스케줄러 호출로 보고 권한 검증을 생략한다.
-- `executedByMemberId != null`이면 중앙운영사무국 총괄단 이상 또는 해당 지부 지부장만 실행할 수 있다.
+- REST adapter는 인증된 member만 `AutoDecisionActor.Member(memberId)`로 만든다.
+- Scheduler adapter만 `AutoDecisionActor.SystemActor("matching-round-scheduler")`를 만든다.
+- MEMBER 호출은 active `SUPER_ADMIN`, round gisu의 active 중앙 운영진, round chapter의 active 지부장만 허용한다.
+- SYSTEM 호출은 `subject.kind == SYSTEM`이고 `subject.systemId == "matching-round-scheduler"`인 target policy만 허용한다.
+- 운영진 role은 연결 Gisu의 `startAt <= evaluatedAt < endAt` 동안만 active다.
+- 실행 이력의 `executedByMemberId == null`은 승인된 SYSTEM 실행의 저장 결과일 뿐, 권한 검증을 생략하는 입력 신호가 아니다.
 - `autoDecisionExecutedAt`이 이미 있으면 멱등 no-op으로 종료한다.
 - `decisionDeadline`이 아직 지나지 않았으면 `PROJECT_MATCHING_ROUND_NOT_FINALIZABLE` 예외가 발생한다.
 

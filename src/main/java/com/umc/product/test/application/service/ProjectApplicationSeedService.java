@@ -94,8 +94,9 @@ public class ProjectApplicationSeedService implements SeedProjectApplicationsUse
 
         // 1. 매칭차수 조회 — chapterId 소속 + OPEN 검증
         ProjectMatchingRoundInfo round = getProjectMatchingRoundUseCase
-            .list(command.chapterId(), null).stream()
-            .filter(r -> r.id().equals(command.matchingRoundId()))
+            .findAllByIds(Set.of(command.matchingRoundId()))
+            .values().stream()
+            .filter(candidate -> candidate.chapterId().equals(command.chapterId()))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException(
                 "matchingRoundId=%d 가 chapterId=%d 에 속하지 않습니다."

@@ -117,6 +117,7 @@ class ProjectSeedDataCleanupPersistenceAdapterTest {
             null,
             MatchingType.PLAN_DESIGN,
             MatchingPhase.FIRST,
+            gisuId,
             chapterId,
             ROUND_STARTS_AT,
             ROUND_ENDS_AT,

@@ -9,7 +9,7 @@ import com.umc.product.project.application.port.in.query.dto.ProjectMatchingRoun
 
 public interface GetProjectMatchingRoundUseCase {
 
-    List<ProjectMatchingRoundInfo> list(Long chapterId, Instant time);
+    List<ProjectMatchingRoundInfo> list(Long requesterMemberId, Long gisuId, Long chapterId, Instant time);
 
     /**
      * 여러 ID 의 매칭 차수를 한 번에 Info 로 조회합니다. Assembler 의 N+1 방지용 batch 진입점.

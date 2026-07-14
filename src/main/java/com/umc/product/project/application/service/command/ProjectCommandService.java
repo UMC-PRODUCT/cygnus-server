@@ -8,12 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
@@ -23,6 +21,10 @@ import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationResourceSnapshot;
 import com.umc.product.project.application.port.in.command.AbortProjectUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectUseCase;
 import com.umc.product.project.application.port.in.command.DeleteProjectUseCase;
@@ -84,10 +86,10 @@ public class ProjectCommandService implements
     // Cross-domain UseCases
     private final GetMemberUseCase getMemberUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetGisuUseCase getGisuUseCase;
     private final GetChapterUseCase getChapterUseCase;
     private final ManageFormUseCase manageFormUseCase;
+    private final ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
 
     @Audited(
         domain = Domain.PROJECT,
@@ -118,12 +120,17 @@ public class ProjectCommandService implements
         MemberInfo member = getMemberUseCase.getById(command.productOwnerMemberId());
         ChapterInfo chapter = getChapterUseCase.byGisuAndSchool(command.gisuId(), member.schoolId());
 
-        // 호출자 != target 인 경우 운영진 권한 + scope 검증
-        if (!Objects.equals(command.requesterMemberId(), command.productOwnerMemberId())) {
-            validateRequesterCanAssignTarget(
-                command.requesterMemberId(), command.gisuId(),
-                member.schoolId(), chapter.id()
-            );
+        ProjectPolicyResourceContext authorizationTarget = ProjectPolicyResourceContext.builder()
+            .projectTarget(command.gisuId(), chapter.id())
+            .creatorMemberId(command.productOwnerMemberId())
+            .build();
+        if (projectPolicyAuthorizationService.evaluateTrustedResource(
+            command.requesterMemberId(),
+            ProjectPolicyAction.PROJECT_CREATE,
+            ProjectAuthorizationResourceSnapshot.withTargetMemberSchool(
+                authorizationTarget, member.schoolId())
+        ).effect() != PolicyEffect.ALLOW) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
         }
 
         Project project = Project.createDraft(
@@ -134,48 +141,6 @@ public class ProjectCommandService implements
             command.requesterMemberId()
         );
         return saveProjectPort.save(project).getId();
-    }
-
-    /**
-     * 호출자가 다른 챌린저를 PO 로 지정하는 경우 — 호출자의 운영진 role 과 target 의 scope 일치를 검증한다.
-     * <ul>
-     *   <li>전역 SUPER_ADMIN 또는 총괄단(총괄/부총괄): scope 무관 통과</li>
-     *   <li>지부장(CHAPTER_PRESIDENT): target 의 chapter 가 본인 지부와 일치해야 함</li>
-     *   <li>학교 회장단(회장/부회장): target 의 school 이 본인 학교와 일치해야 함</li>
-     *   <li>그 외(일반 PLAN 챌린저 등): 다른 사람 임명 권한 없음 — 거부</li>
-     * </ul>
-     */
-    private void validateRequesterCanAssignTarget(
-        Long requesterId, Long gisuId, Long targetSchoolId, Long targetChapterId
-    ) {
-        if (getChallengerRoleUseCase.isSuperAdmin(requesterId)) {
-            return;
-        }
-
-        List<ChallengerRoleInfo> requesterRoles = getChallengerRoleUseCase.findAllByMemberId(requesterId).stream()
-            .filter(r -> Objects.equals(r.gisuId(), gisuId))
-            .toList();
-
-        if (requesterRoles.stream().anyMatch(r -> r.roleType().isAtLeastCentralCore())) {
-            return;
-        }
-
-        boolean hasChapterAuthority = requesterRoles.stream()
-            .filter(r -> r.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT)
-            .anyMatch(r -> Objects.equals(r.organizationId(), targetChapterId));
-        if (hasChapterAuthority) {
-            return;
-        }
-
-        boolean hasSchoolAuthority = requesterRoles.stream()
-            .filter(r -> r.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
-                || r.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
-            .anyMatch(r -> Objects.equals(r.organizationId(), targetSchoolId));
-        if (hasSchoolAuthority) {
-            return;
-        }
-
-        throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
     }
 
     @Override
@@ -219,6 +184,12 @@ public class ProjectCommandService implements
         MemberInfo newOwnerMember = getMemberUseCase.getById(command.newOwnerMemberId());
         ChapterInfo newChapter = getChapterUseCase.byGisuAndSchool(
             project.getGisuId(), newOwnerMember.schoolId());
+        boolean scopeChanged = !Objects.equals(project.getProductOwnerSchoolId(), newOwnerMember.schoolId())
+            || !Objects.equals(project.getChapterId(), newChapter.id());
+        if (scopeChanged && loadProjectApplicationPort.existsByProjectId(project.getId())) {
+            throw new ProjectDomainException(
+                ProjectErrorCode.PROJECT_TRANSFER_OWNERSHIP_APPLICATION_SCOPE_CONFLICT);
+        }
         project.transferOwnership(
             command.newOwnerMemberId(), newOwnerMember.schoolId(), newChapter.id());
         return project.getStatus();

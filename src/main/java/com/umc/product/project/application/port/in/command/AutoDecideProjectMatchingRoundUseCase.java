@@ -14,9 +14,5 @@ package com.umc.product.project.application.port.in.command;
  */
 public interface AutoDecideProjectMatchingRoundUseCase {
 
-    /**
-     * @param matchingRoundId    자동 선발 대상 매칭 차수 ID
-     * @param executedByMemberId 운영진 수동 호출 시 본인 ID, 스케줄러 호출 시 {@code null}
-     */
-    void autoDecide(Long matchingRoundId, Long executedByMemberId);
+    boolean autoDecide(Long matchingRoundId, AutoDecisionActor actor);
 }

@@ -1,5 +1,8 @@
 package com.umc.product.project.application.service.query;
 
+import static com.umc.product.project.application.authorization.ProjectPolicyDecisionOutcomes.enumValue;
+import static com.umc.product.project.application.authorization.ProjectPolicyDecisionOutcomes.longSetValue;
+
 import java.time.Instant;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
@@ -15,15 +18,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
-import com.umc.product.authorization.domain.PermissionType;
-import com.umc.product.authorization.domain.ResourcePermission;
-import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.project.application.access.ProjectApplicationAccessScope;
-import com.umc.product.project.application.access.ProjectApplicationAccessScopeResolver;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyOutcomes;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
 import com.umc.product.project.application.port.in.query.GetProjectPermissionsUseCase;
 import com.umc.product.project.application.port.in.query.dto.ProjectPermissionCapabilityInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectPermissionInfo;
@@ -39,12 +45,12 @@ import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
 import com.umc.product.project.application.port.out.LoadProjectPartQuotaPort;
 import com.umc.product.project.application.port.out.LoadProjectPort;
-import com.umc.product.project.application.service.policy.ProjectStatisticsAccessPolicy;
 import com.umc.product.project.domain.Project;
 import com.umc.product.project.domain.ProjectApplicationForm;
 import com.umc.product.project.domain.ProjectMatchingRound;
 import com.umc.product.project.domain.ProjectPartQuota;
 import com.umc.product.project.domain.enums.MatchingType;
+import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 
 import lombok.RequiredArgsConstructor;
@@ -77,8 +83,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     private final LoadProjectMemberPort loadProjectMemberPort;
     private final LoadProjectMatchingRoundPort loadProjectMatchingRoundPort;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final ProjectApplicationAccessScopeResolver projectApplicationAccessScopeResolver;
-    private final ProjectStatisticsAccessPolicy projectStatisticsAccessPolicy;
+    private final ProjectPolicyAuthorizationService projectPolicyAuthorizationService;
 
     @Override
     public List<ProjectPermissionInfo> listByProjectIds(Long requesterMemberId, List<Long> projectIds) {
@@ -88,6 +93,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         }
 
         SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
+        PermissionCache permissionCache = new PermissionCache(subject);
         Map<Long, Project> projectsById = loadProjectPort.listByIds(uniqueIds).stream()
             .collect(Collectors.toMap(
                 Project::getId,
@@ -99,8 +105,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
             loadProjectApplicationFormPort.findAllByProjectIds(uniqueIds);
         Map<Long, List<ProjectPartQuota>> quotasByProjectId =
             loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(uniqueIds);
-        PermissionCache permissionCache = new PermissionCache(subject);
-        Instant now = Instant.now();
+        Instant now = permissionCache.evaluatedAt();
 
         return uniqueIds.stream()
             .map(projectId -> {
@@ -115,23 +120,22 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
                     permissionCache.openMatchingRounds(project.getChapterId(), now),
                     permissionCache
                 );
-                return buildInfo(requesterMemberId, subject, context);
+                return buildInfo(requesterMemberId, context);
             })
             .toList();
     }
 
     private ProjectPermissionInfo buildInfo(
         Long requesterMemberId,
-        SubjectAttributes subject,
         ProjectCapabilityContext context
     ) {
         Project project = context.project();
         ProjectPermissionCapabilityInfo canEditInfo = requirePermission(
-            context.projectPermission(PermissionType.EDIT),
+            context.policy(ProjectPolicyAction.PROJECT_UPDATE),
             ProjectPermissionCapabilityInfo::allow
         );
         ProjectPermissionCapabilityInfo canTransferOwnership = requirePermission(
-            context.projectPermission(PermissionType.EDIT),
+            context.policy(ProjectPolicyAction.PROJECT_TRANSFER_OWNERSHIP),
             ProjectPermissionCapabilityInfo::allow
         );
         ProjectPermissionCapabilityInfo canDelete = canDeleteProject(context);
@@ -142,22 +146,18 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
             canEditInfo,
             canTransferOwnership,
             canDelete,
-            applicationFormPermissions(requesterMemberId, subject, context),
+            applicationFormPermissions(context),
             partQuotaPermissions(context),
             statusPermissions(context),
             applicationPermissions(requesterMemberId, context),
             memberPermissions(context),
-            statisticsPermissions(requesterMemberId, project)
+            statisticsPermissions(context)
         );
     }
 
-    private ApplicationFormPermissions applicationFormPermissions(
-        Long requesterMemberId,
-        SubjectAttributes subject,
-        ProjectCapabilityContext context
-    ) {
+    private ApplicationFormPermissions applicationFormPermissions(ProjectCapabilityContext context) {
         return new ApplicationFormPermissions(
-            canReadApplicationForm(requesterMemberId, subject, context),
+            canReadApplicationForm(context),
             canCreateApplicationForm(context),
             canEditApplicationForm(context),
             NOT_IMPLEMENTED_FORM_PUBLISH,
@@ -165,25 +165,20 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         );
     }
 
-    private ProjectPermissionCapabilityInfo canReadApplicationForm(
-        Long requesterMemberId,
-        SubjectAttributes subject,
-        ProjectCapabilityContext context
-    ) {
-        if (!context.projectPermission(PermissionType.READ)) {
-            return denied(ProjectPermissionReason.PERMISSION_DENIED);
-        }
+    private ProjectPermissionCapabilityInfo canReadApplicationForm(ProjectCapabilityContext context) {
         if (!context.hasForm()) {
             return denied(ProjectPermissionReason.APPLICATION_FORM_NOT_FOUND);
         }
-        if (!canReadApplicationFormPolicy(requesterMemberId, subject, context)) {
+        PolicyDecision decision = context.policyDecision(ProjectPolicyAction.FORM_READ);
+        String view = enumValue(decision, ProjectPolicyOutcomes.FORM_VIEW, "NONE");
+        if (decision.effect() != PolicyEffect.ALLOW || "NONE".equals(view)) {
             return denied(ProjectPermissionReason.PERMISSION_DENIED);
         }
         return ProjectPermissionCapabilityInfo.allow();
     }
 
     private ProjectPermissionCapabilityInfo canCreateApplicationForm(ProjectCapabilityContext context) {
-        return requirePermission(context.projectPermission(PermissionType.EDIT), () -> {
+        return requirePermission(context.policy(ProjectPolicyAction.FORM_UPDATE), () -> {
             if (context.hasForm()) {
                 return ProjectPermissionCapabilityInfo.denied(
                     ProjectPermissionReason.NOT_IMPLEMENTED,
@@ -195,7 +190,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     }
 
     private ProjectPermissionCapabilityInfo canEditApplicationForm(ProjectCapabilityContext context) {
-        return requirePermission(context.projectPermission(PermissionType.EDIT), () -> {
+        return requirePermission(context.policy(ProjectPolicyAction.FORM_UPDATE), () -> {
             if (!context.hasForm()) {
                 return denied(ProjectPermissionReason.APPLICATION_FORM_NOT_FOUND);
             }
@@ -219,7 +214,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
 
     private PartQuotaPermissions partQuotaPermissions(ProjectCapabilityContext context) {
         return new PartQuotaPermissions(requirePermission(
-            context.projectPermission(PermissionType.MANAGE),
+            context.policy(ProjectPolicyAction.PROJECT_QUOTA_UPDATE),
             ProjectPermissionCapabilityInfo::allow
         ));
     }
@@ -234,7 +229,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     }
 
     private ProjectPermissionCapabilityInfo canRequestReview(ProjectCapabilityContext context) {
-        return requirePermission(context.projectPermission(PermissionType.EDIT), () -> {
+        return requirePermission(context.policy(ProjectPolicyAction.PROJECT_SUBMIT), () -> {
             Project project = context.project();
             if (project.getStatus() != ProjectStatus.DRAFT) {
                 return denied(ProjectPermissionReason.INVALID_PROJECT_STATUS);
@@ -250,7 +245,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     }
 
     private ProjectPermissionCapabilityInfo canPublishProject(ProjectCapabilityContext context) {
-        return requirePermission(context.projectPermission(PermissionType.MANAGE), () -> {
+        return requirePermission(context.policy(ProjectPolicyAction.PROJECT_PUBLISH), () -> {
             if (context.project().getStatus() != ProjectStatus.PENDING_REVIEW) {
                 return denied(ProjectPermissionReason.INVALID_PROJECT_STATUS);
             }
@@ -265,7 +260,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     }
 
     private ProjectPermissionCapabilityInfo canAbortProject(ProjectCapabilityContext context) {
-        return requirePermission(context.projectPermission(PermissionType.MANAGE), () -> {
+        return requirePermission(context.policy(ProjectPolicyAction.PROJECT_ABORT), () -> {
             if (context.project().getStatus() != ProjectStatus.IN_PROGRESS) {
                 return ProjectPermissionCapabilityInfo.denied(
                     ProjectPermissionReason.INVALID_PROJECT_STATUS,
@@ -279,8 +274,8 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     private ApplicationPermissions applicationPermissions(Long requesterMemberId, ProjectCapabilityContext context) {
         return new ApplicationPermissions(
             canCreateApplication(requesterMemberId, context),
-            canReadApplicationList(requesterMemberId, context.project()),
-            canDecideApplication(requesterMemberId, context.project())
+            canReadApplicationList(context),
+            canDecideApplication(context)
         );
     }
 
@@ -288,7 +283,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         Long requesterMemberId,
         ProjectCapabilityContext context
     ) {
-        if (!context.applicationWritePermission()) {
+        if (!context.policy(ProjectPolicyAction.APPLICATION_CREATE)) {
             return denied(ProjectPermissionReason.PERMISSION_DENIED);
         }
         Project project = context.project();
@@ -323,20 +318,22 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         return ProjectPermissionCapabilityInfo.allow();
     }
 
-    private ProjectPermissionCapabilityInfo canReadApplicationList(Long requesterMemberId, Project project) {
-        ProjectApplicationAccessScope scope =
-            projectApplicationAccessScopeResolver.resolveForProjectApplicantList(requesterMemberId, project);
-        if (scope instanceof ProjectApplicationAccessScope.None) {
+    private ProjectPermissionCapabilityInfo canReadApplicationList(ProjectCapabilityContext context) {
+        PolicyDecision decision = context.policyDecision(ProjectPolicyAction.APPLICATION_LIST_PROJECT);
+        if (decision.effect() != PolicyEffect.ALLOW
+            || !longSetValue(decision, ProjectPolicyOutcomes.APPLICATION_PROJECT_IDS)
+                .contains(context.project().getId())) {
             return denied(ProjectPermissionReason.PERMISSION_DENIED);
         }
         return ProjectPermissionCapabilityInfo.allow();
     }
 
-    private ProjectPermissionCapabilityInfo canDecideApplication(Long requesterMemberId, Project project) {
+    private ProjectPermissionCapabilityInfo canDecideApplication(ProjectCapabilityContext context) {
+        Project project = context.project();
         if (project.getStatus() != ProjectStatus.IN_PROGRESS) {
             return denied(ProjectPermissionReason.INVALID_PROJECT_STATUS);
         }
-        if (!Objects.equals(project.getProductOwnerMemberId(), requesterMemberId)) {
+        if (!context.policy(ProjectPolicyAction.APPLICATION_DECIDE)) {
             return denied(ProjectPermissionReason.PERMISSION_DENIED);
         }
         return ProjectPermissionCapabilityInfo.allow();
@@ -344,18 +341,22 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
 
     private MemberPermissions memberPermissions(ProjectCapabilityContext context) {
         ProjectPermissionCapabilityInfo read = requirePermission(
-            context.projectPermission(PermissionType.READ),
+            context.policy(ProjectPolicyAction.PROJECT_MEMBER_LIST),
             ProjectPermissionCapabilityInfo::allow
         );
-        ProjectPermissionCapabilityInfo edit = requirePermission(
-            context.projectPermission(PermissionType.EDIT),
+        ProjectPermissionCapabilityInfo create = requirePermission(
+            context.policy(ProjectPolicyAction.PROJECT_MEMBER_ADD),
             ProjectPermissionCapabilityInfo::allow
         );
-        return new MemberPermissions(read, edit, edit);
+        ProjectPermissionCapabilityInfo delete = requirePermission(
+            context.policy(ProjectPolicyAction.PROJECT_MEMBER_REMOVE),
+            ProjectPermissionCapabilityInfo::allow
+        );
+        return new MemberPermissions(read, create, delete);
     }
 
-    private StatisticsPermissions statisticsPermissions(Long requesterMemberId, Project project) {
-        if (!projectStatisticsAccessPolicy.canReadProjectStatistics(requesterMemberId, project)) {
+    private StatisticsPermissions statisticsPermissions(ProjectCapabilityContext context) {
+        if (!context.policy(ProjectPolicyAction.STATISTICS_PROJECT)) {
             return new StatisticsPermissions(ProjectPermissionCapabilityInfo.denied(
                 ProjectPermissionReason.PERMISSION_DENIED,
                 "통계를 조회할 권한이 없어요."
@@ -365,7 +366,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     }
 
     private ProjectPermissionCapabilityInfo canDeleteProject(ProjectCapabilityContext context) {
-        return requirePermission(context.projectPermission(PermissionType.DELETE), () -> {
+        return requirePermission(context.policy(ProjectPolicyAction.PROJECT_DELETE), () -> {
             ProjectStatus status = context.project().getStatus();
             if (status == ProjectStatus.IN_PROGRESS) {
                 return ProjectPermissionCapabilityInfo.denied(
@@ -397,37 +398,6 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         return ProjectPermissionCapabilityInfo.denied(reason);
     }
 
-    private boolean canReadApplicationFormPolicy(
-        Long requesterMemberId,
-        SubjectAttributes subject,
-        ProjectCapabilityContext context
-    ) {
-        Project project = context.project();
-        if (Objects.equals(requesterMemberId, project.getProductOwnerMemberId())) {
-            return true;
-        }
-        if (isCentralCoreInGisu(subject, project.getGisuId())) {
-            return true;
-        }
-        if (isChapterPresidentOf(subject, project.getChapterId(), project.getGisuId())) {
-            return true;
-        }
-        return subject.gisuChallengerInfos().stream()
-            .anyMatch(info -> Objects.equals(info.gisuId(), project.getGisuId()))
-            || context.challengerInfo(requesterMemberId).isPresent();
-    }
-
-    private boolean isCentralCoreInGisu(SubjectAttributes subject, Long gisuId) {
-        return subject.toAuthoritySnapshot().isCentralCoreInGisu(gisuId);
-    }
-
-    private boolean isChapterPresidentOf(SubjectAttributes subject, Long chapterId, Long gisuId) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT
-                && Objects.equals(role.gisuId(), gisuId)
-                && Objects.equals(role.organizationId(), chapterId));
-    }
-
     private List<Long> deduplicate(List<Long> projectIds) {
         if (projectIds == null || projectIds.isEmpty()) {
             return List.of();
@@ -443,30 +413,47 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
     private class PermissionCache {
 
         private final SubjectAttributes subject;
-        private final Map<Long, Map<PermissionType, Boolean>> projectPermissions = new LinkedHashMap<>();
-        private final Map<Long, Boolean> applicationWritePermissions = new LinkedHashMap<>();
+        private final ProjectPolicySubjectSnapshot snapshot;
+        private final Map<Long, Map<ProjectPolicyAction, PolicyDecision>> policyDecisions = new LinkedHashMap<>();
         private final Map<Long, List<ProjectMatchingRound>> openMatchingRounds = new LinkedHashMap<>();
         private final Map<Long, Optional<ChallengerInfo>> challengerInfos = new LinkedHashMap<>();
         private final Map<Long, Boolean> projectMemberExists = new LinkedHashMap<>();
+        private final Map<Long, Boolean> activePlanMembers = new LinkedHashMap<>();
 
         private PermissionCache(SubjectAttributes subject) {
             this.subject = subject;
+            this.snapshot = projectPolicyAuthorizationService.snapshot(subject);
+            PolicyDecision capabilityDecision = projectPolicyAuthorizationService.evaluate(
+                snapshot,
+                ProjectPolicyAction.CAPABILITY_LIST,
+                ProjectPolicyResourceContext.builder().build()
+            );
+            if (capabilityDecision.effect() != PolicyEffect.ALLOW) {
+                throw new AuthorizationDomainException(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED);
+            }
         }
 
-        private boolean project(Long projectId, PermissionType permissionType) {
-            return projectPermissions
-                .computeIfAbsent(projectId, ignored -> new EnumMap<>(PermissionType.class))
-                .computeIfAbsent(permissionType, type -> checkPermissionUseCase.check(
-                    subject,
-                    ResourcePermission.of(ResourceType.PROJECT, projectId, type)
-                ));
+        private boolean policy(Project project, ProjectPolicyAction action) {
+            return policyDecision(project, action).effect() == PolicyEffect.ALLOW;
         }
 
-        private boolean applicationWrite(Long projectId) {
-            return applicationWritePermissions.computeIfAbsent(projectId, id -> checkPermissionUseCase.check(
-                subject,
-                ResourcePermission.of(ResourceType.PROJECT_APPLICATION, id, PermissionType.WRITE)
-            ));
+        private PolicyDecision policyDecision(Project project, ProjectPolicyAction action) {
+            return policyDecisions
+                .computeIfAbsent(project.getId(), ignored -> new EnumMap<>(ProjectPolicyAction.class))
+                .computeIfAbsent(action, ignored -> projectPolicyAuthorizationService.evaluate(
+                    snapshot, action, policyContext(project, action)));
+        }
+
+        private ProjectPolicyResourceContext policyContext(Project project, ProjectPolicyAction action) {
+            ProjectPolicyResourceContext.Builder builder = ProjectPolicyResourceContext.builder()
+                .project(project.getId(), project.getGisuId(), project.getChapterId(), project.getStatus())
+                .creatorMemberId(project.getCreatorMemberId())
+                .productOwnerMemberId(project.getProductOwnerMemberId())
+                .activePlanMember(activePlanMember(project.getId()));
+            if (action == ProjectPolicyAction.APPLICATION_DECIDE) {
+                builder.application(Long.MIN_VALUE, ProjectApplicationStatus.SUBMITTED, Long.MIN_VALUE);
+            }
+            return builder.build();
         }
 
         private List<ProjectMatchingRound> openMatchingRounds(Long chapterId, Instant now) {
@@ -485,6 +472,15 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
             return projectMemberExists.computeIfAbsent(gisuId, id ->
                 loadProjectMemberPort.existsByGisuAndMember(id, memberId)
             );
+        }
+
+        private boolean activePlanMember(Long projectId) {
+            return activePlanMembers.computeIfAbsent(projectId, id ->
+                loadProjectMemberPort.isActivePlanMember(id, subject.memberId()));
+        }
+
+        private Instant evaluatedAt() {
+            return snapshot.evaluatedAt();
         }
     }
 
@@ -520,12 +516,12 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
             return !openMatchingRounds.isEmpty();
         }
 
-        private boolean projectPermission(PermissionType permissionType) {
-            return permissionCache.project(project.getId(), permissionType);
+        private boolean policy(ProjectPolicyAction action) {
+            return permissionCache.policy(project, action);
         }
 
-        private boolean applicationWritePermission() {
-            return permissionCache.applicationWrite(project.getId());
+        private PolicyDecision policyDecision(ProjectPolicyAction action) {
+            return permissionCache.policyDecision(project, action);
         }
 
         private Optional<ChallengerInfo> challengerInfo(Long memberId) {

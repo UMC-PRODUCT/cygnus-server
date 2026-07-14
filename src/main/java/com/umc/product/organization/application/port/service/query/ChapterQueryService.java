@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterScopeInfo;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
 import com.umc.product.organization.application.port.out.query.LoadChapterPort;
 import com.umc.product.organization.application.port.out.query.LoadChapterSchoolPort;
@@ -144,6 +145,16 @@ public class ChapterQueryService implements GetChapterUseCase {
     @Override
     public ChapterInfo getChapterById(Long chapterId) {
         return ChapterInfo.from(loadChapterPort.findById(chapterId));
+    }
+
+    @Override
+    public ChapterScopeInfo getChapterScopeById(Long chapterId) {
+        return ChapterScopeInfo.from(loadChapterPort.findById(chapterId));
+    }
+
+    @Override
+    public boolean belongsToGisu(Long chapterId, Long gisuId) {
+        return loadChapterPort.existsByIdAndGisuId(chapterId, gisuId);
     }
 
     @Override

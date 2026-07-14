@@ -2,10 +2,14 @@ package com.umc.product.project.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -18,14 +22,26 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
+import com.umc.product.authorization.domain.policy.PolicyResolvedOutcome;
+import com.umc.product.authorization.domain.policy.PolicyValue;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyChallengerTuple;
+import com.umc.product.project.application.authorization.ProjectPolicyOutcomes;
+import com.umc.product.project.application.authorization.ProjectPolicyPrincipal;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationEvaluationPoint;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationInternalOrigin;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
@@ -40,14 +56,28 @@ import com.umc.product.project.domain.exception.ProjectErrorCode;
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationFormQueryServiceTest {
 
-    private static final Long PROJECT_ID = 42L;
-    private static final Long APPLICATION_FORM_ID = 100L;
-    private static final Long FORM_ID = 500L;
-    private static final Long GISU_ID = 1L;
-    private static final Long CHAPTER_ID = 7L;
-    private static final Long PM_MEMBER_ID = 10L;
-    private static final Long COMMON_SECTION_ID = 1000L;
-    private static final Long PART_SECTION_ID = 1001L;
+    private static final long PROJECT_ID = 42L;
+    private static final long SECOND_PROJECT_ID = 99L;
+    private static final long APPLICATION_FORM_ID = 100L;
+    private static final long SECOND_APPLICATION_FORM_ID = 101L;
+    private static final long FORM_ID = 500L;
+    private static final long SECOND_FORM_ID = 501L;
+    private static final long GISU_ID = 1L;
+    private static final long CHAPTER_ID = 7L;
+    private static final long PM_MEMBER_ID = 10L;
+    private static final long APPLICANT_MEMBER_ID = 777L;
+    private static final long COMMON_SECTION_ID = 1000L;
+    private static final long PART_SECTION_ID = 1001L;
+    private static final long OTHER_PART_SECTION_ID = 1002L;
+    private static final Instant EVALUATED_AT = Instant.parse("2026-07-14T00:00:00Z");
+    private static final Instant GISU_START_AT = Instant.parse("2026-07-01T00:00:00Z");
+    private static final Instant GISU_END_AT = Instant.parse("2026-08-01T00:00:00Z");
+    private static final ProjectAuthorizationEvaluationPoint REST_FORM_READ =
+        ProjectAuthorizationEvaluationPoint.surface(ProjectAuthorizationSurface.REST_FORM_READ);
+    private static final ProjectAuthorizationEvaluationPoint INTERNAL_FORM_READ =
+        ProjectAuthorizationEvaluationPoint.internal(ProjectAuthorizationInternalOrigin.FORM_ACCESS_POLICY);
+    private static final ProjectAuthorizationEvaluationPoint GRAPHQL_FORM_READ =
+        ProjectAuthorizationEvaluationPoint.surface(ProjectAuthorizationSurface.GRAPHQL_APPLICATION_FORM);
 
     @Mock
     LoadProjectApplicationFormPort loadApplicationFormPort;
@@ -56,283 +86,334 @@ class ProjectApplicationFormQueryServiceTest {
     @Mock
     GetFormUseCase getFormUseCase;
     @Mock
-    GetChallengerUseCase getChallengerUseCase;
-    @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    ProjectPolicyAuthorizationService policyAuthorizationService;
 
     @InjectMocks
     ProjectApplicationFormQueryService sut;
 
     @Test
-    void findByProjectId_폼이_없으면_empty_반환() {
+    void findByProjectId_폼이_없으면_snapshot을_만들지_않고_empty를_반환한다() {
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.empty());
 
         Optional<ApplicationFormInfo> result = sut.findByProjectId(PROJECT_ID, PM_MEMBER_ID);
 
         assertThat(result).isEmpty();
+        then(policyAuthorizationService).should(never()).snapshot(PM_MEMBER_ID);
         then(getFormUseCase).should(never()).getFormWithStructure(any());
         then(loadPolicyPort).should(never()).listByApplicationFormId(any());
     }
 
     @Test
-    void findByProjectId_PM_본인은_전체_섹션_노출() {
-        // given
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
+    void findByProjectId_FULL이면_전체_섹션을_노출한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(PM_MEMBER_ID, List.of());
+        givenSingleForm(form, snapshot, formViewDecision("FULL"), defaultPolicies(form));
 
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
-        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
-            ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
-                Set.of(ChallengerPart.WEB, ChallengerPart.IOS))
-        ));
-
-        // when — 호출자가 PM 본인
         ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, PM_MEMBER_ID).orElseThrow();
 
-        // then — 전체 섹션 노출, Challenger 조회는 발생하지 않음
         assertThat(result.sections()).hasSize(2);
-        var commonSection = result.sections().get(0);
-        assertThat(commonSection.type()).isEqualTo(FormSectionType.COMMON);
-
-        var partSection = result.sections().get(1);
-        assertThat(partSection.type()).isEqualTo(FormSectionType.PART);
-        assertThat(partSection.allowedParts())
-            .containsExactlyInAnyOrder(ChallengerPart.WEB, ChallengerPart.IOS);
-
-        then(getChallengerUseCase).should(never()).findByMemberIdAndGisuId(any(), any());
-        then(getChallengerRoleUseCase).should(never()).isCentralCoreInGisu(any(), any());
-    }
-
-    @Test
-    void findByProjectId_CentralCore는_전체_섹션_노출() {
-        // given
-        Long requesterMemberId = 999L;
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
-
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
-        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
-            ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
-                Set.of(ChallengerPart.WEB))
-        ));
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, GISU_ID)).willReturn(true);
-
-        // when
-        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, requesterMemberId).orElseThrow();
-
-        // then
-        assertThat(result.sections()).hasSize(2);
-        then(getChallengerUseCase).should(never()).findByMemberIdAndGisuId(any(), any());
-    }
-
-    @Test
-    void findByProjectId_프로젝트_지부의_지부장은_전체_섹션_노출() {
-        // given
-        Long requesterMemberId = 888L;
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
-
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
-        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
-            ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
-                Set.of(ChallengerPart.WEB))
-        ));
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, GISU_ID)).willReturn(false);
-        given(getChallengerRoleUseCase.isChapterPresidentInGisu(requesterMemberId, GISU_ID, CHAPTER_ID))
-            .willReturn(true);
-
-        // when
-        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, requesterMemberId).orElseThrow();
-
-        // then
-        assertThat(result.sections()).hasSize(2);
-        then(getChallengerUseCase).should(never()).findByMemberIdAndGisuId(any(), any());
-    }
-
-    @Test
-    void findByProjectId_챌린저_지원자_본인_파트가_매칭되지_않으면_COMMON만_노출() {
-        // given — 지원자 파트(ANDROID) 가 PART 섹션의 allowedParts(WEB/IOS) 에 포함되지 않는 케이스
-        Long requesterMemberId = 777L;
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
-
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
-        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
-            ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
-                Set.of(ChallengerPart.WEB, ChallengerPart.IOS))
-        ));
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, GISU_ID)).willReturn(false);
-        given(getChallengerRoleUseCase.isChapterPresidentInGisu(requesterMemberId, GISU_ID, CHAPTER_ID))
-            .willReturn(false);
-        given(getChallengerUseCase.findByMemberIdAndGisuId(requesterMemberId, GISU_ID))
-            .willReturn(Optional.of(challengerInfoWithPart(ChallengerPart.ANDROID)));
-
-        // when
-        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, requesterMemberId).orElseThrow();
-
-        // then — PART 섹션은 매칭 실패로 제외, COMMON 만 남음
-        assertThat(result.sections()).hasSize(1);
         assertThat(result.sections().get(0).type()).isEqualTo(FormSectionType.COMMON);
-        assertThat(result.sections().get(0).sectionId()).isEqualTo(COMMON_SECTION_ID);
+        assertThat(result.sections().get(1).type()).isEqualTo(FormSectionType.PART);
+        assertThat(result.sections().get(1).allowedParts())
+            .containsExactlyInAnyOrder(ChallengerPart.WEB, ChallengerPart.IOS);
+        then(policyAuthorizationService).should().evaluate(
+            snapshot,
+            ProjectPolicyAction.FORM_READ,
+            resource(project),
+            REST_FORM_READ,
+            Optional.empty()
+        );
     }
 
     @Test
-    void findByProjectId_챌린저_지원자_본인_파트가_매칭되면_PART도_함께_노출() {
-        // given
-        Long requesterMemberId = 777L;
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
+    void findByProjectId_FULL은_APPLICANT_사실보다_우선한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(
+            APPLICANT_MEMBER_ID,
+            List.of(challenger(ChallengerPart.ANDROID))
+        );
+        givenSingleForm(form, snapshot, formViewDecision("FULL"), defaultPolicies(form));
 
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, APPLICANT_MEMBER_ID).orElseThrow();
+
+        assertThat(result.sections()).extracting(ApplicationFormInfo.SectionInfo::sectionId)
+            .containsExactly(COMMON_SECTION_ID, PART_SECTION_ID);
+    }
+
+    @Test
+    void findByProjectId_APPLICANT이면_본인_파트에_맞는_섹션만_노출한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(
+            APPLICANT_MEMBER_ID,
+            List.of(challenger(ChallengerPart.WEB))
+        );
+        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+        given(policyAuthorizationService.snapshot(APPLICANT_MEMBER_ID)).willReturn(snapshot);
+        given(policyAuthorizationService.evaluate(
+            snapshot, ProjectPolicyAction.FORM_READ, resource(project), REST_FORM_READ, Optional.empty()))
+            .willReturn(formViewDecision("APPLICANT"));
+        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructureWithOtherPart());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
-            ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
-                Set.of(ChallengerPart.WEB, ChallengerPart.IOS))
+            ProjectApplicationFormPolicy.createCommon(form, COMMON_SECTION_ID),
+            ProjectApplicationFormPolicy.createForParts(form, PART_SECTION_ID, Set.of(ChallengerPart.WEB)),
+            ProjectApplicationFormPolicy.createForParts(
+                form,
+                OTHER_PART_SECTION_ID,
+                Set.of(ChallengerPart.ANDROID)
+            )
         ));
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, GISU_ID)).willReturn(false);
-        given(getChallengerRoleUseCase.isChapterPresidentInGisu(requesterMemberId, GISU_ID, CHAPTER_ID))
-            .willReturn(false);
-        given(getChallengerUseCase.findByMemberIdAndGisuId(requesterMemberId, GISU_ID))
-            .willReturn(Optional.of(challengerInfoWithPart(ChallengerPart.WEB)));
 
-        // when
-        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, requesterMemberId).orElseThrow();
+        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, APPLICANT_MEMBER_ID).orElseThrow();
 
-        // then
-        assertThat(result.sections()).hasSize(2);
-        assertThat(result.sections().get(0).sectionId()).isEqualTo(COMMON_SECTION_ID);
-        assertThat(result.sections().get(1).sectionId()).isEqualTo(PART_SECTION_ID);
+        assertThat(result.sections()).extracting(ApplicationFormInfo.SectionInfo::sectionId)
+            .containsExactly(COMMON_SECTION_ID, PART_SECTION_ID);
     }
 
     @Test
-    void findByProjectId_프로젝트_기수_챌린저가_아닌_외부사용자는_403() {
-        // given
-        Long requesterMemberId = 666L;
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
+    void findByProjectId_NONE이면_폼_구조를_조회하기_전에_접근을_거부한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(APPLICANT_MEMBER_ID, List.of());
+        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+        given(policyAuthorizationService.snapshot(APPLICANT_MEMBER_ID)).willReturn(snapshot);
+        given(policyAuthorizationService.evaluate(
+            snapshot, ProjectPolicyAction.FORM_READ, resource(project), REST_FORM_READ, Optional.empty()))
+            .willReturn(formViewDecision("NONE"));
 
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, GISU_ID)).willReturn(false);
-        given(getChallengerRoleUseCase.isChapterPresidentInGisu(requesterMemberId, GISU_ID, CHAPTER_ID))
-            .willReturn(false);
-        given(getChallengerUseCase.findByMemberIdAndGisuId(requesterMemberId, GISU_ID))
-            .willReturn(Optional.empty());
-
-        // when / then
-        assertThatThrownBy(() -> sut.findByProjectId(PROJECT_ID, requesterMemberId))
-            .isInstanceOf(ProjectDomainException.class)
-            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.APPLICATION_FORM_ACCESS_NOT_ALLOWED);
-
-        // 외부 사용자는 권한 검증 단계에서 차단되어 폼/정책 조회는 발생하지 않음
+        assertAccessDenied(() -> sut.findByProjectId(PROJECT_ID, APPLICANT_MEMBER_ID));
         then(getFormUseCase).should(never()).getFormWithStructure(any());
         then(loadPolicyPort).should(never()).listByApplicationFormId(any());
     }
 
     @Test
-    void findByProjectId_지원자_시점에서_정책이_누락된_섹션은_노출하지_않음() {
-        // given — Survey 단엔 섹션 2개 있지만 Project 정책은 1개만 (데이터 정합 깨진 시나리오)
-        Long requesterMemberId = 777L;
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
+    void findByProjectId_DENY이면_폼_구조를_조회하기_전에_접근을_거부한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(APPLICANT_MEMBER_ID, List.of());
+        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+        given(policyAuthorizationService.snapshot(APPLICANT_MEMBER_ID)).willReturn(snapshot);
+        given(policyAuthorizationService.evaluate(
+            snapshot, ProjectPolicyAction.FORM_READ, resource(project), REST_FORM_READ, Optional.empty()))
+            .willReturn(deniedDecision());
 
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
-        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID)
-            // PART_SECTION_ID 정책 누락
-        ));
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, GISU_ID)).willReturn(false);
-        given(getChallengerRoleUseCase.isChapterPresidentInGisu(requesterMemberId, GISU_ID, CHAPTER_ID))
-            .willReturn(false);
-        given(getChallengerUseCase.findByMemberIdAndGisuId(requesterMemberId, GISU_ID))
-            .willReturn(Optional.of(challengerInfoWithPart(ChallengerPart.WEB)));
-
-        // when
-        ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, requesterMemberId).orElseThrow();
-
-        // then — 정책 없는 섹션은 안전 차원에서 차단
-        assertThat(result.sections()).hasSize(1);
-        assertThat(result.sections().get(0).sectionId()).isEqualTo(COMMON_SECTION_ID);
+        assertAccessDenied(() -> sut.findByProjectId(PROJECT_ID, APPLICANT_MEMBER_ID));
+        then(getFormUseCase).should(never()).getFormWithStructure(any());
+        then(loadPolicyPort).should(never()).listByApplicationFormId(any());
     }
 
     @Test
-    void findByProjectId_PM_시점에서는_정책이_누락된_섹션도_PART_빈_parts로_폴백() {
-        // given — 운영진 우회 케이스에서는 기존의 of() 폴백 동작 유지
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
+    void findByProjectId_APPLICANT_snapshot에_해당_기수_파트가_없으면_접근을_거부한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(APPLICANT_MEMBER_ID, List.of());
+        givenSingleForm(form, snapshot, formViewDecision("APPLICANT"), defaultPolicies(form));
 
-        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
-        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
-            ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID)
-            // PART_SECTION_ID 정책 누락
-        ));
+        assertAccessDenied(() -> sut.findByProjectId(PROJECT_ID, APPLICANT_MEMBER_ID));
+    }
 
-        // when
+    @Test
+    void findByProjectId_APPLICANT_파트_section이_매칭되지_않으면_접근을_거부한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(
+            APPLICANT_MEMBER_ID,
+            List.of(challenger(ChallengerPart.ANDROID))
+        );
+        givenSingleForm(form, snapshot, formViewDecision("APPLICANT"), defaultPolicies(form));
+
+        assertAccessDenied(() -> sut.findByProjectId(PROJECT_ID, APPLICANT_MEMBER_ID));
+    }
+
+    @Test
+    void findByProjectId_FULL이면_정책이_누락된_섹션도_빈_parts로_노출한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(PM_MEMBER_ID, List.of());
+        givenSingleForm(
+            form,
+            snapshot,
+            formViewDecision("FULL"),
+            List.of(ProjectApplicationFormPolicy.createCommon(form, COMMON_SECTION_ID))
+        );
+
         ApplicationFormInfo result = sut.findByProjectId(PROJECT_ID, PM_MEMBER_ID).orElseThrow();
 
-        // then
-        var orphanSection = result.sections().get(1);
+        ApplicationFormInfo.SectionInfo orphanSection = result.sections().get(1);
         assertThat(orphanSection.type()).isEqualTo(FormSectionType.PART);
         assertThat(orphanSection.allowedParts()).isEmpty();
     }
 
     @Test
-    void findAllByProjectIds_지원폼을_batch_port로_조회하고_프로젝트_ID별로_매핑() {
-        // given
-        Project project = createProject();
-        ProjectApplicationForm applicationForm = createApplicationForm(project);
-
-        given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID, 99L))).willReturn(Map.of(
-            PROJECT_ID, applicationForm
+    void findAllByProjectIds_하나의_snapshot과_evaluatedAt으로_모든_정책을_평가한다() {
+        Project firstProject = createProject(PROJECT_ID);
+        Project secondProject = createProject(SECOND_PROJECT_ID);
+        ProjectApplicationForm firstForm =
+            createApplicationForm(firstProject, APPLICATION_FORM_ID, FORM_ID);
+        ProjectApplicationForm secondForm =
+            createApplicationForm(secondProject, SECOND_APPLICATION_FORM_ID, SECOND_FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(PM_MEMBER_ID, List.of());
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID, SECOND_PROJECT_ID)))
+            .willReturn(Map.of(PROJECT_ID, firstForm, SECOND_PROJECT_ID, secondForm));
+        given(policyAuthorizationService.snapshot(PM_MEMBER_ID)).willReturn(snapshot);
+        given(policyAuthorizationService.evaluate(
+            snapshot, ProjectPolicyAction.FORM_READ, resource(firstProject), INTERNAL_FORM_READ, Optional.empty()))
+            .willReturn(formViewDecision("FULL"));
+        given(policyAuthorizationService.evaluate(
+            snapshot, ProjectPolicyAction.FORM_READ, resource(secondProject), INTERNAL_FORM_READ, Optional.empty()))
+            .willReturn(formViewDecision("FULL"));
+        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID, SECOND_FORM_ID))).willReturn(Map.of(
+            FORM_ID, buildFormStructure(FORM_ID),
+            SECOND_FORM_ID, buildFormStructure(SECOND_FORM_ID)
         ));
-        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
-            .willReturn(Map.of(FORM_ID, buildFormStructure()));
-        given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID))).willReturn(Map.of(
-            APPLICATION_FORM_ID,
-            List.of(
-                ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
-                ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
-                    Set.of(ChallengerPart.WEB))
-            )
-        ));
+        given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID, SECOND_APPLICATION_FORM_ID)))
+            .willReturn(Map.of(
+                APPLICATION_FORM_ID, defaultPolicies(firstForm),
+                SECOND_APPLICATION_FORM_ID, defaultPolicies(secondForm)
+            ));
 
-        // when
         Map<Long, ApplicationFormInfo> result = sut.findAllByProjectIds(
-            List.of(PROJECT_ID, PROJECT_ID, 99L),
+            List.of(PROJECT_ID, PROJECT_ID, SECOND_PROJECT_ID),
             PM_MEMBER_ID
         );
 
-        // then
+        assertThat(result).containsOnlyKeys(PROJECT_ID, SECOND_PROJECT_ID);
+        assertThat(snapshot.evaluatedAt()).isEqualTo(EVALUATED_AT);
+        then(policyAuthorizationService).should(times(1)).snapshot(PM_MEMBER_ID);
+        then(policyAuthorizationService).should(times(2)).evaluate(
+            eq(snapshot),
+            eq(ProjectPolicyAction.FORM_READ),
+            any(ProjectPolicyResourceContext.class),
+            eq(INTERNAL_FORM_READ),
+            eq(Optional.empty())
+        );
+        then(loadApplicationFormPort).should().findAllByProjectIds(List.of(PROJECT_ID, SECOND_PROJECT_ID));
+    }
+
+    @Test
+    void findAllByProjectIds_SubjectAttributes는_GraphQL_surface로_정책을_평가한다() {
+        Project project = createProject(PROJECT_ID);
+        ProjectApplicationForm form = createApplicationForm(project, APPLICATION_FORM_ID, FORM_ID);
+        ProjectPolicySubjectSnapshot snapshot = memberSnapshot(PM_MEMBER_ID, List.of());
+        SubjectAttributes subject = SubjectAttributes.builder().memberId(PM_MEMBER_ID).build();
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID)))
+            .willReturn(Map.of(PROJECT_ID, form));
+        given(policyAuthorizationService.snapshot(subject)).willReturn(snapshot);
+        given(policyAuthorizationService.evaluate(
+            snapshot, ProjectPolicyAction.FORM_READ, resource(project), GRAPHQL_FORM_READ, Optional.empty()))
+            .willReturn(formViewDecision("FULL"));
+        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
+            .willReturn(Map.of(FORM_ID, buildFormStructure(FORM_ID)));
+        given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID)))
+            .willReturn(Map.of(APPLICATION_FORM_ID, defaultPolicies(form)));
+
+        Map<Long, ApplicationFormInfo> result = sut.findAllByProjectIds(List.of(PROJECT_ID), subject);
+
         assertThat(result).containsOnlyKeys(PROJECT_ID);
-        assertThat(result.get(PROJECT_ID).applicationFormId()).isEqualTo(APPLICATION_FORM_ID);
-        assertThat(result.get(PROJECT_ID).sections()).hasSize(2);
-        then(loadApplicationFormPort).should().findAllByProjectIds(List.of(PROJECT_ID, 99L));
+        then(policyAuthorizationService).should().evaluate(
+            snapshot,
+            ProjectPolicyAction.FORM_READ,
+            resource(project),
+            GRAPHQL_FORM_READ,
+            Optional.empty()
+        );
     }
 
-    private static <T> T any() {
-        return org.mockito.ArgumentMatchers.any();
+    private void givenSingleForm(
+        ProjectApplicationForm form,
+        ProjectPolicySubjectSnapshot snapshot,
+        PolicyDecision decision,
+        List<ProjectApplicationFormPolicy> policies
+    ) {
+        long requesterMemberId = ((ProjectPolicyPrincipal.Member) snapshot.principal()).memberId();
+        given(loadApplicationFormPort.findByProjectId(form.getProject().getId())).willReturn(Optional.of(form));
+        given(policyAuthorizationService.snapshot(requesterMemberId)).willReturn(snapshot);
+        given(policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.FORM_READ,
+            resource(form.getProject()),
+            REST_FORM_READ,
+            Optional.empty()
+        )).willReturn(decision);
+        given(getFormUseCase.getFormWithStructure(form.getFormId()))
+            .willReturn(buildFormStructure(form.getFormId()));
+        given(loadPolicyPort.listByApplicationFormId(form.getId())).willReturn(policies);
     }
 
-    private Project createProject() {
+    private void assertAccessDenied(Runnable invocation) {
+        assertThatThrownBy(invocation::run)
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.APPLICATION_FORM_ACCESS_NOT_ALLOWED);
+    }
+
+    private ProjectPolicySubjectSnapshot memberSnapshot(
+        long memberId,
+        List<ProjectPolicyChallengerTuple> challengers
+    ) {
+        return new ProjectPolicySubjectSnapshot(
+            new ProjectPolicyPrincipal.Member(memberId),
+            EVALUATED_AT,
+            List.of(),
+            challengers,
+            Map.of()
+        );
+    }
+
+    private ProjectPolicyChallengerTuple challenger(ChallengerPart part) {
+        return new ProjectPolicyChallengerTuple(
+            1L,
+            GISU_ID,
+            CHAPTER_ID,
+            part,
+            GISU_START_AT,
+            GISU_END_AT
+        );
+    }
+
+    private PolicyDecision formViewDecision(String view) {
+        return decision(
+            PolicyEffect.ALLOW,
+            List.of(new PolicyResolvedOutcome(ProjectPolicyOutcomes.FORM_VIEW, new PolicyValue.EnumValue(view)))
+        );
+    }
+
+    private PolicyDecision deniedDecision() {
+        return decision(PolicyEffect.DENY, List.of());
+    }
+
+    private PolicyDecision decision(PolicyEffect effect, List<PolicyResolvedOutcome> outcomes) {
+        return new PolicyDecision(
+            effect,
+            effect == PolicyEffect.ALLOW ? List.of("form.read.allow") : List.of(),
+            effect == PolicyEffect.DENY ? List.of("form.read.deny") : List.of(),
+            outcomes,
+            EVALUATED_AT,
+            "1.0",
+            "project-1.0",
+            "1.0.0",
+            "a".repeat(64)
+        );
+    }
+
+    private ProjectPolicyResourceContext resource(Project project) {
+        return ProjectPolicyResourceContext.builder()
+            .project(project.getId(), project.getGisuId(), project.getChapterId(), project.getStatus())
+            .productOwnerMemberId(project.getProductOwnerMemberId())
+            .build();
+    }
+
+    private Project createProject(long projectId) {
         Project project;
         try {
             var constructor = Project.class.getDeclaredConstructor();
             constructor.setAccessible(true);
             project = constructor.newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        } catch (Exception exception) {
+            throw new IllegalStateException(exception);
         }
-        ReflectionTestUtils.setField(project, "id", PROJECT_ID);
+        ReflectionTestUtils.setField(project, "id", projectId);
         ReflectionTestUtils.setField(project, "gisuId", GISU_ID);
         ReflectionTestUtils.setField(project, "chapterId", CHAPTER_ID);
         ReflectionTestUtils.setField(project, "status", ProjectStatus.IN_PROGRESS);
@@ -342,75 +423,76 @@ class ProjectApplicationFormQueryServiceTest {
         return project;
     }
 
-    private ProjectApplicationForm createApplicationForm(Project project) {
-        ProjectApplicationForm form = ProjectApplicationForm.create(project, FORM_ID);
-        ReflectionTestUtils.setField(form, "id", APPLICATION_FORM_ID);
+    private ProjectApplicationForm createApplicationForm(
+        Project project,
+        long applicationFormId,
+        long formId
+    ) {
+        ProjectApplicationForm form = ProjectApplicationForm.create(project, formId);
+        ReflectionTestUtils.setField(form, "id", applicationFormId);
         return form;
     }
 
-    private ChallengerInfo challengerInfoWithPart(ChallengerPart part) {
-        return ChallengerInfo.builder()
-            .challengerId(1L)
-            .memberId(0L)
-            .gisuId(GISU_ID)
-            .part(part)
-            .build();
+    private List<ProjectApplicationFormPolicy> defaultPolicies(ProjectApplicationForm form) {
+        return List.of(
+            ProjectApplicationFormPolicy.createCommon(form, COMMON_SECTION_ID),
+            ProjectApplicationFormPolicy.createForParts(
+                form,
+                PART_SECTION_ID,
+                Set.of(ChallengerPart.WEB, ChallengerPart.IOS)
+            )
+        );
     }
 
-    private FormWithStructureInfo buildFormStructure() {
+    private FormWithStructureInfo buildFormStructure(long formId) {
+        return buildFormStructure(formId, List.of(
+            section(COMMON_SECTION_ID, "공통 문항", 2000L, QuestionType.LONG_TEXT),
+            section(PART_SECTION_ID, "프론트엔드", 2001L, QuestionType.RADIO)
+        ));
+    }
+
+    private FormWithStructureInfo buildFormStructureWithOtherPart() {
+        return buildFormStructure(FORM_ID, List.of(
+            section(COMMON_SECTION_ID, "공통 문항", 2000L, QuestionType.LONG_TEXT),
+            section(PART_SECTION_ID, "웹", 2001L, QuestionType.RADIO),
+            section(OTHER_PART_SECTION_ID, "안드로이드", 2002L, QuestionType.RADIO)
+        ));
+    }
+
+    private FormWithStructureInfo buildFormStructure(
+        long formId,
+        List<FormWithStructureInfo.SectionWithQuestions> sections
+    ) {
         return FormWithStructureInfo.builder()
-            .formId(FORM_ID)
+            .formId(formId)
             .title("Triple 지원서")
             .description(null)
             .status(FormStatus.DRAFT)
             .isAnonymous(false)
-            .sections(List.of(
-                FormWithStructureInfo.SectionWithQuestions.builder()
-                    .sectionId(COMMON_SECTION_ID)
-                    .title("공통 문항")
+            .sections(sections)
+            .build();
+    }
+
+    private FormWithStructureInfo.SectionWithQuestions section(
+        long sectionId,
+        String title,
+        long questionId,
+        QuestionType questionType
+    ) {
+        return FormWithStructureInfo.SectionWithQuestions.builder()
+            .sectionId(sectionId)
+            .title(title)
+            .description(null)
+            .orderNo(sectionId == COMMON_SECTION_ID ? 1L : 2L)
+            .questions(List.of(
+                FormWithStructureInfo.QuestionWithOptions.builder()
+                    .questionId(questionId)
+                    .title("질문")
                     .description(null)
+                    .type(questionType)
+                    .isRequired(true)
                     .orderNo(1L)
-                    .questions(List.of(
-                        FormWithStructureInfo.QuestionWithOptions.builder()
-                            .questionId(2000L)
-                            .title("자기소개")
-                            .description(null)
-                            .type(QuestionType.LONG_TEXT)
-                            .isRequired(true)
-                            .orderNo(1L)
-                            .options(List.of())
-                            .build()
-                    ))
-                    .build(),
-                FormWithStructureInfo.SectionWithQuestions.builder()
-                    .sectionId(PART_SECTION_ID)
-                    .title("프론트엔드")
-                    .description(null)
-                    .orderNo(2L)
-                    .questions(List.of(
-                        FormWithStructureInfo.QuestionWithOptions.builder()
-                            .questionId(2001L)
-                            .title("선호 프레임워크")
-                            .description(null)
-                            .type(QuestionType.RADIO)
-                            .isRequired(true)
-                            .orderNo(1L)
-                            .options(List.of(
-                                FormWithStructureInfo.Option.builder()
-                                    .optionId(3000L)
-                                    .content("React")
-                                    .orderNo(1L)
-                                    .isOther(false)
-                                    .build(),
-                                FormWithStructureInfo.Option.builder()
-                                    .optionId(3001L)
-                                    .content("Vue")
-                                    .orderNo(2L)
-                                    .isOther(false)
-                                    .build()
-                            ))
-                            .build()
-                    ))
+                    .options(List.of())
                     .build()
             ))
             .build();

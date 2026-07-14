@@ -1,13 +1,16 @@
 package com.umc.product.project.application.port.out;
 
-import com.umc.product.project.domain.ProjectMatchingRound;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import com.umc.product.project.domain.ProjectMatchingRound;
+
 public interface LoadProjectMatchingRoundPort {
 
     ProjectMatchingRound getById(Long id);
+
+    ProjectMatchingRound getByIdForUpdate(Long id);
 
     Optional<ProjectMatchingRound> findById(Long id);
 
@@ -18,6 +21,8 @@ public interface LoadProjectMatchingRoundPort {
     List<ProjectMatchingRound> listByChapterId(Long chapterId);
 
     List<ProjectMatchingRound> listAll();
+
+    List<ProjectMatchingRound> listByFilters(Long gisuId, Long chapterId, Instant time);
 
     List<ProjectMatchingRound> listOpenAt(Long chapterId, Instant time);
 

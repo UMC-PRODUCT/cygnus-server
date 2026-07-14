@@ -3,10 +3,12 @@ package com.umc.product.project.application.service.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.tuple;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
 import java.util.List;
@@ -26,9 +28,13 @@ import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterScopeInfo;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
 import com.umc.product.project.application.port.in.query.dto.statistics.ChapterProjectMatchingStatisticsInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.ChapterProjectStatisticsInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.ProjectStatisticsInfo;
+import com.umc.product.project.application.port.out.LoadProjectMemberPort;
 import com.umc.product.project.application.port.out.LoadProjectPort;
 import com.umc.product.project.application.port.out.LoadProjectStatisticsPort;
 import com.umc.product.project.application.port.out.dto.ProjectStatisticsApplicationRow;
@@ -57,10 +63,19 @@ class ProjectStatisticsQueryServiceTest {
     GetMemberUseCase getMemberUseCase;
 
     @Mock
+    GetChapterUseCase getChapterUseCase;
+
+    @Mock
     LoadProjectPort loadProjectPort;
 
     @Mock
+    LoadProjectMemberPort loadProjectMemberPort;
+
+    @Mock
     ProjectStatisticsAccessPolicy projectStatisticsAccessPolicy;
+
+    @Mock
+    ProjectPolicySubjectSnapshot projectPolicySubjectSnapshot;
 
     @InjectMocks
     ProjectStatisticsQueryService sut;
@@ -115,9 +130,12 @@ class ProjectStatisticsQueryServiceTest {
             ));
         // 요청자가 해당 프로젝트의 PO → FULL (멤버 단위 포함)
         Long requesterMemberId = 7000L;
-        given(loadProjectPort.getById(projectId))
-            .willReturn(project(projectId, requesterMemberId, chapterId));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(eq(requesterMemberId), any(Project.class)))
+        Project target = project(projectId, gisuId, requesterMemberId, chapterId);
+        given(loadProjectPort.getById(projectId)).willReturn(target);
+        given(loadProjectMemberPort.isActivePlanMember(projectId, requesterMemberId)).willReturn(false);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(target), eq(false)))
             .willReturn(true);
 
         // when
@@ -220,7 +238,11 @@ class ProjectStatisticsQueryServiceTest {
             ));
         // 요청자가 총괄단 → FULL (멤버 단위 포함)
         Long requesterMemberId = 7000L;
-        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
             .willReturn(true);
 
         // when
@@ -299,11 +321,19 @@ class ProjectStatisticsQueryServiceTest {
         Long gisuId = 1L;
         Long requesterMemberId = 7000L;
         Set<Long> projectIds = Set.of(10L, 11L);
+        Project firstProject = project(10L, gisuId, requesterMemberId, chapterId);
+        Project secondProject = project(11L, gisuId, requesterMemberId, chapterId);
         given(loadProjectPort.listByIds(projectIds))
-            .willReturn(List.of(
-                project(10L, requesterMemberId, chapterId),
-                project(11L, requesterMemberId, chapterId)
-            ));
+            .willReturn(List.of(firstProject, secondProject));
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(loadProjectMemberPort.listProjectIdsByActivePlanMember(projectIds, requesterMemberId))
+            .willReturn(List.of(11L));
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(firstProject), eq(false)))
+            .willReturn(true);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(secondProject), eq(true)))
+            .willReturn(true);
         given(loadProjectStatisticsPort.listMatchingRoundsByChapterId(chapterId))
             .willReturn(List.of(
                 roundRow(1L, MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST),
@@ -335,9 +365,6 @@ class ProjectStatisticsQueryServiceTest {
                 1003L, 502L,
                 1004L, 501L
             ));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(eq(requesterMemberId), any(Project.class)))
-            .willReturn(true);
-
         // when
         ChapterProjectStatisticsInfo result = sut.getByProjectIds(List.of(10L, 11L), requesterMemberId);
 
@@ -361,6 +388,13 @@ class ProjectStatisticsQueryServiceTest {
             .containsExactly(10L, 11L);
 
         verify(loadProjectStatisticsPort).listActiveMembersByProjectIds(projectIds);
+        verify(projectStatisticsAccessPolicy, times(1)).snapshot(requesterMemberId);
+        verify(loadProjectMemberPort, times(1))
+            .listProjectIdsByActivePlanMember(projectIds, requesterMemberId);
+        verify(projectStatisticsAccessPolicy).canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(firstProject), eq(false));
+        verify(projectStatisticsAccessPolicy).canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(secondProject), eq(true));
     }
 
     @Test
@@ -380,7 +414,11 @@ class ProjectStatisticsQueryServiceTest {
             .willReturn(List.of());
         given(getChallengerUseCase.listByChapterId(chapterId))
             .willReturn(List.of());
-        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
             .willReturn(true);
 
         // when
@@ -396,6 +434,13 @@ class ProjectStatisticsQueryServiceTest {
         // given
         Long chapterId = 3L;
         Long gisuId = 1L;
+        Long requesterMemberId = 7000L;
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadPublicMatchingStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
+            .willReturn(true);
         given(loadProjectStatisticsPort.listPublicProjectsByChapterId(chapterId))
             .willReturn(List.of(
                 projectRow(10L, gisuId, chapterId),
@@ -444,7 +489,8 @@ class ProjectStatisticsQueryServiceTest {
             ));
 
         // when
-        ChapterProjectMatchingStatisticsInfo result = sut.getPublicMatchingStatisticsByChapterId(chapterId);
+        ChapterProjectMatchingStatisticsInfo result =
+            sut.getPublicMatchingStatisticsByChapterId(chapterId, requesterMemberId);
 
         // then
         assertThat(result.chapterId()).isEqualTo(chapterId);
@@ -477,6 +523,9 @@ class ProjectStatisticsQueryServiceTest {
 
         verify(loadProjectStatisticsPort).listPublicProjectsByChapterId(chapterId);
         verify(loadProjectStatisticsPort).listPublicActiveMembersByChapterId(chapterId);
+        verify(projectStatisticsAccessPolicy).snapshot(requesterMemberId);
+        verify(projectStatisticsAccessPolicy).canReadPublicMatchingStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter));
     }
 
     @Test
@@ -487,7 +536,11 @@ class ProjectStatisticsQueryServiceTest {
         Long gisuId = 1L;
         Long requesterMemberId = 8000L;
         givenSingleProjectChapter(chapterId, gisuId);
-        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
             .willReturn(true);
 
         // when
@@ -505,10 +558,13 @@ class ProjectStatisticsQueryServiceTest {
         // given
         Long chapterId = 3L;
         Long gisuId = 1L;
-        Long schoolId = 7L;
         Long requesterMemberId = 8100L;
         givenSingleProjectChapter(chapterId, gisuId);
-        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
             .willReturn(true);
 
         // when
@@ -524,13 +580,19 @@ class ProjectStatisticsQueryServiceTest {
     void 지부_권한없으면_거부() {
         // given
         Long chapterId = 3L;
+        Long gisuId = 1L;
         Long requesterMemberId = 8200L;
-        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
             .willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> sut.getByChapterId(chapterId, requesterMemberId))
             .isInstanceOf(ProjectDomainException.class);
+        verifyNoInteractions(loadProjectStatisticsPort, getChallengerUseCase, getMemberUseCase);
     }
 
     @Test
@@ -543,9 +605,12 @@ class ProjectStatisticsQueryServiceTest {
         Long requesterMemberId = 8300L;
         givenSingleProject(projectId, gisuId, chapterId);
         // PO 는 아니지만 ACTIVE PLAN 멤버(Sub-PM)
-        given(loadProjectPort.getById(projectId))
-            .willReturn(project(projectId, 9999L, chapterId));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(eq(requesterMemberId), any(Project.class)))
+        Project target = project(projectId, gisuId, 9999L, chapterId);
+        given(loadProjectPort.getById(projectId)).willReturn(target);
+        given(loadProjectMemberPort.isActivePlanMember(projectId, requesterMemberId)).willReturn(true);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(target), eq(true)))
             .willReturn(true);
 
         // when
@@ -564,9 +629,12 @@ class ProjectStatisticsQueryServiceTest {
         Long chapterId = 3L;
         Long requesterMemberId = 8400L;
         givenSingleProject(projectId, gisuId, chapterId);
-        given(loadProjectPort.getById(projectId))
-            .willReturn(project(projectId, 9999L, chapterId));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(eq(requesterMemberId), any(Project.class)))
+        Project target = project(projectId, gisuId, 9999L, chapterId);
+        given(loadProjectPort.getById(projectId)).willReturn(target);
+        given(loadProjectMemberPort.isActivePlanMember(projectId, requesterMemberId)).willReturn(false);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(target), eq(false)))
             .willReturn(true);
 
         // when
@@ -581,16 +649,127 @@ class ProjectStatisticsQueryServiceTest {
     void 단건_권한없으면_거부() {
         // given
         Long projectId = 10L;
+        Long gisuId = 1L;
         Long chapterId = 3L;
         Long requesterMemberId = 8500L;
-        given(loadProjectPort.getById(projectId))
-            .willReturn(project(projectId, 9999L, chapterId));
-        given(projectStatisticsAccessPolicy.canReadProjectStatistics(eq(requesterMemberId), any(Project.class)))
+        Project target = project(projectId, gisuId, 9999L, chapterId);
+        given(loadProjectPort.getById(projectId)).willReturn(target);
+        given(loadProjectMemberPort.isActivePlanMember(projectId, requesterMemberId)).willReturn(false);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(target), eq(false)))
             .willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> sut.getByProjectId(projectId, requesterMemberId))
             .isInstanceOf(ProjectDomainException.class);
+        verifyNoInteractions(loadProjectStatisticsPort, getChallengerUseCase, getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("getByChapterId_프로젝트가_없어도_지부_scope와_정책을_먼저_검증한다")
+    void 빈_지부도_scope와_정책_검증_후_빈_통계를_반환() {
+        // given
+        Long chapterId = 3L;
+        Long gisuId = 1L;
+        Long requesterMemberId = 8600L;
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
+            .willReturn(true);
+        given(loadProjectStatisticsPort.listProjectsByChapterId(chapterId)).willReturn(List.of());
+        given(loadProjectStatisticsPort.listActiveMembersByChapterId(chapterId)).willReturn(List.of());
+
+        // when
+        ChapterProjectStatisticsInfo result = sut.getByChapterId(chapterId, requesterMemberId);
+
+        // then
+        assertThat(result.chapterId()).isEqualTo(chapterId);
+        assertThat(result.projects()).isEmpty();
+        assertThat(result.summary()).isNotNull();
+        verify(getChapterUseCase).getChapterScopeById(chapterId);
+        verify(projectStatisticsAccessPolicy).snapshot(requesterMemberId);
+        verify(projectStatisticsAccessPolicy).canReadChapterStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter));
+    }
+
+    @Test
+    @DisplayName("getPublicMatchingStatisticsByChapterId_정책이_거부하면_집계하지_않는다")
+    void 공개_매칭_통계_권한없으면_집계_전_거부() {
+        // given
+        Long chapterId = 3L;
+        Long gisuId = 1L;
+        Long requesterMemberId = 8700L;
+        ChapterScopeInfo chapter = new ChapterScopeInfo(chapterId, gisuId);
+        given(getChapterUseCase.getChapterScopeById(chapterId)).willReturn(chapter);
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(projectStatisticsAccessPolicy.canReadPublicMatchingStatistics(
+            same(projectPolicySubjectSnapshot), same(chapter)))
+            .willReturn(false);
+
+        // when & then
+        assertThatThrownBy(() ->
+            sut.getPublicMatchingStatisticsByChapterId(chapterId, requesterMemberId))
+            .isInstanceOf(ProjectDomainException.class);
+        verifyNoInteractions(loadProjectStatisticsPort, getChallengerUseCase, getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("getByProjectIds_같은_지부라도_기수가_다르면_거부한다")
+    void 프로젝트_목록_통계_서로_다른_기수면_거부() {
+        // given
+        Long requesterMemberId = 8800L;
+        Set<Long> projectIds = Set.of(10L, 11L);
+        Project firstProject = project(10L, 1L, requesterMemberId, 3L);
+        Project secondProject = project(11L, 2L, requesterMemberId, 3L);
+        given(loadProjectPort.listByIds(projectIds)).willReturn(List.of(firstProject, secondProject));
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(loadProjectMemberPort.listProjectIdsByActivePlanMember(projectIds, requesterMemberId))
+            .willReturn(List.of());
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(firstProject), eq(false)))
+            .willReturn(true);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(secondProject), eq(false)))
+            .willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> sut.getByProjectIds(projectIds, requesterMemberId))
+            .isInstanceOf(ProjectDomainException.class);
+        verify(projectStatisticsAccessPolicy, times(1)).snapshot(requesterMemberId);
+        verify(loadProjectMemberPort, times(1))
+            .listProjectIdsByActivePlanMember(projectIds, requesterMemberId);
+        verifyNoInteractions(loadProjectStatisticsPort, getChallengerUseCase, getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("getByProjectIds_같은_기수라도_지부가_다르면_거부한다")
+    void 프로젝트_목록_통계_서로_다른_지부면_거부() {
+        // given
+        Long requesterMemberId = 8900L;
+        Set<Long> projectIds = Set.of(10L, 11L);
+        Project firstProject = project(10L, 1L, requesterMemberId, 3L);
+        Project secondProject = project(11L, 1L, requesterMemberId, 4L);
+        given(loadProjectPort.listByIds(projectIds)).willReturn(List.of(firstProject, secondProject));
+        given(projectStatisticsAccessPolicy.snapshot(requesterMemberId)).willReturn(projectPolicySubjectSnapshot);
+        given(loadProjectMemberPort.listProjectIdsByActivePlanMember(projectIds, requesterMemberId))
+            .willReturn(List.of());
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(firstProject), eq(false)))
+            .willReturn(true);
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            same(projectPolicySubjectSnapshot), same(secondProject), eq(false)))
+            .willReturn(true);
+
+        // when & then
+        assertThatThrownBy(() -> sut.getByProjectIds(projectIds, requesterMemberId))
+            .isInstanceOf(ProjectDomainException.class);
+        verify(projectStatisticsAccessPolicy, times(1)).snapshot(requesterMemberId);
+        verify(loadProjectMemberPort, times(1))
+            .listProjectIdsByActivePlanMember(projectIds, requesterMemberId);
+        verifyNoInteractions(loadProjectStatisticsPort, getChallengerUseCase, getMemberUseCase);
     }
 
     /** 멤버 1명짜리 단일 프로젝트 지부 통계 데이터 stub (집계 경로 통과용). */
@@ -620,12 +799,13 @@ class ProjectStatisticsQueryServiceTest {
         given(getMemberUseCase.findAllSchoolIdsByIds(Set.of(1001L))).willReturn(Map.of(1001L, 501L));
     }
 
-    private static Project project(Long id, Long ownerMemberId, Long chapterId) {
+    private static Project project(Long id, Long gisuId, Long ownerMemberId, Long chapterId) {
         try {
             var constructor = Project.class.getDeclaredConstructor();
             constructor.setAccessible(true);
             Project project = constructor.newInstance();
             ReflectionTestUtils.setField(project, "id", id);
+            ReflectionTestUtils.setField(project, "gisuId", gisuId);
             ReflectionTestUtils.setField(project, "productOwnerMemberId", ownerMemberId);
             ReflectionTestUtils.setField(project, "chapterId", chapterId);
             return project;

@@ -4,6 +4,11 @@
 
 `authorization` 도메인은 리소스별 접근 권한을 평가한다. `@CheckAccess`, `ResourceType`, `PermissionType`, 역할 정보를 통해 사용자가 어떤 작업을 할 수 있는지 판단한다.
 
+Project는 공용 JSON policy engine의 pilot이다. Project의 target policy와 action matrix는
+[Project Policy 검토 산출물](../project/project-policy-artifacts.md), rollout과 rollback은
+[Project Authorization Rollout Runbook](../project/project-authorization-rollout-runbook.md)을 authoritative contract로
+사용한다. 다른 도메인의 기존 evaluator 계약을 이 문서만으로 자동 전환하지 않는다.
+
 ## 책임
 
 - 리소스 타입과 권한 타입의 조합을 검증한다.

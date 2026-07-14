@@ -9,14 +9,17 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,6 +28,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.SubjectPolicyFacts;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -85,6 +90,12 @@ class ProjectApplicationQueryServiceTest {
     @InjectMocks
     ProjectApplicationQueryService sut;
 
+    @BeforeEach
+    void setUpApplicantScope() {
+        lenient().when(accessScopeResolver.resolveForApplicant(REQUESTER_ID))
+            .thenReturn(new ProjectApplicationAccessScope.OwnerOnly(REQUESTER_ID));
+    }
+
     private static <T> T newInstance(Class<T> clazz) {
         try {
             var constructor = clazz.getDeclaredConstructor();
@@ -100,6 +111,20 @@ class ProjectApplicationQueryServiceTest {
     //   - 자원(ProjectApplication) 한 종류만 반환한다.
     //   - 화면 카드 합성 / 랜덤 매칭 멤버 합성은 Web Assembler 책임.
     // ============================================================
+
+    @Test
+    @DisplayName("listMyApplications_정책_scope가_없으면_외부_조회_없이_빈_목록")
+    void 본인_지원서_scope_없으면_빈_리스트() {
+        GetMyProjectApplicationsQuery query = queryOf(null);
+        given(accessScopeResolver.resolveForApplicant(REQUESTER_ID))
+            .willReturn(new ProjectApplicationAccessScope.None());
+
+        List<ProjectApplicationSummaryInfo> result = sut.listMyApplications(query);
+
+        assertThat(result).isEmpty();
+        verify(getChallengerUseCase, never()).findByMemberIdAndGisuId(any(), any());
+        verify(loadProjectApplicationPort, never()).searchMyApplications(any(), any(), any(), any());
+    }
 
     @Test
     @DisplayName("listMyApplications_해당_기수_챌린저가_아니면_빈_리스트_반환")
@@ -1031,6 +1056,10 @@ class ProjectApplicationQueryServiceTest {
     @DisplayName("batchGetDetails_applicationId_목록을_batch_port와_batch_facade로_조회")
     void batchGetDetails_batch_조회() {
         // given
+        Instant evaluatedAt = Instant.parse("2026-07-13T00:00:00Z");
+        SubjectAttributes subject = new SubjectPolicyFacts(
+            evaluatedAt, List.of(), List.of(), Map.of()
+        ).toSubjectAttributes(REQUESTER_ID, 1L);
         Project project = createProject(1L, "프로젝트A", null, 99L);
         ProjectMatchingRound round = createMatchingRound(
             7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST);
@@ -1041,7 +1070,7 @@ class ProjectApplicationQueryServiceTest {
 
         given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L, 56L)))
             .willReturn(List.of(firstApplication, secondApplication));
-        given(accessScopeResolver.resolveForProjectApplicantLists(eq(REQUESTER_ID), any()))
+        given(accessScopeResolver.resolveForProjectApplicantLists(eq(subject), any()))
             .willReturn(Map.of(1L, new ProjectApplicationAccessScope.ProjectScoped(1L, true)));
         given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(200L, 201L), GISU_ID))
             .willReturn(Map.of(
@@ -1067,10 +1096,10 @@ class ProjectApplicationQueryServiceTest {
             .willReturn(FormWithStructureInfo.builder().formId(7L).sections(List.of()).build());
 
         // when
-        Map<Long, ProjectApplicationDetailInfo> result = sut.batchGetDetails(List.of(
-            detailQuery(1L, 55L),
-            detailQuery(1L, 56L)
-        ));
+        Map<Long, ProjectApplicationDetailInfo> result = sut.batchGetDetails(
+            List.of(detailQuery(1L, 55L), detailQuery(1L, 56L)),
+            subject
+        );
 
         // then
         assertThat(result).containsOnlyKeys(55L, 56L);
@@ -1078,6 +1107,7 @@ class ProjectApplicationQueryServiceTest {
         assertThat(result.get(56L).applicantPart()).isEqualTo(ChallengerPart.WEB);
         verify(loadProjectApplicationPort, never()).findByIdWithDetails(any());
         verify(getFormResponseUseCase, never()).findResponseWithAnswers(any());
+        verify(accessScopeResolver, never()).resolveForProjectApplicantLists(eq(REQUESTER_ID), any());
     }
 
     // ============================================================

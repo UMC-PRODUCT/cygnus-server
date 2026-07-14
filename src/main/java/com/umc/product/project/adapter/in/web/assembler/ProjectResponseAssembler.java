@@ -21,6 +21,7 @@ import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.response.PageResponse;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
@@ -37,6 +38,7 @@ import com.umc.product.project.adapter.in.web.dto.response.ProjectSummaryRespons
 import com.umc.product.project.adapter.in.web.dto.response.statistics.ChapterProjectMatchingStatisticsResponse;
 import com.umc.product.project.adapter.in.web.dto.response.statistics.ChapterProjectStatisticsResponse;
 import com.umc.product.project.adapter.in.web.dto.response.statistics.ProjectStatisticsResponse;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
 import com.umc.product.project.application.port.in.query.GetProjectStatisticsUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectUseCase;
 import com.umc.product.project.application.port.in.query.SearchManagedProjectUseCase;
@@ -162,9 +164,13 @@ public class ProjectResponseAssembler {
     public Map<Long, ProjectMembersResponse> listProjectMembers(List<Long> projectIds, Long memberId) {
         // Step 1: 권한 체크 + 프로젝트 정보 조회 (실패 시 skip)
         Map<Long, ProjectInfo> validProjects = new LinkedHashMap<>();
+        SubjectAttributes subject = checkPermissionUseCase.loadSubject(memberId);
         for (Long projectId : projectIds) {
             boolean hasAccess = checkPermissionUseCase.check(
-                memberId, ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ));
+                subject,
+                ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ),
+                ProjectPolicyAction.PROJECT_MEMBER_LIST.id()
+            );
             if (!hasAccess) {
                 log.warn("프로젝트 팀원 일괄 조회 - 접근 권한 없음: memberId={}, projectId={}", memberId, projectId);
                 continue;
@@ -259,9 +265,12 @@ public class ProjectResponseAssembler {
     /**
      * PROJECT-STAT-003 지부 공개 프로젝트 매칭 요약.
      */
-    public ChapterProjectMatchingStatisticsResponse matchingStatisticsForChapter(Long chapterId) {
+    public ChapterProjectMatchingStatisticsResponse matchingStatisticsForChapter(
+        Long chapterId,
+        Long requesterMemberId
+    ) {
         return ChapterProjectMatchingStatisticsResponse.from(
-            getProjectStatisticsUseCase.getPublicMatchingStatisticsByChapterId(chapterId));
+            getProjectStatisticsUseCase.getPublicMatchingStatisticsByChapterId(chapterId, requesterMemberId));
     }
 
     private ProjectMembersResponse buildMembersResponse(

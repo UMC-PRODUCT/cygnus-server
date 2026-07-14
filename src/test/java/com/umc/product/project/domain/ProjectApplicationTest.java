@@ -338,7 +338,7 @@ class ProjectApplicationTest {
     private ProjectMatchingRound openRound() {
         return ProjectMatchingRound.create(
             "기획-디자인 1차 매칭", null,
-            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L,
+            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L, 2L,
             ROUND_STARTS_AT, ROUND_ENDS_AT, ROUND_DECISION_DEADLINE
         );
     }

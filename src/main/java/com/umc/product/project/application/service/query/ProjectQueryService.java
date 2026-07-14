@@ -17,6 +17,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.application.access.ProjectAccessScope;
 import com.umc.product.project.application.access.ProjectAccessScope.All;
@@ -106,6 +107,12 @@ public class ProjectQueryService implements
 
     @Override
     public Optional<ProjectInfo> findDraftByCreatorAndGisu(Long creatorMemberId, Long gisuId) {
+        ProjectAccessScope scope = scopeResolver.resolveForOwnDraft(creatorMemberId, gisuId);
+        if (!(scope instanceof OwnerOnly ownerOnly)
+            || !Objects.equals(ownerOnly.memberId(), creatorMemberId)
+            || !ownerOnly.visibleStatuses().contains(ProjectStatus.DRAFT)) {
+            return Optional.empty();
+        }
         return loadProjectPort.findDraftByCreatorAndGisu(creatorMemberId, gisuId)
             .map(this::toProjectInfo);
     }
@@ -143,22 +150,29 @@ public class ProjectQueryService implements
         return toProjectInfoPage(applyScope(scope, query));
     }
 
+    @Override
+    public Page<ProjectInfo> search(SearchProjectQuery query, SubjectAttributes subject) {
+        Set<ProjectStatus> requestedStatuses = new HashSet<>(query.statuses());
+        ProjectAccessScope scope = scopeResolver.resolveForPublicSearch(
+            subject, query.gisuId(), requestedStatuses);
+        return toProjectInfoPage(applyScope(scope, query));
+    }
+
     /**
      * 결정된 {@link ProjectAccessScope} 를 {@link SearchProjectQuery} 에 반영해 어댑터에 위임한다.
      */
     private Page<Project> applyScope(ProjectAccessScope scope, SearchProjectQuery query) {
         return switch (scope) {
+            case ProjectAccessScope.Clauses(List<com.umc.product.project.application.access.ScopeClause> values) ->
+                loadProjectPort.search(query.withScopeClauses(values));
             case All(Set<ProjectStatus> statuses) -> loadProjectPort.search(query.withStatuses(statuses));
             case ChapterScoped(Long chapterId, Set<ProjectStatus> statuses) ->
                 loadProjectPort.search(query.withChapterFilter(chapterId, statuses));
             case OwnerOnly(Long memberId, Set<ProjectStatus> statuses) ->
                 loadProjectPort.search(query.withOwnerFilter(memberId, statuses));
-            case ProjectAccessScope.WithOwnerIncluded(
-                ProjectAccessScope baseScope,
-                Long ownerMemberId,
-                Set<ProjectStatus> ownerStatuses
-            ) -> loadProjectPort.search(toScopedQuery(baseScope, query)
-                .withIncludedOwner(ownerMemberId, ownerStatuses));
+            case ProjectAccessScope.WithOwnerIncluded included ->
+                loadProjectPort.search(toScopedQuery(included.baseScope(), query)
+                    .withIncludedOwner(included.ownerMemberId(), included.ownerVisibleStatuses()));
             case PublicOnly() -> loadProjectPort.search(query.withStatuses(
                 Set.of(ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED)));
             case None() -> new PageImpl<>(List.of(), query.pageable(), 0L);
@@ -167,6 +181,8 @@ public class ProjectQueryService implements
 
     private SearchProjectQuery toScopedQuery(ProjectAccessScope scope, SearchProjectQuery query) {
         return switch (scope) {
+            case ProjectAccessScope.Clauses(List<com.umc.product.project.application.access.ScopeClause> values) ->
+                query.withScopeClauses(values);
             case All(Set<ProjectStatus> statuses) -> query.withStatuses(statuses);
             case ChapterScoped(Long chapterId, Set<ProjectStatus> statuses) ->
                 query.withChapterFilter(chapterId, statuses);
@@ -174,11 +190,9 @@ public class ProjectQueryService implements
                 query.withOwnerFilter(memberId, statuses);
             case PublicOnly() -> query.withStatuses(Set.of(ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED));
             case None() -> query.withStatuses(Set.of(ProjectStatus.IN_PROGRESS));
-            case ProjectAccessScope.WithOwnerIncluded(
-                ProjectAccessScope baseScope,
-                Long ownerMemberId,
-                Set<ProjectStatus> ownerStatuses
-            ) -> toScopedQuery(baseScope, query).withIncludedOwner(ownerMemberId, ownerStatuses);
+            case ProjectAccessScope.WithOwnerIncluded included ->
+                toScopedQuery(included.baseScope(), query)
+                    .withIncludedOwner(included.ownerMemberId(), included.ownerVisibleStatuses());
         };
     }
 

@@ -15,6 +15,7 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRolePolicyInfo;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.authorization.domain.SystemRoleType;
@@ -74,6 +75,13 @@ public class ChallengerRoleQueryService implements
     public List<ChallengerRoleBasicInfo> listBasicByMemberId(Long memberId) {
         return loadChallengerRolePort.findByMemberId(memberId).stream()
             .map(ChallengerRoleBasicInfo::from)
+            .toList();
+    }
+
+    @Override
+    public List<ChallengerRolePolicyInfo> listPolicyFactsByMemberId(Long memberId) {
+        return loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(ChallengerRolePolicyInfo::from)
             .toList();
     }
 

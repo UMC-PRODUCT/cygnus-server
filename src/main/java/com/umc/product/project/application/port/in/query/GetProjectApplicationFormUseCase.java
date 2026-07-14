@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 
 /**
@@ -37,4 +38,9 @@ public interface GetProjectApplicationFormUseCase {
      * @return 폼이 존재하는 프로젝트만 포함한 projectId -> {@link ApplicationFormInfo} 맵
      */
     Map<Long, ApplicationFormInfo> findAllByProjectIds(Collection<Long> projectIds, Long requesterMemberId);
+
+    Map<Long, ApplicationFormInfo> findAllByProjectIds(
+        Collection<Long> projectIds,
+        SubjectAttributes subject
+    );
 }

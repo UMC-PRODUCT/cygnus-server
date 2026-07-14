@@ -20,7 +20,10 @@ import com.umc.product.project.adapter.in.web.dto.request.CreateProjectMatchingR
 import com.umc.product.project.adapter.in.web.dto.request.UpdateProjectMatchingRoundRequest;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectMatchingRoundCreateResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectMatchingRoundResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.command.AutoDecideProjectMatchingRoundUseCase;
+import com.umc.product.project.application.port.in.command.AutoDecisionActor;
 import com.umc.product.project.application.port.in.command.CreateProjectMatchingRoundUseCase;
 import com.umc.product.project.application.port.in.command.DeleteProjectMatchingRoundUseCase;
 import com.umc.product.project.application.port.in.command.UpdateProjectMatchingRoundUseCase;
@@ -44,37 +47,42 @@ public class ProjectMatchingRoundController {
     private final AutoDecideProjectMatchingRoundUseCase autoDecideProjectMatchingRoundUseCase;
 
     @GetMapping
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_MATCHING_LIST)
     @Operation(
         operationId = "PROJECT-MATCHING-001",
         summary = "매칭 차수 목록 조회",
         description = """
             매칭 차수 목록을 조회합니다.
-            - chapterId가 있으면 해당 지부의 매칭 차수만 startsAt 오름차순으로 반환합니다.
+            - gisuId와 chapterId가 있으면 각 조건을 AND로 적용합니다.
             - time이 있으면 해당 시점에 지원 가능한 매칭 차수(startsAt <= time <= endsAt)만 반환합니다.
-            - time 기준 조회는 결과가 최대 1건이 되도록 chapterId와 함께 요청해야 하며, chapterId 없이 time만 요청하면 400을 반환합니다.
-            - time이 없고 chapterId도 없으면 전체 매칭 차수를 startsAt 오름차순으로 반환합니다.
+            - 모든 필터는 선택 사항이며, 필터가 없으면 전체 매칭 차수를 startsAt 오름차순으로 반환합니다.
             """
     )
     public List<ProjectMatchingRoundResponse> list(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @RequestParam(required = false) Long gisuId,
         @RequestParam(required = false) Long chapterId,
         @RequestParam(required = false)
         @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
         Instant time
     ) {
-        return getProjectMatchingRoundUseCase.list(chapterId, time).stream()
+        return getProjectMatchingRoundUseCase.list(memberPrincipal.getMemberId(), gisuId, chapterId, time).stream()
             .map(ProjectMatchingRoundResponse::from)
             .toList();
     }
 
     @PostMapping
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_MATCHING_CREATE)
     @Operation(
         operationId = "PROJECT-MATCHING-101",
         summary = "매칭 차수 생성",
         description = """
             매칭 차수를 생성합니다.
+            - gisuId는 필수이며 생성 후 변경할 수 없습니다.
+            - chapterId는 gisuId에 속해야 합니다.
             - 중앙운영사무국 총괄단 이상은 모든 지부에 생성할 수 있습니다.
             - 지부장은 본인 지부에만 생성할 수 있습니다.
-            - startsAt < endsAt < decisionDeadline 순서를 만족해야 합니다.
+            - gisu.startAt <= startsAt < endsAt < decisionDeadline < gisu.endAt 순서를 만족해야 합니다.
             - 같은 지부 내 기존 매칭 차수와 startsAt ~ decisionDeadline 기간이 중복되면 409를 반환합니다.
             - 동일 지부 내 type + phase 조합은 DB Unique Key로도 중복을 제한합니다.
             """
@@ -89,6 +97,7 @@ public class ProjectMatchingRoundController {
     }
 
     @PatchMapping("/{matchingRoundId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_MATCHING_UPDATE)
     @Operation(
         operationId = "PROJECT-MATCHING-102",
         summary = "매칭 차수 수정",
@@ -96,10 +105,10 @@ public class ProjectMatchingRoundController {
             매칭 차수 정보를 부분 수정합니다.
             - 중앙운영사무국 총괄단 이상은 모든 지부의 매칭 차수를 수정할 수 있습니다.
             - 지부장은 본인 지부의 매칭 차수만 수정할 수 있습니다.
-            - 수정 요청 본문에는 chapterId를 포함하지 않습니다.
-            - 매칭 차수가 소속된 chapterId는 수정할 수 없으며, 권한 및 기간 중복 검증도 기존 chapterId 기준으로 수행합니다.
+            - 수정 요청 본문에는 gisuId와 chapterId를 포함할 수 없습니다.
+            - 매칭 차수가 소속된 gisuId와 chapterId는 수정할 수 없습니다.
             - 요청 본문에 제공되지 않은 필드는 기존 매칭 차수 값을 유지합니다.
-            - 기존 값과 요청 값을 병합한 최종 결과가 startsAt < endsAt < decisionDeadline 순서를 만족해야 합니다.
+            - 기존 값과 요청 값을 병합한 최종 결과가 기수 기간 안에 있어야 합니다.
             - 같은 지부 내 다른 매칭 차수와 startsAt ~ decisionDeadline 기간이 중복되면 409를 반환합니다.
             """
     )
@@ -113,6 +122,7 @@ public class ProjectMatchingRoundController {
     }
 
     @DeleteMapping("/{matchingRoundId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_MATCHING_DELETE)
     @Operation(
         operationId = "PROJECT-MATCHING-103",
         summary = "매칭 차수 삭제",
@@ -131,6 +141,7 @@ public class ProjectMatchingRoundController {
     }
 
     @PostMapping("/{matchingRoundId}/auto-decide")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_MATCHING_HUMAN_AUTO_DECIDE)
     @Operation(
         operationId = "PROJECT-MATCHING-201",
         summary = "매칭 차수 자동 선발 수동 실행",
@@ -148,6 +159,9 @@ public class ProjectMatchingRoundController {
         @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long matchingRoundId
     ) {
-        autoDecideProjectMatchingRoundUseCase.autoDecide(matchingRoundId, memberPrincipal.getMemberId());
+        autoDecideProjectMatchingRoundUseCase.autoDecide(
+            matchingRoundId,
+            new AutoDecisionActor.Member(memberPrincipal.getMemberId())
+        );
     }
 }

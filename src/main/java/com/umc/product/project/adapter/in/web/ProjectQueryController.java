@@ -26,6 +26,8 @@ import com.umc.product.project.adapter.in.web.dto.response.ManagedProjectSummary
 import com.umc.product.project.adapter.in.web.dto.response.ProjectDetailResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectMembersResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectSummaryResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.query.dto.SearchManagedProjectQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
 
@@ -43,6 +45,7 @@ public class ProjectQueryController {
     private final ProjectResponseAssembler assembler;
 
     @GetMapping
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_LIST_PUBLIC)
     @Operation(
         operationId = "PROJECT-001",
         summary = "프로젝트 목록 조회",
@@ -64,6 +67,7 @@ public class ProjectQueryController {
     }
 
     @GetMapping("/{projectId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_READ)
     @Operation(
         operationId = "PROJECT-002",
         summary = "프로젝트 상세 조회",
@@ -73,6 +77,7 @@ public class ProjectQueryController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.READ,
+        action = "project:read",
         message = "프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectDetailResponse getDetail(
@@ -83,6 +88,7 @@ public class ProjectQueryController {
     }
 
     @GetMapping("/{projectId}/members")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_MEMBER_LIST)
     @Operation(
         operationId = "PROJECT-003",
         summary = "프로젝트 팀원 구성 조회",
@@ -92,6 +98,7 @@ public class ProjectQueryController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.READ,
+        action = "project-member:list",
         message = "프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectMembersResponse getMembers(
@@ -102,6 +109,7 @@ public class ProjectQueryController {
     }
 
     @GetMapping("/members")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_MEMBER_BATCH)
     @Operation(
         operationId = "PROJECT-007",
         summary = "프로젝트 팀원 구성 일괄 조회",
@@ -110,6 +118,7 @@ public class ProjectQueryController {
     @CheckAccess(
         resourceType = ResourceType.PROJECT,
         permission = PermissionType.READ,
+        action = "project-member:batch",
         message = "프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public Map<Long, ProjectMembersResponse> getBatchMembers(
@@ -120,6 +129,7 @@ public class ProjectQueryController {
     }
 
     @GetMapping("/me/managed")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_LIST_MANAGED)
     @Operation(
         operationId = "PROJECT-006",
         summary = "내가 관리하는 프로젝트 목록",
@@ -141,6 +151,7 @@ public class ProjectQueryController {
     }
 
     @GetMapping("/me/draft")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_LIST_OWN_DRAFTS)
     @Operation(
         operationId = "PROJECT-103",
         summary = "내 초안 프로젝트 조회",

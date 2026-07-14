@@ -1,5 +1,12 @@
 # Project Domain
 
+## 권한 정책 기준
+
+Project action의 현행 ALLOW/DENY와 39-action catalog는
+[Project Policy 검토 산출물](../project/project-policy-artifacts.md)을 유일한 검토 기준으로 사용한다. 배포 mode,
+enforcement receipt, 24시간 wave 관찰, rollback, 전체 ENFORCE 후 7일 legacy 제거 조건은
+[Project Authorization Rollout Runbook](../project/project-authorization-rollout-runbook.md)을 따른다.
+
 ## 빠른 구조 다이어그램
 
 ### Entity 관계
@@ -52,6 +59,7 @@ class ProjectMatchingRound {
   +Long id
   +MatchingType type
   +MatchingPhase phase
+  +Long gisuId
   +Long chapterId
   +Instant startsAt
   +Instant endsAt

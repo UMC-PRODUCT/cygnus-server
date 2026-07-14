@@ -2,6 +2,7 @@ package com.umc.product.project.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -11,6 +12,7 @@ import static org.mockito.Mockito.verify;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -26,6 +28,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.application.access.ProjectAccessScope;
 import com.umc.product.project.application.access.ProjectAccessScopeResolver;
+import com.umc.product.project.application.access.ScopeClause;
 import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.SearchManagedProjectQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
@@ -122,6 +125,8 @@ class ProjectQueryServiceTest {
     void findDraftByCreatorAndGisu_DRAFT_프로젝트_반환() {
         // given
         Project project = createProject(1L, ProjectStatus.DRAFT);
+        given(scopeResolver.resolveForOwnDraft(10L, 1L))
+            .willReturn(new ProjectAccessScope.OwnerOnly(10L, Set.of(ProjectStatus.DRAFT)));
         given(loadProjectPort.findDraftByCreatorAndGisu(10L, 1L))
             .willReturn(Optional.of(project));
         given(loadProjectMemberPort.listByProjectIdAndPart(1L, ChallengerPart.PLAN))
@@ -141,6 +146,8 @@ class ProjectQueryServiceTest {
     @Test
     void findDraftByCreatorAndGisu_프로젝트_없으면_empty() {
         // given
+        given(scopeResolver.resolveForOwnDraft(10L, 1L))
+            .willReturn(new ProjectAccessScope.OwnerOnly(10L, Set.of(ProjectStatus.DRAFT)));
         given(loadProjectPort.findDraftByCreatorAndGisu(10L, 1L))
             .willReturn(Optional.empty());
 
@@ -152,6 +159,17 @@ class ProjectQueryServiceTest {
     }
 
     @Test
+    void findDraftByCreatorAndGisu_정책_scope가_없으면_port를_호출하지_않는다() {
+        given(scopeResolver.resolveForOwnDraft(10L, 1L))
+            .willReturn(new ProjectAccessScope.None());
+
+        Optional<ProjectInfo> result = sut.findDraftByCreatorAndGisu(10L, 1L);
+
+        assertThat(result).isEmpty();
+        verify(loadProjectPort, never()).findDraftByCreatorAndGisu(any(), any());
+    }
+
+    @Test
     void search_페이지_결과_변환() {
         // given
         Project project = createProject(1L, ProjectStatus.IN_PROGRESS);
@@ -159,8 +177,8 @@ class ProjectQueryServiceTest {
         SearchProjectQuery query = SearchProjectQuery.forChallenger(
             1L, null, null, null, null, null, pageable);
 
-        given(scopeResolver.resolveForPublicSearch(any(), any(), anySet()))
-            .willReturn(new ProjectAccessScope.PublicOnly());
+        given(scopeResolver.resolveForPublicSearch(anyLong(), anyLong(), anySet()))
+            .willReturn(publicScope());
         given(loadProjectPort.search(any(SearchProjectQuery.class)))
             .willReturn(new PageImpl<>(List.of(project), pageable, 1));
         given(loadProjectMemberPort.listByProjectIdsAndPartGroupedByProjectId(anySet(), eq(ChallengerPart.PLAN)))
@@ -190,8 +208,8 @@ class ProjectQueryServiceTest {
         SearchProjectQuery query = SearchProjectQuery.forChallenger(
             1L, null, null, null, null, null, pageable);
 
-        given(scopeResolver.resolveForPublicSearch(any(), any(), anySet()))
-            .willReturn(new ProjectAccessScope.PublicOnly());
+        given(scopeResolver.resolveForPublicSearch(anyLong(), anyLong(), anySet()))
+            .willReturn(publicScope());
         given(loadProjectPort.search(any(SearchProjectQuery.class)))
             .willReturn(new PageImpl<>(List.of(p1, p2), pageable, 2));
         given(loadProjectMemberPort.listByProjectIdsAndPartGroupedByProjectId(anySet(), eq(ChallengerPart.PLAN)))
@@ -229,8 +247,8 @@ class ProjectQueryServiceTest {
         SearchProjectQuery query = SearchProjectQuery.forChallenger(
             1L, null, null, null, null, null, pageable);
 
-        given(scopeResolver.resolveForPublicSearch(any(), any(), anySet()))
-            .willReturn(new ProjectAccessScope.PublicOnly());
+        given(scopeResolver.resolveForPublicSearch(anyLong(), anyLong(), anySet()))
+            .willReturn(publicScope());
         given(loadProjectPort.search(any(SearchProjectQuery.class)))
             .willReturn(new PageImpl<>(List.of(), pageable, 0));
 
@@ -244,16 +262,44 @@ class ProjectQueryServiceTest {
     }
 
     @Test
-    void searchManaged_총괄단이면_전체_노출() {
+    void search_요청_chapterId를_권한_clause와_AND로_결합한다() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        SearchProjectQuery query = SearchProjectQuery.forChallenger(
+            1L, null, 8L, null, null, null, pageable);
+        Set<ProjectStatus> publicStatuses = Set.of(ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED);
+        ScopeClause publicClause = ScopeClause.gisu(Set.of(1L), publicStatuses);
+        ScopeClause otherChapterClause = ScopeClause.gisu(Set.of(1L), publicStatuses)
+            .andChapterIds(Set.of(7L));
+        given(scopeResolver.resolveForPublicSearch(anyLong(), anyLong(), anySet()))
+            .willReturn(new ProjectAccessScope.Clauses(List.of(publicClause, otherChapterClause)));
+        given(loadProjectPort.search(any(SearchProjectQuery.class)))
+            .willReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        sut.search(query, 99L);
+
+        ArgumentCaptor<SearchProjectQuery> captor = ArgumentCaptor.forClass(SearchProjectQuery.class);
+        verify(loadProjectPort).search(captor.capture());
+        assertThat(captor.getValue().scopeClauses()).containsExactly(
+            publicClause.andChapterIds(Set.of(8L))
+        );
+    }
+
+    @Test
+    void searchManaged_Clauses를_검색_query에_전달한다() {
         Project project = createProject(1L, ProjectStatus.PENDING_REVIEW);
         PageRequest pageable = PageRequest.of(0, 20);
         SearchManagedProjectQuery query = SearchManagedProjectQuery.builder()
             .gisuId(1L).keyword(null).pageable(pageable).build();
+        Set<ProjectStatus> requested = Set.of(
+            ProjectStatus.PENDING_REVIEW,
+            ProjectStatus.IN_PROGRESS,
+            ProjectStatus.COMPLETED,
+            ProjectStatus.ABORTED
+        );
+        ScopeClause allInRequestedGisu = ScopeClause.gisu(Set.of(1L), requested);
 
         given(scopeResolver.resolveForManagement(any(), any(), anySet()))
-            .willReturn(new ProjectAccessScope.All(
-                java.util.Set.of(ProjectStatus.PENDING_REVIEW, ProjectStatus.IN_PROGRESS,
-                    ProjectStatus.COMPLETED, ProjectStatus.ABORTED)));
+            .willReturn(new ProjectAccessScope.Clauses(List.of(allInRequestedGisu)));
         given(loadProjectPort.search(any(SearchProjectQuery.class)))
             .willReturn(new PageImpl<>(List.of(project), pageable, 1));
         given(loadProjectMemberPort.listByProjectIdsAndPartGroupedByProjectId(anySet(), eq(ChallengerPart.PLAN)))
@@ -268,6 +314,9 @@ class ProjectQueryServiceTest {
         Page<ProjectInfo> result = sut.searchManaged(query, 99L);
 
         assertThat(result.getContent()).hasSize(1);
+        ArgumentCaptor<SearchProjectQuery> captor = ArgumentCaptor.forClass(SearchProjectQuery.class);
+        verify(loadProjectPort).search(captor.capture());
+        assertThat(captor.getValue().scopeClauses()).containsExactly(allInRequestedGisu);
     }
 
     @Test
@@ -283,29 +332,30 @@ class ProjectQueryServiceTest {
 
         assertThat(result.getContent()).isEmpty();
         assertThat(result.getTotalElements()).isZero();
+        verify(loadProjectPort, never()).search(any(SearchProjectQuery.class));
         verify(loadProjectMemberPort, never()).listByProjectIdsAndPartGroupedByProjectId(anySet(), any());
     }
 
     @Test
-    void searchManaged_상위_scope에서도_본인_PO_프로젝트를_추가_포함하는_query를_전달한다() {
+    void searchManaged_복수_Clauses를_평탄화하지_않고_OR_분기로_전달한다() {
         PageRequest pageable = PageRequest.of(0, 20);
         SearchManagedProjectQuery query = SearchManagedProjectQuery.builder()
             .gisuId(1L).keyword(null).pageable(pageable).build();
-        java.util.Set<ProjectStatus> requested = java.util.Set.of(
+        Set<ProjectStatus> requested = Set.of(
             ProjectStatus.PENDING_REVIEW,
             ProjectStatus.IN_PROGRESS,
             ProjectStatus.COMPLETED,
             ProjectStatus.ABORTED
         );
-        java.util.Set<ProjectStatus> ownerStatuses = java.util.EnumSet.copyOf(requested);
+        Set<ProjectStatus> ownerStatuses = java.util.EnumSet.copyOf(requested);
         ownerStatuses.add(ProjectStatus.DRAFT);
+        ScopeClause chapterClause = ScopeClause.gisu(Set.of(1L), requested)
+            .andChapterIds(Set.of(5L));
+        ScopeClause ownerClause = ScopeClause.gisu(Set.of(1L), ownerStatuses)
+            .andOwnerMemberIds(Set.of(99L));
 
         given(scopeResolver.resolveForManagement(any(), any(), anySet()))
-            .willReturn(new ProjectAccessScope.WithOwnerIncluded(
-                new ProjectAccessScope.ChapterScoped(5L, requested),
-                99L,
-                ownerStatuses
-            ));
+            .willReturn(new ProjectAccessScope.Clauses(List.of(chapterClause, ownerClause)));
         given(loadProjectPort.search(any(SearchProjectQuery.class)))
             .willReturn(new PageImpl<>(List.of(), pageable, 0));
 
@@ -314,12 +364,21 @@ class ProjectQueryServiceTest {
         ArgumentCaptor<SearchProjectQuery> captor = ArgumentCaptor.forClass(SearchProjectQuery.class);
         verify(loadProjectPort).search(captor.capture());
         SearchProjectQuery actual = captor.getValue();
-        assertThat(actual.chapterId()).isEqualTo(5L);
-        assertThat(actual.includedOwnerMemberId()).isEqualTo(99L);
-        assertThat(actual.includedOwnerStatuses()).contains(ProjectStatus.DRAFT);
+        assertThat(actual.scopeClauses()).containsExactly(chapterClause, ownerClause);
+        assertThat(actual.chapterId()).isNull();
+        assertThat(actual.includedOwnerMemberId()).isNull();
     }
 
     // ========== Helper Methods ==========
+
+    private ProjectAccessScope publicScope() {
+        return new ProjectAccessScope.Clauses(List.of(
+            ScopeClause.gisu(
+                Set.of(1L),
+                Set.of(ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED)
+            )
+        ));
+    }
 
     private Project createProject(Long id, ProjectStatus status) {
         Project project;

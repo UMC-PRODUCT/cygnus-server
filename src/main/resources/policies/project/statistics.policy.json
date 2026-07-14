@@ -1,0 +1,405 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "project-1.0",
+  "namespace": "project",
+  "policyVersion": "1.1.0",
+  "moduleId": "statistics",
+  "statements": [
+    {
+      "id": "statistics.project.owner",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-project"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isProductOwner"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.project.sub-pm",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-project"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isActivePlanMember"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.project.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-project"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeSuperAdmin"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.project.central",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-project"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralCoreInResourceGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.project.chapter",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-project"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeChapterPresidentForResource"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.project.school-core",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-project"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeSchoolCoreForResource"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.chapter.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-chapter"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeSuperAdmin"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.chapter.central",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-chapter"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralCoreInResourceGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.chapter.chapter",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-chapter"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeChapterPresidentForResource"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.chapter.school-core",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-chapter"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeSchoolCoreForResource"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "statistics.public-matching.member",
+      "effect": "ALLOW",
+      "actions": [
+        "project-statistics:read-public-matching"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    }
+  ]
+}

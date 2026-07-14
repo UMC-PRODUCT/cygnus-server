@@ -19,6 +19,8 @@ import com.umc.product.project.adapter.in.web.dto.request.CreateProjectApplicati
 import com.umc.product.project.adapter.in.web.dto.request.UpdateApplicationAnswersRequest;
 import com.umc.product.project.adapter.in.web.dto.request.UpdateApplicationDecisionRequest;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectApplicationStatusResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.command.CancelProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.DecideApplicationUseCase;
@@ -45,6 +47,7 @@ public class ProjectApplicationController {
     private final CancelProjectApplicationUseCase cancelProjectApplicationUseCase;
 
     @PostMapping("/{projectId}/applications")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_CREATE)
     @Operation(
         operationId = "APPLY-001",
         summary = "챌린저 지원서 초안 생성",
@@ -54,6 +57,7 @@ public class ProjectApplicationController {
         resourceType = ResourceType.PROJECT_APPLICATION,
         resourceId = "#projectId",
         permission = PermissionType.WRITE,
+        action = "project-application:create",
         message = "지원서를 작성할 권한이 없어요. 지원 가능한 프로젝트인지 확인해주세요."
     )
     public ProjectApplicationStatusResponse createDraft(
@@ -69,6 +73,7 @@ public class ProjectApplicationController {
     }
 
     @PutMapping("/{projectId}/applications/{applicationId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_UPDATE)
     @Operation(
         operationId = "APPLY-002",
         summary = "챌린저 지원서 임시저장",
@@ -78,6 +83,7 @@ public class ProjectApplicationController {
         resourceType = ResourceType.PROJECT_APPLICATION,
         resourceId = "#applicationId",
         permission = PermissionType.EDIT,
+        action = "project-application:update",
         message = "지원서를 임시저장할 권한이 없어요. 지원 가능한 프로젝트인지 확인해주세요."
     )
     public ProjectApplicationStatusResponse updateDraft(
@@ -94,6 +100,7 @@ public class ProjectApplicationController {
     }
 
     @PostMapping("/{projectId}/applications/{applicationId}/submit")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_SUBMIT)
     @Operation(
         operationId = "APPLY-003",
         summary = "챌린저 지원서 최종 제출",
@@ -103,6 +110,7 @@ public class ProjectApplicationController {
         resourceType = ResourceType.PROJECT_APPLICATION,
         resourceId = "#applicationId",
         permission = PermissionType.EDIT,
+        action = "project-application:submit",
         message = "지원서를 제출할 권한이 없어요. 지원 가능한 프로젝트인지 확인해주세요."
     )
     public ProjectApplicationStatusResponse submit(
@@ -122,6 +130,7 @@ public class ProjectApplicationController {
     }
 
     @PatchMapping("/{projectId}/applications/{applicationId}/decision")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_DECIDE)
     @Operation(
         operationId = "APPLY-103",
         summary = "지원서 합격 여부 결정",
@@ -132,12 +141,6 @@ public class ProjectApplicationController {
             - APPROVED ↔ REJECTED 재토글 허용
             - REJECTED 처리 후 매칭 규칙의 최소선발 수를 만족하지 못하면 거절
             """
-    )
-    @CheckAccess(
-        resourceType = ResourceType.PROJECT_APPLICATION,
-        resourceId = "#applicationId",
-        permission = PermissionType.APPROVE,
-        message = "지원서 합격 여부는 권한이 있는 운영진만 결정할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectApplicationStatusResponse decide(
         @CurrentMember MemberPrincipal memberPrincipal,
@@ -153,6 +156,7 @@ public class ProjectApplicationController {
     }
 
     @DeleteMapping("/{projectId}/applications/{applicationId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_APPLICATION_CANCEL)
     @Operation(
         operationId = "APPLY-005",
         summary = "챌린저 지원서 철회",
@@ -173,6 +177,7 @@ public class ProjectApplicationController {
         resourceType = ResourceType.PROJECT_APPLICATION,
         resourceId = "#applicationId",
         permission = PermissionType.DELETE,
+        action = "project-application:cancel",
         message = "지원서는 지원자 본인만 철회할 수 있어요."
     )
     public ProjectApplicationStatusResponse cancel(

@@ -26,7 +26,7 @@ class ProjectMatchingRoundTest {
     void setUp() {
         round = ProjectMatchingRound.create(
             "기획-디자인 1차 매칭", null,
-            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L,
+            MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L, 1L,
             STARTS_AT, ENDS_AT, DECISION_DEADLINE
         );
     }

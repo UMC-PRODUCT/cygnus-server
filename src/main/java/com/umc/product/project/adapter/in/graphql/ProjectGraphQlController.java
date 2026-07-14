@@ -14,8 +14,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
-import org.springframework.lang.Nullable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
@@ -23,9 +24,7 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
-import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.project.adapter.in.graphql.dto.MemberBriefGraphQlResponse;
@@ -36,6 +35,9 @@ import com.umc.product.project.adapter.in.graphql.dto.ProjectMemberGraphQlRespon
 import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlRequest;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectSearchGraphQlRequest;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -47,11 +49,14 @@ import com.umc.product.project.application.port.in.query.dto.ProjectApplicationD
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
 
+import graphql.GraphQLContext;
 import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequiredArgsConstructor
 public class ProjectGraphQlController {
+
+    private static final String SUBJECT_CONTEXT_KEY = ProjectGraphQlController.class.getName() + ".subject";
 
     private final GetProjectUseCase getProjectUseCase;
     private final SearchProjectUseCase searchProjectUseCase;
@@ -60,42 +65,40 @@ public class ProjectGraphQlController {
     private final GetProjectApplicationDetailUseCase getProjectApplicationDetailUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final CheckPermissionUseCase checkPermissionUseCase;
-    private final CurrentMemberProvider currentMemberProvider;
 
     @QueryMapping
-    public ProjectGraphQlResponse project(
-        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long id
-    ) {
-        Long requesterMemberId = currentMemberId(memberPrincipal);
-        checkPermissionUseCase.checkOrThrow(requesterMemberId, projectReadPermission(id));
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECT)
+    public ProjectGraphQlResponse project(@Argument Long id, GraphQLContext context) {
+        SubjectAttributes subject = requestSubject(context);
+        checkPermissionUseCase.checkOrThrow(
+            subject,
+            projectReadPermission(id),
+            ProjectPolicyAction.PROJECT_READ.id()
+        );
         return ProjectGraphQlResponse.from(getProjectUseCase.getById(id));
     }
 
     @QueryMapping
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECTS)
     public ProjectPageGraphQlResponse projects(
-        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument ProjectSearchGraphQlRequest input,
-        @Argument ProjectPageGraphQlRequest page
+        @Argument ProjectPageGraphQlRequest page,
+        GraphQLContext context
     ) {
-        Long requesterMemberId = currentMemberId(memberPrincipal);
-        checkPermissionUseCase.checkOrThrow(
-            requesterMemberId,
-            ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.READ)
-        );
-
+        SubjectAttributes subject = requestSubject(context);
         Pageable pageable = (page == null ? new ProjectPageGraphQlRequest(null, null, null) : page).toPageable();
         SearchProjectQuery query = input.toQuery(pageable);
-        return ProjectPageGraphQlResponse.from(searchProjectUseCase.search(query, requesterMemberId));
+        return ProjectPageGraphQlResponse.from(searchProjectUseCase.search(query, subject));
     }
 
     @BatchMapping(typeName = "Project", field = "members")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECT_MEMBERS)
     public Map<ProjectGraphQlResponse, List<ProjectMemberGraphQlResponse>> membersByProject(
-        List<ProjectGraphQlResponse> projects
+        List<ProjectGraphQlResponse> projects,
+        GraphQLContext context
     ) {
-        Long requesterMemberId = currentMemberId();
-        SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
-        projects.forEach(project -> assertProjectRead(subject, project.id()));
+        SubjectAttributes subject = requestSubject(context);
+        projects.forEach(project -> assertProjectMemberRead(subject, project.id()));
 
         List<Long> projectIds = uniqueProjectIds(projects);
         Map<Long, List<ProjectMemberInfo>> membersByProjectId = getProjectMemberUseCase.listByProjectIds(projectIds);
@@ -112,16 +115,17 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "Project", field = "applicationForm")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_APPLICATION_FORM)
     public Map<ProjectGraphQlResponse, ProjectApplicationFormGraphQlResponse> applicationFormByProject(
-        List<ProjectGraphQlResponse> projects
+        List<ProjectGraphQlResponse> projects,
+        GraphQLContext context
     ) {
-        Long requesterMemberId = currentMemberId();
-        SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
+        SubjectAttributes subject = requestSubject(context);
         projects.forEach(project -> assertProjectRead(subject, project.id()));
 
         List<Long> projectIds = uniqueProjectIds(projects);
         Map<Long, ApplicationFormInfo> formsByProjectId =
-            getProjectApplicationFormUseCase.findAllByProjectIds(projectIds, requesterMemberId);
+            getProjectApplicationFormUseCase.findAllByProjectIds(projectIds, subject);
 
         Map<ProjectGraphQlResponse, ProjectApplicationFormGraphQlResponse> result = new LinkedHashMap<>();
         for (ProjectGraphQlResponse project : projects) {
@@ -132,6 +136,7 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "Project", field = "productOwner")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECT_PRODUCT_OWNER)
     public Map<ProjectGraphQlResponse, MemberBriefGraphQlResponse> productOwnerByProject(
         List<ProjectGraphQlResponse> projects
     ) {
@@ -149,6 +154,7 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "Project", field = "coProductOwners")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECT_CO_PRODUCT_OWNERS)
     public Map<ProjectGraphQlResponse, List<MemberBriefGraphQlResponse>> coProductOwnersByProject(
         List<ProjectGraphQlResponse> projects
     ) {
@@ -174,6 +180,7 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "ProjectMember", field = "member")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECT_MEMBER_MEMBER)
     public Map<ProjectMemberGraphQlResponse, MemberBriefGraphQlResponse> memberByProjectMember(
         List<ProjectMemberGraphQlResponse> projectMembers
     ) {
@@ -191,11 +198,12 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "ProjectMember", field = "application")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.GRAPHQL_PROJECT_MEMBER_APPLICATION)
     public Map<ProjectMemberGraphQlResponse, ProjectApplicationGraphQlResponse> applicationByProjectMember(
-        List<ProjectMemberGraphQlResponse> projectMembers
+        List<ProjectMemberGraphQlResponse> projectMembers,
+        GraphQLContext context
     ) {
-        Long requesterMemberId = currentMemberId();
-        SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
+        SubjectAttributes subject = requestSubject(context);
 
         Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId = new LinkedHashMap<>();
         for (ProjectMemberGraphQlResponse projectMember : projectMembers) {
@@ -203,7 +211,11 @@ public class ProjectGraphQlController {
             if (applicationId == null) {
                 continue;
             }
-            if (!checkPermissionUseCase.check(subject, applicationReadPermission(applicationId))) {
+            if (!checkPermissionUseCase.check(
+                subject,
+                applicationReadPermission(applicationId),
+                ProjectPolicyAction.APPLICATION_READ.id()
+            )) {
                 continue;
             }
             queriesByApplicationId.putIfAbsent(
@@ -211,14 +223,14 @@ public class ProjectGraphQlController {
                 GetProjectApplicationDetailQuery.builder()
                     .projectId(projectMember.projectId())
                     .applicationId(applicationId)
-                    .requesterMemberId(requesterMemberId)
+                    .requesterMemberId(subject.memberId())
                     .build()
             );
         }
 
         Map<Long, ProjectApplicationDetailInfo> detailsByApplicationId = queriesByApplicationId.isEmpty()
             ? Map.of()
-            : getProjectApplicationDetailUseCase.batchGetDetails(queriesByApplicationId.values());
+            : getProjectApplicationDetailUseCase.batchGetDetails(queriesByApplicationId.values(), subject);
 
         Map<ProjectMemberGraphQlResponse, ProjectApplicationGraphQlResponse> result = new LinkedHashMap<>();
         for (ProjectMemberGraphQlResponse projectMember : projectMembers) {
@@ -228,18 +240,40 @@ public class ProjectGraphQlController {
         return result;
     }
 
-    private Long currentMemberId(MemberPrincipal memberPrincipal) {
-        return memberPrincipal == null
-            ? currentMemberProvider.getRequiredCurrentMemberId()
-            : memberPrincipal.getMemberId();
+    private SubjectAttributes requestSubject(GraphQLContext context) {
+        return context.computeIfAbsent(
+            SUBJECT_CONTEXT_KEY,
+            ignored -> checkPermissionUseCase.loadSubject(currentMemberId())
+        );
     }
 
     private Long currentMemberId() {
-        return currentMemberProvider.getRequiredCurrentMemberId();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new AccessDeniedException("로그인이 필요해요. 로그인 후 다시 시도해주세요.");
+        }
+        if (authentication.getPrincipal() instanceof MemberPrincipal principal) {
+            return principal.getMemberId();
+        }
+        throw new AccessDeniedException("인증 정보가 올바르지 않아요. 다시 로그인해주세요.");
     }
 
     private void assertProjectRead(SubjectAttributes subject, Long projectId) {
-        if (!checkPermissionUseCase.check(subject, projectReadPermission(projectId))) {
+        if (!checkPermissionUseCase.check(
+            subject,
+            projectReadPermission(projectId),
+            ProjectPolicyAction.PROJECT_READ.id()
+        )) {
+            throw new AccessDeniedException("프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요.");
+        }
+    }
+
+    private void assertProjectMemberRead(SubjectAttributes subject, Long projectId) {
+        if (!checkPermissionUseCase.check(
+            subject,
+            projectReadPermission(projectId),
+            ProjectPolicyAction.PROJECT_MEMBER_LIST.id()
+        )) {
             throw new AccessDeniedException("프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요.");
         }
     }

@@ -1,6 +1,10 @@
 package com.umc.product.authorization.application.service;
 
+import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -9,23 +13,33 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRolePolicyInfo;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
+import com.umc.product.authorization.application.port.out.SemanticResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.AuthoritySnapshot;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
+import com.umc.product.authorization.domain.SubjectPolicyFacts;
+import com.umc.product.authorization.domain.SubjectPolicyFacts.ChallengerPolicyFact;
+import com.umc.product.authorization.domain.SubjectPolicyFacts.RolePolicyFact;
+import com.umc.product.authorization.domain.SubjectPolicyFacts.SchoolChapterKey;
 import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerPolicyInfo;
+import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.global.cache.application.port.in.CacheUseCase;
 import com.umc.product.global.cache.domain.CacheKey;
 import com.umc.product.global.cache.domain.CacheLookup;
@@ -38,6 +52,8 @@ import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.member.domain.exception.MemberDomainException;
 import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -60,29 +76,43 @@ public class AuthorizationService implements CheckPermissionUseCase {
     private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
     private final GetChapterUseCase getChapterUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
+    private final GetGisuUseCase getGisuUseCase;
+    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final OperationalMetrics operationalMetrics;
     private final CacheUseCase cacheUseCase;
     private final AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer;
+    private final Clock clock;
 
     /**
      * ResourcePermissionEvaluator에 대한 생성자 주입
      * <p>
      * 셍성자에서 List를 Map으로 변환하기 위해서 Lombok을 사용하지 않았음.
      */
-    public AuthorizationService(LoadChallengerRolePort loadChallengerRolePort,
-                                List<ResourcePermissionEvaluator> evaluatorList, GetMemberUseCase getMemberUseCase,
-                                ListMemberSystemRoleUseCase listMemberSystemRoleUseCase,
-                                GetChapterUseCase getChapterUseCase, GetChallengerUseCase getChallengerUseCase,
-                                OperationalMetrics operationalMetrics, CacheUseCase cacheUseCase,
-                                AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer) {
+    @Autowired
+    public AuthorizationService(
+        LoadChallengerRolePort loadChallengerRolePort,
+        List<ResourcePermissionEvaluator> evaluatorList,
+        GetMemberUseCase getMemberUseCase,
+        ListMemberSystemRoleUseCase listMemberSystemRoleUseCase,
+        GetChapterUseCase getChapterUseCase,
+        GetChallengerUseCase getChallengerUseCase,
+        GetGisuUseCase getGisuUseCase,
+        OperationalMetrics operationalMetrics,
+        CacheUseCase cacheUseCase,
+        AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer,
+        Clock clock
+    ) {
         this.loadChallengerRolePort = loadChallengerRolePort;
         this.getMemberUseCase = getMemberUseCase;
         this.listMemberSystemRoleUseCase = listMemberSystemRoleUseCase;
         this.getChapterUseCase = getChapterUseCase;
         this.getChallengerUseCase = getChallengerUseCase;
+        this.getGisuUseCase = getGisuUseCase;
+        this.getChallengerRoleUseCase = null;
         this.operationalMetrics = operationalMetrics;
         this.cacheUseCase = cacheUseCase;
         this.authoritySnapshotCacheSerializer = authoritySnapshotCacheSerializer;
+        this.clock = clock;
         this.evaluators = evaluatorList.stream()
             .collect(Collectors.toMap(
                 ResourcePermissionEvaluator::supportedResourceType,
@@ -90,6 +120,61 @@ public class AuthorizationService implements CheckPermissionUseCase {
             ));
 
         log.info("등록된 ResourcePermissionEvaluator: {}", evaluators.keySet());
+    }
+
+    AuthorizationService(
+        LoadChallengerRolePort loadChallengerRolePort,
+        List<ResourcePermissionEvaluator> evaluatorList,
+        GetMemberUseCase getMemberUseCase,
+        ListMemberSystemRoleUseCase listMemberSystemRoleUseCase,
+        GetChapterUseCase getChapterUseCase,
+        GetChallengerUseCase getChallengerUseCase,
+        OperationalMetrics operationalMetrics,
+        CacheUseCase cacheUseCase,
+        AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer
+    ) {
+        this.loadChallengerRolePort = loadChallengerRolePort;
+        this.getMemberUseCase = getMemberUseCase;
+        this.listMemberSystemRoleUseCase = listMemberSystemRoleUseCase;
+        this.getChapterUseCase = getChapterUseCase;
+        this.getChallengerUseCase = getChallengerUseCase;
+        this.getGisuUseCase = null;
+        this.getChallengerRoleUseCase = null;
+        this.operationalMetrics = operationalMetrics;
+        this.cacheUseCase = cacheUseCase;
+        this.authoritySnapshotCacheSerializer = authoritySnapshotCacheSerializer;
+        this.clock = Clock.systemUTC();
+        this.evaluators = evaluatorList.stream().collect(Collectors.toMap(
+            ResourcePermissionEvaluator::supportedResourceType,
+            Function.identity()
+        ));
+    }
+
+    public AuthorizationService(
+        GetChallengerRoleUseCase getChallengerRoleUseCase,
+        List<ResourcePermissionEvaluator> evaluatorList,
+        GetMemberUseCase getMemberUseCase,
+        GetChapterUseCase getChapterUseCase,
+        GetChallengerUseCase getChallengerUseCase,
+        GetGisuUseCase getGisuUseCase,
+        OperationalMetrics operationalMetrics,
+        Clock clock
+    ) {
+        this.loadChallengerRolePort = null;
+        this.getMemberUseCase = getMemberUseCase;
+        this.listMemberSystemRoleUseCase = null;
+        this.getChapterUseCase = getChapterUseCase;
+        this.getChallengerUseCase = getChallengerUseCase;
+        this.getGisuUseCase = getGisuUseCase;
+        this.getChallengerRoleUseCase = getChallengerRoleUseCase;
+        this.operationalMetrics = operationalMetrics;
+        this.cacheUseCase = null;
+        this.authoritySnapshotCacheSerializer = null;
+        this.clock = clock;
+        this.evaluators = evaluatorList.stream().collect(Collectors.toMap(
+            ResourcePermissionEvaluator::supportedResourceType,
+            Function.identity()
+        ));
     }
 
     @Override
@@ -101,11 +186,15 @@ public class AuthorizationService implements CheckPermissionUseCase {
     @Override
     public SubjectAttributes loadSubject(Long memberId) {
         log.debug("권한 평가 시작: memberId={}", memberId);
+        if (cacheUseCase == null) {
+            return loadFreshSubject(memberId);
+        }
         CacheKey cacheKey = authoritySnapshotCacheKey(memberId);
 
         Optional<SubjectAttributes> cachedSubject = readCachedSubject(cacheKey, memberId);
         if (cachedSubject.isPresent()) {
-            return cachedSubject.get();
+            SubjectAttributes cached = cachedSubject.get();
+            return getGisuUseCase == null ? cached : enrichPolicyFacts(cached);
         }
 
         SubjectAttributes subjectAttributes = loadFreshSubject(memberId);
@@ -114,6 +203,12 @@ public class AuthorizationService implements CheckPermissionUseCase {
     }
 
     private SubjectAttributes loadFreshSubject(Long memberId) {
+        if (getGisuUseCase != null) {
+            MemberInfo memberInfo = getMemberUseCase.getById(memberId);
+            SubjectPolicyFacts facts = loadPolicyFacts(memberId, memberInfo.schoolId());
+            return facts.toSubjectAttributes(memberId, memberInfo.schoolId(), listSystemRoles(memberId));
+        }
+
         // 사용자가 활동한 모든 기수를 확인
         // 해당 기수마다 chapterId, challengerRoleId를 가져옴
         MemberInfo memberInfo = getMemberUseCase.getById(memberId);
@@ -152,7 +247,81 @@ public class AuthorizationService implements CheckPermissionUseCase {
         return subjectAttributes;
     }
 
+    private SubjectAttributes enrichPolicyFacts(SubjectAttributes cached) {
+        SubjectPolicyFacts facts = loadPolicyFacts(cached.memberId(), cached.schoolId());
+        return facts.toSubjectAttributes(cached.memberId(), cached.schoolId(), cached.systemRoles());
+    }
+
+    private SubjectPolicyFacts loadPolicyFacts(long memberId, long memberSchoolId) {
+        Instant evaluatedAt = clock.instant();
+        List<ChallengerRolePolicyInfo> roles = policyRoles(memberId);
+        List<ChallengerPolicyInfo> challengers = getChallengerUseCase.listPolicyFactsByMemberId(memberId);
+
+        Set<Long> gisuIds = roles.stream()
+            .map(ChallengerRolePolicyInfo::gisuId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        challengers.stream().map(ChallengerPolicyInfo::gisuId).forEach(gisuIds::add);
+        Map<Long, GisuInfo> gisus = gisuIds.isEmpty()
+            ? Map.of()
+            : getGisuUseCase.getByIds(gisuIds).stream()
+                .collect(Collectors.toUnmodifiableMap(GisuInfo::gisuId, Function.identity()));
+
+        Set<Long> schoolIds = roles.stream()
+            .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
+            .map(ChallengerRolePolicyInfo::organizationId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        schoolIds.add(memberSchoolId);
+        Map<SchoolChapterKey, Long> chapters = new LinkedHashMap<>();
+        if (!gisuIds.isEmpty()) {
+            getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(gisuIds, schoolIds)
+                .forEach((gisuId, bySchool) -> bySchool.forEach((schoolId, chapter) ->
+                    chapters.put(new SchoolChapterKey(gisuId, schoolId), chapter.id())));
+        }
+
+        List<RolePolicyFact> roleFacts = roles.stream().map(role -> {
+            GisuInfo gisu = requireGisu(gisus, role.gisuId());
+            return new RolePolicyFact(
+                role.roleType(), role.organizationType(), role.organizationId(), role.responsiblePart(),
+                role.gisuId(), gisu.startAt(), gisu.endAt());
+        }).toList();
+        List<ChallengerPolicyFact> challengerFacts = challengers.stream().map(challenger -> {
+            GisuInfo gisu = requireGisu(gisus, challenger.gisuId());
+            Long chapterId = chapters.get(new SchoolChapterKey(challenger.gisuId(), memberSchoolId));
+            if (chapterId == null) {
+                throw policyEvaluationFailure();
+            }
+            return new ChallengerPolicyFact(
+                challenger.challengerId(), challenger.gisuId(), chapterId, challenger.part(),
+                gisu.startAt(), gisu.endAt());
+        }).toList();
+        return new SubjectPolicyFacts(evaluatedAt, roleFacts, challengerFacts, chapters);
+    }
+
+    private List<ChallengerRolePolicyInfo> policyRoles(long memberId) {
+        if (getChallengerRoleUseCase != null) {
+            return getChallengerRoleUseCase.listPolicyFactsByMemberId(memberId);
+        }
+        return loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(ChallengerRolePolicyInfo::from)
+            .toList();
+    }
+
+    private GisuInfo requireGisu(Map<Long, GisuInfo> gisus, Long gisuId) {
+        GisuInfo gisu = gisus.get(gisuId);
+        if (gisu == null) {
+            throw policyEvaluationFailure();
+        }
+        return gisu;
+    }
+
+    private AuthorizationDomainException policyEvaluationFailure() {
+        return new AuthorizationDomainException(AuthorizationErrorCode.POLICY_EVALUATION_FAILED);
+    }
+
     private Set<SystemRoleType> listSystemRoles(Long memberId) {
+        if (listMemberSystemRoleUseCase == null) {
+            return Set.of();
+        }
         return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
             .map(role -> SystemRoleType.from(role.roleType()))
             .collect(Collectors.toUnmodifiableSet());
@@ -200,11 +369,7 @@ public class AuthorizationService implements CheckPermissionUseCase {
     @Override
     public boolean check(SubjectAttributes subjectAttributes, ResourcePermission permission) {
         // 리소스 유형에 맞는 권한 평가기를 선택함. 없다면 에러 발생
-        ResourcePermissionEvaluator evaluator = evaluators.get(permission.resourceType());
-        if (evaluator == null) {
-            throw new AuthorizationDomainException(AuthorizationErrorCode.NO_EVALUATOR_MATCHING_RESOURCE_TYPE,
-                "Evaluator for Resource Type [" + permission.resourceType() + "] not found.");
-        }
+        ResourcePermissionEvaluator evaluator = evaluator(permission);
 
         // 평가기로 평가
         boolean hasPermission = evaluator.evaluate(subjectAttributes, permission);
@@ -218,13 +383,61 @@ public class AuthorizationService implements CheckPermissionUseCase {
     }
 
     @Override
+    public boolean check(Long memberId, ResourcePermission permission, String actionId) {
+        return check(loadSubject(memberId), permission, actionId);
+    }
+
+    @Override
+    public boolean check(
+        SubjectAttributes subjectAttributes,
+        ResourcePermission permission,
+        String actionId
+    ) {
+        ResourcePermissionEvaluator evaluator = evaluator(permission);
+        if (!(evaluator instanceof SemanticResourcePermissionEvaluator semanticEvaluator)) {
+            throw policyEvaluationFailure();
+        }
+        return semanticEvaluator.evaluateSemantic(subjectAttributes, permission, actionId);
+    }
+
+    private ResourcePermissionEvaluator evaluator(ResourcePermission permission) {
+        ResourcePermissionEvaluator evaluator = evaluators.get(permission.resourceType());
+        if (evaluator == null) {
+            throw new AuthorizationDomainException(AuthorizationErrorCode.NO_EVALUATOR_MATCHING_RESOURCE_TYPE,
+                "Evaluator for Resource Type [" + permission.resourceType() + "] not found.");
+        }
+        return evaluator;
+    }
+
+    @Override
     public void checkOrThrow(Long memberId, ResourcePermission permission) {
         if (!check(memberId, permission)) {
-            log.warn("Permission denied - memberId: {}, resource: {}:{}, permission: {}",
-                memberId, permission.resourceType(), permission.resourceId(), permission.permission());
-            operationalMetrics.recordSecurityEvent("AUTHORIZATION", "ACCESS_DENIED", "denied");
-
-            throw new AuthorizationDomainException(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED);
+            throwDenied(memberId, permission);
         }
+    }
+
+    @Override
+    public void checkOrThrow(Long memberId, ResourcePermission permission, String actionId) {
+        if (!check(memberId, permission, actionId)) {
+            throwDenied(memberId, permission);
+        }
+    }
+
+    @Override
+    public void checkOrThrow(
+        SubjectAttributes subjectAttributes,
+        ResourcePermission permission,
+        String actionId
+    ) {
+        if (!check(subjectAttributes, permission, actionId)) {
+            throwDenied(subjectAttributes.memberId(), permission);
+        }
+    }
+
+    private void throwDenied(Long memberId, ResourcePermission permission) {
+        log.warn("Permission denied - memberId: {}, resource: {}:{}, permission: {}",
+            memberId, permission.resourceType(), permission.resourceId(), permission.permission());
+        operationalMetrics.recordSecurityEvent("AUTHORIZATION", "ACCESS_DENIED", "denied");
+        throw new AuthorizationDomainException(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED);
     }
 }

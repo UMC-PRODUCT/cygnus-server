@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:umc:authorization:policy-module:1.0",
+  "title": "UMC Policy Module 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schemaVersion",
+    "contextSchemaVersion",
+    "namespace",
+    "policyVersion",
+    "moduleId",
+    "statements"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "urn:umc:authorization:policy-module:1.0"
+    },
+    "schemaVersion": {
+      "const": "1.0"
+    },
+    "contextSchemaVersion": {
+      "type": "string"
+    },
+    "namespace": {
+      "type": "string"
+    },
+    "policyVersion": {
+      "type": "string"
+    },
+    "moduleId": {
+      "type": "string"
+    },
+    "statements": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    }
+  }
+}

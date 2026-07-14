@@ -1,8 +1,10 @@
 package com.umc.product.project.application.port.in.query;
 
+import org.springframework.data.domain.Page;
+
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
-import org.springframework.data.domain.Page;
 
 /**
  * 프로젝트 목록 검색 UseCase (PROJECT-001).
@@ -20,4 +22,6 @@ public interface SearchProjectUseCase {
      * @return ProjectInfo 페이지
      */
     Page<ProjectInfo> search(SearchProjectQuery query, Long memberId);
+
+    Page<ProjectInfo> search(SearchProjectQuery query, SubjectAttributes subject);
 }

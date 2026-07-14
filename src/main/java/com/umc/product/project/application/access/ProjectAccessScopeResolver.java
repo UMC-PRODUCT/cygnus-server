@@ -1,23 +1,25 @@
 package com.umc.product.project.application.access;
 
+import static com.umc.product.project.application.authorization.ProjectPolicyDecisionOutcomes.booleanValue;
+import static com.umc.product.project.application.authorization.ProjectPolicyDecisionOutcomes.longSetValue;
+
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
-import com.umc.product.project.application.access.ProjectAccessScope.All;
-import com.umc.product.project.application.access.ProjectAccessScope.ChapterScoped;
+import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.policy.PolicyDecision;
+import com.umc.product.authorization.domain.policy.PolicyEffect;
+import com.umc.product.project.application.access.ProjectAccessScope.Clauses;
 import com.umc.product.project.application.access.ProjectAccessScope.None;
-import com.umc.product.project.application.access.ProjectAccessScope.OwnerOnly;
-import com.umc.product.project.application.access.ProjectAccessScope.PublicOnly;
-import com.umc.product.project.application.access.ProjectAccessScope.WithOwnerIncluded;
+import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyAuthorizationService;
+import com.umc.product.project.application.authorization.ProjectPolicyOutcomes;
+import com.umc.product.project.application.authorization.ProjectPolicyResourceContext;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
 import com.umc.product.project.application.port.out.LoadProjectPort;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
@@ -25,143 +27,176 @@ import com.umc.product.project.domain.exception.ProjectErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
-/**
- * 호출 컨텍스트(공개 검색 vs 관리 화면) + 사용자 역할에 따라 {@link ProjectAccessScope} 를 결정한다.
- * <p>
- * 같은 사용자라도 호출 의도에 따라 결과가 달라야 하므로 {@code resolveForPublicSearch} /
- * {@code resolveForManagement} 두 메서드로 명시적으로 분기한다.
- */
 @Component
 @RequiredArgsConstructor
 public class ProjectAccessScopeResolver {
 
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private static final Set<ProjectStatus> PUBLIC_STATUSES = Set.of(
+        ProjectStatus.IN_PROGRESS,
+        ProjectStatus.COMPLETED
+    );
+
+    private final ProjectPolicyAuthorizationService policyAuthorizationService;
     private final LoadProjectPort loadProjectPort;
-    private final GetChapterUseCase getChapterUseCase;
 
-    /**
-     * 공개 검색(PROJECT-001) 컨텍스트.
-     * <p>
-     * 권한 별 노출 가능 status:
-     * <ul>
-     *   <li>SUPER_ADMIN ∪ 총괄단(총괄/부총괄) ∪ 지부장: DRAFT 제외 전체 (PR/IP/COMPLETED/ABORTED)</li>
-     *   <li>그 외(일반 챌린저, 학교 회장단): 공개 status (IN_PROGRESS / COMPLETED)</li>
-     * </ul>
-     * 호출자가 본인 권한 외 status 를 요청하면 {@link ProjectErrorCode#PROJECT_ACCESS_DENIED} 로 거부한다.
-     */
     public ProjectAccessScope resolveForPublicSearch(
-        Long memberId, Long gisuId, Set<ProjectStatus> requestedStatuses
-    ) {
-        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
-            if (requestedStatuses.contains(ProjectStatus.DRAFT)) {
-                throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
-            }
-            return new All(requestedStatuses);
-        }
-
-        List<ChallengerRoleInfo> rolesInGisu = getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
-            .filter(role -> Objects.equals(role.gisuId(), gisuId))
-            .toList();
-
-        boolean isStaff = rolesInGisu.stream()
-            .anyMatch(role -> role.roleType().isAtLeastCentralCore()
-                || role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT);
-
-        if (isStaff) {
-            if (requestedStatuses.contains(ProjectStatus.DRAFT)) {
-                throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
-            }
-            return new All(requestedStatuses);
-        }
-
-        boolean publicAllowed = requestedStatuses.stream()
-            .allMatch(s -> s == ProjectStatus.IN_PROGRESS || s == ProjectStatus.COMPLETED);
-        if (!publicAllowed) {
-            throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
-        }
-        return new PublicOnly();
-    }
-
-    /**
-     * 관리 화면(PROJECT-006) 컨텍스트. 역할별 scope 차등 적용.
-     * <ol>
-     *   <li>Central Core → 전체 (DRAFT 제외)</li>
-     *   <li>지부장 → 본인 지부 (DRAFT 제외)</li>
-     *   <li>학교 회장단 → 본인 학교가 속한 지부 전체 (DRAFT 제외) — 정책상 지부장과 동일 범위</li>
-     *   <li>PM 챌린저 → 본인이 owner 인 프로젝트만 (DRAFT 포함)</li>
-     *   <li>그 외 → 관리 대상 0건</li>
-     * </ol>
-     * <p>
-     * {@code requestedStatuses} 는 운영진 분기에 그대로 전달되며, PO 분기에서는 DRAFT 가 union 된다.
-     */
-    public ProjectAccessScope resolveForManagement(
-        Long memberId, Long gisuId, Set<ProjectStatus> requestedStatuses
-    ) {
-        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
-            return includeOwnerProjects(new All(requestedStatuses), memberId, gisuId, requestedStatuses);
-        }
-
-        List<ChallengerRoleInfo> rolesInGisu = getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
-            .filter(role -> Objects.equals(role.gisuId(), gisuId))
-            .toList();
-
-        if (rolesInGisu.stream().anyMatch(r -> r.roleType().isAtLeastCentralCore())) {
-            return includeOwnerProjects(new All(requestedStatuses), memberId, gisuId, requestedStatuses);
-        }
-
-        Optional<Long> chapterId = chapterPresidentOrgId(rolesInGisu);
-        if (chapterId.isPresent()) {
-            return includeOwnerProjects(new ChapterScoped(chapterId.get(), requestedStatuses),
-                memberId, gisuId, requestedStatuses);
-        }
-
-        Optional<Long> schoolId = schoolCoreOrgId(rolesInGisu);
-        if (schoolId.isPresent()) {
-            Long schoolChapterId = getChapterUseCase.byGisuAndSchool(gisuId, schoolId.get()).id();
-            return includeOwnerProjects(new ChapterScoped(schoolChapterId, requestedStatuses),
-                memberId, gisuId, requestedStatuses);
-        }
-
-        if (loadProjectPort.existsByOwnerAndGisu(memberId, gisuId)) {
-            Set<ProjectStatus> withDraft = requestedStatuses.isEmpty()
-                ? EnumSet.allOf(ProjectStatus.class)
-                : EnumSet.copyOf(requestedStatuses);
-            withDraft.add(ProjectStatus.DRAFT);
-            return new OwnerOnly(memberId, withDraft);
-        }
-
-        return new None();
-    }
-
-    private ProjectAccessScope includeOwnerProjects(
-        ProjectAccessScope baseScope,
         Long memberId,
         Long gisuId,
         Set<ProjectStatus> requestedStatuses
     ) {
-        if (!loadProjectPort.existsByOwnerAndGisu(memberId, gisuId)) {
-            return baseScope;
+        rejectDraft(requestedStatuses);
+        return resolveForPublicSearch(
+            policyAuthorizationService.snapshot(memberId),
+            gisuId,
+            requestedStatuses
+        );
+    }
+
+    public ProjectAccessScope resolveForPublicSearch(
+        SubjectAttributes subject,
+        Long gisuId,
+        Set<ProjectStatus> requestedStatuses
+    ) {
+        rejectDraft(requestedStatuses);
+        return resolveForPublicSearch(
+            policyAuthorizationService.snapshot(subject),
+            gisuId,
+            requestedStatuses
+        );
+    }
+
+    private ProjectAccessScope resolveForPublicSearch(
+        ProjectPolicySubjectSnapshot snapshot,
+        Long gisuId,
+        Set<ProjectStatus> requestedStatuses
+    ) {
+        PolicyDecision decision = policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.PROJECT_LIST_PUBLIC,
+            ProjectPolicyResourceContext.builder().gisuScope(gisuId).build()
+        );
+        if (decision.effect() != PolicyEffect.ALLOW) {
+            throw denied();
         }
 
-        Set<ProjectStatus> ownerStatuses = requestedStatuses.isEmpty()
-            ? EnumSet.allOf(ProjectStatus.class)
-            : EnumSet.copyOf(requestedStatuses);
-        ownerStatuses.add(ProjectStatus.DRAFT);
-        return new WithOwnerIncluded(baseScope, memberId, ownerStatuses);
+        List<ScopeClause> clauses = new ArrayList<>();
+        if (booleanValue(decision, ProjectPolicyOutcomes.PROJECT_PUBLIC_ONLY)) {
+            clauses.add(ScopeClause.gisu(Set.of(gisuId), PUBLIC_STATUSES));
+        }
+        addAllClause(decision, gisuId, requestedStatuses, clauses);
+        addGisuClauses(decision, requestedStatuses, clauses);
+        addChapterClauses(decision, gisuId, requestedStatuses, clauses);
+
+        boolean privileged = clauses.size() > 1
+            || booleanValue(decision, ProjectPolicyOutcomes.PROJECT_ALL);
+        if (!privileged && !PUBLIC_STATUSES.containsAll(requestedStatuses)) {
+            throw denied();
+        }
+        return clauses.isEmpty() ? new None() : new Clauses(clauses);
     }
 
-    private Optional<Long> chapterPresidentOrgId(List<ChallengerRoleInfo> rolesInGisu) {
-        return rolesInGisu.stream()
-            .filter(role -> role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT)
-            .map(ChallengerRoleInfo::organizationId)
-            .findFirst();
+    public ProjectAccessScope resolveForManagement(
+        Long memberId,
+        Long gisuId,
+        Set<ProjectStatus> requestedStatuses
+    ) {
+        ProjectPolicySubjectSnapshot snapshot = policyAuthorizationService.snapshot(memberId);
+        boolean hasOwnedProject = loadProjectPort.existsByOwnerAndGisu(memberId, gisuId);
+        PolicyDecision decision = policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.PROJECT_LIST_MANAGED,
+            ProjectPolicyResourceContext.builder()
+                .gisuScope(gisuId)
+                .requesterHasOwnedProjectInResourceGisu(hasOwnedProject)
+                .build()
+        );
+        if (decision.effect() != PolicyEffect.ALLOW) {
+            return new None();
+        }
+
+        List<ScopeClause> clauses = new ArrayList<>();
+        addAllClause(decision, gisuId, requestedStatuses, clauses);
+        addGisuClauses(decision, requestedStatuses, clauses);
+        addChapterClauses(decision, gisuId, requestedStatuses, clauses);
+        addOwnerClause(decision, gisuId, requestedStatuses, clauses);
+        return clauses.isEmpty() ? new None() : new Clauses(clauses);
     }
 
-    private Optional<Long> schoolCoreOrgId(List<ChallengerRoleInfo> rolesInGisu) {
-        return rolesInGisu.stream()
-            .filter(role -> role.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
-                || role.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
-            .map(ChallengerRoleInfo::organizationId)
-            .findFirst();
+    public ProjectAccessScope resolveForOwnDraft(Long memberId, Long gisuId) {
+        ProjectPolicySubjectSnapshot snapshot = policyAuthorizationService.snapshot(memberId);
+        PolicyDecision decision = policyAuthorizationService.evaluate(
+            snapshot,
+            ProjectPolicyAction.PROJECT_LIST_OWN_DRAFTS,
+            ProjectPolicyResourceContext.builder().gisuScope(gisuId).build()
+        );
+        Set<Long> ownerMemberIds = longSetValue(decision, ProjectPolicyOutcomes.PROJECT_OWNER_MEMBER_IDS);
+        boolean includeOwnDrafts = booleanValue(decision, ProjectPolicyOutcomes.PROJECT_INCLUDE_OWN_DRAFTS);
+        return decision.effect() == PolicyEffect.ALLOW
+            && includeOwnDrafts
+            && ownerMemberIds.contains(memberId)
+                ? new ProjectAccessScope.OwnerOnly(memberId, Set.of(ProjectStatus.DRAFT))
+                : new None();
+    }
+
+    private void addAllClause(
+        PolicyDecision decision,
+        Long requestedGisuId,
+        Set<ProjectStatus> statuses,
+        List<ScopeClause> clauses
+    ) {
+        if (booleanValue(decision, ProjectPolicyOutcomes.PROJECT_ALL)) {
+            clauses.add(ScopeClause.gisu(Set.of(requestedGisuId), statuses));
+        }
+    }
+
+    private void addGisuClauses(
+        PolicyDecision decision,
+        Set<ProjectStatus> statuses,
+        List<ScopeClause> clauses
+    ) {
+        Set<Long> gisuIds = longSetValue(decision, ProjectPolicyOutcomes.PROJECT_GISU_IDS);
+        if (!gisuIds.isEmpty()) {
+            clauses.add(ScopeClause.gisu(gisuIds, statuses));
+        }
+    }
+
+    private void addChapterClauses(
+        PolicyDecision decision,
+        Long requestedGisuId,
+        Set<ProjectStatus> statuses,
+        List<ScopeClause> clauses
+    ) {
+        Set<Long> chapterIds = longSetValue(decision, ProjectPolicyOutcomes.PROJECT_CHAPTER_IDS);
+        if (!chapterIds.isEmpty()) {
+            clauses.add(ScopeClause.gisu(Set.of(requestedGisuId), statuses).andChapterIds(chapterIds));
+        }
+    }
+
+    private void addOwnerClause(
+        PolicyDecision decision,
+        Long requestedGisuId,
+        Set<ProjectStatus> requestedStatuses,
+        List<ScopeClause> clauses
+    ) {
+        Set<Long> ownerMemberIds = longSetValue(decision, ProjectPolicyOutcomes.PROJECT_OWNER_MEMBER_IDS);
+        if (ownerMemberIds.isEmpty()) {
+            return;
+        }
+        Set<ProjectStatus> ownerStatuses = EnumSet.copyOf(requestedStatuses);
+        if (booleanValue(decision, ProjectPolicyOutcomes.PROJECT_INCLUDE_OWN_DRAFTS)) {
+            ownerStatuses.add(ProjectStatus.DRAFT);
+        }
+        clauses.add(ScopeClause.gisu(Set.of(requestedGisuId), ownerStatuses)
+            .andOwnerMemberIds(ownerMemberIds));
+    }
+
+    private ProjectDomainException denied() {
+        return new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
+    }
+
+    private void rejectDraft(Set<ProjectStatus> requestedStatuses) {
+        if (requestedStatuses.contains(ProjectStatus.DRAFT)) {
+            throw denied();
+        }
     }
 }

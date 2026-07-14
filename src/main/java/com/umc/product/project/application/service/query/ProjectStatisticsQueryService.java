@@ -22,6 +22,9 @@ import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterScopeInfo;
+import com.umc.product.project.application.authorization.ProjectPolicySubjectSnapshot;
 import com.umc.product.project.application.port.in.query.GetProjectStatisticsUseCase;
 import com.umc.product.project.application.port.in.query.dto.statistics.ChapterProjectMatchingStatisticsInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.ChapterProjectStatisticsInfo;
@@ -40,6 +43,7 @@ import com.umc.product.project.application.port.in.query.dto.statistics.SchoolAp
 import com.umc.product.project.application.port.in.query.dto.statistics.SchoolApplicationStatisticsInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.SchoolMatchingStatisticsInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.UnclassifiedMatchingStatisticsInfo;
+import com.umc.product.project.application.port.out.LoadProjectMemberPort;
 import com.umc.product.project.application.port.out.LoadProjectPort;
 import com.umc.product.project.application.port.out.LoadProjectStatisticsPort;
 import com.umc.product.project.application.port.out.dto.ProjectStatisticsApplicationRow;
@@ -63,13 +67,20 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
     private final LoadProjectStatisticsPort loadProjectStatisticsPort;
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetMemberUseCase getMemberUseCase;
+    private final GetChapterUseCase getChapterUseCase;
     private final LoadProjectPort loadProjectPort;
+    private final LoadProjectMemberPort loadProjectMemberPort;
     private final ProjectStatisticsAccessPolicy projectStatisticsAccessPolicy;
 
     @Override
     public ProjectStatisticsInfo getByProjectId(Long projectId, Long requesterMemberId) {
         Project target = loadProjectPort.getById(projectId);
-        validateProjectAccess(requesterMemberId, target);
+        ProjectPolicySubjectSnapshot snapshot = projectStatisticsAccessPolicy.snapshot(requesterMemberId);
+        validateProjectAccess(
+            snapshot,
+            target,
+            loadProjectMemberPort.isActivePlanMember(projectId, requesterMemberId)
+        );
 
         ProjectStatisticsProjectRow project = loadProjectStatisticsPort.getProjectById(projectId);
         List<ProjectStatisticsMatchingRoundRow> rounds =
@@ -85,10 +96,16 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
 
     @Override
     public ChapterProjectStatisticsInfo getByChapterId(Long chapterId, Long requesterMemberId) {
-        validateChapterAccess(requesterMemberId, chapterId);
+        ChapterScopeInfo chapter = getChapterUseCase.getChapterScopeById(chapterId);
+        ProjectPolicySubjectSnapshot snapshot = projectStatisticsAccessPolicy.snapshot(requesterMemberId);
+        validateChapterAccess(snapshot, chapter);
 
         List<ProjectStatisticsProjectRow> projects = loadProjectStatisticsPort.listProjectsByChapterId(chapterId);
-        return assembleChapterStatistics(chapterId, projects, loadProjectStatisticsPort.listActiveMembersByChapterId(chapterId));
+        return assembleChapterStatistics(
+            chapterId,
+            projects,
+            loadProjectStatisticsPort.listActiveMembersByChapterId(chapterId)
+        );
     }
 
     @Override
@@ -108,7 +125,14 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_NOT_FOUND);
         }
 
-        targetProjects.forEach(project -> validateProjectAccess(requesterMemberId, project));
+        ProjectPolicySubjectSnapshot snapshot = projectStatisticsAccessPolicy.snapshot(requesterMemberId);
+        Set<Long> activePlanProjectIds = Set.copyOf(
+            loadProjectMemberPort.listProjectIdsByActivePlanMember(distinctProjectIds, requesterMemberId));
+        targetProjects.forEach(project -> validateProjectAccess(
+            snapshot,
+            project,
+            activePlanProjectIds.contains(project.getId())
+        ));
         Long chapterId = resolveSingleChapterId(targetProjects);
         List<ProjectStatisticsProjectRow> projects = targetProjects.stream()
             .map(project -> new ProjectStatisticsProjectRow(
@@ -183,20 +207,28 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
     }
 
     private Long resolveSingleChapterId(Collection<Project> projects) {
-        Set<Long> chapterIds = projects.stream()
-            .map(Project::getChapterId)
+        Set<ProjectScopeKey> scopes = projects.stream()
+            .map(project -> new ProjectScopeKey(project.getGisuId(), project.getChapterId()))
             .collect(Collectors.toSet());
-        if (chapterIds.size() != 1) {
+        if (scopes.size() != 1) {
             throw new ProjectDomainException(
                 ProjectErrorCode.PROJECT_INVALID_STATE,
-                "프로젝트 통계는 같은 지부의 프로젝트끼리만 한 번에 조회할 수 있어요."
+                "프로젝트 통계는 같은 기수와 지부의 프로젝트끼리만 한 번에 조회할 수 있어요."
             );
         }
-        return chapterIds.iterator().next();
+        return scopes.iterator().next().chapterId();
     }
 
     @Override
-    public ChapterProjectMatchingStatisticsInfo getPublicMatchingStatisticsByChapterId(Long chapterId) {
+    public ChapterProjectMatchingStatisticsInfo getPublicMatchingStatisticsByChapterId(
+        Long chapterId,
+        Long requesterMemberId
+    ) {
+        ChapterScopeInfo chapter = getChapterUseCase.getChapterScopeById(chapterId);
+        ProjectPolicySubjectSnapshot snapshot = projectStatisticsAccessPolicy.snapshot(requesterMemberId);
+        if (!projectStatisticsAccessPolicy.canReadPublicMatchingStatistics(snapshot, chapter)) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
+        }
         List<ProjectStatisticsProjectRow> projects =
             loadProjectStatisticsPort.listPublicProjectsByChapterId(chapterId);
         if (projects.isEmpty()) {
@@ -229,23 +261,18 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
         );
     }
 
-    /**
-     * 단건 프로젝트 통계 접근 권한 검증. 본인 프로젝트의 PO/Sub-PM 이면 통과, 아니면 지부 운영진 판정으로 위임한다.
-     */
-    private void validateProjectAccess(Long memberId, Project project) {
-        if (!projectStatisticsAccessPolicy.canReadProjectStatistics(memberId, project)) {
+    private void validateProjectAccess(
+        ProjectPolicySubjectSnapshot snapshot,
+        Project project,
+        boolean activePlanMember
+    ) {
+        if (!projectStatisticsAccessPolicy.canReadProjectStatistics(snapshot, project, activePlanMember)) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
         }
     }
 
-    /**
-     * 지부 단위 통계 접근 권한 검증. SUPER_ADMIN / 총괄단 / 해당 지부장 / 해당 지부 소속 학교 회장·부회장이면 통과,
-     * 그 외에는 {@code PROJECT_ACCESS_DENIED}.
-     * <p>
-     * 요청 chapterId 는 치환하지 않고 통과/거부만 판정한다(총괄단의 타 지부 조회 보장).
-     */
-    private void validateChapterAccess(Long memberId, Long chapterId) {
-        if (!projectStatisticsAccessPolicy.canReadChapterStatistics(memberId, chapterId)) {
+    private void validateChapterAccess(ProjectPolicySubjectSnapshot snapshot, ChapterScopeInfo chapter) {
+        if (!projectStatisticsAccessPolicy.canReadChapterStatistics(snapshot, chapter)) {
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
         }
     }
@@ -748,6 +775,9 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
         ProjectStatisticsMemberRow member,
         ProjectStatisticsApprovedApplicationRow application
     ) {
+    }
+
+    private record ProjectScopeKey(Long gisuId, Long chapterId) {
     }
 
     private record ProjectMemberKey(Long projectId, Long memberId) {

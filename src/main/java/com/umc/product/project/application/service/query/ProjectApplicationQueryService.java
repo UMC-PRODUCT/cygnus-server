@@ -17,6 +17,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -90,6 +91,27 @@ public class ProjectApplicationQueryService
      */
     @Override
     public ProjectApplicationDetailInfo getDetail(GetProjectApplicationDetailQuery query) {
+        return getDetail(query, null, Instant.now());
+    }
+
+    @Override
+    public ProjectApplicationDetailInfo getDetail(
+        GetProjectApplicationDetailQuery query,
+        SubjectAttributes subject
+    ) {
+        Objects.requireNonNull(subject, "subject must not be null");
+        Objects.requireNonNull(subject.policyFacts(), "subject.policyFacts must not be null");
+        if (!Objects.equals(query.requesterMemberId(), subject.memberId())) {
+            throw new IllegalArgumentException("query requester must match policy subject");
+        }
+        return getDetail(query, subject, subject.policyFacts().evaluatedAt());
+    }
+
+    private ProjectApplicationDetailInfo getDetail(
+        GetProjectApplicationDetailQuery query,
+        SubjectAttributes subject,
+        Instant evaluatedAt
+    ) {
         ProjectApplication application = loadProjectApplicationPort.findByIdWithDetails(query.applicationId())
             .orElseThrow(() -> new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND));
 
@@ -101,8 +123,8 @@ public class ProjectApplicationQueryService
 
         // 지원자 본인은 시점 제약 없이 조회 가능하며, PM/운영진 등 타인 조회만 지원 종료(endsAt) 이후로 제한한다.
         boolean isApplicantSelf = Objects.equals(application.getApplicantMemberId(), query.requesterMemberId());
-        if (!isApplicantSelf && !canViewOngoingMatchingRoundApplications(query.requesterMemberId(), project)) {
-            application.getAppliedMatchingRound().validateIsViewableAt(Instant.now());
+        if (!isApplicantSelf && !canViewOngoingMatchingRoundApplications(query.requesterMemberId(), project, subject)) {
+            application.getAppliedMatchingRound().validateIsViewableAt(evaluatedAt);
         }
 
         ChallengerPart applicantPart = getChallengerUseCase
@@ -133,13 +155,31 @@ public class ProjectApplicationQueryService
             formPolicies,
             formResponseWithAnswers,
             filesByFileId,
-            !isApplicantSelf || isStatusVisibleToApplicantSelf(application)
+            !isApplicantSelf || isStatusVisibleToApplicantSelf(application, evaluatedAt)
         );
     }
 
     @Override
     public Map<Long, ProjectApplicationDetailInfo> batchGetDetails(
         Collection<GetProjectApplicationDetailQuery> queries
+    ) {
+        return batchGetDetails(queries, null, Instant.now());
+    }
+
+    @Override
+    public Map<Long, ProjectApplicationDetailInfo> batchGetDetails(
+        Collection<GetProjectApplicationDetailQuery> queries,
+        SubjectAttributes subject
+    ) {
+        Objects.requireNonNull(subject, "subject must not be null");
+        Objects.requireNonNull(subject.policyFacts(), "subject.policyFacts must not be null");
+        return batchGetDetails(queries, subject, subject.policyFacts().evaluatedAt());
+    }
+
+    private Map<Long, ProjectApplicationDetailInfo> batchGetDetails(
+        Collection<GetProjectApplicationDetailQuery> queries,
+        SubjectAttributes subject,
+        Instant evaluatedAt
     ) {
         if (queries == null || queries.isEmpty()) {
             return Map.of();
@@ -159,7 +199,7 @@ public class ProjectApplicationQueryService
         List<ProjectApplication> applications =
             loadProjectApplicationPort.batchGetByIdsWithDetails(queriesByApplicationId.keySet());
         validateProjectConsistency(applications, queriesByApplicationId);
-        validateMatchingRoundVisibility(applications, queriesByApplicationId);
+        validateMatchingRoundVisibility(applications, queriesByApplicationId, subject, evaluatedAt);
 
         Map<Long, ProjectApplication> applicationsById = applications.stream()
             .collect(Collectors.toMap(
@@ -200,7 +240,7 @@ public class ProjectApplicationQueryService
                 policiesByApplicationFormId.getOrDefault(application.getApplicationForm().getId(), List.of()),
                 formResponseWithAnswers,
                 filesByApplicationId.getOrDefault(applicationId, Map.of()),
-                !isApplicantSelf || isStatusVisibleToApplicantSelf(application)
+                !isApplicantSelf || isStatusVisibleToApplicantSelf(application, evaluatedAt)
             ));
         }
         return result;
@@ -220,6 +260,11 @@ public class ProjectApplicationQueryService
      */
     @Override
     public List<ProjectApplicationSummaryInfo> listMyApplications(GetMyProjectApplicationsQuery query) {
+        ProjectApplicationAccessScope scope = accessScopeResolver.resolveForApplicant(query.requesterMemberId());
+        if (!(scope instanceof ProjectApplicationAccessScope.OwnerOnly ownerOnly)
+            || !Objects.equals(ownerOnly.memberId(), query.requesterMemberId())) {
+            return List.of();
+        }
         Optional<MatchingType> matchingType = resolveMatchingType(query);
         if (matchingType.isEmpty()) {
             return List.of();
@@ -231,10 +276,11 @@ public class ProjectApplicationQueryService
             matchingType.get(),
             query.status()
         );
+        Instant evaluatedAt = Instant.now();
         return applications.stream()
             .map(application -> ProjectApplicationSummaryInfo.from(
                 application,
-                isStatusVisibleToApplicantSelf(application)
+                isStatusVisibleToApplicantSelf(application, evaluatedAt)
             ))
             .filter(application -> query.status() == null || application.status() == query.status())
             .toList();
@@ -353,19 +399,24 @@ public class ProjectApplicationQueryService
             .flatMap(MatchingType::fromPart);
     }
 
-    private boolean canViewOngoingMatchingRoundApplications(Long requesterMemberId, Project project) {
-        ProjectApplicationAccessScope scope =
-            accessScopeResolver.resolveForProjectApplicantList(requesterMemberId, project);
+    private boolean canViewOngoingMatchingRoundApplications(
+        Long requesterMemberId,
+        Project project,
+        SubjectAttributes subject
+    ) {
+        ProjectApplicationAccessScope scope = subject == null
+            ? accessScopeResolver.resolveForProjectApplicantList(requesterMemberId, project)
+            : accessScopeResolver.resolveForProjectApplicantList(subject, project);
         return scope instanceof ProjectApplicationAccessScope.ProjectScoped projectScoped
             && projectScoped.includeOngoingMatchingRounds();
     }
 
-    private boolean isStatusVisibleToApplicantSelf(ProjectApplication application) {
+    private boolean isStatusVisibleToApplicantSelf(ProjectApplication application, Instant evaluatedAt) {
         ProjectApplicationStatus status = application.getStatus();
         if (status == ProjectApplicationStatus.DRAFT || status == ProjectApplicationStatus.CANCELLED) {
             return true;
         }
-        return application.getAppliedMatchingRound().isDecisionDeadlinePassed(Instant.now());
+        return application.getAppliedMatchingRound().isDecisionDeadlinePassed(evaluatedAt);
     }
 
     private Map<Long, List<ProjectApplicationSummaryInfo>> freeze(
@@ -407,7 +458,9 @@ public class ProjectApplicationQueryService
 
     private void validateMatchingRoundVisibility(
         List<ProjectApplication> applications,
-        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId
+        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId,
+        SubjectAttributes subject,
+        Instant evaluatedAt
     ) {
         Map<Long, Map<Long, Project>> projectsByRequesterId = new LinkedHashMap<>();
         for (ProjectApplication application : applications) {
@@ -421,18 +474,10 @@ public class ProjectApplicationQueryService
                 .putIfAbsent(project.getId(), project);
         }
 
-        Map<RequesterProjectKey, Boolean> ongoingVisibilityByKey = new LinkedHashMap<>();
-        projectsByRequesterId.forEach((requesterMemberId, projectsById) -> {
-            Map<Long, ProjectApplicationAccessScope> scopes =
-                accessScopeResolver.resolveForProjectApplicantLists(requesterMemberId, projectsById.values());
-            scopes.forEach((projectId, scope) -> ongoingVisibilityByKey.put(
-                new RequesterProjectKey(requesterMemberId, projectId),
-                scope instanceof ProjectApplicationAccessScope.ProjectScoped projectScoped
-                    && projectScoped.includeOngoingMatchingRounds()
-            ));
-        });
+        Map<RequesterProjectKey, Boolean> ongoingVisibilityByKey = subject == null
+            ? resolveOngoingVisibility(projectsByRequesterId)
+            : resolveOngoingVisibility(subject, projectsByRequesterId);
 
-        Instant now = Instant.now();
         for (ProjectApplication application : applications) {
             GetProjectApplicationDetailQuery query = queriesByApplicationId.get(application.getId());
             Project project = application.getApplicationForm().getProject();
@@ -444,9 +489,55 @@ public class ProjectApplicationQueryService
                 false
             );
             if (!canViewOngoingMatchingRoundApplications) {
-                application.getAppliedMatchingRound().validateIsViewableAt(now);
+                application.getAppliedMatchingRound().validateIsViewableAt(evaluatedAt);
             }
         }
+    }
+
+    private Map<RequesterProjectKey, Boolean> resolveOngoingVisibility(
+        Map<Long, Map<Long, Project>> projectsByRequesterId
+    ) {
+        Map<RequesterProjectKey, Boolean> result = new LinkedHashMap<>();
+        projectsByRequesterId.forEach((requesterMemberId, projectsById) -> addOngoingVisibility(
+            result,
+            requesterMemberId,
+            accessScopeResolver.resolveForProjectApplicantLists(requesterMemberId, projectsById.values())
+        ));
+        return result;
+    }
+
+    private Map<RequesterProjectKey, Boolean> resolveOngoingVisibility(
+        SubjectAttributes subject,
+        Map<Long, Map<Long, Project>> projectsByRequesterId
+    ) {
+        if (projectsByRequesterId.isEmpty()) {
+            return Map.of();
+        }
+        if (projectsByRequesterId.size() != 1 || !projectsByRequesterId.containsKey(subject.memberId())) {
+            throw new IllegalArgumentException("query requester must match policy subject");
+        }
+        Map<RequesterProjectKey, Boolean> result = new LinkedHashMap<>();
+        addOngoingVisibility(
+            result,
+            subject.memberId(),
+            accessScopeResolver.resolveForProjectApplicantLists(
+                subject,
+                projectsByRequesterId.get(subject.memberId()).values()
+            )
+        );
+        return result;
+    }
+
+    private void addOngoingVisibility(
+        Map<RequesterProjectKey, Boolean> result,
+        Long requesterMemberId,
+        Map<Long, ProjectApplicationAccessScope> scopes
+    ) {
+        scopes.forEach((projectId, scope) -> result.put(
+            new RequesterProjectKey(requesterMemberId, projectId),
+            scope instanceof ProjectApplicationAccessScope.ProjectScoped projectScoped
+                && projectScoped.includeOngoingMatchingRounds()
+        ));
     }
 
     private Map<GisuMemberKey, ChallengerPart> resolveApplicantParts(List<ProjectApplication> applications) {

@@ -1,0 +1,38 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "test-1.0",
+  "namespace": "test",
+  "policyVersion": "1.0.0",
+  "moduleId": "project-resource",
+  "statements": [
+    {
+      "id": "managed-gisu-scope",
+      "effect": "ALLOW",
+      "actions": [
+        "project:list"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "subject.active"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": [
+        {
+          "key": "project.scope.gisuIds",
+          "value": {
+            "type": "ATTRIBUTE",
+            "name": "relation.managedGisuIds"
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -67,6 +67,9 @@ public class ProjectMatchingRound extends BaseEntity {
     private MatchingPhase phase; // 매칭 차수
 
     @Column(nullable = false)
+    private Long gisuId;
+
+    @Column(nullable = false)
     private Long chapterId;
 
     @Column(nullable = false)
@@ -86,13 +89,14 @@ public class ProjectMatchingRound extends BaseEntity {
     @Builder(access = AccessLevel.PRIVATE)
     private ProjectMatchingRound(
         String name, String description, MatchingType type,
-        MatchingPhase phase, Long chapterId,
+        MatchingPhase phase, Long gisuId, Long chapterId,
         Instant startsAt, Instant endsAt, Instant decisionDeadline
     ) {
         this.name = name;
         this.description = description;
         this.type = type;
         this.phase = phase;
+        this.gisuId = gisuId;
         this.chapterId = chapterId;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
@@ -114,6 +118,7 @@ public class ProjectMatchingRound extends BaseEntity {
      * @param description      차수 설명 (nullable)
      * @param type             매칭 유형 (기획-디자인/기획-개발자)
      * @param phase            차수 단계 (1,2,3차 중에서 선택, 랜덤 매칭은 별도로 제공하지 않으며 운영진이 직접 API를 통해서 실행하면 됩니다.)
+     * @param gisuId           기수 ID (어떤 기수의 매칭 차수인지를 나타냅니다.)
      * @param chapterId        지부 ID (어떤 지부의 매칭 차수인지를 나타냅니다.)
      * @param startsAt         매칭 시작 시간
      * @param endsAt           매칭 종료 시간
@@ -123,7 +128,7 @@ public class ProjectMatchingRound extends BaseEntity {
      */
     public static ProjectMatchingRound create(
         String name, String description,
-        MatchingType type, MatchingPhase phase, Long chapterId,
+        MatchingType type, MatchingPhase phase, Long gisuId, Long chapterId,
         Instant startsAt, Instant endsAt, Instant decisionDeadline
     ) {
         validateDates(startsAt, endsAt, decisionDeadline);
@@ -133,6 +138,7 @@ public class ProjectMatchingRound extends BaseEntity {
             .description(description)
             .type(type)
             .phase(phase)
+            .gisuId(gisuId)
             .chapterId(chapterId)
             .startsAt(startsAt)
             .endsAt(endsAt)

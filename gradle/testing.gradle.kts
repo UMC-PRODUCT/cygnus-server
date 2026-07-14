@@ -4,6 +4,7 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
 val snippetsDir = layout.buildDirectory.dir("generated-snippets")
+val testSourceSet = extensions.getByType<SourceSetContainer>().named("test").get()
 
 val checkDuplicateFlywayMigrationVersions by tasks.registering {
     group = "verification"
@@ -68,6 +69,8 @@ tasks.withType<Test>().configureEach {
 }
 
 tasks.named<Test>("test") {
+    exclude("**/ProjectPolicyArtifactBootJarTest.class")
+
     doFirst {
         println("=".repeat(50))
         println("[test] 테스트를 시작합니다.")
@@ -82,6 +85,70 @@ tasks.named<Test>("test") {
         println("[test] 테스트가 완료되었습니다.")
         println("=".repeat(50))
     }
+}
+
+val generateProjectPolicyArtifacts by tasks.registering(Test::class) {
+    group = "policy"
+    description = "Regenerates the tracked Project policy review artifact after an intentional source change."
+    dependsOn(tasks.named("testClasses"))
+    testClassesDirs = testSourceSet.output.classesDirs
+    classpath = testSourceSet.runtimeClasspath
+    filter {
+        includeTestsMatching(
+            "com.umc.product.project.application.authorization.ProjectPolicyArtifactTest"
+        )
+    }
+    systemProperty("project.policy.artifact.mode", "generate")
+    reports.junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/$name"))
+    reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/$name"))
+    binaryResultsDirectory.set(layout.buildDirectory.dir("test-results/$name/binary"))
+    outputs.upToDateWhen { false }
+}
+
+val verifyProjectPolicyArtifacts by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Regenerates Project policy review bytes in memory and rejects a stale tracked artifact."
+    dependsOn(tasks.named("testClasses"))
+    testClassesDirs = testSourceSet.output.classesDirs
+    classpath = testSourceSet.runtimeClasspath
+    filter {
+        includeTestsMatching(
+            "com.umc.product.project.application.authorization.ProjectPolicyArtifactTest"
+        )
+        includeTestsMatching(
+            "com.umc.product.project.application.authorization.ProjectPolicyArtifactMutationTest"
+        )
+    }
+    systemProperty("project.policy.artifact.mode", "verify")
+    reports.junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/$name"))
+    reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/$name"))
+    binaryResultsDirectory.set(layout.buildDirectory.dir("test-results/$name/binary"))
+    outputs.upToDateWhen { false }
+}
+
+val verifyPackagedProjectPolicyArtifacts by tasks.registering(Test::class) {
+    group = "verification"
+    description = "Recompiles the exact Project policy bytes extracted from bootJar and verifies the tracked artifact."
+    val packagedJar = tasks.named("bootJar")
+    dependsOn(tasks.named("testClasses"), packagedJar)
+    testClassesDirs = testSourceSet.output.classesDirs
+    classpath = testSourceSet.runtimeClasspath
+    filter {
+        includeTestsMatching(
+            "com.umc.product.project.application.authorization.ProjectPolicyArtifactBootJarTest"
+        )
+    }
+    doFirst {
+        systemProperty("project.policy.artifact.bootJar", packagedJar.get().outputs.files.singleFile.absolutePath)
+    }
+    reports.junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/$name"))
+    reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/$name"))
+    binaryResultsDirectory.set(layout.buildDirectory.dir("test-results/$name/binary"))
+    outputs.upToDateWhen { false }
+}
+
+tasks.named("check") {
+    dependsOn(verifyProjectPolicyArtifacts, verifyPackagedProjectPolicyArtifacts)
 }
 
 tasks.named<JacocoReport>("jacocoTestReport") {

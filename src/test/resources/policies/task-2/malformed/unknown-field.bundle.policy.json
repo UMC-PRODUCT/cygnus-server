@@ -1,0 +1,16 @@
+{
+  "$schema": "urn:umc:authorization:policy-bundle:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "test-1.0",
+  "namespace": "test",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "unregistered": "sensitive-marker",
+  "modules": [
+    {
+      "id": "demo",
+      "resource": "demo.policy.json"
+    }
+  ]
+}

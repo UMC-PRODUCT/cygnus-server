@@ -18,4 +18,6 @@ public interface LoadChapterPort {
     List<Chapter> findByGisuIds(Set<Long> gisuIds);
 
     boolean existsByGisuId(Long gisuId);
+
+    boolean existsByIdAndGisuId(Long chapterId, Long gisuId);
 }

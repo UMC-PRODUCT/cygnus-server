@@ -16,6 +16,7 @@ import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicI
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfoWithStatus;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerPointInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerPolicyInfo;
 import com.umc.product.challenger.application.port.out.LoadChallengerPort;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
@@ -81,6 +82,13 @@ public class ChallengerQueryService implements GetChallengerUseCase, CheckChalle
         // 챌린저별로 상벌점을 따로 조회하면 N(챌린저 수) 만큼 쿼리가 발생하므로,
         // IN 쿼리 1회로 일괄 조회하는 batch 헬퍼를 사용합니다.
         return toChallengerInfoListBatch(loadChallengerPort.getAllByMemberId(memberId));
+    }
+
+    @Override
+    public List<ChallengerPolicyInfo> listPolicyFactsByMemberId(Long memberId) {
+        return loadChallengerPort.getAllByMemberId(memberId).stream()
+            .map(ChallengerPolicyInfo::from)
+            .toList();
     }
 
     @Override

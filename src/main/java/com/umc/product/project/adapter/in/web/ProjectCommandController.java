@@ -23,6 +23,8 @@ import com.umc.product.project.adapter.in.web.dto.request.TransferProjectOwnersh
 import com.umc.product.project.adapter.in.web.dto.request.UpdatePartQuotasRequest;
 import com.umc.product.project.adapter.in.web.dto.request.UpdateProjectRequest;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectStatusResponse;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurface;
+import com.umc.product.project.application.authorization.rollout.ProjectAuthorizationSurfaceBinding;
 import com.umc.product.project.application.port.in.command.AbortProjectUseCase;
 import com.umc.product.project.application.port.in.command.AddProjectMemberUseCase;
 import com.umc.product.project.application.port.in.command.ChangeProjectMemberStatusUseCase;
@@ -64,15 +66,11 @@ public class ProjectCommandController {
     private final AbortProjectUseCase abortProjectUseCase;
 
     @PostMapping
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_CREATE)
     @Operation(
         operationId = "PROJECT-101",
         summary = "프로젝트 초안 생성",
         description = "PM(PLAN 파트 챌린저)이 빈 DRAFT 상태의 프로젝트를 생성합니다. 페이지 진입 시 GET /me/draft로 사전 확인 후 호출 권장. 동일 PM·동일 기수 중복 생성 시 409."
-    )
-    @CheckAccess(
-        resourceType = ResourceType.PROJECT,
-        permission = PermissionType.WRITE,
-        message = "프로젝트를 만들 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectStatusResponse createDraft(
         @CurrentMember MemberPrincipal memberPrincipal,
@@ -84,6 +82,7 @@ public class ProjectCommandController {
     }
 
     @PatchMapping("/{projectId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_UPDATE)
     @Operation(
         operationId = "PROJECT-102",
         summary = "프로젝트 기본정보 수정",
@@ -93,6 +92,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project:update-info",
         message = "프로젝트를 수정할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectStatusResponse update(
@@ -106,6 +106,7 @@ public class ProjectCommandController {
     }
 
     @PostMapping("/{projectId}/submit")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_SUBMIT)
     @Operation(
         operationId = "PROJECT-107",
         summary = "프로젝트 제출",
@@ -115,6 +116,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project:submit-review",
         message = "프로젝트를 제출할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectStatusResponse submit(
@@ -127,6 +129,7 @@ public class ProjectCommandController {
     }
 
     @PostMapping("/{projectId}/transfer-ownership")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_TRANSFER_OWNERSHIP)
     @Operation(
         operationId = "PROJECT-104",
         summary = "프로젝트 소유권 양도",
@@ -136,6 +139,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project:transfer-ownership",
         message = "프로젝트 소유권을 양도할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectStatusResponse transferOwnership(
@@ -148,6 +152,7 @@ public class ProjectCommandController {
     }
 
     @PostMapping("/{projectId}/members")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_MEMBER_ADD)
     @Operation(
         operationId = "PROJECT-004",
         summary = "프로젝트 팀원 추가",
@@ -157,6 +162,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project-member:add",
         message = "프로젝트 팀원을 추가할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public Long addMember(
@@ -169,6 +175,7 @@ public class ProjectCommandController {
     }
 
     @PostMapping("/{projectId}/publish")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_PUBLISH)
     @Operation(
         operationId = "PROJECT-108",
         summary = "프로젝트 공개",
@@ -178,6 +185,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.MANAGE,
+        action = "project:publish",
         message = "프로젝트를 공개할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public ProjectStatusResponse publish(
@@ -192,6 +200,7 @@ public class ProjectCommandController {
     }
 
     @PutMapping("/{projectId}/part-quotas")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_QUOTA_UPDATE)
     @Operation(
         operationId = "PROJECT-105",
         summary = "파트별 정원 일괄 갱신",
@@ -201,6 +210,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.MANAGE,
+        action = "project:update-part-quota",
         message = "프로젝트 파트 정원을 수정할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public void updatePartQuotas(
@@ -213,6 +223,7 @@ public class ProjectCommandController {
     }
 
     @DeleteMapping("/{projectId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_DELETE)
     @Operation(
         operationId = "PROJECT-109",
         summary = "프로젝트 삭제",
@@ -222,6 +233,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.DELETE,
+        action = "project:delete",
         message = "프로젝트를 삭제할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public void delete(
@@ -235,6 +247,7 @@ public class ProjectCommandController {
     }
 
     @PostMapping("/{projectId}/abort")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_ABORT)
     @Operation(
         operationId = "PROJECT-110",
         summary = "프로젝트 중단",
@@ -244,6 +257,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.MANAGE,
+        action = "project:abort",
         message = "프로젝트를 중단할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public void abort(
@@ -255,6 +269,7 @@ public class ProjectCommandController {
     }
 
     @DeleteMapping("/{projectId}/members/{memberId}")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_MEMBER_REMOVE)
     @Operation(
         operationId = "PROJECT-005",
         summary = "프로젝트 팀원 제거 (hard delete)",
@@ -270,6 +285,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project-member:remove",
         message = "프로젝트 팀원을 제거할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public void removeMember(
@@ -287,6 +303,7 @@ public class ProjectCommandController {
     }
 
     @PatchMapping("/{projectId}/members/{memberId}/status")
+    @ProjectAuthorizationSurfaceBinding(ProjectAuthorizationSurface.REST_PROJECT_MEMBER_STATUS_UPDATE)
     @Operation(
         operationId = "PROJECT-006",
         summary = "프로젝트 팀원 상태 변경 (soft delete)",
@@ -300,6 +317,7 @@ public class ProjectCommandController {
         resourceType = ResourceType.PROJECT,
         resourceId = "#projectId",
         permission = PermissionType.EDIT,
+        action = "project-member:change-status",
         message = "프로젝트 팀원 상태를 변경할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
     )
     public void changeMemberStatus(

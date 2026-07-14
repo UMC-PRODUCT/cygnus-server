@@ -9,6 +9,20 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.context.ApplicationContext;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.security.MemberPrincipal;
@@ -16,6 +30,7 @@ import com.umc.product.member.domain.Member;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.project.adapter.out.persistence.ProjectApplicationJpaRepository;
+import com.umc.product.project.adapter.out.scheduler.MatchingRoundDeadlineScheduler;
 import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
 import com.umc.product.project.application.port.out.SaveProjectApplicationFormPort;
 import com.umc.product.project.application.port.out.SaveProjectMatchingRoundPort;
@@ -32,16 +47,6 @@ import com.umc.product.support.fixture.ChallengerRoleFixture;
 import com.umc.product.support.fixture.ChapterFixture;
 import com.umc.product.support.fixture.GisuFixture;
 import com.umc.product.support.fixture.MemberFixture;
-import java.time.Instant;
-import java.util.Map;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.http.MediaType;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 @AutoConfigureMockMvc(addFilters = false)
 class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSupport {
@@ -78,9 +83,18 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
     @Autowired
     private ProjectApplicationJpaRepository projectApplicationJpaRepository;
 
+    @Autowired
+    private ApplicationContext applicationContext;
+
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("test profile에서는 매칭 데드라인 background scheduler를 등록하지 않는다")
+    void test_profile에서는_matching_deadline_scheduler를_등록하지_않는다() {
+        assertThat(applicationContext.getBeansOfType(MatchingRoundDeadlineScheduler.class)).isEmpty();
     }
 
     @Test
@@ -89,8 +103,9 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
         // given
         OperatorContext context = chapterPresidentContext();
         authenticate(context.member().getId());
+        int rowCountBefore = loadProjectMatchingRoundPort.listAll().size();
 
-        // when & then
+        // when
         mockMvc.perform(post(BASE_URL)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(matchingRoundRequest(
@@ -106,6 +121,37 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.result.matchingRoundId").isString());
+
+        // then
+        List<ProjectMatchingRound> matchingRounds = loadProjectMatchingRoundPort.listAll();
+        assertThat(matchingRounds).hasSize(rowCountBefore + 1);
+        assertThat(matchingRounds)
+            .extracting(ProjectMatchingRound::getGisuId)
+            .contains(context.gisu().getId());
+    }
+
+    @Test
+    @DisplayName("기수 ID가 없는 매칭 차수 생성 요청은 거부한다")
+    void 기수_ID가_없는_매칭_차수_생성_요청은_거부한다() throws Exception {
+        OperatorContext context = chapterPresidentContext();
+        authenticate(context.member().getId());
+        int rowCountBefore = loadProjectMatchingRoundPort.listAll().size();
+
+        mockMvc.perform(post(BASE_URL)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(matchingRoundRequestWithoutGisu(
+                    "기획-디자인 1차 매칭",
+                    "기수 ID 누락",
+                    MatchingType.PLAN_DESIGN,
+                    MatchingPhase.FIRST,
+                    context.chapter().getId(),
+                    "2026-05-10T00:00:00Z",
+                    "2026-05-12T00:00:00Z",
+                    "2026-05-13T00:00:00Z"
+                )))
+            .andExpect(status().isBadRequest());
+
+        assertThat(loadProjectMatchingRoundPort.listAll()).hasSize(rowCountBefore);
     }
 
     @Test
@@ -307,18 +353,37 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
         // when & then
         mockMvc.perform(patch(BASE_URL + "/{matchingRoundId}", matchingRound.getId())
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(matchingRoundRequest(
-                    "기획-디자인 1차 매칭 수정",
-                    "chapterId를 포함한 잘못된 수정 요청",
-                    MatchingType.PLAN_DESIGN,
-                    MatchingPhase.FIRST,
-                    999L,
-                    "2026-05-20T00:00:00Z",
-                    "2026-05-22T00:00:00Z",
-                    "2026-05-23T00:00:00Z"
-                )))
+                .content(requestBody(Map.of("chapterId", 999L))))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("매칭 차수 수정 요청에 gisuId를 포함하면 실패한다")
+    void 매칭_차수_수정_요청에_gisuId를_포함하면_실패한다() throws Exception {
+        OperatorContext context = chapterPresidentContext();
+        ProjectMatchingRound matchingRound = saveMatchingRound(
+            "기획-디자인 1차 매칭",
+            "수정 전",
+            MatchingType.PLAN_DESIGN,
+            MatchingPhase.FIRST,
+            context.chapter().getId(),
+            "2026-05-10T00:00:00Z",
+            "2026-05-12T00:00:00Z",
+            "2026-05-13T00:00:00Z"
+        );
+        authenticate(context.member().getId());
+        int rowCountBefore = loadProjectMatchingRoundPort.listAll().size();
+
+        mockMvc.perform(patch(BASE_URL + "/{matchingRoundId}", matchingRound.getId())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(requestBody(Map.of("gisuId", context.gisu().getId()))))
+            .andExpect(status().isBadRequest());
+
+        entityManager.clear();
+        assertThat(loadProjectMatchingRoundPort.listAll()).hasSize(rowCountBefore);
+        assertThat(loadProjectMatchingRoundPort.getById(matchingRound.getId()).getGisuId())
+            .isEqualTo(context.gisu().getId());
     }
 
     @Test
@@ -350,7 +415,8 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
     @DisplayName("chapterId 기준으로 해당 지부의 매칭 차수 목록을 조회한다")
     void chapterId_기준으로_해당_지부의_매칭_차수_목록을_조회한다() throws Exception {
         // given
-        Gisu gisu = gisuFixture.비활성_기수(10L);
+        authenticate(memberFixture.일반("listchapter").getId());
+        Gisu gisu = gisuDuring2026(10L);
         Chapter chapter = chapterFixture.지부(gisu, "owned");
         Chapter otherChapter = chapterFixture.지부(gisu, "other");
         ProjectMatchingRound first = saveMatchingRound(
@@ -390,6 +456,7 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
             .andExpect(jsonPath("$.success").value(true))
             .andExpect(jsonPath("$.result", hasSize(2)))
             .andExpect(jsonPath("$.result[0].id").value(first.getId().toString()))
+            .andExpect(jsonPath("$.result[0].gisuId").value(gisu.getId().toString()))
             .andExpect(jsonPath("$.result[0].chapterId").value(chapter.getId().toString()))
             .andExpect(jsonPath("$.result[1].id").value(second.getId().toString()))
             .andExpect(jsonPath("$.result[1].chapterId").value(chapter.getId().toString()));
@@ -399,7 +466,8 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
     @DisplayName("chapterId와 time 기준으로 지원 가능한 매칭 차수를 조회한다")
     void chapterId와_time_기준으로_지원_가능한_매칭_차수를_조회한다() throws Exception {
         // given
-        Gisu gisu = gisuFixture.비활성_기수(10L);
+        authenticate(memberFixture.일반("listperiod").getId());
+        Gisu gisu = gisuDuring2026(10L);
         Chapter chapter = chapterFixture.지부(gisu, "owned");
         ProjectMatchingRound openRound = saveMatchingRound(
             "기획-디자인 1차 매칭",
@@ -436,22 +504,59 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
     }
 
     @Test
-    @DisplayName("time만 전달하면 매칭 차수 목록을 조회할 수 없다")
-    void time만_전달하면_매칭_차수_목록을_조회할_수_없다() throws Exception {
+    @DisplayName("time만 전달해도 AND 필터로 매칭 차수 목록을 조회한다")
+    void time만_전달해도_매칭_차수_목록을_조회한다() throws Exception {
+        authenticate(memberFixture.일반("listtime").getId());
+
         // when & then
         mockMvc.perform(get(BASE_URL).param("time", "2026-05-11T00:00:00Z"))
-            .andExpect(status().isBadRequest())
-            .andExpect(jsonPath("$.success").value(false))
-            .andExpect(jsonPath("$.code").value("PROJECT-0305"));
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true));
+    }
+
+    @Test
+    @DisplayName("gisuId와 chapterId와 time을 선택적 AND 조건으로 적용한다")
+    void gisuId와_chapterId와_time을_AND_조건으로_적용한다() throws Exception {
+        authenticate(memberFixture.일반("listfilters").getId());
+        Gisu gisu = gisuDuring2026(10L);
+        Chapter chapter = chapterFixture.지부(gisu, "owned");
+        Gisu otherGisu = gisuDuring2026(11L);
+        Chapter otherChapter = chapterFixture.지부(otherGisu, "other");
+        ProjectMatchingRound matchingRound = saveMatchingRound(
+            "기획-디자인 1차 매칭", "필터 대상", MatchingType.PLAN_DESIGN, MatchingPhase.FIRST,
+            chapter.getId(), "2026-05-10T00:00:00Z", "2026-05-12T00:00:00Z", "2026-05-13T00:00:00Z"
+        );
+        saveMatchingRound(
+            "다른 기수 매칭", "필터 제외", MatchingType.PLAN_DESIGN, MatchingPhase.FIRST,
+            otherChapter.getId(), "2026-05-10T00:00:00Z", "2026-05-12T00:00:00Z", "2026-05-13T00:00:00Z"
+        );
+
+        mockMvc.perform(get(BASE_URL)
+                .param("gisuId", gisu.getId().toString())
+                .param("chapterId", chapter.getId().toString())
+                .param("time", "2026-05-11T00:00:00Z"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result", hasSize(1)))
+            .andExpect(jsonPath("$.result[0].id").value(matchingRound.getId().toString()))
+            .andExpect(jsonPath("$.result[0].gisuId").value(gisu.getId().toString()))
+            .andExpect(jsonPath("$.result[0].chapterId").value(chapter.getId().toString()));
     }
 
     private OperatorContext chapterPresidentContext() {
-        Gisu gisu = gisuFixture.비활성_기수(10L);
+        Gisu gisu = gisuDuring2026(10L);
         Chapter chapter = chapterFixture.지부(gisu, "owned");
         Member member = memberFixture.일반("operator");
         Challenger challenger = challengerFixture.챌린저(member.getId(), ChallengerPart.PLAN, gisu.getId());
         challengerRoleFixture.지부장(challenger.getId(), chapter.getId(), gisu.getId());
         return new OperatorContext(member, gisu, chapter);
+    }
+
+    private Gisu gisuDuring2026(Long generation) {
+        return gisuFixture.비활성_기수(
+            generation,
+            Instant.parse("2026-01-01T00:00:00Z"),
+            Instant.parse("2027-01-01T00:00:00Z")
+        );
     }
 
     private void authenticate(Long memberId) {
@@ -478,6 +583,7 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
             description,
             type,
             phase,
+            gisuIdForChapter(chapterId),
             chapterId,
             Instant.parse(startsAt),
             Instant.parse(endsAt),
@@ -520,11 +626,41 @@ class ProjectMatchingRoundControllerIntegrationTest extends IntegrationTestSuppo
             "description", description,
             "type", type.name(),
             "phase", phase.name(),
+            "gisuId", gisuIdForChapter(chapterId),
             "chapterId", chapterId,
             "startsAt", startsAt,
             "endsAt", endsAt,
             "decisionDeadline", decisionDeadline
         ));
+    }
+
+    private String matchingRoundRequestWithoutGisu(
+        String name,
+        String description,
+        MatchingType type,
+        MatchingPhase phase,
+        Long chapterId,
+        String startsAt,
+        String endsAt,
+        String decisionDeadline
+    ) throws Exception {
+        return objectMapper.writeValueAsString(Map.of(
+            "name", name,
+            "description", description,
+            "type", type.name(),
+            "phase", phase.name(),
+            "chapterId", chapterId,
+            "startsAt", startsAt,
+            "endsAt", endsAt,
+            "decisionDeadline", decisionDeadline
+        ));
+    }
+
+    private Long gisuIdForChapter(Long chapterId) {
+        return entityManager.createQuery(
+                "select c.gisu.id from Chapter c where c.id = :chapterId", Long.class)
+            .setParameter("chapterId", chapterId)
+            .getSingleResult();
     }
 
     private String requestBody(Map<String, Object> body) throws Exception {
