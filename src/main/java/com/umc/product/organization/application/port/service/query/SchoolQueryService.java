@@ -179,6 +179,18 @@ public class SchoolQueryService implements GetSchoolUseCase {
             ));
     }
 
+    @Override
+    public List<SchoolNameInfo> batchGetNamesByIds(Set<Long> schoolIds) {
+        if (schoolIds == null || schoolIds.isEmpty()) {
+            return List.of();
+        }
+        List<School> schools = loadSchoolPort.findAllByIds(List.copyOf(schoolIds));
+        if (schools.size() != schoolIds.size()) {
+            throw new IllegalStateException("요청한 학교 이름을 모두 조회하지 못했습니다.");
+        }
+        return schools.stream().map(SchoolNameInfo::from).toList();
+    }
+
     private SchoolDetailInfo toSchoolDetailInfo(SchoolChapterInfo info, String logoImageUrl,
                                                 List<SchoolDetailInfo.SchoolLinkItem> links) {
         return new SchoolDetailInfo(

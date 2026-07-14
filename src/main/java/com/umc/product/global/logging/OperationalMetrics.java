@@ -26,6 +26,8 @@ public class OperationalMetrics {
     private static final String METRIC_NOTIFICATION_TOTAL = "operational.notification.send.total";
     private static final String METRIC_SECURITY_TOTAL = "operational.security.event.total";
     private static final String METRIC_CLIENT_REQUEST_TOTAL = "operational.client.request.total";
+    private static final String METRIC_AUDIT_TOTAL = "operational.audit.log.total";
+    private static final String METRIC_AUDIT_FAILURE_TOTAL = "operational.audit.log.failure.total";
     private static final int MAX_TAG_VALUE_LENGTH = 64;
     private static final Pattern HIGH_CARDINALITY_VALUE = Pattern.compile(
         ".*([/?=&@]|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|\\d{6,}).*"
@@ -106,6 +108,30 @@ public class OperationalMetrics {
             .tag("environment", normalize(enumName(environment)))
             .tag("source", normalize(source))
             .tag("statusFamily", normalize(statusFamily))
+            .register(registry)
+            .increment();
+    }
+
+    public void recordAuditLog(String domain, String action, String outcome, String source) {
+        Counter.builder(METRIC_AUDIT_TOTAL)
+            .tag("domain", normalize(domain))
+            .tag("action", normalize(action))
+            .tag("outcome", normalize(outcome))
+            .tag("source", normalize(source))
+            .register(registry)
+            .increment();
+    }
+
+    public void recordAuditLogFailure(String domain, String action, Throwable exception) {
+        String reason = exception == null ? null : exception.getClass().getSimpleName();
+        recordAuditLogFailure(domain, action, reason);
+    }
+
+    public void recordAuditLogFailure(String domain, String action, String reason) {
+        Counter.builder(METRIC_AUDIT_FAILURE_TOTAL)
+            .tag("domain", normalize(domain))
+            .tag("action", normalize(action))
+            .tag("reason", normalize(reason))
             .register(registry)
             .increment();
     }

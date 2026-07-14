@@ -13,11 +13,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -32,6 +32,7 @@ import com.umc.product.authentication.domain.OAuthAttributes;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.common.domain.enums.OAuthProvider;
+import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.member.application.port.in.command.LockMemberCredentialUseCase;
 import com.umc.product.member.application.port.in.command.dto.MemberCredentialStatusInfo;
 
@@ -60,8 +61,26 @@ class OAuthAuthenticationServiceTest {
     @Mock
     LockMemberCredentialUseCase lockMemberCredentialUseCase;
 
-    @InjectMocks
+    @Mock
+    OperationalMetrics operationalMetrics;
+
+    @Mock
+    OAuthLoginAuditRecorder auditRecorder;
+
     OAuthAuthenticationService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new OAuthAuthenticationService(
+            verifyOAuthTokenPort,
+            loadMemberOAuthPort,
+            saveMemberOAuthPort,
+            lockMemberCredentialUseCase,
+            operationalMetrics,
+            auditRecorder,
+            new OAuthTokenRevoker(revokeOAuthTokenPort, verifyOAuthTokenPort)
+        );
+    }
 
     @Nested
     @DisplayName("unlinkOAuth")

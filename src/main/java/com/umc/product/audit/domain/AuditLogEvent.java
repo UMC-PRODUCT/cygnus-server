@@ -1,10 +1,13 @@
 package com.umc.product.audit.domain;
 
-import com.umc.product.global.event.domain.DomainEvent;
-import com.umc.product.global.exception.constant.Domain;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
+
+import com.umc.product.global.event.domain.DomainEvent;
+import com.umc.product.global.event.domain.OutboxDispatchMode;
+import com.umc.product.global.exception.constant.Domain;
+
 import lombok.Builder;
 
 /**
@@ -26,7 +29,11 @@ public record AuditLogEvent(
     Long actorMemberId,
     String description,
     Map<String, Object> details,
-    String ipAddress
+    String ipAddress,
+    AuditOutcome outcome,
+    AuditSource source,
+    String requestId,
+    String traceId
 ) implements DomainEvent {
 
     public AuditLogEvent {
@@ -36,10 +43,21 @@ public record AuditLogEvent(
         if (occurredAt == null) {
             occurredAt = Instant.now();
         }
+        if (outcome == null) {
+            outcome = AuditOutcome.SUCCESS;
+        }
+        if (source == null) {
+            source = AuditSource.ANNOTATION;
+        }
     }
 
     @Override
     public String eventType() {
         return "audit.log." + action.name().toLowerCase();
+    }
+
+    @Override
+    public OutboxDispatchMode outboxDispatchMode() {
+        return OutboxDispatchMode.NON_TRANSACTIONAL;
     }
 }

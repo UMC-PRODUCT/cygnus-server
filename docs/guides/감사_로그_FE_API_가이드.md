@@ -1,168 +1,98 @@
-# 감사 로그(Audit Log) FE API 가이드
+# 감사 로그 FE/API 가이드
 
-> 작성일: 2026-05-12
+> 기준일: 2026-07-13
 >
-> 본 문서는 운영진(중앙운영사무국)이 백오피스에서 감사 로그를 손쉽게 조회할 수 있도록,
-> FE 가 호출해야 할 API 와 UI 구성 시 고려할 서버측 의도를 정리한 문서입니다.
+> 대상 독자: 중앙운영사무국 백오피스 FE 개발자
 >
-> 대상 독자: 백오피스 FE 개발자
-> 관련 도메인 패키지: [audit/](src/main/java/com/umc/product/audit)
+> 서버 기준: [`AuditLogController`](../../src/main/java/com/umc/product/audit/adapter/in/web/AuditLogController.java), [`AuditLogInfo`](../../src/main/java/com/umc/product/audit/application/port/in/query/dto/AuditLogInfo.java), [`SearchAuditLogQuery`](../../src/main/java/com/umc/product/audit/application/port/in/query/dto/SearchAuditLogQuery.java)
 
----
+## 1. 화면이 보여주는 것과 보여주지 않는 것
 
-## 0. 한눈에 보기
+감사 로그 화면은 주요 상태 변경과 보안 실패를 **그 일이 발생했을 당시의 증거**로 보여준다. 감사 로그는 현재 회원·일정·게시글 상태의 source of truth가 아니며, FE가 과거 표시를 만들기 위해 현재 도메인 API를 다시 조회하면 안 된다.
 
-- **무엇을 보여주는 화면인가?** 시스템 내에서 발생한 주요 상태 변경(생성/수정/삭제/승인 등)의 이력을 시간 순으로 보여주는 관리자 전용 화면입니다.
-- **누가 볼 수 있는가?** **중앙운영사무국 국원**만 조회 가능합니다.
-  ([AuditLogPermissionEvaluator.java](src/main/java/com/umc/product/audit/application/service/AuditLogPermissionEvaluator.java))
-- **데이터는 어떻게 쌓이나?** 백엔드 메서드에 붙은 `@Audited` 어노테이션이 메서드 정상 종료 후 이벤트를 발행하고, 트랜잭션 커밋 이후 **비동기로** DB 에 저장합니다.
-- **호출해야 할 엔드포인트는?** `GET /api/v1/audit/admin/audit-logs` 입니다.
+- `targetId`는 필터·상관관계에 사용한다.
+- 표시명·소속·상태·이전/이후 값은 응답 `details`의 snapshot을 우선한다.
+- 대상이 삭제된 뒤에도 저장된 snapshot을 당시 표시의 신뢰 가능한 근거로 사용한다.
+- snapshot이 없거나 legacy `details`가 `null`/생략이면 `과거 snapshot 없음`으로 표시한다. 현재 도메인의 최신 이름이나 상태로 채우지 않는다.
+- 화면은 읽기 전용이다. 현재 서버에는 감사 로그 수정/삭제 endpoint가 없다.
 
----
+감사 로그 조회 권한은 [`AuditLogPermissionEvaluator`](../../src/main/java/com/umc/product/audit/application/service/AuditLogPermissionEvaluator.java)의 `AUDIT/READ` 평가를 따르며, 중앙운영사무국 국원만 허용된다. FE에서 권한을 추정하지 말고 401/403 공통 처리를 사용한다.
 
-## 1. 서버측 의도 (왜 이렇게 설계되었는가)
+## 2. 데이터 적재 특성
 
-FE 가 화면을 만들 때 다음 설계 의도를 알고 있으면 더 자연스러운 UI 를 만들 수 있어요.
+트랜잭션 안에서 정상 반환한 `@Audited` event는 [`AuditAspect`](../../src/main/java/com/umc/product/audit/adapter/in/aop/AuditAspect.java)가 발행하고 비즈니스 변경과 함께 outbox에 저장한다. 커밋된 event만 relay되어 [`AuditLogEventListener`](../../src/main/java/com/umc/product/audit/adapter/in/event/AuditLogEventListener.java)가 감사 행을 저장한다. 따라서 비즈니스 요청 직후 조회하면 로그가 아직 보이지 않을 수 있고, 외부 transaction이 rollback되면 이 annotation 행은 저장되지 않는다. 액션 완료 화면에서 audit row가 즉시 존재한다고 가정하지 말고, 새로고침 또는 짧은 backoff polling을 사용한다.
 
-### 1.1 감사 로그는 "사후 기록" 이다 (Append-Only, Immutable)
+명시 [`RecordAuditLogUseCase`](../../src/main/java/com/umc/product/audit/application/port/in/command/RecordAuditLogUseCase.java)의 rich `SUCCESS`도 같은 transaction-bound event 경로를 사용하므로 외부 business transaction rollback 뒤에는 남지 않는다. 로그인 실패·접근 거부 같은 `FAILURE`만 `REQUIRES_NEW`로 독립 보존한다. 어느 경로든 저장/발행 실패는 원 요청 결과와 격리되므로 FE는 row 존재를 비즈니스 성공의 동의어로 사용하지 않는다.
 
-- 저장된 감사 로그는 **수정/삭제되지 않습니다**. `AuditLog` 엔티티는 `BaseEntity` 를 상속하지 않으며
-  쓰기 API 가 존재하지 않습니다. ([AuditLog.java](src/main/java/com/umc/product/audit/domain/AuditLog.java))
-- → FE 도 마찬가지로 **읽기 전용 화면**으로만 구성해야 합니다. "수정" / "삭제" 버튼 같은 액션 영역을 두지 마세요.
+일부 호출은 `@Audited`와 명시 recorder를 함께 사용한다. 정상 커밋 뒤 두 성공 행이 relay를 통해 순차적으로 나타날 수 있으며 저장 순서는 계약하지 않는다. 대량 생성은 명시 행이 여러 개일 수 있다. 자동 중복 또는 일대일 행위로 매핑하지 말고 `source`, `details`, 대상·행위자·추적값·시각을 함께 사용한다.
 
-### 1.2 비즈니스 트랜잭션과 분리되어 비동기로 적재된다
+성공 감사 event는 항상 outbox에 저장되고 기본 활성화된 relay가 비동기로 처리한다. FE는 outbox를 직접 호출하거나 상태를 조회하지 않으며, audit row가 비즈니스 응답과 동시에 존재한다고 추론하지 않는다.
 
-- `@Audited` 가 붙은 메서드 → AOP 가 `AuditLogEvent` 발행 → `@TransactionalEventListener(AFTER_COMMIT)` + `@Async("auditTaskExecutor")` 로 저장.
-  ([AuditAspect.java](src/main/java/com/umc/product/audit/adapter/in/aop/AuditAspect.java),
-  [AuditLogEventListener.java](src/main/java/com/umc/product/audit/adapter/in/event/AuditLogEventListener.java))
-- 의미하는 바:
-    1. **롤백된 트랜잭션의 로그는 절대 남지 않는다** (유령 로그 방지).
-    2. 비즈니스 액션 직후 화면을 갱신해도 **수 ms 시차 뒤에 로그가 보일 수 있다**.
-- → FE 가 어떤 액션 직후 "방금 발생한 감사 로그" 를 즉시 보여주는 식의 UX 는 권장하지 않습니다.
-  필요하다면 1~2초 지연 후 재조회하거나, 사용자가 명시적으로 새로고침할 수 있게 하세요.
+`requestId`, `traceId`, `ipAddress`는 서버가 신뢰 경계 안에서 채운다. client `X-Request-Id`나 `X-Forwarded-For`를 보내 감사 검색값/IP로 강제할 수 없으며, FE는 서버가 응답·운영 로그로 제공한 식별자만 검색에 사용한다.
 
-### 1.3 필터는 "검색" 이 아니라 "좁히기" 다
+## 3. API
 
-- 검색 파라미터는 **전부 선택(optional)** 이며, **AND 조건**으로 합쳐집니다.
-  ([AuditLogQueryRepository.java](src/main/java/com/umc/product/audit/adapter/out/persistence/AuditLogQueryRepository.java))
-- 키워드 검색(텍스트 like 검색)은 **지원하지 않습니다**. `description` 컬럼은 자유 텍스트지만
-  서버 측 `where` 절에 사용되지 않습니다.
-- → FE 는 "키워드 검색창" 보다 **필터 칩(chip)** 형태가 서버 의도에 부합합니다.
+### 3.1 Endpoint
 
-### 1.4 정렬은 항상 최신순 고정
-
-- 결과는 `createdAt DESC` 로 고정 정렬되어 반환됩니다. Spring `Pageable` 의 `sort` 파라미터는 무시됩니다.
-- → FE 에서 "오래된 순으로 보기" UI 는 만들지 마세요. 굳이 필요하면 서버에 정렬 옵션 추가 요청부터.
-
-### 1.5 인덱스 설계가 곧 권장 필터 조합이다
-
-마이그레이션 ([V2026.03.12.01.00__create_audit_log.sql](src/main/resources/db/migration/V2026.03.12.01.00__create_audit_log.sql)) 에서
-다음 4 개 인덱스를 생성합니다.
-
-| 인덱스                        | 권장 필터 시나리오                                |
-|----------------------------|-------------------------------------------|
-| `(domain, action)`         | "스케줄 도메인에서 발생한 생성 이벤트만 보기"                |
-| `(target_type, target_id)` | 특정 엔티티 하나의 변경 이력 (단, 현재 API 는 미지원 — 4.6 참고) |
-| `(actor_member_id)`        | 특정 회원이 일으킨 액션 전체                          |
-| `(created_at)`             | 기간 필터, 그리고 정렬                             |
-
-→ 즉, 서버가 효율적으로 답변할 수 있는 조합은 **도메인+액션 / 행위자 / 기간** 입니다. UI 도 이 축을 기본 필터로 두는 게 가장 자연스러워요.
-
----
-
-## 2. UI 구성 제안
-
-위의 의도에 맞춰 다음 구조를 권장합니다. 시안 그대로 구현해야 한다는 의미는 아니며, "왜 이렇게 권장하는지" 의 근거로 사용하세요.
-
-### 2.1 페이지 레이아웃
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ 감사 로그                                              [새로고침]│
-├─────────────────────────────────────────────────────────────┤
-│ ┌─ 필터 영역 ────────────────────────────────────────────┐ │
-│ │ 도메인 [전체 ▼]   액션 [전체 ▼]   행위자 [회원 검색 🔍]    │ │
-│ │ 기간   [2026-05-01 00:00] ~ [2026-05-12 23:59]           │ │
-│ │                                          [초기화] [조회]   │ │
-│ └────────────────────────────────────────────────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│ 전체 N건 (page 0 / size 20)                                  │
-├──┬───────────────┬─────────┬──────────┬──────────┬─────────┤
-│  │ 시각          │ 도메인  │ 액션     │ 대상     │ 행위자   │
-├──┼───────────────┼─────────┼──────────┼──────────┼─────────┤
-│ ▶│ 05-12 14:23   │ SCHEDULE│ CREATE   │ #123     │ 홍길동   │
-│ ▶│ 05-12 14:22   │ MEMBER  │ WITHDRAW │ #88      │ (시스템) │
-│  │ ...                                                      │
-├──┴───────────────┴─────────┴──────────┴──────────┴─────────┤
-│             [◀ 이전]   1 2 3 ... 8   [다음 ▶]                │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 2.2 필터 컴포넌트 권장
-
-| 필드           | 컴포넌트          | 비고                                                            |
-|--------------|---------------|---------------------------------------------------------------|
-| `domain`     | 단일 선택 드롭다운    | 옵션은 §3.4 Enum 참고. "전체" 선택 시 파라미터 미전송                          |
-| `action`     | 단일 선택 드롭다운    | 옵션은 §3.4 Enum 참고. "전체" 선택 시 파라미터 미전송                          |
-| 행위자          | 회원 검색 + 칩     | 회원 검색 모달에서 선택 후 `memberId` 만 서버에 전송. 화면에는 회원명 표시            |
-| 기간 시작/종료     | `DateTimePicker` | 로컬 시간 입력 → 서버 전송 시 **ISO-8601 UTC** (`Instant`) 로 변환          |
-| (전체 초기화)     | 보조 버튼         | 모든 파라미터를 빼고 `GET /audit-logs` 호출                              |
-
-> 💡 키워드 검색창은 두지 않는 것을 권장합니다 (§1.3).
-
-### 2.3 행 표시
-
-- **시각**: 사용자 로컬 타임존으로 변환해서 `YYYY-MM-DD HH:mm` 형식 권장. 호버 시 초 단위까지 툴팁.
-- **도메인 / 액션**: 그대로 표시하되 enum 코드(`SCHEDULE`)는 한국어 라벨로 매핑하면 가독성↑. 매핑은 FE 상수로 관리해도 충분합니다 (서버 측 한국어 라벨 API 는 아직 없음).
-- **대상(target)**: `{targetType}#{targetId}` 형태로 한 줄. 예: `Schedule#123`.
-- **행위자(actor)**:
-    - `actorMemberId` 는 **nullable** 입니다. 시스템/스케줄러/비로그인 흐름에서는 null.
-    - null 일 때는 "시스템" 으로 표시.
-    - null 아니면 회원 정보 API 로 회원명을 별도 조회하거나, 같은 페이지의 다른 행에서 캐시.
-
-### 2.4 행 펼치기 / 상세 패널
-
-`description`, `details`, `ipAddress` 는 목록에서는 자리를 많이 차지하므로 **행 펼치기(▶) 또는 옆 패널**에 두는 것을 권장합니다.
-
-- `description` — 사람이 읽도록 SpEL 로 만들어진 한 줄 설명 (예: `"일정이 생성되었습니다."`)
-- `details` — `jsonb` (현재는 빈 객체 `{}` 가 주로 들어옴). 향후 변경 전/후 값이 들어갈 수 있으므로 **JSON 뷰어**로 보여주는 게 안전합니다.
-- `ipAddress` — IPv4/IPv6 모두 가능. 그대로 표시.
-
-### 2.5 페이지네이션
-
-- Spring `Pageable` 표준 사용. **0-indexed** 입니다.
-- 기본 `size=20`. UI 에서 20 / 50 / 100 정도의 옵션을 두는 것을 권장하지만, 너무 큰 값은 막아주세요 (200 이상 비권장).
-- 응답에 `totalElements`, `totalPages`, `number`, `size` 등이 포함됩니다 (§3.2 참고).
-
-### 2.6 빈 상태 / 로딩 / 에러
-
-| 상태             | 안내 문구 예시                                                                            |
-|----------------|------------------------------------------------------------------------------------|
-| 결과 0건          | "조회 조건에 해당하는 감사 로그가 없습니다."                                                          |
-| 권한 없음 (403)    | "Audit Log 는 중앙운영사무국 국원만 조회할 수 있습니다." (서버 메시지를 그대로 사용해도 됨)                          |
-| 네트워크/서버 오류     | "조회 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요."                                                  |
-
----
-
-## 3. API 레퍼런스
-
-### 3.1 엔드포인트
-
-```
+```http
 GET /api/v1/audit/admin/audit-logs
+Authorization: Bearer <ACCESS_TOKEN>
 ```
 
-[AuditLogController.java](src/main/java/com/umc/product/audit/adapter/in/web/AuditLogController.java)
+응답은 기존 `ApiResponse<Page<AuditLogInfo>>` 래퍼를 유지한다. `result`는 커스텀 page DTO가 아니라 Spring `Page` 형태다.
 
-- **인증**: `Authorization: Bearer {accessToken}` 필수
-- **권한**: `ResourceType.AUDIT` + `PermissionType.READ` → 중앙운영사무국 국원에게만 허용
-- Swagger 태그: `Audit | 감사 로그 조회` (`[AUDIT-001]`)
+### 3.2 Query parameters
 
-### 3.2 응답 래핑
+모든 필터는 optional이며, 입력된 조건은 AND로 결합된다. enum은 대문자 문자열을 사용한다.
 
-모든 컨트롤러 응답은 `GlobalResponseWrapper` 를 통해 다음과 같이 래핑됩니다.
+| 파라미터 | 타입 | 동작 |
+| --- | --- | --- |
+| `domain` | `Domain` | 도메인 exact match |
+| `action` | `AuditAction` | 액션 exact match |
+| `actorMemberId` | `Long` | 행위자 ID exact match |
+| `from` | `Instant` | `createdAt >= from`, inclusive |
+| `to` | `Instant` | `createdAt <= to`, inclusive |
+| `targetType` | `String` | 대상 타입 exact match |
+| `targetId` | `String` | 대상 ID exact match. 숫자만 가능하다고 가정하지 않는다 |
+| `outcome` | `AuditOutcome` | `SUCCESS` 또는 `FAILURE` exact match |
+| `source` | `AuditSource` | 출처 enum exact match |
+| `requestId` | `String` | exact match. LIKE wildcard가 아니다 |
+| `traceId` | `String` | exact match. 부분 문자열 검색이 아니다 |
+| `page` | `int` | 0-indexed page. Spring `Pageable` 기본값 사용 |
+| `size` | `int` | 기본 20 |
+| `sort` | `String` | query repository가 `createdAt DESC`로 고정하므로 사용자 정렬로 의존하지 않는다 |
 
-**성공 응답:**
+`from`과 `to`는 offset이 있는 ISO-8601 문자열을 보낸다.
+
+```text
+2026-07-13T00:00:00Z
+2026-07-13T09:00:00+09:00
+```
+
+`2026-07-13`처럼 offset이 없는 날짜만 보내면 `Instant` 변환이 실패해 400이 될 수 있다.
+
+### 3.3 호출 예시
+
+```bash
+curl -G 'https://<HOST>/api/v1/audit/admin/audit-logs' \
+  -H 'Authorization: Bearer <ACCESS_TOKEN>' \
+  --data-urlencode 'targetType=Schedule' \
+  --data-urlencode 'targetId=10' \
+  --data-urlencode 'outcome=SUCCESS' \
+  --data-urlencode 'source=EXPLICIT_RECORDER' \
+  --data-urlencode 'page=0' \
+  --data-urlencode 'size=20'
+```
+
+요청 추적값으로 찾을 때:
+
+```bash
+curl -G 'https://<HOST>/api/v1/audit/admin/audit-logs' \
+  -H 'Authorization: Bearer <ACCESS_TOKEN>' \
+  --data-urlencode 'requestId=REQUEST_ID_VALUE'
+```
+
+## 4. 성공 응답과 필드
 
 ```json
 {
@@ -170,260 +100,178 @@ GET /api/v1/audit/admin/audit-logs
   "code": "COMMON200",
   "message": "성공입니다.",
   "result": {
-    "content": [ /* AuditLogInfo[] */ ],
-    "pageable": { /* ... */ },
-    "totalElements": 153,
-    "totalPages": 8,
+    "content": [
+      {
+        "id": 1024,
+        "domain": "SCHEDULE",
+        "action": "UPDATE",
+        "targetType": "Schedule",
+        "targetId": "10",
+        "actorMemberId": 73,
+        "description": "일정을 수정했습니다.",
+        "details": "{\"schemaVersion\":1,\"target\":{\"type\":\"Schedule\",\"id\":\"10\",\"name\":\"정기 세션\",\"status\":\"OPEN\"}}",
+        "ipAddress": "198.51.100.7",
+        "outcome": "SUCCESS",
+        "source": "EXPLICIT_RECORDER",
+        "requestId": "request-123",
+        "traceId": "0123456789abcdef0123456789abcdef",
+        "createdAt": "2026-07-13T00:00:00Z"
+      }
+    ],
+    "totalElements": 1,
+    "totalPages": 1,
     "number": 0,
     "size": 20,
     "first": true,
-    "last": false,
-    "numberOfElements": 20,
+    "last": true,
+    "numberOfElements": 1,
     "empty": false
   }
 }
 ```
 
-> ⚠️ 이 엔드포인트의 `result` 는 Spring `Page<T>` 직렬화 형태이며, 다른 가이드에서 자주 등장하는 커스텀 `PageResponse<T>` (`content / page / size / totalElements / totalPages / hasNext / hasPrevious`) 와 **필드명이 다릅니다**.
-> FE 에서는 `result.content`, `result.totalElements`, `result.totalPages`, `result.number` 를 사용하세요.
+| 응답 field | nullable/표시 기준 |
+| --- | --- |
+| `id` | `Long` 숫자 |
+| `domain`, `action`, `targetType` | 신규 row에서 필수 enum/string |
+| `targetId` | 문자열. 숫자, UUID, 복합 ID를 모두 허용하며 대상이 없는 이벤트에서는 null 가능 |
+| `actorMemberId` | null 가능. null을 곧 과거 사용자 정보가 없다는 뜻으로만 해석하고 `시스템/알 수 없음`으로 표시 |
+| `description` | 정적 운영 문장. 저장 시 줄바꿈·민감 marker·500자 제한을 적용하며 위반 값은 안전한 기본 문장으로 대체 |
+| `details` | JSON 문자열 또는 null/생략. object로 바로 캐스팅하지 않는다. 허용 snapshot scalar에 민감 marker/CRLF가 있으면 값은 `[REDACTED]`로 표시된다 |
+| `ipAddress` | null 가능. 관리자 권한 화면에서만 제한적으로 표시 |
+| `outcome` | `SUCCESS` 또는 `FAILURE` |
+| `source` | `ANNOTATION`, `EXPLICIT_RECORDER`, `AUTHENTICATION_SERVICE`, `AUTHORIZATION_ASPECT`, `SYSTEM` |
+| `requestId`, `traceId` | nullable. legacy row는 null/생략 가능 |
+| `createdAt` | ISO-8601 Instant |
 
-**실패 응답:**
+Jackson null inclusion 설정에 따라 nullable field가 JSON에서 생략될 수 있다. FE 모델은 null과 absent를 같은 legacy 상태로 처리한다.
 
-```json
-{
-  "success": false,
-  "code": "AUTH-XXXX",
-  "message": "Audit Log는 중앙운영사무국 국원만 조회 가능합니다.",
-  "result": null
-}
-```
+`details`의 허용 key라도 `token`, `password`, `body`, `authorization`, `bearer`, `secret` marker 또는 CR/LF·로그 위조용 개행이 들어간 원문은 저장되지 않는다. 서버는 해당 scalar를 고정 `[REDACTED]`로 대체하고, 정상적인 name/nickname/school/status snapshot은 보존한다.
 
-### 3.3 Query Parameters
+### 4.1 details parsing
 
-| 파라미터            | 타입                    | 필수 | 설명                                                                          |
-|-----------------|------------------------|----|-----------------------------------------------------------------------------|
-| `domain`        | `Domain` (enum string) | N  | 발생 도메인. 예: `SCHEDULE`                                                       |
-| `action`        | `AuditAction` (enum)   | N  | 액션 종류. 예: `CREATE`, `UPDATE`                                                |
-| `actorMemberId` | `Long`                 | N  | 행위자 memberId. 시스템 액션은 항상 null 이므로 이 필터로는 검색 불가                              |
-| `from`          | `Instant` (ISO-8601)   | N  | 시작 시각 (포함, `createdAt >= from`)                                            |
-| `to`            | `Instant` (ISO-8601)   | N  | 종료 시각 (포함, `createdAt <= to`)                                              |
-| `page`          | `int`                  | N  | 0-indexed 페이지 번호. 기본값 0                                                     |
-| `size`          | `int`                  | N  | 페이지당 개수. 기본값 20                                                             |
-| `sort`          | `string`               | N  | **무시됨** — 서버에서 `createdAt DESC` 로 고정 정렬합니다                                  |
-
-> `from` / `to` 는 `Instant` 라서 반드시 **UTC 기준 ISO-8601** 로 보내야 합니다.
-> 예: `2026-05-12T00:00:00Z` 또는 `2026-05-12T09:00:00+09:00` 처럼 오프셋이 명시된 형태.
-> 단순 `2026-05-12` 같이 보내면 파싱 실패로 400 이 떨어집니다.
-
-### 3.4 주요 Enum
-
-#### `Domain`
-
-[Domain.java](src/main/java/com/umc/product/global/exception/constant/Domain.java)
-
-`COMMON`, `AUTHENTICATION`, `AUTHORIZATION`, `MEMBER`, `CHALLENGER`, `ORGANIZATION`,
-`CURRICULUM`, `SCHEDULE`, `COMMUNITY`, `NOTICE`, `FCM`, `SURVEY`, `RECRUITMENT`,
-`TERMS`, `EMAIL`, `STORAGE`, `WEBHOOK`, `AUDIT_LOG`, `PROJECT`, `LLM`
-
-> 모든 도메인이 실제로 감사 로그를 발행하는 것은 아닙니다 (현재는 `SCHEDULE` 위주). 드롭다운에는 전체 enum 을 노출해도 무방하나, "결과 0건" 빈 상태가 자주 나올 수 있다는 점을 유의하세요.
-
-#### `AuditAction`
-
-[AuditAction.java](src/main/java/com/umc/product/audit/domain/AuditAction.java)
-
-| 값          | 의미                |
-|------------|-------------------|
-| `CREATE`   | 생성                |
-| `UPDATE`   | 수정                |
-| `DELETE`   | 삭제                |
-| `APPROVE`  | 승인 (출석, 모집 지원 등)  |
-| `REJECT`   | 거절                |
-| `CHECK`    | 확인/조회 기반의 의미 있는 액션 |
-| `SUBMIT`   | 제출                |
-| `REGISTER` | 등록 (신규 가입 등)      |
-| `WITHDRAW` | 탈퇴/취소             |
-
-### 3.5 응답 본문(Result Item)
-
-[AuditLogInfo.java](src/main/java/com/umc/product/audit/application/port/in/query/dto/AuditLogInfo.java)
-
-```json
-{
-  "id": 1024,
-  "domain": "SCHEDULE",
-  "action": "CREATE",
-  "targetType": "Schedule",
-  "targetId": "123",
-  "actorMemberId": 42,
-  "description": "일정이 생성되었습니다.",
-  "details": null,
-  "ipAddress": "10.0.0.7",
-  "createdAt": "2026-05-12T05:23:11.482Z"
-}
-```
-
-필드별 노트:
-
-- `targetId` — 문자열입니다. UUID 도, 숫자 ID 도, 컴포지트 key 도 들어올 수 있어요.
-- `actorMemberId` — null 가능. UI 에서는 "시스템" 으로 표시 권장.
-- `description` — null 가능. SpEL 미설정이거나 결과가 null 인 경우.
-- `details` — null 또는 JSON 문자열. 빈 객체일 때도 있고, 미래에는 변경 사항이 들어올 수 있음 (`{"before": ..., "after": ...}` 형태가 자주 쓰이는 패턴).
-- `ipAddress` — null 가능. 비-HTTP 컨텍스트(스케줄러, 콘솔 등) 에서 발생한 액션.
-- `createdAt` — ISO-8601 UTC.
-
----
-
-## 4. 호출 예시
-
-### 4.1 cURL — 가장 단순한 호출 (모든 도메인, 최근 20건)
-
-```bash
-curl -X GET 'https://{HOST}/api/v1/audit/admin/audit-logs' \
-  -H 'Authorization: Bearer eyJhbGciOi...'
-```
-
-### 4.2 cURL — 특정 기간의 SCHEDULE 도메인 CREATE 만
-
-```bash
-curl -G 'https://{HOST}/api/v1/audit/admin/audit-logs' \
-  -H 'Authorization: Bearer eyJhbGciOi...' \
-  --data-urlencode 'domain=SCHEDULE' \
-  --data-urlencode 'action=CREATE' \
-  --data-urlencode 'from=2026-05-01T00:00:00Z' \
-  --data-urlencode 'to=2026-05-12T23:59:59Z' \
-  --data-urlencode 'page=0' \
-  --data-urlencode 'size=20'
-```
-
-### 4.3 TypeScript (fetch + URLSearchParams)
+DB는 `jsonb`지만 HTTP `details` 타입은 `String`이다. `details`가 non-null일 때만 parse한다.
 
 ```ts
-type AuditLogQuery = {
-  domain?: string;        // Domain enum 문자열
-  action?: string;        // AuditAction enum 문자열
-  actorMemberId?: number;
-  from?: string;          // ISO-8601 (Instant)
-  to?: string;            // ISO-8601 (Instant)
-  page?: number;          // 0-indexed
-  size?: number;          // default 20
+type JsonScalar = string | number | boolean;
+type DetailsSection = Record<string, JsonScalar>;
+
+type AuditDetailsV1 = {
+  schemaVersion: 1;
+  actor?: DetailsSection;
+  target?: DetailsSection;
+  context?: DetailsSection;
+  before?: DetailsSection;
+  after?: DetailsSection;
 };
 
-export async function searchAuditLogs(
-  query: AuditLogQuery,
-  accessToken: string,
-) {
-  const params = new URLSearchParams();
-  Object.entries(query).forEach(([k, v]) => {
-    if (v !== undefined && v !== null && v !== "") {
-      params.set(k, String(v));
-    }
-  });
+type AuditDetailsParseResult =
+  | { kind: "v1"; details: AuditDetailsV1 }
+  | { kind: "fallback"; reason: string; raw: string | null };
 
-  const res = await fetch(
-    `/api/v1/audit/admin/audit-logs?${params.toString()}`,
-    {
-      method: "GET",
-      headers: { Authorization: `Bearer ${accessToken}` },
-    },
-  );
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
 
-  if (!res.ok) {
-    // 403 (권한 없음), 401 (토큰 만료) 등은 공통 인터셉터에서 처리 권장
-    const err = await res.json().catch(() => null);
-    throw new Error(err?.message ?? `조회 실패 (${res.status})`);
+function isJsonScalar(value: unknown): value is JsonScalar {
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean";
+}
+
+function isDetailsSection(value: unknown): value is DetailsSection | undefined {
+  if (value === undefined) return true;
+  return isRecord(value) && Object.values(value).every(isJsonScalar);
+}
+
+function isAuditDetailsV1(value: Record<string, unknown>): value is AuditDetailsV1 {
+  return value.schemaVersion === 1
+    && isDetailsSection(value.actor)
+    && isDetailsSection(value.target)
+    && isDetailsSection(value.context)
+    && isDetailsSection(value.before)
+    && isDetailsSection(value.after);
+}
+
+function parseAuditDetails(raw: string | null | undefined): AuditDetailsParseResult {
+  if (raw == null || raw.trim() === "") {
+    return { kind: "fallback", reason: "legacy-null-or-empty", raw: null };
   }
 
-  const body = await res.json();
-  // body.result 는 Spring Page<AuditLogInfo>
-  return body.result as {
-    content: AuditLogInfo[];
-    totalElements: number;
-    totalPages: number;
-    number: number;
-    size: number;
-  };
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === "number") {
+      return { kind: "fallback", reason: "json-number", raw };
+    }
+    if (typeof parsed === "string") {
+      return { kind: "fallback", reason: "legacy-string", raw };
+    }
+    if (!isRecord(parsed)) {
+      return { kind: "fallback", reason: "unsupported-json-shape", raw };
+    }
+    if (parsed.schemaVersion !== 1) {
+      return { kind: "fallback", reason: "unsupported-schema-version", raw };
+    }
+    if (!isAuditDetailsV1(parsed)) {
+      return { kind: "fallback", reason: "invalid-schema-v1-shape", raw };
+    }
+    return { kind: "v1", details: parsed };
+  } catch {
+    return { kind: "fallback", reason: "invalid-json-or-legacy-text", raw };
+  }
 }
 ```
 
-### 4.4 React Query 패턴 (참고)
+현재 지원 버전은 literal `schemaVersion === 1`뿐이다. `schemaVersion`이 없는 legacy object/plain String, JSON 숫자, `null`, malformed JSON, `schemaVersion`이 1이 아닌 object는 모두 `fallback`으로 보내고, 지원하지 않는 version을 `AuditDetailsV1`로 캐스팅하지 않는다. 위 예시는 unchecked cast 없이 section shape까지 확인한다. fallback 화면은 원문을 안전한 plain text로 표시하거나 `지원하지 않는 details 형식`으로 표시하며, `null`/absent는 정상적인 legacy 상태로 처리한다.
 
-```ts
-const useAuditLogs = (query: AuditLogQuery) =>
-  useQuery({
-    queryKey: ["audit-logs", query],
-    queryFn: () => searchAuditLogs(query, getAccessToken()),
-    keepPreviousData: true,        // 페이지 전환 시 깜빡임 방지
-    staleTime: 10_000,             // 비동기 적재 시차 고려: 너무 짧지 않게
-  });
-```
+### 4.2 snapshot 표시 규칙
 
-> `staleTime` 을 0 으로 두면 사용자가 빠르게 페이지를 오갈 때 비동기 적재 시차(§1.2) 때문에 같은 조건이 다르게 보일 수 있어요. 10초 정도가 무난합니다.
+1. 행의 `targetType`/`targetId`로 기본 식별자를 표시한다.
+2. `details.target.name`, `nickname`, `schoolName`, `status`가 있으면 **그 값을 당시 표시**로 사용한다.
+3. `before`/`after`가 있으면 변경 전·후를 표시한다.
+4. snapshot key가 없으면 현재 Member/Schedule API를 호출하지 않고 `과거 snapshot 없음`을 표시한다.
+5. `targetId`가 삭제된 현재 entity를 가리키더라도 링크를 무조건 활성화하지 않는다. 링크가 필요하면 “현재 대상 보기”임을 별도 표시하고 과거 audit 표시와 섞지 않는다.
+6. `description`은 저장 경계에서 정규화된 정적 plain text다. HTML로 해석하지 않고 escaping해 표시한다. 당시 회원명·nickname·학교명은 description이 아니라 권한 있는 화면의 `details` snapshot에서만 표시한다.
 
-### 4.5 자주 묻는 케이스
+## 5. enum 참고
 
-- **특정 일정(Schedule#123) 의 이력만 보고 싶다** — 현재 API 는 `targetType` / `targetId` 필터를 지원하지 않습니다.
-  당장 필요하면 백엔드에 추가 요청을 주세요. 인덱스(§1.5)는 이미 준비되어 있습니다.
-- **description 으로 like 검색하고 싶다** — 미지원 (§1.3). 필요 시 별도 요청.
-- **CSV / Excel 내보내기** — 미지원. 임시로 페이지를 돌며 모으는 형태는 비권장 (`size` 를 크게 잡아 1회만 부르고 FE 에서 변환하는 정도가 한계).
-- **실시간 스트리밍** — 미지원. 폴링이 필요하면 30초~1분 간격 권장.
+### `AuditOutcome`
 
----
+| 값 | 의미 |
+| --- | --- |
+| `SUCCESS` | 정상 처리 결과 또는 성공 event |
+| `FAILURE` | 로그인 실패·접근 거부 등 감사 대상 실패 |
 
-## 5. 에러 / 권한 거부 다루기
+### `AuditSource`
 
-| HTTP | 상황                            | 가이드                                                            |
-|------|--------------------------------|----------------------------------------------------------------|
-| 401  | 토큰 만료 / 미첨부                  | 공통 인터셉터에서 로그인 화면으로 리다이렉트                                       |
-| 403  | 중앙운영사무국 국원이 아님           | 백오피스 진입 자체를 차단하는 게 이상적. 직링크 진입 시 안내 화면 노출                       |
-| 400  | `from` / `to` 파싱 실패 등         | 입력 즉시 클라이언트에서 ISO 변환을 강제하면 거의 발생하지 않음. fallback 메시지 노출          |
-| 500  | 그 외 서버 오류                    | 재시도 버튼 + 일반 안내                                                  |
+| 값 | 의미 |
+| --- | --- |
+| `ANNOTATION` | `@Audited` 자동 성공 경로 |
+| `EXPLICIT_RECORDER` | application service가 명시적으로 조립한 rich/success event |
+| `AUTHENTICATION_SERVICE` | 인증 service가 직접 기록한 보안 event |
+| `AUTHORIZATION_ASPECT` | 접근 제어 aspect가 기록한 거부 event |
+| `SYSTEM` | 그 밖의 명시 시스템 event |
 
-권한 메시지는 컨트롤러의 `@CheckAccess(message = ...)` 로 고정되어 있어요:
-> `"Audit Log는 중앙운영사무국 국원만 조회 가능합니다."`
-이 메시지를 FE 에서 그대로 사용해도 자연스럽습니다.
+### `AuditAction`
 
----
+현재 enum은 [`AuditAction.java`](../../src/main/java/com/umc/product/audit/domain/AuditAction.java)를 source of truth로 사용한다. 주요 값은 `CREATE`, `UPDATE`, `DELETE`, `APPROVE`, `REJECT`, `CHECK`, `SUBMIT`, `REGISTER`, `WITHDRAW`, `LOGIN`, `LINK`, `UNLINK`, `ACCESS_DENIED`, `PUBLISH`, `CANCEL`, `REMIND`, `REORDER`, `FINALIZE`다.
 
-## 6. 향후 확장 가능성 (FE 도 알아두면 좋은 것)
+### `Domain`
 
-지금 당장 구현되어 있진 않지만, **인덱스/데이터 모델은 이미 준비된** 항목들입니다. UI 를 만들 때 "나중에 붙기 쉬운 구조" 로 두면 좋습니다.
+`domain`은 [`Domain.java`](../../src/main/java/com/umc/product/global/exception/constant/Domain.java)의 enum 문자열이다. 모든 도메인이 같은 수준으로 rich audit된다고 가정하지 않는다. 결과가 없는 도메인은 정상적인 빈 결과일 수 있다.
 
-- 대상 엔티티 단위 조회 (`targetType` / `targetId` 필터)
-- `details` 의 `before` / `after` diff 표시
-- 다중 도메인 / 다중 액션 선택 (현재는 단일)
-- 정렬 옵션 (오래된 순)
-- 백오피스 CSV 내보내기
+## 6. UI/에러 처리
 
-새 필터가 추가되어도 위 §2.2 의 칩(chip) 형태라면 자연스럽게 확장됩니다.
+- 결과는 `createdAt DESC`로 최신순이다. 서버가 정렬 option을 계약하지 않으므로 오래된 순 토글을 만들지 않는다.
+- 비즈니스 액션 직후 row가 늦게 보일 수 있으므로 새로고침·backoff polling을 제공한다. 특정 지연 시간이나 실시간 stream을 보장하지 않는다.
+- 401은 공통 인증 만료 흐름, 403은 권한 없음 안내, 400은 enum/Instant/파라미터 형식 오류, 5xx는 재시도 안내로 처리한다.
+- 키워드/description LIKE 검색, CSV export, 실시간 streaming endpoint는 현재 제공되지 않는다.
+- `details` snapshot과 정규화된 description은 표시용 데이터다. description은 plain text escaping하고, name/nickname/school 같은 snapshot은 현재 `AUDIT/READ` 권한 경계 밖으로 재전달하지 않는다.
 
----
+## 7. 서버 운영 한계와 FE의 금지 가정
 
-## 7. 빠른 체크리스트
+- 성공 감사 event는 항상 outbox를 거치며, FE가 outbox row나 relay 상태를 직접 조회하는 API는 없다.
+- audit 저장 실패는 요청을 반드시 실패시키지 않는다. 화면에서 “audit 기록 완료”를 비즈니스 성공의 동의어로 사용하지 않는다.
+- `SUCCESS`는 annotation/명시 recorder 모두 business commit에 결합되고 rollback 시 저장하지 않는다. `FAILURE`만 독립 transaction으로 보존한다.
+- `audit_log` retention/archival, DB-level append-only, hash chain/WORM/SIEM은 현재 구현 범위가 아니다.
+- 과거 audit row의 `details`는 null일 수 있고, `requestId`/`traceId`도 null일 수 있다.
 
-FE 구현 시 다음을 한 번씩 확인해주세요.
-
-- [ ] 모든 필터 파라미터는 **빈 값이면 쿼리 스트링에서 제외**한다 (서버는 null 만 인식).
-- [ ] `from` / `to` 는 **ISO-8601 + 타임존 정보** 가 포함된 문자열로 보낸다.
-- [ ] 페이지는 **0-indexed**.
-- [ ] 응답은 `result.content` 안에 배열이 있고, 페이지 정보는 `result.number / totalElements / totalPages / size`.
-- [ ] `actorMemberId` 가 null 일 수 있다 (시스템 액션).
-- [ ] `description`, `details`, `ipAddress` 가 null 일 수 있다.
-- [ ] 403 응답 메시지를 사용자에게 자연스럽게 전달한다.
-- [ ] 시간 표시는 사용자 로컬 타임존으로 변환한다.
-- [ ] 정렬은 최신순 고정이라는 점을 UI 에 반영한다 (정렬 토글 UI 없음).
-
----
-
-## 8. 참고 파일
-
-- [AuditLogController.java](src/main/java/com/umc/product/audit/adapter/in/web/AuditLogController.java) — 엔드포인트 정의
-- [SearchAuditLogQuery.java](src/main/java/com/umc/product/audit/application/port/in/query/dto/SearchAuditLogQuery.java) — 검색 조건 DTO
-- [AuditLogInfo.java](src/main/java/com/umc/product/audit/application/port/in/query/dto/AuditLogInfo.java) — 응답 아이템 DTO
-- [AuditLog.java](src/main/java/com/umc/product/audit/domain/AuditLog.java) — 도메인 엔티티 (immutable)
-- [AuditAction.java](src/main/java/com/umc/product/audit/domain/AuditAction.java) — 액션 enum
-- [Domain.java](src/main/java/com/umc/product/global/exception/constant/Domain.java) — 도메인 enum
-- [AuditLogQueryRepository.java](src/main/java/com/umc/product/audit/adapter/out/persistence/AuditLogQueryRepository.java) — 검색 구현(QueryDSL)
-- [AuditAspect.java](src/main/java/com/umc/product/audit/adapter/in/aop/AuditAspect.java) — `@Audited` AOP
-- [AuditLogEventListener.java](src/main/java/com/umc/product/audit/adapter/in/event/AuditLogEventListener.java) — 비동기 저장 리스너
-- [AuditLogPermissionEvaluator.java](src/main/java/com/umc/product/audit/application/service/AuditLogPermissionEvaluator.java) — 권한 평가
-- [V2026.03.12.01.00__create_audit_log.sql](src/main/resources/db/migration/V2026.03.12.01.00__create_audit_log.sql) — 테이블 스키마 & 인덱스
+자세한 서버 규칙은 [Logging Onboarding](../../onboarding/log/README.md), rollout 후속 과제는 [audit logging rollout plan](../backlog/audit-logging-rollout-plan.md)을 참고한다.

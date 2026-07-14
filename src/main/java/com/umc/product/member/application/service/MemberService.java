@@ -2,20 +2,19 @@ package com.umc.product.member.application.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.audit.domain.AuditLogEvent;
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
 import com.umc.product.authentication.application.port.in.command.OAuthAuthenticationUseCase;
 import com.umc.product.authentication.application.port.in.command.dto.LinkOAuthCommand;
 import com.umc.product.authentication.application.port.in.command.dto.UnlinkOAuthCommand;
 import com.umc.product.authentication.application.port.in.query.GetMemberOAuthUseCase;
 import com.umc.product.authentication.application.port.in.query.dto.MemberOAuthInfo;
 import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
-import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.member.application.port.in.command.ManageMemberUseCase;
 import com.umc.product.member.application.port.in.command.RegisterOAuthMemberUseCase;
 import com.umc.product.member.application.port.in.command.dto.DeleteMemberCommand;
@@ -30,6 +29,8 @@ import com.umc.product.notification.application.port.in.SendWebhookAlarmUseCase;
 import com.umc.product.notification.application.port.in.dto.SendWebhookAlarmCommand;
 import com.umc.product.notification.domain.WebhookPlatform;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolNameInfo;
 import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -48,7 +49,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
     private final ManageTermAgreementUseCase manageTermAgreementUseCase;
     private final GetSchoolUseCase getSchoolUseCase;
 
-    private final DomainEventPublisher eventPublisher;
+    private final RecordAuditLogUseCase recordAuditLogUseCase;
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
     private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
@@ -79,9 +80,12 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
             )
         );
 
-        String logDescription = getSchoolUseCase.getSchoolDetail(command.schoolId()).schoolName()
-            + "소속 " + command.nickname() + "/" + command.name() +
-            " 님이 회원 가입하셨습니다.";
+        SchoolDetailInfo school = getSchoolUseCase.getSchoolDetail(command.schoolId());
+        MemberAuditEventFactory.MemberSnapshot memberSnapshot =
+            MemberAuditEventFactory.snapshot(savedMember, school.schoolName());
+        String logDescription = school.schoolName()
+            + "소속 " + command.nickname() + "/" + command.name()
+            + " 님이 회원 가입하셨습니다.";
 
         sendWebhookAlarmUseCase.sendBuffered(
             SendWebhookAlarmCommand.builder()
@@ -91,15 +95,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
                 .build()
         );
 
-        eventPublisher.publish(
-            AuditLogEvent.builder()
-                .domain(Domain.MEMBER)
-                .action(AuditAction.REGISTER)
-                .targetType("Member")
-                .targetId(String.valueOf(savedMember.getId()))
-                .description(logDescription)
-                .build()
-        );
+        recordAuditLogUseCase.record(MemberAuditEventFactory.registered(memberSnapshot));
 
         return savedMember.getId();
     }
@@ -141,6 +137,22 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
         }
         oAuthAuthenticationUseCase.linkOAuthBulk(oAuthCommands);
 
+        Set<Long> schoolIds = commands.stream()
+            .map(OAuthRegisterMemberCommand::schoolId)
+            .collect(java.util.stream.Collectors.toSet());
+        Map<Long, String> schoolNames = getSchoolUseCase.batchGetNamesByIds(schoolIds).stream()
+            .collect(java.util.stream.Collectors.toMap(
+                SchoolNameInfo::schoolId,
+                SchoolNameInfo::schoolName
+            ));
+        for (int index = 0; index < savedMembers.size(); index++) {
+            Member savedMember = savedMembers.get(index);
+            String schoolName = schoolNames.get(commands.get(index).schoolId());
+            recordAuditLogUseCase.record(MemberAuditEventFactory.registered(
+                MemberAuditEventFactory.snapshot(savedMember, schoolName)
+            ));
+        }
+
         return savedMembers.stream()
             .map(Member::getId)
             .toList();
@@ -164,6 +176,10 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
         Member memberToDelete = loadMemberPort.findById(memberId)
             .orElseThrow(() -> new MemberDomainException(MemberErrorCode.MEMBER_NOT_FOUND));
 
+        SchoolDetailInfo school = getSchoolUseCase.getSchoolDetail(memberToDelete.getSchoolId());
+        MemberAuditEventFactory.MemberSnapshot memberSnapshot =
+            MemberAuditEventFactory.snapshot(memberToDelete, school.schoolName());
+
         List<MemberOAuthInfo> linkedOAuths = getMemberOAuthUseCase.getOAuthList(memberId);
 
         // TODO: N+1 문제 해결 필요
@@ -182,18 +198,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
         saveMemberPort.delete(memberToDelete);
         evictAuthoritySnapshotCacheUseCase.evictByMemberId(memberId);
 
-        eventPublisher.publish(
-            AuditLogEvent.builder()
-                .domain(Domain.MEMBER)
-                .action(AuditAction.WITHDRAW)
-                .targetType("Member")
-                .targetId(String.valueOf(memberId))
-                .description(
-                    getSchoolUseCase.getSchoolDetail(memberToDelete.getSchoolId()).schoolName()
-                        + "소속 " + memberToDelete.getNickname() + "/" + memberToDelete.getName() +
-                        " 님이 회원 탈퇴하셨습니다.")
-                .build()
-        );
+        recordAuditLogUseCase.record(MemberAuditEventFactory.withdrawn(memberSnapshot));
     }
 
     private Member findById(Long memberId) {

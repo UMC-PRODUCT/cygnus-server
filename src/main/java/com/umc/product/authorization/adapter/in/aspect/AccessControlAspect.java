@@ -1,5 +1,7 @@
 package com.umc.product.authorization.adapter.in.aspect;
 
+import java.util.Map;
+
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -13,6 +15,9 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
+import com.umc.product.audit.application.port.in.command.dto.RecordAuditLogCommand;
+import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
@@ -32,12 +37,20 @@ import lombok.extern.slf4j.Slf4j;
 public class AccessControlAspect {
 
     private final CheckPermissionUseCase checkPermissionUseCase;
+    private final RecordAuditLogUseCase recordAuditLogUseCase;
     private final ExpressionParser parser = new SpelExpressionParser();
 
     @Around("@annotation(checkAccess)")
     public Object checkAccess(ProceedingJoinPoint joinPoint, CheckAccess checkAccess) throws Throwable {
         // 1. 인증된 사용자 추출
-        Long memberId = extractMemberId();
+        Long memberId;
+        try {
+            memberId = extractMemberId();
+        } catch (AccessDeniedException exception) {
+            String resourceId = evaluateResourceIdForAudit(joinPoint, checkAccess.resourceId());
+            recordAccessDenied(null, resourceId, checkAccess);
+            throw exception;
+        }
 
         // 2. SpEL로 resourceId 평가
         // checkAccess 어노테이션을 사용할 때 SpEL 표현식으로 작성한 resourceId의 값을 가져오면 됨.
@@ -61,12 +74,51 @@ public class AccessControlAspect {
                     resourceId,
                     checkAccess.permission());
 
+            recordAccessDenied(memberId, resourceId, checkAccess);
             throw new AuthorizationDomainException(AuthorizationErrorCode.RESOURCE_ACCESS_DENIED,
                     checkAccess.message());
         }
 
         // 5. 권한 있으면 원래 메서드 실행
         return joinPoint.proceed();
+    }
+
+    private void recordAccessDenied(Long memberId, String resourceId, CheckAccess checkAccess) {
+        Map<String, Object> actor = memberId == null
+            ? Map.of()
+            : Map.of("memberId", memberId);
+        Map<String, Object> target = resourceId == null
+            ? Map.of("type", checkAccess.resourceType().name())
+            : Map.of("type", checkAccess.resourceType().name(), "id", resourceId);
+        Map<String, Object> details = RecordAuditLogCommand.structuredDetails(
+            actor,
+            target,
+            Map.of("permission", checkAccess.permission().name()),
+            Map.of(),
+            Map.of()
+        );
+
+        try {
+            recordAuditLogUseCase.record(RecordAuditLogCommand.authorizationFailure(
+                AuditAction.ACCESS_DENIED,
+                checkAccess.resourceType().name(),
+                resourceId,
+                memberId,
+                "리소스 접근이 거부되었습니다.",
+                details
+            ));
+        } catch (RuntimeException auditException) {
+            log.warn("접근 거부 감사 기록 호출에 실패했습니다.", auditException);
+        }
+    }
+
+    private String evaluateResourceIdForAudit(ProceedingJoinPoint joinPoint, String expression) {
+        try {
+            return evaluateResourceId(joinPoint, expression);
+        } catch (RuntimeException exception) {
+            log.warn("익명 접근 거부 감사용 리소스 ID 평가에 실패했습니다.", exception);
+            return null;
+        }
     }
 
     /**

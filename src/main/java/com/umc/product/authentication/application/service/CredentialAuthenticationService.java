@@ -1,10 +1,14 @@
 package com.umc.product.authentication.application.service;
 
+import java.util.Map;
+
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
+import com.umc.product.audit.application.port.in.command.dto.RecordAuditLogCommand;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authentication.application.port.in.command.CredentialAuthenticationUseCase;
 import com.umc.product.authentication.application.port.in.command.dto.ChangePasswordCommand;
@@ -44,6 +48,7 @@ public class CredentialAuthenticationService implements CredentialAuthentication
     private final ManageMemberCredentialUseCase manageMemberCredentialUseCase;
     private final SsoCredentialVerifier credentialVerifier;
     private final OperationalMetrics operationalMetrics;
+    private final RecordAuditLogUseCase recordAuditLogUseCase;
 
     @Override
     public void registerCredentialByEmail(RegisterCredentialByEmailCommand command) {
@@ -122,7 +127,30 @@ public class CredentialAuthenticationService implements CredentialAuthentication
                 .build();
         } catch (RuntimeException e) {
             operationalMetrics.recordSecurityEvent("AUTHENTICATION", "EMAIL_LOGIN", "failure");
+            recordLoginFailure();
             throw e;
+        }
+    }
+
+    private void recordLoginFailure() {
+        Map<String, Object> details = RecordAuditLogCommand.structuredDetails(
+            Map.of(),
+            Map.of("type", "MemberCredential"),
+            Map.of(),
+            Map.of(),
+            Map.of()
+        );
+
+        try {
+            recordAuditLogUseCase.record(RecordAuditLogCommand.authenticationFailure(
+                AuditAction.LOGIN,
+                "MemberCredential",
+                null,
+                "이메일 로그인에 실패했습니다.",
+                details
+            ));
+        } catch (RuntimeException auditException) {
+            log.warn("로그인 실패 감사 기록 호출에 실패했습니다.", auditException);
         }
     }
 }

@@ -1,7 +1,8 @@
 package com.umc.product.authentication.application.port.in.command.dto;
 
-import com.umc.product.common.domain.enums.OAuthProvider;
 import java.util.Objects;
+
+import com.umc.product.common.domain.enums.OAuthProvider;
 
 /**
  * Authorization Code 기반 OAuth 로그인 Command.
@@ -25,5 +26,13 @@ public record AuthorizationCodeLoginCommand(
         Objects.requireNonNull(provider, "provider must not be null");
         Objects.requireNonNull(authorizationCode, "authorizationCode must not be null");
         Objects.requireNonNull(redirectUri, "redirectUri must not be null");
+    }
+
+    public static AuthorizationCodeLoginCommand of(
+        OAuthProvider provider,
+        String authorizationCode,
+        String redirectUri
+    ) {
+        return new AuthorizationCodeLoginCommand(provider, authorizationCode, redirectUri);
     }
 }

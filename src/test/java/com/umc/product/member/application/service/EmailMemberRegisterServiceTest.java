@@ -19,8 +19,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
 import com.umc.product.authentication.application.port.in.command.CredentialAuthenticationUseCase;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.member.application.port.in.command.dto.EmailRegisterMemberCommand;
 import com.umc.product.member.application.port.in.command.dto.TermConsents;
 import com.umc.product.member.application.port.out.SaveMemberPort;
@@ -47,7 +47,7 @@ class EmailMemberRegisterServiceTest {
     GetSchoolUseCase getSchoolUseCase;
 
     @Mock
-    DomainEventPublisher eventPublisher;
+    RecordAuditLogUseCase recordAuditLogUseCase;
 
     @Mock
     ManageTermAgreementUseCase manageTermAgreementUseCase;
@@ -95,6 +95,7 @@ class EmailMemberRegisterServiceTest {
         // then
         assertThat(memberId).isEqualTo(100L);
         then(manageTermAgreementUseCase).should(times(2)).createTermConsent(any());
+        then(recordAuditLogUseCase).should().record(any());
     }
 
     @Test
@@ -124,6 +125,6 @@ class EmailMemberRegisterServiceTest {
         then(saveMemberPort).should(never()).save(any());
         then(credentialAuthenticationUseCase).should(never()).registerCredentialByEmail(any());
         then(manageTermAgreementUseCase).should(never()).createTermConsent(any());
-        then(eventPublisher).should(never()).publish(any());
+        then(recordAuditLogUseCase).should(never()).record(any());
     }
 }

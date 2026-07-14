@@ -14,10 +14,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
 import com.umc.product.authentication.application.port.in.command.OAuthAuthenticationUseCase;
 import com.umc.product.authentication.application.port.in.query.GetMemberOAuthUseCase;
 import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.member.application.port.in.command.dto.DeleteMemberCommand;
 import com.umc.product.member.application.port.out.LoadMemberPort;
 import com.umc.product.member.application.port.out.SaveMemberPort;
@@ -56,7 +56,7 @@ class MemberServiceAuthorityCacheTest {
     GetSchoolUseCase getSchoolUseCase;
 
     @Mock
-    DomainEventPublisher eventPublisher;
+    RecordAuditLogUseCase recordAuditLogUseCase;
 
     @Mock
     SendWebhookAlarmUseCase sendWebhookAlarmUseCase;

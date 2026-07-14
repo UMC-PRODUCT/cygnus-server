@@ -1,10 +1,8 @@
 package com.umc.product.schedule.application.service.command;
 
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.locationtech.jts.geom.Point;
 import org.springframework.stereotype.Service;
@@ -39,9 +37,7 @@ import com.umc.product.schedule.domain.exception.ScheduleDomainException;
 import com.umc.product.schedule.domain.exception.ScheduleErrorCode;
 
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional
@@ -62,6 +58,8 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetGisuUseCase getGisuUseCase;
     private final GetMemberUseCase getMemberUseCase;
+    private final ScheduleAuditRecorder auditRecorder;
+    private final ScheduleParticipantUpdater participantUpdater;
 
 
     // 일정 생성
@@ -126,6 +124,8 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
 
         saveScheduleParticipantPort.saveAll(participantList);
 
+        auditRecorder.recordCreated(savedSchedule, participants);
+
         return savedSchedule.getId();
     }
 
@@ -142,6 +142,7 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
 
         Schedule schedule = loadSchedulePort.findById(command.scheduleId())
             .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
+        ScheduleAuditEventFactory.ScheduleSnapshot before = auditRecorder.capture(schedule);
 
         command.validate();
 
@@ -197,19 +198,22 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
             newPolicy
         );
 
+        ScheduleParticipantUpdater.Changes participantChanges =
+            ScheduleParticipantUpdater.Changes.empty();
         if (command.isParticipantsUpdateRequested()) {
-            // DB에 있는 기존 참여자 ID 목록을 가져옴
-            Set<Long> existingParticipantIds = loadScheduleParticipantPort.findMemberIdsByScheduleId(schedule.getId());
-
-            // 진짜 명단이 달라졌는지 비교
-            if (!existingParticipantIds.equals(command.participantMemberIds())) {
-                // 진짜 달라졌을 때만 업데이트 수행
-                updateParticipants(schedule, command);
-            }
+            participantChanges = participantUpdater.update(schedule, command.participantMemberIds());
         }
 
         // 일정 update
         saveSchedulePort.save(schedule);
+
+        auditRecorder.recordUpdated(
+            before,
+            schedule,
+            command.actorMemberId(),
+            participantChanges.addedMemberIds(),
+            participantChanges.removedMemberIds()
+        );
 
         return schedule.getId();
     }
@@ -224,7 +228,7 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
         description = "'일정을 삭제했습니다.'"
     )
     @Override
-    public void delete(Long scheduleId) {
+    public void delete(Long scheduleId, Long actorMemberId) {
         Schedule schedule = loadSchedulePort.findById(scheduleId)
             .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
 
@@ -232,7 +236,9 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
             throw new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_HAS_ATTENDANCE_RECORD);
         }
 
+        ScheduleAuditEventFactory.ScheduleSnapshot snapshot = auditRecorder.capture(schedule);
         deleteScheduleWithParticipants(schedule);
+        auditRecorder.recordDeleted(snapshot, actorMemberId, false);
     }
 
     // 일정 강제 삭제
@@ -245,11 +251,13 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
         description = "'일정을 강제로 삭제했습니다.'"
     )
     @Override
-    public void forceDelete(Long scheduleId) {
+    public void forceDelete(Long scheduleId, Long actorMemberId) {
         Schedule schedule = loadSchedulePort.findById(scheduleId)
             .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
 
+        ScheduleAuditEventFactory.ScheduleSnapshot snapshot = auditRecorder.capture(schedule);
         deleteScheduleWithParticipants(schedule);
+        auditRecorder.recordDeleted(snapshot, actorMemberId, true);
     }
 
     // ============================== Helper Methods ==============================
@@ -295,60 +303,4 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
         );
     }
 
-    // 참여자 업데이트
-    private void updateParticipants(Schedule schedule, EditScheduleCommand command) {
-
-        // 참여자 변경 없으면 스킵
-        if (!command.isParticipantsUpdateRequested()) {
-            return;
-        }
-
-        Set<Long> newMemberIds = command.participantMemberIds();
-
-        // 기존 참여자 조회
-        List<ScheduleParticipant> existingParticipants = loadScheduleParticipantPort.findAllByScheduleId(
-            schedule.getId());
-        Set<Long> existingMemberIds = existingParticipants.stream()
-            .map(ScheduleParticipant::getMemberId)
-            .collect(Collectors.toSet());
-
-        // 삭제되어야 할 MemberId
-        Set<Long> toDeleteIds = new HashSet<>(existingMemberIds);
-        toDeleteIds.removeAll(newMemberIds);
-
-        // 추가되어야 할 MemberId
-        Set<Long> toAddIds = new HashSet<>(newMemberIds);
-        toAddIds.removeAll(existingMemberIds);
-
-        // 추가되어야 할 MemberId들이 실제로 존재하는지 검증
-        if (!toAddIds.isEmpty()) {
-            long validMemberCount = getMemberUseCase.countMembersByIds(toAddIds);
-
-            if (validMemberCount != toAddIds.size()) {
-                throw new ScheduleDomainException(ScheduleErrorCode.INVALID_MEMBER_INVITE);
-            }
-        }
-
-        // 삭제
-        if (!toDeleteIds.isEmpty()) {
-            List<ScheduleParticipant> participantsToDelete = existingParticipants.stream()
-                .filter(p -> toDeleteIds.contains(p.getMemberId()))
-                .toList();
-
-            deleteScheduleParticipantPort.deleteAll(participantsToDelete);
-        }
-
-        // 추가
-        if (!toAddIds.isEmpty()) {
-            List<ScheduleParticipant> participantsToAdd = toAddIds.stream()
-                .map(memberId -> ScheduleParticipant.builder()
-                    .memberId(memberId)
-                    .schedule(schedule)
-                    .attendance(null)
-                    .build())
-                .toList();
-
-            saveScheduleParticipantPort.saveAll(participantsToAdd);
-        }
-    }
 }

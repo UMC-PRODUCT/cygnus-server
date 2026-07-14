@@ -1,10 +1,14 @@
 package com.umc.product.challenger.application.service;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
+import com.umc.product.audit.application.port.in.command.dto.RecordAuditLogCommand;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
@@ -49,6 +53,8 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     private final GetMemberUseCase getMemberUseCase;
     private final ManageChallengerRoleUseCase manageChallengerRoleUseCase;
     private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
+    private final RecordAuditLogUseCase recordAuditLogUseCase;
+    private final ChallengerRecordAuditSnapshotFactory challengerRecordAuditSnapshotFactory;
 
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
 
@@ -64,6 +70,8 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
         validateRecord(command.gisuId(), command.schoolId(), command.chapterId());
 
         ChallengerRecord savedRecord = saveChallengerRecordPort.save(command.toEntity());
+        MemberInfo creator = getMemberUseCase.findById(command.creatorMemberId()).orElse(null);
+        recordCreatedAudit(savedRecord, creator, "ChallengerRecord를 생성했습니다.");
         log.info("ChallengerRecord를 생성했습니다: recordId={}, gisuId={}, schoolId={}, chapterId={}, adminRecord={}",
             savedRecord.getId(), command.gisuId(), command.schoolId(), command.chapterId(),
             command.challengerRoleType() != null);
@@ -74,7 +82,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
         domain = Domain.CHALLENGER,
         action = AuditAction.CREATE,
         targetType = "ChallengerRecord",
-        description = "'ChallengerRecord를 대량 생성했습니다. count=' + #result.size()"
+        description = "'ChallengerRecord를 대량 생성했습니다.'"
     )
     @Override
     public List<Long> createBulk(List<CreateChallengerRecordCommand> commands) {
@@ -83,6 +91,20 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
             .toList();
 
         List<ChallengerRecord> savedRecords = saveChallengerRecordPort.saveAll(records);
+        Map<Long, MemberInfo> creators = getMemberUseCase.findAllByIds(
+            commands.stream()
+                .map(CreateChallengerRecordCommand::creatorMemberId)
+                .collect(Collectors.toSet())
+        );
+        for (int index = 0; index < savedRecords.size(); index++) {
+            ChallengerRecord savedRecord = savedRecords.get(index);
+            Long creatorMemberId = commands.get(index).creatorMemberId();
+            recordCreatedAudit(
+                savedRecord,
+                creators.get(creatorMemberId),
+                "ChallengerRecord 일괄 생성 항목을 기록했습니다."
+            );
+        }
         log.info("ChallengerRecord를 대량 생성했습니다: count={}", savedRecords.size());
         return savedRecords.stream().map(ChallengerRecord::getId).toList();
     }
@@ -113,6 +135,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
 
         ChallengerRecord record = loadChallengerRecordPort.getByCode(code);
         record.validateNotUsed();
+        MemberInfo memberInfo;
 
         // 운영진 기록, 즉 ChallengerRole 객체를 추가해야하는 상황이라면 Challenger를 생성하지 않음
         if (record.isAdminRecord()) {
@@ -120,7 +143,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                 .orElseThrow(() -> new ChallengerDomainException(ChallengerErrorCode.NO_CHALLENGER_IN_MEMBER_GISU))
                 .getId();
 
-            MemberInfo memberInfo = getMemberUseCase.getById(memberId);
+            memberInfo = getMemberUseCase.getById(memberId);
 
             manageChallengerRoleUseCase.createChallengerRole(
                 CreateChallengerRoleCommand.builder()
@@ -129,6 +152,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                     .organizationId(record.getOrganizationId())
                     .responsiblePart(record.getPart())
                     .gisuId(record.getGisuId())
+                    .actorMemberId(memberId)
                     .build()
             );
 
@@ -145,11 +169,8 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                     .platforms(List.of(WebhookPlatform.TELEGRAM, WebhookPlatform.DISCORD))
                     .build()
             );
-        }
-
-        // 챌린저 기록 추가하기
-        else {
-            MemberInfo memberInfo = getMemberUseCase.getById(memberId);
+        } else {
+            memberInfo = getMemberUseCase.getById(memberId);
             record.validateMember(memberInfo.name(), memberInfo.schoolId());
 
             // 해당 기수에 챌린저 기록이 없는지 확인
@@ -180,6 +201,31 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
         }
 
         record.markAsUsed(memberId);
+        recordConsumedAudit(record, memberInfo);
+    }
+
+    private void recordCreatedAudit(ChallengerRecord record, MemberInfo creator, String description) {
+        recordAuditLogUseCase.record(RecordAuditLogCommand.success(
+            Domain.CHALLENGER,
+            AuditAction.CREATE,
+            "ChallengerRecord",
+            record.getId().toString(),
+            record.getCreatedMemberId(),
+            description,
+            challengerRecordAuditSnapshotFactory.createdDetails(record, creator)
+        ));
+    }
+
+    private void recordConsumedAudit(ChallengerRecord record, MemberInfo memberInfo) {
+        recordAuditLogUseCase.record(RecordAuditLogCommand.success(
+            Domain.CHALLENGER,
+            AuditAction.CHECK,
+            "ChallengerRecord",
+            record.getId().toString(),
+            memberInfo.id(),
+            "ChallengerRecord 코드를 사용했습니다.",
+            challengerRecordAuditSnapshotFactory.consumedDetails(record, memberInfo)
+        ));
     }
 
     private void validateRecord(Long gisuId, Long schoolId, Long chapterId) {

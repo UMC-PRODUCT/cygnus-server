@@ -101,7 +101,7 @@ public class TestController {
         action = AuditAction.CREATE,
         targetType = "Test",
         targetId = "'TEST'",
-        description = "'내용 : ' + #result.content"
+        description = "'감사 AOP 테스트를 실행했습니다.'"
     )
     @GetMapping("webhook/aop-test")
     @Operation(operationId = "TEST-003", summary = "AOP로 전송하는 알람 테스트")

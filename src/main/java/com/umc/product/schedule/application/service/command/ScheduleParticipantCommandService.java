@@ -1,6 +1,8 @@
 package com.umc.product.schedule.application.service.command;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import org.locationtech.jts.geom.Point;
 import org.springframework.stereotype.Service;
@@ -10,7 +12,6 @@ import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.global.util.GeometryUtils;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.schedule.application.port.in.command.CreateScheduleParticipantUseCase;
 import com.umc.product.schedule.application.port.in.command.UpdateScheduleParticipantUseCase;
@@ -41,7 +42,7 @@ public class ScheduleParticipantCommandService implements
     private final SaveScheduleParticipantPort saveScheduleParticipantPort;
     private final LoadScheduleParticipantPort loadScheduleParticipantPort;
 
-    private final GetMemberUseCase getMemberUseCase;
+    private final ScheduleAttendanceAuditRecorder auditRecorder;
 
     private static void checkSchedulePolicyExists(Schedule schedule) {
         if (schedule.getPolicy() == null) {
@@ -79,6 +80,13 @@ public class ScheduleParticipantCommandService implements
 
         ScheduleParticipantAttendance attendance = scheduleParticipant.getAttendance();
         Point savedLocation = attendance.getLocation();
+
+        auditRecorder.recordSelf(
+            schedule,
+            command.requesterMemberId(),
+            attendance.getStatus(),
+            AuditAction.CHECK
+        );
 
         return ScheduleParticipantAttendanceResult.builder()
             .latitude(savedLocation != null ? savedLocation.getY() : null)
@@ -126,6 +134,13 @@ public class ScheduleParticipantCommandService implements
         ScheduleParticipantAttendance attendance = scheduleParticipant.getAttendance();
         Point savedLocation = attendance.getLocation();
 
+        auditRecorder.recordSelf(
+            schedule,
+            command.requesterMemberId(),
+            attendance.getStatus(),
+            AuditAction.SUBMIT
+        );
+
         // decisionMakerMember는 null
         return ScheduleParticipantAttendanceResult.builder()
             .latitude(savedLocation != null ? savedLocation.getY() : null)
@@ -145,17 +160,45 @@ public class ScheduleParticipantCommandService implements
         domain = Domain.SCHEDULE,
         action = AuditAction.CHECK,
         targetType = "ScheduleAttendance",
-        description = "'일정 출석 요청을 처리했습니다. count=' + #commands.size()"
+        description = "'일정 출석 요청을 처리했습니다.'"
     )
     @Override
     public List<ScheduleParticipantAttendanceResult> decideAttendances(List<DecideAttendanceCommand> commands) {
-        return commands.stream()
+        if (commands.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProcessedDecision> processedDecisions = commands.stream()
             .map(this::processDecision) // 단일 command에 대해 출석 요청 승인/거절 로직 수행
             .toList();
+
+        Map<Long, MemberInfo> members = auditRecorder.recordDecisions(processedDecisions.stream()
+            .map(this::toAuditDecision)
+            .toList());
+
+        List<ScheduleParticipantAttendanceResult> results = new ArrayList<>(processedDecisions.size());
+        for (ProcessedDecision processed : processedDecisions) {
+            DecideAttendanceCommand command = processed.command();
+            MemberInfo decisionMaker = members.get(command.decidedByMemberId());
+
+            results.add(toDecisionResult(processed.attendance(), decisionMaker));
+        }
+        return List.copyOf(results);
+    }
+
+    private ScheduleAttendanceAuditRecorder.Decision toAuditDecision(ProcessedDecision processed) {
+        DecideAttendanceCommand command = processed.command();
+        return ScheduleAttendanceAuditRecorder.Decision.of(
+            processed.schedule(),
+            command.decidedByMemberId(),
+            command.participantMemberId(),
+            processed.attendance().getStatus(),
+            command.isApproved() ? AuditAction.APPROVE : AuditAction.REJECT
+        );
     }
 
     // 출석 요청 승인/거절 로직
-    private ScheduleParticipantAttendanceResult processDecision(DecideAttendanceCommand command) {
+    private ProcessedDecision processDecision(DecideAttendanceCommand command) {
         Schedule schedule = loadSchedulePort.findById(command.scheduleId())
             .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
 
@@ -176,9 +219,14 @@ public class ScheduleParticipantCommandService implements
         }
         saveScheduleParticipantPort.save(scheduleParticipant);
 
-        MemberInfo decisionMaker = getMemberUseCase.getById(command.decidedByMemberId());
-
         ScheduleParticipantAttendance attendance = scheduleParticipant.getAttendance();
+        return new ProcessedDecision(command, ScheduleAuditEventFactory.snapshot(schedule), attendance);
+    }
+
+    private ScheduleParticipantAttendanceResult toDecisionResult(
+        ScheduleParticipantAttendance attendance,
+        MemberInfo decisionMaker
+    ) {
         Point savedLocation = attendance.getLocation();
 
         return ScheduleParticipantAttendanceResult.builder()
@@ -215,5 +263,12 @@ public class ScheduleParticipantCommandService implements
             return GeometryUtils.createPoint(latitude, longitude);
         }
         return null;
+    }
+
+    private record ProcessedDecision(
+        DecideAttendanceCommand command,
+        ScheduleAuditEventFactory.ScheduleSnapshot schedule,
+        ScheduleParticipantAttendance attendance
+    ) {
     }
 }

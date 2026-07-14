@@ -7,6 +7,19 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Instant;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -20,21 +33,13 @@ import com.umc.product.schedule.application.service.query.ScheduleCapabilitiesSe
 import com.umc.product.schedule.domain.Schedule;
 import com.umc.product.schedule.domain.exception.ScheduleDomainException;
 import com.umc.product.schedule.domain.exception.ScheduleErrorCode;
-import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ScheduleCommandService 일정 삭제")
 class ScheduleCommandServiceDeleteTest {
 
     private static final Long SCHEDULE_ID = 100L;
+    private static final Long ACTOR_MEMBER_ID = 10L;
     @Mock
     SaveSchedulePort saveSchedulePort;
     @Mock
@@ -55,6 +60,10 @@ class ScheduleCommandServiceDeleteTest {
     GetGisuUseCase getGisuUseCase;
     @Mock
     GetMemberUseCase getMemberUseCase;
+    @Mock
+    ScheduleAuditRecorder auditRecorder;
+    @Mock
+    ScheduleParticipantUpdater participantUpdater;
     @InjectMocks
     ScheduleCommandService sut;
 
@@ -63,6 +72,10 @@ class ScheduleCommandServiceDeleteTest {
         };
         ReflectionTestUtils.setField(schedule, "id", SCHEDULE_ID);
         ReflectionTestUtils.setField(schedule, "authorMemberId", 10L);
+        ReflectionTestUtils.setField(schedule, "name", "삭제 대상 일정");
+        ReflectionTestUtils.setField(schedule, "startsAt", Instant.parse("2030-07-20T10:00:00Z"));
+        ReflectionTestUtils.setField(schedule, "endsAt", Instant.parse("2030-07-20T12:00:00Z"));
+        ReflectionTestUtils.setField(schedule, "tags", Set.of());
         return schedule;
     }
 
@@ -81,7 +94,7 @@ class ScheduleCommandServiceDeleteTest {
                 .willReturn(false);
 
             // when
-            sut.delete(SCHEDULE_ID);
+            sut.delete(SCHEDULE_ID, ACTOR_MEMBER_ID);
 
             // then
             then(deleteScheduleParticipantPort).should().deleteByScheduleId(SCHEDULE_ID);
@@ -99,7 +112,7 @@ class ScheduleCommandServiceDeleteTest {
                 .willReturn(true);
 
             // when & then
-            assertThatThrownBy(() -> sut.delete(SCHEDULE_ID))
+            assertThatThrownBy(() -> sut.delete(SCHEDULE_ID, ACTOR_MEMBER_ID))
                 .isInstanceOf(ScheduleDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ScheduleErrorCode.SCHEDULE_HAS_ATTENDANCE_RECORD);
@@ -115,7 +128,7 @@ class ScheduleCommandServiceDeleteTest {
             given(loadSchedulePort.findById(SCHEDULE_ID)).willReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> sut.delete(SCHEDULE_ID))
+            assertThatThrownBy(() -> sut.delete(SCHEDULE_ID, ACTOR_MEMBER_ID))
                 .isInstanceOf(ScheduleDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ScheduleErrorCode.SCHEDULE_NOT_FOUND);
@@ -138,7 +151,7 @@ class ScheduleCommandServiceDeleteTest {
             given(loadSchedulePort.findById(SCHEDULE_ID)).willReturn(Optional.of(schedule));
 
             // when
-            sut.forceDelete(SCHEDULE_ID);
+            sut.forceDelete(SCHEDULE_ID, ACTOR_MEMBER_ID);
 
             // then
             then(loadScheduleParticipantPort).should(never())
@@ -154,7 +167,7 @@ class ScheduleCommandServiceDeleteTest {
             given(loadSchedulePort.findById(SCHEDULE_ID)).willReturn(Optional.empty());
 
             // when & then
-            assertThatThrownBy(() -> sut.forceDelete(SCHEDULE_ID))
+            assertThatThrownBy(() -> sut.forceDelete(SCHEDULE_ID, ACTOR_MEMBER_ID))
                 .isInstanceOf(ScheduleDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ScheduleErrorCode.SCHEDULE_NOT_FOUND);

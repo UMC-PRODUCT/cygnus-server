@@ -19,11 +19,14 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -46,9 +49,13 @@ public class ChallengerRoleController {
     @PostMapping
     @Operation(operationId = "STAFF-001", summary = "운영진 기록 생성", description = "운영진 기록을 생성합니다. 총괄단 권한이 필요합니다.")
     public CreateChallengerRoleResponse createChallengerRole(
-        @RequestBody CreateChallengerRoleRequest request) {
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @Valid @RequestBody CreateChallengerRoleRequest request
+    ) {
         Long createdId =
-            manageChallengerRoleUseCase.createChallengerRole(CreateChallengerRoleCommand.from(request));
+            manageChallengerRoleUseCase.createChallengerRole(
+                CreateChallengerRoleCommand.of(request, memberPrincipal.getMemberId())
+            );
 
         return CreateChallengerRoleResponse.builder()
             .challengerRoleId(createdId)
@@ -79,11 +86,13 @@ public class ChallengerRoleController {
     @Operation(operationId = "STAFF-002", summary = "운영진 기록 삭제", description = "부여된 운영진 기록을 삭제합니다.")
     @DeleteMapping("{challengerRoleId}")
     public void deleteChallengerRole(
+        @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long challengerRoleId
     ) {
         manageChallengerRoleUseCase.deleteChallengerRole(
             DeleteChallengerRoleCommand.builder()
                 .challengerRoleId(challengerRoleId)
+                .actorMemberId(memberPrincipal.getMemberId())
                 .build()
         );
     }

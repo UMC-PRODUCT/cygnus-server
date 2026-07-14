@@ -1,5 +1,16 @@
 package com.umc.product.member.application.service;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.member.application.port.in.query.GetMemberProfileUseCase;
@@ -11,18 +22,11 @@ import com.umc.product.member.domain.Member;
 import com.umc.product.member.domain.exception.MemberDomainException;
 import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
-import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolNameInfo;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -87,33 +91,45 @@ public class MemberQueryService implements GetMemberUseCase, GetMemberProfileUse
 
         List<Member> members = loadMemberPort.findAllByIds(memberIds);
 
-        Map<Long, String> schoolNameCache = new HashMap<>();
-        Map<String, String> profileLinkCache = new HashMap<>();
+        Set<Long> schoolIds = members.stream()
+            .map(Member::getSchoolId)
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+        Map<Long, String> schoolNames = getSchoolUseCase.batchGetNamesByIds(schoolIds).stream()
+            .collect(java.util.stream.Collectors.toMap(
+                SchoolNameInfo::schoolId,
+                SchoolNameInfo::schoolName
+            ));
+        List<String> profileImageIds = members.stream()
+            .map(Member::getProfileImageId)
+            .filter(java.util.Objects::nonNull)
+            .distinct()
+            .toList();
+        Map<String, FileInfo> profileFiles = profileImageIds.isEmpty()
+            ? Map.of()
+            : getFileUseCase.findAllByIds(new ArrayList<>(profileImageIds));
         Map<Long, MemberInfo> results = new HashMap<>(members.size());
 
         for (Member member : members) {
-            String schoolName = null;
-            Long schoolId = member.getSchoolId();
-            if (schoolId != null) {
-                schoolName = schoolNameCache.computeIfAbsent(schoolId, id -> {
-                    SchoolDetailInfo schoolDetailInfo = getSchoolUseCase.getSchoolDetail(id);
-                    return schoolDetailInfo != null ? schoolDetailInfo.schoolName() : null;
-                });
-            }
-
-            String profileImageLink = null;
-            String profileImageId = member.getProfileImageId();
-            if (profileImageId != null) {
-                profileImageLink = profileLinkCache.computeIfAbsent(profileImageId, id -> {
-                    FileInfo fileInfo = getFileUseCase.getById(id);
-                    return fileInfo.fileLink();
-                });
-            }
+            String schoolName = schoolNames.get(member.getSchoolId());
+            FileInfo profileFile = member.getProfileImageId() == null
+                ? null
+                : profileFiles.get(member.getProfileImageId());
+            String profileImageLink = profileFile == null ? null : profileFile.fileLink();
 
             results.put(member.getId(), MemberInfo.from(member, schoolName, profileImageLink, null));
         }
 
         return results;
+    }
+
+    @Override
+    public Map<Long, MemberInfo> batchGetByIds(Set<Long> memberIds) {
+        Map<Long, MemberInfo> members = findAllByIds(memberIds);
+        if (memberIds != null && members.size() != memberIds.size()) {
+            throw new MemberDomainException(MemberErrorCode.MEMBER_NOT_FOUND);
+        }
+        return members;
     }
 
     @Override

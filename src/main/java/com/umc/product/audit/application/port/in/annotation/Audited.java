@@ -1,11 +1,12 @@
 package com.umc.product.audit.application.port.in.annotation;
 
-import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.global.exception.constant.Domain;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.global.exception.constant.Domain;
 
 /**
  * 메서드 실행 성공 후 감사 로그를 자동 기록하는 어노테이션
@@ -17,7 +18,7 @@ import java.lang.annotation.Target;
  *     action = AuditAction.CREATE,
  *     targetType = "Schedule",
  *     targetId = "#result",
- *     description = "'일정 생성: ' + #command.name()"
+ *     description = "'일정을 생성했습니다.'"
  * )
  * public Long create(CreateScheduleCommand command) { ... }
  * }</pre>

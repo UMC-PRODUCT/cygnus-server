@@ -160,8 +160,19 @@ public class ChallengerQueryService implements GetChallengerUseCase, CheckChalle
         if (challengerIds == null || challengerIds.isEmpty()) {
             return List.of();
         }
-        return loadChallengerPort.getAllByIds(challengerIds).stream()
-            .map(this::getChallengerInfoFromChallenger).toList();
+        return toChallengerInfoListBatch(loadChallengerPort.getAllByIds(challengerIds));
+    }
+
+    @Override
+    public List<ChallengerInfo> batchGetByIds(Set<Long> challengerIds) {
+        if (challengerIds == null || challengerIds.isEmpty()) {
+            return List.of();
+        }
+        List<Challenger> challengers = loadChallengerPort.getAllByIds(challengerIds);
+        if (challengers.size() != challengerIds.size()) {
+            throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_NOT_FOUND);
+        }
+        return toChallengerInfoListBatch(challengers);
     }
 
     @Override

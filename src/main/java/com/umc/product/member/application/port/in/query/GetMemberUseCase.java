@@ -1,10 +1,11 @@
 package com.umc.product.member.application.port.in.query;
 
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 
 public interface GetMemberUseCase {
     MemberInfo getById(Long memberId);
@@ -20,6 +21,11 @@ public interface GetMemberUseCase {
     MemberInfo findByIdOrNull(Long memberId);
 
     Map<Long, MemberInfo> findAllByIds(Set<Long> memberIds);
+
+    /**
+     * 여러 회원을 IN query로 조회하며 입력된 모든 ID가 존재해야 합니다.
+     */
+    Map<Long, MemberInfo> batchGetByIds(Set<Long> memberIds);
 
     Map<Long, Long> findAllSchoolIdsByIds(Set<Long> memberIds);
 

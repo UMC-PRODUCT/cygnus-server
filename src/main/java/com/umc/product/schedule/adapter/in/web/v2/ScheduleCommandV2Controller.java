@@ -1,7 +1,5 @@
 package com.umc.product.schedule.adapter.in.web.v2;
 
-import java.util.List;
-
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,22 +14,12 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.schedule.adapter.in.web.v2.dto.request.CreateScheduleRequest;
-import com.umc.product.schedule.adapter.in.web.v2.dto.request.DecideAttendanceRequest;
 import com.umc.product.schedule.adapter.in.web.v2.dto.request.EditScheduleRequest;
-import com.umc.product.schedule.adapter.in.web.v2.dto.request.ExcuseScheduleAttendanceRequest;
-import com.umc.product.schedule.adapter.in.web.v2.dto.request.ScheduleAttendanceRequest;
-import com.umc.product.schedule.adapter.in.web.v2.dto.response.ScheduleParticipantAttendanceInfoResponse;
-import com.umc.product.schedule.application.port.in.command.CreateScheduleParticipantUseCase;
 import com.umc.product.schedule.application.port.in.command.CreateScheduleUseCase;
 import com.umc.product.schedule.application.port.in.command.DeleteScheduleUseCase;
-import com.umc.product.schedule.application.port.in.command.UpdateScheduleParticipantUseCase;
 import com.umc.product.schedule.application.port.in.command.UpdateScheduleUseCase;
 import com.umc.product.schedule.application.port.in.command.dto.CreateScheduleCommand;
-import com.umc.product.schedule.application.port.in.command.dto.DecideAttendanceCommand;
 import com.umc.product.schedule.application.port.in.command.dto.EditScheduleCommand;
-import com.umc.product.schedule.application.port.in.command.dto.ExcuseScheduleAttendanceCommand;
-import com.umc.product.schedule.application.port.in.command.dto.ScheduleAttendanceCommand;
-import com.umc.product.schedule.application.port.in.command.dto.result.ScheduleParticipantAttendanceResult;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -50,9 +38,6 @@ public class ScheduleCommandV2Controller {
     private final CreateScheduleUseCase createScheduleUseCase;
     private final UpdateScheduleUseCase updateScheduleUseCase;
     private final DeleteScheduleUseCase deleteScheduleUseCase;
-
-    private final CreateScheduleParticipantUseCase createScheduleParticipantAttendanceUseCase;
-    private final UpdateScheduleParticipantUseCase updateScheduleParticipantUseCase;
 
     @CheckAccess(
         resourceType = ResourceType.SCHEDULE,
@@ -217,8 +202,11 @@ public class ScheduleCommandV2Controller {
         )
     })
     @DeleteMapping("/{scheduleId}")
-    public void delete(@PathVariable Long scheduleId) {
-        deleteScheduleUseCase.delete(scheduleId);
+    public void delete(
+        @PathVariable Long scheduleId,
+        @CurrentMember MemberPrincipal memberPrincipal
+    ) {
+        deleteScheduleUseCase.delete(scheduleId, memberPrincipal.getMemberId());
     }
 
     @CheckAccess(
@@ -251,166 +239,11 @@ public class ScheduleCommandV2Controller {
         )
     })
     @DeleteMapping("/{scheduleId}/force")
-    public void forceDelete(@PathVariable Long scheduleId) {
-        deleteScheduleUseCase.forceDelete(scheduleId);
-    }
-
-    // ========================= 출석 관련 =========================
-
-    @CheckAccess(
-        resourceType = ResourceType.ATTENDANCE,
-        resourceId = "#scheduleId",
-        permission = PermissionType.WRITE,
-        message = "출석은 챌린저 활동 기록이 있고 일정에 참여하는 사용자만 요청할 수 있어요. 참여자 목록을 확인해주세요."
-    )
-    @Operation(operationId = "SCHEDULE-C003", summary = "출석 요청하기", description = """
-        특정 일정에 대한 출석을 요청합니다. 반환값으로 변경된 출석 상태 및 관련된 정보들을 제공합니다.
-
-        - 이미 출석 요청을 한 경우, 에러가 반환됩니다. (사유 출석 요청 및 이미 출석/지각/결석으로 확정된 경우 등)
-        - 일정의 출석 시작 가능 시간이 아직 도래하지 않은 경우 및 일정 종료 시간이 경과된 이후에는 에러가 반환됩니다.
-        """
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK"),
-        @ApiResponse(responseCode = "400", description = """
-            SCHEDULE-0011 : 이미 출석 요청이 있어요. 기존 요청을 확인해주세요.<br>
-            SCHEDULE-0018 : 종료된 일정에는 출석을 요청할 수 없어요. 일정 시간을 확인해주세요.<br>
-            SCHEDULE-0019 : 아직 출석할 수 있는 시간이 아니에요. 출석 가능 시간 이후에 다시 시도해주세요.<br>
-            SCHEDULE-0021 : 출석 정책이 없는 일정이에요. 출석 정책을 먼저 설정해주세요.<br>
-            SCHEDULE-0022 : 일정 참석자 정보를 찾을 수 없어요. 참석자 목록을 확인해주세요.<br>
-            SCHEDULE-0023 : 출석 인증 범위 안에 있는지 확인하지 못했어요. 위치를 확인한 뒤 다시 시도해주세요.
-            """,
-            content = @Content
-        ),
-        @ApiResponse(responseCode = "403", description = """
-            AUTHORIZATION-0002 : 이 항목에 접근할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요.
-            """,
-            content = @Content
-        ),
-        @ApiResponse(responseCode = "404", description = """
-            SCHEDULE-0009 : 일정을 찾을 수 없어요. 선택한 일정을 확인해주세요.
-            """,
-            content = @Content
-        )
-    })
-    @PostMapping("/{scheduleId}/attendances/request")
-    public ScheduleParticipantAttendanceInfoResponse requestAttendance(
-        @CurrentMember MemberPrincipal memberPrincipal,
+    public void forceDelete(
         @PathVariable Long scheduleId,
-        @Valid @RequestBody ScheduleAttendanceRequest request
+        @CurrentMember MemberPrincipal memberPrincipal
     ) {
-        ScheduleAttendanceCommand command = request.toCommand(scheduleId, memberPrincipal.getMemberId());
-
-        return ScheduleParticipantAttendanceInfoResponse.from(
-            createScheduleParticipantAttendanceUseCase.createScheduleParticipantWithAttendance(command)
-        );
+        deleteScheduleUseCase.forceDelete(scheduleId, memberPrincipal.getMemberId());
     }
-
-    @CheckAccess(
-        resourceType = ResourceType.ATTENDANCE,
-        resourceId = "#scheduleId",
-        permission = PermissionType.WRITE,
-        message = "출석 사유는 챌린저 활동 기록이 있고 일정에 참여하는 사용자만 제출할 수 있어요. 참여자 목록을 확인해주세요."
-    )
-    @Operation(operationId = "SCHEDULE-C004", summary = "출석 요청이 불가능한 경우, 사유 제출하기", description = """
-        위치 인증이 안되거나, 개인 사정이 있어 결석하지만 출석 인정을 요구하는 경우 사유를 제출하기 위하여 사용합니다.
-
-        위치 정보는 클라이언트 단에서 잡히는 경우에 한하여 제공하면 됩니다. 단, 사유는 반드시 제출하여야 합니다.
-        """
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK"),
-        @ApiResponse(responseCode = "400", description = """
-            SCHEDULE-0013 : 첫 요청, 결석 또는 지각 상태에서만 출석 사유를 제출할 수 있어요. 출석 상태를 확인해주세요.<br>
-            SCHEDULE-0016 : 출석 인정을 요청하려면 사유를 입력해주세요.<br>
-            SCHEDULE-0021 : 출석 정책이 없는 일정이에요. 출석 정책을 먼저 설정해주세요.<br>
-            SCHEDULE-0022 : 일정 참석자 정보를 찾을 수 없어요. 참석자 목록을 확인해주세요.
-            """,
-            content = @Content
-        ),
-        @ApiResponse(responseCode = "403", description = """
-            AUTHORIZATION-0002 : 이 항목에 접근할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요.
-            """,
-            content = @Content
-        ),
-        @ApiResponse(responseCode = "404", description = """
-            SCHEDULE-0009 : 일정을 찾을 수 없어요. 선택한 일정을 확인해주세요.
-            """,
-            content = @Content
-        )
-    })
-    @PostMapping("/{scheduleId}/attendances/excuse")
-    public ScheduleParticipantAttendanceInfoResponse excuseAttendance(
-        @CurrentMember MemberPrincipal memberPrincipal,
-        @PathVariable Long scheduleId,
-        @Valid @RequestBody ExcuseScheduleAttendanceRequest request
-    ) {
-        ExcuseScheduleAttendanceCommand command = request.toCommand(scheduleId, memberPrincipal.getMemberId());
-
-        return ScheduleParticipantAttendanceInfoResponse.from(
-            createScheduleParticipantAttendanceUseCase.createExcusedScheduleParticipantWithAttendance(command)
-        );
-    }
-
-    @CheckAccess(
-        resourceType = ResourceType.ATTENDANCE,
-        resourceId = "#scheduleId",
-        permission = PermissionType.APPROVE,
-        message = "출석 요청은 해당 일정 기수의 운영진만 승인하거나 거절할 수 있어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
-    )
-    // 각 일정에 대한 출석 요청을 승인 또는 기각하는 API, Request는 list 형태로 받을 수 있어야 합니다.
-    @Operation(operationId = "SCHEDULE-C005", summary = "[운영진용] 출석 요청 승인/거절", description = """
-        일정에 대한 출석 요청을 승인 또는 거절합니다.
-
-        결정 권한은 아래와 같습니다. (기준은, 일정이 포함된 기수 기준입니다)
-        - 중앙운영사무국 총괄단 이상의 권한을 가지고 있거나, 일정에 참여하는 중앙운영사무국원,
-
-        여러 개의 요청을 한 번에 처리할 수 있도록, DecideAttendanceRequest를 배열로 받습니다.
-        모든 요청이 성공적으로 처리된 경우에만 성공으로 반환합니다. (Transaction)
-        """
-    )
-    @ApiResponses(value = {
-        @ApiResponse(responseCode = "200", description = "OK"),
-        @ApiResponse(responseCode = "400", description = """
-            SCHEDULE-0012 : 출석 요청이 없어요. 출석 요청을 먼저 생성해주세요.<br>
-            SCHEDULE-0014 : 현재 출석 상태에서는 승인할 수 없어요. 출석 상태를 확인해주세요.<br>
-            SCHEDULE-0015 : 현재 출석 상태에서는 거절할 수 없어요. 출석 상태를 확인해주세요.<br>
-            SCHEDULE-0017 : 운영진 확인이 필요한 출석 요청이 아니에요. 출석 상태를 확인해주세요.<br>
-            SCHEDULE-0021 : 출석 정책이 없는 일정이에요. 출석 정책을 먼저 설정해주세요.<br>
-            SCHEDULE-0022 : 일정 참석자 정보를 찾을 수 없어요. 참석자 목록을 확인해주세요.
-            """,
-            content = @Content
-        ),
-        @ApiResponse(responseCode = "403", description = """
-            AUTHORIZATION-0002 : 이 항목에 접근할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요.
-            """,
-            content = @Content
-        ),
-        @ApiResponse(responseCode = "404", description = """
-            SCHEDULE-0009 : 일정을 찾을 수 없습니다.
-            """,
-            content = @Content
-        )
-    })
-    @PostMapping("/{scheduleId}/attendances/decide")
-    public List<ScheduleParticipantAttendanceInfoResponse> decideAttendances(
-        @CurrentMember MemberPrincipal memberPrincipal,
-        @PathVariable Long scheduleId,
-        @Valid @RequestBody List<DecideAttendanceRequest> requests
-    ) {
-        // List<Request> -> List<Command> 변환
-        List<DecideAttendanceCommand> commands = requests.stream()
-            .map(request -> request.toCommand(scheduleId, memberPrincipal.getMemberId()))
-            .toList();
-
-        List<ScheduleParticipantAttendanceResult> results = updateScheduleParticipantUseCase.decideAttendances(
-            commands);
-
-        return results.stream()
-            .map(ScheduleParticipantAttendanceInfoResponse::from)
-            .toList();
-    }
-
-    // TODO: 일정 신고 API (본인이 참여하지 않는 일정에 강제로 초대당한 경우)
 
 }

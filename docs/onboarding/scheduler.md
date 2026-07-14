@@ -10,7 +10,6 @@
 | Project 매칭 데드라인 pool | `matchingDeadlineTaskScheduler` | `matching-deadline-` | project 매칭 차수 결정 마감 1회성 task |
 | Webhook async executor | `webhookTaskExecutor` | `webhook-` | webhook alarm event listener의 외부 webhook I/O |
 | Email async executor | `emailTaskExecutor` | `email-` | 인증 메일 발송 |
-| Audit async executor | `auditTaskExecutor` | `audit-` | 감사 로그 저장 |
 
 전역 `@Scheduled` 작업은 반드시 `taskScheduler`를 사용한다. Project 매칭 데드라인은 `@Scheduled`가 아니라 `TaskScheduler.schedule(...)`로 동적 등록되며, `@Qualifier("matchingDeadlineTaskScheduler")`로 전용 풀을 주입받는다.
 

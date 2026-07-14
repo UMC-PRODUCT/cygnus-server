@@ -337,6 +337,17 @@ groups:
       - record: umc_product:http_request_p95_seconds:top10_5m
         expr: topk(10, histogram_quantile(0.95, sum by (application, service_name, le, method, uri) (rate(http_server_requests_seconds_bucket[5m]))))
 
+  - name: umc-product.audit
+    rules:
+      - alert: AuditLogSaveFailures
+        expr: sum by (application, environment) (increase(operational_audit_log_failure_total[5m])) > 0
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "감사 로그 저장 실패를 확인해주세요"
+          description: "application={{ $labels.application }}, environment={{ $labels.environment }} 에서 최근 5분 동안 감사 로그 저장 실패가 발생했어요. audit 저장소와 데이터베이스 상태를 확인해주세요."
+
   - name: umc-product.database-cache
     rules:
       - alert: DbConnectionPoolHighUsage

@@ -25,4 +25,6 @@ public interface GetSchoolUseCase {
     List<SchoolDetailInfo> getSchoolListByGisuId(Long gisuId);
 
     Map<Long, List<SchoolDetailInfo>> getSchoolListByGisuIds(Set<Long> gisuIds);
+
+    List<SchoolNameInfo> batchGetNamesByIds(Set<Long> schoolIds);
 }

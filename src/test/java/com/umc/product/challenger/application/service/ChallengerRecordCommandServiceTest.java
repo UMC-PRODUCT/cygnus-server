@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
 import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
@@ -68,6 +69,12 @@ class ChallengerRecordCommandServiceTest {
 
     @Mock
     SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
+
+    @Mock
+    RecordAuditLogUseCase recordAuditLogUseCase;
+
+    @Mock
+    ChallengerRecordAuditSnapshotFactory challengerRecordAuditSnapshotFactory;
 
     @InjectMocks
     ChallengerRecordCommandService sut;
@@ -203,6 +210,7 @@ class ChallengerRecordCommandServiceTest {
             1L, 9L, 2L, 3L, ChallengerPart.SPRINGBOOT, "홍길동",
             ChallengerRoleType.SCHOOL_PRESIDENT, 3L
         );
+        ReflectionTestUtils.setField(record, "id", 77L);
         given(loadChallengerRecordPort.getByCode("ABC123")).willReturn(record);
         given(loadChallengerPort.findByMemberIdAndGisuId(100L, 9L))
             .willReturn(Optional.of(challenger(50L)));
@@ -253,7 +261,16 @@ class ChallengerRecordCommandServiceTest {
     }
 
     private ChallengerRecord normalRecord() {
-        return ChallengerRecord.create(1L, 9L, 2L, 3L, ChallengerPart.SPRINGBOOT, "홍길동");
+        ChallengerRecord record = ChallengerRecord.create(
+            1L,
+            9L,
+            2L,
+            3L,
+            ChallengerPart.SPRINGBOOT,
+            "홍길동"
+        );
+        ReflectionTestUtils.setField(record, "id", 77L);
+        return record;
     }
 
     private MemberInfo member(String name, Long schoolId) {

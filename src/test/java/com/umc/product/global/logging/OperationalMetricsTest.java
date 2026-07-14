@@ -8,6 +8,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import io.micrometer.prometheusmetrics.PrometheusConfig;
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry;
 
 class OperationalMetricsTest {
 
@@ -88,5 +90,27 @@ class OperationalMetricsTest {
             .tag("result", "success")
             .counter()
             .count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("감사 failure counter는 Prometheus scrape 이름과 저카디널리티 태그를 유지한다")
+    void audit_failure_counter_prometheus_scrape() {
+        PrometheusMeterRegistry registry = new PrometheusMeterRegistry(PrometheusConfig.DEFAULT);
+        OperationalMetrics metrics = new OperationalMetrics(registry);
+
+        metrics.recordAuditLog("MEMBER", "UPDATE", "FAILURE", "SYSTEM");
+        metrics.recordAuditLogFailure("MEMBER", "UPDATE", new IllegalStateException("target-123456"));
+
+        String scrape = registry.scrape();
+
+        assertThat(scrape)
+            .contains("operational_audit_log_total")
+            .contains("operational_audit_log_failure_total")
+            .contains("action=\"UPDATE\"")
+            .contains("domain=\"MEMBER\"")
+            .contains("outcome=\"FAILURE\"")
+            .contains("source=\"SYSTEM\"")
+            .contains("reason=\"IllegalStateException\"")
+            .doesNotContain("targetId", "requestId", "traceId", "target-123456");
     }
 }

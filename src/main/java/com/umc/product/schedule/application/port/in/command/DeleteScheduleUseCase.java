@@ -9,12 +9,12 @@ public interface DeleteScheduleUseCase {
      * <p>
      * 일정에 연결된 모든 ScheduleParticipant도 함께 삭제됩니다.
      */
-    void delete(Long scheduleId);
+    void delete(Long scheduleId, Long actorMemberId);
 
     /**
      * 일정을 강제로 삭제합니다.
      * <p>
      * 출석 기록 존재 여부와 관계 없이 삭제 가능하며, 일정에 연결된 모든 ScheduleParticipant도 함께 삭제됩니다.
      */
-    void forceDelete(Long scheduleId);
+    void forceDelete(Long scheduleId, Long actorMemberId);
 }

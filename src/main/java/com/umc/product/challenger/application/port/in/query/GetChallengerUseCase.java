@@ -88,6 +88,11 @@ public interface GetChallengerUseCase {
     List<ChallengerInfo> getAllByIds(Set<Long> challengerIds);
 
     /**
+     * 여러 챌린저를 IN query로 조회하며 입력된 모든 ID가 존재해야 합니다.
+     */
+    List<ChallengerInfo> batchGetByIds(Set<Long> challengerIds);
+
+    /**
      * 특정 기수 내 여러 memberId 의 챌린저 정보를 batch 조회한다.
      * <p>
      * 입력된 모든 memberId 는 해당 기수의 챌린저로 존재해야 한다. 누락 시 예외.

@@ -5,17 +5,15 @@ import java.util.List;
 
 import org.springframework.stereotype.Service;
 
-import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.audit.domain.AuditLogEvent;
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
 import com.umc.product.authentication.application.port.in.command.CredentialAuthenticationUseCase;
 import com.umc.product.authentication.application.port.in.command.dto.RegisterCredentialByEmailCommand;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
-import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.member.application.port.in.command.RegisterEmailMemberUseCase;
 import com.umc.product.member.application.port.in.command.dto.EmailRegisterMemberCommand;
 import com.umc.product.member.application.port.out.SaveMemberPort;
 import com.umc.product.member.domain.Member;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
 
 import jakarta.transaction.Transactional;
@@ -38,7 +36,7 @@ public class EmailMemberRegisterService implements RegisterEmailMemberUseCase {
     private final ManageTermAgreementUseCase manageTermAgreementUseCase;
     private final GetSchoolUseCase getSchoolUseCase;
 
-    private final DomainEventPublisher eventPublisher;
+    private final RecordAuditLogUseCase recordAuditLogUseCase;
 
     @Override
     @Transactional
@@ -78,19 +76,10 @@ public class EmailMemberRegisterService implements RegisterEmailMemberUseCase {
             manageTermAgreementUseCase.createTermConsent(termConsent.toCommand(created.getId()))
         );
 
-        String logDescription = getSchoolUseCase.getSchoolDetail(command.schoolId()).schoolName()
-            + "소속 " + command.nickname() + "/" + command.name()
-            + " 님이 회원 가입하셨습니다.";
-
-        eventPublisher.publish(
-            AuditLogEvent.builder()
-                .domain(Domain.MEMBER)
-                .action(AuditAction.REGISTER)
-                .targetType("Member")
-                .targetId(String.valueOf(created.getId()))
-                .description(logDescription)
-                .build()
-        );
+        SchoolDetailInfo school = getSchoolUseCase.getSchoolDetail(command.schoolId());
+        MemberAuditEventFactory.MemberSnapshot memberSnapshot =
+            MemberAuditEventFactory.snapshot(created, school.schoolName());
+        recordAuditLogUseCase.record(MemberAuditEventFactory.registered(memberSnapshot));
 
         return created.getId();
     }

@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import com.umc.product.audit.application.port.in.command.RecordAuditLogUseCase;
 import com.umc.product.authentication.application.port.in.command.dto.ChangePasswordCommand;
 import com.umc.product.authentication.application.port.in.command.dto.LocalLoginResult;
 import com.umc.product.authentication.application.port.in.command.dto.LoginByEmailCommand;
@@ -64,6 +65,8 @@ class CredentialAuthenticationServiceTest {
     SsoCredentialVerifier credentialVerifier;
     @Mock
     OperationalMetrics operationalMetrics;
+    @Mock
+    RecordAuditLogUseCase recordAuditLogUseCase;
     @InjectMocks
     CredentialAuthenticationService service;
 

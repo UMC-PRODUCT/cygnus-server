@@ -31,19 +31,6 @@ public class AsyncConfig implements AsyncConfigurer {
         return executor;
     }
 
-    @Bean(name = "auditTaskExecutor")
-    public Executor auditTaskExecutor() {
-        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-        executor.setCorePoolSize(2);
-        executor.setMaxPoolSize(5);
-        executor.setQueueCapacity(200);
-        executor.setThreadNamePrefix("audit-");
-        // 감사 로그도 동일하게 원 요청 trace 컨텍스트를 이어받아 자식 span 으로 연결한다.
-        executor.setTaskDecorator(new ContextPropagatingTaskDecorator());
-        executor.initialize();
-        return executor;
-    }
-
     @Bean(name = "webhookTaskExecutor")
     public Executor webhookTaskExecutor() {
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
