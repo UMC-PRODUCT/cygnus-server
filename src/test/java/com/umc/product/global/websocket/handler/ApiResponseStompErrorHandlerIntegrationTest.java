@@ -34,8 +34,11 @@ import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.util.MimeTypeUtils;
+import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketHttpHeaders;
+import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
+import org.springframework.web.socket.handler.TextWebSocketHandler;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
 import org.springframework.web.socket.sockjs.client.SockJsClient;
 import org.springframework.web.socket.sockjs.client.WebSocketTransport;
@@ -45,7 +48,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.global.config.WebSocketMessageBrokerConfig;
+import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.ParsedAccessToken;
+import com.umc.product.global.websocket.application.service.StompSubscriptionAuthorizerRegistry;
 import com.umc.product.global.websocket.interceptor.ShutdownAwareHandshakeInterceptor;
 import com.umc.product.global.websocket.interceptor.StompAuthChannelInterceptor;
 import com.umc.product.global.websocket.interceptor.StompPrincipalInterceptor;
@@ -118,6 +124,90 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         }
     }
 
+    @Test
+    @DisplayName("Authorization 헤더 없이 raw STOMP 연결하면 ERROR 프레임을 받는다")
+    void stomp_without_authorization_header_receives_error_frame() throws Exception {
+        BlockingQueue<String> frames = new LinkedBlockingQueue<>();
+        SockJsClient sockJsClient = sockJsClient();
+        WebSocketSession session = null;
+
+        try {
+            session = sockJsClient.execute(
+                new TextWebSocketHandler() {
+                    @Override
+                    public void afterConnectionEstablished(WebSocketSession establishedSession) throws Exception {
+                        establishedSession.sendMessage(
+                            new TextMessage("STOMP\naccept-version:1.2\nhost:localhost\n\n\0")
+                        );
+                    }
+
+                    @Override
+                    protected void handleTextMessage(WebSocketSession establishedSession, TextMessage message) {
+                        frames.offer(message.getPayload());
+                    }
+                },
+                "http://localhost:%d/ws".formatted(port)
+            ).get(5, TimeUnit.SECONDS);
+
+            assertThat(frames.poll(5, TimeUnit.SECONDS))
+                .startsWith("ERROR")
+                .contains(AuthenticationErrorCode.INVALID_JWT.getCode());
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close();
+            }
+            sockJsClient.stop();
+        }
+    }
+
+    @Test
+    @DisplayName("server-only MESSAGE 명령을 client inbound로 보내면 ERROR 프레임을 받는다")
+    void message_from_client_receives_error_frame() throws Exception {
+        when(jwtTokenProvider.parseAndValidateAccessToken(eq("valid-token")))
+            .thenReturn(new ParsedAccessToken(10L, List.of(), null));
+
+        BlockingQueue<String> frames = new LinkedBlockingQueue<>();
+        SockJsClient sockJsClient = sockJsClient();
+        WebSocketSession session = null;
+
+        try {
+            session = sockJsClient.execute(
+                new TextWebSocketHandler() {
+                    @Override
+                    public void afterConnectionEstablished(WebSocketSession establishedSession) throws Exception {
+                        establishedSession.sendMessage(new TextMessage(
+                            "CONNECT\nAuthorization:Bearer valid-token\naccept-version:1.2\nhost:localhost\n\n\0"
+                        ));
+                    }
+
+                    @Override
+                    protected void handleTextMessage(
+                        WebSocketSession establishedSession,
+                        TextMessage message
+                    ) throws Exception {
+                        if (message.getPayload().startsWith("CONNECTED")) {
+                            establishedSession.sendMessage(new TextMessage(
+                                "MESSAGE\ndestination:/app/test/messages\n\nattack\0"
+                            ));
+                            return;
+                        }
+                        frames.offer(message.getPayload());
+                    }
+                },
+                "http://localhost:%d/ws".formatted(port)
+            ).get(5, TimeUnit.SECONDS);
+
+            assertThat(frames.poll(5, TimeUnit.SECONDS))
+                .startsWith("ERROR")
+                .contains(CommonErrorCode.SECURITY_WEBSOCKET_INVALID_DESTINATION.getCode());
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close();
+            }
+            sockJsClient.stop();
+        }
+    }
+
     private WebSocketStompClient connect(StompHeaders connectHeaders, BlockingQueue<StompErrorFrame> errors) {
         WebSocketStompClient stompClient = stompClient();
         stompClient.connectAsync(
@@ -130,11 +220,13 @@ class ApiResponseStompErrorHandlerIntegrationTest {
     }
 
     private WebSocketStompClient stompClient() {
-        SockJsClient sockJsClient = new SockJsClient(
+        return new WebSocketStompClient(sockJsClient());
+    }
+
+    private SockJsClient sockJsClient() {
+        return new SockJsClient(
             List.of(new WebSocketTransport(new StandardWebSocketClient()))
         );
-        WebSocketStompClient stompClient = new WebSocketStompClient(sockJsClient);
-        return stompClient;
     }
 
     private void assertErrorFrame(StompErrorFrame errorFrame, String code, String message) throws Exception {
@@ -194,6 +286,7 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         WebSocketMessageBrokerConfig.class,
         ApiResponseStompErrorHandler.class,
         WebSocketErrorPublisher.class,
+        StompSubscriptionAuthorizerRegistry.class,
         StompPrincipalInterceptor.class,
         StompAuthChannelInterceptor.class,
         WebSocketRateLimitInterceptor.class,

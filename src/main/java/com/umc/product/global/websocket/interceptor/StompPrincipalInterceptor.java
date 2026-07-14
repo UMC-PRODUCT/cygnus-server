@@ -33,7 +33,7 @@ public class StompPrincipalInterceptor implements ChannelInterceptor {
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
 
-        if (accessor == null || !StompCommand.CONNECT.equals(accessor.getCommand())) {
+        if (accessor == null || !isConnectionCommand(accessor.getCommand())) {
             return message;
         }
 
@@ -63,5 +63,9 @@ public class StompPrincipalInterceptor implements ChannelInterceptor {
         log.debug("WebSocket CONNECT 인증 확인 memberId={}", parsed.memberId());
 
         return message;
+    }
+
+    private boolean isConnectionCommand(StompCommand command) {
+        return StompCommand.CONNECT.equals(command) || StompCommand.STOMP.equals(command);
     }
 }

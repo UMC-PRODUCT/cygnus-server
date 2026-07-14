@@ -81,6 +81,16 @@ class StompPrincipalInterceptorTest {
     }
 
     @Test
+    @DisplayName("Authorization 헤더 없이 STOMP 연결 시 INVALID_JWT 예외가 발생한다")
+    void stomp_without_authorization_header_throws() {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.STOMP);
+        Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        assertThatThrownBy(() -> sut.preSend(message, channel))
+            .isInstanceOf(AuthenticationDomainException.class);
+    }
+
+    @Test
     @DisplayName("Bearer 접두사 없는 헤더로 CONNECT 시 INVALID_JWT 예외가 발생한다")
     void connect_without_bearer_prefix_throws() {
         assertThatThrownBy(() -> sut.preSend(connectMessage("invalid-format-token"), channel))
@@ -98,7 +108,7 @@ class StompPrincipalInterceptorTest {
     }
 
     @Test
-    @DisplayName("CONNECT 외 명령어는 인증 처리 없이 그대로 통과된다")
+    @DisplayName("연결 외 명령어는 인증 처리 없이 그대로 통과된다")
     void non_connect_command_passes_through() {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
         accessor.setDestination("/topic/test");

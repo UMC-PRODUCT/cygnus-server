@@ -3,7 +3,7 @@ package com.umc.product.global.websocket.application.port.out;
 /**
  * 구독자에게 메시지를 브로드캐스트하기 위한 Port Out.
  * <p>
- * 특정 도메인(inquiry, chat 등)에 의존하지 않는 범용 인터페이스다. destination 경로 규칙(예:
+ * 특정 도메인(inquiry, community 등)에 의존하지 않는 범용 인터페이스다. destination 경로 규칙(예:
  * {@code /topic/inquiry/{id}})의 조립 책임은 호출자에게 있으며, 본 포트는 전달받은 destination 으로 payload 를
  * 그대로 전송하기만 한다. 이렇게 함으로써 어떤 도메인이든 동일한 포트를 재사용할 수 있다.
  * <p>

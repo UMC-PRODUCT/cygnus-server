@@ -57,8 +57,8 @@ Proposed
 2. **메시지 채널은 WebSocket + STOMP (Spring spring-boot-starter-websocket) 로 구현한다.**
     - 1차에는 Spring 내장 **simple in-memory broker** 를 사용한다 (`enableSimpleBroker("/topic")`).
     - 클라이언트 발신은 `/app/inquiry/{inquiryId}/message`, 구독은 `/topic/inquiry/{inquiryId}` 로 통일.
-    - 인증은 STOMP CONNECT 시 헤더의 JWT 를 `ChannelInterceptor.preSend` 에서 검증하고 `Principal` 을 부착한다.
-    - 인가는 SUBSCRIBE / SEND 두 시점 모두 `ChannelInterceptor.preSend` 에서 검증한다 (구독 권한도 검증). REST 컨트롤러 측에는 동일 검증 로직을 공통화해 재사용한다.
+    - 인증은 공통 `StompPrincipalInterceptor` 가 CONNECT/STOMP 헤더의 JWT 를 검증하고 `Principal` 을 부착한다.
+    - SUBSCRIBE 는 공통 registry 가 inquiry authorizer 에 위임하고, `/app/**` SEND 는 inquiry inbound adapter 가 호출하는 UseCase 에서 검증한다. 두 경로 모두 `InquiryAccessGuard` 의 동일한 도메인 접근 규칙을 사용한다.
 3. **권한 모델은 두 그룹으로 정의한다.**
     - **문의자(`INQUIRER`)**: `Inquiry.createdByMemberId == 현재 사용자` 인 경우. 본인 문의방에만 구독 / 전송 가능.
     - **응답자(`RESPONDER`)**: 해당 문의의 `InquiryTarget` 에 속한 운영진. 전체 매핑은 다음과 같이 둔다.
@@ -66,7 +66,7 @@ Proposed
         - `CHAPTER` → 작성자가 속한 기수의 `CHAPTER_PRESIDENT` (`isChapterPresidentInGisu(memberId, gisuId, chapterId)`)
         - `SCHOOL` → 작성자가 속한 (gisuId, schoolId) 의 `isSchoolAdminInGisu(memberId, gisuId, schoolId)`
         - `UMC_PRODUCT` → **임시로 중앙운영사무국 멤버 전체** 로 라우팅. 후속 ADR 또는 코드 변경으로 정식 매핑(예: `ChallengerRole.responsiblePart == PRODUCT` 같은 속성 기반) 을 도입.
-    - 검증 로직은 `inquiry/application/service/InquiryAccessGuard` 한 곳에 모은다 (Service 가 의존, ChannelInterceptor / REST 컨트롤러 모두 동일 빈을 사용).
+    - 검증 로직은 `inquiry/application/service/InquiryAccessGuard` 한 곳에 모은다 (Service, subscription authorizer, REST adapter 가 동일 빈을 사용).
 4. **상태 머신을 다음과 같이 고정한다.**
 
    ```
@@ -98,6 +98,14 @@ Proposed
     - 발송은 모두 기존 `SendNotificationToAudienceUseCase.sendToMembers(memberIds, title, body)` 로 위임.
 10. **종료된 문의의 보관 기간은 무기한.** 분쟁 처리 / 회고 자료로 가치 있고, 데이터 규모상 1차에서는 별도 아카이브 정책을 도입하지 않는다. 추후 데이터 규모가 임계치를 넘기면 별도 ADR 로 보관 정책을 도입한다.
 11. **확장 경로.** in-memory broker 로 시작하되, 인스턴스 증설 시점에 `WebSocketConfig` 만 교체해 외부 broker(예: Redis pub/sub via `enableStompBrokerRelay` 또는 ActiveMQ) 로 전환할 수 있도록 broker 설정을 단일 `@Configuration` 으로 격리한다 (도메인 코드는 broker 변경에 영향받지 않도록).
+12. **Chat engine 과 소비 도메인의 실시간 책임을 분리한다.** Chat engine 은 외부 STOMP destination 을 직접 제공하지 않고 chat 도메인 이벤트만 발행한다.
+    - 실제 topic, broadcast, resource → roomId 매핑과 접근 규칙은 inquiry/community 같은 소비 도메인이 소유한다.
+    - 공통 `StompAuthChannelInterceptor` 는 `/topic`, `/queue` 로 시작하는 SUBSCRIBE 를 `StompSubscriptionAuthorizerRegistry` 에 위임한다. 지원 authorizer 가 없거나 둘 이상이거나 인가에 실패하면 fail-closed 처리한다.
+    - `/user/queue/errors` 는 공통 오류 수신 경로로만 허용한다. 그 외 `/user/**` SUBSCRIBE 와 모든 `/user/**` 직접 SEND 는 차단한다.
+    - `/app/**` SEND 는 소비 도메인의 inbound adapter 가 받고, 해당 adapter 가 호출하는 UseCase 에서 resource 매핑과 전송 권한을 검증한다. 공통 registry 가 소비 도메인의 SEND 정책을 대신하지 않는다.
+    - STOMP 1.0/1.1 `CONNECT` 와 STOMP 1.2 `STOMP` 연결 명령은 모두 동일하게 JWT 를 검증한다.
+    - 서버 전용 `MESSAGE` 명령이 client inbound 로 들어오면 destination 과 관계없이 거부한다.
+    - 소비 도메인은 `ChatMessageCreatedEvent` 를 자신의 topic 으로 전달한다. `ChatRoomPinnedMessageChangedEvent` 는 roomId 와 nullable pinnedMessageId 만 전달하고, 클라이언트는 소비 도메인의 방 상세 API 를 재조회해 전체 고정 메시지를 복원한다.
 
 ## Alternatives Considered
 
@@ -169,7 +177,7 @@ REST `GET /api/v1/inquiries/{id}/messages?after=...` 를 클라이언트가 주�
 단점:
 
 - destination 라우팅 / subscription 관리 / broker 추상화를 우리가 직접 구현해야 한다.
-- 권한 인터셉터 (CONNECT/SUBSCRIBE/SEND 시점 검증) 를 직접 빌드해야 한다.
+- 연결 인증과 구독·발신 인가 경계를 직접 빌드해야 한다.
 - 추후 외부 broker 로 전환할 때 호환 계층이 부재해 큰 리팩토링이 필요하다.
 
 선택하지 않은 이유:
@@ -268,7 +276,7 @@ STOMP 가 destination 모델 / ChannelInterceptor / broker relay 등 이번 도�
     - `@EnableWebSocketMessageBroker`.
     - `registerStompEndpoints` → `addEndpoint("/ws").setAllowedOriginPatterns(...)` (CORS 동일 정책 재사용).
     - `configureMessageBroker` → `enableSimpleBroker("/topic")`, `setApplicationDestinationPrefixes("/app")`.
-    - `configureClientInboundChannel` → `InquiryStompChannelInterceptor` 등록 (CONNECT/SUBSCRIBE/SEND 인가 검증).
+    - `configureClientInboundChannel` → 공통 JWT 인증, broker 직접 발행 차단, subscription authorizer registry 인터셉터 등록.
     - 향후 broker 교체 시 본 클래스 한 곳만 수정한다.
 - `global/config/SecurityConfig`
     - `auth.requestMatchers("/ws/**").permitAll()` (STOMP 핸드셰이크는 별도 인터셉터에서 JWT 검증, Spring Security 단계에서는 통과시킨다).
@@ -319,14 +327,15 @@ src/main/java/com/umc/product/inquiry/
 │       ├── query/
 │       │   ├── InquiryQueryService.java
 │       │   └── InquiryMessageQueryService.java
-│       └── InquiryAccessGuard.java        // SUBSCRIBE/SEND/REST 공용
+│       └── InquiryAccessGuard.java        // resource 매핑과 접근 규칙 공용
 └── adapter/
     ├── in/
     │   ├── web/
     │   │   ├── InquiryController.java                // REST
     │   │   ├── InquiryMessageController.java         // REST (메시지 목록 / 미읽음 처리)
-    │   │   ├── ws/InquiryStompController.java        // @MessageMapping
-    │   │   ├── ws/InquiryStompChannelInterceptor.java
+    │   │   ├── ws/InquiryStompController.java        // @MessageMapping, SEND 인가
+    │   │   ├── ws/InquiryStompSubscriptionAuthorizer.java
+    │   │   ├── event/ChatMessageEventListener.java   // consumer topic broadcast
     │   │   └── dto/(request|response)/...
     └── out/
         └── persistence/
@@ -401,11 +410,11 @@ CREATE INDEX idx_inquiry_message_read_member
 
 ### STOMP destination / 인터셉터
 
-| 단계        | destination / 명령                   | 인가 검증 위치                                                        | 검증 내용                                             |
-|-----------|------------------------------------|-----------------------------------------------------------------|---------------------------------------------------|
-| CONNECT   | `/ws`                              | `InquiryStompChannelInterceptor.preSend` (StompCommand=CONNECT) | JWT 헤더 검증 → `Principal` 부착                        |
-| SUBSCRIBE | `/topic/inquiry/{inquiryId}`       | 동 (CONNECT 외)                                                   | `InquiryAccessGuard.canRead(memberId, inquiryId)` |
-| SEND      | `/app/inquiry/{inquiryId}/message` | 동                                                               | `InquiryAccessGuard.canSend(memberId, inquiryId)` |
+| 단계        | destination / 명령                   | 인가 검증 위치                                                                      | 검증 내용                                             |
+|-----------|------------------------------------|-------------------------------------------------------------------------------|---------------------------------------------------|
+| CONNECT   | `/ws`                              | 공통 `StompPrincipalInterceptor`                                                   | JWT 헤더 검증 → `Principal` 부착                        |
+| SUBSCRIBE | `/topic/inquiry/{inquiryId}`       | 공통 `StompAuthChannelInterceptor` → registry → `InquiryStompSubscriptionAuthorizer` | `InquiryAccessGuard.canRead(memberId, inquiryId)` |
+| SEND      | `/app/inquiry/{inquiryId}/message` | inquiry inbound adapter → inquiry UseCase                                         | `InquiryAccessGuard.canSend(memberId, inquiryId)` |
 
 `InquiryAccessGuard` 메서드 시그니처:
 
@@ -433,7 +442,7 @@ public class InquiryAccessGuard {
 | POST   | `/api/v1/inquiries/{inquiryId}/close`         | `CloseInquiryUseCase`             | RECEIVED/IN_PROGRESS → CLOSED                        |
 | POST   | `/api/v1/inquiries/{inquiryId}/reopen`        | `ReopenInquiryUseCase`            | CLOSED → IN_PROGRESS, 작성자/운영진 모두 가능                  |
 
-WebSocket(STOMP) 측은 SUBSCRIBE/SEND 두 가지뿐. 발신 페이로드는 `{ content, fileIds[] }`. 발신 처리 결과는 `/topic/inquiry/{inquiryId}` 로 broadcast.
+WebSocket(STOMP) 측은 SUBSCRIBE/SEND 두 가지뿐이다. 발신 페이로드는 `{ content, fileIds[] }` 이고, inquiry adapter 가 resource → roomId 매핑과 전송 권한을 검증한 뒤 chat UseCase 를 호출한다. 저장된 메시지 이벤트는 inquiry listener 가 `/topic/inquiry/{inquiryId}` 로 broadcast 한다.
 
 ### FCM 트리거 위치
 
@@ -551,13 +560,16 @@ STOMP 도입 전, REST 폴백 경로로 메시지 전송 / 조회를 먼저 검�
 REST 가 모든 동작을 커버하는 상태에서 실시간 채널을 추가. 도메인 / Service / Guard 는 그대로 재사용.
 
 13. `feat: STOMP 인증 / 인가 인터셉터`
-    - `InquiryStompChannelInterceptor` (CONNECT 시 JWT 검증, SUBSCRIBE/SEND 시 `InquiryAccessGuard` 호출).
-    - `WebSocketConfig.configureClientInboundChannel` 에 등록.
+    - `InquiryStompSubscriptionAuthorizer` 가 inquiry destination 을 식별하고 `InquiryAccessGuard` 로 SUBSCRIBE 를 인가한다.
+    - 공통 `StompSubscriptionAuthorizerRegistry` 가 정확히 하나의 authorizer 에 위임하며, 없음/거부/복수 매칭은 fail-closed 처리한다.
+    - `/app/**` SEND 는 inquiry inbound adapter 가 resource → roomId 매핑 후 inquiry UseCase 에서 인가한다.
     - `WebSocketConfig` 의 broker / endpoint 셋업도 이 커밋에서 finalize (`/ws`, `/topic`, `/app`).
     - 통합 테스트 (StompSession): 비인증 / 권한 없음 / 정상 분기.
 14. `feat: STOMP 메시지 수신 / 브로드캐스트 컨트롤러`
     - `@MessageMapping("/inquiry/{inquiryId}/message")` 핸들러.
-    - 핸들러는 `SendInquiryMessageUseCase` 위임 후, `SimpMessagingTemplate.convertAndSend("/topic/inquiry/{id}", ...)` 로 브로드캐스트.
+    - 핸들러는 inquiry 권한 검증과 resource → roomId 매핑 후 chat 메시지 전송 UseCase 에 위임한다.
+    - inquiry event listener 는 commit 이후 `ChatMessageCreatedEvent` 를 받아 공통 `BroadcastPort` 로 `/topic/inquiry/{id}` 에 전달한다.
+    - `ChatRoomPinnedMessageChangedEvent` 는 nullable pinnedMessageId 변경만 전달하며, 클라이언트는 inquiry 방 상세 API 를 재조회한다.
     - 발신자도 동일 토픽 구독 중이면 자기 메시지를 echo 로 받게 됨 (클라이언트 측에서 messageId 로 dedupe).
     - 통합 테스트: 정상 송수신 / 상태 자동 전환 / 재오픈 시나리오.
 
@@ -580,12 +592,6 @@ REST 가 모든 동작을 커버하는 상태에서 실시간 채널을 추가. 
 - 종료된 문의의 보관 / 아카이브 정책.
 - 문의자 측 미읽음 카운트.
 - `@CheckPermission(ResourceType.INQUIRY, ...)` 기반 권한 검증으로 `InquiryAccessGuard` 대체.
-- **WS 구독 인가 공통 틀 (known gap).** chat 을 엔진으로 분리하면서 broadcast 토픽이 `/topic/chat/rooms/{roomId}/messages` 로 바뀌었다.
-  `/topic/**` SUBSCRIBE 는 simple broker 가 직접 처리해 리소스 단위 인가를 걸 지점이 없고, 그 인가를 소유할 소비 도메인이 아직
-  붙지 않았다. 그래서 공통 `StompAuthChannelInterceptor` 가 **`/topic/chat/**` SUBSCRIBE 를 fail-closed 로 전면 차단**한다
-  (broker 직접 SEND 차단과 별개). 실제 접근 규칙은 소비 도메인이 소유하되, 그 규칙을 SUBSCRIBE 프레임에 걸어주는 공통 틀
-  (REST 의 `@CheckAccess` 에 대응)을 도메인 공통 인프라로 한 번만 두고, 소비 도메인(inquiry)이 붙는 시점에 **방별 authorizer 로
-  이 전면 차단을 대체**한다. 그 전까지 chat 토픽 구독은 열리지 않는다.
 
 ## References
 

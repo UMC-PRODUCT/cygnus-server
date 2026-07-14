@@ -13,7 +13,7 @@ import com.umc.product.global.event.domain.DomainEvent;
  * <p>
  * chat 도메인은 이 이벤트를 발행하기만 하고, 누가 수신하는지는 알지 못한다.
  * <ul>
- *     <li>실시간 broadcast — STOMP broadcast 어댑터가 수신.</li>
+ *     <li>실시간 broadcast — 소비 도메인이 수신하여 자신의 WebSocket destination으로 전달.</li>
  *     <li>문의 상태 전환 — inquiry 도메인이 수신하여 운영진 첫 메시지 시 진행 전환 등을 처리.</li>
  * </ul>
  * <p>
