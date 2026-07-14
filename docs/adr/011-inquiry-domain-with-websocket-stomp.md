@@ -66,7 +66,7 @@ Proposed
         - `CHAPTER` → 작성자가 속한 기수의 `CHAPTER_PRESIDENT` (`isChapterPresidentInGisu(memberId, gisuId, chapterId)`)
         - `SCHOOL` → 작성자가 속한 (gisuId, schoolId) 의 `isSchoolAdminInGisu(memberId, gisuId, schoolId)`
         - `UMC_PRODUCT` → **임시로 중앙운영사무국 멤버 전체** 로 라우팅. 후속 ADR 또는 코드 변경으로 정식 매핑(예: `ChallengerRole.responsiblePart == PRODUCT` 같은 속성 기반) 을 도입.
-    - 검증 로직은 `inquiry/application/service/InquiryAccessGuard` 한 곳에 모은다 (Service, subscription authorizer, REST adapter 가 동일 빈을 사용).
+    - 검증 로직은 `inquiry/application/service/InquiryAccessGuard` 한 곳에 모은다. Subscription authorizer와 REST adapter는 service 구현체를 직접 주입하지 않고 각각 공개 Inquiry Query/Command UseCase를 호출한다.
 4. **상태 머신을 다음과 같이 고정한다.**
 
    ```
@@ -98,7 +98,7 @@ Proposed
     - 발송은 모두 기존 `SendNotificationToAudienceUseCase.sendToMembers(memberIds, title, body)` 로 위임.
 10. **종료된 문의의 보관 기간은 무기한.** 분쟁 처리 / 회고 자료로 가치 있고, 데이터 규모상 1차에서는 별도 아카이브 정책을 도입하지 않는다. 추후 데이터 규모가 임계치를 넘기면 별도 ADR 로 보관 정책을 도입한다.
 11. **확장 경로.** in-memory broker 로 시작하되, 인스턴스 증설 시점에 `WebSocketConfig` 만 교체해 외부 broker(예: Redis pub/sub via `enableStompBrokerRelay` 또는 ActiveMQ) 로 전환할 수 있도록 broker 설정을 단일 `@Configuration` 으로 격리한다 (도메인 코드는 broker 변경에 영향받지 않도록).
-12. **Chat engine 과 소비 도메인의 실시간 책임을 분리한다.** Chat engine 은 외부 STOMP destination 을 직접 제공하지 않고 chat 도메인 이벤트만 발행한다.
+12. **Chat engine 과 소비 도메인의 실시간 책임을 분리한다.** 상세 책임과 consumer 구현 계약은 [ADR-026](./026-separate-chat-engine-consumer-realtime-responsibilities.md)을 따른다. Chat engine 은 외부 STOMP destination 을 직접 제공하지 않고 chat 도메인 이벤트만 발행한다.
     - 실제 topic, broadcast, resource → roomId 매핑과 접근 규칙은 inquiry/community 같은 소비 도메인이 소유한다.
     - 공통 `StompAuthChannelInterceptor` 는 `/topic`, `/queue` 로 시작하는 SUBSCRIBE 를 `StompSubscriptionAuthorizerRegistry` 에 위임한다. 지원 authorizer 가 없거나 둘 이상이거나 인가에 실패하면 fail-closed 처리한다.
     - `/user/queue/errors` 는 공통 오류 수신 경로로만 허용한다. 그 외 `/user/**` SUBSCRIBE 와 모든 `/user/**` 직접 SEND 는 차단한다.
@@ -560,7 +560,7 @@ STOMP 도입 전, REST 폴백 경로로 메시지 전송 / 조회를 먼저 검�
 REST 가 모든 동작을 커버하는 상태에서 실시간 채널을 추가. 도메인 / Service / Guard 는 그대로 재사용.
 
 13. `feat: STOMP 인증 / 인가 인터셉터`
-    - `InquiryStompSubscriptionAuthorizer` 가 inquiry destination 을 식별하고 `InquiryAccessGuard` 로 SUBSCRIBE 를 인가한다.
+    - `InquiryStompSubscriptionAuthorizer` 가 inquiry destination 을 식별하고 공개 `CheckInquiryChatAccessUseCase` 로 SUBSCRIBE 를 인가한다.
     - 공통 `StompSubscriptionAuthorizerRegistry` 가 정확히 하나의 authorizer 에 위임하며, 없음/거부/복수 매칭은 fail-closed 처리한다.
     - `/app/**` SEND 는 inquiry inbound adapter 가 resource → roomId 매핑 후 inquiry UseCase 에서 인가한다.
     - `WebSocketConfig` 의 broker / endpoint 셋업도 이 커밋에서 finalize (`/ws`, `/topic`, `/app`).
