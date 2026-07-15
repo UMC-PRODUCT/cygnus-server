@@ -51,6 +51,9 @@
 
 ## 추가 기준
 
+Event Outbox의 생성부터 listener 소비, 실패 재시도까지의 상세 흐름은
+[Event Outbox 발행 및 소비 흐름](event-outbox-flow.md)을 참고한다.
+
 새 스케줄러를 추가할 때는 다음 기준을 따른다.
 
 - `@Scheduled` 진입점은 `adapter/in/scheduler`에 둔다.

@@ -29,8 +29,9 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 2. `SpringDomainEventPublisher`와 `app.event-outbox.enabled` 설정을 제거한다.
 3. Spring `ApplicationEventPublisher`는 최초 발행 수단이 아니라 relay 내부의 local dispatch bus로만 사용한다.
 4. 기본 이벤트는 relay 트랜잭션에서 dispatch한다.
-5. 외부 I/O 이벤트는 `OutboxDispatchMode.NON_TRANSACTIONAL`을 선택해 listener를 트랜잭션 밖에서
-   동기 실행하고, 성공 상태와 실패 상태는 각각 짧은 별도 트랜잭션으로 기록한다.
+5. 내부 DB 변경과 후속 Outbox 저장만 수행하는 이벤트는 기본 `TRANSACTIONAL`을 사용한다. 외부 I/O
+   이벤트는 `OutboxDispatchMode.NON_TRANSACTIONAL`을 선택해 listener를 트랜잭션 밖에서 동기 실행하고,
+   성공 상태와 실패 상태는 각각 짧은 별도 트랜잭션으로 기록한다.
 6. 운영 장애 시 `app.event-outbox.relay-enabled=false`로 poller만 중지할 수 있다. 이 경우에도 publisher는
    계속 outbox에 적재하며 Spring local publisher로 우회하지 않는다.
 7. `event_outbox.version` optimistic lock으로 lease를 다시 획득한 worker의 상태를 이전 worker가
@@ -39,7 +40,8 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 ### 단계적 진행 / PR 분할
 
 - **Phase 1**: 공용 event outbox 고정과 `NON_TRANSACTIONAL` dispatch 계약을 도입한다.
-- **Phase 2**: FCM 요청과 batch 이벤트가 `NON_TRANSACTIONAL` 계약을 사용하도록 적용한다.
+- **Phase 2**: FCM 요청 이벤트는 `TRANSACTIONAL`, 실제 Firebase 호출을 수행하는 batch 이벤트는
+  `NON_TRANSACTIONAL` 계약을 사용하도록 적용한다.
 - **Phase 3**: 외부 broker 도입 시 outbox 저장 계약은 유지하고 relay 목적지만 교체한다.
 
 ## Alternatives Considered
@@ -128,6 +130,10 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 
 - `NON_TRANSACTIONAL`은 최초 outbox 저장을 비트랜잭션으로 바꾸는 옵션이 아니다. relay listener 실행
   구간만 DB 트랜잭션 밖으로 이동한다.
+- 내부 DB 작업과 외부 I/O가 함께 필요하면 하나의 listener에 섞지 않고, 내부 준비 이벤트와 외부 실행
+  이벤트로 분리해 각 단계에 맞는 dispatch mode를 선택한다.
+- listener가 실패를 예외로 relay까지 전파해야 `PENDING` 재시도 또는 `FAILED` 전환이 작동한다. 외부
+  API의 부분 실패를 결과값으로만 반환하면 relay는 성공으로 판단한다.
 - 과거 `EVENT_OUTBOX_ENABLED=false` 환경 변수는 더 이상 동작에 영향을 주지 않는다.
 - `EVENT_OUTBOX_RELAY_ENABLED=false`는 신규 이벤트 유실 없이 전달만 정지한다. 적체 원인을 해소한 뒤
   다시 활성화하면 저장된 이벤트를 이어서 처리한다.
@@ -138,3 +144,4 @@ FCM처럼 외부 네트워크 호출의 실패를 outbox 재시도로 연결해�
 - 후속 이슈: `#1035`
 - [ADR-018](./018-abstract-spring-event-publisher-for-future-broker.md)
 - [ADR-019](./019-introduce-transactional-event-outbox.md)
+- [Event Outbox 발행 및 소비 흐름](../onboarding/event-outbox-flow.md)

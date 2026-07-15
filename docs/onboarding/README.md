@@ -14,3 +14,4 @@
 ## 프로젝트별 운영 문서
 
 - [PLAN_DEVELOPER 3차 종료 후 잔여 TO 자동 배정](project/plan-developer-third-auto-assignment.md)
+- [Event Outbox 발행 및 소비 흐름](event-outbox-flow.md): 이벤트 저장, polling, relay, 상태 전이와 dispatch mode 선택 기준
