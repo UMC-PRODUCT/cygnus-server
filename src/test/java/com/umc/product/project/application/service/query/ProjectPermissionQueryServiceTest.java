@@ -106,10 +106,10 @@ class ProjectPermissionQueryServiceTest {
             .isEqualTo("아직은 지원 폼 공개를 별도로 지원하지 않아요.");
         assertThat(result.applicationForm().canDelete().reason())
             .isEqualTo("아직은 지원 폼 삭제를 별도로 지원하지 않아요.");
+        // MANAGE 권한이 없으면 상태와 무관하게 완료 불가 — 권한이 상태 검사보다 우선한다.
+        assertThat(result.status().canComplete().allowed()).isFalse();
         assertThat(result.status().canComplete().reasonCode())
-            .isEqualTo(ProjectPermissionReason.NOT_IMPLEMENTED.name());
-        assertThat(result.status().canComplete().reason())
-            .isEqualTo("아직 프로젝트 완료 처리를 지원하지 않아요.");
+            .isEqualTo(ProjectPermissionReason.PERMISSION_DENIED.name());
     }
 
     @Test
@@ -157,6 +157,12 @@ class ProjectPermissionQueryServiceTest {
         assertThat(result.status().canAbort().allowed()).isFalse();
         assertThat(result.status().canAbort().reasonCode()).isEqualTo(ProjectPermissionReason.INVALID_PROJECT_STATUS.name());
         assertThat(result.status().canAbort().reason()).isEqualTo("현재 진행 중인 프로젝트만 중단 시킬 수 있어요.");
+        // 운영진이어도 PENDING_REVIEW 는 완료 불가 — 완료는 IN_PROGRESS 에서만 열린다.
+        assertThat(result.status().canComplete().allowed()).isFalse();
+        assertThat(result.status().canComplete().reasonCode())
+            .isEqualTo(ProjectPermissionReason.INVALID_PROJECT_STATUS.name());
+        assertThat(result.status().canComplete().reason())
+            .isEqualTo("현재 진행 중인 프로젝트만 완료 처리할 수 있어요.");
     }
 
     @Test
@@ -179,6 +185,8 @@ class ProjectPermissionQueryServiceTest {
         ProjectPermissionInfo result = sut.listByProjectIds(REQUESTER_ID, List.of(PROJECT_ID)).get(0);
 
         assertThat(result.status().canAbort().allowed()).isTrue();
+        // IN_PROGRESS + 운영진(MANAGE) 이면 완료도 가능하다 — 여기서 열린다.
+        assertThat(result.status().canComplete().allowed()).isTrue();
         assertThat(result.applicationForm().canEdit().allowed()).isFalse();
         assertThat(result.applicationForm().canEdit().reasonCode())
             .isEqualTo(ProjectPermissionReason.ACTIVE_MATCHING_ROUND_EXISTS.name());

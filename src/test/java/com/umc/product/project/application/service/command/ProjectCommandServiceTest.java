@@ -3,9 +3,15 @@ package com.umc.product.project.application.service.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -17,6 +23,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -28,6 +38,7 @@ import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
+import com.umc.product.project.application.port.in.command.dto.CompleteProjectsCommand;
 import com.umc.product.project.application.port.in.command.dto.CreateDraftProjectCommand;
 import com.umc.product.project.application.port.in.command.dto.SubmitProjectCommand;
 import com.umc.product.project.application.port.in.command.dto.TransferProjectOwnershipCommand;
@@ -36,6 +47,9 @@ import com.umc.product.project.application.port.out.LoadProjectApplicationFormPo
 import com.umc.product.project.application.port.out.LoadProjectPort;
 import com.umc.product.project.application.port.out.SaveProjectPort;
 import com.umc.product.project.domain.Project;
+import com.umc.product.project.domain.ProjectApplication;
+import com.umc.product.project.domain.ProjectMember;
+import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
@@ -75,6 +89,8 @@ class ProjectCommandServiceTest {
     GetChapterUseCase getChapterUseCase;
     @Mock
     com.umc.product.form.application.port.in.command.ManageFormUseCase manageFormUseCase;
+    @Mock
+    com.umc.product.authorization.application.port.in.CheckPermissionUseCase checkPermissionUseCase;
 
     @InjectMocks
     ProjectCommandService sut;
@@ -764,6 +780,109 @@ class ProjectCommandServiceTest {
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_ABORT_REASON_REQUIRED);
+        }
+    }
+
+    @Nested
+    class complete {
+
+        private CompleteProjectsCommand command(List<Long> projectIds) {
+            return CompleteProjectsCommand.builder()
+                .projectIds(projectIds).requesterMemberId(99L).build();
+        }
+
+        @Test
+        void IN_PROGRESS_상태에서_멤버_COMPLETED_application_CANCELLED() {
+            Project project = createProject(ProjectStatus.IN_PROGRESS);
+            ProjectMember activeMember = ProjectMember.create(project, 500L, ChallengerPart.WEB, 100L);
+
+            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of(activeMember));
+            given(loadProjectApplicationPort.listInProgressByProjectId(1L)).willReturn(List.of());
+
+            sut.complete(command(List.of(1L)));
+
+            assertThat(project.getStatus()).isEqualTo(ProjectStatus.COMPLETED);
+            assertThat(project.getStatusChangedByMemberId()).isEqualTo(99L);
+            assertThat(activeMember.getStatus()).isEqualTo(ProjectMemberStatus.COMPLETED);
+            assertThat(activeMember.getStatusChangedMemberId()).isEqualTo(99L);
+        }
+
+        @Test
+        void 진행중_지원서는_완료_자동취소_사유와_함께_CANCELLED된다() {
+            Project project = createProject(ProjectStatus.IN_PROGRESS);
+            ProjectApplication application = mock(ProjectApplication.class);
+
+            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of());
+            given(loadProjectApplicationPort.listInProgressByProjectId(1L)).willReturn(List.of(application));
+
+            sut.complete(command(List.of(1L)));
+
+            then(application).should().cancel(eq(99L), eq("프로젝트가 완료되어 자동 취소되었습니다."));
+        }
+
+        @Test
+        void 여러_프로젝트를_한번에_완료_처리한다() {
+            Project first = createProject(ProjectStatus.IN_PROGRESS);
+            Project second = createProject(ProjectStatus.IN_PROGRESS);
+            ReflectionTestUtils.setField(second, "id", 2L);
+
+            given(loadProjectPort.getById(1L)).willReturn(first);
+            given(loadProjectPort.getById(2L)).willReturn(second);
+            given(loadProjectMemberPort.listByProjectId(any())).willReturn(List.of());
+            given(loadProjectApplicationPort.listInProgressByProjectId(any())).willReturn(List.of());
+
+            sut.complete(command(List.of(1L, 2L)));
+
+            assertThat(first.getStatus()).isEqualTo(ProjectStatus.COMPLETED);
+            assertThat(second.getStatus()).isEqualTo(ProjectStatus.COMPLETED);
+        }
+
+        @Test
+        void 대상_프로젝트마다_MANAGE_권한을_검증한다() {
+            Project project = createProject(ProjectStatus.IN_PROGRESS);
+            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of());
+            given(loadProjectApplicationPort.listInProgressByProjectId(1L)).willReturn(List.of());
+
+            sut.complete(command(List.of(1L)));
+
+            then(checkPermissionUseCase).should()
+                .checkOrThrow(eq(99L), argThat(permission ->
+                    permission.resourceType() == ResourceType.PROJECT
+                        && permission.permission() == PermissionType.MANAGE
+                        && permission.getResourceIdAsLong().equals(1L)));
+        }
+
+        @Test
+        void 권한이_없으면_예외가_전파되고_상태전이가_일어나지_않는다() {
+            willThrow(new AuthorizationDomainException(AuthorizationErrorCode.PERMISSION_DENIED))
+                .given(checkPermissionUseCase)
+                .checkOrThrow(eq(99L), any());
+
+            assertThatThrownBy(() -> sut.complete(command(List.of(1L, 2L))))
+                .isInstanceOf(AuthorizationDomainException.class);
+
+            // 권한 검증이 상태 전이보다 앞서므로, 프로젝트 로드/전이 자체가 시작되지 않는다.
+            then(loadProjectPort).should(never()).getById(any());
+        }
+
+        @Test
+        void IN_PROGRESS가_아니면_PROJECT_INVALID_STATE로_롤백된다() {
+            Project project = createProject(ProjectStatus.PENDING_REVIEW);
+            given(loadProjectPort.getById(1L)).willReturn(project);
+
+            assertThatThrownBy(() -> sut.complete(command(List.of(1L))))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(ProjectErrorCode.PROJECT_INVALID_STATE);
+        }
+
+        @Test
+        void projectIds가_비어있으면_Command_생성_단계에서_예외() {
+            assertThatThrownBy(() -> command(List.of()))
+                .isInstanceOf(IllegalArgumentException.class);
         }
     }
 }

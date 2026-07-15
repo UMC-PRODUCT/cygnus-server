@@ -259,11 +259,14 @@ public class Project extends BaseEntity {
     }
 
     /**
-     * 기수가 종료되었을 때, 프로젝트를 완료 처리 합니다.
+     * 기수가 종료되었을 때, 프로젝트를 완료 처리 합니다. IN_PROGRESS 상태에서만 허용합니다.
+     *
+     * @param decidedByMemberId 완료 처리한 운영진 Member ID (audit 용)
      */
-    public void complete() {
+    public void complete(Long decidedByMemberId) {
         validateStatus(ProjectStatus.IN_PROGRESS);
         this.status = ProjectStatus.COMPLETED;
+        this.statusChangedByMemberId = decidedByMemberId;
     }
 
     /**

@@ -150,4 +150,14 @@ public class ProjectMember extends BaseEntity {
     public void withdraw(String reason, Long decidedByMemberId) {
         changeStatus(ProjectMemberStatus.WITHDRAWN, decidedByMemberId, reason);
     }
+
+    /**
+     * 멤버 활동을 정상 완료 처리합니다.
+     * status 를 {@link ProjectMemberStatus#COMPLETED} 로 바꾸고 변경 메타데이터를 기록합니다.
+     * <p>
+     * 프로젝트 완료(complete) 시 ACTIVE 멤버 일괄 처리에 사용합니다.
+     */
+    public void complete(Long decidedByMemberId) {
+        changeStatus(ProjectMemberStatus.COMPLETED, decidedByMemberId, null);
+    }
 }

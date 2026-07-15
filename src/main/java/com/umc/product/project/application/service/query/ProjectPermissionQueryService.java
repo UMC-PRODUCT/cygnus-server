@@ -64,11 +64,6 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
             ProjectPermissionReason.NOT_IMPLEMENTED,
             "아직은 지원 폼 삭제를 별도로 지원하지 않아요."
         );
-    private static final ProjectPermissionCapabilityInfo NOT_IMPLEMENTED_PROJECT_COMPLETE =
-        ProjectPermissionCapabilityInfo.denied(
-            ProjectPermissionReason.NOT_IMPLEMENTED,
-            "아직 프로젝트 완료 처리를 지원하지 않아요."
-        );
 
     private final CheckPermissionUseCase checkPermissionUseCase;
     private final LoadProjectPort loadProjectPort;
@@ -228,7 +223,7 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         return new StatusPermissions(
             canRequestReview(context),
             canPublishProject(context),
-            NOT_IMPLEMENTED_PROJECT_COMPLETE,
+            canCompleteProject(context),
             canAbortProject(context)
         );
     }
@@ -270,6 +265,18 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
                 return ProjectPermissionCapabilityInfo.denied(
                     ProjectPermissionReason.INVALID_PROJECT_STATUS,
                     "현재 진행 중인 프로젝트만 중단 시킬 수 있어요."
+                );
+            }
+            return ProjectPermissionCapabilityInfo.allow();
+        });
+    }
+
+    private ProjectPermissionCapabilityInfo canCompleteProject(ProjectCapabilityContext context) {
+        return requirePermission(context.projectPermission(PermissionType.MANAGE), () -> {
+            if (context.project().getStatus() != ProjectStatus.IN_PROGRESS) {
+                return ProjectPermissionCapabilityInfo.denied(
+                    ProjectPermissionReason.INVALID_PROJECT_STATUS,
+                    "현재 진행 중인 프로젝트만 완료 처리할 수 있어요."
                 );
             }
             return ProjectPermissionCapabilityInfo.allow();

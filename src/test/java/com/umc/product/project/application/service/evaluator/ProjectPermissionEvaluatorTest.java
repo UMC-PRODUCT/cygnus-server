@@ -750,6 +750,42 @@ class ProjectPermissionEvaluatorTest {
         assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
+    // --- MANAGE 진입 게이트 (resourceId 없음 — 배치 complete 등 다건 액션의 Controller 관문) ---
+
+    @Test
+    void MANAGE_진입게이트는_중앙총괄이면_리소스_로드없이_허용() {
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(centralCoreRole()));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        // 리소스 로드 없이 통과 — findById stubbing 없이도 성공하는 것으로 증명된다.
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    void MANAGE_진입게이트는_지부장이면_허용() {
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(chapterPresidentRole(1L, 1L)));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    void MANAGE_진입게이트는_운영진_역할이_없으면_거부() {
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of());
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        assertThat(sut.evaluate(subject, permission)).isFalse();
+    }
+
+    @Test
+    void MANAGE_진입게이트는_학교_회장단이면_거부() {
+        // 학교 회장단은 프로젝트 MANAGE(publish/abort/complete) 자격이 아니다 — 총괄단/지부장만 통과.
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(schoolPresidentRole(1L, 1L)));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        assertThat(sut.evaluate(subject, permission)).isFalse();
+    }
+
     // --- DELETE ---
 
     @Test

@@ -18,6 +18,7 @@ import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.project.adapter.in.web.dto.request.AbortProjectRequest;
 import com.umc.product.project.adapter.in.web.dto.request.AddProjectMemberRequest;
 import com.umc.product.project.adapter.in.web.dto.request.ChangeProjectMemberStatusRequest;
+import com.umc.product.project.adapter.in.web.dto.request.CompleteProjectsRequest;
 import com.umc.product.project.adapter.in.web.dto.request.CreateDraftProjectRequest;
 import com.umc.product.project.adapter.in.web.dto.request.TransferProjectOwnershipRequest;
 import com.umc.product.project.adapter.in.web.dto.request.UpdatePartQuotasRequest;
@@ -26,6 +27,7 @@ import com.umc.product.project.adapter.in.web.dto.response.ProjectStatusResponse
 import com.umc.product.project.application.port.in.command.AbortProjectUseCase;
 import com.umc.product.project.application.port.in.command.AddProjectMemberUseCase;
 import com.umc.product.project.application.port.in.command.ChangeProjectMemberStatusUseCase;
+import com.umc.product.project.application.port.in.command.CompleteProjectsUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectUseCase;
 import com.umc.product.project.application.port.in.command.DeleteProjectUseCase;
 import com.umc.product.project.application.port.in.command.PublishProjectUseCase;
@@ -62,6 +64,7 @@ public class ProjectCommandController {
     private final PublishProjectUseCase publishProjectUseCase;
     private final DeleteProjectUseCase deleteProjectUseCase;
     private final AbortProjectUseCase abortProjectUseCase;
+    private final CompleteProjectsUseCase completeProjectsUseCase;
 
     @PostMapping
     @Operation(
@@ -252,6 +255,24 @@ public class ProjectCommandController {
         @Valid @RequestBody AbortProjectRequest request
     ) {
         abortProjectUseCase.abort(request.toCommand(projectId, memberPrincipal.getMemberId()));
+    }
+
+    @PostMapping("/complete")
+    @Operation(
+        operationId = "PROJECT-111",
+        summary = "프로젝트 완료 (배치)",
+        description = "기수 종료 시 IN_PROGRESS 상태의 프로젝트들을 COMPLETED 로 일괄 전이합니다. ACTIVE ProjectMember 는 COMPLETED, 진행 중(DRAFT/SUBMITTED) ProjectApplication 은 CANCELLED 로 동기화. 대상마다 MANAGE 권한을 검증하며 하나라도 조건 미충족 시 전체 롤백. 운영진(본인 지부장 또는 Central Core) 만 호출 가능."
+    )
+    @CheckAccess(
+        resourceType = ResourceType.PROJECT,
+        permission = PermissionType.MANAGE,
+        message = "프로젝트를 완료할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+    )
+    public void complete(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @Valid @RequestBody CompleteProjectsRequest request
+    ) {
+        completeProjectsUseCase.complete(request.toCommand(memberPrincipal.getMemberId()));
     }
 
     @DeleteMapping("/{projectId}/members/{memberId}")
