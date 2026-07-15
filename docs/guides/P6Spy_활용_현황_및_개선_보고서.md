@@ -21,11 +21,11 @@
 
 ### 2.1 의존성
 
-[build.gradle.kts:111](../../build.gradle.kts#L111)
+[dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)
 
 ```kotlin
 // SQL 출력용 P6Spy
-implementation("com.github.gavlyukovskiy:p6spy-spring-boot-starter:1.10.0")
+add("implementation", "com.github.gavlyukovskiy:p6spy-spring-boot-starter:${version("p6spy-spring-boot-starter")}")
 ```
 
 `gavlyukovskiy` 스타터는 DataSource 를 자동으로 `P6DataSource` 로 래핑하고, `@Component` 로 등록된 `JdbcEventListener` 빈을 자동 수집해요.
@@ -383,7 +383,7 @@ decorator:
 - [ADR-016 — 구조화 JSON 로깅 (MDC 키 표준)](../adr/016-structured-json-logging-with-mdc.md)
 - [ADR-014 — 자체 호스팅 모니터링 스택 이관](../adr/014-self-hosted-monitoring-stack-migration.md)
 - [ADR-013 — k6 기반 부하·성능 테스트](../adr/013-k6-load-and-performance-testing-strategy.md)
-- [build.gradle.kts §111](../../build.gradle.kts#L111)
+- [dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)
 - [P6SpyConfig.java](../../src/main/java/com/umc/product/global/config/P6SpyConfig.java)
 - [QueryStatsJdbcEventListener.java](../../src/main/java/com/umc/product/global/config/QueryStatsJdbcEventListener.java)
 - [QueryStatsHolder.java](../../src/main/java/com/umc/product/global/config/QueryStatsHolder.java)

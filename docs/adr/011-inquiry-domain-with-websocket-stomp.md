@@ -33,7 +33,7 @@ Proposed
 - 파일은 `storage` 도메인의 `FileMetadata.id` 로만 참조하고, 카테고리별 정책은 `FileCategory` 에서 관리한다.
 - FCM 발송은 `notification` 도메인의 `SendNotificationToAudienceUseCase.sendToMembers(memberIds, title, body)` 로 일원화되어 있다.
 - 운영진/일반 사용자 구분은 `ChallengerRoleType` / `ChallengerRole` 기준이며, 권한 검증 헬퍼는 `GetChallengerRoleUseCase` (`isCentralMemberInGisu`, `isSchoolAdminInGisu`, `isChapterPresidentInGisu` 등) 에 모여 있다.
-- `build.gradle.kts` 에는 `spring-boot-starter-websocket` 의존성이 주석 처리되어 있다 — 이번 도입과 함께 활성화해야 한다.
+- `gradle/dependencies.gradle.kts`에는 `spring-boot-starter-websocket` 의존성이 활성화되어 있다.
 - 현재 단일 인스턴스 운영이지만, 수평 확장 시점이 멀지 않다 (모집 / 이벤트 시즌). 이 시점에 끊김 없이 확장 가능한 broker 구조여야 한다.
 
 기획 측 검토에서 추가로 확정된 항목:
@@ -262,8 +262,8 @@ STOMP 가 destination 모델 / ChannelInterceptor / broker relay 등 이번 도�
 
 ### 사전 작업: 기존 코드 수정
 
-- `build.gradle.kts`
-    - `// implementation("org.springframework.boot:spring-boot-starter-websocket")` 주석 해제. (WebSocket 의 STOMP 지원은 starter 에 포함됨.)
+- `gradle/dependencies.gradle.kts`
+    - `spring-boot-starter-websocket`을 `implementation`으로 선언한다. (WebSocket의 STOMP 지원은 starter에 포함됨.)
 - `global/exception/constant/Domain` enum
     - `INQUIRY` 추가.
 - `authorization/domain/ResourceType` enum
@@ -473,7 +473,7 @@ WebSocket(STOMP) 측은 SUBSCRIBE/SEND 두 가지뿐이다. 발신 페이로드�
 도메인 코드 추가 전, 공용 자원 / 의존성을 먼저 정리한다. Phase 1 이후의 모든 커밋이 이 변경을 전제로 동작.
 
 1. `chore: WebSocket 의존성 활성화`
-    - `build.gradle.kts` 의 `spring-boot-starter-websocket` 주석 해제.
+    - `gradle/dependencies.gradle.kts`에 `spring-boot-starter-websocket` 선언.
     - 빌드 / 테스트 통과 확인 (이 커밋만으로는 도메인 동작 변경 없음).
 2. `feat: 공용 enum 에 inquiry 도메인 항목 추가`
     - `Domain.INQUIRY` 추가.
@@ -606,7 +606,7 @@ REST 가 모든 동작을 커버하는 상태에서 실시간 채널을 추가. 
     - [GetChallengerRoleUseCase](../../src/main/java/com/umc/product/authorization/application/port/in/query/GetChallengerRoleUseCase.java)
     - [FcmAudienceService](../../src/main/java/com/umc/product/notification/application/service/FcmAudienceService.java) (FCM 발송 진입점)
     - [SecurityConfig](../../src/main/java/com/umc/product/global/config/SecurityConfig.java)
-    - [build.gradle.kts](../../build.gradle.kts) — `spring-boot-starter-websocket` 주석 해제 대상
+    - [dependencies.gradle.kts](../../gradle/dependencies.gradle.kts) — `spring-boot-starter-websocket` 선언
 - 외부 문서
     - Spring WebSocket / STOMP 가이드: <https://docs.spring.io/spring-framework/reference/web/websocket/stomp.html>
     - STOMP `ChannelInterceptor` 인증 / 인가 패턴: <https://docs.spring.io/spring-framework/reference/web/websocket/stomp/authentication-token-based.html>

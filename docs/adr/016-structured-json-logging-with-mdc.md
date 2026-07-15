@@ -46,13 +46,14 @@ Accepted (2026-05-12)
 
 #### 1.4 의존성
 
-[build.gradle.kts §128-141](../../build.gradle.kts#L127-L141) 의 관측 의존성은 다음과 같다.
+[dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)의 관측 의존성은 다음과 같다.
 
 - `io.micrometer:micrometer-registry-prometheus`, `micrometer-registry-otlp`
-- `com.github.loki4j:loki-logback-appender:1.5.2`
+- `net.logstash.logback:logstash-logback-encoder:9.0`
 - `io.micrometer:micrometer-tracing-bridge-otel`, `opentelemetry-exporter-otlp`, `context-propagation`
+- `io.opentelemetry.instrumentation:opentelemetry-logback-appender-1.0`
 
-`net.logstash.logback:logstash-logback-encoder` 는 아직 추가되어 있지 않다.
+명시 버전은 Version Catalog에서 관리한다.
 
 #### 1.5 운영 상의 한계
 
@@ -218,12 +219,13 @@ fluent API 는 "코드 작성 방식" 의 선택이고, JSON 포맷은 "출력 �
 
 변경 파일:
 
-- [build.gradle.kts](../../build.gradle.kts)
+- [dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)
+- [libs.versions.toml](../../gradle/libs.versions.toml)
 
 내용:
 
 ```kotlin
-// build.gradle.kts §128~141 영역
+// gradle/dependencies.gradle.kts
 dependencies {
     // 기존
     implementation("io.micrometer:micrometer-registry-prometheus")
@@ -231,7 +233,7 @@ dependencies {
     implementation("io.micrometer:micrometer-registry-otlp")
 
     // 신규 — JSON 구조화 로그 encoder
-    implementation("net.logstash.logback:logstash-logback-encoder:7.4")
+    add("implementation", "net.logstash.logback:logstash-logback-encoder:${version("logstash-logback-encoder")}")
     // ...
 }
 ```
@@ -642,7 +644,8 @@ SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun | jq .
     - [ADR-010: GitHub App OAuth 및 Webhook 통합](010-github-app-oauth-and-webhook-integration.md) — `external_api_called` 의 첫 적용 후보.
     - [ADR-008: LLM 도메인 provider 전략](008-llm-domain-provider-strategy.md) — 동일.
 - 기존 코드 / 설정
-    - [build.gradle.kts §127-141 (관측 의존성)](../../build.gradle.kts#L127-L141)
+    - [dependencies.gradle.kts (관측 의존성)](../../gradle/dependencies.gradle.kts)
+    - [libs.versions.toml (의존성 버전)](../../gradle/libs.versions.toml)
     - [src/main/resources/logback-spring.xml](../../src/main/resources/logback-spring.xml)
     - [src/main/resources/application.yml §252-298 (management / tracing / metrics)](../../src/main/resources/application.yml#L252-L298)
     - [src/main/java/com/umc/product/global/config/LoggingInterceptor.java](../../src/main/java/com/umc/product/global/config/LoggingInterceptor.java)
