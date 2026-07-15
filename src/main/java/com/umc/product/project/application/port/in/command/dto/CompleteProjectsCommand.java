@@ -23,5 +23,8 @@ public record CompleteProjectsCommand(
         if (projectIds == null || projectIds.isEmpty()) {
             throw new IllegalArgumentException("projectIds must not be empty");
         }
+        if (projectIds.stream().distinct().count() != projectIds.size()) {
+            throw new IllegalArgumentException("projectIds must not contain duplicates");
+        }
     }
 }

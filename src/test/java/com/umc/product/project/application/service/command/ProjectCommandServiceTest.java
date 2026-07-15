@@ -884,5 +884,11 @@ class ProjectCommandServiceTest {
             assertThatThrownBy(() -> command(List.of()))
                 .isInstanceOf(IllegalArgumentException.class);
         }
+
+        @Test
+        void projectIds에_중복이_있으면_Command_생성_단계에서_예외() {
+            assertThatThrownBy(() -> command(List.of(1L, 1L, 2L)))
+                .isInstanceOf(IllegalArgumentException.class);
+        }
     }
 }
