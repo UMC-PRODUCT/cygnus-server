@@ -9,8 +9,13 @@ import com.umc.product.global.event.application.service.EventOutboxRelayService;
 import lombok.RequiredArgsConstructor;
 
 @Component
+@ConditionalOnProperty(
+    prefix = "app.event-outbox",
+    name = "relay-enabled",
+    havingValue = "true",
+    matchIfMissing = true
+)
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "app.event-outbox.enabled", havingValue = "true")
 public class EventOutboxPoller {
 
     private final EventOutboxRelayService relayService;

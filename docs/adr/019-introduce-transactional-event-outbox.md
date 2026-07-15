@@ -4,6 +4,9 @@
 
 Accepted
 
+`app.event-outbox.enabled` feature flag와 Spring local publisher rollback 정책은
+[ADR-026](./026-enforce-event-outbox-publisher.md)으로 대체되었다.
+
 ## Context
 
 [ADR-018](./018-abstract-spring-event-publisher-for-future-broker.md)에서 Spring

@@ -322,7 +322,7 @@ Table이 비어 있거나 해당 기능이 비활성화돼 write가 발생하지
 
 ## Event Outbox 적용
 
-현재 Event Outbox는 `app.event-outbox.enabled=true`가 기본값이므로 `OutboxDomainEventPublisher`와 poller가 활성화된다. 회귀 시에는 `EVENT_OUTBOX_ENABLED=false`로 Spring local event publisher에 롤백할 수 있다.
+Event Outbox는 `OutboxDomainEventPublisher`가 항상 활성화되는 필수 인프라다. 회귀 시에도 Spring local publisher로 우회하지 않고 `EVENT_OUTBOX_RELAY_ENABLED=false`로 poller만 중지해 추가 dispatch를 차단한 뒤 PENDING 적체와 DB 상태를 점검한다.
 
 Outbox가 활성화되기 전에는 write가 발생하지 않았으므로 polling index 변경에는 일반 transactional index DDL을 사용한다. 활성 배포는 다음 순서로 진행한다.
 

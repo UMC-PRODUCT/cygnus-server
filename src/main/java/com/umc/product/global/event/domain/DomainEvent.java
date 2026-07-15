@@ -21,4 +21,8 @@ public interface DomainEvent {
     Instant occurredAt();
 
     String eventType();
+
+    default OutboxDispatchMode outboxDispatchMode() {
+        return OutboxDispatchMode.TRANSACTIONAL;
+    }
 }

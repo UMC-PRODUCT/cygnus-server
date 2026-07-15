@@ -22,7 +22,7 @@
 | authentication | `EmailVerificationRetentionScheduler` | 매일 03:00 KST | scheduling enabled profile | 만료 인증 세션 회수. 저빈도 정리 잡으로 적절하다. |
 | curriculum | `WorkbookAutoReleaseScheduler` | 매일 00:00 KST | scheduling enabled profile | 워크북 자동 배포. 저빈도 도메인 batch로 적절하다. |
 | notification | `FcmOutboxScheduler` | `app.fcm.outbox-interval-ms` | `app.fcm.enabled=true` | FCM outbox polling. FCM 미사용 환경에서는 scheduler bean 자체를 등록하지 않는다. |
-| global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.enabled=true` | persistent event outbox relay. 외부 broker 전환 전까지 허용되는 polling 작업이다. |
+| global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.relay-enabled=true` (기본값) | persistent event outbox relay. 중지해도 publisher는 outbox 적재를 계속하며, 외부 broker 전환 전까지 허용되는 polling 작업이다. |
 
 ## Project 매칭 데드라인
 
@@ -51,11 +51,15 @@
 
 ## 추가 기준
 
+Event Outbox의 생성부터 listener 소비, 실패 재시도까지의 상세 흐름은
+[Event Outbox 발행 및 소비 흐름](event-outbox-flow.md)을 참고한다.
+
 새 스케줄러를 추가할 때는 다음 기준을 따른다.
 
 - `@Scheduled` 진입점은 `adapter/in/scheduler`에 둔다.
 - disabled 상태에서 no-op polling만 반복하는 작업은 만들지 않는다. `@ConditionalOnProperty`로 bean 등록 자체를 막는다.
 - 외부 API, webhook, LLM처럼 지연 시간이 긴 I/O는 scheduler thread에서 직접 오래 점유하지 않는다. 필요하면 event listener나 전용 executor로 분리한다.
+- outbox listener에서 외부 I/O를 동기 실행해야 하면 `NON_TRANSACTIONAL` dispatch를 사용해 DB connection 점유를 피하고 예외를 relay 재시도로 연결한다.
 - 도메인별 1회성 동적 task가 필요하면 전역 `taskScheduler`를 공유할지 전용 `TaskScheduler`가 필요한지 먼저 판단한다.
 - 다중 인스턴스에서 중복 실행되면 안 되는 작업은 DB lease, unique constraint, outbox claim, ShedLock 중 하나로 방어한다.
 - 새 작업은 실행 주기, 활성 property, 멱등성 전략, 실패 재시도 전략을 이 문서에 추가한다.

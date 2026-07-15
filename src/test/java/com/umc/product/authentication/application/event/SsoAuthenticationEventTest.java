@@ -21,8 +21,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authentication.adapter.in.event.SsoSecurityEventListener;
-import com.umc.product.global.event.adapter.out.SpringDomainEventPublisher;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.logging.OperationalMetrics;
 
 import io.micrometer.core.instrument.Counter;
@@ -99,18 +97,18 @@ class SsoAuthenticationEventTest {
     void security_event_listener_after_commit_기록() {
         try (AnnotationConfigApplicationContext context =
                  new AnnotationConfigApplicationContext(EventListenerTestConfig.class)) {
-            DomainEventPublisher publisher = context.getBean(DomainEventPublisher.class);
+            ApplicationEventPublisher publisher = context;
             TransactionTemplate tx = context.getBean(TransactionTemplate.class);
             SimpleMeterRegistry registry = context.getBean(SimpleMeterRegistry.class);
 
             tx.executeWithoutResult(status ->
-                publisher.publish(SsoTokenIssuedEvent.of(MEMBER_ID, CLIENT_ID, "authorization_code"))
+                publisher.publishEvent(SsoTokenIssuedEvent.of(MEMBER_ID, CLIENT_ID, "authorization_code"))
             );
 
             assertSecurityMetric(registry, "SSO_TOKEN", "issued");
 
             assertThatThrownBy(() -> tx.executeWithoutResult(status -> {
-                publisher.publish(SsoBrowserLoginCreatedEvent.of(MEMBER_ID, "email"));
+                publisher.publishEvent(SsoBrowserLoginCreatedEvent.of(MEMBER_ID, "email"));
                 throw new IllegalStateException("rollback");
             })).isInstanceOf(IllegalStateException.class);
 
@@ -138,11 +136,6 @@ class SsoAuthenticationEventTest {
 
     @Configuration
     static class EventListenerTestConfig {
-
-        @Bean
-        DomainEventPublisher domainEventPublisher(ApplicationEventPublisher publisher) {
-            return new SpringDomainEventPublisher(publisher);
-        }
 
         @Bean
         SimpleMeterRegistry meterRegistry() {

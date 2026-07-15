@@ -4,6 +4,10 @@
 
 Accepted
 
+기본 어댑터로 `SpringDomainEventPublisher`를 선택한 결정은
+[ADR-026](./026-enforce-event-outbox-publisher.md)으로 대체되었다. `DomainEventPublisher` Port Out
+추상화 결정은 계속 유효하다.
+
 ## Context
 
 UMC PRODUCT 서버는 현재 도메인 간 비동기 협력을 위해 Spring의 `ApplicationEventPublisher`와

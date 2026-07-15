@@ -1,18 +1,11 @@
 # Global 테스트 케이스
 
-- 테스트 파일: 28개
-- 테스트 케이스: 96개
+- 테스트 파일: 47개
+- 테스트 케이스: 163개
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
-
-| 카테고리 | 케이스 수 |
-|---|---:|
-| UseCase / Application Service | 4 |
-| Repository / Outbound Persistence | 3 |
-| E2E / Integration | 5 |
-| Scheduler | 1 |
-| Domain | 15 |
-| External Adapter | 15 |
-| Support / Config / Utility | 53 |
+- 문서 범위: 아래 목록은 architecture와 운영에 영향이 큰 대표 계약을 추적한다. 전체 테스트 목록의
+  source of truth는 `src/test/java/com/umc/product/global`이며, 파일/케이스 개수는 각각 `rg --files`와
+  `@Test` 계열 annotation 기준이다.
 
 ## UseCase / Application Service
 
@@ -30,9 +23,15 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [25](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L25) | publishable outbox를 DomainEvent로 복원해 Spring event bus로 발행하고 published 처리한다 | 호출 relay() | 실패: 예외 TestEvent; 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED); assertThat(publisher.events).hasSize(1); assertThat(publisher.events.getFirst()).isInstanceOf(TestEvent.class); assertThat(((TestEvent) publisher.... |
-| [57](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L57) | EventOutboxRelayService / 이벤트 복원 또는 발행 실패 시 별도 상태 저장 트랜잭션에서 attempts를 증가시키고 pending으로 남긴다 | 호출 relay() | 실패: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING); assertThat(outbox.getAttempts()).isEqualTo(1); assertThat(outbox.getLastError()).contains("publish failed"); assertThat(savePort.savedStatuses).cont... |
-| [87](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L87) | 최대 재시도 횟수에 도달하면 failed 상태로 저장한다 | 호출 relay() | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED); assertThat(outbox.getAttempts()).isEqualTo(2); assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.FAILED); |
+| [39](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L39) | publishable outbox를 DomainEvent로 복원해 Spring event bus로 발행하고 published 처리한다 | 호출 relay() | 실패: 예외 TestEvent; 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED); assertThat(publisher.events).hasSize(1); assertThat(publisher.events.getFirst()).isInstanceOf(TestEvent.class); assertThat(((TestEvent) publisher.... |
+| [69](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L69) | EventOutboxRelayService / 이벤트 복원 또는 발행 실패 시 별도 상태 저장 트랜잭션에서 attempts를 증가시키고 pending으로 남긴다 | 호출 relay() | 실패: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING); assertThat(outbox.getAttempts()).isEqualTo(1); assertThat(outbox.getLastError()).contains("publish failed"); assertThat(savePort.savedStatuses).cont... |
+| [100](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L100) | 최대 재시도 횟수에 도달하면 failed 상태로 저장한다 | 호출 relay() | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED); assertThat(outbox.getAttempts()).isEqualTo(2); assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.FAILED); |
+| [131](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L131) | 저장된 traceparent가 있으면 relay span에 원 요청 trace link를 부착한다 | 유효한 W3C traceparent | relay span link의 trace ID가 원 요청과 일치하고 PUBLISHED 처리 |
+| [167](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L167) | traceparent가 없으면 link 없이 relay span을 생성한다 | traceparent 없음 | link 없이 relay span 생성 후 PUBLISHED 처리 |
+| [198](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L198) | non-transactional listener 성공 후 상태 저장 실패를 재시도로 연결한다 | PUBLISHED 저장에서 예외 | listener 1회 실행, attempts 증가, PENDING 저장 |
+| [227](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L227) | non-transactional listener를 transaction 밖에서 실행한다 | `OutboxDispatchMode.NON_TRANSACTIONAL` | listener transaction 비활성, 별도 transaction에서 PUBLISHED 처리 |
+| [256](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L256) | non-transactional listener 예외를 재시도로 연결한다 | listener에서 외부 호출 예외 | attempts 증가, error 기록, PENDING 저장 |
+| [286](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L286) | lease 소유권을 잃은 worker는 최신 상태를 덮어쓰지 않는다 | PUBLISHED 저장에서 optimistic lock 예외 | listener 1회 실행 후 stale worker 상태 저장 생략 |
 
 ## Repository / Outbound Persistence
 
@@ -46,6 +45,16 @@
 | [34](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java#L34) | EventOutboxPersistenceAdapter / saveAll은 repository saveAll로 위임한다 | 조건 EventOutboxPersistenceAdapter / saveAll은 repository saveAll로 위임한다 | 성공: EventOutboxPersistenceAdapter / saveAll은 repository saveAll로 위임한다 |
 | [45](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java#L45) | EventOutboxPersistenceAdapter / listPublishable은 repository의 lock 조회로 위임한다 | 조건 EventOutboxPersistenceAdapter / listPublishable은 repository의 lock 조회로 위임한다 | 성공: 검증 assertThat(result).isSameAs(expected); |
 
+### EventOutboxJpaRepositoryTest
+- 테스트 설명: EventOutbox JPA polling 및 lease fencing
+- 위치: `src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java`
+
+| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
+|---:|---|---|---|
+| [39](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L39) | 발행 가능한 이벤트를 다음 시도 시각 순서로 조회한다 | PENDING/PUBLISHED 행 혼합 | 발행 대상 PENDING 행만 시각 순서로 반환 |
+| [55](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L55) | 발행 대기 partial index를 사용한다 | PostgreSQL index metadata | PENDING/PROCESSING partial index 존재, legacy index 제거 |
+| [81](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L81) | lease 재획득 후 이전 worker의 상태 덮어쓰기를 차단한다 | 두 EntityManager가 같은 outbox version으로 시작 | stale merge에서 `OptimisticLockException` 발생 |
+
 ## E2E / Integration
 
 ### SecurityConfigIntegrationTest
@@ -58,14 +67,14 @@
 | [24](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L24) | SecurityConfig 통합 테스트 / 인증된 요청이어도 Swagger UI 경로는 접근할 수 없다 | HTTP GET /swagger-ui/index.html | 실패: HTTP 403 Forbidden |
 | [38](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L38) | SecurityConfig 통합 테스트 / 인증된 요청이어도 기존 OpenAPI JSON 경로는 접근할 수 없다 | HTTP GET /v3/api-docs | 실패: HTTP 403 Forbidden |
 
-### SpringDomainEventPublisherIntegrationTest
-- 테스트 설명: SpringDomainEventPublisher local pub/sub
-- 위치: `src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherIntegrationTest.java`
+### EventOutboxRelayJdbcIntegrationTest
+- 테스트 설명: non-transactional relay의 실제 JDBC connection 경계
+- 위치: `src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java`
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [26](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherIntegrationTest.java#L26) | 트랜잭션 commit 이후 같은 JVM의 여러 subscriber가 이벤트를 수신한다 | 조건 트랜잭션 commit 이후 같은 JVM의 여러 subscriber가 이벤트를 수신한다 | 성공: 검증 assertThat(first.handled()).containsExactly(event.eventId()); assertThat(second.handled()).containsExactly(event.eventId()); |
-| [46](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherIntegrationTest.java#L46) | SpringDomainEventPublisher local pub/sub / 트랜잭션 rollback 시 AFTER_COMMIT subscriber는 이벤트를 수신하지 않는다 | 조건 SpringDomainEventPublisher local pub/sub / 트랜잭션 rollback 시 AFTER_COMMIT subscriber는 이벤트를 수신하지 않는다 | 실패: 예외 IllegalStateException; 검증 assertThat(first.handled()).isEmpty(); assertThat(second.handled()).isEmpty(); |
+| [45](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L45) | 전체 application context는 outbox publisher 하나만 등록한다 | 실제 Spring application context | `OutboxDomainEventPublisher` 단일 bean 등록 |
+| [53](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L53) | non-transactional listener 실행 중에는 JDBC connection을 점유하지 않는다 | 실제 PostgreSQL DataSource와 Hikari pool | 트랜잭션 비활성, active connection 0, PUBLISHED 처리 |
 
 ## Scheduler
 
@@ -178,14 +187,13 @@
 | [15](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java#L15) | publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다 | 조건 publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다 | 성공: 검증 assertThat(savePort.saved).hasSize(1); assertThat(outbox.getEventId()).isEqualTo(event.eventId()); assertThat(outbox.getEventType()).isEqualTo("test.created"); assertThat(outbox.getPayload()).contains("\"message\":\"h... |
 | [37](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java#L37) | OutboxDomainEventPublisher / publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다 | 조건 OutboxDomainEventPublisher / publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다 | 성공: 검증 assertThat(savePort.saved); .containsExactly(first.eventId(), second.eventId()); assertThat(savePort.saveAllCalled).isTrue(); |
 
-### SpringDomainEventPublisherTest
-- 위치: `src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java`
+### EventOutboxPublisherConfigurationTest
+- 위치: `src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java`
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [26](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java#L26) | publish는 ApplicationEventPublisher로 위임된다 | 조건 publish는 ApplicationEventPublisher로 위임된다 | 성공: publish는 ApplicationEventPublisher로 위임된다 |
-| [40](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java#L40) | publishAll은 입력 컬렉션 순서대로 모든 이벤트를 위임한다 | 조건 publishAll은 입력 컬렉션 순서대로 모든 이벤트를 위임한다 | 성공: publishAll은 입력 컬렉션 순서대로 모든 이벤트를 위임한다 |
-| [56](../../../src/test/java/com/umc/product/global/event/adapter/out/SpringDomainEventPublisherTest.java#L56) | publishAll에 빈 컬렉션이 주어지면 위임 없이 정상 종료된다 | 조건 publishAll에 빈 컬렉션이 주어지면 위임 없이 정상 종료된다 | 성공: publishAll에 빈 컬렉션이 주어지면 위임 없이 정상 종료된다 |
+| [27](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L27) | 과거 비활성화 property가 있어도 outbox publisher와 relay poller를 사용한다 | `app.event-outbox.enabled=false` | `OutboxDomainEventPublisher`와 `EventOutboxPoller` 단일 bean 등록 |
+| [40](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L40) | relay를 중지해도 outbox publisher는 유지한다 | `app.event-outbox.relay-enabled=false` | `OutboxDomainEventPublisher`는 등록하고 `EventOutboxPoller`는 등록하지 않음 |
 
 ## Support / Config / Utility
 

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
@@ -18,13 +19,16 @@ import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
+import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.global.observability.W3CTraceparent;
 
 import io.micrometer.tracing.Link;
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.TraceContext;
 import io.micrometer.tracing.Tracer;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 public class EventOutboxRelayService {
 
@@ -108,9 +112,22 @@ public class EventOutboxRelayService {
     private void relayOne(EventOutbox outbox) {
         try {
             publish(outbox);
+        } catch (OptimisticLockingFailureException e) {
+            logLeaseOwnershipLost(outbox);
         } catch (RuntimeException e) {
-            recordFailure(outbox, e);
+            try {
+                recordFailure(outbox, e);
+            } catch (OptimisticLockingFailureException ignored) {
+                logLeaseOwnershipLost(outbox);
+            }
         }
+    }
+
+    private void logLeaseOwnershipLost(EventOutbox outbox) {
+        log.info(
+            "Event outbox 처리 소유권이 변경되어 현재 worker의 상태 저장을 생략합니다: eventId={}",
+            outbox.getEventId()
+        );
     }
 
     private void publish(EventOutbox outbox) {
@@ -137,20 +154,30 @@ public class EventOutboxRelayService {
     }
 
     private void doPublish(EventOutbox outbox) {
-        // 이벤트 발행과 published 상태 변경을 하나의 트랜잭션으로 묶는다.
-        // 리스너는 @TransactionalEventListener(AFTER_COMMIT)라 markPublished가 커밋된 뒤에야 부작용이 발동하므로,
-        // "발행은 됐는데 published 처리는 실패"하는 중복 윈도우가 사라진다.
+        DomainEvent event = deserializer.deserialize(outbox);
+        if (event.outboxDispatchMode() == OutboxDispatchMode.NON_TRANSACTIONAL) {
+            eventPublisher.publishEvent(event);
+            markPublished(outbox);
+            return;
+        }
+
         transactionTemplate.executeWithoutResult(status -> {
-            DomainEvent event = deserializer.deserialize(outbox);
             eventPublisher.publishEvent(event);
             outbox.markPublished();
             saveEventOutboxPort.save(outbox);
         });
     }
 
-    private void recordFailure(EventOutbox outbox, RuntimeException e) {
+    private void markPublished(EventOutbox outbox) {
         transactionTemplate.executeWithoutResult(status -> {
-            outbox.recordFailure(errorMessage(e), nextAttemptAt(outbox), maxAttempts);
+            outbox.markPublished();
+            saveEventOutboxPort.save(outbox);
+        });
+    }
+
+    private void recordFailure(EventOutbox outbox, RuntimeException exception) {
+        transactionTemplate.executeWithoutResult(status -> {
+            outbox.recordFailure(errorMessage(exception), nextAttemptAt(outbox), maxAttempts);
             saveEventOutboxPort.save(outbox);
         });
     }
@@ -164,10 +191,10 @@ public class EventOutboxRelayService {
         return Instant.now().plus(backoff);
     }
 
-    private String errorMessage(RuntimeException e) {
-        if (e.getMessage() == null || e.getMessage().isBlank()) {
-            return e.getClass().getName();
+    private String errorMessage(RuntimeException exception) {
+        if (exception.getMessage() == null || exception.getMessage().isBlank()) {
+            return exception.getClass().getName();
         }
-        return e.getMessage();
+        return exception.getMessage();
     }
 }
