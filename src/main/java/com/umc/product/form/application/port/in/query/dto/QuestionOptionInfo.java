@@ -16,6 +16,7 @@ public record QuestionOptionInfo(
     String content,
     Long orderNo,
     boolean isOther,
+    Long nextSectionId,
     Instant createdAt,
     Instant updatedAt
 ) {
@@ -27,6 +28,7 @@ public record QuestionOptionInfo(
             .content(option.getContent())
             .orderNo(option.getOrderNo())
             .isOther(option.isOther())
+            .nextSectionId(option.getNextSectionId())
             .createdAt(option.getCreatedAt())
             .updatedAt(option.getUpdatedAt())
             .build();

@@ -3,6 +3,7 @@ package com.umc.product.form.application.service.command;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -15,11 +16,14 @@ import com.umc.product.form.application.port.in.command.dto.CreateQuestionOption
 import com.umc.product.form.application.port.in.command.dto.DeleteQuestionOptionCommand;
 import com.umc.product.form.application.port.in.command.dto.ReorderQuestionOptionsCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateQuestionOptionCommand;
+import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
+import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 
@@ -30,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class QuestionOptionCommandService implements ManageQuestionOptionUseCase {
 
+    private final LoadFormSectionPort loadFormSectionPort;
     private final LoadQuestionPort loadQuestionPort;
     private final LoadQuestionOptionPort loadQuestionOptionPort;
     private final SaveQuestionOptionPort saveQuestionOptionPort;
@@ -44,10 +49,17 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
             .max()
             .orElse(0L) + 1L;
 
+        if (command.nextSectionId() != null) {
+            validateNextSectionAllowed(question);
+            validateNextSectionNotSelfLoop(command.nextSectionId(), question);
+            validateNextSectionBelongsToForm(command.nextSectionId(), question);
+        }
+
         QuestionOption option = QuestionOption.create(
             command.content(),
             nextOrderNo,
-            command.isOther()
+            command.isOther(),
+            command.nextSectionId()
         );
         option.assignTo(question);
 
@@ -59,7 +71,14 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         QuestionOption option = loadQuestionOptionPort.findById(command.optionId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
 
-        option.update(command.content(), command.isOther());
+        boolean clearNextSectionId = Boolean.TRUE.equals(command.clearNextSectionId());
+        if (command.nextSectionId() != null) {
+            validateNextSectionAllowed(option.getQuestion());
+            validateNextSectionNotSelfLoop(command.nextSectionId(), option.getQuestion());
+            validateNextSectionBelongsToForm(command.nextSectionId(), option.getQuestion());
+        }
+
+        option.update(command.content(), command.isOther(), command.nextSectionId(), clearNextSectionId);
         saveQuestionOptionPort.save(option);
     }
 
@@ -92,5 +111,30 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
         }
 
         saveQuestionOptionPort.saveAll(options);
+    }
+
+    private static void validateNextSectionAllowed(Question question) {
+        if (question.getType() != QuestionType.RADIO && question.getType() != QuestionType.DROPDOWN) {
+            throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
+                "조건부 섹션 이동은 RADIO, DROPDOWN 타입 질문에만 지정할 수 있습니다.");
+        }
+    }
+
+    private static void validateNextSectionNotSelfLoop(Long nextSectionId, Question question) {
+        FormSection currentSection = question.getFormSection();
+        if (currentSection != null && Objects.equals(nextSectionId, currentSection.getId())) {
+            throw new FormDomainException(FormErrorCode.INVALID_NEXT_SECTION_SELF_LOOP);
+        }
+    }
+
+    private void validateNextSectionBelongsToForm(Long nextSectionId, Question question) {
+        FormSection section = loadFormSectionPort.findById(nextSectionId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
+                "존재하지 않는 섹션입니다."));
+        Long questionFormId = question.getFormSection().getForm().getId();
+        if (!section.getForm().getId().equals(questionFormId)) {
+            throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
+                "nextSectionId는 동일한 폼의 섹션이어야 합니다.");
+        }
     }
 }

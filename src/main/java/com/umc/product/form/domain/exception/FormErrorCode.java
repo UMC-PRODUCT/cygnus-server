@@ -39,6 +39,14 @@ public enum FormErrorCode implements BaseCode {
     ANSWER_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "FORM-0032", "이미 해당 질문에 대한 답변이 있어요. 기존 답변을 수정해주세요."),
     FORM_RESPONSE_LOOKUP_AMBIGUOUS(HttpStatus.CONFLICT, "FORM-0033",
         "중복 응답을 허용하는 폼은 응답을 하나로 특정할 수 없어요. 응답 ID를 사용해주세요."),
+    RESPONDENT_MEMBER_ID_REQUIRED(HttpStatus.BAD_REQUEST, "FORM-0034",
+        "응답자 정보가 필요해요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    RESPONSE_ACCESS_KEY_REQUIRED(HttpStatus.BAD_REQUEST, "FORM-0035",
+        "응답 접근 키가 필요해요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    INVALID_SUBMIT_SCOPE(HttpStatus.BAD_REQUEST, "FORM-0036",
+        "제출 범위가 올바르지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    INVALID_NEXT_SECTION_SELF_LOOP(HttpStatus.BAD_REQUEST, "FORM-0037",
+        "조건부 섹션 이동은 자기 자신을 대상으로 할 수 없어요. 이동 대상 섹션을 다시 선택해주세요."),
     ;
 
     private final HttpStatus httpStatus;

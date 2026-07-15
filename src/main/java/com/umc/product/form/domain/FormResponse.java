@@ -38,7 +38,7 @@ public class FormResponse extends BaseEntity {
     @JoinColumn(name = "form_id", nullable = false)
     private Form form;
 
-    @Column(name = "respondent_member_id", nullable = false)
+    @Column(name = "respondent_member_id")
     private Long respondentMemberId;
 
     @Enumerated(EnumType.STRING)
@@ -55,10 +55,34 @@ public class FormResponse extends BaseEntity {
     @Column(name = "last_saved_at", nullable = false)
     private Instant lastSavedAt;
 
+    /**
+     * 익명 응답 인증용 access key 의 SHA-256 해시(hex 64자).
+     * <p>
+     * 기명 응답은 {@code null}. 익명 응답은 발급 시점에 {@code SecureTokenGenerator.sha256Hex(rawKey)} 로 저장.
+     * UNIQUE — 익명 응답 간 hash 충돌 방지 (MySQL 은 NULL 여러 개 허용하므로 기명 여러 행은 문제 없음).
+     */
+    @Column(name = "response_access_key_hash", unique = true, length = 64)
+    private String responseAccessKeyHash;
+
     public static FormResponse createDraft(Form form, Long respondentMemberId) {
         FormResponse fr = new FormResponse();
         fr.form = form;
         fr.respondentMemberId = respondentMemberId;
+        fr.status = FormResponseStatus.DRAFT;
+        fr.lastSavedAt = Instant.now();
+        return fr;
+    }
+
+    /**
+     * 익명 draft 생성. {@code respondentMemberId} 는 null 로 남고, {@code responseAccessKeyHash} 에 sha256(rawKey) 저장.
+     * <p>
+     * raw key 는 발급자(서비스 레이어)가 클라이언트/소비 도메인에 반환하며, 서버에는 저장하지 않는다.
+     */
+    public static FormResponse createAnonymousDraft(Form form, String responseAccessKeyHash) {
+        FormResponse fr = new FormResponse();
+        fr.form = form;
+        fr.respondentMemberId = null;
+        fr.responseAccessKeyHash = responseAccessKeyHash;
         fr.status = FormResponseStatus.DRAFT;
         fr.lastSavedAt = Instant.now();
         return fr;

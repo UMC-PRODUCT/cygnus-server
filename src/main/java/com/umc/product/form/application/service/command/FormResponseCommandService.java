@@ -2,9 +2,14 @@ package com.umc.product.form.application.service.command;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -12,18 +17,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousImmediatelyFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
+import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
@@ -32,6 +47,7 @@ import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.FormResponseStatus;
@@ -49,6 +65,7 @@ import lombok.RequiredArgsConstructor;
 public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     private final LoadFormPort loadFormPort;
+    private final LoadFormSectionPort loadFormSectionPort;
     private final LoadQuestionPort loadQuestionPort;
     private final LoadQuestionOptionPort loadQuestionOptionPort;
     private final LoadFormResponsePort loadFormResponsePort;
@@ -56,6 +73,9 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private final SaveFormResponsePort saveFormResponsePort;
     private final SaveAnswerPort saveAnswerPort;
     private final GetFileUseCase getFileUseCase;
+    // authentication 도메인의 공용 crypto util 재사용 (SSO Auth Code 발급과 동일 패턴).
+    // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
+    private final SecureTokenGenerator secureTokenGenerator;
 
     @Audited(
         domain = Domain.FORM,
@@ -66,12 +86,17 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     )
     @Override
     public Long submitImmediately(SubmitFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
 
         validateDuplicateResponsePolicy(form, command.respondentMemberId());
 
         validateAnswers(command.formId(), command.answers());
-        validateAllRequiredAnswered(command.formId(), extractQuestionIds(command.answers()));
+        validateAllRequiredAnsweredOnPath(
+            command.formId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
 
         FormResponse response = FormResponse.createDraft(form, command.respondentMemberId());
         response.submit(Instant.now(), null);
@@ -85,6 +110,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void updateResponse(UpdateFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
         validateSingleResponseLookupPolicy(form);
 
@@ -93,7 +119,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
         validateAnswers(command.formId(), command.answers());
-        validateAllRequiredAnswered(command.formId(), extractQuestionIds(command.answers()));
+        validateAllRequiredAnsweredOnPath(
+            command.formId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
@@ -106,6 +136,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void deleteResponse(DeleteFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
         validateSingleResponseLookupPolicy(form);
 
@@ -119,6 +150,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public Long createDraft(CreateDraftFormResponseCommand command) {
+        requireRespondentMemberId(command.respondentMemberId());
         Form form = loadPublishedForm(command.formId());
 
         validateDuplicateResponsePolicy(form, command.respondentMemberId());
@@ -129,7 +161,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void updateDraft(UpdateDraftFormResponseCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
 
         // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
         validateAnswers(draft.getForm().getId(), command.answers());
@@ -145,7 +177,8 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void submitDraft(SubmitDraftFormResponseCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
+        validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
         Set<Long> answeredQuestionIds = savedAnswers.stream()
@@ -156,11 +189,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
         }
 
-        if (command.requiredQuestionIds() != null) {
-            validateRequiredAnswered(command.requiredQuestionIds(), answeredQuestionIds);
-        } else {
-            validateAllRequiredAnswered(draft.getForm().getId(), answeredQuestionIds);
-        }
+        Map<Long, Long> selectedOptionByQuestion = loadSelectedOptionByQuestion(savedAnswers);
+        validateAllRequiredAnsweredOnPath(
+            draft.getForm().getId(),
+            answeredQuestionIds,
+            selectedOptionByQuestion,
+            command.requiredQuestionIds()
+        );
 
         saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
 
@@ -170,7 +205,132 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
     @Override
     public void deleteDraft(DeleteDraftFormResponseCommand command) {
-        FormResponse draft = loadDraft(command.formResponseId());
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
+
+        saveAnswerPort.deleteAllByFormResponseId(draft.getId());
+        saveFormResponsePort.deleteById(draft.getId());
+    }
+
+    @Override
+    public AnonymousFormResponseResult submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand command) {
+        Form form = loadPublishedForm(command.formId());
+
+        // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
+        validateAnswers(command.formId(), command.answers());
+        validateAllRequiredAnsweredOnPath(
+            command.formId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+
+        String rawAccessKey = secureTokenGenerator.generateOpaqueToken();
+        String accessKeyHash = secureTokenGenerator.sha256Hex(rawAccessKey);
+
+        FormResponse response = FormResponse.createAnonymousDraft(form, accessKeyHash);
+        response.submit(Instant.now(), null);
+        FormResponse saved = saveFormResponsePort.save(response);
+
+        List<AnswerWithOptions> data = buildAnswerData(saved, command.answers());
+        saveAnswers(data);
+
+        return AnonymousFormResponseResult.builder()
+            .formResponseId(saved.getId())
+            .responseAccessKey(rawAccessKey)
+            .build();
+    }
+
+    @Override
+    public void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command) {
+        FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
+
+        validateAnswers(existing.getForm().getId(), command.answers());
+        validateAllRequiredAnsweredOnPath(
+            existing.getForm().getId(),
+            extractQuestionIds(command.answers()),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+
+        saveAnswerPort.deleteAllByFormResponseId(existing.getId());
+
+        List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
+        saveAnswers(data);
+
+        existing.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(existing);
+    }
+
+    @Override
+    public void deleteAnonymousResponse(DeleteAnonymousFormResponseCommand command) {
+        FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
+
+        saveAnswerPort.deleteAllByFormResponseId(existing.getId());
+        saveFormResponsePort.deleteById(existing.getId());
+    }
+
+    @Override
+    public AnonymousFormResponseResult createAnonymousDraft(CreateAnonymousDraftFormResponseCommand command) {
+        Form form = loadPublishedForm(command.formId());
+
+        // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
+        String rawAccessKey = secureTokenGenerator.generateOpaqueToken();
+        String accessKeyHash = secureTokenGenerator.sha256Hex(rawAccessKey);
+
+        FormResponse draft = FormResponse.createAnonymousDraft(form, accessKeyHash);
+        FormResponse saved = saveFormResponsePort.save(draft);
+
+        return AnonymousFormResponseResult.builder()
+            .formResponseId(saved.getId())
+            .responseAccessKey(rawAccessKey)
+            .build();
+    }
+
+    @Override
+    public void updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+
+        // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
+        validateAnswers(draft.getForm().getId(), command.answers());
+
+        // 기존 답변 전체 교체
+        saveAnswerPort.deleteAllByFormResponseId(draft.getId());
+        List<AnswerWithOptions> data = buildAnswerData(draft, command.answers());
+        saveAnswers(data);
+
+        draft.updateLastSavedAt(Instant.now());
+        saveFormResponsePort.save(draft);
+    }
+
+    @Override
+    public void submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+        validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
+
+        List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
+        Set<Long> answeredQuestionIds = savedAnswers.stream()
+            .map(answer -> answer.getQuestion().getId())
+            .collect(Collectors.toSet());
+
+        if (command.allowedQuestionIds() != null) {
+            validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
+        }
+
+        Map<Long, Long> selectedOptionByQuestion = loadSelectedOptionByQuestion(savedAnswers);
+        validateAllRequiredAnsweredOnPath(
+            draft.getForm().getId(),
+            answeredQuestionIds,
+            selectedOptionByQuestion,
+            command.requiredQuestionIds()
+        );
+
+        saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
+
+        draft.submit(Instant.now(), command.submittedIp());
+        saveFormResponsePort.save(draft);
+    }
+
+    @Override
+    public void deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand command) {
+        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
 
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
@@ -186,6 +346,78 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
         return formResponse;
+    }
+
+    /**
+     * 익명 draft 응답 로드 + 검증 (익명 전용).
+     * <p>
+     * 순서: rawKey null 방어 → sha256 계산 → hash 매칭으로 DRAFT 조회 → 익명 여부 확인.
+     * <p>
+     * 다음 경우 모두 FORBIDDEN 처리:
+     * <ul>
+     *   <li>hash 매칭 실패 (잘못된 key 또는 이미 SUBMITTED 로 전이됨)</li>
+     *   <li>기명 draft ({@code respondentMemberId != null}) — 익명 UseCase 로 접근 불가</li>
+     * </ul>
+     * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     */
+    private FormResponse loadDraftAsAnonymous(String rawAccessKey) {
+        if (rawAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        if (draft.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return draft;
+    }
+
+    /**
+     * 익명 SUBMITTED 응답 로드 + 검증 (익명 전용).
+     * <p>
+     * 순서: rawKey null 방어 → sha256 계산 → hash 매칭으로 SUBMITTED 조회 → 익명 여부 확인.
+     * <p>
+     * 다음 경우 모두 FORBIDDEN 처리:
+     * <ul>
+     *   <li>hash 매칭 실패 (잘못된 key 또는 아직 DRAFT 상태)</li>
+     *   <li>기명 응답 ({@code respondentMemberId != null}) — 익명 UseCase 로 접근 불가</li>
+     * </ul>
+     * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
+     */
+    private FormResponse loadSubmittedAsAnonymous(String rawAccessKey) {
+        if (rawAccessKey == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
+        FormResponse response = loadFormResponsePort.findSubmittedByAccessKeyHash(hash)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        if (response.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return response;
+    }
+
+    /**
+     * 소유자 검증까지 포함한 DRAFT 응답 로드 (기명 전용).
+     * <p>
+     * 순서: DRAFT 로드({@link #loadDraft}) → 소유자 대조.
+     * 소유자와 일치하지 않으면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
+     * <p>
+     * 다음 경우 모두 FORBIDDEN 처리:
+     * <ul>
+     *   <li>익명 draft({@code respondentMemberId=null}) — 기명 UseCase 로 접근 불가, 별도 익명 UseCase(추후 도입) 사용</li>
+     *   <li>요청자 memberId 가 draft 소유자와 다름</li>
+     *   <li>요청자 memberId 가 null (auth 계층에서 걸러졌어야 하는 케이스, 방어 목적)</li>
+     * </ul>
+     */
+    private FormResponse loadDraftAsOwner(Long formResponseId, Long requesterMemberId) {
+        FormResponse draft = loadDraft(formResponseId);
+        if (draft.getRespondentMemberId() == null
+            || !draft.getRespondentMemberId().equals(requesterMemberId)) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+        return draft;
     }
 
     private static Set<Long> extractQuestionIds(List<AnswerCommand> answers) {
@@ -207,6 +439,9 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (form.isAllowDuplicateResponses()) {
             return;
         }
+        if (respondentMemberId == null) {
+            return;
+        }
         if (loadFormResponsePort.existsByFormIdAndMemberId(form.getId(), respondentMemberId)) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_ALREADY_EXISTS);
         }
@@ -218,11 +453,17 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         }
     }
 
+    private static void requireRespondentMemberId(Long respondentMemberId) {
+        if (respondentMemberId == null) {
+            throw new FormDomainException(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
+        }
+    }
+
     /**
      * 답변 형식 / 질문 소속 / 옵션 소속 등 형식 검증만 수행. 필수 답변 누락 검증은 별도.
      * <p>
      * draft 작성 중 (updateDraft) 에는 필수 누락이 정상이라 형식만 검증.
-     * 제출 시점 (submitImmediately, updateResponse, submitDraft) 에는 별도로 {@link #validateAllRequiredAnswered} 호출 필요.
+     * 제출 시점 (submitImmediately, updateResponse, submitDraft) 에는 별도로 {@link #validateAllRequiredAnsweredOnPath} 호출 필요.
      */
     private void validateAnswers(Long formId, List<AnswerCommand> answers) {
         if (answers == null) {
@@ -249,23 +490,137 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     /**
-     * 폼의 모든 필수 질문이 답변에 포함됐는지 검증. 제출 시점에만 호출.
+     * 응답자가 실제 방문한 섹션 경로 상의 필수 질문만 검증. 제출 시점에만 호출.
+     * 조건부 섹션 이동이 없는 폼은 전체 섹션을 방문하므로 기존 동작과 동일.
      */
-    private void validateAllRequiredAnswered(Long formId, Set<Long> answeredQuestionIds) {
+    private void validateAllRequiredAnsweredOnPath(
+        Long formId,
+        Set<Long> answeredQuestionIds,
+        Map<Long, Long> selectedOptionByQuestion
+    ) {
+        validateAllRequiredAnsweredOnPath(formId, answeredQuestionIds, selectedOptionByQuestion, null);
+    }
+
+    /**
+     * 방문 경로와 caller 제공 required 를 통합해 검증한다.
+     * <p>
+     * {@code callerRequiredQuestionIds} 가 {@code null} 이면 폼 질문의 {@code isRequired} 를 사용하고,
+     * 제공되면 방문 경로 질문과의 교집합만 필수로 취급한다. 조건부 섹션 이동으로 건너뛴 질문은 caller 가 required 로 전달했더라도 검증에서 제외된다.
+     */
+    private void validateAllRequiredAnsweredOnPath(
+        Long formId,
+        Set<Long> answeredQuestionIds,
+        Map<Long, Long> selectedOptionByQuestion,
+        Set<Long> callerRequiredQuestionIds
+    ) {
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(formId, selectedOptionByQuestion);
         List<Question> formQuestions = loadQuestionPort.listByFormId(formId);
         for (Question q : formQuestions) {
-            if (Boolean.TRUE.equals(q.getIsRequired()) && !answeredQuestionIds.contains(q.getId())) {
+            if (!visitedSectionIds.contains(q.getFormSection().getId())) {
+                continue;
+            }
+            boolean required = callerRequiredQuestionIds != null
+                ? callerRequiredQuestionIds.contains(q.getId())
+                : Boolean.TRUE.equals(q.getIsRequired());
+            if (required && !answeredQuestionIds.contains(q.getId())) {
                 throw new FormDomainException(FormErrorCode.REQUIRED_QUESTION_NOT_ANSWERED);
             }
         }
     }
 
-    private void validateRequiredAnswered(Set<Long> requiredQuestionIds, Set<Long> answeredQuestionIds) {
-        for (Long questionId : requiredQuestionIds) {
-            if (!answeredQuestionIds.contains(questionId)) {
-                throw new FormDomainException(FormErrorCode.REQUIRED_QUESTION_NOT_ANSWERED);
-            }
+    /**
+     * savedAnswers 로부터 (questionId → selectedOptionId) 맵을 계산한다.
+     * <p>
+     * 방문 경로 계산용. 이미 메모리에 있는 savedAnswers 로 answerId → questionId 매핑을 미리 만들어
+     * AnswerChoice 순회 시 Answer 프록시 초기화로 인한 N+1 을 회피한다.
+     * RADIO/DROPDOWN 이 아닌 답변의 선택지는 방문 경로 계산에 사용되지 않지만,
+     * 이 헬퍼는 관심 없이 모든 선택지를 담아 리턴한다. 소비 측에서 필터링한다.
+     */
+    private Map<Long, Long> loadSelectedOptionByQuestion(List<Answer> savedAnswers) {
+        if (savedAnswers.isEmpty()) {
+            return Map.of();
         }
+        Map<Long, Long> answerIdToQuestionId = savedAnswers.stream()
+            .collect(Collectors.toMap(Answer::getId, a -> a.getQuestion().getId()));
+        return loadAnswerPort.listChoicesByAnswerIdIn(answerIdToQuestionId.keySet()).stream()
+            .filter(c -> c.getQuestionOption() != null)
+            .collect(Collectors.toMap(
+                c -> answerIdToQuestionId.get(c.getAnswer().getId()),
+                c -> c.getQuestionOption().getId(),
+                (a, b) -> a
+            ));
+    }
+
+    /**
+     * 제출된 답변의 선택지를 기반으로 응답자가 실제로 방문한 섹션 ID 집합을 계산한다.
+     * RADIO/DROPDOWN 선택지에 nextSectionId가 지정된 경우 해당 섹션으로 점프하고,
+     * 없으면 orderNo 오름차순으로 다음 섹션으로 이동한다.
+     */
+    private Set<Long> resolveVisitedSectionIds(Long formId, Map<Long, Long> selectedOptionByQuestion) {
+        List<FormSection> sections = loadFormSectionPort.listByFormId(formId).stream()
+            .sorted(Comparator.comparing(FormSection::getOrderNo))
+            .toList();
+        if (sections.isEmpty()) {
+            return Set.of();
+        }
+
+        List<Question> questions = loadQuestionPort.listByFormId(formId);
+
+        Set<Long> radioDropdownQuestionIds = questions.stream()
+            .filter(q -> q.getType() == QuestionType.RADIO || q.getType() == QuestionType.DROPDOWN)
+            .map(Question::getId)
+            .collect(Collectors.toSet());
+
+        Map<Long, Long> optionToNextSection = new HashMap<>();
+        if (!radioDropdownQuestionIds.isEmpty()) {
+            loadQuestionOptionPort.listByQuestionIdIn(radioDropdownQuestionIds).stream()
+                .filter(opt -> opt.getNextSectionId() != null)
+                .forEach(opt -> optionToNextSection.put(opt.getId(), opt.getNextSectionId()));
+        }
+
+        Map<Long, List<Question>> questionsBySection = questions.stream()
+            .collect(Collectors.groupingBy(q -> q.getFormSection().getId()));
+        Map<Long, FormSection> sectionById = sections.stream()
+            .collect(Collectors.toMap(FormSection::getId, Function.identity()));
+
+        Set<Long> visited = new LinkedHashSet<>();
+        FormSection current = sections.get(0);
+
+        while (current != null) {
+            visited.add(current.getId());
+
+            FormSection next = null;
+            for (Question q : questionsBySection.getOrDefault(current.getId(), List.of())) {
+                if (q.getType() != QuestionType.RADIO && q.getType() != QuestionType.DROPDOWN) continue;
+                Long selectedOptionId = selectedOptionByQuestion.get(q.getId());
+                if (selectedOptionId == null) continue;
+                Long nextSectionId = optionToNextSection.get(selectedOptionId);
+                if (nextSectionId != null && !visited.contains(nextSectionId)) {
+                    next = sectionById.get(nextSectionId);
+                    break;
+                }
+            }
+
+            if (next == null) {
+                int currentIndex = sections.indexOf(current);
+                next = (currentIndex != -1 && currentIndex < sections.size() - 1)
+                    ? sections.get(currentIndex + 1)
+                    : null;
+            }
+
+            current = next;
+        }
+
+        return visited;
+    }
+
+    private static Map<Long, Long> extractSingleSelectedOptionIds(List<AnswerCommand> answers) {
+        return answers.stream()
+            .filter(a -> a.selectedOptionIds() != null && a.selectedOptionIds().size() == 1)
+            .collect(Collectors.toMap(
+                AnswerCommand::questionId,
+                a -> a.selectedOptionIds().get(0)
+            ));
     }
 
     private void validateAnsweredQuestionsAllowed(Set<Long> allowedQuestionIds, Set<Long> answeredQuestionIds) {
@@ -273,6 +628,30 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             if (!allowedQuestionIds.contains(questionId)) {
                 throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
             }
+        }
+    }
+
+    /**
+     * 제출 scope 검증 — allowedQuestionIds / requiredQuestionIds 가 현재 폼 소속이고 required ⊆ allowed 인지 확인.
+     * <p>
+     * 미검증 시 폼 A draft 에 폼 B 질문 ID 를 넘겨 교차 폼 Answer 저장 등의 무결성 파괴가 가능하다.
+     */
+    private void validateSubmitScope(Long formId, Set<Long> allowedQuestionIds, Set<Long> requiredQuestionIds) {
+        if (allowedQuestionIds == null && requiredQuestionIds == null) {
+            return;
+        }
+        Set<Long> formQuestionIds = loadQuestionPort.listByFormId(formId).stream()
+            .map(Question::getId)
+            .collect(Collectors.toSet());
+        if (allowedQuestionIds != null && !formQuestionIds.containsAll(allowedQuestionIds)) {
+            throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+        }
+        if (requiredQuestionIds != null && !formQuestionIds.containsAll(requiredQuestionIds)) {
+            throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+        }
+        if (allowedQuestionIds != null && requiredQuestionIds != null
+            && !allowedQuestionIds.containsAll(requiredQuestionIds)) {
+            throw new FormDomainException(FormErrorCode.INVALID_SUBMIT_SCOPE);
         }
     }
 
