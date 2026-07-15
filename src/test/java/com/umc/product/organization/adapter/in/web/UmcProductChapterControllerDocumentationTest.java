@@ -99,4 +99,11 @@ class UmcProductChapterControllerDocumentationTest extends DocumentationTest {
                 parameterWithName("chapterId").description("Chapter ID")
             )));
     }
+
+    @Test
+    @DisplayName("제거된 UMC PRODUCT Part API는 404를 반환한다")
+    void 제거된_UMC_PRODUCT_Part_API는_404를_반환한다() throws Exception {
+        mockMvc.perform(get("/api/v1/umc-product/parts"))
+            .andExpect(status().isNotFound());
+    }
 }

@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-`organization` models UMC structure: school, global chapter, gisu, study group, and the UMC PRODUCT Chapter-Part, activity-period, Leadership, and Squad archive.
+`organization` models UMC structure: school, global chapter, gisu, study group, and the UMC PRODUCT Chapter, activity-period, Leadership, and Squad archive.
 
 ## STRUCTURE
 
@@ -26,7 +26,7 @@ organization/
 | School APIs | `adapter/in/web/School*Controller.java` | Public query and admin command surfaces |
 | GraphQL organization queries | `adapter/in/graphql/OrganizationGraphQlController.java` | gisu/chapter/school GraphQL surface |
 | Gisu APIs | `adapter/in/web/Gisu*Controller.java`, `adapter/in/web/v2` | v1/v2 query split exists |
-| UMC PRODUCT org APIs | `adapter/in/web/UmcProduct*Controller.java` | Chapter, Part, member activity period, Leadership, Squad |
+| UMC PRODUCT org APIs | `adapter/in/web/UmcProduct*Controller.java` | Chapter, member activity period, Chapter membership, Leadership, Squad |
 | Study group APIs | `adapter/in/web/StudyGroup*Controller.java` | study group and schedule boundaries |
 | Query DTOs | `application/port/in/query/dto` | often split by subdomain |
 | Persistence | `adapter/out/persistence/{chapter,gisu,school,studygroup,umcproduct}` | one adapter/query repository family per subdomain |
@@ -43,11 +43,11 @@ organization/
 - Query repositories handle complex joins, search filters, and batch loading; services should not build QueryDSL predicates.
 - When multiple bag-like associations are needed, prefer separate queries plus map grouping over multi-bag fetch joins.
 - Domain exceptions should use `OrganizationDomainException` and `OrganizationErrorCode`.
-- UMC PRODUCT Chapter/Part는 전역 `Chapter`/`Gisu`와 별도 모델이며 UMC PRODUCT 기수를 두지 않는다.
+- UMC PRODUCT Chapter는 전역 `Chapter`/`Gisu`와 별도 모델이며 UMC PRODUCT 기수를 두지 않는다.
 - UMC PRODUCT 활동 기간은 `LocalDate`/DB `DATE`로 저장하고 종료일을 포함한다. 감사 시각은 기존 `Instant`를 유지한다.
-- 멤버의 소속은 `UmcProductPartMembership`으로만 저장하고 Chapter는 Part에서 파생한다.
-- `UmcProductPartRole`은 `MEMBER`, `PART_LEAD`만 허용한다. Chapter Lead 역할은 없다.
-- `UmcProductLeadership`은 Part 및 Operation Part 소속과 독립적으로 관리한다.
+- 멤버의 기능 조직 소속은 `UmcProductChapterMembership`으로 저장하고 Chapter를 직접 참조한다.
+- UMC PRODUCT Chapter 소속에는 별도 역할을 두지 않으며 Part와 Part Lead 모델을 추가하지 않는다.
+- `UmcProductLeadership`은 Chapter 소속과 독립적으로 관리한다.
 
 ## ANTI-PATTERNS
 

@@ -35,8 +35,6 @@ import com.umc.product.organization.adapter.in.web.UmcProductChapterQueryControl
 import com.umc.product.organization.adapter.in.web.UmcProductMemberCommandController;
 import com.umc.product.organization.adapter.in.web.UmcProductMemberQueryController;
 import com.umc.product.organization.adapter.in.web.UmcProductOrganizationChartQueryController;
-import com.umc.product.organization.adapter.in.web.UmcProductPartCommandController;
-import com.umc.product.organization.adapter.in.web.UmcProductPartQueryController;
 import com.umc.product.organization.adapter.in.web.UmcProductSquadCommandController;
 import com.umc.product.organization.adapter.in.web.UmcProductSquadQueryController;
 import com.umc.product.organization.application.port.in.command.ManageChapterUseCase;
@@ -44,7 +42,6 @@ import com.umc.product.organization.application.port.in.command.ManageGisuUseCas
 import com.umc.product.organization.application.port.in.command.ManageSchoolUseCase;
 import com.umc.product.organization.application.port.in.command.ManageUmcProductChapterUseCase;
 import com.umc.product.organization.application.port.in.command.ManageUmcProductMemberUseCase;
-import com.umc.product.organization.application.port.in.command.ManageUmcProductPartUseCase;
 import com.umc.product.organization.application.port.in.command.ManageUmcProductSquadUseCase;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -52,7 +49,6 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.GetUmcProductChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetUmcProductMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetUmcProductOrganizationChartUseCase;
-import com.umc.product.organization.application.port.in.query.GetUmcProductPartUseCase;
 import com.umc.product.organization.application.port.in.query.GetUmcProductSquadUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
@@ -65,8 +61,6 @@ import com.umc.product.storage.application.port.in.query.GetFileUseCase;
     GisuQueryController.class,
     UmcProductChapterCommandController.class,
     UmcProductChapterQueryController.class,
-    UmcProductPartCommandController.class,
-    UmcProductPartQueryController.class,
     UmcProductMemberCommandController.class,
     UmcProductMemberQueryController.class,
     UmcProductSquadCommandController.class,
@@ -125,12 +119,6 @@ public class DocumentationTest {
 
     @MockitoBean
     protected GetUmcProductChapterUseCase getUmcProductChapterUseCase;
-
-    @MockitoBean
-    protected ManageUmcProductPartUseCase manageUmcProductPartUseCase;
-
-    @MockitoBean
-    protected GetUmcProductPartUseCase getUmcProductPartUseCase;
 
     @MockitoBean
     protected ManageUmcProductMemberUseCase manageUmcProductMemberUseCase;

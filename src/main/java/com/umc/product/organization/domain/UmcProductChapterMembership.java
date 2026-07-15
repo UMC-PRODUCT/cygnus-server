@@ -3,7 +3,6 @@ package com.umc.product.organization.domain;
 import java.time.LocalDate;
 
 import com.umc.product.common.BaseEntity;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 import com.umc.product.organization.domain.vo.UmcProductDatePeriod;
 import com.umc.product.organization.exception.OrganizationDomainException;
@@ -31,13 +30,13 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(
-    name = "umc_product_part_membership",
+    name = "umc_product_chapter_membership",
     indexes = {
-        @Index(name = "ix_umc_product_part_membership_activity_period", columnList = "member_activity_period_id"),
-        @Index(name = "ix_umc_product_part_membership_part", columnList = "part_id")
+        @Index(name = "ix_umc_product_chapter_membership_activity_period", columnList = "member_activity_period_id"),
+        @Index(name = "ix_umc_product_chapter_membership_chapter", columnList = "chapter_id")
     }
 )
-public class UmcProductPartMembership extends BaseEntity {
+public class UmcProductChapterMembership extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -48,12 +47,8 @@ public class UmcProductPartMembership extends BaseEntity {
     private UmcProductMemberActivityPeriod memberActivityPeriod;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "part_id", nullable = false)
-    private UmcProductPart part;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 32)
-    private UmcProductPartRole role;
+    @JoinColumn(name = "chapter_id", nullable = false)
+    private UmcProductChapter chapter;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 32)
@@ -69,10 +64,9 @@ public class UmcProductPartMembership extends BaseEntity {
     private UmcProductDatePeriod period;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private UmcProductPartMembership(
+    private UmcProductChapterMembership(
         UmcProductMemberActivityPeriod memberActivityPeriod,
-        UmcProductPart part,
-        UmcProductPartRole role,
+        UmcProductChapter chapter,
         UmcProductPosition position,
         String responsibilityTitle,
         String responsibilityDescription,
@@ -80,30 +74,27 @@ public class UmcProductPartMembership extends BaseEntity {
         LocalDate endDate
     ) {
         UmcProductDatePeriod createdPeriod = UmcProductDatePeriod.of(startDate, endDate);
-        validate(memberActivityPeriod, part, role, position, createdPeriod);
+        validate(memberActivityPeriod, chapter, position, createdPeriod);
         this.memberActivityPeriod = memberActivityPeriod;
-        this.part = part;
-        this.role = role;
+        this.chapter = chapter;
         this.position = position;
         this.responsibilityTitle = normalizeNullable(responsibilityTitle);
         this.responsibilityDescription = normalizeNullable(responsibilityDescription);
         this.period = createdPeriod;
     }
 
-    public static UmcProductPartMembership create(
+    public static UmcProductChapterMembership create(
         UmcProductMemberActivityPeriod memberActivityPeriod,
-        UmcProductPart part,
-        UmcProductPartRole role,
+        UmcProductChapter chapter,
         UmcProductPosition position,
         String responsibilityTitle,
         String responsibilityDescription,
         LocalDate startDate,
         LocalDate endDate
     ) {
-        return UmcProductPartMembership.builder()
+        return UmcProductChapterMembership.builder()
             .memberActivityPeriod(memberActivityPeriod)
-            .part(part)
-            .role(role)
+            .chapter(chapter)
             .position(position)
             .responsibilityTitle(responsibilityTitle)
             .responsibilityDescription(responsibilityDescription)
@@ -114,8 +105,7 @@ public class UmcProductPartMembership extends BaseEntity {
 
     public void update(
         UmcProductMemberActivityPeriod memberActivityPeriod,
-        UmcProductPart part,
-        UmcProductPartRole role,
+        UmcProductChapter chapter,
         UmcProductPosition position,
         String responsibilityTitle,
         String responsibilityDescription,
@@ -124,15 +114,13 @@ public class UmcProductPartMembership extends BaseEntity {
     ) {
         UmcProductMemberActivityPeriod nextActivityPeriod =
             memberActivityPeriod != null ? memberActivityPeriod : this.memberActivityPeriod;
-        UmcProductPart nextPart = part != null ? part : this.part;
-        UmcProductPartRole nextRole = role != null ? role : this.role;
+        UmcProductChapter nextChapter = chapter != null ? chapter : this.chapter;
         UmcProductPosition nextPosition = position != null ? position : this.position;
         LocalDate nextStartDate = startDate != null ? startDate : period.getStartDate();
         UmcProductDatePeriod nextPeriod = UmcProductDatePeriod.of(nextStartDate, endDate);
-        validate(nextActivityPeriod, nextPart, nextRole, nextPosition, nextPeriod);
+        validate(nextActivityPeriod, nextChapter, nextPosition, nextPeriod);
         this.memberActivityPeriod = nextActivityPeriod;
-        this.part = nextPart;
-        this.role = nextRole;
+        this.chapter = nextChapter;
         this.position = nextPosition;
         this.responsibilityTitle = normalizeNullable(responsibilityTitle);
         this.responsibilityDescription = normalizeNullable(responsibilityDescription);
@@ -153,19 +141,15 @@ public class UmcProductPartMembership extends BaseEntity {
 
     private static void validate(
         UmcProductMemberActivityPeriod memberActivityPeriod,
-        UmcProductPart part,
-        UmcProductPartRole role,
+        UmcProductChapter chapter,
         UmcProductPosition position,
         UmcProductDatePeriod period
     ) {
         if (memberActivityPeriod == null) {
             throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_REQUIRED);
         }
-        if (part == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_PART_REQUIRED);
-        }
-        if (role == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_PART_ROLE_REQUIRED);
+        if (chapter == null) {
+            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_REQUIRED);
         }
         if (position == null) {
             throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_POSITION_REQUIRED);

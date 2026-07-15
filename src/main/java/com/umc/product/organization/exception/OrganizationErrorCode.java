@@ -102,28 +102,12 @@ public enum OrganizationErrorCode implements BaseCode {
         "UMC PRODUCT Chapter를 찾을 수 없습니다."),
     UMC_PRODUCT_CHAPTER_ALREADY_EXISTS(HttpStatus.CONFLICT, "ORGANIZATION-0077",
         "이미 존재하는 UMC PRODUCT Chapter 코드입니다."),
-    UMC_PRODUCT_CHAPTER_HAS_PARTS(HttpStatus.CONFLICT, "ORGANIZATION-0078",
-        "연결된 Part가 있어 UMC PRODUCT Chapter를 삭제할 수 없습니다."),
-    UMC_PRODUCT_PART_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0079",
-        "UMC PRODUCT Part는 필수입니다."),
-    UMC_PRODUCT_PART_CODE_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0080",
-        "UMC PRODUCT Part 코드는 필수입니다."),
-    UMC_PRODUCT_PART_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0081",
-        "UMC PRODUCT Part 이름은 필수입니다."),
-    UMC_PRODUCT_PART_NOT_FOUND(HttpStatus.NOT_FOUND, "ORGANIZATION-0082",
-        "UMC PRODUCT Part를 찾을 수 없습니다."),
-    UMC_PRODUCT_PART_ALREADY_EXISTS(HttpStatus.CONFLICT, "ORGANIZATION-0083",
-        "같은 Chapter에 이미 존재하는 UMC PRODUCT Part 코드입니다."),
-    UMC_PRODUCT_PART_HAS_MEMBERSHIPS(HttpStatus.CONFLICT, "ORGANIZATION-0084",
-        "연결된 소속 이력이 있어 UMC PRODUCT Part를 삭제할 수 없습니다."),
-    UMC_PRODUCT_PART_ROLE_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0085",
-        "UMC PRODUCT Part 역할은 필수입니다."),
-    UMC_PRODUCT_PART_MEMBERSHIP_NOT_FOUND(HttpStatus.NOT_FOUND, "ORGANIZATION-0086",
-        "UMC PRODUCT Part 소속 이력을 찾을 수 없습니다."),
-    UMC_PRODUCT_PART_MEMBERSHIP_OVERLAPPED(HttpStatus.CONFLICT, "ORGANIZATION-0087",
-        "동일한 UMC PRODUCT Part 소속 활동 기간이 겹칩니다."),
-    UMC_PRODUCT_PART_LEAD_OVERLAPPED(HttpStatus.CONFLICT, "ORGANIZATION-0088",
-        "해당 기간에 이미 UMC PRODUCT Part Lead가 존재합니다."),
+    UMC_PRODUCT_CHAPTER_HAS_MEMBERSHIPS(HttpStatus.CONFLICT, "ORGANIZATION-0078",
+        "연결된 소속 이력이 있어 UMC PRODUCT Chapter를 삭제할 수 없습니다."),
+    UMC_PRODUCT_CHAPTER_MEMBERSHIP_NOT_FOUND(HttpStatus.NOT_FOUND, "ORGANIZATION-0086",
+        "UMC PRODUCT Chapter 소속 이력을 찾을 수 없습니다."),
+    UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED(HttpStatus.CONFLICT, "ORGANIZATION-0087",
+        "동일한 UMC PRODUCT Chapter 소속 활동 기간이 겹칩니다."),
     UMC_PRODUCT_LEADERSHIP_ROLE_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0089",
         "UMC PRODUCT Leadership 역할은 필수입니다."),
     UMC_PRODUCT_LEADERSHIP_NOT_FOUND(HttpStatus.NOT_FOUND, "ORGANIZATION-0090",
@@ -139,10 +123,7 @@ public enum OrganizationErrorCode implements BaseCode {
     UMC_PRODUCT_SQUAD_HAS_PARTICIPANTS(HttpStatus.CONFLICT, "ORGANIZATION-0095",
         "연결된 참여 이력이 있어 UMC PRODUCT Squad를 삭제할 수 없습니다."),
     UMC_PRODUCT_SQUAD_ALREADY_EXISTS(HttpStatus.CONFLICT, "ORGANIZATION-0096",
-        "이미 존재하는 UMC PRODUCT Squad 코드입니다."),
-
-    ;
-
+        "이미 존재하는 UMC PRODUCT Squad 코드입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

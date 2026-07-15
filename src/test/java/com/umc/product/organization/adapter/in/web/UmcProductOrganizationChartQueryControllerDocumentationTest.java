@@ -11,23 +11,18 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductChapterInfo;
-import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductOrganizationChartChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductOrganizationChartInfo;
-import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductPartInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductSquadInfo;
 import com.umc.product.support.DocumentationTest;
 
 class UmcProductOrganizationChartQueryControllerDocumentationTest extends DocumentationTest {
 
     @Test
-    @DisplayName("현재 UMC PRODUCT Chapter-Part 조직도와 Squad를 조회한다")
+    @DisplayName("현재 UMC PRODUCT Chapter와 Squad를 조회한다")
     void 현재_UMC_PRODUCT_조직도를_조회한다() throws Exception {
         // given
         UmcProductChapterInfo chapter = new UmcProductChapterInfo(
             10L, "DEV", "Development", "개발 Chapter", 1, true
-        );
-        UmcProductPartInfo part = new UmcProductPartInfo(
-            20L, 10L, chapter, "SERVER", "Server", "서버 Part", 1, true
         );
         UmcProductSquadInfo squad = new UmcProductSquadInfo(
             70L,
@@ -41,7 +36,7 @@ class UmcProductOrganizationChartQueryControllerDocumentationTest extends Docume
         );
         given(getUmcProductOrganizationChartUseCase.getCurrent()).willReturn(
             new UmcProductOrganizationChartInfo(
-                List.of(new UmcProductOrganizationChartChapterInfo(chapter, List.of(part))),
+                List.of(chapter),
                 List.of(squad)
             )
         );

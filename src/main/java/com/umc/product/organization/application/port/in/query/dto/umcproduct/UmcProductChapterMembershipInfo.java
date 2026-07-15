@@ -2,17 +2,14 @@ package com.umc.product.organization.application.port.in.query.dto.umcproduct;
 
 import java.time.LocalDate;
 
-import com.umc.product.organization.domain.UmcProductPartMembership;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
+import com.umc.product.organization.domain.UmcProductChapterMembership;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 
-public record UmcProductPartMembershipInfo(
-    Long partMembershipId,
+public record UmcProductChapterMembershipInfo(
+    Long chapterMembershipId,
     Long activityPeriodId,
-    Long partId,
-    UmcProductPartInfo part,
-    UmcProductPartRole role,
-    String roleName,
+    Long chapterId,
+    UmcProductChapterInfo chapter,
     UmcProductPosition position,
     String positionName,
     String responsibilityTitle,
@@ -20,17 +17,15 @@ public record UmcProductPartMembershipInfo(
     LocalDate startDate,
     LocalDate endDate
 ) {
-    public static UmcProductPartMembershipInfo from(
-        UmcProductPartMembership membership,
-        UmcProductPartInfo part
+    public static UmcProductChapterMembershipInfo from(
+        UmcProductChapterMembership membership,
+        UmcProductChapterInfo chapter
     ) {
-        return new UmcProductPartMembershipInfo(
+        return new UmcProductChapterMembershipInfo(
             membership.getId(),
             membership.getMemberActivityPeriod().getId(),
-            membership.getPart().getId(),
-            part,
-            membership.getRole(),
-            membership.getRole().getDisplayName(),
+            membership.getChapter().getId(),
+            chapter,
             membership.getPosition(),
             membership.getPosition().getDisplayName(),
             membership.getResponsibilityTitle(),

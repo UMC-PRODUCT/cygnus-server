@@ -9,7 +9,6 @@ import org.junit.jupiter.api.Test;
 
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 
@@ -19,16 +18,15 @@ class UmcProductMemberActivityTest {
     private static final LocalDate DECEMBER_31 = LocalDate.of(2026, 12, 31);
 
     @Test
-    void 멤버의_활동_기간과_그_안의_Part_소속을_생성한다() {
+    void 멤버의_활동_기간과_그_안의_Chapter_소속을_생성한다() {
         UmcProductMember member = UmcProductMember.create(100L, " 소개 ", " image ");
         UmcProductMemberActivityPeriod activityPeriod =
             UmcProductMemberActivityPeriod.create(member, JANUARY_1, DECEMBER_31);
-        UmcProductPart part = part();
+        UmcProductChapter chapter = chapter();
 
-        UmcProductPartMembership membership = UmcProductPartMembership.create(
+        UmcProductChapterMembership membership = UmcProductChapterMembership.create(
             activityPeriod,
-            part,
-            UmcProductPartRole.PART_LEAD,
+            chapter,
             UmcProductPosition.SERVER_DEVELOPER,
             " API 설계 ",
             " 계약 관리 ",
@@ -38,20 +36,18 @@ class UmcProductMemberActivityTest {
 
         assertThat(activityPeriod.getUmcProductMember()).isSameAs(member);
         assertThat(membership.getMemberActivityPeriod()).isSameAs(activityPeriod);
-        assertThat(membership.getPart()).isSameAs(part);
-        assertThat(membership.getRole()).isEqualTo(UmcProductPartRole.PART_LEAD);
+        assertThat(membership.getChapter()).isSameAs(chapter);
         assertThat(membership.getResponsibilityTitle()).isEqualTo("API 설계");
         assertThat(membership.isActiveOn(DECEMBER_31)).isTrue();
     }
 
     @Test
-    void Part_소속_기간은_멤버_활동_기간_안에_있어야_한다() {
+    void Chapter_소속_기간은_멤버_활동_기간_안에_있어야_한다() {
         UmcProductMemberActivityPeriod activityPeriod = activityPeriod();
 
-        assertThatThrownBy(() -> UmcProductPartMembership.create(
+        assertThatThrownBy(() -> UmcProductChapterMembership.create(
             activityPeriod,
-            part(),
-            UmcProductPartRole.MEMBER,
+            chapter(),
             UmcProductPosition.UNSPECIFIED,
             null,
             null,
@@ -64,7 +60,7 @@ class UmcProductMemberActivityTest {
     }
 
     @Test
-    void Product_Leadership은_Part_소속과_독립적으로_생성한다() {
+    void Product_Leadership은_Chapter_소속과_독립적으로_생성한다() {
         UmcProductMemberActivityPeriod activityPeriod = UmcProductMemberActivityPeriod.create(
             UmcProductMember.create(100L, null, null),
             JANUARY_1,
@@ -111,10 +107,9 @@ class UmcProductMemberActivityTest {
             LocalDate.of(2026, 7, 2),
             DECEMBER_31
         );
-        UmcProductPartMembership membership = UmcProductPartMembership.create(
+        UmcProductChapterMembership membership = UmcProductChapterMembership.create(
             firstPeriod,
-            part(),
-            UmcProductPartRole.MEMBER,
+            chapter(),
             UmcProductPosition.SERVER_DEVELOPER,
             null,
             null,
@@ -124,7 +119,6 @@ class UmcProductMemberActivityTest {
 
         membership.update(
             secondPeriod,
-            null,
             null,
             null,
             null,
@@ -145,8 +139,7 @@ class UmcProductMemberActivityTest {
         );
     }
 
-    private UmcProductPart part() {
-        UmcProductChapter chapter = UmcProductChapter.create("PLATFORM", "플랫폼", null, 1, true);
-        return UmcProductPart.create(chapter, "SERVER", "Server", null, 1, true);
+    private UmcProductChapter chapter() {
+        return UmcProductChapter.create("PLATFORM", "플랫폼", null, 1, true);
     }
 }

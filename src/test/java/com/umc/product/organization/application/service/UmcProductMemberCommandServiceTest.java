@@ -24,20 +24,20 @@ import com.umc.product.organization.application.port.in.command.dto.CreateUmcPro
 import com.umc.product.organization.application.port.in.command.dto.UmcProductActivityPeriodCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
+import com.umc.product.organization.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductLeadershipPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductMemberPort;
-import com.umc.product.organization.application.port.out.command.SaveUmcProductPartMembershipPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductSquadParticipantPort;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterMembershipPort;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductMemberPort;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductPartMembershipPort;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductPartPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductSquadParticipantPort;
+import com.umc.product.organization.domain.UmcProductChapterMembership;
 import com.umc.product.organization.domain.UmcProductMember;
 import com.umc.product.organization.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.organization.domain.UmcProductPartMembership;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
@@ -54,11 +54,11 @@ class UmcProductMemberCommandServiceTest {
     @Mock
     SaveUmcProductMemberActivityPeriodPort saveUmcProductMemberActivityPeriodPort;
     @Mock
-    LoadUmcProductPartPort loadUmcProductPartPort;
+    LoadUmcProductChapterPort loadUmcProductChapterPort;
     @Mock
-    LoadUmcProductPartMembershipPort loadUmcProductPartMembershipPort;
+    LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     @Mock
-    SaveUmcProductPartMembershipPort saveUmcProductPartMembershipPort;
+    SaveUmcProductChapterMembershipPort saveUmcProductChapterMembershipPort;
     @Mock
     LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
     @Mock
@@ -169,14 +169,14 @@ class UmcProductMemberCommandServiceTest {
             LocalDate.of(2026, 12, 31)
         );
         ReflectionTestUtils.setField(activityPeriod, "id", 10L);
-        UmcProductPartMembership membership = org.mockito.Mockito.mock(UmcProductPartMembership.class);
+        UmcProductChapterMembership membership = org.mockito.Mockito.mock(UmcProductChapterMembership.class);
         given(membership.getMemberActivityPeriod()).willReturn(activityPeriod);
         given(membership.getStartDate()).willReturn(LocalDate.of(2026, 1, 15));
         given(membership.getEndDate()).willReturn(LocalDate.of(2026, 6, 30));
         given(umcProductAccessPolicy.canManageUmcProduct(999L)).willReturn(true);
         given(loadUmcProductMemberPort.getByIdWithLock(1L)).willReturn(member);
         given(loadUmcProductMemberActivityPeriodPort.getById(10L)).willReturn(activityPeriod);
-        given(loadUmcProductPartMembershipPort.listByUmcProductMemberId(1L))
+        given(loadUmcProductChapterMembershipPort.listByUmcProductMemberId(1L))
             .willReturn(List.of(membership));
 
         assertThatThrownBy(() -> sut.updateActivityPeriod(

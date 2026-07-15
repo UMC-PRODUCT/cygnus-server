@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Method;
+import java.lang.reflect.RecordComponent;
 import java.time.LocalDate;
 import java.util.Set;
 
@@ -17,9 +18,9 @@ import org.springframework.format.support.DefaultFormattingConversionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductChapterMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
-import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductPartMembershipRequest;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -80,15 +81,13 @@ class UmcProductRequestContractTest {
             UmcProductMemberQueryController.class.getDeclaredMethod(
                 "search",
                 Long.class,
-                Long.class,
-                com.umc.product.organization.domain.enums.UmcProductPartRole.class,
                 com.umc.product.organization.domain.enums.UmcProductLeadershipRole.class,
                 com.umc.product.organization.domain.enums.UmcProductPosition.class,
                 Long.class,
                 LocalDate.class,
                 org.springframework.data.domain.Pageable.class
             ),
-            6
+            4
         );
         assertStrictActiveOn(
             UmcProductSquadQueryController.class.getDeclaredMethod(
@@ -133,21 +132,12 @@ class UmcProductRequestContractTest {
     }
 
     @Test
-    @DisplayName("Part 소속 역할로 존재하지 않는 Chapter Lead 입력을 거부한다")
-    void rejectChapterLeadRole() {
-        // given
-        String json = """
-            {
-              "partId": 1,
-              "role": "CHAPTER_LEAD",
-              "position": "SERVER_DEVELOPER",
-              "startDate": "2026-07-13"
-            }
-            """;
-
-        // when & then
-        assertThatThrownBy(() -> objectMapper.readValue(json, CreateUmcProductPartMembershipRequest.class))
-            .hasMessageContaining("CHAPTER_LEAD");
+    @DisplayName("Chapter 소속 요청에는 Part와 역할 필드가 없다")
+    void chapterMembershipDoesNotExposePartOrRole() {
+        assertThat(CreateUmcProductChapterMembershipRequest.class.getRecordComponents())
+            .extracting(RecordComponent::getName)
+            .contains("chapterId", "position", "startDate", "endDate")
+            .doesNotContain("partId", "role");
     }
 
     private void assertStrictActiveOn(Method method, int parameterIndex) {

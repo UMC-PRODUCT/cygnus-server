@@ -20,24 +20,24 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetUmcProductMemberUseCase;
+import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductChapterMembershipInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductLeadershipInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductMemberActivityPeriodInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductMemberInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductMemberSearchCondition;
-import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductPartInfo;
-import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductPartMembershipInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductSquadInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductSquadParticipationInfo;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductMemberPort;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductPartMembershipPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductSquadParticipantPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductSquadPort;
+import com.umc.product.organization.domain.UmcProductChapterMembership;
 import com.umc.product.organization.domain.UmcProductLeadership;
 import com.umc.product.organization.domain.UmcProductMember;
 import com.umc.product.organization.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.organization.domain.UmcProductPartMembership;
 import com.umc.product.organization.domain.UmcProductSquadParticipant;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
@@ -50,7 +50,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
 
     private final LoadUmcProductMemberPort loadUmcProductMemberPort;
     private final LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
-    private final LoadUmcProductPartMembershipPort loadUmcProductPartMembershipPort;
+    private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
     private final LoadUmcProductSquadParticipantPort loadUmcProductSquadParticipantPort;
     private final LoadUmcProductSquadPort loadUmcProductSquadPort;
@@ -68,7 +68,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             member,
             memberInfo,
             loadUmcProductMemberActivityPeriodPort.listByUmcProductMemberId(umcProductMemberId),
-            loadUmcProductPartMembershipPort.listByUmcProductMemberId(umcProductMemberId),
+            loadUmcProductChapterMembershipPort.listByUmcProductMemberId(umcProductMemberId),
             loadUmcProductLeadershipPort.listByUmcProductMemberId(umcProductMemberId),
             squadParticipations,
             squadMapOf(squadParticipations),
@@ -89,7 +89,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             .collect(Collectors.toMap(UmcProductMember::getId, Function.identity()));
         List<UmcProductMemberActivityPeriod> periods = loadUmcProductMemberActivityPeriodPort
             .listByUmcProductMemberIds(ids);
-        List<UmcProductPartMembership> memberships = loadUmcProductPartMembershipPort
+        List<UmcProductChapterMembership> memberships = loadUmcProductChapterMembershipPort
             .listByUmcProductMemberIds(ids);
         List<UmcProductLeadership> leaderships = loadUmcProductLeadershipPort.listByUmcProductMemberIds(ids);
         List<UmcProductSquadParticipant> squadParticipations = loadUmcProductSquadParticipantPort
@@ -97,7 +97,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
 
         Map<Long, List<UmcProductMemberActivityPeriod>> periodsByMember = periods.stream()
             .collect(Collectors.groupingBy(period -> period.getUmcProductMember().getId()));
-        Map<Long, List<UmcProductPartMembership>> membershipsByMember = memberships.stream()
+        Map<Long, List<UmcProductChapterMembership>> membershipsByMember = memberships.stream()
             .collect(Collectors.groupingBy(item -> item.getMemberActivityPeriod().getUmcProductMember().getId()));
         Map<Long, List<UmcProductLeadership>> leadershipsByMember = leaderships.stream()
             .collect(Collectors.groupingBy(item -> item.getMemberActivityPeriod().getUmcProductMember().getId()));
@@ -129,7 +129,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         UmcProductMember member,
         MemberInfo memberInfo,
         List<UmcProductMemberActivityPeriod> periods,
-        List<UmcProductPartMembership> memberships,
+        List<UmcProductChapterMembership> memberships,
         List<UmcProductLeadership> leaderships,
         List<UmcProductSquadParticipant> squadParticipations,
         Map<Long, UmcProductSquadInfo> squadMap,
@@ -155,7 +155,10 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             memberships.stream()
                 .filter(item -> activeOn == null || item.isActiveOn(activeOn))
                 .sorted(historyComparator())
-                .map(item -> UmcProductPartMembershipInfo.from(item, UmcProductPartInfo.from(item.getPart())))
+                .map(item -> UmcProductChapterMembershipInfo.from(
+                    item,
+                    UmcProductChapterInfo.from(item.getChapter())
+                ))
                 .toList(),
             leaderships.stream()
                 .filter(item -> activeOn == null || item.isActiveOn(activeOn))
@@ -186,7 +189,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         if (value instanceof UmcProductMemberActivityPeriod period) {
             return period.getStartDate();
         }
-        if (value instanceof UmcProductPartMembership membership) {
+        if (value instanceof UmcProductChapterMembership membership) {
             return membership.getStartDate();
         }
         if (value instanceof UmcProductLeadership leadership) {
@@ -199,7 +202,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         if (value instanceof UmcProductMemberActivityPeriod period) {
             return period.getId();
         }
-        if (value instanceof UmcProductPartMembership membership) {
+        if (value instanceof UmcProductChapterMembership membership) {
             return membership.getId();
         }
         if (value instanceof UmcProductLeadership leadership) {

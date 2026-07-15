@@ -130,6 +130,9 @@ operation::umc-product-chapter-controller-documentation-test/umc_product_-chapte
 === umc_product_-chapter를_수정한다
 operation::umc-product-chapter-controller-documentation-test/umc_product_-chapter를_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
 
+=== 제거된_umc_product_-part_api는_404를_반환한다
+operation::umc-product-chapter-controller-documentation-test/제거된_umc_product_-part_api는_404를_반환한다[snippets='http-request,http-response']
+
 == Umc product member command controller documentation test
 
 === umc_product_-leadership을_삭제한다
@@ -141,14 +144,14 @@ operation::umc-product-member-command-controller-documentation-test/umc_product_
 === umc_product_-leadership을_수정한다
 operation::umc-product-member-command-controller-documentation-test/umc_product_-leadership을_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
 
-=== umc_product_멤버_-part_소속을_삭제한다
-operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_-part_소속을_삭제한다[snippets='http-request,http-response,path-parameters']
+=== umc_product_멤버_-chapter_소속을_삭제한다
+operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_-chapter_소속을_삭제한다[snippets='http-request,http-response,path-parameters']
 
-=== umc_product_멤버_-part_소속을_생성한다
-operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_-part_소속을_생성한다[snippets='http-request,http-response,path-parameters,request-fields']
+=== umc_product_멤버_-chapter_소속을_생성한다
+operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_-chapter_소속을_생성한다[snippets='http-request,http-response,path-parameters,request-fields']
 
-=== umc_product_멤버_-part_소속을_수정한다
-operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_-part_소속을_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
+=== umc_product_멤버_-chapter_소속을_수정한다
+operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_-chapter_소속을_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
 
 === umc_product_멤버_프로필을_수정한다
 operation::umc-product-member-command-controller-documentation-test/umc_product_멤버_프로필을_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
@@ -168,6 +171,9 @@ operation::umc-product-member-command-controller-documentation-test/umc_product_
 === umc_product_멤버를_생성한다
 operation::umc-product-member-command-controller-documentation-test/umc_product_멤버를_생성한다[snippets='http-request,http-response,request-fields']
 
+=== 제거된_umc_product_-part_소속_api는_404를_반환한다
+operation::umc-product-member-command-controller-documentation-test/제거된_umc_product_-part_소속_api는_404를_반환한다[snippets='http-request,http-response']
+
 == Umc product member query controller documentation test
 
 === umc_product_멤버_상세를_조회한다
@@ -183,20 +189,6 @@ operation::umc-product-member-query-controller-documentation-test/시각이_포�
 
 === 현재_umc_product_조직도를_조회한다
 operation::umc-product-organization-chart-query-controller-documentation-test/현재_umc_product_조직도를_조회한다[snippets='http-request,http-response']
-
-== Umc product part controller documentation test
-
-=== umc_product_-part_목록을_조회한다
-operation::umc-product-part-controller-documentation-test/umc_product_-part_목록을_조회한다[snippets='http-request,http-response,query-parameters']
-
-=== umc_product_-part를_삭제한다
-operation::umc-product-part-controller-documentation-test/umc_product_-part를_삭제한다[snippets='http-request,http-response,path-parameters']
-
-=== umc_product_-part를_생성한다
-operation::umc-product-part-controller-documentation-test/umc_product_-part를_생성한다[snippets='http-request,http-response,request-fields']
-
-=== umc_product_-part를_수정한다
-operation::umc-product-part-controller-documentation-test/umc_product_-part를_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
 
 == Umc product squad controller documentation test
 

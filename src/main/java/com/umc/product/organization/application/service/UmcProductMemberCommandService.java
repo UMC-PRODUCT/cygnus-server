@@ -13,34 +13,32 @@ import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.command.ManageUmcProductMemberUseCase;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductChapterMembershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductLeadershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductMemberCommand;
-import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductPartMembershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.UmcProductActivityPeriodCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductChapterMembershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
-import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductPartMembershipCommand;
+import com.umc.product.organization.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductLeadershipPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductMemberPort;
-import com.umc.product.organization.application.port.out.command.SaveUmcProductPartMembershipPort;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductSquadParticipantPort;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterMembershipPort;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductMemberPort;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductPartMembershipPort;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductPartPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductSquadParticipantPort;
+import com.umc.product.organization.domain.UmcProductChapter;
+import com.umc.product.organization.domain.UmcProductChapterMembership;
 import com.umc.product.organization.domain.UmcProductLeadership;
 import com.umc.product.organization.domain.UmcProductMember;
 import com.umc.product.organization.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.organization.domain.UmcProductPart;
-import com.umc.product.organization.domain.UmcProductPartMembership;
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
-import com.umc.product.organization.domain.enums.UmcProductPosition;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
@@ -58,9 +56,9 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final SaveUmcProductMemberPort saveUmcProductMemberPort;
     private final LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
     private final SaveUmcProductMemberActivityPeriodPort saveUmcProductMemberActivityPeriodPort;
-    private final LoadUmcProductPartPort loadUmcProductPartPort;
-    private final LoadUmcProductPartMembershipPort loadUmcProductPartMembershipPort;
-    private final SaveUmcProductPartMembershipPort saveUmcProductPartMembershipPort;
+    private final LoadUmcProductChapterPort loadUmcProductChapterPort;
+    private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
+    private final SaveUmcProductChapterMembershipPort saveUmcProductChapterMembershipPort;
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
     private final SaveUmcProductLeadershipPort saveUmcProductLeadershipPort;
     private final LoadUmcProductSquadParticipantPort loadUmcProductSquadParticipantPort;
@@ -123,7 +121,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         validateCanManage(requesterMemberId);
         UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(umcProductMemberId);
         saveUmcProductSquadParticipantPort.deleteAllByUmcProductMemberId(member.getId());
-        saveUmcProductPartMembershipPort.deleteAllByUmcProductMemberId(member.getId());
+        saveUmcProductChapterMembershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductLeadershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductMemberActivityPeriodPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductMemberPort.delete(member);
@@ -184,7 +182,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         UmcProductMemberActivityPeriod activityPeriod = loadUmcProductMemberActivityPeriodPort
             .getById(activityPeriodId);
         validateOwnedBy(activityPeriod, member.getId());
-        if (loadUmcProductPartMembershipPort.existsByMemberActivityPeriodId(activityPeriodId)
+        if (loadUmcProductChapterMembershipPort.existsByMemberActivityPeriodId(activityPeriodId)
             || loadUmcProductLeadershipPort.existsByMemberActivityPeriodId(activityPeriodId)
             || loadUmcProductSquadParticipantPort.existsByMemberActivityPeriodId(activityPeriodId)) {
             throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_HAS_ASSOCIATIONS);
@@ -196,78 +194,77 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     @Audited(
         domain = Domain.ORGANIZATION,
         action = AuditAction.CREATE,
-        targetType = "UmcProductPartMembership",
+        targetType = "UmcProductChapterMembership",
         targetId = "#result",
-        description = "'UMC PRODUCT Part 소속을 생성했습니다.'"
+        description = "'UMC PRODUCT Chapter 소속을 생성했습니다.'"
     )
-    public Long createPartMembership(CreateUmcProductPartMembershipCommand command) {
+    public Long createChapterMembership(CreateUmcProductChapterMembershipCommand command) {
         validateCanManage(command.requesterMemberId());
         UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(command.umcProductMemberId());
         validatePeriod(command.startDate(), command.endDate());
         UmcProductMemberActivityPeriod activityPeriod = getContainingPeriod(
             member.getId(), command.startDate(), command.endDate()
         );
-        UmcProductPart part = loadUmcProductPartPort.getById(command.partId());
-        validatePartMembershipNotOverlapped(command, member.getId(), null);
-        UmcProductPartMembership membership = UmcProductPartMembership.create(
+        UmcProductChapter chapter = loadUmcProductChapterPort.getById(command.chapterId());
+        validateChapterMembershipNotOverlapped(command, member.getId(), null);
+        UmcProductChapterMembership membership = UmcProductChapterMembership.create(
             activityPeriod,
-            part,
-            command.role(),
+            chapter,
             command.position(),
             command.responsibilityTitle(),
             command.responsibilityDescription(),
             command.startDate(),
             command.endDate()
         );
-        return saveUmcProductPartMembershipPort.save(membership).getId();
+        return saveUmcProductChapterMembershipPort.save(membership).getId();
     }
 
     @Override
     @Audited(
         domain = Domain.ORGANIZATION,
         action = AuditAction.UPDATE,
-        targetType = "UmcProductPartMembership",
-        targetId = "#command.partMembershipId()",
-        description = "'UMC PRODUCT Part 소속을 수정했습니다.'"
+        targetType = "UmcProductChapterMembership",
+        targetId = "#command.chapterMembershipId()",
+        description = "'UMC PRODUCT Chapter 소속을 수정했습니다.'"
     )
-    public void updatePartMembership(UpdateUmcProductPartMembershipCommand command) {
+    public void updateChapterMembership(UpdateUmcProductChapterMembershipCommand command) {
         validateCanManage(command.requesterMemberId());
         UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(command.umcProductMemberId());
-        UmcProductPartMembership membership = loadUmcProductPartMembershipPort.getById(command.partMembershipId());
+        UmcProductChapterMembership membership = loadUmcProductChapterMembershipPort
+            .getById(command.chapterMembershipId());
         validateOwnedBy(membership, member.getId());
         validatePeriod(command.startDate(), command.endDate());
         UmcProductMemberActivityPeriod activityPeriod = getContainingPeriod(
             member.getId(), command.startDate(), command.endDate()
         );
-        UmcProductPart part = loadUmcProductPartPort.getById(command.partId());
-        validatePartMembershipNotOverlapped(command, member.getId(), membership.getId());
+        UmcProductChapter chapter = loadUmcProductChapterPort.getById(command.chapterId());
+        validateChapterMembershipNotOverlapped(command, member.getId(), membership.getId());
         membership.update(
             activityPeriod,
-            part,
-            command.role(),
+            chapter,
             command.position(),
             command.responsibilityTitle(),
             command.responsibilityDescription(),
             command.startDate(),
             command.endDate()
         );
-        saveUmcProductPartMembershipPort.save(membership);
+        saveUmcProductChapterMembershipPort.save(membership);
     }
 
     @Override
     @Audited(
         domain = Domain.ORGANIZATION,
         action = AuditAction.DELETE,
-        targetType = "UmcProductPartMembership",
-        targetId = "#partMembershipId",
-        description = "'UMC PRODUCT Part 소속을 삭제했습니다.'"
+        targetType = "UmcProductChapterMembership",
+        targetId = "#chapterMembershipId",
+        description = "'UMC PRODUCT Chapter 소속을 삭제했습니다.'"
     )
-    public void deletePartMembership(Long umcProductMemberId, Long partMembershipId, Long requesterMemberId) {
+    public void deleteChapterMembership(Long umcProductMemberId, Long chapterMembershipId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
         UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(umcProductMemberId);
-        UmcProductPartMembership membership = loadUmcProductPartMembershipPort.getById(partMembershipId);
+        UmcProductChapterMembership membership = loadUmcProductChapterMembershipPort.getById(chapterMembershipId);
         validateOwnedBy(membership, member.getId());
-        saveUmcProductPartMembershipPort.delete(membership);
+        saveUmcProductChapterMembershipPort.delete(membership);
     }
 
     @Override
@@ -369,7 +366,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         LocalDate endDate
     ) {
         Long memberId = activityPeriod.getUmcProductMember().getId();
-        boolean outOfRange = loadUmcProductPartMembershipPort.listByUmcProductMemberId(memberId).stream()
+        boolean outOfRange = loadUmcProductChapterMembershipPort.listByUmcProductMemberId(memberId).stream()
             .filter(item -> Objects.equals(item.getMemberActivityPeriod().getId(), activityPeriod.getId()))
             .anyMatch(item -> !contains(startDate, endDate, item.getStartDate(), item.getEndDate()))
             || loadUmcProductLeadershipPort.listByUmcProductMemberId(memberId).stream()
@@ -383,55 +380,41 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         }
     }
 
-    private void validatePartMembershipNotOverlapped(
-        CreateUmcProductPartMembershipCommand command,
+    private void validateChapterMembershipNotOverlapped(
+        CreateUmcProductChapterMembershipCommand command,
         Long memberId,
-        Long excludedPartMembershipId
+        Long excludedChapterMembershipId
     ) {
-        validatePartMembershipNotOverlapped(
-            memberId, command.partId(), command.role(), command.position(), command.responsibilityTitle(),
-            command.startDate(), command.endDate(), excludedPartMembershipId
+        validateChapterMembershipNotOverlapped(
+            memberId, command.chapterId(), command.startDate(), command.endDate(), excludedChapterMembershipId
         );
     }
 
-    private void validatePartMembershipNotOverlapped(
-        UpdateUmcProductPartMembershipCommand command,
+    private void validateChapterMembershipNotOverlapped(
+        UpdateUmcProductChapterMembershipCommand command,
         Long memberId,
-        Long excludedPartMembershipId
+        Long excludedChapterMembershipId
     ) {
-        validatePartMembershipNotOverlapped(
-            memberId, command.partId(), command.role(), command.position(), command.responsibilityTitle(),
-            command.startDate(), command.endDate(), excludedPartMembershipId
+        validateChapterMembershipNotOverlapped(
+            memberId, command.chapterId(), command.startDate(), command.endDate(), excludedChapterMembershipId
         );
     }
 
-    private void validatePartMembershipNotOverlapped(
+    private void validateChapterMembershipNotOverlapped(
         Long memberId,
-        Long partId,
-        UmcProductPartRole role,
-        UmcProductPosition position,
-        String responsibilityTitle,
+        Long chapterId,
         LocalDate startDate,
         LocalDate endDate,
-        Long excludedPartMembershipId
+        Long excludedChapterMembershipId
     ) {
-        if (loadUmcProductPartMembershipPort.existsOverlappingSameAssignment(
+        if (loadUmcProductChapterMembershipPort.existsOverlappingChapterMembership(
             memberId,
-            partId,
-            role,
-            position,
-            normalizeNullable(responsibilityTitle),
+            chapterId,
             startDate,
             endDate,
-            excludedPartMembershipId
+            excludedChapterMembershipId
         )) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_PART_MEMBERSHIP_OVERLAPPED);
-        }
-        if (role == UmcProductPartRole.PART_LEAD
-            && loadUmcProductPartMembershipPort.existsOverlappingPartLead(
-                partId, startDate, endDate, excludedPartMembershipId
-            )) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_PART_LEAD_OVERLAPPED);
+            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED);
         }
     }
 
@@ -468,9 +451,9 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         }
     }
 
-    private void validateOwnedBy(UmcProductPartMembership membership, Long memberId) {
+    private void validateOwnedBy(UmcProductChapterMembership membership, Long memberId) {
         if (!Objects.equals(membership.getMemberActivityPeriod().getUmcProductMember().getId(), memberId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_PART_MEMBERSHIP_NOT_FOUND);
+            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_NOT_FOUND);
         }
     }
 
@@ -521,7 +504,4 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         return date.equals(LocalDate.MAX) ? LocalDate.MAX : date.plusDays(1);
     }
 
-    private static String normalizeNullable(String value) {
-        return value == null || value.isBlank() ? null : value.trim();
-    }
 }

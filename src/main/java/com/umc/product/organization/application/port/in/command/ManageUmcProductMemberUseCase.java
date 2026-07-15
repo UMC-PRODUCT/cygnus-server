@@ -1,13 +1,13 @@
 package com.umc.product.organization.application.port.in.command;
 
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductChapterMembershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductLeadershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductMemberCommand;
-import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductPartMembershipCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductChapterMembershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
-import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductPartMembershipCommand;
 
 public interface ManageUmcProductMemberUseCase {
 
@@ -23,11 +23,11 @@ public interface ManageUmcProductMemberUseCase {
 
     void deleteActivityPeriod(Long umcProductMemberId, Long activityPeriodId, Long requesterMemberId);
 
-    Long createPartMembership(CreateUmcProductPartMembershipCommand command);
+    Long createChapterMembership(CreateUmcProductChapterMembershipCommand command);
 
-    void updatePartMembership(UpdateUmcProductPartMembershipCommand command);
+    void updateChapterMembership(UpdateUmcProductChapterMembershipCommand command);
 
-    void deletePartMembership(Long umcProductMemberId, Long partMembershipId, Long requesterMemberId);
+    void deleteChapterMembership(Long umcProductMemberId, Long chapterMembershipId, Long requesterMemberId);
 
     Long createLeadership(CreateUmcProductLeadershipCommand command);
 

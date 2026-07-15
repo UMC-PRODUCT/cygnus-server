@@ -32,8 +32,6 @@ class UmcProductMemberQueryControllerDocumentationTest extends DocumentationTest
         // when & then
         mockMvc.perform(get("/api/v1/umc-product/members")
                 .param("chapterId", "10")
-                .param("partId", "20")
-                .param("partRole", "PART_LEAD")
                 .param("leadershipRole", "UMC_PRODUCT_LEAD")
                 .param("position", "SERVER_DEVELOPER")
                 .param("squadId", "70")
@@ -43,8 +41,6 @@ class UmcProductMemberQueryControllerDocumentationTest extends DocumentationTest
             .andExpect(status().isOk())
             .andDo(restDocsHandler.document(queryParameters(
                 parameterWithName("chapterId").description("Chapter ID 필터").optional(),
-                parameterWithName("partId").description("Part ID 필터").optional(),
-                parameterWithName("partRole").description("Part 역할 필터: MEMBER, PART_LEAD").optional(),
                 parameterWithName("leadershipRole")
                     .description("Product Leadership 역할 필터").optional(),
                 parameterWithName("position").description("직군 필터").optional(),

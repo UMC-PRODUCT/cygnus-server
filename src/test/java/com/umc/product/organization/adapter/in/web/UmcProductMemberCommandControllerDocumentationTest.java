@@ -19,17 +19,16 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.payload.JsonFieldType;
 
+import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductChapterMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
-import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductPartMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UmcProductActivityPeriodRequest;
+import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductChapterMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
-import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductPartMembershipRequest;
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 import com.umc.product.support.DocumentationTest;
 
@@ -140,38 +139,36 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
     }
 
     @Test
-    @DisplayName("UMC PRODUCT 멤버 Part 소속을 생성한다")
-    void UMC_PRODUCT_멤버_Part_소속을_생성한다() throws Exception {
+    @DisplayName("UMC PRODUCT 멤버 Chapter 소속을 생성한다")
+    void UMC_PRODUCT_멤버_Chapter_소속을_생성한다() throws Exception {
         // given
-        CreateUmcProductPartMembershipRequest request = new CreateUmcProductPartMembershipRequest(
+        CreateUmcProductChapterMembershipRequest request = new CreateUmcProductChapterMembershipRequest(
             20L,
-            UmcProductPartRole.PART_LEAD,
             UmcProductPosition.SERVER_DEVELOPER,
-            "Server Part Lead",
-            "서버 Part 운영",
+            "Server Developer",
+            "서버 개발",
             START_DATE,
             END_DATE
         );
-        given(manageUmcProductMemberUseCase.createPartMembership(any())).willReturn(50L);
+        given(manageUmcProductMemberUseCase.createChapterMembership(any())).willReturn(50L);
 
         // when & then
-        mockMvc.perform(post("/api/v1/umc-product/members/{memberId}/part-memberships", 30L)
+        mockMvc.perform(post("/api/v1/umc-product/members/{memberId}/chapter-memberships", 30L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andDo(restDocsHandler.document(
                 memberPathParameters(),
-                requestFields(partMembershipFields())
+                requestFields(chapterMembershipFields())
             ));
     }
 
     @Test
-    @DisplayName("UMC PRODUCT 멤버 Part 소속을 수정한다")
-    void UMC_PRODUCT_멤버_Part_소속을_수정한다() throws Exception {
+    @DisplayName("UMC PRODUCT 멤버 Chapter 소속을 수정한다")
+    void UMC_PRODUCT_멤버_Chapter_소속을_수정한다() throws Exception {
         // given
-        UpdateUmcProductPartMembershipRequest request = new UpdateUmcProductPartMembershipRequest(
+        UpdateUmcProductChapterMembershipRequest request = new UpdateUmcProductChapterMembershipRequest(
             20L,
-            UmcProductPartRole.MEMBER,
             UmcProductPosition.SERVER_DEVELOPER,
             "Server Developer",
             "API 개발",
@@ -181,7 +178,7 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
 
         // when & then
         mockMvc.perform(patch(
-                "/api/v1/umc-product/members/{memberId}/part-memberships/{partMembershipId}",
+                "/api/v1/umc-product/members/{memberId}/chapter-memberships/{chapterMembershipId}",
                 30L,
                 50L
             )
@@ -189,24 +186,33 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("partMembershipId", "Part 소속 ID"),
-                requestFields(partMembershipFields())
+                memberAndChildPathParameters("chapterMembershipId", "Chapter 소속 ID"),
+                requestFields(chapterMembershipFields())
             ));
     }
 
     @Test
-    @DisplayName("UMC PRODUCT 멤버 Part 소속을 삭제한다")
-    void UMC_PRODUCT_멤버_Part_소속을_삭제한다() throws Exception {
+    @DisplayName("UMC PRODUCT 멤버 Chapter 소속을 삭제한다")
+    void UMC_PRODUCT_멤버_Chapter_소속을_삭제한다() throws Exception {
         // when & then
         mockMvc.perform(delete(
-                "/api/v1/umc-product/members/{memberId}/part-memberships/{partMembershipId}",
+                "/api/v1/umc-product/members/{memberId}/chapter-memberships/{chapterMembershipId}",
                 30L,
                 50L
             ))
             .andExpect(status().isOk())
             .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("partMembershipId", "Part 소속 ID")
+                memberAndChildPathParameters("chapterMembershipId", "Chapter 소속 ID")
             ));
+    }
+
+    @Test
+    @DisplayName("제거된 UMC PRODUCT Part 소속 API는 404를 반환한다")
+    void 제거된_UMC_PRODUCT_Part_소속_API는_404를_반환한다() throws Exception {
+        mockMvc.perform(post("/api/v1/umc-product/members/{memberId}/part-memberships", 30L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{}"))
+            .andExpect(status().isNotFound());
     }
 
     @Test
@@ -299,10 +305,9 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
         };
     }
 
-    private org.springframework.restdocs.payload.FieldDescriptor[] partMembershipFields() {
+    private org.springframework.restdocs.payload.FieldDescriptor[] chapterMembershipFields() {
         return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("partId").type(JsonFieldType.STRING).description("Part ID"),
-            fieldWithPath("role").type(JsonFieldType.STRING).description("Part 역할: MEMBER, PART_LEAD"),
+            fieldWithPath("chapterId").type(JsonFieldType.STRING).description("Chapter ID"),
             fieldWithPath("position").type(JsonFieldType.STRING).description("직군"),
             fieldWithPath("responsibilityTitle").type(JsonFieldType.STRING)
                 .description("책임명").optional(),

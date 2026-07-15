@@ -11,14 +11,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductChapterMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
-import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductPartMembershipRequest;
+import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductChapterMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
-import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductPartMembershipRequest;
 import com.umc.product.organization.application.port.in.command.ManageUmcProductMemberUseCase;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -109,40 +109,40 @@ public class UmcProductMemberCommandController {
         );
     }
 
-    @PostMapping("/{memberId}/part-memberships")
-    @Operation(operationId = "UMC-PRODUCT-MEMBER-006", summary = "UMC PRODUCT 멤버 Part 소속 생성")
-    public Long createPartMembership(
+    @PostMapping("/{memberId}/chapter-memberships")
+    @Operation(operationId = "UMC-PRODUCT-MEMBER-006", summary = "UMC PRODUCT 멤버 Chapter 소속 생성")
+    public Long createChapterMembership(
         @PathVariable Long memberId,
         @CurrentMember MemberPrincipal currentMember,
-        @RequestBody @Valid CreateUmcProductPartMembershipRequest request
+        @RequestBody @Valid CreateUmcProductChapterMembershipRequest request
     ) {
-        return manageUmcProductMemberUseCase.createPartMembership(
+        return manageUmcProductMemberUseCase.createChapterMembership(
             request.toCommand(memberId, currentMemberId(currentMember))
         );
     }
 
-    @PatchMapping("/{memberId}/part-memberships/{partMembershipId}")
-    @Operation(operationId = "UMC-PRODUCT-MEMBER-007", summary = "UMC PRODUCT 멤버 Part 소속 수정")
-    public void updatePartMembership(
+    @PatchMapping("/{memberId}/chapter-memberships/{chapterMembershipId}")
+    @Operation(operationId = "UMC-PRODUCT-MEMBER-007", summary = "UMC PRODUCT 멤버 Chapter 소속 수정")
+    public void updateChapterMembership(
         @PathVariable Long memberId,
-        @PathVariable Long partMembershipId,
+        @PathVariable Long chapterMembershipId,
         @CurrentMember MemberPrincipal currentMember,
-        @RequestBody @Valid UpdateUmcProductPartMembershipRequest request
+        @RequestBody @Valid UpdateUmcProductChapterMembershipRequest request
     ) {
-        manageUmcProductMemberUseCase.updatePartMembership(
-            request.toCommand(memberId, partMembershipId, currentMemberId(currentMember))
+        manageUmcProductMemberUseCase.updateChapterMembership(
+            request.toCommand(memberId, chapterMembershipId, currentMemberId(currentMember))
         );
     }
 
-    @DeleteMapping("/{memberId}/part-memberships/{partMembershipId}")
-    @Operation(operationId = "UMC-PRODUCT-MEMBER-008", summary = "UMC PRODUCT 멤버 Part 소속 삭제")
-    public void deletePartMembership(
+    @DeleteMapping("/{memberId}/chapter-memberships/{chapterMembershipId}")
+    @Operation(operationId = "UMC-PRODUCT-MEMBER-008", summary = "UMC PRODUCT 멤버 Chapter 소속 삭제")
+    public void deleteChapterMembership(
         @PathVariable Long memberId,
-        @PathVariable Long partMembershipId,
+        @PathVariable Long chapterMembershipId,
         @CurrentMember MemberPrincipal currentMember
     ) {
-        manageUmcProductMemberUseCase.deletePartMembership(
-            memberId, partMembershipId, currentMemberId(currentMember)
+        manageUmcProductMemberUseCase.deleteChapterMembership(
+            memberId, chapterMembershipId, currentMemberId(currentMember)
         );
     }
 
@@ -187,7 +187,7 @@ public class UmcProductMemberCommandController {
     @Operation(
         operationId = "UMC-PRODUCT-MEMBER-012",
         summary = "UMC PRODUCT 멤버 삭제",
-        description = "연결된 Squad 참여, Part 소속, Leadership, 활동 기간을 순서대로 삭제한 뒤 멤버를 삭제합니다."
+        description = "연결된 Squad 참여, Chapter 소속, Leadership, 활동 기간을 순서대로 삭제한 뒤 멤버를 삭제합니다."
     )
     public void delete(
         @PathVariable Long memberId,

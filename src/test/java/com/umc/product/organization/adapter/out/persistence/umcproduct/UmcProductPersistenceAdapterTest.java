@@ -15,15 +15,13 @@ import org.springframework.test.context.ActiveProfiles;
 
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductMemberSearchCondition;
 import com.umc.product.organization.domain.UmcProductChapter;
+import com.umc.product.organization.domain.UmcProductChapterMembership;
 import com.umc.product.organization.domain.UmcProductLeadership;
 import com.umc.product.organization.domain.UmcProductMember;
 import com.umc.product.organization.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.organization.domain.UmcProductPart;
-import com.umc.product.organization.domain.UmcProductPartMembership;
 import com.umc.product.organization.domain.UmcProductSquad;
 import com.umc.product.organization.domain.UmcProductSquadParticipant;
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 import com.umc.product.organization.domain.enums.UmcProductSquadRole;
 import com.umc.product.organization.exception.OrganizationDomainException;
@@ -37,10 +35,9 @@ import jakarta.persistence.LockModeType;
 @Import({
     UmcProductMemberQueryRepository.class,
     UmcProductChapterPersistenceAdapter.class,
-    UmcProductPartPersistenceAdapter.class,
     UmcProductMemberPersistenceAdapter.class,
     UmcProductMemberActivityPeriodPersistenceAdapter.class,
-    UmcProductPartMembershipPersistenceAdapter.class,
+    UmcProductChapterMembershipPersistenceAdapter.class,
     UmcProductLeadershipPersistenceAdapter.class,
     UmcProductSquadPersistenceAdapter.class,
     UmcProductSquadParticipantPersistenceAdapter.class
@@ -57,16 +54,13 @@ class UmcProductPersistenceAdapterTest {
     UmcProductChapterPersistenceAdapter chapterAdapter;
 
     @Autowired
-    UmcProductPartPersistenceAdapter partAdapter;
-
-    @Autowired
     UmcProductMemberPersistenceAdapter memberAdapter;
 
     @Autowired
     UmcProductMemberActivityPeriodPersistenceAdapter activityPeriodAdapter;
 
     @Autowired
-    UmcProductPartMembershipPersistenceAdapter partMembershipAdapter;
+    UmcProductChapterMembershipPersistenceAdapter chapterMembershipAdapter;
 
     @Autowired
     UmcProductLeadershipPersistenceAdapter leadershipAdapter;
@@ -119,29 +113,14 @@ class UmcProductPersistenceAdapterTest {
     }
 
     @Test
-    void 같은_Chapter의_Part_코드_중복_DB_제약은_도메인_충돌로_변환한다() {
-        UmcProductChapter chapter = saveChapter("PART_DUPLICATION", 1, true);
-        savePart(chapter, "SERVER", 1, true);
-
-        assertThatThrownBy(() -> savePart(chapter, "SERVER", 2, true))
-            .isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_PART_ALREADY_EXISTS));
-    }
-
-    @Test
-    void Chapter와_Part를_비관적_쓰기_잠금으로_조회한다() {
+    void Chapter를_비관적_쓰기_잠금으로_조회한다() {
         UmcProductChapter chapter = saveChapter("LOCKED_CHAPTER", 1, true);
-        UmcProductPart part = savePart(chapter, "LOCKED_PART", 1, true);
         em.flush();
         em.clear();
 
         UmcProductChapter lockedChapter = chapterAdapter.getByIdWithLock(chapter.getId());
-        UmcProductPart lockedPart = partAdapter.getByIdWithLock(part.getId());
 
         assertThat(em.getEntityManager().getLockMode(lockedChapter))
-            .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
-        assertThat(em.getEntityManager().getLockMode(lockedPart))
             .isEqualTo(LockModeType.PESSIMISTIC_WRITE);
     }
 
@@ -171,57 +150,37 @@ class UmcProductPersistenceAdapterTest {
     }
 
     @Test
-    void Chapter와_Part는_별도_활성_필터와_Chapter_관계를_유지한다() {
+    void Chapter는_활성_필터와_정렬_순서를_유지한다() {
         UmcProductChapter activeChapter = saveChapter("DEVELOP", 2, true);
-        UmcProductChapter inactiveChapter = saveChapter("DESIGN", 1, false);
-        UmcProductPart server = savePart(activeChapter, "SERVER", 2, true);
-        UmcProductPart web = savePart(activeChapter, "WEB", 1, false);
-        savePart(inactiveChapter, "PRODUCT_DESIGN", 1, true);
+        saveChapter("DESIGN", 1, false);
         em.flush();
         em.clear();
 
         assertThat(chapterAdapter.listAll(true))
             .extracting(UmcProductChapter::getCode)
             .containsExactly("DEVELOP");
-        assertThat(partAdapter.listAll(activeChapter.getId(), null))
-            .extracting(UmcProductPart::getCode)
-            .containsExactly("WEB", "SERVER");
-        assertThat(partAdapter.listAll(activeChapter.getId(), true))
-            .singleElement()
-            .satisfies(part -> {
-                assertThat(part.getId()).isEqualTo(server.getId());
-                assertThat(part.getChapter().getId()).isEqualTo(activeChapter.getId());
-            });
-        assertThat(partAdapter.existsByChapterIdAndCode(
-            activeChapter.getId(),
-            web.getCode(),
-            null
-        )).isTrue();
+        assertThat(chapterAdapter.getById(activeChapter.getId()).getCode()).isEqualTo("DEVELOP");
     }
 
     @Test
-    void 멤버는_같은_기간에_여러_Chapter의_Part에_소속될_수_있다() {
+    void 멤버는_같은_기간에_여러_Chapter에_소속될_수_있다() {
         UmcProductChapter developChapter = saveChapter("DEVELOP", 1, true);
         UmcProductChapter clientChapter = saveChapter("CLIENT", 2, true);
-        UmcProductPart server = savePart(developChapter, "SERVER", 1, true);
-        UmcProductPart web = savePart(clientChapter, "WEB", 2, true);
         UmcProductMember member = saveMember(102L);
         UmcProductMemberActivityPeriod period = saveActivityPeriod(member, START_DATE, null);
 
-        partMembershipAdapter.save(UmcProductPartMembership.create(
+        chapterMembershipAdapter.save(UmcProductChapterMembership.create(
             period,
-            server,
-            UmcProductPartRole.MEMBER,
+            developChapter,
             UmcProductPosition.SERVER_DEVELOPER,
             "API 개발",
             null,
             START_DATE,
             null
         ));
-        partMembershipAdapter.save(UmcProductPartMembership.create(
+        chapterMembershipAdapter.save(UmcProductChapterMembership.create(
             period,
-            web,
-            UmcProductPartRole.MEMBER,
+            clientChapter,
             UmcProductPosition.WEB_DEVELOPER,
             "웹 개발",
             null,
@@ -231,15 +190,14 @@ class UmcProductPersistenceAdapterTest {
         em.flush();
         em.clear();
 
-        assertThat(partMembershipAdapter.listByUmcProductMemberId(member.getId()))
-            .extracting(membership -> membership.getPart().getCode())
-            .containsExactlyInAnyOrder("SERVER", "WEB");
+        assertThat(chapterMembershipAdapter.listByUmcProductMemberId(member.getId()))
+            .extracting(membership -> membership.getChapter().getCode())
+            .containsExactlyInAnyOrder("DEVELOP", "CLIENT");
     }
 
     @Test
-    void 멤버_검색의_activeOn은_멤버와_Part_소속_기간을_모두_검사한다() {
+    void 멤버_검색의_activeOn은_멤버와_Chapter_소속_기간을_모두_검사한다() {
         UmcProductChapter chapter = saveChapter("ENGINEERING", 1, true);
-        UmcProductPart part = savePart(chapter, "SERVER", 1, true);
         UmcProductMember currentMember = saveMember(109L);
         UmcProductMember pastMember = saveMember(110L);
         UmcProductMemberActivityPeriod currentPeriod = saveActivityPeriod(currentMember, START_DATE, null);
@@ -248,20 +206,18 @@ class UmcProductPersistenceAdapterTest {
             START_DATE,
             LocalDate.of(2026, 3, 31)
         );
-        partMembershipAdapter.save(UmcProductPartMembership.create(
+        chapterMembershipAdapter.save(UmcProductChapterMembership.create(
             currentPeriod,
-            part,
-            UmcProductPartRole.MEMBER,
+            chapter,
             UmcProductPosition.SERVER_DEVELOPER,
             "API 개발",
             null,
             START_DATE,
             null
         ));
-        partMembershipAdapter.save(UmcProductPartMembership.create(
+        chapterMembershipAdapter.save(UmcProductChapterMembership.create(
             pastPeriod,
-            part,
-            UmcProductPartRole.MEMBER,
+            chapter,
             UmcProductPosition.SERVER_DEVELOPER,
             "API 개발",
             null,
@@ -272,8 +228,6 @@ class UmcProductPersistenceAdapterTest {
 
         UmcProductMemberSearchCondition condition = UmcProductMemberSearchCondition.of(
             chapter.getId(),
-            part.getId(),
-            UmcProductPartRole.MEMBER,
             null,
             UmcProductPosition.SERVER_DEVELOPER,
             null,
@@ -285,18 +239,14 @@ class UmcProductPersistenceAdapterTest {
     }
 
     @Test
-    void 같은_Part의_PART_LEAD_기간은_겹칠_수_없다() {
+    void 같은_멤버의_같은_Chapter_소속_기간은_겹칠_수_없다() {
         UmcProductChapter chapter = saveChapter("PRODUCT", 1, true);
-        UmcProductPart part = savePart(chapter, "OPERATION", 1, true);
         UmcProductMember first = saveMember(103L);
-        UmcProductMember second = saveMember(104L);
         UmcProductMemberActivityPeriod firstPeriod = saveActivityPeriod(first, START_DATE, END_DATE);
-        UmcProductMemberActivityPeriod secondPeriod = saveActivityPeriod(second, START_DATE, END_DATE);
 
-        partMembershipAdapter.save(UmcProductPartMembership.create(
+        chapterMembershipAdapter.save(UmcProductChapterMembership.create(
             firstPeriod,
-            part,
-            UmcProductPartRole.PART_LEAD,
+            chapter,
             UmcProductPosition.PRODUCT_OWNER,
             "운영 리드",
             null,
@@ -305,17 +255,17 @@ class UmcProductPersistenceAdapterTest {
         ));
         em.flush();
 
-        assertThat(partMembershipAdapter.existsOverlappingPartLead(
-            part.getId(),
+        assertThat(chapterMembershipAdapter.existsOverlappingChapterMembership(
+            first.getId(),
+            chapter.getId(),
             LocalDate.of(2026, 6, 30),
             END_DATE,
             null
         )).isTrue();
         assertThatThrownBy(() -> {
-            partMembershipAdapter.save(UmcProductPartMembership.create(
-                secondPeriod,
-                part,
-                UmcProductPartRole.PART_LEAD,
+            chapterMembershipAdapter.save(UmcProductChapterMembership.create(
+                firstPeriod,
+                chapter,
                 UmcProductPosition.PRODUCT_OWNER,
                 "후임 운영 리드",
                 null,
@@ -325,7 +275,7 @@ class UmcProductPersistenceAdapterTest {
             em.flush();
         }).isInstanceOf(OrganizationDomainException.class)
             .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_PART_LEAD_OVERLAPPED));
+                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED));
     }
 
     @Test
@@ -496,14 +446,12 @@ class UmcProductPersistenceAdapterTest {
     @Test
     void 멤버의_하위_활동을_FK_안전_순서로_일괄_삭제할_수_있다() {
         UmcProductChapter chapter = saveChapter("DELETE_CHAPTER", 1, true);
-        UmcProductPart part = savePart(chapter, "DELETE_PART", 1, true);
         UmcProductSquad squad = saveSquad("DELETE_SQUAD", START_DATE, END_DATE, 1, true);
         UmcProductMember member = saveMember(111L);
         UmcProductMemberActivityPeriod period = saveActivityPeriod(member, START_DATE, END_DATE);
-        partMembershipAdapter.save(UmcProductPartMembership.create(
+        chapterMembershipAdapter.save(UmcProductChapterMembership.create(
             period,
-            part,
-            UmcProductPartRole.MEMBER,
+            chapter,
             UmcProductPosition.SERVER_DEVELOPER,
             "삭제 대상",
             null,
@@ -529,7 +477,7 @@ class UmcProductPersistenceAdapterTest {
         em.flush();
 
         squadParticipantAdapter.deleteAllByUmcProductMemberId(member.getId());
-        partMembershipAdapter.deleteAllByUmcProductMemberId(member.getId());
+        chapterMembershipAdapter.deleteAllByUmcProductMemberId(member.getId());
         leadershipAdapter.deleteAllByUmcProductMemberId(member.getId());
         activityPeriodAdapter.deleteAllByUmcProductMemberId(member.getId());
         memberAdapter.delete(member);
@@ -555,22 +503,6 @@ class UmcProductPersistenceAdapterTest {
         return chapterAdapter.save(UmcProductChapter.create(
             code,
             code + " Chapter",
-            null,
-            sortOrder,
-            active
-        ));
-    }
-
-    private UmcProductPart savePart(
-        UmcProductChapter chapter,
-        String code,
-        int sortOrder,
-        boolean active
-    ) {
-        return partAdapter.save(UmcProductPart.create(
-            chapter,
-            code,
-            code + " Part",
             null,
             sortOrder,
             active

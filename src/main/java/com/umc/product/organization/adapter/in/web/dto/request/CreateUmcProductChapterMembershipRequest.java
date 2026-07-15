@@ -2,17 +2,15 @@ package com.umc.product.organization.adapter.in.web.dto.request;
 
 import java.time.LocalDate;
 
-import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductPartMembershipCommand;
-import com.umc.product.organization.domain.enums.UmcProductPartRole;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductChapterMembershipCommand;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-public record UpdateUmcProductPartMembershipRequest(
-    @NotNull Long partId,
-    @NotNull UmcProductPartRole role,
+public record CreateUmcProductChapterMembershipRequest(
+    @NotNull Long chapterId,
     @NotNull UmcProductPosition position,
     @Size(max = 200) String responsibilityTitle,
     @Size(max = 1000) String responsibilityDescription,
@@ -23,17 +21,14 @@ public record UpdateUmcProductPartMembershipRequest(
     @Schema(type = "string", format = "date", example = "2026-12-31", nullable = true)
     LocalDate endDate
 ) {
-    public UpdateUmcProductPartMembershipCommand toCommand(
+    public CreateUmcProductChapterMembershipCommand toCommand(
         Long umcProductMemberId,
-        Long partMembershipId,
         Long requesterMemberId
     ) {
-        return UpdateUmcProductPartMembershipCommand.of(
+        return CreateUmcProductChapterMembershipCommand.of(
             umcProductMemberId,
-            partMembershipId,
             requesterMemberId,
-            partId,
-            role,
+            chapterId,
             position,
             responsibilityTitle,
             responsibilityDescription,

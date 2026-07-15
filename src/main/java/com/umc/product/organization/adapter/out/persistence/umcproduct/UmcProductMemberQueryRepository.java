@@ -1,9 +1,9 @@
 package com.umc.product.organization.adapter.out.persistence.umcproduct;
 
+import static com.umc.product.organization.domain.QUmcProductChapterMembership.umcProductChapterMembership;
 import static com.umc.product.organization.domain.QUmcProductLeadership.umcProductLeadership;
 import static com.umc.product.organization.domain.QUmcProductMember.umcProductMember;
 import static com.umc.product.organization.domain.QUmcProductMemberActivityPeriod.umcProductMemberActivityPeriod;
-import static com.umc.product.organization.domain.QUmcProductPartMembership.umcProductPartMembership;
 import static com.umc.product.organization.domain.QUmcProductSquadParticipant.umcProductSquadParticipant;
 
 import java.time.LocalDate;
@@ -55,7 +55,7 @@ public class UmcProductMemberQueryRepository {
             return builder;
         }
         builder.and(memberActivityPeriodActiveOn(condition.activeOn()));
-        builder.and(partMembershipMatches(condition));
+        builder.and(chapterMembershipMatches(condition));
         builder.and(leadershipMatches(condition));
         builder.and(squadParticipationMatches(condition));
         return builder;
@@ -75,37 +75,29 @@ public class UmcProductMemberQueryRepository {
             .exists();
     }
 
-    private BooleanExpression partMembershipMatches(UmcProductMemberSearchCondition condition) {
-        boolean hasPartFilter = condition.chapterId() != null
-            || condition.partId() != null
-            || condition.partRole() != null
+    private BooleanExpression chapterMembershipMatches(UmcProductMemberSearchCondition condition) {
+        boolean hasChapterFilter = condition.chapterId() != null
             || condition.position() != null;
-        if (!hasPartFilter) {
+        if (!hasChapterFilter) {
             return null;
         }
 
         BooleanBuilder where = new BooleanBuilder()
-            .and(umcProductPartMembership.memberActivityPeriod.umcProductMember.eq(umcProductMember));
+            .and(umcProductChapterMembership.memberActivityPeriod.umcProductMember.eq(umcProductMember));
         where.and(condition.chapterId() == null
             ? null
-            : umcProductPartMembership.part.chapter.id.eq(condition.chapterId()));
-        where.and(condition.partId() == null
-            ? null
-            : umcProductPartMembership.part.id.eq(condition.partId()));
-        where.and(condition.partRole() == null
-            ? null
-            : umcProductPartMembership.role.eq(condition.partRole()));
+            : umcProductChapterMembership.chapter.id.eq(condition.chapterId()));
         where.and(condition.position() == null
             ? null
-            : umcProductPartMembership.position.eq(condition.position()));
+            : umcProductChapterMembership.position.eq(condition.position()));
         if (condition.activeOn() != null) {
-            where.and(partMembershipActiveOn(condition.activeOn()));
-            where.and(partMembershipActivityPeriodActiveOn(condition.activeOn()));
+            where.and(chapterMembershipActiveOn(condition.activeOn()));
+            where.and(chapterMembershipActivityPeriodActiveOn(condition.activeOn()));
         }
 
         return JPAExpressions
             .selectOne()
-            .from(umcProductPartMembership)
+            .from(umcProductChapterMembership)
             .where(where)
             .exists();
     }
@@ -156,16 +148,16 @@ public class UmcProductMemberQueryRepository {
                 .or(umcProductMemberActivityPeriod.period.endDate.goe(activeOn)));
     }
 
-    private BooleanExpression partMembershipActiveOn(LocalDate activeOn) {
-        return umcProductPartMembership.period.startDate.loe(activeOn)
-            .and(umcProductPartMembership.period.endDate.isNull()
-                .or(umcProductPartMembership.period.endDate.goe(activeOn)));
+    private BooleanExpression chapterMembershipActiveOn(LocalDate activeOn) {
+        return umcProductChapterMembership.period.startDate.loe(activeOn)
+            .and(umcProductChapterMembership.period.endDate.isNull()
+                .or(umcProductChapterMembership.period.endDate.goe(activeOn)));
     }
 
-    private BooleanExpression partMembershipActivityPeriodActiveOn(LocalDate activeOn) {
-        return umcProductPartMembership.memberActivityPeriod.period.startDate.loe(activeOn)
-            .and(umcProductPartMembership.memberActivityPeriod.period.endDate.isNull()
-                .or(umcProductPartMembership.memberActivityPeriod.period.endDate.goe(activeOn)));
+    private BooleanExpression chapterMembershipActivityPeriodActiveOn(LocalDate activeOn) {
+        return umcProductChapterMembership.memberActivityPeriod.period.startDate.loe(activeOn)
+            .and(umcProductChapterMembership.memberActivityPeriod.period.endDate.isNull()
+                .or(umcProductChapterMembership.memberActivityPeriod.period.endDate.goe(activeOn)));
     }
 
     private BooleanExpression leadershipActiveOn(LocalDate activeOn) {

@@ -10,8 +10,8 @@ import com.umc.product.organization.application.port.in.command.ManageUmcProduct
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductChapterCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductChapterCommand;
 import com.umc.product.organization.application.port.out.command.SaveUmcProductChapterPort;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductChapterPort;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductPartPort;
 import com.umc.product.organization.domain.UmcProductChapter;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
@@ -25,7 +25,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
 
     private final LoadUmcProductChapterPort loadUmcProductChapterPort;
     private final SaveUmcProductChapterPort saveUmcProductChapterPort;
-    private final LoadUmcProductPartPort loadUmcProductPartPort;
+    private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     private final UmcProductAccessPolicy umcProductAccessPolicy;
 
     @Audited(
@@ -76,8 +76,8 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
     public void delete(Long chapterId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
         UmcProductChapter chapter = loadUmcProductChapterPort.getByIdWithLock(chapterId);
-        if (loadUmcProductPartPort.existsByChapterId(chapterId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_HAS_PARTS);
+        if (loadUmcProductChapterMembershipPort.existsByChapterId(chapterId)) {
+            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_HAS_MEMBERSHIPS);
         }
         saveUmcProductChapterPort.delete(chapter);
     }

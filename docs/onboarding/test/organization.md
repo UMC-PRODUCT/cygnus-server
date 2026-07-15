@@ -40,10 +40,11 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [33](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L33) | 활동 날짜는 yyyy-MM-dd 형식으로 역직렬화한다 | 날짜만 포함한 활동 기간 JSON | 성공: `LocalDate`로 같은 날짜를 반환한다 |
-| [54](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L54) | 활동 날짜에 시각이나 offset이 포함되면 역직렬화를 거부한다 | `2026-07-13T00:00:00Z` 입력 | 실패: `LocalDate` 형식 오류 |
-| [70](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L70) | 멤버 생성에는 한 개 이상의 활동 기간이 필요하다 | 빈 `activityPeriods` | 실패: Jakarta Validation 위반 |
-| [86](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L86) | Part 소속 역할로 Chapter Lead 입력을 거부한다 | `role=CHAPTER_LEAD` JSON | 실패: 존재하지 않는 enum 값으로 거부한다 |
+| [41](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L41) | 활동 날짜는 yyyy-MM-dd 형식으로 역직렬화한다 | 날짜만 포함한 활동 기간 JSON | 성공: `LocalDate`로 같은 날짜를 반환한다 |
+| [62](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L62) | 활동 날짜에 시각이나 offset이 포함되면 역직렬화를 거부한다 | `2026-07-13T00:00:00Z` 입력 | 실패: `LocalDate` 형식 오류 |
+| [78](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L78) | activeOn은 yyyy-MM-dd 형식만 허용한다 | offset 또는 Z가 포함된 query parameter | 실패: 날짜 변환 오류 |
+| [101](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L101) | 멤버 생성에는 한 개 이상의 활동 기간이 필요하다 | 빈 `activityPeriods` | 실패: Jakarta Validation 위반 |
+| [135](../../../src/test/java/com/umc/product/organization/adapter/in/web/UmcProductRequestContractTest.java#L135) | Chapter 소속 요청에는 Part와 역할 필드가 없다 | Chapter membership record component 조회 | 성공: `chapterId`는 있고 `partId`, `role`은 없다 |
 
 ### GisuCommandControllerTest
 - 위치: `src/test/java/com/umc/product/organization/adapter/in/web/GisuCommandControllerTest.java`
@@ -336,12 +337,12 @@
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
 | [78](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L78) | 활동 기간의 LocalDate는 DATE로 그대로 왕복하고 종료일을 포함한다 | 저장 후 영속성 context 초기화 및 재조회 | 성공: 시작일·종료일과 포함 경계를 유지한다 |
-| [149](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L149) | 멤버 활동 기간은 겹치거나 빈틈없이 인접할 수 없다 | 기존 종료일 다음 날 새 기간 시작 | 실패: `OrganizationDomainException`, `UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED` |
-| [122](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L122) | Chapter와 Part는 별도 활성 필터와 관계를 유지한다 | 활성 Chapter와 혼합된 Part 목록 | 성공: 정렬·활성 필터와 Chapter FK를 유지한다 |
-| [151](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L151) | 멤버는 같은 기간에 여러 Part에 소속될 수 있다 | 동일 멤버 기간에 Server와 Web 소속 생성 | 성공: 두 Part 소속을 모두 조회한다 |
-| [187](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L187) | 멤버 검색의 activeOn은 멤버와 Part 소속 기간을 모두 검사한다 | 현재 활동 멤버와 종료된 멤버 검색 | 성공: 기준일 유효 멤버만 반환한다 |
-| [288](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L288) | 같은 Part의 PART_LEAD 기간은 겹칠 수 없다 | 종료일을 공유하는 두 PartLead | 실패: `OrganizationDomainException`, `UMC_PRODUCT_PART_LEAD_OVERLAPPED` |
-| [277](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L277) | Leadership은 멤버와 자체 기간이 모두 유효한 날에만 조회된다 | Leadership 종료일과 다음 날 조회 | 성공: 종료일만 유효하게 반환한다 |
+| [126](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L126) | 멤버 활동 기간은 겹치거나 빈틈없이 인접할 수 없다 | 기존 종료일 다음 날 새 기간 시작 | 실패: `OrganizationDomainException`, `UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED` |
+| [153](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L153) | Chapter는 활성 필터와 정렬 순서를 유지한다 | 활성·비활성 Chapter 저장 | 성공: 활성 Chapter만 정렬 조회한다 |
+| [166](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L166) | 멤버는 같은 기간에 여러 Chapter에 소속될 수 있다 | 동일 멤버 기간에 Develop과 Client Chapter 소속 생성 | 성공: 두 Chapter 소속을 모두 조회한다 |
+| [199](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L199) | 멤버 검색의 activeOn은 멤버와 Chapter 소속 기간을 모두 검사한다 | 현재 활동 멤버와 종료된 멤버 검색 | 성공: 기준일 유효 멤버만 반환한다 |
+| [242](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L242) | 같은 멤버의 같은 Chapter 소속 기간은 겹칠 수 없다 | 종료일을 공유하는 두 Chapter 소속 | 실패: `OrganizationDomainException`, `UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED` |
+| [282](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L282) | Leadership은 멤버와 자체 기간이 모두 유효한 날에만 조회된다 | Leadership 종료일과 다음 날 조회 | 성공: 종료일만 유효하게 반환한다 |
 | [361](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L361) | 동일한 Leadership 역할은 같은 날 한 명만 가질 수 있다 | 같은 날짜의 두 Vice Lead | 실패: `OrganizationDomainException`, `UMC_PRODUCT_LEADERSHIP_OVERLAPPED` |
 | [337](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L337) | Squad activeOn은 종료일을 포함하고 기간 밖 Squad를 제외한다 | 현재·미래·비활성 Squad 조회 | 성공: 기준일에 유효한 활성 Squad만 반환한다 |
 | [355](../../../src/test/java/com/umc/product/organization/adapter/out/persistence/umcproduct/UmcProductPersistenceAdapterTest.java#L355) | 같은 Squad의 멤버 참여와 SquadLead 기간 중복을 조회한다 | 기존 SquadLead 종료일에 새 구간 검사 | 성공: 멤버·리더 중복을 모두 감지한다 |
@@ -397,9 +398,9 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [22](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L22) | 멤버 활동 기간과 그 안의 Part 소속을 생성한다 | PartLead 소속 기간이 멤버 기간 안에 있음 | 성공: Part와 역할·책임·기간을 보존한다 |
-| [48](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L48) | Part 소속 기간은 멤버 활동 기간 안에 있어야 한다 | 소속 시작일이 멤버 시작일보다 빠름 | 실패: `UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE` |
-| [67](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L67) | Product Leadership은 Part 소속과 독립적으로 생성한다 | 별도 Part membership 없이 Leadership 생성 | 성공: Product Lead 이력을 독립적으로 보존한다 |
+| [21](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L21) | 멤버 활동 기간과 그 안의 Chapter 소속을 생성한다 | Chapter 소속 기간이 멤버 기간 안에 있음 | 성공: Chapter·책임·기간을 보존한다 |
+| [45](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L45) | Chapter 소속 기간은 멤버 활동 기간 안에 있어야 한다 | 소속 시작일이 멤버 시작일보다 빠름 | 실패: `UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE` |
+| [63](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L63) | Product Leadership은 Chapter 소속과 독립적으로 생성한다 | 별도 Chapter membership 없이 Leadership 생성 | 성공: Product Lead 이력을 독립적으로 보존한다 |
 | [83](../../../src/test/java/com/umc/product/organization/domain/UmcProductMemberActivityTest.java#L83) | Product Leadership 기간은 멤버 활동 기간 안에 있어야 한다 | 무기한 Leadership이 유한 멤버 기간을 벗어남 | 실패: `UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE` |
 
 ### UmcProductOrganizationStructureTest
@@ -407,10 +408,10 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [14](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L14) | Chapter와 그 하위 Part를 생성한다 | Chapter와 Part의 표시 정보 입력 | 성공: 공백을 정리하고 Part에서 Chapter를 참조한다 |
-| [25](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L25) | Part는 Chapter 없이 생성할 수 없다 | `chapter=null` | 실패: `UMC_PRODUCT_CHAPTER_REQUIRED` |
-| [33](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L33) | Chapter와 Part의 코드와 이름은 필수다 | 공백 코드 또는 이름 | 실패: 필수값 오류 코드를 반환한다 |
-| [47](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L47) | Part 수정에서는 Chapter를 변경하지 않는다 | Part 표시·활성 정보 수정 | 성공: 기존 Chapter 참조를 유지한다 |
+| [15](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L15) | 조직 역할은 Product Leadership만 제공한다 | Leadership role enum 조회 | 성공: Lead와 Vice Lead만 존재한다 |
+| [24](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L24) | Chapter를 생성한다 | Chapter 표시 정보 입력 | 성공: 공백을 정리해 저장한다 |
+| [33](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L33) | Chapter의 코드와 이름은 필수다 | 공백 코드 또는 이름 | 실패: 필수값 오류 코드를 반환한다 |
+| [45](../../../src/test/java/com/umc/product/organization/domain/UmcProductOrganizationStructureTest.java#L45) | Chapter를 수정한다 | 표시·활성 정보 수정 | 성공: 변경 값을 반영한다 |
 
 ### UmcProductSquadTest
 - 위치: `src/test/java/com/umc/product/organization/domain/UmcProductSquadTest.java`
