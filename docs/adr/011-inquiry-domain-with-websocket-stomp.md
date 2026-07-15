@@ -483,7 +483,8 @@ WebSocket(STOMP) 측은 SUBSCRIBE/SEND 두 가지뿐이다. 발신 페이로드�
 3. `feat: WebSocket + STOMP 글로벌 설정 추가`
     - `global/config/WebSocketConfig` 신규.
     - `SecurityConfig` 에 `/ws/**` permitAll 추가 (STOMP 핸드셰이크 통과).
-    - 이 커밋 단계까지는 endpoint 가 비어 있으므로 외부에서 호출해도 무동작 (정상).
+    - Phase 0 당시에는 endpoint 가 비어 있어 외부 호출이 무동작이었다.
+    - 현재는 `WebSocketMessageBrokerConfig`가 `/ws` endpoint와 STOMP broker를 활성화한 상태다.
 
 ### Phase 1: 도메인 + 영속화 (CRUD 기반)
 
