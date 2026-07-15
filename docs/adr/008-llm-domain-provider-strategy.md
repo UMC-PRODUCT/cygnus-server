@@ -238,14 +238,16 @@ spring-ai = "1.1.8"
 `gradle/dependencies.gradle.kts`:
 
 ```kotlin
-add("implementation", platform("org.springframework.ai:spring-ai-bom:${version("spring-ai")}"))
-add("implementation", "org.springframework.ai:spring-ai-starter-model-vertex-ai-gemini")
-add("implementation", "org.springframework.ai:spring-ai-starter-model-openai")
-add("implementation", "org.springframework.ai:spring-ai-starter-model-google-genai")
+dependencies {
+    add("implementation", platform("org.springframework.ai:spring-ai-bom:${version("spring-ai")}"))
+    add("implementation", "org.springframework.ai:spring-ai-starter-model-vertex-ai-gemini")
+    add("implementation", "org.springframework.ai:spring-ai-starter-model-openai")
+    add("implementation", "org.springframework.ai:spring-ai-starter-model-google-genai")
 
-// 단기 캐시 (figma classifier 측에서 사용)
-add("implementation", "com.github.ben-manes.caffeine:caffeine")
-add("implementation", "org.springframework.boot:spring-boot-starter-cache")
+    // 단기 캐시 (figma classifier 측에서 사용)
+    add("implementation", "com.github.ben-manes.caffeine:caffeine")
+    add("implementation", "org.springframework.boot:spring-boot-starter-cache")
+}
 ```
 
 ### `LlmProperties` 확장
