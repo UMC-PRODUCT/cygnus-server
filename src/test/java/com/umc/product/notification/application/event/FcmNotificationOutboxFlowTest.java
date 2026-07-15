@@ -76,7 +76,7 @@ class FcmNotificationOutboxFlowTest {
             new FakeLoadFcmPort(createTokens(501)),
             new OutboxDomainEventPublisher(batchOutboxPort, serializer, Tracer.NOOP)
         );
-        AtomicBoolean transactionActiveDuringListener = new AtomicBoolean(true);
+        AtomicBoolean transactionActiveDuringListener = new AtomicBoolean(false);
         ApplicationEventPublisher springPublisher = event -> {
             if (event instanceof FcmNotificationRequestedEvent fcmEvent) {
                 transactionActiveDuringListener.set(TransactionSynchronizationManager.isActualTransactionActive());
@@ -96,7 +96,7 @@ class FcmNotificationOutboxFlowTest {
 
         relayService.relay();
 
-        assertThat(transactionActiveDuringListener).isFalse();
+        assertThat(transactionActiveDuringListener).isTrue();
         assertThat(requestOutbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
         assertThat(batchOutboxPort.saved)
             .hasSize(2)

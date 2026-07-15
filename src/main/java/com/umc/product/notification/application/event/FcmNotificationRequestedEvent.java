@@ -9,7 +9,6 @@ import java.util.UUID;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.event.domain.DomainEvent;
-import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
 
 public record FcmNotificationRequestedEvent(
@@ -70,11 +69,6 @@ public record FcmNotificationRequestedEvent(
     @Override
     public String eventType() {
         return "notification.fcm.requested";
-    }
-
-    @Override
-    public OutboxDispatchMode outboxDispatchMode() {
-        return OutboxDispatchMode.NON_TRANSACTIONAL;
     }
 
     private static List<Long> normalizeMemberIds(List<Long> memberIds) {
