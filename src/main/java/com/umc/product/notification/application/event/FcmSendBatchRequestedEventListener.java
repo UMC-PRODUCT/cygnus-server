@@ -8,6 +8,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.global.config.FcmProperties;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
 import com.umc.product.notification.application.port.out.SaveFcmPort;
@@ -29,6 +30,7 @@ public class FcmSendBatchRequestedEventListener {
     private final LoadFcmPort loadFcmPort;
     private final SaveFcmPort saveFcmPort;
     private final SendFcmMessagePort sendFcmMessagePort;
+    private final DomainEventPublisher eventPublisher;
     private final OperationalMetrics operationalMetrics;
 
     @EventListener
@@ -53,9 +55,10 @@ public class FcmSendBatchRequestedEventListener {
             event.deepLink()
         ));
         deactivateInvalidTokens(tokens, result.invalidTokenIds());
+        publishRetryBatch(event, result.retryableTokenIds());
         recordFcmMetric(result);
-        log.info("FCM 배치 발송 결과: requestId={}, success={}, failure={}",
-            event.requestId(), result.successCount(), result.failureCount());
+        log.info("FCM 배치 발송 결과: requestId={}, success={}, failure={}, retryable={}",
+            event.requestId(), result.successCount(), result.failureCount(), result.retryableTokenIds().size());
     }
 
     private List<FcmSendTarget> targets(List<FcmToken> tokens) {
@@ -82,8 +85,18 @@ public class FcmSendBatchRequestedEventListener {
         }
     }
 
+    private void publishRetryBatch(FcmSendBatchRequestedEvent event, List<Long> retryableTokenIds) {
+        if (retryableTokenIds.isEmpty()) {
+            return;
+        }
+        eventPublisher.publish(FcmSendBatchRequestedEvent.retry(retryableTokenIds, event));
+        log.info("FCM 부분 실패 재시도 배치 이벤트를 발행했습니다: requestId={}, tokenCount={}",
+            event.requestId(), retryableTokenIds.size());
+    }
+
     private void recordFcmMetric(FcmSendResult result) {
         operationalMetrics.recordNotification("FCM", "SEND_BATCH", "success", result.successCount());
         operationalMetrics.recordNotification("FCM", "SEND_BATCH", "failure", result.failureCount());
+        operationalMetrics.recordNotification("FCM", "SEND_BATCH", "retry", result.retryableTokenIds().size());
     }
 }

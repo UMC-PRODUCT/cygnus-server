@@ -56,6 +56,8 @@
 
 발송 보장은 at-least-once다. Firebase 발송 성공 후 event outbox의 `PUBLISHED` 커밋이 실패하면 같은 batch 전체가 재시도되어 최대 500개 토큰에 중복 푸시가 발생할 수 있다. FCM API가 batch 요청의 멱등성 키를 제공하지 않으므로 현재 `requestId`는 서버 추적 용도로만 사용하며, 중복보다 누락 방지를 우선한다.
 
+Firebase multicast가 전체 예외를 던지면 현재 batch outbox가 `PENDING`으로 돌아가 공용 backoff 정책에 따라 재시도된다. 응답 안에서 일부 token만 `INTERNAL`, `UNAVAILABLE`, `QUOTA_EXCEEDED`로 실패하면 성공 token을 다시 보내지 않고 해당 token ID만 새 batch outbox에 저장한다. `UNREGISTERED` token은 재시도하지 않고 비활성화한다.
+
 ## 추가 기준
 
 Event Outbox의 생성부터 listener 소비, 실패 재시도까지의 상세 흐름은

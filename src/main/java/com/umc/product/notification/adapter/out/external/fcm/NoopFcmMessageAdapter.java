@@ -15,6 +15,6 @@ public class NoopFcmMessageAdapter implements SendFcmMessagePort {
 
     @Override
     public FcmSendResult send(FcmSendRequest request) {
-        return FcmSendResult.of(0, 0, List.of());
+        return FcmSendResult.of(0, 0, List.of(), List.of());
     }
 }

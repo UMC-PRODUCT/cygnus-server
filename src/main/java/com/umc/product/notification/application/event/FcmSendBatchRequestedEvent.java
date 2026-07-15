@@ -53,6 +53,23 @@ public record FcmSendBatchRequestedEvent(
         );
     }
 
+    public static FcmSendBatchRequestedEvent retry(
+        List<Long> tokenIds,
+        FcmSendBatchRequestedEvent source
+    ) {
+        return new FcmSendBatchRequestedEvent(
+            null,
+            null,
+            source.requestId(),
+            tokenIds,
+            source.title(),
+            source.body(),
+            source.data(),
+            source.imageUrl(),
+            source.deepLink()
+        );
+    }
+
     @Override
     public String eventType() {
         return "notification.fcm.batch.requested";

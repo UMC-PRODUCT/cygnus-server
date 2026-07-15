@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
@@ -31,12 +32,18 @@ import lombok.extern.slf4j.Slf4j;
 @ConditionalOnProperty(name = "app.fcm.enabled", havingValue = "true")
 public class FirebaseFcmMessageAdapter implements SendFcmMessagePort {
 
+    private static final Set<MessagingErrorCode> RETRYABLE_ERROR_CODES = Set.of(
+        MessagingErrorCode.INTERNAL,
+        MessagingErrorCode.UNAVAILABLE,
+        MessagingErrorCode.QUOTA_EXCEEDED
+    );
+
     private final FirebaseMessaging firebaseMessaging;
 
     @Override
     public FcmSendResult send(FcmSendRequest request) {
         if (request.targets().isEmpty()) {
-            return FcmSendResult.of(0, 0, List.of());
+            return FcmSendResult.of(0, 0, List.of(), List.of());
         }
 
         try {
@@ -73,19 +80,33 @@ public class FirebaseFcmMessageAdapter implements SendFcmMessagePort {
 
     private FcmSendResult toResult(List<FcmSendTarget> targets, BatchResponse response) {
         List<Long> invalidTokenIds = new ArrayList<>();
+        List<Long> retryableTokenIds = new ArrayList<>();
         List<SendResponse> responses = response.getResponses();
         for (int i = 0; i < responses.size(); i++) {
             SendResponse sendResponse = responses.get(i);
             if (isUnregistered(sendResponse)) {
                 invalidTokenIds.add(targets.get(i).tokenId());
+            } else if (isRetryable(sendResponse)) {
+                retryableTokenIds.add(targets.get(i).tokenId());
             }
         }
-        return FcmSendResult.of(response.getSuccessCount(), response.getFailureCount(), invalidTokenIds);
+        return FcmSendResult.of(
+            response.getSuccessCount(),
+            response.getFailureCount(),
+            invalidTokenIds,
+            retryableTokenIds
+        );
     }
 
     private boolean isUnregistered(SendResponse response) {
         return !response.isSuccessful()
             && response.getException() != null
             && MessagingErrorCode.UNREGISTERED.equals(response.getException().getMessagingErrorCode());
+    }
+
+    private boolean isRetryable(SendResponse response) {
+        return !response.isSuccessful()
+            && response.getException() != null
+            && RETRYABLE_ERROR_CODES.contains(response.getException().getMessagingErrorCode());
     }
 }

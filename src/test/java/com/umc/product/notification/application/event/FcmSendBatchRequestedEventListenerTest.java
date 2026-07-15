@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -15,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.global.config.FcmProperties;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
 import com.umc.product.notification.application.port.out.SaveFcmPort;
@@ -39,13 +42,15 @@ class FcmSendBatchRequestedEventListenerTest {
         FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(active, invalid));
         FakeSaveFcmPort saveFcmPort = new FakeSaveFcmPort();
         FakeSendFcmMessagePort sendFcmMessagePort = new FakeSendFcmMessagePort(
-            FcmSendResult.of(1, 1, List.of(2L))
+            FcmSendResult.of(1, 1, List.of(2L), List.of())
         );
+        RecordingDomainEventPublisher eventPublisher = new RecordingDomainEventPublisher();
         FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
             new FcmProperties(true, true),
             loadFcmPort,
             saveFcmPort,
             sendFcmMessagePort,
+            eventPublisher,
             new OperationalMetrics(new SimpleMeterRegistry())
         );
         FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
@@ -69,6 +74,53 @@ class FcmSendBatchRequestedEventListenerTest {
         assertThat(active.isActive()).isTrue();
         assertThat(saveFcmPort.saved).containsExactly(invalid);
         assertThat(saveFcmPort.saveAllCallCount).isEqualTo(1);
+        assertThat(eventPublisher.events).isEmpty();
+    }
+
+    @Test
+    @DisplayName("재시도 가능한 부분 실패는 실패한 토큰만 새 배치 이벤트로 발행한다")
+    void retryablePartialFailurePublishesSubsetEvent() {
+        // given
+        FcmToken success = token(1L, 10L, "token-1");
+        FcmToken retryable = token(2L, 20L, "token-2");
+        FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(success, retryable));
+        RecordingDomainEventPublisher eventPublisher = new RecordingDomainEventPublisher();
+        FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
+            new FcmProperties(true, true),
+            loadFcmPort,
+            new FakeSaveFcmPort(),
+            new FakeSendFcmMessagePort(FcmSendResult.of(1, 1, List.of(), List.of(2L))),
+            eventPublisher,
+            new OperationalMetrics(new SimpleMeterRegistry())
+        );
+        UUID requestId = UUID.randomUUID();
+        FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
+            null,
+            null,
+            requestId,
+            List.of(1L, 2L),
+            "제목",
+            "본문",
+            Map.of("type", "NOTICE"),
+            "https://example.com/image.png",
+            "umc://notices/1"
+        );
+
+        // when
+        listener.handle(event);
+
+        // then
+        assertThat(eventPublisher.events).singleElement().satisfies(published -> {
+            FcmSendBatchRequestedEvent retryEvent = (FcmSendBatchRequestedEvent) published;
+            assertThat(retryEvent.eventId()).isNotEqualTo(event.eventId());
+            assertThat(retryEvent.requestId()).isEqualTo(requestId);
+            assertThat(retryEvent.tokenIds()).containsExactly(2L);
+            assertThat(retryEvent.title()).isEqualTo("제목");
+            assertThat(retryEvent.body()).isEqualTo("본문");
+            assertThat(retryEvent.data()).containsEntry("type", "NOTICE");
+            assertThat(retryEvent.imageUrl()).isEqualTo("https://example.com/image.png");
+            assertThat(retryEvent.deepLink()).isEqualTo("umc://notices/1");
+        });
     }
 
     @Test
@@ -78,6 +130,7 @@ class FcmSendBatchRequestedEventListenerTest {
         FcmToken active = token(1L, 10L, "token-1");
         FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(active));
         FakeSaveFcmPort saveFcmPort = new FakeSaveFcmPort();
+        RecordingDomainEventPublisher eventPublisher = new RecordingDomainEventPublisher();
         FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
             new FcmProperties(true, true),
             loadFcmPort,
@@ -85,6 +138,7 @@ class FcmSendBatchRequestedEventListenerTest {
             request -> {
                 throw new FcmDomainException(FcmErrorCode.FCM_SEND_FAILED);
             },
+            eventPublisher,
             new OperationalMetrics(new SimpleMeterRegistry())
         );
         FcmSendBatchRequestedEvent event = new FcmSendBatchRequestedEvent(
@@ -104,6 +158,7 @@ class FcmSendBatchRequestedEventListenerTest {
             .isInstanceOf(FcmDomainException.class);
         assertThat(saveFcmPort.saved).isEmpty();
         assertThat(saveFcmPort.saveAllCallCount).isZero();
+        assertThat(eventPublisher.events).isEmpty();
     }
 
     private FcmToken token(Long id, Long memberId, String value) {
@@ -181,6 +236,21 @@ class FcmSendBatchRequestedEventListenerTest {
         public FcmSendResult send(FcmSendRequest request) {
             this.lastRequest = request;
             return result;
+        }
+    }
+
+    private static class RecordingDomainEventPublisher implements DomainEventPublisher {
+
+        private final List<DomainEvent> events = new ArrayList<>();
+
+        @Override
+        public void publish(DomainEvent event) {
+            events.add(event);
+        }
+
+        @Override
+        public void publishAll(Collection<? extends DomainEvent> events) {
+            this.events.addAll(events);
         }
     }
 }

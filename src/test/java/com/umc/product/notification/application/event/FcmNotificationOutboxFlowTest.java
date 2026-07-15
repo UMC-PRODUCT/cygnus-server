@@ -110,7 +110,7 @@ class FcmNotificationOutboxFlowTest {
     }
 
     @Test
-    @DisplayName("FCM 배치 Firebase 발송은 relay 트랜잭션 밖에서 실행된다")
+    @DisplayName("FCM 배치 부분 실패는 relay 트랜잭션 밖에서 실패 토큰만 새 outbox에 저장한다")
     void fcm_batch_delivery_runs_without_relay_transaction() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
@@ -118,7 +118,7 @@ class FcmNotificationOutboxFlowTest {
             null,
             null,
             UUID.randomUUID(),
-            List.of(1L),
+            List.of(1L, 2L),
             "제목",
             "본문",
             Map.of(),
@@ -127,14 +127,16 @@ class FcmNotificationOutboxFlowTest {
         );
         EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
         AtomicBoolean transactionActiveDuringSend = new AtomicBoolean(true);
+        RecordingSaveEventOutboxPort retryOutboxPort = new RecordingSaveEventOutboxPort();
         FcmSendBatchRequestedEventListener listener = new FcmSendBatchRequestedEventListener(
             new FcmProperties(true, true),
-            new FakeLoadFcmPort(createTokens(1)),
+            new FakeLoadFcmPort(createTokens(2)),
             new NoopSaveFcmPort(),
             request -> {
                 transactionActiveDuringSend.set(TransactionSynchronizationManager.isActualTransactionActive());
-                return FcmSendResult.of(1, 0, List.of());
+                return FcmSendResult.of(1, 1, List.of(), List.of(2L));
             },
+            new OutboxDomainEventPublisher(retryOutboxPort, serializer, Tracer.NOOP),
             new OperationalMetrics(new SimpleMeterRegistry())
         );
         EventOutboxRelayService relayService = new EventOutboxRelayService(
@@ -152,6 +154,10 @@ class FcmNotificationOutboxFlowTest {
 
         assertThat(transactionActiveDuringSend).isFalse();
         assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
+        assertThat(retryOutboxPort.saved).singleElement().satisfies(retryOutbox -> {
+            assertThat(retryOutbox.getEventType()).isEqualTo("notification.fcm.batch.requested");
+            assertThat(retryOutbox.getPayload()).contains("\"tokenIds\":[2]");
+        });
     }
 
     private static List<FcmToken> createTokens(int count) {
