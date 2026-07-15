@@ -32,13 +32,13 @@ import com.umc.product.certificate.application.port.in.command.IssueCertificateU
 import com.umc.product.certificate.application.port.in.command.RevokeCertificateUseCase;
 import com.umc.product.certificate.application.port.in.command.dto.AdminIssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.CertificateIssueInfo;
+import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.RevokeCertificateCommand;
 import com.umc.product.certificate.application.port.in.query.GetCertificateUseCase;
 import com.umc.product.certificate.application.port.in.query.dto.CertificateVerificationInfo;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
 import com.umc.product.certificate.domain.CertificateTemplate;
-import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -94,7 +94,7 @@ class CertificateControllerTest {
         // given
         given(issueCertificateUseCase.issue(any())).willReturn(issueInfo(
             "UMC-CMP-20260701-ABCDEFGH",
-            CertificateType.COMPLETION,
+            CertificateTemplate.UMC_COURSE_COMPLETION,
             CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE
         ));
 
@@ -102,30 +102,48 @@ class CertificateControllerTest {
         mockMvc.perform(post("/api/v1/certificates")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsBytes(new SelfIssueRequestBody(
-                    CertificateType.COMPLETION,
-                    7L,
-                    null
+                    CertificateTemplate.UMC_COURSE_COMPLETION,
+                    7L
                 ))))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.serialNumber").value("UMC-CMP-20260701-ABCDEFGH"))
-            .andExpect(jsonPath("$.result.type").value("COMPLETION"))
+            .andExpect(jsonPath("$.result.template").value("UMC_COURSE_COMPLETION"))
             .andExpect(jsonPath("$.result.issuer").value("UNIVERSITY_MAKEUS_CHALLENGE"));
+
+        verify(issueCertificateUseCase).issue(IssueCertificateCommand.builder()
+            .template(CertificateTemplate.UMC_COURSE_COMPLETION)
+            .requesterMemberId(99L)
+            .gisuId(7L)
+            .build());
     }
 
     @Test
-    @DisplayName("운영진 프로젝트 참가 확인서 fallback 발급 요청은 거부한다")
-    void 운영진_프로젝트_참가_확인서_fallback_발급_요청은_거부한다() throws Exception {
+    @DisplayName("셀프 발급은 template이 필수다")
+    void 셀프_발급은_template이_필수다() throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/v1/certificates")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "gisuId": 7
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
+
+        verify(issueCertificateUseCase, never()).issue(any());
+    }
+
+    @Test
+    @DisplayName("운영진 인증서는 template 없이 발급할 수 없다")
+    void 운영진_인증서는_template_없이_발급할_수_없다() throws Exception {
         // when & then
         mockMvc.perform(post("/api/v1/certificates/admin")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {
-                      "type": "PROJECT_PARTICIPATION",
-                      "issuer": "NEORDINARY",
                       "recipientMemberId": 1,
                       "gisuId": 7,
-                      "projectId": 100,
-                      "reissue": true
+                      "meritTitle": "대상"
                     }
                     """))
             .andExpect(status().isBadRequest());
@@ -134,30 +152,12 @@ class CertificateControllerTest {
     }
 
     @Test
-    @DisplayName("운영진 공로증은 template 없이 type만으로 발급할 수 없다")
-    void 운영진_공로증은_template_없이_type만으로_발급할_수_없다() throws Exception {
-        // when & then
-        mockMvc.perform(post("/api/v1/certificates/admin")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {
-                      "type": "MERIT",
-                      "issuer": "NEORDINARY",
-                      "recipientMemberId": 1,
-                      "gisuId": 7,
-                      "meritTitle": "대상"
-                    }
-                    """))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
     @DisplayName("운영진 템플릿 발급 요청은 template 중심 command로 변환한다")
     void 운영진_템플릿_발급_요청은_template_중심_command로_변환한다() throws Exception {
         // given
         given(adminIssueCertificateUseCase.issueByAdmin(any())).willReturn(issueInfo(
             "UMC-MRT-20260701-ABCDEFGH",
-            CertificateType.MERIT,
+            CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE,
             CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE
         ));
 
@@ -174,7 +174,7 @@ class CertificateControllerTest {
                     }
                     """))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result.type").value("MERIT"))
+            .andExpect(jsonPath("$.result.template").value("UMC_DEMO_DAY_FIRST_PRIZE"))
             .andExpect(jsonPath("$.result.issuer").value("UNIVERSITY_MAKEUS_CHALLENGE"));
 
         // then
@@ -189,23 +189,6 @@ class CertificateControllerTest {
     }
 
     @Test
-    @DisplayName("운영진 템플릿 발급 요청은 template과 type을 동시에 받지 않는다")
-    void 운영진_템플릿_발급_요청은_template과_type을_동시에_받지_않는다() throws Exception {
-        // when & then
-        mockMvc.perform(post("/api/v1/certificates/admin")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                    {
-                      "template": "UMC_DEMO_DAY_FIRST_PRIZE",
-                      "type": "MERIT",
-                      "recipientMemberId": 1,
-                      "gisuId": 7
-                    }
-                    """))
-            .andExpect(status().isBadRequest());
-    }
-
-    @Test
     @DisplayName("공개 검증 API는 유효 여부와 마스킹된 이름을 반환한다")
     void 공개_검증_API는_유효_여부와_마스킹된_이름을_반환한다() throws Exception {
         // given
@@ -213,7 +196,7 @@ class CertificateControllerTest {
             .willReturn(new CertificateVerificationInfo(
                 true,
                 "ISSUED",
-                CertificateType.COMPLETION,
+                CertificateTemplate.UMC_COURSE_COMPLETION,
                 CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
                 7L,
                 "김*엠",
@@ -226,6 +209,7 @@ class CertificateControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.valid").value(true))
             .andExpect(jsonPath("$.result.status").value("ISSUED"))
+            .andExpect(jsonPath("$.result.template").value("UMC_COURSE_COMPLETION"))
             .andExpect(jsonPath("$.result.issuer").value("UNIVERSITY_MAKEUS_CHALLENGE"))
             .andExpect(jsonPath("$.result.gisuGeneration").value(7))
             .andExpect(jsonPath("$.result.recipientName").value("김*엠"));
@@ -250,13 +234,13 @@ class CertificateControllerTest {
 
     private CertificateIssueInfo issueInfo(
         String serialNumber,
-        CertificateType type,
+        CertificateTemplate template,
         CertificateIssuer issuer
     ) {
         return new CertificateIssueInfo(
             1L,
             serialNumber,
-            type,
+            template,
             issuer,
             CertificateStatus.ISSUED,
             ISSUED_AT,
@@ -265,9 +249,8 @@ class CertificateControllerTest {
     }
 
     private record SelfIssueRequestBody(
-        CertificateType type,
-        Long gisuId,
-        Long projectId
+        CertificateTemplate template,
+        Long gisuId
     ) {
     }
 

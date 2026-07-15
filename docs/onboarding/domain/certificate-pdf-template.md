@@ -27,24 +27,24 @@
 
 현재 모든 enum은 `CertificateTemplate.DEFAULT_ITEM_COUNT = 4`를 사용한다. 따라서 아래 모든 템플릿은 `layouts.4`를 사용한다. 5개 또는 6개 품목 레이아웃은 JSON에 준비되어 있지만, 실제 템플릿에서 쓰려면 enum이 템플릿별 item count를 반환하도록 확장해야 한다.
 
-| Template | Issuer | Type | Event | Background | 품목 개수 | Layout |
-| --- | --- | --- | --- | --- | ---: | --- |
-| `UMC_COURSE_COMPLETION` | UMC | `COMPLETION` | course | `umc-course-completion.pdf` | 4 | `layouts.4` |
-| `UMC_COURSE_MERIT` | UMC | `MERIT` | course | `umc-course-completion.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_GRAND_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-grand-prize.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_FIRST_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-first-prize.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_SECOND_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-second-prize.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_PARTICIPATION_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-participation-prize.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_AWS_SPECIAL_PRIZE` | UMC | `MERIT` | demo | `umc-demo-day-aws-special-prize.pdf` | 4 | `layouts.4` |
-| `UMC_DEMO_DAY_BEST_CHALLENGER` | UMC | `MERIT` | demo | `umc-demo-day-best-part-challenger.pdf` | 4 | `layouts.4` |
-| `UMC_HACKATHON_CERTIFICATION_OF_COMPLETION` | UMC | `COMPLETION` | hackathon | `umc-course-completion.pdf` | 4 | `layouts.4` |
-| `UMC_HACKATHON_GRAND_PRIZE` | UMC | `MERIT` | hackathon | `umc-demo-day-grand-prize.pdf` | 4 | `layouts.4` |
-| `UMC_HACKATHON_FIRST_PRIZE` | UMC | `MERIT` | hackathon | `umc-demo-day-first-prize.pdf` | 4 | `layouts.4` |
-| `UMC_HACKATHON_SECOND_PRIZE` | UMC | `MERIT` | hackathon | `umc-demo-day-second-prize.pdf` | 4 | `layouts.4` |
-| `NEORDINARY_HACKATHON_GRAND_PRIZE` | Ne(O)rdinary | `MERIT` | hackathon | `neordinary-hackathon-grand-prize.pdf` | 4 | `layouts.4` |
-| `NEORDINARY_HACKATHON_FIRST_PRIZE` | Ne(O)rdinary | `MERIT` | hackathon | `neordinary-hackathon-first-prize.pdf` | 4 | `layouts.4` |
-| `NEORDINARY_HACKATHON_SECOND_PRIZE` | Ne(O)rdinary | `MERIT` | hackathon | `neordinary-hackathon-second-prize.pdf` | 4 | `layouts.4` |
-| `NEORDINARY_HACKATHON_CERTIFICATION_OF_COMPLETION` | Ne(O)rdinary | `COMPLETION` | hackathon | `neordinary-hackathon-certification-of-completion.pdf` | 4 | `layouts.4` |
+| Template | Issuer | Serial code | 수료 자격 필요 | Event | Background | 품목 개수 | Layout |
+| --- | --- | --- | --- | --- | --- | ---: | --- |
+| `UMC_COURSE_COMPLETION` | UMC | `CMP` | 예 | course | `umc-course-completion.pdf` | 4 | `layouts.4` |
+| `UMC_COURSE_MERIT` | UMC | `MRT` | 아니오 | course | `umc-course-completion.pdf` | 4 | `layouts.4` |
+| `UMC_DEMO_DAY_GRAND_PRIZE` | UMC | `MRT` | 아니오 | demo | `umc-demo-day-grand-prize.pdf` | 4 | `layouts.4` |
+| `UMC_DEMO_DAY_FIRST_PRIZE` | UMC | `MRT` | 아니오 | demo | `umc-demo-day-first-prize.pdf` | 4 | `layouts.4` |
+| `UMC_DEMO_DAY_SECOND_PRIZE` | UMC | `MRT` | 아니오 | demo | `umc-demo-day-second-prize.pdf` | 4 | `layouts.4` |
+| `UMC_DEMO_DAY_PARTICIPATION_PRIZE` | UMC | `MRT` | 아니오 | demo | `umc-demo-day-participation-prize.pdf` | 4 | `layouts.4` |
+| `UMC_DEMO_DAY_AWS_SPECIAL_PRIZE` | UMC | `MRT` | 아니오 | demo | `umc-demo-day-aws-special-prize.pdf` | 4 | `layouts.4` |
+| `UMC_DEMO_DAY_BEST_CHALLENGER` | UMC | `MRT` | 아니오 | demo | `umc-demo-day-best-part-challenger.pdf` | 4 | `layouts.4` |
+| `UMC_HACKATHON_CERTIFICATION_OF_COMPLETION` | UMC | `CMP` | 예 | hackathon | `umc-course-completion.pdf` | 4 | `layouts.4` |
+| `UMC_HACKATHON_GRAND_PRIZE` | UMC | `MRT` | 아니오 | hackathon | `umc-demo-day-grand-prize.pdf` | 4 | `layouts.4` |
+| `UMC_HACKATHON_FIRST_PRIZE` | UMC | `MRT` | 아니오 | hackathon | `umc-demo-day-first-prize.pdf` | 4 | `layouts.4` |
+| `UMC_HACKATHON_SECOND_PRIZE` | UMC | `MRT` | 아니오 | hackathon | `umc-demo-day-second-prize.pdf` | 4 | `layouts.4` |
+| `NEORDINARY_HACKATHON_GRAND_PRIZE` | Ne(O)rdinary | `MRT` | 아니오 | hackathon | `neordinary-hackathon-grand-prize.pdf` | 4 | `layouts.4` |
+| `NEORDINARY_HACKATHON_FIRST_PRIZE` | Ne(O)rdinary | `MRT` | 아니오 | hackathon | `neordinary-hackathon-first-prize.pdf` | 4 | `layouts.4` |
+| `NEORDINARY_HACKATHON_SECOND_PRIZE` | Ne(O)rdinary | `MRT` | 아니오 | hackathon | `neordinary-hackathon-second-prize.pdf` | 4 | `layouts.4` |
+| `NEORDINARY_HACKATHON_CERTIFICATION_OF_COMPLETION` | Ne(O)rdinary | `CMP` | 예 | hackathon | `neordinary-hackathon-certification-of-completion.pdf` | 4 | `layouts.4` |
 
 ## 공통 텍스트 필드
 
@@ -140,11 +140,10 @@ curl -L \
 | Parameter | 필수 | 설명 |
 | --- | --- | --- |
 | `template` | 예 | `CertificateTemplate` enum 이름 |
-| `issuanceNumber` | 아니오 | 생략하면 `UMC-{typeCode}-20260703-SAMPLE01` 사용 |
+| `issuanceNumber` | 아니오 | 생략하면 `UMC-{template.serialCode}-20260703-SAMPLE01` 사용 |
 | `recipientName` | 아니오 | 생략하면 `김유엠` 사용 |
 | `recipientSchoolName` | 아니오 | 생략하면 `유엠씨대학교` 사용 |
 | `gisuGeneration` | 아니오 | 생략하면 `7` 사용 |
-| `projectName` | 아니오 | 프로젝트 참가 확인서 계열 확인용 값 |
 | `meritTitle` | 아니오 | 상장명 override |
 | `meritDescription` | 아니오 | 본문 설명 override |
 | `verificationUrl` | 아니오 | QR에 넣을 검증 URL override |

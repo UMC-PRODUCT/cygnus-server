@@ -17,9 +17,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
-import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateTemplate;
-import com.umc.product.certificate.domain.CertificateType;
 import com.umc.product.certificate.domain.exception.CertificateException;
 
 class ThymeleafCertificatePdfAdapterTest {
@@ -33,9 +31,7 @@ class ThymeleafCertificatePdfAdapterTest {
         // when
         byte[] result = sut.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber("UMC-MRT-20260701-ABCDEFGH")
-            .type(CertificateType.MERIT)
             .template(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE)
-            .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")
             .gisuGeneration(7L)
@@ -59,14 +55,12 @@ class ThymeleafCertificatePdfAdapterTest {
     void 모든_인증서_템플릿은_발급번호를_포함한_PDF로_렌더링된다(CertificateTemplate template) throws Exception {
         // given
         ThymeleafCertificatePdfAdapter sut = new ThymeleafCertificatePdfAdapter();
-        String issuanceNumber = "UMC-" + template.type().serialCode() + "-20260701-ABCDEFGH";
+        String issuanceNumber = "UMC-" + template.serialCode() + "-20260701-ABCDEFGH";
 
         // when
         byte[] result = sut.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(issuanceNumber)
-            .type(template.type())
             .template(template)
-            .issuer(template.issuer())
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")
             .gisuGeneration(7L)
@@ -78,7 +72,8 @@ class ThymeleafCertificatePdfAdapterTest {
 
         // then
         assertThat(new String(result, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
-        assertThat(extractText(result)).contains(issuanceNumber);
+        assertThat(extractText(result).replace('\u00A0', ' '))
+            .contains(issuanceNumber, template.issuer().displayName());
     }
 
     @Test
@@ -89,8 +84,6 @@ class ThymeleafCertificatePdfAdapterTest {
 
         CertificatePdfRenderCommand command = CertificatePdfRenderCommand.builder()
             .issuanceNumber("UMC-CMP-20260701-ABCDEFGH")
-            .type(CertificateType.COMPLETION)
-            .issuer(CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE)
             .recipientName("김유엠")
             .recipientSchoolName("유엠씨대학교")
             .gisuGeneration(7L)

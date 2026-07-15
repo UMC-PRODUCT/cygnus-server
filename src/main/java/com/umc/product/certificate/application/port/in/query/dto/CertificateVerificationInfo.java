@@ -5,12 +5,12 @@ import java.time.Instant;
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public record CertificateVerificationInfo(
     boolean valid,
     String status,
-    CertificateType type,
+    CertificateTemplate template,
     CertificateIssuer issuer,
     Long gisuGeneration,
     String recipientName,
@@ -27,8 +27,8 @@ public record CertificateVerificationInfo(
         return new CertificateVerificationInfo(
             status == CertificateStatus.ISSUED,
             status.name(),
-            certificate.getType(),
-            certificate.getIssuer(),
+            certificate.getTemplate(),
+            certificate.getTemplate().issuer(),
             certificate.getGisuGeneration(),
             maskedName,
             certificate.getIssuedAt(),

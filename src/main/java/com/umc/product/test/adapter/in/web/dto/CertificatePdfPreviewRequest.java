@@ -14,7 +14,6 @@ public record CertificatePdfPreviewRequest(
     String recipientName,
     String recipientSchoolName,
     @Positive Long gisuGeneration,
-    String projectName,
     String meritTitle,
     String meritDescription,
     String verificationUrl
@@ -23,14 +22,11 @@ public record CertificatePdfPreviewRequest(
     private static final Long DEFAULT_GISU_GENERATION = 7L;
     private static final String DEFAULT_RECIPIENT_NAME = "김유엠";
     private static final String DEFAULT_RECIPIENT_SCHOOL_NAME = "유엠씨대학교";
-    private static final String DEFAULT_PROJECT_NAME = "테스트 프로젝트";
-
     public CertificatePdfPreviewRequest {
         issuanceNumber = trimToNull(issuanceNumber);
         recipientName = defaultText(recipientName, DEFAULT_RECIPIENT_NAME);
         recipientSchoolName = defaultText(recipientSchoolName, DEFAULT_RECIPIENT_SCHOOL_NAME);
         gisuGeneration = gisuGeneration == null ? DEFAULT_GISU_GENERATION : gisuGeneration;
-        projectName = defaultText(projectName, DEFAULT_PROJECT_NAME);
         meritTitle = trimToNull(meritTitle);
         meritDescription = trimToNull(meritDescription);
         verificationUrl = trimToNull(verificationUrl);
@@ -43,7 +39,6 @@ public record CertificatePdfPreviewRequest(
             .recipientName(recipientName)
             .recipientSchoolName(recipientSchoolName)
             .gisuGeneration(gisuGeneration)
-            .projectName(projectName)
             .meritTitle(meritTitle)
             .meritDescription(meritDescription)
             .verificationUrl(verificationUrl)
@@ -55,7 +50,7 @@ public record CertificatePdfPreviewRequest(
         if (StringUtils.hasText(issuanceNumber)) {
             return issuanceNumber;
         }
-        return "UMC-" + template.type().serialCode() + "-20260703-SAMPLE01";
+        return "UMC-" + template.serialCode() + "-20260703-SAMPLE01";
     }
 
     private static String defaultText(String value, String defaultValue) {

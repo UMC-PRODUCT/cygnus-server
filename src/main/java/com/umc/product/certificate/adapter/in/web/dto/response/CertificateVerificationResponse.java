@@ -4,12 +4,12 @@ import java.time.Instant;
 
 import com.umc.product.certificate.application.port.in.query.dto.CertificateVerificationInfo;
 import com.umc.product.certificate.domain.CertificateIssuer;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public record CertificateVerificationResponse(
     boolean valid,
     String status,
-    CertificateType type,
+    CertificateTemplate template,
     CertificateIssuer issuer,
     Long gisuGeneration,
     String recipientName,
@@ -21,7 +21,7 @@ public record CertificateVerificationResponse(
         return new CertificateVerificationResponse(
             info.valid(),
             info.status(),
-            info.type(),
+            info.template(),
             info.issuer(),
             info.gisuGeneration(),
             info.recipientName(),

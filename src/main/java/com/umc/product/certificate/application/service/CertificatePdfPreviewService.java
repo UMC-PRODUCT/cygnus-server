@@ -32,13 +32,10 @@ public class CertificatePdfPreviewService implements PreviewCertificatePdfUseCas
         String verificationUrl = resolveVerificationUrl(query);
         byte[] content = renderCertificatePdfPort.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(query.issuanceNumber())
-            .type(query.template().type())
             .template(query.template())
-            .issuer(query.template().issuer())
             .recipientName(query.recipientName())
             .recipientSchoolName(query.recipientSchoolName())
             .gisuGeneration(query.gisuGeneration())
-            .projectName(query.projectName())
             .meritTitle(query.meritTitle())
             .meritDescription(query.meritDescription())
             .issuedAt(issuedAt)

@@ -5,19 +5,17 @@ import java.time.Instant;
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 
 public record CertificateInfo(
     Long certificateId,
     String serialNumber,
-    CertificateType type,
+    CertificateTemplate template,
     CertificateIssuer issuer,
     CertificateStatus status,
     String recipientName,
     Long gisuId,
     Long gisuGeneration,
-    Long projectId,
-    String projectName,
     String meritTitle,
     Instant issuedAt,
     Instant expiresAt
@@ -27,14 +25,12 @@ public record CertificateInfo(
         return new CertificateInfo(
             certificate.getId(),
             certificate.getSerialNumber(),
-            certificate.getType(),
-            certificate.getIssuer(),
+            certificate.getTemplate(),
+            certificate.getTemplate().issuer(),
             certificate.statusAt(now),
             certificate.getRecipientName(),
             certificate.getGisuId(),
             certificate.getGisuGeneration(),
-            certificate.getProjectId(),
-            certificate.getProjectName(),
             certificate.getMeritTitle(),
             certificate.getIssuedAt(),
             certificate.getExpiresAt()

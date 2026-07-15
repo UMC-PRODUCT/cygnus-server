@@ -23,6 +23,7 @@ import com.umc.product.certificate.application.port.in.command.dto.CertificateIs
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.RevokeCertificateCommand;
 import com.umc.product.certificate.application.port.out.LoadCertificatePort;
+import com.umc.product.certificate.application.port.out.LockCertificateIssuancePort;
 import com.umc.product.certificate.application.port.out.RenderCertificatePdfPort;
 import com.umc.product.certificate.application.port.out.SaveCertificatePort;
 import com.umc.product.certificate.application.port.out.dto.CertificatePdfRenderCommand;
@@ -31,13 +32,17 @@ import com.umc.product.certificate.domain.CertificateIssueSpec;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
 import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
+import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
 import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
 import com.umc.product.storage.domain.enums.FileCategory;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CertificateCommandService implements
@@ -49,8 +54,10 @@ public class CertificateCommandService implements
     private static final String PDF_CONTENT_TYPE = "application/pdf";
 
     private final LoadCertificatePort loadCertificatePort;
+    private final LockCertificateIssuancePort lockCertificateIssuancePort;
     private final SaveCertificatePort saveCertificatePort;
     private final StoreGeneratedFileUseCase storeGeneratedFileUseCase;
+    private final ManageFileUseCase manageFileUseCase;
     private final RenderCertificatePdfPort renderCertificatePdfPort;
     private final CertificateSerialNumberGenerator serialNumberGenerator;
     private final CertificateIssueContextResolver contextResolver;
@@ -121,16 +128,30 @@ public class CertificateCommandService implements
             context.issuedByMemberId()
         ));
 
-        return executeInTransaction(() -> saveIssuedCertificate(context, serialNumber, now, fileInfo, fileSha256));
+        try {
+            CertificateIssueCompletion completion = executeInTransaction(() -> completeIssue(
+                context,
+                reissue,
+                serialNumber,
+                now,
+                fileInfo,
+                fileSha256
+            ));
+            if (!completion.generatedFileUsed()) {
+                deleteUnusedGeneratedFile(fileInfo, context.issuedByMemberId());
+            }
+            return completion.info();
+        } catch (RuntimeException e) {
+            deleteUnusedGeneratedFile(fileInfo, context.issuedByMemberId());
+            throw e;
+        }
     }
 
     private CertificateIssuePreparation prepareIssue(CertificateIssueContext context, boolean reissue, Instant now) {
         Certificate existing = loadCertificatePort.findValidByScope(
-            context.type(),
-            context.issuer(),
+            context.template(),
             context.recipientMemberId(),
             context.gisuId(),
-            context.projectId(),
             context.meritTitle(),
             now
         ).orElse(null);
@@ -138,13 +159,53 @@ public class CertificateCommandService implements
         if (existing != null && !reissue) {
             return CertificateIssuePreparation.existing(CertificateIssueInfo.from(existing));
         }
-        if (existing != null) {
-            existing.revoke(context.issuedByMemberId(), now, "재발급");
-            saveCertificatePort.save(existing);
-        }
-
         String serialNumber = generateUniqueSerialNumber(context, now);
         return CertificateIssuePreparation.newIssue(serialNumber);
+    }
+
+    private CertificateIssueCompletion completeIssue(
+        CertificateIssueContext context,
+        boolean reissue,
+        String serialNumber,
+        Instant issuedAt,
+        GeneratedFileInfo fileInfo,
+        String fileSha256
+    ) {
+        lockCertificateIssuancePort.lockScope(
+            context.template(),
+            context.recipientMemberId(),
+            context.gisuId(),
+            context.meritTitle()
+        );
+        Certificate existing = loadCertificatePort.findValidByScope(
+            context.template(),
+            context.recipientMemberId(),
+            context.gisuId(),
+            context.meritTitle(),
+            issuedAt
+        ).orElse(null);
+
+        if (existing != null && !reissue) {
+            return CertificateIssueCompletion.existing(CertificateIssueInfo.from(existing));
+        }
+        if (existing != null) {
+            existing.revoke(context.issuedByMemberId(), issuedAt, "재발급");
+            saveCertificatePort.save(existing);
+        }
+        return CertificateIssueCompletion.created(
+            saveIssuedCertificate(context, serialNumber, issuedAt, fileInfo, fileSha256)
+        );
+    }
+
+    private void deleteUnusedGeneratedFile(GeneratedFileInfo fileInfo, Long requesterMemberId) {
+        try {
+            manageFileUseCase.deleteFile(DeleteFileCommand.builder()
+                .fileId(fileInfo.fileId())
+                .requesterMemberId(requesterMemberId)
+                .build());
+        } catch (RuntimeException e) {
+            log.warn("사용하지 않는 인증서 파일을 삭제하지 못했습니다: fileId={}", fileInfo.fileId(), e);
+        }
     }
 
     private CertificateIssueInfo saveIssuedCertificate(
@@ -156,15 +217,12 @@ public class CertificateCommandService implements
     ) {
         Certificate certificate = Certificate.issue(CertificateIssueSpec.builder()
             .serialNumber(serialNumber)
-            .type(context.type())
-            .issuer(context.issuer())
+            .template(context.template())
             .recipientMemberId(context.recipientMemberId())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
             .gisuId(context.gisuId())
             .gisuGeneration(context.gisuGeneration())
-            .projectId(context.projectId())
-            .projectName(context.projectName())
             .meritTitle(context.meritTitle())
             .meritDescription(context.meritDescription())
             .issuedByMemberId(context.issuedByMemberId())
@@ -179,13 +237,10 @@ public class CertificateCommandService implements
     private byte[] renderPdf(CertificateIssueContext context, String serialNumber, Instant issuedAt, Instant expiresAt) {
         return renderCertificatePdfPort.render(CertificatePdfRenderCommand.builder()
             .issuanceNumber(serialNumber)
-            .type(context.type())
             .template(context.template())
-            .issuer(context.issuer())
             .recipientName(context.recipientName())
             .recipientSchoolName(context.recipientSchoolName())
             .gisuGeneration(context.gisuGeneration())
-            .projectName(context.projectName())
             .meritTitle(context.meritTitle())
             .meritDescription(context.meritDescription())
             .issuedAt(issuedAt)
@@ -200,7 +255,7 @@ public class CertificateCommandService implements
 
     private String generateUniqueSerialNumber(CertificateIssueContext context, Instant issuedAt) {
         for (int attempt = 0; attempt < SERIAL_GENERATION_RETRY_COUNT; attempt++) {
-            String serialNumber = serialNumberGenerator.generate(context.type(), issuedAt);
+            String serialNumber = serialNumberGenerator.generate(context.template(), issuedAt);
             if (!loadCertificatePort.existsBySerialNumber(serialNumber)) {
                 return serialNumber;
             }
@@ -235,6 +290,20 @@ public class CertificateCommandService implements
 
         private static CertificateIssuePreparation newIssue(String serialNumber) {
             return new CertificateIssuePreparation(null, serialNumber);
+        }
+    }
+
+    private record CertificateIssueCompletion(
+        CertificateIssueInfo info,
+        boolean generatedFileUsed
+    ) {
+
+        private static CertificateIssueCompletion existing(CertificateIssueInfo info) {
+            return new CertificateIssueCompletion(info, false);
+        }
+
+        private static CertificateIssueCompletion created(CertificateIssueInfo info) {
+            return new CertificateIssueCompletion(info, true);
         }
     }
 }

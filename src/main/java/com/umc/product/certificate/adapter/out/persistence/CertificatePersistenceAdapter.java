@@ -7,21 +7,39 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.certificate.application.port.out.LoadCertificatePort;
+import com.umc.product.certificate.application.port.out.LockCertificateIssuancePort;
 import com.umc.product.certificate.application.port.out.SaveCertificatePort;
 import com.umc.product.certificate.domain.Certificate;
-import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
-import com.umc.product.certificate.domain.CertificateType;
+import com.umc.product.certificate.domain.CertificateTemplate;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
 
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveCertificatePort {
+public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveCertificatePort, LockCertificateIssuancePort {
 
     private final CertificateRepository certificateRepository;
+    private final EntityManager entityManager;
+
+    @Override
+    public void lockScope(
+        CertificateTemplate template,
+        Long recipientMemberId,
+        Long gisuId,
+        String meritTitle
+    ) {
+        String scopeKey = template.name()
+            + '|' + recipientMemberId
+            + '|' + gisuId
+            + '|' + (meritTitle == null ? "-1:" : meritTitle.length() + ":" + meritTitle);
+        entityManager.createNativeQuery("SELECT pg_advisory_xact_lock(hashtextextended(:scopeKey, 0))")
+            .setParameter("scopeKey", scopeKey)
+            .getSingleResult();
+    }
 
     @Override
     public Optional<Certificate> findById(Long certificateId) {
@@ -41,20 +59,16 @@ public class CertificatePersistenceAdapter implements LoadCertificatePort, SaveC
 
     @Override
     public Optional<Certificate> findValidByScope(
-        CertificateType type,
-        CertificateIssuer issuer,
+        CertificateTemplate template,
         Long recipientMemberId,
         Long gisuId,
-        Long projectId,
         String meritTitle,
         Instant now
     ) {
         return certificateRepository.findValidByScope(
-            type,
-            issuer,
+            template,
             recipientMemberId,
             gisuId,
-            projectId,
             meritTitle,
             CertificateStatus.ISSUED,
             now
