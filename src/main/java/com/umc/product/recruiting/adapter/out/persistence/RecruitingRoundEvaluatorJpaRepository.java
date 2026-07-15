@@ -6,24 +6,11 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.umc.product.recruiting.domain.RecruitingRoundEvaluator;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
-
 public interface RecruitingRoundEvaluatorJpaRepository extends JpaRepository<RecruitingRoundEvaluator, Long> {
 
-    Optional<RecruitingRoundEvaluator> findByRound_IdAndMemberIdAndStage(
-        Long roundId,
-        Long memberId,
-        RecruitingEvaluatorStage stage
-    );
+    Optional<RecruitingRoundEvaluator> findByRound_IdAndMemberId(Long roundId, Long memberId);
 
-    List<RecruitingRoundEvaluator> findAllByRound_IdAndStageOrderByMemberIdAscIdAsc(
-        Long roundId,
-        RecruitingEvaluatorStage stage
-    );
+    List<RecruitingRoundEvaluator> findAllByRound_IdOrderByMemberIdAscIdAsc(Long roundId);
 
-    boolean existsByRound_IdAndMemberIdAndStage(
-        Long roundId,
-        Long memberId,
-        RecruitingEvaluatorStage stage
-    );
+    boolean existsByRound_IdAndMemberId(Long roundId, Long memberId);
 }

@@ -116,10 +116,10 @@ erDiagram
 | `RecruitingApplicationForm` | Round와 Form의 1:1 연결 및 `DRAFT -> PUBLISHED -> CLOSED` 상태를 관리한다. |
 | `RecruitingFormSectionPolicy` | Form section을 `COMMON` 또는 특정 모집 트랙의 `TRACK` section으로 분류한다. |
 | `RecruitingApplication` / `RecruitingApplicantProfile` | 로그인 지원자의 프로필, 선택 트랙, Form response ID, 개인정보 동의, 6자리 지원 키, 전형과 등록 상태를 관리한다. |
-| `RecruitingRoundEvaluator` | 차수와 `DOCUMENT`/`INTERVIEW` stage별 평가자 whitelist를 관리한다. 최종 합불 권한은 부여하지 않는다. |
-| `RecruitingRoundInterviewQuestion` | 차수 공통 면접 문항과 노출 순서, active 상태를 관리한다. |
-| `RecruitingApplicationInterviewQuestion` | 특정 지원자에게만 묻는 면접 문항을 관리한다. 해당 차수의 INTERVIEW 평가자만 수정할 수 있다. |
-| `RecruitingApplicationEvaluation` | 지원서/평가자/stage별 하나의 `PASS`/`FAIL`/`WAIT` 평가를 관리한다. 제출 후 변경할 수 없다. |
+| `RecruitingRoundEvaluator` | 차수 단위 평가자 whitelist를 관리한다. 등록된 평가자는 서류와 면접 평가에 모두 참여하지만 최종 합불 권한은 얻지 않는다. |
+| `RecruitingRoundInterviewQuestion` | 차수 공통 면접 문항과 노출 순서, active 상태, 생성자와 최종 변경자 회원 ID를 관리한다. |
+| `RecruitingApplicationInterviewQuestion` | 특정 지원자에게만 묻는 면접 문항을 관리한다. 해당 차수의 평가자만 수정할 수 있다. |
+| `RecruitingApplicationEvaluation` | 지원서/평가자/stage별 하나의 `APPROVED`/`REJECTED` 평가를 관리한다. 제출 후 변경할 수 없다. |
 | `RecruitingInterviewSchedule` | 가능 일정 요청, Form 응답 연결, 확정 시각·장소·연락처 snapshot과 메일 전달 상태를 보관한다. 실제 메일 발송과 일정 교집합 계산은 아직 연결하지 않는다. |
 
 ## 모집과 지원 흐름
@@ -214,8 +214,8 @@ flowchart LR
 | 공개 지원 폼 조회 | 비로그인 포함 | 기수·학교별 공개 Form만 조회 |
 | 지원서 생성·수정·제출·철회, 본인 면접 일정 | 로그인 지원자 | `CurrentMember`와 application/FormResponse 소유권 일치 필요 |
 | 시즌·차수·폼·quota·공통 문항 관리 | 학교 회장/부회장, 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | 학교 역할은 자기 학교 시즌만 가능 |
-| stage 평가 저장·제출 | 해당 차수와 stage의 evaluator whitelist | `DOCUMENT`와 `INTERVIEW` 권한은 독립 |
-| 지원자별 면접 문항 관리 | 해당 차수의 `INTERVIEW` evaluator | 첫 제출 평가가 생기면 문항 수정·비활성화 금지 |
+| stage 평가 저장·제출 | 해당 차수의 evaluator whitelist | 같은 evaluator가 `DOCUMENT`와 `INTERVIEW` 평가에 모두 참여 가능 |
+| 지원자별 면접 문항 관리 | 해당 차수의 evaluator | 첫 제출 평가가 생기면 문항 수정·비활성화 금지 |
 | 최종 합불 결정 | 해당 학교 회장/부회장, 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | evaluator whitelist만으로는 불가 |
 | READY 예약·취소, REGISTERED 확정 | 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | 학교 운영진과 evaluator는 불가 |
 | 전체 요약·CSV | 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | `RECRUITMENT/MANAGE`, CSV는 REST 전용 |
@@ -258,9 +258,9 @@ POST   /api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/pub
 POST   /api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/close
 POST   /api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/section-policies
 
-POST   /api/v1/recruiting/admin/rounds/{roundId}/evaluators/{stage}/{memberId}
-DELETE /api/v1/recruiting/admin/rounds/{roundId}/evaluators/{stage}/{memberId}
-GET    /api/v1/recruiting/admin/rounds/{roundId}/evaluators/{stage}
+POST   /api/v1/recruiting/admin/rounds/{roundId}/evaluators/{memberId}
+DELETE /api/v1/recruiting/admin/rounds/{roundId}/evaluators/{memberId}
+GET    /api/v1/recruiting/admin/rounds/{roundId}/evaluators
 
 POST   /api/v1/recruiting/admin/rounds/{roundId}/questions
 PUT    /api/v1/recruiting/admin/rounds/{roundId}/questions/{questionId}

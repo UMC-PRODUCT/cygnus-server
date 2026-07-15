@@ -82,7 +82,7 @@ class RecruitingEvaluationControllerTest {
 
         mockMvc.perform(put(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"decision\":\"PASS\",\"comment\":\"검토 중\"}"))
+                .content("{\"decision\":\"APPROVED\",\"comment\":\"검토 중\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.id").value(7L));
 
@@ -99,7 +99,7 @@ class RecruitingEvaluationControllerTest {
     void submitUsesCurrentMemberInsteadOfBodyMemberId() throws Exception {
         mockMvc.perform(post(PATH + "/submit", ROUND_ID, APPLICATION_ID, "INTERVIEW")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"memberId\":1234,\"decision\":\"WAIT\",\"comment\":\"보류\"}"))
+                .content("{\"memberId\":1234,\"decision\":\"REJECTED\",\"comment\":\"불합격 의견\"}"))
             .andExpect(status().isOk());
 
         ArgumentCaptor<SubmitRecruitingApplicationEvaluationCommand> captor =
@@ -121,7 +121,7 @@ class RecruitingEvaluationControllerTest {
             ACTOR_ID,
             RecruitingEvaluatorStage.DOCUMENT,
             RecruitingApplicationEvaluationStatus.SUBMITTED,
-            RecruitingApplicationEvaluationDecision.PASS,
+            RecruitingApplicationEvaluationDecision.APPROVED,
             "충분함",
             Instant.parse("2026-07-13T01:00:00Z")
         )));
@@ -129,7 +129,7 @@ class RecruitingEvaluationControllerTest {
         mockMvc.perform(get(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result[0].stage").value("DOCUMENT"))
-            .andExpect(jsonPath("$.result[0].decision").value("PASS"));
+            .andExpect(jsonPath("$.result[0].decision").value("APPROVED"));
     }
 
     @Test
@@ -137,7 +137,7 @@ class RecruitingEvaluationControllerTest {
     void rejectTooLongComment() throws Exception {
         mockMvc.perform(put(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"decision\":\"PASS\",\"comment\":\"%s\"}".formatted("a".repeat(2001))))
+                .content("{\"decision\":\"APPROVED\",\"comment\":\"%s\"}".formatted("a".repeat(2001))))
             .andExpect(status().isBadRequest());
 
         then(saveEvaluationUseCase).shouldHaveNoInteractions();

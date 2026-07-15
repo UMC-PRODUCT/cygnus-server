@@ -54,7 +54,7 @@ CREATE TABLE public.recruiting_application_evaluation
     CONSTRAINT recruiting_application_evaluation_status_check
         CHECK (status IN ('DRAFT', 'SUBMITTED')),
     CONSTRAINT recruiting_application_evaluation_decision_check
-        CHECK (decision IS NULL OR decision IN ('PASS', 'FAIL', 'WAIT')),
+        CHECK (decision IS NULL OR decision IN ('APPROVED', 'REJECTED')),
     CONSTRAINT recruiting_application_evaluation_submission_check
         CHECK (
             (status = 'DRAFT' AND submitted_at IS NULL)

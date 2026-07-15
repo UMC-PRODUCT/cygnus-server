@@ -33,19 +33,11 @@ public class RecruitingRoundEvaluatorCommandService implements ManageRecruitingR
             command.requesterMemberId(),
             round.getSeason().getId()
         );
-        if (loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            command.roundId(),
-            command.memberId(),
-            command.stage()
-        )) {
+        if (loadEvaluatorPort.existsByRoundIdAndMemberId(command.roundId(), command.memberId())) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_ALREADY_EXISTS);
         }
 
-        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(
-            round,
-            command.memberId(),
-            command.stage()
-        );
+        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(round, command.memberId());
         return saveEvaluatorPort.save(evaluator).getId();
     }
 
@@ -56,10 +48,9 @@ public class RecruitingRoundEvaluatorCommandService implements ManageRecruitingR
             command.requesterMemberId(),
             round.getSeason().getId()
         );
-        RecruitingRoundEvaluator evaluator = loadEvaluatorPort.getByRoundIdAndMemberIdAndStage(
+        RecruitingRoundEvaluator evaluator = loadEvaluatorPort.getByRoundIdAndMemberId(
             command.roundId(),
-            command.memberId(),
-            command.stage()
+            command.memberId()
         );
         saveEvaluatorPort.delete(evaluator);
     }

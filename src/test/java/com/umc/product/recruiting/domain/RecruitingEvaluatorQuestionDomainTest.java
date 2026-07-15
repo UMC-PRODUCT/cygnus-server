@@ -7,26 +7,20 @@ import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 class RecruitingEvaluatorQuestionDomainTest {
 
     @Test
-    @DisplayName("평가자는 모집 차수와 회원 및 평가 단계별로 생성된다")
-    void createRoundEvaluatorByStage() {
+    @DisplayName("평가자는 모집 차수와 회원으로 생성된다")
+    void createRoundEvaluator() {
         RecruitingRound round = mock(RecruitingRound.class);
 
-        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(
-            round,
-            10L,
-            RecruitingEvaluatorStage.DOCUMENT
-        );
+        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(round, 10L);
 
         assertThat(evaluator.getRound()).isSameAs(round);
         assertThat(evaluator.getMemberId()).isEqualTo(10L);
-        assertThat(evaluator.getStage()).isEqualTo(RecruitingEvaluatorStage.DOCUMENT);
     }
 
     @Test
@@ -34,45 +28,48 @@ class RecruitingEvaluatorQuestionDomainTest {
     void rejectInvalidEvaluatorMemberId() {
         RecruitingRound round = mock(RecruitingRound.class);
 
-        assertThatThrownBy(() -> RecruitingRoundEvaluator.create(round, 0L, RecruitingEvaluatorStage.INTERVIEW))
+        assertThatThrownBy(() -> RecruitingRoundEvaluator.create(round, 0L))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_INVALID);
     }
 
     @Test
-    @DisplayName("평가자 단계는 필수다")
-    void rejectMissingEvaluatorStage() {
+    @DisplayName("공통 면접 질문은 생성자와 최종 변경자를 기록한다")
+    void recordRoundInterviewQuestionCreatorAndLastModifier() {
         RecruitingRound round = mock(RecruitingRound.class);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            round,
+            "공통 질문",
+            0,
+            10L
+        );
 
-        assertThatThrownBy(() -> RecruitingRoundEvaluator.create(round, 10L, null))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_INVALID);
-    }
-
-    @Test
-    @DisplayName("공통 면접 질문을 수정한다")
-    void updateRoundInterviewQuestion() {
-        RecruitingRound round = mock(RecruitingRound.class);
-        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, "공통 질문", 0);
-
-        question.updateBeforeFirstEvaluationSubmission("수정 질문", 1);
+        question.updateBeforeFirstEvaluationSubmission("수정 질문", 1, 20L);
 
         assertThat(question.getContent()).isEqualTo("수정 질문");
         assertThat(question.getOrderNo()).isEqualTo(1);
         assertThat(question.isActive()).isTrue();
+        assertThat(question.getCreatorMemberId()).isEqualTo(10L);
+        assertThat(question.getLastModifiedByMemberId()).isEqualTo(20L);
     }
 
     @Test
     @DisplayName("공통 면접 질문을 비활성화한다")
     void deactivateRoundInterviewQuestion() {
         RecruitingRound round = mock(RecruitingRound.class);
-        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, "공통 질문", 0);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            round,
+            "공통 질문",
+            0,
+            10L
+        );
 
-        question.deactivateBeforeFirstEvaluationSubmission();
+        question.deactivateBeforeFirstEvaluationSubmission(30L);
 
         assertThat(question.isActive()).isFalse();
+        assertThat(question.getCreatorMemberId()).isEqualTo(10L);
+        assertThat(question.getLastModifiedByMemberId()).isEqualTo(30L);
     }
 
     @Test
@@ -113,10 +110,21 @@ class RecruitingEvaluatorQuestionDomainTest {
     void rejectBlankInterviewQuestionContent() {
         RecruitingRound round = mock(RecruitingRound.class);
 
-        assertThatThrownBy(() -> RecruitingRoundInterviewQuestion.create(round, "  ", 0))
+        assertThatThrownBy(() -> RecruitingRoundInterviewQuestion.create(round, "  ", 0, 10L))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_INVALID_CONTENT);
+    }
+
+    @Test
+    @DisplayName("공통 면접 질문의 생성자 회원 식별자는 양수여야 한다")
+    void rejectInvalidRoundInterviewQuestionCreator() {
+        RecruitingRound round = mock(RecruitingRound.class);
+
+        assertThatThrownBy(() -> RecruitingRoundInterviewQuestion.create(round, "질문", 0, 0L))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_INVALID_ACTOR);
     }
 
     @Test

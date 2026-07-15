@@ -40,7 +40,8 @@ public class RecruitingRoundInterviewQuestionCommandService implements ManageRec
         RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
             round,
             command.content(),
-            command.orderNo()
+            command.orderNo(),
+            command.requesterMemberId()
         );
         mutationPolicy.assertMutable(question);
         return saveQuestionPort.save(question).getId();
@@ -56,7 +57,11 @@ public class RecruitingRoundInterviewQuestionCommandService implements ManageRec
         RecruitingRoundInterviewQuestion question = loadQuestionPort.getById(command.questionId());
         validateScope(question, command.roundId());
         mutationPolicy.assertMutable(question);
-        question.updateBeforeFirstEvaluationSubmission(command.content(), command.orderNo());
+        question.updateBeforeFirstEvaluationSubmission(
+            command.content(),
+            command.orderNo(),
+            command.requesterMemberId()
+        );
         saveQuestionPort.save(question);
     }
 
@@ -70,7 +75,7 @@ public class RecruitingRoundInterviewQuestionCommandService implements ManageRec
         RecruitingRoundInterviewQuestion question = loadQuestionPort.getById(command.questionId());
         validateScope(question, command.roundId());
         mutationPolicy.assertMutable(question);
-        question.deactivateBeforeFirstEvaluationSubmission();
+        question.deactivateBeforeFirstEvaluationSubmission(command.requesterMemberId());
         saveQuestionPort.save(question);
     }
 

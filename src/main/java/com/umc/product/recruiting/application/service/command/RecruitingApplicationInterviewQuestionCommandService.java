@@ -14,7 +14,6 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundEvalua
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationInterviewQuestionPort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationInterviewQuestion;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -68,10 +67,9 @@ public class RecruitingApplicationInterviewQuestionCommandService
     }
 
     private void authorizeInterviewEvaluator(RecruitingApplication application, Long requesterMemberId) {
-        if (!loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
+        if (!loadEvaluatorPort.existsByRoundIdAndMemberId(
             application.getRound().getId(),
-            requesterMemberId,
-            RecruitingEvaluatorStage.INTERVIEW
+            requesterMemberId
         )) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED);
         }

@@ -17,7 +17,6 @@ import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundEvaluato
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,12 +33,11 @@ public class RecruitingEvaluatorAdminGraphQlController {
     public List<RecruitingRoundEvaluatorGraphQlResponse> recruitingRoundEvaluators(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
-        @Argument Long roundId,
-        @Argument RecruitingEvaluatorStage stage
+        @Argument Long roundId
     ) {
         Long requesterMemberId = requireRound(memberPrincipal, seasonId, roundId);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
-        return getRoundEvaluatorUseCase.listByRoundIdAndStage(roundId, stage).stream()
+        return getRoundEvaluatorUseCase.listByRoundId(roundId).stream()
             .map(RecruitingRoundEvaluatorGraphQlResponse::from)
             .toList();
     }

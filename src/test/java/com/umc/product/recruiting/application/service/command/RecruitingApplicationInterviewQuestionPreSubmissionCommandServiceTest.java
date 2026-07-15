@@ -23,7 +23,6 @@ import com.umc.product.recruiting.application.port.out.SaveRecruitingApplication
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationInterviewQuestion;
 import com.umc.product.recruiting.domain.RecruitingRound;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationInterviewQuestionPreSubmissionCommandServiceTest {
@@ -57,7 +56,7 @@ class RecruitingApplicationInterviewQuestionPreSubmissionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("최초 면접 평가 제출 전에는 INTERVIEW 평가자가 개별 질문을 생성할 수 있다")
+    @DisplayName("최초 면접 평가 제출 전에는 차수 평가자가 개별 질문을 생성할 수 있다")
     void createBeforeFirstSubmission() {
         RecruitingApplication application = whitelistedApplication();
         given(loadSubmittedEvaluationPort.existsSubmittedByApplicationId(2L)).willReturn(false);
@@ -77,7 +76,7 @@ class RecruitingApplicationInterviewQuestionPreSubmissionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("최초 면접 평가 제출 전에는 INTERVIEW 평가자가 개별 질문을 비활성화할 수 있다")
+    @DisplayName("최초 면접 평가 제출 전에는 차수 평가자가 개별 질문을 비활성화할 수 있다")
     void deactivateBeforeFirstSubmission() {
         RecruitingApplication application = whitelistedApplication();
         RecruitingApplicationInterviewQuestion question = RecruitingApplicationInterviewQuestion.create(
@@ -103,11 +102,7 @@ class RecruitingApplicationInterviewQuestionPreSubmissionCommandServiceTest {
         given(application.getId()).willReturn(2L);
         given(application.getRound()).willReturn(round);
         given(concurrencyLockService.lockRoundThenApplication(2L)).willReturn(application);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            99L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(true);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 99L)).willReturn(true);
         return application;
     }
 }

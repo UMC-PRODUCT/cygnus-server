@@ -41,26 +41,42 @@ public class RecruitingRoundInterviewQuestion extends BaseEntity {
     @Column(nullable = false)
     private boolean active;
 
+    @Column(name = "creator_member_id", nullable = false)
+    private Long creatorMemberId;
+
+    @Column(name = "last_modified_by_member_id", nullable = false)
+    private Long lastModifiedByMemberId;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private RecruitingRoundInterviewQuestion(RecruitingRound round, String content, Integer orderNo) {
+    private RecruitingRoundInterviewQuestion(
+        RecruitingRound round,
+        String content,
+        Integer orderNo,
+        Long creatorMemberId
+    ) {
         validateTarget(round);
         validateContent(content);
         validateOrderNo(orderNo);
+        validateActor(creatorMemberId);
         this.round = round;
         this.content = content;
         this.orderNo = orderNo;
         this.active = true;
+        this.creatorMemberId = creatorMemberId;
+        this.lastModifiedByMemberId = creatorMemberId;
     }
 
     public static RecruitingRoundInterviewQuestion create(
         RecruitingRound round,
         String content,
-        Integer orderNo
+        Integer orderNo,
+        Long creatorMemberId
     ) {
         return RecruitingRoundInterviewQuestion.builder()
             .round(round)
             .content(content)
             .orderNo(orderNo)
+            .creatorMemberId(creatorMemberId)
             .build();
     }
 
@@ -70,15 +86,23 @@ public class RecruitingRoundInterviewQuestion extends BaseEntity {
         }
     }
 
-    public void updateBeforeFirstEvaluationSubmission(String content, Integer orderNo) {
+    public void updateBeforeFirstEvaluationSubmission(
+        String content,
+        Integer orderNo,
+        Long lastModifiedByMemberId
+    ) {
         validateContent(content);
         validateOrderNo(orderNo);
+        validateActor(lastModifiedByMemberId);
         this.content = content;
         this.orderNo = orderNo;
+        this.lastModifiedByMemberId = lastModifiedByMemberId;
     }
 
-    public void deactivateBeforeFirstEvaluationSubmission() {
+    public void deactivateBeforeFirstEvaluationSubmission(Long lastModifiedByMemberId) {
+        validateActor(lastModifiedByMemberId);
         this.active = false;
+        this.lastModifiedByMemberId = lastModifiedByMemberId;
     }
 
     private static void validateTarget(RecruitingRound round) {
@@ -96,6 +120,12 @@ public class RecruitingRoundInterviewQuestion extends BaseEntity {
     private static void validateOrderNo(Integer orderNo) {
         if (orderNo == null || orderNo < 0) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_INVALID_ORDER_NO);
+        }
+    }
+
+    private static void validateActor(Long memberId) {
+        if (memberId == null || memberId <= 0) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_INVALID_ACTOR);
         }
     }
 }

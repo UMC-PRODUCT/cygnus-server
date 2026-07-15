@@ -71,7 +71,12 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
     @DisplayName("최초 면접 평가 제출 전에는 공통 질문을 수정할 수 있다")
     void updateBeforeFirstSubmission() {
         RecruitingRound round = authorizedRound(1L, 11L);
-        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, "기존 질문", 0);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            round,
+            "기존 질문",
+            0,
+            10L
+        );
         given(loadQuestionPort.getById(101L)).willReturn(question);
         given(loadSubmittedEvaluationPort.existsSubmittedByRoundId(1L)).willReturn(false);
 
@@ -85,6 +90,8 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
 
         assertThat(question.getContent()).isEqualTo("수정 질문");
         assertThat(question.getOrderNo()).isEqualTo(1);
+        assertThat(question.getCreatorMemberId()).isEqualTo(10L);
+        assertThat(question.getLastModifiedByMemberId()).isEqualTo(99L);
         then(saveQuestionPort).should().save(question);
     }
 
@@ -108,7 +115,12 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
     @DisplayName("첫 면접 평가 제출 후에는 공통 질문 수정을 거부한다")
     void rejectUpdateAfterFirstSubmission() {
         RecruitingRound round = authorizedRound(1L, 11L);
-        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, "기존 질문", 0);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            round,
+            "기존 질문",
+            0,
+            10L
+        );
         given(loadQuestionPort.getById(101L)).willReturn(question);
         given(loadSubmittedEvaluationPort.existsSubmittedByRoundId(1L)).willReturn(true);
 
@@ -130,7 +142,12 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
     @DisplayName("첫 면접 평가 제출 후에는 공통 질문 비활성화를 거부한다")
     void rejectDeactivationAfterFirstSubmission() {
         RecruitingRound round = authorizedRound(1L, 11L);
-        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, "기존 질문", 0);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            round,
+            "기존 질문",
+            0,
+            10L
+        );
         given(loadQuestionPort.getById(101L)).willReturn(question);
         given(loadSubmittedEvaluationPort.existsSubmittedByRoundId(1L)).willReturn(true);
 
@@ -179,7 +196,8 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
         RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
             questionRound,
             "기존 질문",
-            0
+            0,
+            10L
         );
         given(loadQuestionPort.getById(101L)).willReturn(question);
 

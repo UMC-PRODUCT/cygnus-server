@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -25,9 +23,6 @@ import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvalua
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundEvaluator;
 import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
-import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
-import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingRoundEvaluatorRemovalCommandServiceTest {
@@ -57,33 +52,20 @@ class RecruitingRoundEvaluatorRemovalCommandServiceTest {
     }
 
     @Test
-    @DisplayName("실제 시즌 관리 권한을 확인한 뒤 요청한 단계의 평가자를 제거한다")
-    void removeEvaluatorByStageAfterActualSeasonAuthorization() {
+    @DisplayName("실제 시즌 관리 권한을 확인한 뒤 평가자를 제거한다")
+    void removeEvaluatorAfterActualSeasonAuthorization() {
         RecruitingRound round = roundInSeason(1L, 11L);
-        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(
-            round,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
-        given(loadEvaluatorPort.getByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(evaluator);
+        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(round, 10L);
+        given(loadEvaluatorPort.getByRoundIdAndMemberId(1L, 10L)).willReturn(evaluator);
 
         sut.removeEvaluator(RecruitingRoundEvaluatorCommand.of(
             1L,
             99L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
+            10L
         ));
 
         then(authorizeManagementUseCase).should().authorizeSeasonManagement(99L, 11L);
-        then(loadEvaluatorPort).should().getByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
+        then(loadEvaluatorPort).should().getByRoundIdAndMemberId(1L, 10L);
         then(saveEvaluatorPort).should().delete(evaluator);
     }
 
@@ -97,50 +79,10 @@ class RecruitingRoundEvaluatorRemovalCommandServiceTest {
         assertThatThrownBy(() -> sut.removeEvaluator(RecruitingRoundEvaluatorCommand.of(
             1L,
             99L,
-            10L,
-            RecruitingEvaluatorStage.DOCUMENT
+            10L
         ))).isInstanceOf(AuthorizationDomainException.class);
 
         then(loadEvaluatorPort).shouldHaveNoInteractions();
-        then(saveEvaluatorPort).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("다른 단계의 평가자만 존재하면 요청 단계를 삭제하지 않는다")
-    void doNotRemoveEvaluatorFromDifferentStage() {
-        RecruitingRound round = roundInSeason(1L, 11L);
-        RecruitingRoundEvaluator documentEvaluator = RecruitingRoundEvaluator.create(
-            round,
-            10L,
-            RecruitingEvaluatorStage.DOCUMENT
-        );
-        given(loadEvaluatorPort.getByRoundIdAndMemberIdAndStage(
-            eq(1L),
-            eq(10L),
-            any(RecruitingEvaluatorStage.class)
-        )).willAnswer(invocation -> {
-            RecruitingEvaluatorStage stage = invocation.getArgument(2);
-            if (stage == RecruitingEvaluatorStage.DOCUMENT) {
-                return documentEvaluator;
-            }
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_NOT_FOUND);
-        });
-
-        assertThatThrownBy(() -> sut.removeEvaluator(RecruitingRoundEvaluatorCommand.of(
-            1L,
-            99L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_NOT_FOUND);
-
-        then(loadEvaluatorPort).should().getByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
         then(saveEvaluatorPort).shouldHaveNoInteractions();
     }
 

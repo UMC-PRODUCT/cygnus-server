@@ -63,7 +63,7 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             901L,
             RecruitingEvaluatorStage.INTERVIEW
         );
-        interview.submit(RecruitingApplicationEvaluationDecision.WAIT, "추가 논의");
+        interview.submit(RecruitingApplicationEvaluationDecision.REJECTED, "추가 논의");
         evaluationAdapter.saveEvaluation(interview);
         RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
             graph.application(),
@@ -86,7 +86,7 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
         RecruitingInterviewSchedule reloadedSchedule = scheduleAdapter
             .getByApplicationId(graph.application().getId());
 
-        assertThat(reloaded.getDecision()).isEqualTo(RecruitingApplicationEvaluationDecision.WAIT);
+        assertThat(reloaded.getDecision()).isEqualTo(RecruitingApplicationEvaluationDecision.REJECTED);
         assertThat(reloadedSchedule.getLocation()).isEqualTo("온라인");
         assertThat(em.getEntityManager().getEntityManagerFactory().getPersistenceUnitUtil()
             .isLoaded(reloaded.getApplication())).isFalse();
@@ -138,7 +138,7 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             901L,
             RecruitingEvaluatorStage.DOCUMENT
         );
-        evaluation.submit(RecruitingApplicationEvaluationDecision.PASS, "서류 평가");
+        evaluation.submit(RecruitingApplicationEvaluationDecision.APPROVED, "서류 평가");
         evaluationAdapter.saveEvaluation(evaluation);
         em.flush();
         em.clear();

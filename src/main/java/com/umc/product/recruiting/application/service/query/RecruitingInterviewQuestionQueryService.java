@@ -16,7 +16,6 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterv
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingRound;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -66,11 +65,7 @@ public class RecruitingInterviewQuestionQueryService implements GetRecruitingInt
         if (authorizeManagementUseCase.canManageSeason(requesterMemberId, seasonId)) {
             return;
         }
-        if (loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            roundId,
-            requesterMemberId,
-            RecruitingEvaluatorStage.INTERVIEW
-        )) {
+        if (loadEvaluatorPort.existsByRoundIdAndMemberId(roundId, requesterMemberId)) {
             return;
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED);

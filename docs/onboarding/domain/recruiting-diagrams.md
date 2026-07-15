@@ -79,7 +79,6 @@ erDiagram
         bigint id PK
         bigint recruiting_round_id FK
         bigint member_id "Member ID"
-        enum stage "DOCUMENT INTERVIEW"
     }
     RECRUITING_ROUND_INTERVIEW_QUESTION {
         bigint id PK
@@ -87,6 +86,8 @@ erDiagram
         string content
         int order_no
         boolean active
+        bigint creator_member_id "Member ID"
+        bigint last_modified_by_member_id "Member ID"
     }
     RECRUITING_APPLICATION_INTERVIEW_QUESTION {
         bigint id PK
@@ -101,7 +102,7 @@ erDiagram
         bigint evaluator_member_id "Member ID"
         enum stage "DOCUMENT INTERVIEW"
         enum status "DRAFT SUBMITTED"
-        enum decision "PASS FAIL WAIT"
+        enum decision "APPROVED REJECTED"
     }
     RECRUITING_INTERVIEW_SCHEDULE {
         bigint id PK
@@ -259,35 +260,33 @@ stateDiagram-v2
 ```mermaid
 flowchart TD
     Manager["학교 운영진 / 중앙 운영진"] --> ManageAuth{"Round가 속한 Season 관리 권한"}
-    ManageAuth -->|"허용"| Evaluator["Round + stage evaluator 등록·해제"]
-    Evaluator --> Whitelist["RoundEvaluator<br/>round + member + stage unique"]
+    ManageAuth -->|"허용"| Evaluator["Round evaluator 등록·해제"]
+    Evaluator --> Whitelist["RoundEvaluator<br/>round + member unique"]
     ManageAuth -->|"허용"| Common["Round 공통 면접 질문<br/>생성·수정·비활성화"]
-    Whitelist --> InterviewScope{"INTERVIEW stage evaluator인가"}
-    InterviewScope -->|"예"| Individual["지원자별 면접 질문<br/>생성·수정·비활성화"]
-    InterviewScope -->|"아니오"| Reject["요청 거부"]
+    Whitelist --> Individual["지원자별 면접 질문<br/>생성·수정·비활성화"]
     Common --> Freeze{"해당 Round에 제출된<br/>INTERVIEW 평가가 있는가"}
     Individual --> Freeze
     Freeze -->|"없음"| Mutable["질문 변경 허용"]
     Freeze -->|"있음"| Frozen["질문 변경 거부"]
 ```
 
-`DOCUMENT`와 `INTERVIEW` evaluator는 독립적으로 등록한다. 공통 질문은 Season 관리 권한, 지원자별 질문은 해당 Round의 `INTERVIEW` whitelist가 필요하다.
+한 Round에 등록된 evaluator는 서류와 면접 평가에 모두 참여할 수 있다. 공통 질문은 Season 관리 권한, 지원자별 질문은 해당 Round의 evaluator whitelist가 필요하다. 공통 질문은 생성자와 최종 변경자 회원 ID를 별도로 보존한다.
 
 ### 평가 작성과 조회
 
 ```mermaid
 flowchart TD
     Request["평가 조회 또는 작성 요청"] --> Action{"작성 요청인가"}
-    Action -->|"예"| Scope{"Round + stage whitelist인가"}
+    Action -->|"예"| Scope{"Round evaluator인가"}
     Scope -->|"아니오"| Reject["요청 거부"]
     Scope -->|"예"| Stage{"지원서 상태가 stage 평가 가능 상태인가"}
     Stage -->|"아니오"| Reject
-    Stage -->|"예"| Draft["평가 DRAFT 저장<br/>PASS / FAIL / WAIT"]
+    Stage -->|"예"| Draft["평가 DRAFT 저장<br/>APPROVED / REJECTED"]
     Draft --> Submit["SUBMITTED 제출<br/>이후 수정 불가"]
 
     Action -->|"조회"| Operator{"시즌 RECRUITMENT READ 운영자인가"}
     Operator -->|"예"| All["해당 stage 전체 평가 조회"]
-    Operator -->|"아니오"| ReadScope{"Round + stage whitelist인가"}
+    Operator -->|"아니오"| ReadScope{"Round evaluator인가"}
     ReadScope -->|"아니오"| Reject
     ReadScope -->|"예"| Own{"본인 평가가 있는가"}
     Own -->|"없음"| Empty["빈 목록"]
@@ -362,8 +361,9 @@ flowchart LR
     New["신규 지원"] --> NewApplicantLock["gisu + member/email advisory lock"]
     Existing["지원 수정·제출·철회"] --> ExistingApplicantLock["gisu + member/email advisory lock"]
     ExistingApplicantLock --> ApplicationLock["application row lock"]
-    Evaluation["평가·질문 변경"] --> RoundLock["round row lock"]
-    RoundLock --> ApplicationLock
+    RoundQuestion["Round 공통 질문 변경"] --> RoundOnlyLock["round row lock"]
+    ApplicationMutation["지원자별 질문·평가 변경"] --> RoundApplicationLock["round row lock"]
+    RoundApplicationLock --> ApplicationLock
     FormPolicy["Form 게시·section 정책"] --> FormLock["applicationForm root row lock"]
     Registration["READY 예약"] --> ApplicationLock
     Registration --> QuotaLock["season + acceptedTrack quota row lock"]

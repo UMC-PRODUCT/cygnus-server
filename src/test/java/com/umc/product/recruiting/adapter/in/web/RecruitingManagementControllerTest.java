@@ -37,7 +37,6 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingIntervi
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 @WebMvcTest(controllers = {
     RecruitingAdminEvaluatorController.class,
@@ -90,8 +89,8 @@ class RecruitingManagementControllerTest {
     void addEvaluatorUsesPathTargetAndCurrentMember() throws Exception {
         given(manageEvaluatorUseCase.addEvaluator(any())).willReturn(1L);
 
-        mockMvc.perform(post("/api/v1/recruiting/admin/rounds/{roundId}/evaluators/{stage}/{memberId}",
-            20L, "DOCUMENT", 300L))
+        mockMvc.perform(post("/api/v1/recruiting/admin/rounds/{roundId}/evaluators/{memberId}",
+            20L, 300L))
             .andExpect(status().isOk());
 
         ArgumentCaptor<RecruitingRoundEvaluatorCommand> captor =
@@ -99,7 +98,6 @@ class RecruitingManagementControllerTest {
         then(manageEvaluatorUseCase).should().addEvaluator(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(ACTOR_ID);
         assertThat(captor.getValue().memberId()).isEqualTo(300L);
-        assertThat(captor.getValue().stage()).isEqualTo(RecruitingEvaluatorStage.DOCUMENT);
     }
 
     @Test

@@ -7,7 +7,6 @@ extend type Query {
   recruitingRoundEvaluators(
     seasonId: ID!
     roundId: ID!
-    stage: RecruitingEvaluatorStage!
   ): [RecruitingRoundEvaluator!]!
   recruitingRoundInterviewQuestions(seasonId: ID!, roundId: ID!): [RecruitingRoundInterviewQuestion!]!
   recruitingApplicationInterviewQuestions(
@@ -191,7 +190,6 @@ input AddRecruitingFormSectionPolicyInput {
 
 input RecruitingRoundEvaluatorInput {
   evaluatorMemberId: ID!
-  stage: RecruitingEvaluatorStage!
 }
 
 input RecruitingInterviewQuestionInput {
@@ -327,7 +325,6 @@ type RecruitingRoundEvaluator {
   id: ID!
   roundId: ID!
   evaluatorMemberId: ID!
-  stage: RecruitingEvaluatorStage!
 }
 
 type RecruitingRoundInterviewQuestion {
@@ -447,9 +444,8 @@ enum RecruitingApplicationEvaluationStatus {
 }
 
 enum RecruitingApplicationEvaluationDecision {
-  PASS
-  FAIL
-  WAIT
+  APPROVED
+  REJECTED
 }
 
 enum RecruitingFormSectionType {

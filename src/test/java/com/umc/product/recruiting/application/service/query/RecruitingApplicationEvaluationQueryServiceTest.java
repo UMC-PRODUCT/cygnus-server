@@ -73,7 +73,7 @@ class RecruitingApplicationEvaluationQueryServiceTest {
     @DisplayName("본인 평가 제출 전에는 같은 단계의 본인 평가만 조회한다")
     void 본인_평가_제출_전에는_같은_단계의_본인_평가만_조회한다() {
         RecruitingApplicationEvaluation own = evaluation(20L, RecruitingEvaluatorStage.INTERVIEW);
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.INTERVIEW))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
             900L,
@@ -94,9 +94,9 @@ class RecruitingApplicationEvaluationQueryServiceTest {
     @DisplayName("본인 평가 제출 후에는 같은 단계의 다른 평가를 조회한다")
     void 본인_평가_제출_후에는_같은_단계의_다른_평가를_조회한다() {
         RecruitingApplicationEvaluation own = evaluation(20L, RecruitingEvaluatorStage.DOCUMENT);
-        own.submit(RecruitingApplicationEvaluationDecision.PASS, "제출");
+        own.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출");
         RecruitingApplicationEvaluation peer = evaluation(21L, RecruitingEvaluatorStage.DOCUMENT);
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.DOCUMENT))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
             900L,
@@ -141,7 +141,7 @@ class RecruitingApplicationEvaluationQueryServiceTest {
     @Test
     @DisplayName("whitelist에 없는 일반 회원은 평가를 조회할 수 없다")
     void whitelist에_없는_일반_회원은_평가를_조회할_수_없다() {
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 99L, RecruitingEvaluatorStage.INTERVIEW))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 99L))
             .willReturn(false);
 
         assertThatThrownBy(() -> sut.listVisibleEvaluations(

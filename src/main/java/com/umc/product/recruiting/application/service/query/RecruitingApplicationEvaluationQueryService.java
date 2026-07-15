@@ -75,11 +75,7 @@ public class RecruitingApplicationEvaluationQueryService implements GetRecruitin
         Long requesterMemberId,
         RecruitingEvaluatorStage stage
     ) {
-        if (!getRoundEvaluatorUseCase.canEvaluate(
-            application.getRound().getId(),
-            requesterMemberId,
-            stage
-        )) {
+        if (!getRoundEvaluatorUseCase.canEvaluate(application.getRound().getId(), requesterMemberId)) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_ACCESS_DENIED);
         }
     }

@@ -67,6 +67,8 @@ class RecruitingRoundInterviewQuestionPreSubmissionCommandServiceTest {
         then(saveQuestionPort).should().save(argThat(question -> question.getRound() == round
             && question.getContent().equals("새 질문")
             && question.getOrderNo() == 0
+            && question.getCreatorMemberId() == 99L
+            && question.getLastModifiedByMemberId() == 99L
             && question.isActive()));
     }
 
@@ -74,13 +76,19 @@ class RecruitingRoundInterviewQuestionPreSubmissionCommandServiceTest {
     @DisplayName("최초 면접 평가 제출 전에는 공통 질문을 비활성화할 수 있다")
     void deactivateBeforeFirstSubmission() {
         RecruitingRound round = authorizedRound();
-        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, "기존 질문", 0);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            round,
+            "기존 질문",
+            0,
+            10L
+        );
         given(loadQuestionPort.getById(101L)).willReturn(question);
         given(loadSubmittedEvaluationPort.existsSubmittedByRoundId(1L)).willReturn(false);
 
         sut.deactivateRoundQuestion(DeactivateRecruitingRoundInterviewQuestionCommand.of(101L, 1L, 99L));
 
         assertThat(question.isActive()).isFalse();
+        assertThat(question.getLastModifiedByMemberId()).isEqualTo(99L);
         then(saveQuestionPort).should().save(question);
     }
 

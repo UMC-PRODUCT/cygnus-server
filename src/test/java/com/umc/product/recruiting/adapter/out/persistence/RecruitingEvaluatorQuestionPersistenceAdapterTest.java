@@ -62,53 +62,32 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
     RecruitingInterviewQuestionMutationPolicy mutationPolicy;
 
     @Test
-    @DisplayName("같은 회원은 한 차수의 서류와 면접 평가자로 각각 등록할 수 있다")
-    void evaluatorStagesAreIndependent() {
+    @DisplayName("차수 평가자는 서류와 면접 전형의 공통 whitelist로 조회된다")
+    void evaluatorIsScopedByRound() {
         RecruitingRound round = persistRound();
-        evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L, RecruitingEvaluatorStage.DOCUMENT));
-        evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L, RecruitingEvaluatorStage.INTERVIEW));
+        evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L));
         em.flush();
         em.clear();
 
-        List<RecruitingRoundEvaluator> documentEvaluators =
-            evaluatorAdapter.listByRoundIdAndStage(round.getId(), RecruitingEvaluatorStage.DOCUMENT);
-        assertThat(documentEvaluators)
-            .extracting(RecruitingRoundEvaluator::getMemberId)
-            .containsExactly(10L);
-        assertThat(evaluatorAdapter.listByRoundIdAndStage(round.getId(), RecruitingEvaluatorStage.INTERVIEW))
+        List<RecruitingRoundEvaluator> evaluators = evaluatorAdapter.listByRoundId(round.getId());
+        assertThat(evaluators)
             .extracting(RecruitingRoundEvaluator::getMemberId)
             .containsExactly(10L);
         assertThat(em.getEntityManager().getEntityManagerFactory().getPersistenceUnitUtil()
-            .isLoaded(documentEvaluators.getFirst().getRound())).isFalse();
+            .isLoaded(evaluators.getFirst().getRound())).isFalse();
     }
 
     @Test
-    @DisplayName("같은 차수 회원 단계의 평가자는 데이터베이스에서 중복 저장할 수 없다")
-    void evaluatorIsUniqueByRoundMemberAndStage() {
+    @DisplayName("같은 차수의 같은 회원은 데이터베이스에서 중복 평가자로 저장할 수 없다")
+    void evaluatorIsUniqueByRoundAndMember() {
         RecruitingRound round = persistRound();
-        evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L, RecruitingEvaluatorStage.DOCUMENT));
+        evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L));
         em.flush();
 
         assertThatThrownBy(() -> {
-            evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L, RecruitingEvaluatorStage.DOCUMENT));
+            evaluatorAdapter.save(RecruitingRoundEvaluator.create(round, 10L));
             em.flush();
         }).isInstanceOf(DataIntegrityViolationException.class);
-    }
-
-    @Test
-    @DisplayName("평가자 단계 데이터베이스 제약은 DOCUMENT와 INTERVIEW 외 값을 거부한다")
-    void evaluatorStageCheckRejectsUnknownValue() {
-        RecruitingRound round = persistRound();
-        em.flush();
-
-        assertThatThrownBy(() -> em.getEntityManager().createNativeQuery("""
-            INSERT INTO recruiting_round_evaluator
-                (created_at, updated_at, recruiting_round_id, member_id, stage)
-            VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :roundId, 10, 'FINAL')
-            """)
-            .setParameter("roundId", round.getId())
-            .executeUpdate())
-            .isInstanceOf(PersistenceException.class);
     }
 
     @Test
@@ -116,10 +95,10 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
     void listActiveRoundQuestionsInOrder() {
         RecruitingRound round = persistRound();
         RecruitingRoundInterviewQuestion later = roundQuestionAdapter.save(
-            RecruitingRoundInterviewQuestion.create(round, "두 번째", 1)
+            RecruitingRoundInterviewQuestion.create(round, "두 번째", 1, 10L)
         );
-        roundQuestionAdapter.save(RecruitingRoundInterviewQuestion.create(round, "첫 번째", 0));
-        later.deactivateBeforeFirstEvaluationSubmission();
+        roundQuestionAdapter.save(RecruitingRoundInterviewQuestion.create(round, "첫 번째", 0, 20L));
+        later.deactivateBeforeFirstEvaluationSubmission(30L);
         roundQuestionAdapter.save(later);
         em.flush();
         em.clear();
@@ -136,6 +115,24 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
     }
 
     @Test
+    @DisplayName("공통 질문의 생성자와 최종 변경자를 데이터베이스에 보존한다")
+    void persistRoundQuestionCreatorAndLastModifier() {
+        RecruitingRound round = persistRound();
+        RecruitingRoundInterviewQuestion question = roundQuestionAdapter.save(
+            RecruitingRoundInterviewQuestion.create(round, "공통 질문", 0, 10L)
+        );
+        question.updateBeforeFirstEvaluationSubmission("수정 질문", 1, 20L);
+        roundQuestionAdapter.save(question);
+        em.flush();
+        em.clear();
+
+        RecruitingRoundInterviewQuestion reloaded = roundQuestionAdapter.getById(question.getId());
+
+        assertThat(reloaded.getCreatorMemberId()).isEqualTo(10L);
+        assertThat(reloaded.getLastModifiedByMemberId()).isEqualTo(20L);
+    }
+
+    @Test
     @DisplayName("공통 질문 내용 데이터베이스 제약은 공백을 거부한다")
     void roundQuestionContentCheckRejectsBlank() {
         RecruitingRound round = persistRound();
@@ -143,8 +140,9 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
 
         assertThatThrownBy(() -> em.getEntityManager().createNativeQuery("""
             INSERT INTO recruiting_round_interview_question
-                (created_at, updated_at, recruiting_round_id, content, order_no, active)
-            VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :roundId, '   ', 0, TRUE)
+                (created_at, updated_at, recruiting_round_id, content, order_no, active,
+                 creator_member_id, last_modified_by_member_id)
+            VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :roundId, '   ', 0, TRUE, 10, 10)
             """)
             .setParameter("roundId", round.getId())
             .executeUpdate())
@@ -191,7 +189,7 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
     void submittedEvaluationLocksRoundAndApplicationQuestions() {
         RecruitingApplication application = persistApplication();
         RecruitingRoundInterviewQuestion roundQuestion = em.persist(
-            RecruitingRoundInterviewQuestion.create(application.getRound(), "공통 질문", 0)
+            RecruitingRoundInterviewQuestion.create(application.getRound(), "공통 질문", 0, 10L)
         );
         RecruitingApplicationInterviewQuestion applicationQuestion = em.persist(
             RecruitingApplicationInterviewQuestion.create(application, "개별 질문", 0)
@@ -201,7 +199,7 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
             10L,
             RecruitingEvaluatorStage.INTERVIEW
         );
-        evaluation.submit(RecruitingApplicationEvaluationDecision.PASS, "제출 완료");
+        evaluation.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출 완료");
         em.persist(evaluation);
         em.flush();
         em.clear();

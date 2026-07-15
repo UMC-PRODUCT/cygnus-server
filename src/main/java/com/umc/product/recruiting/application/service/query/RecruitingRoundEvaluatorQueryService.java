@@ -10,7 +10,6 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEv
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundEvaluatorInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,30 +23,26 @@ public class RecruitingRoundEvaluatorQueryService implements GetRecruitingRoundE
     private final AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
 
     @Override
-    public List<RecruitingRoundEvaluatorInfo> listByRoundIdAndStage(
-        Long roundId,
-        RecruitingEvaluatorStage stage
-    ) {
-        return loadEvaluatorPort.listByRoundIdAndStage(roundId, stage).stream()
+    public List<RecruitingRoundEvaluatorInfo> listByRoundId(Long roundId) {
+        return loadEvaluatorPort.listByRoundId(roundId).stream()
             .map(RecruitingRoundEvaluatorInfo::from)
             .toList();
     }
 
     @Override
-    public List<RecruitingRoundEvaluatorInfo> listByRoundIdAndStage(
+    public List<RecruitingRoundEvaluatorInfo> listByRoundId(
         Long roundId,
-        RecruitingEvaluatorStage stage,
         Long requesterMemberId
     ) {
         authorizeManagementUseCase.authorizeSeasonManagement(
             requesterMemberId,
             loadRoundPort.getById(roundId).getSeason().getId()
         );
-        return listByRoundIdAndStage(roundId, stage);
+        return listByRoundId(roundId);
     }
 
     @Override
-    public boolean canEvaluate(Long roundId, Long memberId, RecruitingEvaluatorStage stage) {
-        return loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(roundId, memberId, stage);
+    public boolean canEvaluate(Long roundId, Long memberId) {
+        return loadEvaluatorPort.existsByRoundIdAndMemberId(roundId, memberId);
     }
 }

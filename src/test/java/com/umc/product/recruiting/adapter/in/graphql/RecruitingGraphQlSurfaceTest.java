@@ -36,8 +36,8 @@ class RecruitingGraphQlSurfaceTest {
     );
 
     @Test
-    @DisplayName("GraphQL introspection은 Recruiting v2 Query와 Mutation 계약만 제공한다")
-    void GraphQL_introspection은_Recruiting_v2_Query와_Mutation_계약만_제공한다() throws IOException {
+    @DisplayName("GraphQL introspection은 Recruiting Query와 Mutation 계약만 제공한다")
+    void GraphQL_introspection은_Recruiting_Query와_Mutation_계약만_제공한다() throws IOException {
         // Given
         boolean previousIntrospectionEnabled = Introspection.enabledJvmWide(true);
         try {
@@ -87,8 +87,8 @@ class RecruitingGraphQlSurfaceTest {
     }
 
     @Test
-    @DisplayName("GraphQL introspection은 Instant와 v2 트랙 및 상태 nullability를 보존한다")
-    void GraphQL_introspection은_Instant와_v2_트랙_및_상태_nullability를_보존한다() throws IOException {
+    @DisplayName("GraphQL introspection은 Instant와 트랙 및 상태 nullability를 보존한다")
+    void GraphQL_introspection은_Instant와_트랙_및_상태_nullability를_보존한다() throws IOException {
         // Given
         boolean previousIntrospectionEnabled = Introspection.enabledJvmWide(true);
         try {
@@ -120,6 +120,8 @@ class RecruitingGraphQlSurfaceTest {
                     "MOBILE_PRODUCT_ENGINEER",
                     "INFRA_PLUS"
                 );
+            assertThat(enumValues(data, "RecruitingApplicationEvaluationDecision"))
+                .containsExactlyInAnyOrder("APPROVED", "REJECTED");
         } finally {
             Introspection.enabledJvmWide(previousIntrospectionEnabled);
         }

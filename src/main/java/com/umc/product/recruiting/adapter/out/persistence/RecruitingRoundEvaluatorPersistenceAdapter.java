@@ -7,7 +7,6 @@ import org.springframework.stereotype.Component;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.domain.RecruitingRoundEvaluator;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -22,32 +21,21 @@ public class RecruitingRoundEvaluatorPersistenceAdapter implements
     private final RecruitingRoundEvaluatorJpaRepository repository;
 
     @Override
-    public RecruitingRoundEvaluator getByRoundIdAndMemberIdAndStage(
-        Long roundId,
-        Long memberId,
-        RecruitingEvaluatorStage stage
-    ) {
-        return repository.findByRound_IdAndMemberIdAndStage(roundId, memberId, stage)
+    public RecruitingRoundEvaluator getByRoundIdAndMemberId(Long roundId, Long memberId) {
+        return repository.findByRound_IdAndMemberId(roundId, memberId)
             .orElseThrow(() -> new RecruitingDomainException(
                 RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_NOT_FOUND
             ));
     }
 
     @Override
-    public List<RecruitingRoundEvaluator> listByRoundIdAndStage(
-        Long roundId,
-        RecruitingEvaluatorStage stage
-    ) {
-        return repository.findAllByRound_IdAndStageOrderByMemberIdAscIdAsc(roundId, stage);
+    public List<RecruitingRoundEvaluator> listByRoundId(Long roundId) {
+        return repository.findAllByRound_IdOrderByMemberIdAscIdAsc(roundId);
     }
 
     @Override
-    public boolean existsByRoundIdAndMemberIdAndStage(
-        Long roundId,
-        Long memberId,
-        RecruitingEvaluatorStage stage
-    ) {
-        return repository.existsByRound_IdAndMemberIdAndStage(roundId, memberId, stage);
+    public boolean existsByRoundIdAndMemberId(Long roundId, Long memberId) {
+        return repository.existsByRound_IdAndMemberId(roundId, memberId);
     }
 
     @Override

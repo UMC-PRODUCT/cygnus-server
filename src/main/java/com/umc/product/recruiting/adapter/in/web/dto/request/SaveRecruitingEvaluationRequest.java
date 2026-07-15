@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 
 @Schema(description = "단계별 지원서 평가 저장 또는 제출 요청")
 public record SaveRecruitingEvaluationRequest(
-    @Schema(description = "평가 결정", example = "PASS")
+    @Schema(description = "평가 결정", example = "APPROVED")
     @NotNull RecruitingApplicationEvaluationDecision decision,
     @Schema(description = "평가 의견", example = "지원 동기와 경험이 평가 기준을 충족합니다.", maxLength = 2000)
     @Size(max = 2000) String comment

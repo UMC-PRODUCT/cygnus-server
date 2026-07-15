@@ -35,7 +35,6 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingIntervi
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInterviewQuestionInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundInterviewQuestionInfo;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 @GraphQlTest({RecruitingEvaluatorAdminGraphQlController.class, RecruitingQuestionGraphQlController.class})
 @Import({
@@ -97,7 +96,7 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
                   addRecruitingRoundEvaluator(
                     seasonId: 10,
                     roundId: 20,
-                    input: {evaluatorMemberId: 50, stage: DOCUMENT}
+                    input: {evaluatorMemberId: 50}
                   ) { id }
                 }
                 """)
@@ -111,7 +110,6 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
         then(manageRoundEvaluatorUseCase).should().addEvaluator(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
         assertThat(captor.getValue().memberId()).isEqualTo(50L);
-        assertThat(captor.getValue().stage()).isEqualTo(RecruitingEvaluatorStage.DOCUMENT);
     }
 
     @Test

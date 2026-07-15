@@ -5,14 +5,11 @@ CREATE TABLE public.recruiting_round_evaluator
     updated_at           TIMESTAMP WITH TIME ZONE                NOT NULL,
     recruiting_round_id  BIGINT                                  NOT NULL,
     member_id            BIGINT                                  NOT NULL,
-    stage                VARCHAR(255)                            NOT NULL,
     CONSTRAINT pk_recruiting_round_evaluator PRIMARY KEY (id),
-    CONSTRAINT uk_recruiting_round_evaluator_round_member_stage UNIQUE (
+    CONSTRAINT uk_recruiting_round_evaluator_round_member UNIQUE (
         recruiting_round_id,
-        member_id,
-        stage
-    ),
-    CONSTRAINT recruiting_round_evaluator_stage_check CHECK (stage IN ('DOCUMENT', 'INTERVIEW'))
+        member_id
+    )
 );
 
 CREATE TABLE public.recruiting_round_interview_question
@@ -24,9 +21,13 @@ CREATE TABLE public.recruiting_round_interview_question
     content              TEXT                                    NOT NULL,
     order_no             INTEGER                                 NOT NULL,
     active               BOOLEAN                                 NOT NULL DEFAULT TRUE,
+    creator_member_id    BIGINT                                  NOT NULL,
+    last_modified_by_member_id BIGINT                            NOT NULL,
     CONSTRAINT pk_recruiting_round_interview_question PRIMARY KEY (id),
     CONSTRAINT recruiting_round_interview_question_content_check CHECK (length(btrim(content)) > 0),
-    CONSTRAINT recruiting_round_interview_question_order_no_check CHECK (order_no >= 0)
+    CONSTRAINT recruiting_round_interview_question_order_no_check CHECK (order_no >= 0),
+    CONSTRAINT recruiting_round_interview_question_creator_check CHECK (creator_member_id > 0),
+    CONSTRAINT recruiting_round_interview_question_modifier_check CHECK (last_modified_by_member_id > 0)
 );
 
 CREATE TABLE public.recruiting_application_interview_question
@@ -55,8 +56,8 @@ ALTER TABLE public.recruiting_application_interview_question
     ADD CONSTRAINT fk_recruiting_application_interview_question_application
         FOREIGN KEY (recruiting_application_id) REFERENCES public.recruiting_application (id);
 
-CREATE INDEX idx_recruiting_round_evaluator_round_stage
-    ON public.recruiting_round_evaluator (recruiting_round_id, stage);
+CREATE INDEX idx_recruiting_round_evaluator_round_member
+    ON public.recruiting_round_evaluator (recruiting_round_id, member_id);
 
 CREATE INDEX idx_recruiting_round_interview_question_round_active_order
     ON public.recruiting_round_interview_question (recruiting_round_id, active, order_no, id);

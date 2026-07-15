@@ -81,7 +81,7 @@ public class RecruitingApplicationEvaluationCommandService implements
         RecruitingEvaluatorStage stage
     ) {
         RecruitingApplication application = concurrencyLockService.lockRoundThenApplication(applicationId);
-        if (!getRoundEvaluatorUseCase.canEvaluate(application.getRound().getId(), requesterMemberId, stage)) {
+        if (!getRoundEvaluatorUseCase.canEvaluate(application.getRound().getId(), requesterMemberId)) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_ACCESS_DENIED);
         }
         validateApplicationStage(application, stage);

@@ -16,7 +16,7 @@ public record RecruitingEvaluationResponse(
     @Schema(description = "평가자 회원 ID", example = "99") Long evaluatorMemberId,
     @Schema(description = "평가 단계", example = "DOCUMENT") RecruitingEvaluatorStage stage,
     @Schema(description = "평가 상태", example = "SUBMITTED") RecruitingApplicationEvaluationStatus status,
-    @Schema(description = "평가 결정", example = "PASS") RecruitingApplicationEvaluationDecision decision,
+    @Schema(description = "평가 결정", example = "APPROVED") RecruitingApplicationEvaluationDecision decision,
     @Schema(description = "평가 의견", example = "평가 기준을 충족합니다.") String comment,
     @Schema(description = "평가 제출 시각") Instant submittedAt
 ) {

@@ -1,20 +1,16 @@
 package com.umc.product.recruiting.application.port.in.command.dto;
 
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
-
 public record RecruitingRoundEvaluatorCommand(
     Long roundId,
     Long requesterMemberId,
-    Long memberId,
-    RecruitingEvaluatorStage stage
+    Long memberId
 ) {
 
     public static RecruitingRoundEvaluatorCommand of(
         Long roundId,
         Long requesterMemberId,
-        Long memberId,
-        RecruitingEvaluatorStage stage
+        Long memberId
     ) {
-        return new RecruitingRoundEvaluatorCommand(roundId, requesterMemberId, memberId, stage);
+        return new RecruitingRoundEvaluatorCommand(roundId, requesterMemberId, memberId);
     }
 }

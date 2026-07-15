@@ -84,7 +84,7 @@ class RecruitingEvaluationGraphQlControllerTest {
                 mutation {
                   saveRecruitingApplicationEvaluation(
                     applicationId: 20,
-                    input: {stage: INTERVIEW, decision: WAIT, comment: "보류"}
+                    input: {stage: INTERVIEW, decision: REJECTED, comment: "불합격 의견"}
                   ) { id }
                 }
                 """)
@@ -114,7 +114,7 @@ class RecruitingEvaluationGraphQlControllerTest {
             REQUESTER_ID,
             RecruitingEvaluatorStage.DOCUMENT,
             RecruitingApplicationEvaluationStatus.SUBMITTED,
-            RecruitingApplicationEvaluationDecision.PASS,
+            RecruitingApplicationEvaluationDecision.APPROVED,
             "통과",
             submittedAt
         )));

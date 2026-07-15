@@ -73,7 +73,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
     @DisplayName("평가자 whitelist에 등록된 회원은 평가 초안을 저장한다")
     void 평가자_whitelist에_등록된_회원은_평가_초안을_저장한다() {
         moveApplicationTo(RecruitingEvaluatorStage.DOCUMENT);
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.DOCUMENT))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
             900L,
@@ -101,14 +101,14 @@ class RecruitingApplicationEvaluationCommandServiceTest {
     @Test
     @DisplayName("평가자 whitelist에 없는 회원은 평가를 만들 수 없다")
     void 평가자_whitelist에_없는_회원은_평가를_만들_수_없다() {
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.DOCUMENT))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(false);
 
         assertThatThrownBy(() -> sut.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.DOCUMENT,
-            RecruitingApplicationEvaluationDecision.PASS,
+            RecruitingApplicationEvaluationDecision.APPROVED,
             null
         )))
             .isInstanceOf(RecruitingDomainException.class)
@@ -126,8 +126,8 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             20L,
             RecruitingEvaluatorStage.INTERVIEW
         );
-        submitted.submit(RecruitingApplicationEvaluationDecision.PASS, "제출");
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.INTERVIEW))
+        submitted.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출");
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
             900L,
@@ -139,7 +139,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationDecision.FAIL,
+            RecruitingApplicationEvaluationDecision.REJECTED,
             "변경"
         )))
             .isInstanceOf(RecruitingDomainException.class)
@@ -157,7 +157,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             20L,
             RecruitingEvaluatorStage.INTERVIEW
         );
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.INTERVIEW))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
             900L,
@@ -169,7 +169,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationDecision.WAIT,
+            RecruitingApplicationEvaluationDecision.APPROVED,
             "추가 논의"
         ));
 
@@ -181,14 +181,14 @@ class RecruitingApplicationEvaluationCommandServiceTest {
     @DisplayName("INTERVIEW 배정 전에는 면접 평가를 저장할 수 없다")
     void 면접_배정_전에는_면접_평가를_저장할_수_없다() {
         application.submit(1L);
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L, RecruitingEvaluatorStage.INTERVIEW))
+        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
 
         assertThatThrownBy(() -> sut.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationDecision.PASS,
+            RecruitingApplicationEvaluationDecision.APPROVED,
             null
         )))
             .isInstanceOf(RecruitingDomainException.class)

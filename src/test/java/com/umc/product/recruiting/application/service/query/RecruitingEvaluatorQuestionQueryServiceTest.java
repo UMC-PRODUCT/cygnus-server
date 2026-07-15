@@ -30,7 +30,6 @@ import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundEvaluator;
 import com.umc.product.recruiting.domain.RecruitingRoundInterviewQuestion;
 import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 
 @ExtendWith(MockitoExtension.class)
@@ -61,85 +60,61 @@ class RecruitingEvaluatorQuestionQueryServiceTest {
     RecruitingInterviewQuestionQueryService questionService;
 
     @Test
-    @DisplayName("DOCUMENT whitelist가 있으면 서류 평가 권한이 있다")
-    void canEvaluateDocumentForDocumentWhitelist() {
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.DOCUMENT
-        )).willReturn(true);
+    @DisplayName("차수 평가자 whitelist가 있으면 서류와 면접 평가 권한이 있다")
+    void canEvaluateForRoundWhitelist() {
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 10L)).willReturn(true);
 
-        boolean result = evaluatorService.canEvaluate(1L, 10L, RecruitingEvaluatorStage.DOCUMENT);
+        boolean result = evaluatorService.canEvaluate(1L, 10L);
 
         assertThat(result).isTrue();
-        then(loadEvaluatorPort).should().existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.DOCUMENT
-        );
+        then(loadEvaluatorPort).should().existsByRoundIdAndMemberId(1L, 10L);
     }
 
     @Test
-    @DisplayName("INTERVIEW whitelist가 없으면 면접 평가 권한이 없다")
-    void cannotEvaluateInterviewWithoutInterviewWhitelist() {
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(false);
+    @DisplayName("차수 평가자 whitelist가 없으면 평가 권한이 없다")
+    void cannotEvaluateWithoutRoundWhitelist() {
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 10L)).willReturn(false);
 
-        boolean result = evaluatorService.canEvaluate(1L, 10L, RecruitingEvaluatorStage.INTERVIEW);
+        boolean result = evaluatorService.canEvaluate(1L, 10L);
 
         assertThat(result).isFalse();
-        then(loadEvaluatorPort).should().existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
+        then(loadEvaluatorPort).should().existsByRoundIdAndMemberId(1L, 10L);
     }
 
     @Test
-    @DisplayName("평가자 목록은 요청한 평가 단계만 반환한다")
-    void listEvaluatorsByStage() {
+    @DisplayName("평가자 목록은 차수에 등록된 평가자를 반환한다")
+    void listEvaluatorsByRound() {
         RecruitingRound round = mock(RecruitingRound.class);
         given(round.getId()).willReturn(1L);
-        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(
-            round,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
+        RecruitingRoundEvaluator evaluator = RecruitingRoundEvaluator.create(round, 10L);
         ReflectionTestUtils.setField(evaluator, "id", 100L);
-        given(loadEvaluatorPort.listByRoundIdAndStage(1L, RecruitingEvaluatorStage.INTERVIEW))
-            .willReturn(List.of(evaluator));
+        given(loadEvaluatorPort.listByRoundId(1L)).willReturn(List.of(evaluator));
 
-        List<RecruitingRoundEvaluatorInfo> result = evaluatorService.listByRoundIdAndStage(
-            1L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
+        List<RecruitingRoundEvaluatorInfo> result = evaluatorService.listByRoundId(1L);
 
         assertThat(result).singleElement().satisfies(info -> {
             assertThat(info.roundId()).isEqualTo(1L);
             assertThat(info.memberId()).isEqualTo(10L);
-            assertThat(info.stage()).isEqualTo(RecruitingEvaluatorStage.INTERVIEW);
         });
     }
 
     @Test
-    @DisplayName("INTERVIEW whitelist 평가자는 공통 질문을 조회한다")
-    void interviewEvaluatorListsActiveRoundQuestions() {
+    @DisplayName("차수 평가자는 공통 질문을 조회한다")
+    void evaluatorListsActiveRoundQuestions() {
         RecruitingRound round = mock(RecruitingRound.class);
         RecruitingSeason season = mock(RecruitingSeason.class);
         given(round.getId()).willReturn(1L);
         given(round.getSeason()).willReturn(season);
         given(season.getId()).willReturn(9L);
-        RecruitingRoundInterviewQuestion roundQuestion = RecruitingRoundInterviewQuestion.create(round, "공통", 0);
+        RecruitingRoundInterviewQuestion roundQuestion = RecruitingRoundInterviewQuestion.create(
+            round,
+            "공통",
+            0,
+            20L
+        );
         given(loadRoundPort.getById(1L)).willReturn(round);
         given(authorizeManagementUseCase.canManageSeason(10L, 9L)).willReturn(false);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(true);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 10L)).willReturn(true);
         given(loadRoundQuestionPort.listActiveByRoundId(1L)).willReturn(List.of(roundQuestion));
 
         List<RecruitingRoundInterviewQuestionInfo> commonResult = questionService.listActiveRoundQuestions(1L, 10L);
@@ -148,8 +123,8 @@ class RecruitingEvaluatorQuestionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("INTERVIEW whitelist 평가자는 담당 지원서의 개별 질문을 조회한다")
-    void interviewEvaluatorListsActiveApplicationQuestions() {
+    @DisplayName("차수 평가자는 지원서의 개별 질문을 조회한다")
+    void evaluatorListsActiveApplicationQuestions() {
         RecruitingApplication application = mock(RecruitingApplication.class);
         RecruitingRound round = mock(RecruitingRound.class);
         RecruitingSeason season = mock(RecruitingSeason.class);
@@ -165,11 +140,7 @@ class RecruitingEvaluatorQuestionQueryServiceTest {
         );
         given(loadApplicationPort.getById(2L)).willReturn(application);
         given(authorizeManagementUseCase.canManageSeason(10L, 9L)).willReturn(false);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(true);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 10L)).willReturn(true);
         given(loadApplicationQuestionPort.listActiveByApplicationId(2L)).willReturn(List.of(applicationQuestion));
 
         List<RecruitingApplicationInterviewQuestionInfo> individualResult =
@@ -181,8 +152,8 @@ class RecruitingEvaluatorQuestionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("모집 관리자는 INTERVIEW whitelist 없이 공통 질문을 조회한다")
-    void managerBypassesInterviewWhitelistForRoundQuestions() {
+    @DisplayName("모집 관리자는 평가자 whitelist 없이 공통 질문을 조회한다")
+    void managerBypassesEvaluatorWhitelistForRoundQuestions() {
         RecruitingRound round = mock(RecruitingRound.class);
         RecruitingSeason season = mock(RecruitingSeason.class);
         given(round.getId()).willReturn(1L);
@@ -199,8 +170,8 @@ class RecruitingEvaluatorQuestionQueryServiceTest {
     }
 
     @Test
-    @DisplayName("관리 권한과 INTERVIEW whitelist가 없으면 질문 조회를 거부한다")
-    void rejectQuestionReadWithoutManagementOrInterviewWhitelist() {
+    @DisplayName("관리 권한과 평가자 whitelist가 없으면 질문 조회를 거부한다")
+    void rejectQuestionReadWithoutManagementOrEvaluatorWhitelist() {
         RecruitingRound round = mock(RecruitingRound.class);
         RecruitingSeason season = mock(RecruitingSeason.class);
         given(round.getId()).willReturn(1L);
@@ -208,11 +179,7 @@ class RecruitingEvaluatorQuestionQueryServiceTest {
         given(season.getId()).willReturn(9L);
         given(loadRoundPort.getById(1L)).willReturn(round);
         given(authorizeManagementUseCase.canManageSeason(10L, 9L)).willReturn(false);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(false);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 10L)).willReturn(false);
 
         org.assertj.core.api.Assertions.assertThatThrownBy(
             () -> questionService.listActiveRoundQuestions(1L, 10L)

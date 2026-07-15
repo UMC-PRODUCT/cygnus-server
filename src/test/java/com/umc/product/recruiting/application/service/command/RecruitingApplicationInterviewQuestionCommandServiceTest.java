@@ -4,8 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
@@ -27,7 +25,6 @@ import com.umc.product.recruiting.application.port.out.SaveRecruitingApplication
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationInterviewQuestion;
 import com.umc.product.recruiting.domain.RecruitingRound;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -68,7 +65,7 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("최초 면접 평가 제출 전에는 INTERVIEW 평가자가 개별 질문을 수정할 수 있다")
+    @DisplayName("최초 면접 평가 제출 전에는 차수 평가자가 개별 질문을 수정할 수 있다")
     void updateBeforeFirstSubmission() {
         RecruitingApplication application = whitelistedApplication(2L, 1L, 99L);
         RecruitingApplicationInterviewQuestion question = RecruitingApplicationInterviewQuestion.create(
@@ -153,18 +150,14 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("DOCUMENT 전용 평가자는 개별 질문을 수정할 수 없다")
-    void rejectUpdateForDocumentOnlyEvaluator() {
+    @DisplayName("차수 평가자가 아니면 개별 질문을 수정할 수 없다")
+    void rejectUpdateForNonEvaluator() {
         RecruitingRound round = mock(RecruitingRound.class);
         given(round.getId()).willReturn(1L);
         RecruitingApplication application = mock(RecruitingApplication.class);
         given(application.getRound()).willReturn(round);
         given(concurrencyLockService.lockRoundThenApplication(2L)).willReturn(application);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            eq(1L),
-            eq(99L),
-            any(RecruitingEvaluatorStage.class)
-        )).willAnswer(invocation -> invocation.getArgument(2) == RecruitingEvaluatorStage.DOCUMENT);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 99L)).willReturn(false);
 
         assertThatThrownBy(() -> sut.updateApplicationQuestion(
             UpdateRecruitingApplicationInterviewQuestionCommand.of(201L, 2L, 99L, "수정 질문", 1)
@@ -172,11 +165,7 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED);
-        then(loadEvaluatorPort).should().existsByRoundIdAndMemberIdAndStage(
-            1L,
-            99L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
+        then(loadEvaluatorPort).should().existsByRoundIdAndMemberId(1L, 99L);
         then(loadSubmittedEvaluationPort).shouldHaveNoInteractions();
         then(saveQuestionPort).shouldHaveNoInteractions();
     }
@@ -189,11 +178,7 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
         RecruitingApplication requestedApplication = mock(RecruitingApplication.class);
         given(requestedApplication.getRound()).willReturn(requestedRound);
         given(concurrencyLockService.lockRoundThenApplication(2L)).willReturn(requestedApplication);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            99L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(true);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 99L)).willReturn(true);
         RecruitingApplication application = mock(RecruitingApplication.class);
         given(application.getId()).willReturn(3L);
         RecruitingApplicationInterviewQuestion question = RecruitingApplicationInterviewQuestion.create(
@@ -219,11 +204,7 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
         given(application.getId()).willReturn(applicationId);
         given(application.getRound()).willReturn(round);
         given(concurrencyLockService.lockRoundThenApplication(applicationId)).willReturn(application);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            roundId,
-            requesterMemberId,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(true);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(roundId, requesterMemberId)).willReturn(true);
         return application;
     }
 }

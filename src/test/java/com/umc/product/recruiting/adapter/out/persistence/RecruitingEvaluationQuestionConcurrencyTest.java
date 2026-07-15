@@ -114,8 +114,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
         Fixture fixture = persistFixture();
         given(getRoundEvaluatorUseCase.canEvaluate(
             fixture.roundId(),
-            EVALUATOR_MEMBER_ID,
-            RecruitingEvaluatorStage.INTERVIEW
+            EVALUATOR_MEMBER_ID
         )).willReturn(true);
 
         RacingResult result = raceAfterSubmitLocksRound(
@@ -135,8 +134,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
         Fixture fixture = persistFixture();
         given(getRoundEvaluatorUseCase.canEvaluate(
             fixture.roundId(),
-            EVALUATOR_MEMBER_ID,
-            RecruitingEvaluatorStage.INTERVIEW
+            EVALUATOR_MEMBER_ID
         )).willReturn(true);
 
         RacingResult result = raceAfterSubmitLocksRound(
@@ -155,13 +153,11 @@ class RecruitingEvaluationQuestionConcurrencyTest {
         Fixture fixture = persistFixture();
         given(getRoundEvaluatorUseCase.canEvaluate(
             fixture.roundId(),
-            EVALUATOR_MEMBER_ID,
-            RecruitingEvaluatorStage.INTERVIEW
+            EVALUATOR_MEMBER_ID
         )).willReturn(true);
-        given(loadRoundEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
+        given(loadRoundEvaluatorPort.existsByRoundIdAndMemberId(
             fixture.roundId(),
-            EVALUATOR_MEMBER_ID,
-            RecruitingEvaluatorStage.INTERVIEW
+            EVALUATOR_MEMBER_ID
         )).willReturn(true);
 
         RacingResult result = raceAfterSubmitLocksRound(
@@ -218,7 +214,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
             applicationId,
             EVALUATOR_MEMBER_ID,
             RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationDecision.PASS,
+            RecruitingApplicationEvaluationDecision.APPROVED,
             "제출"
         ));
     }
@@ -228,7 +224,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
             applicationId,
             EVALUATOR_MEMBER_ID,
             RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationDecision.FAIL,
+            RecruitingApplicationEvaluationDecision.REJECTED,
             "늦은 초안"
         ));
     }
@@ -280,7 +276,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
             application.assignInterview(MANAGER_MEMBER_ID, "면접 배정");
             applicationAdapter.save(application);
             RecruitingRoundInterviewQuestion roundQuestion = roundQuestionAdapter.save(
-                RecruitingRoundInterviewQuestion.create(round, "기존 공통 질문", 0)
+                RecruitingRoundInterviewQuestion.create(round, "기존 공통 질문", 0, MANAGER_MEMBER_ID)
             );
             RecruitingApplicationInterviewQuestion applicationQuestion = applicationQuestionAdapter.save(
                 RecruitingApplicationInterviewQuestion.create(application, "기존 개별 질문", 0)

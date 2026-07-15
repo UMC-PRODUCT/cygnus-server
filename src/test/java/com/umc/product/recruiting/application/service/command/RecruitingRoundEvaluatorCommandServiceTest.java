@@ -27,7 +27,6 @@ import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvalua
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundEvaluator;
 import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -75,8 +74,7 @@ class RecruitingRoundEvaluatorCommandServiceTest {
         Long evaluatorId = sut.addEvaluator(RecruitingRoundEvaluatorCommand.of(
             1L,
             99L,
-            10L,
-            RecruitingEvaluatorStage.DOCUMENT
+            10L
         ));
 
         assertThat(evaluatorId).isEqualTo(100L);
@@ -84,24 +82,19 @@ class RecruitingRoundEvaluatorCommandServiceTest {
     }
 
     @Test
-    @DisplayName("같은 차수 회원 단계의 평가자는 중복 추가할 수 없다")
+    @DisplayName("같은 차수의 평가자는 중복 추가할 수 없다")
     void rejectDuplicateEvaluator() {
         RecruitingSeason season = mock(RecruitingSeason.class);
         RecruitingRound round = mock(RecruitingRound.class);
         given(round.getSeason()).willReturn(season);
         given(season.getId()).willReturn(11L);
         given(loadRoundPort.getById(1L)).willReturn(round);
-        given(loadEvaluatorPort.existsByRoundIdAndMemberIdAndStage(
-            1L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(true);
+        given(loadEvaluatorPort.existsByRoundIdAndMemberId(1L, 10L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.addEvaluator(RecruitingRoundEvaluatorCommand.of(
             1L,
             99L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
+            10L
         )))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
@@ -123,8 +116,7 @@ class RecruitingRoundEvaluatorCommandServiceTest {
         assertThatThrownBy(() -> sut.addEvaluator(RecruitingRoundEvaluatorCommand.of(
             1L,
             99L,
-            10L,
-            RecruitingEvaluatorStage.INTERVIEW
+            10L
         ))).isInstanceOf(AuthorizationDomainException.class);
         then(loadEvaluatorPort).shouldHaveNoInteractions();
         then(saveEvaluatorPort).shouldHaveNoInteractions();

@@ -51,8 +51,14 @@ class RecruitingEvaluationDomainTest {
     }
 
     @Test
-    @DisplayName("평가는 PASS FAIL WAIT 결정을 제출할 수 있다")
-    void 평가는_PASS_FAIL_WAIT_결정을_제출할_수_있다() {
+    @DisplayName("평가는 APPROVED 또는 REJECTED 결정을 제출할 수 있다")
+    void 평가는_APPROVED_또는_REJECTED_결정을_제출할_수_있다() {
+        assertThat(RecruitingApplicationEvaluationDecision.values())
+            .containsExactly(
+                RecruitingApplicationEvaluationDecision.APPROVED,
+                RecruitingApplicationEvaluationDecision.REJECTED
+            );
+
         for (RecruitingApplicationEvaluationDecision decision : RecruitingApplicationEvaluationDecision.values()) {
             RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
                 application(),
@@ -76,9 +82,9 @@ class RecruitingEvaluationDomainTest {
             20L,
             RecruitingEvaluatorStage.DOCUMENT
         );
-        evaluation.submit(RecruitingApplicationEvaluationDecision.PASS, "제출 완료");
+        evaluation.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출 완료");
 
-        assertThatThrownBy(() -> evaluation.updateDraft(RecruitingApplicationEvaluationDecision.FAIL, "변경"))
+        assertThatThrownBy(() -> evaluation.updateDraft(RecruitingApplicationEvaluationDecision.REJECTED, "변경"))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);
