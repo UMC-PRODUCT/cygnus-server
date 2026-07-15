@@ -78,6 +78,17 @@ HTTP request counter / duration histogram 에서 요청 총량, 요청 수 Top 1
 p95 latency Top 10 을 계산한다. Top 10 테이블의 행 링크는 해당 `uri` 에 대응하는
 Loki 로그를 열며, 로그의 `traceId` derived field 를 통해 Tempo 요청 flow 로 이동할 수 있다.
 
+## GraphQL 대시보드
+
+Grafana 의 **UMC PRODUCT** 폴더 > **UMC PRODUCT — GraphQL** 대시보드
+(`config/grafana/dashboards/graphql.json`)에서 GraphQL 요청률, 오류율, p95/p99 지연,
+operation type/outcome 분포, resolver와 DataLoader의 호출량·지연·오류를 확인할 수 있다.
+
+GraphQL metric에는 요청 본문, variables, raw query를 넣지 않는다. `operationName`과
+`executionId`는 trace의 high-cardinality attribute로만 기록되므로 Prometheus 패널에는
+노출하지 않는다. 개별 요청의 operation name과 실행 흐름이 필요하면 대시보드 상단의
+Tempo 링크에서 해당 trace를 확인한다.
+
 ## API 처리 흐름 보기 (Tempo + Node graph)
 
 각 API 요청이 어떤 계층을 거치는지(`controller -> usecase -> adapter -> db`)와, 아웃박스 relay 가 원 요청 trace 와 어떻게 span link 로 이어지는지를 Tempo 로 추적한다. 계층별 span 은 앱의 `TraceFlowAspect` 가 자동 생성하며 `app.layer` / `app.domain` / `app.usecase` / `app.adapter.type` 태그를 단다.
