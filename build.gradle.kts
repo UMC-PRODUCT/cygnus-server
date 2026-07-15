@@ -97,6 +97,9 @@ sourceSets {
         java {
             srcDirs(querydslDir)
         }
+        resources {
+            exclude(".env.*", "**/.env.*")
+        }
     }
 }
 
@@ -378,11 +381,32 @@ val checkDuplicateFlywayMigrationVersions by tasks.registering {
     }
 }
 
+val checkSensitiveMainResourcesExcluded by tasks.registering {
+    group = "verification"
+    description = "Fails when .env.* files are included in main resource inputs."
+
+    val sensitiveResources = sourceSets.main.get().resources.matching {
+        include(".env.*", "**/.env.*")
+    }
+    inputs.files(sensitiveResources)
+
+    doLast {
+        if (!sensitiveResources.isEmpty) {
+            val names = sensitiveResources.files
+                .map { it.name }
+                .sorted()
+                .joinToString(", ")
+            throw GradleException("Sensitive .env.* resources must be excluded: $names")
+        }
+    }
+}
+
 tasks.withType<Test> {
     useJUnitPlatform()
     maxHeapSize = "3g"
     dependsOn(spotlessTest)
     dependsOn(checkDuplicateFlywayMigrationVersions)
+    dependsOn(checkSensitiveMainResourcesExcluded)
 }
 
 tasks.test {
@@ -419,7 +443,7 @@ tasks.register("generateRestDocsIndex") {
         val indexFile = file("docs/asciidoc/index.adoc")
 
         val content = buildString {
-            appendLine("= UMC Product API Documentation")
+            appendLine("= UMC PRODUCT API Documentation")
             appendLine(":doctype: book")
             appendLine(":icons: font")
             appendLine(":source-highlighter: highlightjs")
@@ -540,8 +564,7 @@ val copyDocument = tasks.register<Copy>("copyDocument") { // REST DOCS 복사하
 }
 
 tasks.build {
-    dependsOn(tasks.clean) // 빌드 전 clean 수행
-    dependsOn(copyDocument) // clean 수행 후에, AsciiDoc 문서 제작
+    dependsOn(copyDocument) // AsciiDoc 문서 제작 및 복사
 
     doLast {
         println("[build] gradle build가 완료되었습니다.")

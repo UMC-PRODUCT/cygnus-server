@@ -1,8 +1,9 @@
 package com.umc.product.organization.application.port.in.command;
 
 import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductSquadCommand;
-import com.umc.product.organization.application.port.in.command.dto.ReplaceUmcProductSquadParticipantsCommand;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductSquadParticipantCommand;
 import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductSquadCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductSquadParticipantCommand;
 
 public interface ManageUmcProductSquadUseCase {
 
@@ -12,5 +13,9 @@ public interface ManageUmcProductSquadUseCase {
 
     void delete(Long squadId, Long requesterMemberId);
 
-    void replaceParticipants(ReplaceUmcProductSquadParticipantsCommand command);
+    Long createParticipant(CreateUmcProductSquadParticipantCommand command);
+
+    void updateParticipant(UpdateUmcProductSquadParticipantCommand command);
+
+    void deleteParticipant(Long squadId, Long participantId, Long requesterMemberId);
 }

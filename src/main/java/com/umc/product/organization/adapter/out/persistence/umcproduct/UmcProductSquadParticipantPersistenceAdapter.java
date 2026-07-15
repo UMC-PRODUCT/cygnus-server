@@ -1,13 +1,19 @@
 package com.umc.product.organization.adapter.out.persistence.umcproduct;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.organization.application.port.out.command.SaveUmcProductSquadParticipantPort;
 import com.umc.product.organization.application.port.out.query.LoadUmcProductSquadParticipantPort;
 import com.umc.product.organization.domain.UmcProductSquadParticipant;
+import com.umc.product.organization.domain.enums.UmcProductSquadRole;
+import com.umc.product.organization.exception.OrganizationDomainException;
+import com.umc.product.organization.exception.OrganizationErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -16,7 +22,22 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductSquadParticipantPersistenceAdapter
     implements LoadUmcProductSquadParticipantPort, SaveUmcProductSquadParticipantPort {
 
+    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+        "ex_umc_product_squad_participant_member_dates",
+        OrganizationErrorCode.UMC_PRODUCT_SQUAD_PARTICIPATION_OVERLAPPED,
+        "ex_umc_product_squad_lead_dates",
+        OrganizationErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED
+    );
+
     private final UmcProductSquadParticipantJpaRepository umcProductSquadParticipantJpaRepository;
+
+    @Override
+    public UmcProductSquadParticipant getById(Long squadParticipantId) {
+        return umcProductSquadParticipantJpaRepository.findById(squadParticipantId)
+            .orElseThrow(() -> new OrganizationDomainException(
+                OrganizationErrorCode.UMC_PRODUCT_SQUAD_PARTICIPANT_NOT_FOUND
+            ));
+    }
 
     @Override
     public List<UmcProductSquadParticipant> listBySquadId(Long squadId) {
@@ -33,17 +54,64 @@ public class UmcProductSquadParticipantPersistenceAdapter
         if (umcProductMemberIds == null || umcProductMemberIds.isEmpty()) {
             return List.of();
         }
-        return umcProductSquadParticipantJpaRepository.findAllByUmcProductMemberIdIn(umcProductMemberIds);
+        return umcProductSquadParticipantJpaRepository.findAllByUmcProductMemberIds(umcProductMemberIds);
+    }
+
+    @Override
+    public boolean existsBySquadId(Long squadId) {
+        return umcProductSquadParticipantJpaRepository.existsBySquadId(squadId);
+    }
+
+    @Override
+    public boolean existsByMemberActivityPeriodId(Long memberActivityPeriodId) {
+        return umcProductSquadParticipantJpaRepository.existsByMemberActivityPeriodId(memberActivityPeriodId);
+    }
+
+    @Override
+    public boolean existsOverlappingMemberInSquad(
+        Long squadId,
+        Long umcProductMemberId,
+        LocalDate startDate,
+        LocalDate endDate,
+        Long excludedSquadParticipantId
+    ) {
+        return umcProductSquadParticipantJpaRepository.existsOverlappingMemberInSquad(
+            squadId,
+            umcProductMemberId,
+            startDate,
+            endDate,
+            excludedSquadParticipantId
+        );
+    }
+
+    @Override
+    public boolean existsOverlappingSquadLead(
+        Long squadId,
+        LocalDate startDate,
+        LocalDate endDate,
+        Long excludedSquadParticipantId
+    ) {
+        return umcProductSquadParticipantJpaRepository.existsOverlappingSquadLead(
+            squadId,
+            UmcProductSquadRole.SQUAD_LEAD,
+            startDate,
+            endDate,
+            excludedSquadParticipantId
+        );
     }
 
     @Override
     public UmcProductSquadParticipant save(UmcProductSquadParticipant participant) {
-        return umcProductSquadParticipantJpaRepository.save(participant);
+        try {
+            return umcProductSquadParticipantJpaRepository.saveAndFlush(participant);
+        } catch (DataIntegrityViolationException exception) {
+            throw UmcProductConstraintViolationTranslator.translate(exception, CONSTRAINT_ERROR_CODES);
+        }
     }
 
     @Override
-    public void saveAll(Collection<UmcProductSquadParticipant> participants) {
-        umcProductSquadParticipantJpaRepository.saveAll(participants);
+    public void delete(UmcProductSquadParticipant participant) {
+        umcProductSquadParticipantJpaRepository.delete(participant);
     }
 
     @Override

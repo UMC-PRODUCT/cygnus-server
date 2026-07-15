@@ -229,7 +229,7 @@ STOMP 가 destination 모델 / ChannelInterceptor / broker relay 등 이번 도�
 단점:
 
 - enum 신설은 권한 / 운영 / DB seed 모두에 영향이 있어 본 ADR 의 범위를 벗어난다.
-- UMC Product의 정의(소속 기준) 가 코드 / 운영 측 합의를 거쳐야 한다.
+- UMC PRODUCT의 정의(소속 기준) 가 코드 / 운영 측 합의를 거쳐야 한다.
 
 선택하지 않은 이유:
 본 ADR 은 문의 도메인 도입 자체에 집중한다. `UMC_PRODUCT` 라우팅은 1차에 임시 매핑으로 시작하고, 정식 Role 도입은 별도 ADR / 별도 PR 에서 다룬다.

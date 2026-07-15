@@ -2,8 +2,10 @@ package com.umc.product.organization.adapter.out.persistence.umcproduct;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -21,6 +23,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberPort, SaveUmcProductMemberPort {
 
+    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+        "uk_umc_product_member_member_id",
+        OrganizationErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS
+    );
+
     private final UmcProductMemberJpaRepository umcProductMemberJpaRepository;
     private final UmcProductMemberQueryRepository umcProductMemberQueryRepository;
 
@@ -36,6 +43,12 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     }
 
     @Override
+    public UmcProductMember getByIdWithLock(Long umcProductMemberId) {
+        return umcProductMemberJpaRepository.findByIdWithLock(umcProductMemberId)
+            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
+    }
+
+    @Override
     public UmcProductMember getByMemberId(Long memberId) {
         return findByMemberId(memberId)
             .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
@@ -44,6 +57,12 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     @Override
     public Optional<UmcProductMember> findByMemberId(Long memberId) {
         return umcProductMemberJpaRepository.findByMemberId(memberId);
+    }
+
+    @Override
+    public UmcProductMember getByMemberIdWithLock(Long memberId) {
+        return umcProductMemberJpaRepository.findByMemberIdWithLock(memberId)
+            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
     }
 
     @Override
@@ -66,7 +85,11 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
 
     @Override
     public UmcProductMember save(UmcProductMember member) {
-        return umcProductMemberJpaRepository.save(member);
+        try {
+            return umcProductMemberJpaRepository.saveAndFlush(member);
+        } catch (DataIntegrityViolationException exception) {
+            throw UmcProductConstraintViolationTranslator.translate(exception, CONSTRAINT_ERROR_CODES);
+        }
     }
 
     @Override

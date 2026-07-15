@@ -1,6 +1,6 @@
 package com.umc.product.organization.application.port.in.query.dto.umcproduct;
 
-import java.time.Instant;
+import java.time.LocalDate;
 
 import com.umc.product.organization.domain.UmcProductSquad;
 
@@ -9,8 +9,8 @@ public record UmcProductSquadInfo(
     String code,
     String name,
     String description,
-    Instant startAt,
-    Instant endAt,
+    LocalDate startDate,
+    LocalDate endDate,
     int sortOrder,
     boolean active
 ) {
@@ -20,8 +20,8 @@ public record UmcProductSquadInfo(
             squad.getCode(),
             squad.getName(),
             squad.getDescription(),
-            squad.getStartAt(),
-            squad.getEndAt(),
+            squad.getStartDate(),
+            squad.getEndDate(),
             squad.getSortOrder(),
             squad.isActive()
         );

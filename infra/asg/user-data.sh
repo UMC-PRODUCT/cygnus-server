@@ -18,7 +18,7 @@ IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 APP_DIR="/opt/umc-product"
 
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "Starting UMC Product server"
+echo "Starting UMC PRODUCT server"
 echo "Image: ${IMAGE_URI}"
 echo "Spring profile: ${SPRING_PROFILE}"
 echo "Secret source configured"
