@@ -20,7 +20,7 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 ### 2.1 현황 분석
 
 #### 2.1.1 기본 정보
-- Spring Boot 버전: **3.5.9** ([Version Catalog](../../gradle/libs.versions.toml))
+- Spring Boot 버전: **3.5.15** ([Version Catalog](../../gradle/libs.versions.toml))
 - Java 버전: **21** ([build.gradle.kts](../../build.gradle.kts))
 - 주요 starter (11종): `web`, `validation`, `websocket`, `aop`, `actuator`, `security`, `data-jpa`, `graphql`, `thymeleaf`, `cache`, `docker-compose` ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts))
 - 주요 외부 라이브러리: QueryDSL 5.1.0, jjwt 0.13.0, Flyway + PostGIS, p6spy 1.10.0, springdoc-openapi 2.8.17, AWS SDK v2 BOM, Firebase Admin SDK 9.7.1, **Spring AI 1.1.8 (OpenAI + VertexAI Gemini + Google GenAI 3종 동시 starter)**, micrometer-tracing-bridge-otel + OTLP exporter + logstash-encoder 9.0, Caffeine, datafaker, BouncyCastle, hibernate-spatial/JTS ([Version Catalog](../../gradle/libs.versions.toml))
