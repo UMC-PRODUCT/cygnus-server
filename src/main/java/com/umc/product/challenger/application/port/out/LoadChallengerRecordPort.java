@@ -1,8 +1,13 @@
 package com.umc.product.challenger.application.port.out;
 
-import com.umc.product.challenger.domain.ChallengerRecord;
 import java.util.List;
 import java.util.Optional;
+
+import org.springframework.data.domain.Page;
+
+import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
+import com.umc.product.challenger.application.port.out.dto.UnusedChallengerRecordCountRow;
+import com.umc.product.challenger.domain.ChallengerRecord;
 
 public interface LoadChallengerRecordPort {
 
@@ -40,4 +45,14 @@ public interface LoadChallengerRecordPort {
      * chapterId로 챌린저 기록 목록 조회
      */
     List<ChallengerRecord> findByChapterId(Long chapterId);
+
+    /**
+     * 기수/학교/파트/역할 동적 조건으로 챌린저 기록 목록을 페이지 조회
+     */
+    Page<ChallengerRecord> search(ListChallengerRecordsQuery query);
+
+    /**
+     * 기수×학교 단위로 미사용(isUsed=false) 챌린저 기록 코드 개수를 그룹 집계 조회
+     */
+    List<UnusedChallengerRecordCountRow> aggregateUnusedCountByGisuAndSchool();
 }

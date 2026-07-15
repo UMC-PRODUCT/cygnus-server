@@ -8,6 +8,9 @@ import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
@@ -47,6 +50,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     private final GetChapterUseCase getChapterUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final ManageChallengerRoleUseCase manageChallengerRoleUseCase;
+    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
 
@@ -119,6 +123,13 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                 .getId();
 
             MemberInfo memberInfo = getMemberUseCase.getById(memberId);
+
+            // 동일 역할 중복 등록 fail-fast 차단: 같은 챌린저가 같은 기수·조직에서
+            // 동일 역할을 이미 보유하고 있으면 역할을 생성하지 않고 즉시 예외를 던진다.
+            if (record.getChallengerRoleType() != null && getChallengerRoleUseCase.hasRoleInOrganization(
+                challengerId, record.getChallengerRoleType(), record.getOrganizationId(), record.getGisuId())) {
+                throw new AuthorizationDomainException(AuthorizationErrorCode.DUPLICATE_CHALLENGER_ROLE);
+            }
 
             manageChallengerRoleUseCase.createChallengerRole(
                 CreateChallengerRoleCommand.builder()

@@ -259,6 +259,18 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
+    public boolean hasRoleInOrganization(
+        Long challengerId, ChallengerRoleType roleType, Long organizationId, Long gisuId
+    ) {
+        if (challengerId == null || roleType == null || gisuId == null) {
+            throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
+                "역할 중복 확인에는 challengerId, roleType, gisuId가 모두 필요합니다.");
+        }
+
+        return loadChallengerRolePort.existsByChallengerRole(challengerId, roleType, organizationId, gisuId);
+    }
+
+    @Override
     public boolean isCentralMemberInGisu(Long memberId, Long gisuId) {
         if (gisuId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,

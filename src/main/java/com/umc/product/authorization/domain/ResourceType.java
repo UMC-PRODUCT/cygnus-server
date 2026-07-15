@@ -90,7 +90,8 @@ public enum ResourceType {
     CHALLENGER_POINT("challenger_point", "챌린저 상벌점",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
     CHALLENGER_RECORD("challenger_record", "챌린저 코드",
-        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.DELETE)),
+        // MANAGE: 코드 목록/통계 등 운영진 전용 광범위 조회 (총괄단 이상)
+        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.DELETE, PermissionType.MANAGE)),
 
     // Notification
     FCM("fcm", "FCM 알람 관련",

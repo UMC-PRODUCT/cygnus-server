@@ -30,6 +30,8 @@ public enum AuthorizationErrorCode implements BaseCode {
     CHALLENGER_ROLE_NOT_FOUND(HttpStatus.NOT_FOUND, "AUTHORIZATION-0010", "역할을 찾을 수 없어요. 역할 정보를 확인해주세요."),
     PERMISSION_TYPE_NOT_IMPLEMENTED(HttpStatus.NOT_IMPLEMENTED, "AUTHORIZATION-0011",
         "아직 지원하지 않는 권한 확인이에요. 관리자에게 문의해주세요."),
+    DUPLICATE_CHALLENGER_ROLE(HttpStatus.CONFLICT, "AUTHORIZATION-0012",
+        "이미 등록된 역할이에요. 기존 역할을 확인해주세요."),
     ;
 
     private final HttpStatus httpStatus;

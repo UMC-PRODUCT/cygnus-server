@@ -169,4 +169,17 @@ public interface GetChallengerRoleUseCase {
      * @return responsiblePart가 설정된 역할에서 추출한 파트 Set. 없으면 빈 Set.
      */
     Set<ChallengerPart> getAllResponsiblePartByMemberIdAndGisuId(Long memberId, Long gisuId);
+
+    /**
+     * 특정 챌린저가 특정 기수·조직에서 동일 역할을 이미 보유하고 있는지 확인
+     * <p>
+     * 역할 중복 등록을 사전에 차단(fail-fast)하기 위해 사용합니다.
+     *
+     * @param challengerId   챌린저 ID
+     * @param roleType       역할 타입
+     * @param organizationId 조직 ID (CENTRAL 이면 null)
+     * @param gisuId         기수 ID
+     * @return 동일 역할이 이미 있으면 true
+     */
+    boolean hasRoleInOrganization(Long challengerId, ChallengerRoleType roleType, Long organizationId, Long gisuId);
 }

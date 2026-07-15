@@ -1,7 +1,11 @@
 package com.umc.product.challenger.application.port.in.query;
 
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerRecordInfo;
 import java.util.List;
+
+import org.springframework.data.domain.Page;
+
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerRecordInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
 
 public interface GetChallengerRecordUseCase {
     ChallengerRecordInfo getById(Long id);
@@ -11,4 +15,6 @@ public interface GetChallengerRecordUseCase {
     List<ChallengerRecordInfo> getBySchoolId(Long schoolId);
 
     List<ChallengerRecordInfo> getByChapterId(Long chapterId);
+
+    Page<ChallengerRecordInfo> search(ListChallengerRecordsQuery query);
 }
