@@ -351,22 +351,26 @@ public class ProjectCommandService implements
     )
     @Override
     public void complete(CompleteProjectsCommand command) {
-        for (Long projectId : command.projectIds()) {
+        List<Project> projects = loadProjectPort.listByIds(command.projectIds());
+        if (projects.size() != command.projectIds().size()) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_NOT_FOUND);
+        }
+
+        for (Project project : projects) {
             checkPermissionUseCase.checkOrThrow(
                 command.requesterMemberId(),
-                ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.MANAGE)
+                ResourcePermission.of(ResourceType.PROJECT, project.getId(), PermissionType.MANAGE)
             );
 
-            Project project = loadProjectPort.getById(projectId);
             project.complete(command.requesterMemberId());
 
-            List<ProjectMember> activeMembers = loadProjectMemberPort.listByProjectId(projectId);
+            List<ProjectMember> activeMembers = loadProjectMemberPort.listByProjectId(project.getId());
             for (ProjectMember member : activeMembers) {
                 member.complete(command.requesterMemberId());
             }
 
             List<ProjectApplication> inProgressApplications =
-                loadProjectApplicationPort.listInProgressByProjectId(projectId);
+                loadProjectApplicationPort.listInProgressByProjectId(project.getId());
             for (ProjectApplication application : inProgressApplications) {
                 application.cancel(command.requesterMemberId(), COMPLETE_APPLICATION_CANCEL_REASON);
             }

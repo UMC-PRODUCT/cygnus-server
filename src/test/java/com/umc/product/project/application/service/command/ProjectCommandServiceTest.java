@@ -796,7 +796,7 @@ class ProjectCommandServiceTest {
             Project project = createProject(ProjectStatus.IN_PROGRESS);
             ProjectMember activeMember = ProjectMember.create(project, 500L, ChallengerPart.WEB, 100L);
 
-            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectPort.listByIds(List.of(1L))).willReturn(List.of(project));
             given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of(activeMember));
             given(loadProjectApplicationPort.listInProgressByProjectId(1L)).willReturn(List.of());
 
@@ -813,7 +813,7 @@ class ProjectCommandServiceTest {
             Project project = createProject(ProjectStatus.IN_PROGRESS);
             ProjectApplication application = mock(ProjectApplication.class);
 
-            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectPort.listByIds(List.of(1L))).willReturn(List.of(project));
             given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of());
             given(loadProjectApplicationPort.listInProgressByProjectId(1L)).willReturn(List.of(application));
 
@@ -828,8 +828,7 @@ class ProjectCommandServiceTest {
             Project second = createProject(ProjectStatus.IN_PROGRESS);
             ReflectionTestUtils.setField(second, "id", 2L);
 
-            given(loadProjectPort.getById(1L)).willReturn(first);
-            given(loadProjectPort.getById(2L)).willReturn(second);
+            given(loadProjectPort.listByIds(List.of(1L, 2L))).willReturn(List.of(first, second));
             given(loadProjectMemberPort.listByProjectId(any())).willReturn(List.of());
             given(loadProjectApplicationPort.listInProgressByProjectId(any())).willReturn(List.of());
 
@@ -842,7 +841,7 @@ class ProjectCommandServiceTest {
         @Test
         void 대상_프로젝트마다_MANAGE_권한을_검증한다() {
             Project project = createProject(ProjectStatus.IN_PROGRESS);
-            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectPort.listByIds(List.of(1L))).willReturn(List.of(project));
             given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of());
             given(loadProjectApplicationPort.listInProgressByProjectId(1L)).willReturn(List.of());
 
@@ -857,26 +856,38 @@ class ProjectCommandServiceTest {
 
         @Test
         void 권한이_없으면_예외가_전파되고_상태전이가_일어나지_않는다() {
+            Project first = createProject(ProjectStatus.IN_PROGRESS);
+            given(loadProjectPort.listByIds(List.of(1L))).willReturn(List.of(first));
             willThrow(new AuthorizationDomainException(AuthorizationErrorCode.PERMISSION_DENIED))
                 .given(checkPermissionUseCase)
                 .checkOrThrow(eq(99L), any());
 
-            assertThatThrownBy(() -> sut.complete(command(List.of(1L, 2L))))
+            assertThatThrownBy(() -> sut.complete(command(List.of(1L))))
                 .isInstanceOf(AuthorizationDomainException.class);
 
-            // 권한 검증이 상태 전이보다 앞서므로, 프로젝트 로드/전이 자체가 시작되지 않는다.
-            then(loadProjectPort).should(never()).getById(any());
+            assertThat(first.getStatus()).isEqualTo(ProjectStatus.IN_PROGRESS);
         }
 
         @Test
         void IN_PROGRESS가_아니면_PROJECT_INVALID_STATE로_롤백된다() {
             Project project = createProject(ProjectStatus.PENDING_REVIEW);
-            given(loadProjectPort.getById(1L)).willReturn(project);
+            given(loadProjectPort.listByIds(List.of(1L))).willReturn(List.of(project));
 
             assertThatThrownBy(() -> sut.complete(command(List.of(1L))))
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_INVALID_STATE);
+        }
+
+        @Test
+        void 존재하지_않는_프로젝트가_섞여있으면_PROJECT_NOT_FOUND로_롤백된다() {
+            Project project = createProject(ProjectStatus.IN_PROGRESS);
+            given(loadProjectPort.listByIds(List.of(1L, 2L))).willReturn(List.of(project));
+
+            assertThatThrownBy(() -> sut.complete(command(List.of(1L, 2L))))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(ProjectErrorCode.PROJECT_NOT_FOUND);
         }
 
         @Test
