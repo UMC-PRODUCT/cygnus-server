@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Size;
 
 public record FcmRegistrationRequest(
     @NotBlank @Size(max = 100) String installationId,
-    @NotBlank String fcmToken,
+    @NotBlank @Size(max = 4096) String fcmToken,
     @Size(max = 30) String platform,
     @Size(max = 50) String appVersion
 ) {
