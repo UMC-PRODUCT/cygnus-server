@@ -59,7 +59,7 @@ import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
-class FormResponseCommandServiceTest {
+class   FormResponseCommandServiceTest {
 
     private static final Long FORM_ID = 100L;
     private static final Long MEMBER_ID = 200L;
@@ -1181,6 +1181,256 @@ class FormResponseCommandServiceTest {
             .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
 
         then(saveFormResponsePort).should(never()).deleteById(any());
+    }
+
+    // ============================================================
+    //          방문 경로 밖 섹션의 orphan answer 자동 정리
+    // ============================================================
+
+    @Test
+    @DisplayName("submitImmediately: 방문 경로 밖 섹션의 답변은 SUBMITTED 결과에 포함되지 않는다")
+    void submitImmediately_방문경로_밖_답변은_저장되지_않는다() {
+        // given — S1(RADIO Q10 → S3 점프), S2(Q20), S3(Q30). S2 는 건너뜀.
+        FormSection s1 = section(1L, 1L);
+        FormSection s2 = section(2L, 2L);
+        FormSection s3 = section(3L, 3L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, s1);
+        Question qInSkipped = questionInSection(20L, QuestionType.SHORT_TEXT, false, s2);
+        Question qOptional = questionInSection(30L, QuestionType.SHORT_TEXT, false, s3);
+        QuestionOption o1 = QuestionOption.create("선택지", 1L, false, s3.getId());
+        ReflectionTestUtils.setField(o1, "id", 100L);
+        ReflectionTestUtils.setField(o1, "question", qRadio);
+
+        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
+        given(loadFormResponsePort.existsByFormIdAndMemberId(FORM_ID, MEMBER_ID)).willReturn(false);
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+            .willReturn(List.of(o1));
+        given(loadQuestionOptionPort.listByQuestionId(qRadio.getId())).willReturn(List.of(o1));
+        given(loadQuestionOptionPort.existsByIdAndQuestionId(100L, qRadio.getId())).willReturn(true);
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(inv -> {
+            FormResponse fr = inv.getArgument(0);
+            ReflectionTestUtils.setField(fr, "id", FORM_RESPONSE_ID);
+            return fr;
+        });
+        given(saveAnswerPort.saveAll(any())).willAnswer(inv -> inv.getArgument(0));
+
+        // when — S2 소속 질문(Q20)에 답변을 함께 제출하지만 방문 경로 밖이므로 조용히 폐기돼야 함
+        sut.submitImmediately(SubmitFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .respondentMemberId(MEMBER_ID)
+            .answers(List.of(
+                AnswerCommand.builder().questionId(10L).selectedOptionIds(List.of(100L)).build(),
+                AnswerCommand.builder().questionId(20L).textValue("건너뛴 섹션 답변").build(),
+                AnswerCommand.builder().questionId(30L).textValue("경로 상 답변").build()
+            ))
+            .build());
+
+        // then — Q20 은 orphan 이라 saveAll 로 전달된 answer 목록에서 제외됨
+        then(saveAnswerPort).should().saveAll(argThat(answers ->
+            answers.size() == 2
+                && answers.stream().map(a -> a.getQuestion().getId())
+                .collect(java.util.stream.Collectors.toSet()).equals(Set.of(10L, 30L))
+        ));
+    }
+
+    @Test
+    @DisplayName("submitAnonymousImmediately: 방문 경로 밖 섹션의 답변은 SUBMITTED 결과에 포함되지 않는다")
+    void submitAnonymousImmediately_방문경로_밖_답변은_저장되지_않는다() {
+        FormSection s1 = section(1L, 1L);
+        FormSection s2 = section(2L, 2L);
+        FormSection s3 = section(3L, 3L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, s1);
+        Question qInSkipped = questionInSection(20L, QuestionType.SHORT_TEXT, false, s2);
+        Question qOptional = questionInSection(30L, QuestionType.SHORT_TEXT, false, s3);
+        QuestionOption o1 = QuestionOption.create("선택지", 1L, false, s3.getId());
+        ReflectionTestUtils.setField(o1, "id", 100L);
+        ReflectionTestUtils.setField(o1, "question", qRadio);
+
+        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+            .willReturn(List.of(o1));
+        given(loadQuestionOptionPort.listByQuestionId(qRadio.getId())).willReturn(List.of(o1));
+        given(loadQuestionOptionPort.existsByIdAndQuestionId(100L, qRadio.getId())).willReturn(true);
+        given(secureTokenGenerator.generateOpaqueToken()).willReturn("raw-key");
+        given(secureTokenGenerator.sha256Hex("raw-key")).willReturn("hash");
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(inv -> {
+            FormResponse fr = inv.getArgument(0);
+            ReflectionTestUtils.setField(fr, "id", FORM_RESPONSE_ID);
+            return fr;
+        });
+        given(saveAnswerPort.saveAll(any())).willAnswer(inv -> inv.getArgument(0));
+
+        sut.submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .answers(List.of(
+                AnswerCommand.builder().questionId(10L).selectedOptionIds(List.of(100L)).build(),
+                AnswerCommand.builder().questionId(20L).textValue("건너뛴 섹션 답변").build(),
+                AnswerCommand.builder().questionId(30L).textValue("경로 상 답변").build()
+            ))
+            .build());
+
+        then(saveAnswerPort).should().saveAll(argThat(answers ->
+            answers.size() == 2
+                && answers.stream().map(a -> a.getQuestion().getId())
+                .collect(java.util.stream.Collectors.toSet()).equals(Set.of(10L, 30L))
+        ));
+    }
+
+    @Test
+    @DisplayName("submitDraft: 방문 경로 밖 섹션에 draft 로 저장된 답변은 orphan 정리로 삭제된다")
+    void submitDraft_방문경로_밖_orphan_answer_는_삭제된다() {
+        // given — S1(RADIO Q10 → S3), S2(Q20 orphan), S3(Q30). draft 에 Q20 답변이 저장돼 있음.
+        FormSection s1 = section(1L, 1L);
+        FormSection s2 = section(2L, 2L);
+        FormSection s3 = section(3L, 3L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, s1);
+        Question qInSkipped = questionInSection(20L, QuestionType.SHORT_TEXT, false, s2);
+        Question qOptional = questionInSection(30L, QuestionType.SHORT_TEXT, false, s3);
+        QuestionOption o1 = QuestionOption.create("선택지", 1L, false, s3.getId());
+        ReflectionTestUtils.setField(o1, "id", 100L);
+        ReflectionTestUtils.setField(o1, "question", qRadio);
+
+        FormResponse draft = draftResponse();
+        Answer radioAnswer = answer(draft, qRadio);
+        Answer orphanAnswer = answer(draft, qInSkipped);
+        Answer onPathAnswer = answer(draft, qOptional);
+        ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
+        ReflectionTestUtils.setField(orphanAnswer, "id", 1001L);
+        ReflectionTestUtils.setField(onPathAnswer, "id", 1002L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
+            .willReturn(List.of(radioAnswer, orphanAnswer, onPathAnswer));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
+            var mockChoice = org.mockito.Mockito.mock(
+                com.umc.product.form.domain.AnswerChoice.class);
+            given(mockChoice.getAnswer()).willReturn(radioAnswer);
+            given(mockChoice.getQuestionOption()).willReturn(o1);
+            return List.of(mockChoice);
+        });
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+            .willReturn(List.of(o1));
+
+        // when
+        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build());
+
+        // then — orphan Q20 답변만 삭제 대상으로 지정됨
+        then(saveAnswerPort).should()
+            .deleteByFormResponseIdAndQuestionIdIn(FORM_RESPONSE_ID, Set.of(20L));
+        then(saveFormResponsePort).should().save(draft);
+    }
+
+    @Test
+    @DisplayName("submitAnonymousDraft: 방문 경로 밖 섹션에 draft 로 저장된 답변은 orphan 정리로 삭제된다")
+    void submitAnonymousDraft_방문경로_밖_orphan_answer_는_삭제된다() {
+        FormSection s1 = section(1L, 1L);
+        FormSection s2 = section(2L, 2L);
+        FormSection s3 = section(3L, 3L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, s1);
+        Question qInSkipped = questionInSection(20L, QuestionType.SHORT_TEXT, false, s2);
+        Question qOptional = questionInSection(30L, QuestionType.SHORT_TEXT, false, s3);
+        QuestionOption o1 = QuestionOption.create("선택지", 1L, false, s3.getId());
+        ReflectionTestUtils.setField(o1, "id", 100L);
+        ReflectionTestUtils.setField(o1, "question", qRadio);
+
+        FormResponse anonymousDraft = FormResponse.createAnonymousDraft(publishedForm(true), "hash");
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+
+        Answer radioAnswer = answer(anonymousDraft, qRadio);
+        Answer orphanAnswer = answer(anonymousDraft, qInSkipped);
+        Answer onPathAnswer = answer(anonymousDraft, qOptional);
+        ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
+        ReflectionTestUtils.setField(orphanAnswer, "id", 1001L);
+        ReflectionTestUtils.setField(onPathAnswer, "id", 1002L);
+
+        String rawKey = "raw";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn("hash");
+        given(loadFormResponsePort.findDraftByAccessKeyHash("hash"))
+            .willReturn(Optional.of(anonymousDraft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
+            .willReturn(List.of(radioAnswer, orphanAnswer, onPathAnswer));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
+            var mockChoice = org.mockito.Mockito.mock(
+                com.umc.product.form.domain.AnswerChoice.class);
+            given(mockChoice.getAnswer()).willReturn(radioAnswer);
+            given(mockChoice.getQuestionOption()).willReturn(o1);
+            return List.of(mockChoice);
+        });
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+            .willReturn(List.of(o1));
+
+        sut.submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .build());
+
+        then(saveAnswerPort).should()
+            .deleteByFormResponseIdAndQuestionIdIn(FORM_RESPONSE_ID, Set.of(20L));
+        then(saveFormResponsePort).should().save(anonymousDraft);
+    }
+
+    @Test
+    @DisplayName("submitDraft: allowedQuestionIds 에 orphan 질문이 있어도 빈 answer 로 저장되지 않는다")
+    void submitDraft_allowed_안의_orphan_질문은_빈_answer_로_저장되지_않는다() {
+        // given — S1(RADIO Q10 → S3), S2(Q20 orphan, allowed), S3(Q30, allowed).
+        // allowedQuestionIds 에 Q20 이 있어도 skipped 섹션이라 빈 answer 저장 대상에서 제외돼야 함.
+        FormSection s1 = section(1L, 1L);
+        FormSection s2 = section(2L, 2L);
+        FormSection s3 = section(3L, 3L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, s1);
+        Question qInSkipped = questionInSection(20L, QuestionType.SHORT_TEXT, false, s2);
+        Question qOptional = questionInSection(30L, QuestionType.SHORT_TEXT, false, s3);
+        QuestionOption o1 = QuestionOption.create("선택지", 1L, false, s3.getId());
+        ReflectionTestUtils.setField(o1, "id", 100L);
+        ReflectionTestUtils.setField(o1, "question", qRadio);
+
+        FormResponse draft = draftResponse();
+        Answer radioAnswer = answer(draft, qRadio);
+        ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
+            .willReturn(List.of(radioAnswer));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
+            var mockChoice = org.mockito.Mockito.mock(
+                com.umc.product.form.domain.AnswerChoice.class);
+            given(mockChoice.getAnswer()).willReturn(radioAnswer);
+            given(mockChoice.getQuestionOption()).willReturn(o1);
+            return List.of(mockChoice);
+        });
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+            .willReturn(List.of(o1));
+        given(loadQuestionPort.listByIdIn(Set.of(30L))).willReturn(List.of(qOptional));
+
+        // when
+        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .allowedQuestionIds(Set.of(10L, 20L, 30L))
+            .build());
+
+        // then — 빈 answer 저장 대상은 방문 경로 상 미답변 질문(Q30) 뿐. Q20 은 orphan 이라 제외.
+        then(loadQuestionPort).should().listByIdIn(Set.of(30L));
+        then(saveAnswerPort).should().saveAll(argThat(answers ->
+            answers.size() == 1 && answers.get(0).getQuestion().getId().equals(30L)
+        ));
     }
 
     private Form publishedForm(boolean allowDuplicateResponses) {

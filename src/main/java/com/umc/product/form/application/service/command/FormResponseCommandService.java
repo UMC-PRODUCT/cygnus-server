@@ -58,7 +58,9 @@ import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @Transactional
 @RequiredArgsConstructor
@@ -92,17 +94,29 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         validateDuplicateResponsePolicy(form, command.respondentMemberId());
 
         validateAnswers(command.formId(), command.answers());
-        validateAllRequiredAnsweredOnPath(
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(
+            command.formId(),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+        validateAllRequiredAnsweredWithVisited(
             command.formId(),
             extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            visitedSectionIds,
+            null
+        );
+
+        // : 방문 경로 밖 섹션의 답변은 SUBMITTED 결과에 포함하지 않도록 조용히 폐기한다.
+        List<AnswerCommand> answersOnPath = filterAnswersOnVisitedPath(
+            command.formId(),
+            command.answers(),
+            visitedSectionIds
         );
 
         FormResponse response = FormResponse.createDraft(form, command.respondentMemberId());
         response.submit(Instant.now(), null);
         FormResponse saved = saveFormResponsePort.save(response);
 
-        List<AnswerWithOptions> data = buildAnswerData(saved, command.answers());
+        List<AnswerWithOptions> data = buildAnswerData(saved, answersOnPath);
         saveAnswers(data);
 
         return saved.getId();
@@ -197,14 +211,27 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         }
 
         Map<Long, Long> selectedOptionByQuestion = loadSelectedOptionByQuestion(savedAnswers);
-        validateAllRequiredAnsweredOnPath(
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(draft.getForm().getId(), selectedOptionByQuestion);
+        validateAllRequiredAnsweredWithVisited(
             draft.getForm().getId(),
             answeredQuestionIds,
-            selectedOptionByQuestion,
+            visitedSectionIds,
             command.requiredQuestionIds()
         );
 
-        saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
+        // : 방문 경로 밖 섹션에 draft 로 저장된 답변은 SUBMITTED 결과에 포함하지 않도록 조용히 폐기한다.
+        discardOrphanAnswersOnSubmit(draft.getId(), draft.getForm().getId(), visitedSectionIds);
+        Set<Long> answeredQuestionIdsOnPath = filterOnVisitedPath(
+            draft.getForm().getId(),
+            answeredQuestionIds,
+            visitedSectionIds
+        );
+
+        saveEmptyAnswersForUnanswered(
+            draft,
+            filterOnVisitedPath(draft.getForm().getId(), command.allowedQuestionIds(), visitedSectionIds),
+            answeredQuestionIdsOnPath
+        );
 
         draft.submit(Instant.now(), command.submittedIp());
         saveFormResponsePort.save(draft);
@@ -224,10 +251,22 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
         // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
         validateAnswers(command.formId(), command.answers());
-        validateAllRequiredAnsweredOnPath(
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(
+            command.formId(),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+        validateAllRequiredAnsweredWithVisited(
             command.formId(),
             extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            visitedSectionIds,
+            null
+        );
+
+        // : 방문 경로 밖 섹션의 답변은 SUBMITTED 결과에 포함하지 않도록 조용히 폐기한다.
+        List<AnswerCommand> answersOnPath = filterAnswersOnVisitedPath(
+            command.formId(),
+            command.answers(),
+            visitedSectionIds
         );
 
         String rawAccessKey = secureTokenGenerator.generateOpaqueToken();
@@ -237,7 +276,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         response.submit(Instant.now(), null);
         FormResponse saved = saveFormResponsePort.save(response);
 
-        List<AnswerWithOptions> data = buildAnswerData(saved, command.answers());
+        List<AnswerWithOptions> data = buildAnswerData(saved, answersOnPath);
         saveAnswers(data);
 
         return AnonymousFormResponseResult.builder()
@@ -333,14 +372,27 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         }
 
         Map<Long, Long> selectedOptionByQuestion = loadSelectedOptionByQuestion(savedAnswers);
-        validateAllRequiredAnsweredOnPath(
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(draft.getForm().getId(), selectedOptionByQuestion);
+        validateAllRequiredAnsweredWithVisited(
             draft.getForm().getId(),
             answeredQuestionIds,
-            selectedOptionByQuestion,
+            visitedSectionIds,
             command.requiredQuestionIds()
         );
 
-        saveEmptyAnswersForUnanswered(draft, command.allowedQuestionIds(), answeredQuestionIds);
+        // : 방문 경로 밖 섹션에 draft 로 저장된 답변은 SUBMITTED 결과에 포함하지 않도록 조용히 폐기한다.
+        discardOrphanAnswersOnSubmit(draft.getId(), draft.getForm().getId(), visitedSectionIds);
+        Set<Long> answeredQuestionIdsOnPath = filterOnVisitedPath(
+            draft.getForm().getId(),
+            answeredQuestionIds,
+            visitedSectionIds
+        );
+
+        saveEmptyAnswersForUnanswered(
+            draft,
+            filterOnVisitedPath(draft.getForm().getId(), command.allowedQuestionIds(), visitedSectionIds),
+            answeredQuestionIdsOnPath
+        );
 
         draft.submit(Instant.now(), command.submittedIp());
         saveFormResponsePort.save(draft);
@@ -523,7 +575,8 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         Set<Long> answeredQuestionIds,
         Map<Long, Long> selectedOptionByQuestion
     ) {
-        validateAllRequiredAnsweredOnPath(formId, answeredQuestionIds, selectedOptionByQuestion, null);
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(formId, selectedOptionByQuestion);
+        validateAllRequiredAnsweredWithVisited(formId, answeredQuestionIds, visitedSectionIds, null);
     }
 
     /**
@@ -532,13 +585,12 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
      * {@code callerRequiredQuestionIds} 가 {@code null} 이면 폼 질문의 {@code isRequired} 를 사용하고,
      * 제공되면 방문 경로 질문과의 교집합만 필수로 취급한다. 조건부 섹션 이동으로 건너뛴 질문은 caller 가 required 로 전달했더라도 검증에서 제외된다.
      */
-    private void validateAllRequiredAnsweredOnPath(
+    private void validateAllRequiredAnsweredWithVisited(
         Long formId,
         Set<Long> answeredQuestionIds,
-        Map<Long, Long> selectedOptionByQuestion,
+        Set<Long> visitedSectionIds,
         Set<Long> callerRequiredQuestionIds
     ) {
-        Set<Long> visitedSectionIds = resolveVisitedSectionIds(formId, selectedOptionByQuestion);
         List<Question> formQuestions = loadQuestionPort.listByFormId(formId);
         for (Question q : formQuestions) {
             if (!visitedSectionIds.contains(q.getFormSection().getId())) {
@@ -574,6 +626,84 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
                 c -> c.getQuestionOption().getId(),
                 (a, b) -> a
             ));
+    }
+
+    /**
+     * 폼 질문 중 방문 경로 밖 섹션에 속한 질문 ID 집합을 반환한다 ( orphan 정리 용).
+     */
+    private Set<Long> resolveOrphanQuestionIds(Long formId, Set<Long> visitedSectionIds) {
+        return loadQuestionPort.listByFormId(formId).stream()
+            .filter(q -> !visitedSectionIds.contains(q.getFormSection().getId()))
+            .map(Question::getId)
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * 요청 payload 의 answer 목록에서 방문 경로 밖 섹션의 답변을 제거한다 ( 즉시 제출 경로 용).
+     * <p>
+     * 폐기 건이 있으면 관측용 INFO 로그를 남긴다. (form_response 는 아직 미저장 단계라 formResponseId 는 로그에서 생략.)
+     */
+    private List<AnswerCommand> filterAnswersOnVisitedPath(
+        Long formId,
+        List<AnswerCommand> answers,
+        Set<Long> visitedSectionIds
+    ) {
+        Set<Long> orphanQuestionIds = resolveOrphanQuestionIds(formId, visitedSectionIds);
+        if (orphanQuestionIds.isEmpty()) {
+            return answers;
+        }
+        List<AnswerCommand> onPath = answers.stream()
+            .filter(a -> !orphanQuestionIds.contains(a.questionId()))
+            .toList();
+        int discarded = answers.size() - onPath.size();
+        if (discarded > 0) {
+            log.info(
+                "Discarded {} orphan answers on submit for form_id={} (pre-persist immediate submit)",
+                discarded,
+                formId
+            );
+        }
+        return onPath;
+    }
+
+    /**
+     * 방문 경로 밖 섹션에 속한 question ID 를 제거한 집합을 반환한다.
+     * <p>
+     * questionIds 가 null 이면 그대로 반환 (allowedQuestionIds 비프로젝트 경로 대응).
+     */
+    private Set<Long> filterOnVisitedPath(Long formId, Set<Long> questionIds, Set<Long> visitedSectionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return questionIds;
+        }
+        Set<Long> orphanQuestionIds = resolveOrphanQuestionIds(formId, visitedSectionIds);
+        if (orphanQuestionIds.isEmpty()) {
+            return questionIds;
+        }
+        return questionIds.stream()
+            .filter(id -> !orphanQuestionIds.contains(id))
+            .collect(Collectors.toSet());
+    }
+
+    /**
+     * 제출 시점에 방문 경로 밖 섹션의 answer 를 조용히 삭제한다 (정책: silent auto-clean).
+     * <p>
+     * 조건부 섹션 이동으로 건너뛴 섹션에 draft 로 저장돼 있던 답변이 SUBMITTED 결과에 포함되지 않도록 정리한다.
+     * SUBMITTED 상태 전이와 동일 트랜잭션에서 수행돼야 하므로 {@code @Transactional} 서비스 메서드 내부에서만 호출한다.
+     * 사용자에게 별도 에러를 반환하지 않으며, 관측용으로 INFO 로그만 남긴다.
+     */
+    private void discardOrphanAnswersOnSubmit(Long formResponseId, Long formId, Set<Long> visitedSectionIds) {
+        Set<Long> orphanQuestionIds = resolveOrphanQuestionIds(formId, visitedSectionIds);
+        if (orphanQuestionIds.isEmpty()) {
+            return;
+        }
+        int discarded = saveAnswerPort.deleteByFormResponseIdAndQuestionIdIn(formResponseId, orphanQuestionIds);
+        if (discarded > 0) {
+            log.info(
+                "Discarded {} orphan answers on submit for form_response={}",
+                discarded,
+                formResponseId
+            );
+        }
     }
 
     /**
