@@ -55,12 +55,12 @@ public class RecruitingApplicationFormCommandService implements
     public void publish(PublishRecruitingApplicationFormCommand command) {
         RecruitingApplicationForm applicationForm = loadApplicationFormPort.getByIdForUpdate(command.applicationFormId());
         validateApplicationFormInSeason(applicationForm, command.seasonId());
-        validateApplicationFormUseCase.validateForPublish(applicationForm.getId());
+        var trackSections = validateApplicationFormUseCase.validateForPublish(applicationForm.getId());
+        applicationForm.publish(trackSections);
         manageFormUseCase.publishForm(PublishFormCommand.builder()
             .formId(applicationForm.getFormId())
             .requesterMemberId(command.requesterMemberId())
             .build());
-        applicationForm.publish();
         saveApplicationFormPort.save(applicationForm);
     }
 

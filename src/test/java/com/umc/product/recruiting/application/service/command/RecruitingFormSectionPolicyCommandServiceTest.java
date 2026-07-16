@@ -108,7 +108,7 @@ class RecruitingFormSectionPolicyCommandServiceTest {
     @DisplayName("게시된 Form에는 section policy를 추가할 수 없다")
     void rejectPolicyForPublishedForm() {
         RecruitingApplicationForm form = applicationForm();
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 
         assertThatThrownBy(() -> sut.addPolicy(policyCommand()))
@@ -123,7 +123,7 @@ class RecruitingFormSectionPolicyCommandServiceTest {
     @DisplayName("마감된 Form에는 section policy를 추가할 수 없다")
     void rejectPolicyForClosedForm() {
         RecruitingApplicationForm form = applicationForm();
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         form.close();
         given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
 

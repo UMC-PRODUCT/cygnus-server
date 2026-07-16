@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -105,6 +106,7 @@ class RecruitingApplicationFormCommandServiceTest {
         RecruitingApplicationForm form = spy(RecruitingApplicationForm.create(round(10L), 500L));
         ReflectionTestUtils.setField(form, "id", 100L);
         given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
+        given(validateApplicationFormUseCase.validateForPublish(100L)).willReturn(Set.of());
 
         sut.publish(PublishRecruitingApplicationFormCommand.builder()
             .seasonId(1L)
@@ -113,10 +115,10 @@ class RecruitingApplicationFormCommandServiceTest {
             .build());
 
         then(validateApplicationFormUseCase).should().validateForPublish(100L);
-        then(manageFormUseCase).should().publishForm(any());
-        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form);
+        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form, manageFormUseCase);
         then(loadApplicationFormPort).should(lockBeforeStateCheck).getByIdForUpdate(100L);
-        then(form).should(lockBeforeStateCheck).publish();
+        then(form).should(lockBeforeStateCheck).publish(Set.of());
+        then(manageFormUseCase).should(lockBeforeStateCheck).publishForm(any());
         assertThat(form.getStatus().name()).isEqualTo("PUBLISHED");
     }
 
@@ -124,7 +126,7 @@ class RecruitingApplicationFormCommandServiceTest {
     @DisplayName("지원 Form root lock을 획득한 뒤 마감 상태를 검사한다")
     void lockFormBeforeCloseStateCheck() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L), 500L);
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         form = spy(form);
         ReflectionTestUtils.setField(form, "id", 100L);
         given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);

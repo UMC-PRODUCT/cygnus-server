@@ -200,7 +200,7 @@ class RecruitingDecisionCommandServiceTest {
         ReflectionTestUtils.setField(round, "id", 10L);
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 500L);
         ReflectionTestUtils.setField(form, "id", 100L);
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         return form;
     }
 }

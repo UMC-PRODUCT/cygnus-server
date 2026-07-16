@@ -231,7 +231,7 @@ class RecruitingApplicantConcurrencyTest {
         round.open();
         roundAdapter.save(round);
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 10_000L + schoolId);
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         return formAdapter.save(form);
     }
 

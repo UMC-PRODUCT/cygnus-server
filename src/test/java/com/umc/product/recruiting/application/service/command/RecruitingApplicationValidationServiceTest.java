@@ -165,7 +165,7 @@ class RecruitingApplicationValidationServiceTest {
         ));
         round.open();
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 500L);
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         return form;
     }
 

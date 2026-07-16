@@ -1,13 +1,11 @@
 package com.umc.product.recruiting.domain;
 
-import java.util.List;
+import java.util.Collection;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
-import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -72,24 +70,13 @@ public class RecruitingApplicationForm extends BaseEntity {
             .build();
     }
 
-    public void validatePoliciesForPublish(List<RecruitingFormSectionPolicy> policies) {
-        Set<ChallengerTrack> sectionTracks = policies.stream()
-            .filter(policy -> policy.getType() == RecruitingFormSectionType.TRACK)
-            .map(RecruitingFormSectionPolicy::getTrack)
-            .collect(Collectors.toSet());
-        if (!sectionTracks.containsAll(round.getRecruitableTracks())) {
-            throw new RecruitingDomainException(
-                RecruitingErrorCode.RECRUITING_APPLICATION_FORM_TRACK_SECTION_REQUIRED
-            );
-        }
-    }
-
     public void validateStructureMutable() {
         validateStatus(RecruitingApplicationFormStatus.DRAFT);
     }
 
-    public void publish() {
+    public void publish(Collection<ChallengerTrack> trackSections) {
         validateStatus(RecruitingApplicationFormStatus.DRAFT);
+        validateTrackSectionsForPublish(trackSections);
         this.status = RecruitingApplicationFormStatus.PUBLISHED;
     }
 
@@ -101,6 +88,14 @@ public class RecruitingApplicationForm extends BaseEntity {
     private void validateStatus(RecruitingApplicationFormStatus expectedStatus) {
         if (status != expectedStatus) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_INVALID_TRANSITION);
+        }
+    }
+
+    private void validateTrackSectionsForPublish(Collection<ChallengerTrack> trackSections) {
+        if (trackSections == null || !Set.copyOf(trackSections).containsAll(round.getRecruitableTracks())) {
+            throw new RecruitingDomainException(
+                RecruitingErrorCode.RECRUITING_APPLICATION_FORM_TRACK_SECTION_REQUIRED
+            );
         }
     }
 }

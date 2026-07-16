@@ -431,7 +431,7 @@ class RecruitingApplicationCommandServiceTest {
     private RecruitingApplicationForm publishedForm() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(configuredRound(), 500L);
         ReflectionTestUtils.setField(form, "id", 100L);
-        form.publish();
+        form.publish(form.getRound().getRecruitableTracks());
         return form;
     }
 

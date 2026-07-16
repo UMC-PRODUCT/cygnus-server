@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -68,20 +69,14 @@ class RecruitingFormApplicationV2DomainTest {
     @DisplayName("지원 폼 게시 검증은 모집 차수의 모든 트랙 섹션을 요구한다")
     void requireEveryRecruitableTrackSectionBeforePublish() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(configuredRound(true), 100L);
-        List<RecruitingFormSectionPolicy> incompletePolicies = List.of(
-            RecruitingFormSectionPolicy.createCommon(form, 10L),
-            RecruitingFormSectionPolicy.createTrack(form, 11L, ChallengerTrack.PLAN)
-        );
-
-        assertThatThrownBy(() -> form.validatePoliciesForPublish(incompletePolicies))
+        assertThatThrownBy(() -> form.publish(List.of(ChallengerTrack.PLAN)))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_TRACK_SECTION_REQUIRED);
 
-        form.validatePoliciesForPublish(List.of(
-            RecruitingFormSectionPolicy.createTrack(form, 11L, ChallengerTrack.PLAN),
-            RecruitingFormSectionPolicy.createTrack(form, 12L, ChallengerTrack.DESIGN)
-        ));
+        form.publish(List.of(ChallengerTrack.PLAN, ChallengerTrack.DESIGN));
+
+        assertThat(form.getStatus()).isEqualTo(RecruitingApplicationFormStatus.PUBLISHED);
     }
 
     @Test

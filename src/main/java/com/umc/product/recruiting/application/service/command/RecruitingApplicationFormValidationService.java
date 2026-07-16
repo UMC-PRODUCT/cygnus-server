@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.recruiting.application.port.in.command.ValidateRecruitingApplicationFormUseCase;
@@ -32,7 +33,7 @@ public class RecruitingApplicationFormValidationService implements ValidateRecru
     private final GetFormUseCase getFormUseCase;
 
     @Override
-    public void validateForPublish(Long applicationFormId) {
+    public Set<ChallengerTrack> validateForPublish(Long applicationFormId) {
         RecruitingApplicationForm applicationForm = loadApplicationFormPort.getById(applicationFormId);
         List<RecruitingFormSectionPolicy> policies = loadPolicyPort.listByApplicationFormId(applicationFormId);
         FormWithStructureInfo structure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
@@ -45,7 +46,10 @@ public class RecruitingApplicationFormValidationService implements ValidateRecru
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);
         }
         validateConditionalTransitions(structure, policyBySectionId);
-        applicationForm.validatePoliciesForPublish(policies);
+        return policies.stream()
+            .filter(policy -> policy.getType() == RecruitingFormSectionType.TRACK)
+            .map(RecruitingFormSectionPolicy::getTrack)
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private static void validateConditionalTransitions(

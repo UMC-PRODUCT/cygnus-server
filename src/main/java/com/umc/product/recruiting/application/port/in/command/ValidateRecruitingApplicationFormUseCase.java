@@ -1,6 +1,10 @@
 package com.umc.product.recruiting.application.port.in.command;
 
+import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerTrack;
+
 public interface ValidateRecruitingApplicationFormUseCase {
 
-    void validateForPublish(Long applicationFormId);
+    Set<ChallengerTrack> validateForPublish(Long applicationFormId);
 }

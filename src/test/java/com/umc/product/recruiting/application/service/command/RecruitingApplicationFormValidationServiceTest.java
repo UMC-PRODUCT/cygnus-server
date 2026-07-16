@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.service.command;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
@@ -83,6 +84,27 @@ class RecruitingApplicationFormValidationServiceTest {
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);
+    }
+
+    @Test
+    @DisplayName("게시 검증이 완료되면 Form의 TRACK section 집합을 반환한다")
+    void returnValidatedTrackSections() {
+        RecruitingApplicationForm form = applicationForm();
+        List<RecruitingFormSectionPolicy> policies = List.of(
+            RecruitingFormSectionPolicy.createCommon(form, 1L),
+            RecruitingFormSectionPolicy.createTrack(form, 2L, ChallengerTrack.PLAN),
+            RecruitingFormSectionPolicy.createTrack(form, 3L, ChallengerTrack.DESIGN)
+        );
+        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(policies);
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(
+            section(1L, null),
+            section(2L, null),
+            section(3L, null)
+        ));
+
+        assertThat(sut.validateForPublish(100L))
+            .containsExactlyInAnyOrder(ChallengerTrack.PLAN, ChallengerTrack.DESIGN);
     }
 
     private RecruitingApplicationForm applicationForm() {
