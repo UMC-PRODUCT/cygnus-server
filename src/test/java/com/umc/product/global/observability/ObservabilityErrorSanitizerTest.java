@@ -12,6 +12,7 @@ class ObservabilityErrorSanitizerTest {
     void 민감_메시지_redaction() {
         String raw = """
             value='secret', quoted="private", email=person@example.invalid, application_key=A1B2C3
+            responseAccessKey=raw-form-secret, formResponseAccessKey=other-raw-secret
             binding parameter [2] as [VARCHAR] - [bound-secret]
             Authorization: Bearer opaque.secret-token
             """;
@@ -20,7 +21,16 @@ class ObservabilityErrorSanitizerTest {
 
         assertThat(sanitized)
             .contains("'[REDACTED]'", "\"[REDACTED]\"", "application_key=[REDACTED]", "Bearer [REDACTED]")
-            .doesNotContain("secret", "private", "person@example.invalid", "A1B2C3", "bound-secret");
+            .contains("responseAccessKey=[REDACTED]", "formResponseAccessKey=[REDACTED]")
+            .doesNotContain(
+                "secret",
+                "private",
+                "person@example.invalid",
+                "A1B2C3",
+                "bound-secret",
+                "raw-form-secret",
+                "other-raw-secret"
+            );
     }
 
     @Test

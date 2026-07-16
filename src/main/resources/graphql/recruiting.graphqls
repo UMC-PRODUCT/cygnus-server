@@ -2,6 +2,13 @@ scalar Instant
 
 extend type Query {
   recruitingApplicationForms(input: RecruitingApplicationFormSearchInput!): [RecruitingApplicationForm!]!
+  recruitingApplicationFormStructure(
+    applicationFormId: ID!
+    input: RecruitingApplicationFormStructureInput!
+  ): RecruitingApplicationFormStructure!
+  recruitingApplicationByCredential(
+    input: RecruitingApplicationCredentialInput!
+  ): RecruitingPublicApplication!
   recruitingApplication(applicationId: ID!): RecruitingApplication!
   recruitingSeasonConfiguration(seasonId: ID!): RecruitingSeasonConfiguration!
   recruitingRoundEvaluators(
@@ -71,11 +78,20 @@ type Mutation {
   ): Boolean!
   deactivateRecruitingApplicationInterviewQuestion(applicationId: ID!, questionId: ID!): Boolean!
   createRecruitingApplicationDraft(input: CreateRecruitingApplicationDraftInput!): RecruitingApplicationCreated!
+  createAnonymousRecruitingApplicationDraft(
+    input: CreateAnonymousRecruitingApplicationDraftInput!
+  ): RecruitingApplicationCreated!
   updateRecruitingApplicationDraft(
     applicationId: ID!
     input: UpdateRecruitingApplicationDraftInput!
   ): RecruitingApplication!
+  updateAnonymousRecruitingApplication(
+    input: UpdateAnonymousRecruitingApplicationInput!
+  ): RecruitingApplication!
   submitRecruitingApplication(applicationId: ID!, input: SubmitRecruitingApplicationInput): RecruitingApplication!
+  submitAnonymousRecruitingApplication(
+    input: SubmitAnonymousRecruitingApplicationInput!
+  ): RecruitingApplication!
   cancelRecruitingApplication(applicationId: ID!, input: CancelRecruitingApplicationInput): RecruitingApplication!
   decideRecruitingDocument(
     seasonId: ID!
@@ -116,6 +132,16 @@ type Mutation {
 input RecruitingApplicationFormSearchInput {
   gisuId: ID!
   schoolId: ID!
+}
+
+input RecruitingApplicationFormStructureInput {
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+}
+
+input RecruitingApplicationCredentialInput {
+  email: String!
+  applicationKey: String!
 }
 
 input RecruitingStatusSummaryInput {
@@ -205,12 +231,37 @@ input CreateRecruitingApplicationDraftInput {
   secondChoice: ChallengerTrack
 }
 
+input CreateAnonymousRecruitingApplicationDraftInput {
+  applicationFormId: ID!
+  applicantName: String!
+  applicantEmail: String!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  privacyTermId: ID!
+  privacyAgreed: Boolean!
+}
+
 input UpdateRecruitingApplicationDraftInput {
   applicantName: String!
   applicantEmail: String!
   firstChoice: ChallengerTrack!
   secondChoice: ChallengerTrack
   answers: [RecruitingAnswerInput!]!
+}
+
+input UpdateAnonymousRecruitingApplicationInput {
+  credentialEmail: String!
+  applicationKey: String!
+  applicantName: String!
+  applicantEmail: String!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  answers: [RecruitingAnswerInput!]!
+}
+
+input SubmitAnonymousRecruitingApplicationInput {
+  email: String!
+  applicationKey: String!
 }
 
 input RecruitingAnswerInput {
@@ -273,6 +324,45 @@ type RecruitingApplicationForm {
   status: RecruitingApplicationFormStatus!
 }
 
+type RecruitingApplicationFormStructure {
+  formId: ID!
+  createdMemberId: ID!
+  title: String!
+  description: String
+  status: FormStatus!
+  anonymous: Boolean!
+  allowDuplicateResponses: Boolean!
+  createdAt: Instant!
+  updatedAt: Instant!
+  sections: [RecruitingFormSection!]!
+}
+
+type RecruitingFormSection {
+  sectionId: ID!
+  title: String!
+  description: String
+  orderNo: Long!
+  questions: [RecruitingFormQuestion!]!
+}
+
+type RecruitingFormQuestion {
+  questionId: ID!
+  title: String!
+  description: String
+  type: QuestionType!
+  required: Boolean!
+  orderNo: Long!
+  options: [RecruitingFormQuestionOption!]!
+}
+
+type RecruitingFormQuestionOption {
+  optionId: ID!
+  content: String!
+  orderNo: Long!
+  other: Boolean!
+  nextSectionId: ID
+}
+
 type RecruitingApplicationCreated {
   applicationId: ID!
   applicationKey: String!
@@ -286,6 +376,29 @@ type RecruitingApplication {
   firstChoice: ChallengerTrack!
   secondChoice: ChallengerTrack
   acceptedTrack: ChallengerTrack
+}
+
+type RecruitingPublicApplication {
+  applicationId: ID!
+  applicantName: String!
+  applicantEmail: String!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  submitted: Boolean!
+  cancelled: Boolean!
+  editable: Boolean!
+  documentResult: RecruitingPublicResultStatus!
+  finalResult: RecruitingPublicResultStatus!
+  acceptedTrack: ChallengerTrack
+  answers: [RecruitingPublicAnswer!]!
+}
+
+type RecruitingPublicAnswer {
+  questionId: ID!
+  textValue: String
+  selectedOptionIds: [ID!]!
+  fileIds: [String!]!
+  times: [Instant!]!
 }
 
 type RecruitingSeasonConfiguration {
@@ -457,4 +570,15 @@ enum RecruitingInterviewScheduleStatus {
   AVAILABILITY_REQUESTED
   AVAILABILITY_SUBMITTED
   CONFIRMED
+}
+
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum RecruitingPublicResultStatus {
+  PENDING
+  APPROVED
+  REJECTED
 }

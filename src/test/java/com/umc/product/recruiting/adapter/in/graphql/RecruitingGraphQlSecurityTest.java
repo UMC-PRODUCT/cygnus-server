@@ -25,14 +25,21 @@ import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
+import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.command.SubmitAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 @GraphQlTest(RecruitingGraphQlController.class)
 @Import({
@@ -65,6 +72,18 @@ class RecruitingGraphQlSecurityTest {
 
     @MockitoBean
     CancelRecruitingApplicationUseCase cancelApplicationUseCase;
+
+    @MockitoBean
+    GetAnonymousRecruitingApplicationUseCase getAnonymousApplicationUseCase;
+
+    @MockitoBean
+    CreateAnonymousRecruitingApplicationDraftUseCase createAnonymousDraftUseCase;
+
+    @MockitoBean
+    UpdateAnonymousRecruitingApplicationUseCase updateAnonymousApplicationUseCase;
+
+    @MockitoBean
+    SubmitAnonymousRecruitingApplicationUseCase submitAnonymousApplicationUseCase;
 
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
@@ -133,6 +152,80 @@ class RecruitingGraphQlSecurityTest {
                 """);
 
         then(getApplicationQueryUseCase).should().getById(20L, REQUESTER_ID);
+    }
+
+    @Test
+    @DisplayName("익명 지원서 초안 생성 Mutation은 로그인 없이 실행된다")
+    void 익명_지원서_초안_생성_Mutation은_로그인_없이_실행된다() {
+        given(createAnonymousDraftUseCase.createAnonymousDraft(org.mockito.ArgumentMatchers.any()))
+            .willReturn(RecruitingApplicationCreatedInfo.of(30L, "A1B2C3", RecruitingApplicationStatus.DRAFT));
+
+        graphQlTester.document("""
+                mutation {
+                  createAnonymousRecruitingApplicationDraft(input: {
+                    applicationFormId: 100,
+                    applicantName: "지원자",
+                    applicantEmail: "applicant@example.invalid",
+                    firstChoice: PLAN,
+                    privacyTermId: 3,
+                    privacyAgreed: true
+                  }) {
+                    applicationId
+                    applicationKey
+                    status
+                  }
+                }
+                """)
+            .execute()
+            .path("createAnonymousRecruitingApplicationDraft")
+            .matchesJson("""
+                {
+                  "applicationId": "30",
+                  "applicationKey": "A1B2C3",
+                  "status": "DRAFT"
+                }
+                """);
+    }
+
+    @Test
+    @DisplayName("credential Query는 공개 결과만 반환하고 application key를 응답 계약에 두지 않는다")
+    void credential_Query는_공개_결과만_반환한다() {
+        given(getAnonymousApplicationUseCase.getByCredential("applicant@example.invalid", "A1B2C3"))
+            .willReturn(RecruitingPublicApplicationInfo.builder()
+                .applicationId(30L)
+                .applicantName("지원자")
+                .applicantEmail("applicant@example.invalid")
+                .firstChoice(ChallengerTrack.PLAN)
+                .submitted(true)
+                .editable(true)
+                .documentResult(RecruitingPublicResultStatus.PENDING)
+                .finalResult(RecruitingPublicResultStatus.PENDING)
+                .answers(List.of())
+                .build());
+
+        graphQlTester.document("""
+                query {
+                  recruitingApplicationByCredential(input: {
+                    email: "applicant@example.invalid",
+                    applicationKey: "A1B2C3"
+                  }) {
+                    applicationId
+                    applicantEmail
+                    documentResult
+                    finalResult
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingApplicationByCredential")
+            .matchesJson("""
+                {
+                  "applicationId": "30",
+                  "applicantEmail": "applicant@example.invalid",
+                  "documentResult": "PENDING",
+                  "finalResult": "PENDING"
+                }
+                """);
     }
 
     private static void authenticate() {

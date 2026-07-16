@@ -1,11 +1,13 @@
 package com.umc.product.recruiting.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
@@ -40,12 +42,16 @@ import com.p6spy.engine.spy.P6ModuleManager;
 import com.p6spy.engine.spy.P6SpyFactory;
 import com.p6spy.engine.spy.appender.Slf4JLogger;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationCommandService;
+import com.umc.product.recruiting.application.service.query.RecruitingPublicApplicationQueryService;
 import com.umc.product.recruiting.application.service.query.RecruitingQueryService;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 import com.umc.product.storage.application.port.out.StoragePort;
 import com.umc.product.support.TestContainersConfig;
 
@@ -97,6 +103,9 @@ class RecruitingApplicationRandomPortIntegrationTest {
 
     @MockitoBean
     RecruitingQueryService recruitingQueryService;
+
+    @MockitoBean
+    RecruitingPublicApplicationQueryService recruitingPublicApplicationQueryService;
 
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
@@ -217,6 +226,81 @@ class RecruitingApplicationRandomPortIntegrationTest {
         );
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+    }
+
+    @Test
+    @DisplayName("실제 REST socket에서 익명 지원서를 생성하고 credential로 조회한다")
+    void 실제_REST_socket_익명_지원서_생성_조회() throws JsonProcessingException {
+        given(applicationCommandService.createAnonymousDraft(any()))
+            .willReturn(createdInfo());
+        given(recruitingPublicApplicationQueryService.getByCredential(PROBE_EMAIL, APPLICATION_KEY))
+            .willReturn(publicApplicationInfo());
+
+        ResponseEntity<String> created = post(
+            "/api/v1/recruiting/public/applications",
+            """
+                {
+                  "applicationFormId": 100,
+                  "applicantName": "지원자",
+                  "applicantEmail": "%s",
+                  "firstChoice": "PLAN",
+                  "privacyTermId": 3,
+                  "privacyAgreed": true
+                }
+                """.formatted(PROBE_EMAIL),
+            jsonHeaders()
+        );
+        ResponseEntity<String> found = post(
+            "/api/v1/recruiting/public/applications/lookup",
+            """
+                {
+                  "email": "%s",
+                  "applicationKey": "%s"
+                }
+                """.formatted(PROBE_EMAIL, APPLICATION_KEY),
+            jsonHeaders()
+        );
+
+        assertThat(created.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(objectMapper.readTree(created.getBody()).path("result").path("applicationKey").asText())
+            .isEqualTo(APPLICATION_KEY);
+        assertThat(found.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode foundResult = objectMapper.readTree(found.getBody()).path("result");
+        assertThat(foundResult.path("applicationId").asLong()).isEqualTo(900L);
+        assertThat(foundResult.has("applicationKey")).isFalse();
+        assertThat(foundResult.has("formResponseAccessKey")).isFalse();
+        recordTranscript("rest-anonymous-created", created);
+        recordTranscript("rest-anonymous-lookup", found);
+    }
+
+    @Test
+    @DisplayName("실제 GraphQL HTTP에서 anonymous credential Query를 실행한다")
+    void 실제_GraphQL_HTTP_anonymous_credential_Query() throws JsonProcessingException {
+        given(recruitingPublicApplicationQueryService.getByCredential(PROBE_EMAIL, APPLICATION_KEY))
+            .willReturn(publicApplicationInfo());
+        String graphQlBody = objectMapper.writeValueAsString(Map.of("query", """
+            query {
+              recruitingApplicationByCredential(input: {
+                email: "%s",
+                applicationKey: "%s"
+              }) {
+                applicationId
+                documentResult
+                finalResult
+              }
+            }
+            """.formatted(PROBE_EMAIL, APPLICATION_KEY)));
+
+        ResponseEntity<String> response = post("/graphql", graphQlBody, jsonHeaders());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        JsonNode result = objectMapper.readTree(response.getBody())
+            .path("data")
+            .path("recruitingApplicationByCredential");
+        assertThat(result.path("applicationId").asText()).isEqualTo("900");
+        assertThat(result.path("documentResult").asText()).isEqualTo("PENDING");
+        assertThat(result.path("finalResult").asText()).isEqualTo("PENDING");
+        recordTranscript("graphql-anonymous-credential", response);
     }
 
     @Test
@@ -342,6 +426,20 @@ class RecruitingApplicationRandomPortIntegrationTest {
 
     private static RecruitingApplicationCreatedInfo createdInfo() {
         return RecruitingApplicationCreatedInfo.of(900L, APPLICATION_KEY, RecruitingApplicationStatus.DRAFT);
+    }
+
+    private static RecruitingPublicApplicationInfo publicApplicationInfo() {
+        return RecruitingPublicApplicationInfo.builder()
+            .applicationId(900L)
+            .applicantName("지원자")
+            .applicantEmail(PROBE_EMAIL)
+            .firstChoice(ChallengerTrack.PLAN)
+            .submitted(true)
+            .editable(true)
+            .documentResult(RecruitingPublicResultStatus.PENDING)
+            .finalResult(RecruitingPublicResultStatus.PENDING)
+            .answers(List.of())
+            .build();
     }
 
 }

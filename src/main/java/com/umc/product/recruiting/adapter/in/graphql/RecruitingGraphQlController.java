@@ -11,17 +11,28 @@ import org.springframework.stereotype.Controller;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CancelRecruitingApplicationGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.CreateAnonymousRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationCreatedGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationCredentialGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormSearchGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormStructureGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormStructureGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingPublicApplicationGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.SubmitAnonymousRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.SubmitRecruitingApplicationGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateAnonymousRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
+import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.command.SubmitAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 
@@ -37,6 +48,10 @@ public class RecruitingGraphQlController {
     private final UpdateRecruitingApplicationDraftUseCase updateDraftUseCase;
     private final SubmitRecruitingApplicationUseCase submitApplicationUseCase;
     private final CancelRecruitingApplicationUseCase cancelApplicationUseCase;
+    private final GetAnonymousRecruitingApplicationUseCase getAnonymousApplicationUseCase;
+    private final CreateAnonymousRecruitingApplicationDraftUseCase createAnonymousDraftUseCase;
+    private final UpdateAnonymousRecruitingApplicationUseCase updateAnonymousApplicationUseCase;
+    private final SubmitAnonymousRecruitingApplicationUseCase submitAnonymousApplicationUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
     @QueryMapping
@@ -46,6 +61,29 @@ public class RecruitingGraphQlController {
         return getFormQueryUseCase.listPublicForms(input.gisuId(), input.schoolId()).stream()
             .map(RecruitingApplicationFormGraphQlResponse::from)
             .toList();
+    }
+
+    @QueryMapping
+    public RecruitingApplicationFormStructureGraphQlResponse recruitingApplicationFormStructure(
+        @Argument Long applicationFormId,
+        @Argument RecruitingApplicationFormStructureGraphQlRequest input
+    ) {
+        return RecruitingApplicationFormStructureGraphQlResponse.from(
+            getFormQueryUseCase.getPublicFormStructure(
+                applicationFormId,
+                input.firstChoice(),
+                input.secondChoice()
+            )
+        );
+    }
+
+    @QueryMapping
+    public RecruitingPublicApplicationGraphQlResponse recruitingApplicationByCredential(
+        @Argument RecruitingApplicationCredentialGraphQlRequest input
+    ) {
+        return RecruitingPublicApplicationGraphQlResponse.from(
+            getAnonymousApplicationUseCase.getByCredential(input.email(), input.applicationKey())
+        );
     }
 
     @QueryMapping
@@ -71,6 +109,15 @@ public class RecruitingGraphQlController {
     }
 
     @MutationMapping
+    public RecruitingApplicationCreatedGraphQlResponse createAnonymousRecruitingApplicationDraft(
+        @Argument CreateAnonymousRecruitingApplicationDraftGraphQlRequest input
+    ) {
+        return RecruitingApplicationCreatedGraphQlResponse.from(
+            createAnonymousDraftUseCase.createAnonymousDraft(input.toCommand())
+        );
+    }
+
+    @MutationMapping
     public RecruitingApplicationGraphQlResponse updateRecruitingApplicationDraft(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long applicationId,
@@ -79,6 +126,15 @@ public class RecruitingGraphQlController {
         Long resolvedMemberId = permissionSupport.currentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(
             updateDraftUseCase.updateDraft(input.toCommand(applicationId, resolvedMemberId))
+        );
+    }
+
+    @MutationMapping
+    public RecruitingApplicationGraphQlResponse updateAnonymousRecruitingApplication(
+        @Argument UpdateAnonymousRecruitingApplicationGraphQlRequest input
+    ) {
+        return RecruitingApplicationGraphQlResponse.from(
+            updateAnonymousApplicationUseCase.updateAnonymous(input.toCommand())
         );
     }
 
@@ -94,6 +150,15 @@ public class RecruitingGraphQlController {
         Long resolvedMemberId = permissionSupport.currentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(
             submitApplicationUseCase.submit(actualInput.toCommand(applicationId, resolvedMemberId))
+        );
+    }
+
+    @MutationMapping
+    public RecruitingApplicationGraphQlResponse submitAnonymousRecruitingApplication(
+        @Argument SubmitAnonymousRecruitingApplicationGraphQlRequest input
+    ) {
+        return RecruitingApplicationGraphQlResponse.from(
+            submitAnonymousApplicationUseCase.submitAnonymous(input.toCommand())
         );
     }
 
