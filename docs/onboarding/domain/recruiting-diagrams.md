@@ -66,9 +66,10 @@ erDiagram
         bigint recruiting_round_id FK
         bigint recruiting_application_form_id FK
         bigint form_response_id "Form ID"
-        bigint applicant_member_id "Member ID"
+        bigint applicant_member_id "nullable Member ID"
         bigint privacy_term_id "Term ID"
         string application_key
+        string form_response_access_key "nullable internal credential"
         enum first_choice
         enum second_choice
         enum accepted_track
@@ -140,7 +141,7 @@ flowchart LR
     Season -.->|"gisuId, schoolId"| Organization
     Round -.->|"availabilityFormId"| Form
     AppForm -.->|"formId, formSectionId"| Form
-    Application -.->|"formResponseId"| Form
+    Application -.->|"formResponseId, anonymous raw access key"| Form
     Schedule -.->|"availabilityFormResponseId"| Form
     Application -.->|"applicantMemberId"| Member
     EvaluatorRefs -.->|"memberId, evaluatorMemberId"| Member
@@ -166,7 +167,7 @@ flowchart TD
     TrackCheck -->|"아니오"| Denied
     TrackCheck -->|"예"| Link["Round에 Form 하나 연결"]
     Link --> Policy["FormSection을 COMMON 또는 TRACK으로 분류"]
-    Policy --> PublishCheck{"모든 모집 Track section 존재<br/>section이 실제 Form 소속"}
+    Policy --> PublishCheck{"모든 Form section에 정책 존재<br/>모든 모집 Track section 존재<br/>조건부 이동이 선택 scope 내부인가"}
     PublishCheck -->|"아니오"| Denied
     PublishCheck -->|"예"| PublishForm["Form domain publish"]
     PublishForm --> PublishRecruiting["RecruitingApplicationForm PUBLISHED"]
@@ -224,6 +225,41 @@ sequenceDiagram
 ```
 
 지원자가 응답해야 하는 범위는 `COMMON` section과 선택한 1·2지망의 `TRACK` section이다. 이 section들에 포함된 모든 문항은 `allowedQuestionIds`, 그중 Form에서 필수로 지정한 문항만 `requiredQuestionIds`가 된다.
+
+## 익명 지원서 작성 흐름
+
+```mermaid
+sequenceDiagram
+    actor Applicant as 비로그인 지원자
+    participant API as REST / GraphQL Adapter
+    participant Service as RecruitingApplicationCommandService
+    participant Form as Form public UseCase
+    participant DB as Recruiting Port / DB
+
+    Applicant->>API: 이름·email·지망·개인정보 동의로 초안 생성
+    API->>Service: createAnonymousDraft
+    Service->>Service: 활성 PRIVACY 약관·접수 기간·중복 지원 검증
+    Service->>Form: 익명 FormResponse DRAFT 생성
+    Form-->>Service: formResponseId + raw responseAccessKey
+    Service->>DB: raw Form key를 내부 필드에 저장
+    Service-->>Applicant: applicationId + 6자리 applicationKey 최초 1회 반환
+
+    Applicant->>API: email + applicationKey로 조회·수정·제출
+    API->>Service: credential command/query
+    Service->>DB: 정규화 email + applicationKey로 익명 지원서 조회
+    Service->>Form: 내부 raw key로 FormResponse 소유권·연결 검증
+    alt DRAFT 수정
+        Service->>Form: 익명 draft 답변 전체 교체
+    else SUBMITTED 수정
+        Service->>Form: allowed/required scope로 제출 완료 답변 교체
+    else 제출
+        Service->>Form: 조건부 방문 경로와 required scope 검증 후 제출
+        Service->>DB: DRAFT에서 SUBMITTED로 전이
+    end
+    Service-->>Applicant: Form raw key를 제외한 결과
+```
+
+조회 결과는 `documentResultPublishedAt`과 `finalResultPublishedAt` 경계에서 각각 공개한다. 발표 전 결과는 `PENDING`이고 최종 발표 전에는 `acceptedTrack`도 숨긴다. credential REST·GraphQL 요청은 client IP 기준 분당 5회로 제한한다.
 
 ## 지원서 전형 상태
 
@@ -375,9 +411,9 @@ flowchart LR
 
 | 흐름 | 현재 상태 | 후속 작업 |
 |---|---|---|
-| 익명 지원서 생성·조회·수정·claim | API 미제공 | 익명 FormResponse와 소유권 이전 계약 이후 구현 |
+| 익명 지원서 ownership claim | API 미제공 | FormResponse ownership 이전 공개 UseCase 이후 구현 |
 | Form 자체 응답 기간 동기화 | Round의 local 기간만 검증 | Form 기간 공개 UseCase 이후 동기화 |
-| 다른 Form question ID 차단 | allowed/required 범위는 전달하지만 Form 소속 최종 검증은 Form 책임 | Form 도메인의 공개 검증 계약 이후 연결 |
+| 다른 Form question ID 차단 | Form이 question 소속, required subset, 실제 조건부 방문 경로를 검증 | 구현 완료 |
 | 면접 가능 시간 교집합 | `FindRecruitingScheduleOverlapPort`는 unavailable | #1146 |
 | 요청·확정 HTML 메일 | delivery 상태만 저장 | #1147 |
 | `INTERVIEW_ASSIGNED` API 전이 | domain method만 존재 | 별도 inbound UseCase와 권한 정책 필요 |

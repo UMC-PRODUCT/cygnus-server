@@ -1,6 +1,6 @@
 # Recruiting Deferred Integrations
 
-Recruiting이 현재 제공하는 범위는 로그인 회원의 기본 지원 흐름이다. 아래 연동은 외부 도메인의 공개 계약이 준비될 때까지 구현하지 않으며, 제품 코드의 TODO를 실제 후속 연결 지점으로 사용한다.
+Recruiting은 로그인 및 익명 지원서 생성·조회·수정·제출을 제공한다. 아래 연동은 외부 도메인의 공개 계약이 준비될 때까지 구현하지 않으며, 제품 코드의 TODO를 실제 후속 연결 지점으로 사용한다.
 
 ## #1146 Form 일정 응답 및 공통 가능 시간 계산 기능
 
@@ -9,8 +9,8 @@ Recruiting이 현재 제공하는 범위는 로그인 회원의 기본 지원 �
 
 ### 계획
 
-- Form 도메인이 `QuestionType.SCHEDULE` 질문과 UTC `Instant` 일정 답변을 소유한다.
-- 응답 생성, 수정, 제출 시 question ID가 해당 Form의 Section에 속하는지 검증한다.
+- Form 도메인의 기존 `QuestionType.SCHEDULE` 질문과 UTC `Instant` 일정 답변을 사용한다.
+- Form에 이미 구현된 question ID 소속, submit scope와 조건부 방문 경로 검증을 유지한다.
 - `formId`와 `formResponseIds`를 받아 제출된 응답의 공통 가능 시간대를 반환하는 공개 Query UseCase를 제공한다.
 - 다른 Form의 response/question ID 혼합, 잘못된 시간 순서, 중복 슬롯과 허용 범위 초과를 거부한다.
 - Recruiting의 unavailable schedule-overlap adapter를 실제 Form 공개 UseCase 연동 adapter로 교체한다.
@@ -24,7 +24,7 @@ Recruiting이 현재 제공하는 범위는 로그인 회원의 기본 지원 �
 
 ### 현재 경계
 
-- `RecruitingApplicationCommandService`: FormResponse가 받은 Question이 동일 Form의 Section에 속하는지 확인하는 데이터 무결성 검증을 보류한다. 이는 화면의 문항 노출 검증이 아니라 저장·제출되는 question ID의 소속 검증이며 `#1146` 범위다.
+- `RecruitingApplicationCommandService`: 선택한 트랙의 allowed/required question scope를 Form에 전달한다. Form은 다른 Form question과 scope 밖 question을 거부한다.
 - `UnavailableRecruitingScheduleOverlapAdapter`: 공개 일정 교집합 Query UseCase가 없어 명시적으로 unavailable 상태를 유지한다.
 
 ## Issue 미지정 Form published/window dependency
@@ -42,7 +42,7 @@ Recruiting이 현재 제공하는 범위는 로그인 회원의 기본 지원 �
 
 - `RecruitingApplicationFormCommandService`: 최초 Form 연결 시 기간 동기화를 plain TODO로 보류한다.
 - `RecruitingRoundCommandService`: Round 일정 변경 후 기간 재동기화를 plain TODO로 보류한다.
-- `RecruitingRound.isLocalApplicationPeriodOpenAt`: Recruiting 내부 Season/Round/ApplicationForm 상태와 Round 서류 기간만 계산한다. 실제 Form의 published 상태와 Form window를 조회하지 않으며, production caller도 없다.
+- `RecruitingRound.isLocalApplicationPeriodOpenAt`: Recruiting 내부 Season/Round/ApplicationForm 상태와 Round 서류 기간만 계산한다. 실제 Form의 published 상태와 Form window는 아직 조회하지 않는다.
 
 ## #1147 Thymeleaf 기반 HTML 템플릿 이메일 발송 기능
 
@@ -73,7 +73,7 @@ Recruiting이 현재 제공하는 범위는 로그인 회원의 기본 지원 �
 
 ## 명시적 보류 범위
 
-- 익명 FormResponse 제출, credential 조회·수정과 ownership claim
+- 익명 FormResponse를 로그인 회원에게 이전하는 ownership claim
 - Form published/window 조회, 기간 동기화와 접수 집행
 - schedule intersection 및 availability response
 - Thymeleaf HTML mail과 email dispatch 확장

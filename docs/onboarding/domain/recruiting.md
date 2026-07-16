@@ -8,7 +8,7 @@
 - 한 시즌은 트랙별 TO와 여러 모집 차수를 가진다.
 - 한 차수는 지원 가능한 트랙, 일정, 2지망 허용 여부, 면접 여부를 가진다.
 - 한 차수에는 `RecruitingApplicationForm` 하나만 연결할 수 있다.
-- Recruiting은 Form의 `formId`, `formSectionId`, `formResponseId`만 보관한다. 문항과 답변을 복제하지 않는다.
+- Recruiting은 Form의 `formId`, `formSectionId`, `formResponseId`를 보관하고, 익명 지원서에 한해 Form이 발급한 raw `formResponseAccessKey`를 내부 credential로 보관한다. 문항과 답변은 복제하지 않는다.
 - 다른 도메인의 aggregate는 JPA 관계로 참조하지 않는다. `gisuId`, `schoolId`, `memberId`, `formId`, `formSectionId`, `formResponseId`, `termId` 같은 ID와 공개 UseCase만 사용한다.
 - Recruiting 내부 child는 owning side의 `@ManyToOne(fetch = LAZY)`만 사용한다. 부모의 `@OneToMany` collection은 두지 않는다.
 
@@ -74,9 +74,10 @@ erDiagram
         bigint recruiting_round_id FK
         bigint recruiting_application_form_id FK
         bigint form_response_id "Form ID"
-        bigint applicant_member_id "Member ID"
+        bigint applicant_member_id "nullable Member ID"
         string applicant_email "PII"
         string application_key "credential"
+        string form_response_access_key "nullable internal credential"
         string status
         string registration_status
         string accepted_track
@@ -85,7 +86,6 @@ erDiagram
         bigint id PK
         bigint recruiting_round_id FK
         bigint member_id "Member ID"
-        string stage
     }
     RECRUITING_APPLICATION_EVALUATION {
         bigint id PK
@@ -114,8 +114,8 @@ erDiagram
 | `RecruitingSeasonTrackQuota` | 시즌/트랙별 목표 인원. 트랙은 모집 지원 트랙만 허용하고 수량은 0 이상이다. |
 | `RecruitingRound` / `RecruitingRoundConfiguration` | 정규/추가 차수, 지원 트랙, 2지망, 서류·면접·결과 시각, 공지와 연락처를 검증한다. `INFRA_PLUS`와 시즌 TO가 0인 트랙은 모집할 수 없다. |
 | `RecruitingApplicationForm` | Round와 Form의 1:1 연결 및 `DRAFT -> PUBLISHED -> CLOSED` 상태를 관리한다. |
-| `RecruitingFormSectionPolicy` | Form section을 `COMMON` 또는 특정 모집 트랙의 `TRACK` section으로 분류한다. |
-| `RecruitingApplication` / `RecruitingApplicantProfile` | 로그인 지원자의 프로필, 선택 트랙, Form response ID, 개인정보 동의, 6자리 지원 키, 전형과 등록 상태를 관리한다. |
+| `RecruitingFormSectionPolicy` | Form section을 `COMMON` 또는 특정 모집 트랙의 `TRACK` section으로 분류한다. 게시 전 모든 section에 정책이 있어야 하며 조건부 이동은 `COMMON`, 또는 출발 section과 같은 `TRACK`만 향할 수 있다. |
+| `RecruitingApplication` / `RecruitingApplicantProfile` | 로그인·익명 지원자의 프로필, 선택 트랙, Form response ID, 익명 Form access key, 개인정보 동의, 6자리 지원 키, 전형과 등록 상태를 관리한다. |
 | `RecruitingRoundEvaluator` | 차수 단위 평가자 whitelist를 관리한다. 등록된 평가자는 서류와 면접 평가에 모두 참여하지만 최종 합불 권한은 얻지 않는다. |
 | `RecruitingRoundInterviewQuestion` | 차수 공통 면접 문항과 노출 순서, active 상태, 생성자와 최종 변경자 회원 ID를 관리한다. |
 | `RecruitingApplicationInterviewQuestion` | 특정 지원자에게만 묻는 면접 문항을 관리한다. 해당 차수의 평가자만 수정할 수 있다. |
@@ -128,7 +128,7 @@ erDiagram
 
 ```mermaid
 flowchart LR
-    A["운영진이 학교별 모집 인원과 일정을 정한다"] --> B["지원자가 로그인해 지원서를 작성하고 제출한다"]
+    A["운영진이 학교별 모집 인원과 일정을 정한다"] --> B["지원자가 로그인하거나 이메일과 지원 키로 지원서를 작성하고 제출한다"]
     B --> C["서류 평가자가 의견을 제출한다"]
     C --> D{"서류 통과"}
     D -->|"아니오"| E["이번 차수 종료, 다음 차수 재지원 가능"]
@@ -198,7 +198,7 @@ flowchart LR
 | 이전 차수의 상태가 `DOCUMENT_FAILED`, `FINAL_FAILED`, `CANCELLED` | 다음 차수 재지원 허용 |
 | 동일 기수에 이미 최종 합격한 지원자 | 추가 최종 합격 차단 |
 
-현재 외부 API는 로그인 회원만 지원한다. application key는 저장·생성 응답에 존재하지만 익명 조회, 익명 수정, 소유권 claim에는 아직 사용하지 않는다.
+익명 지원자는 정규화된 이메일과 6자리 application key로 초안·제출 완료 지원서를 조회하고 서류 접수 마감 전 수정할 수 있다. application key는 생성 응답에서 한 번만 반환한다. 익명 지원서를 로그인 회원에게 이전하는 ownership claim은 아직 제공하지 않는다.
 
 ## Challenger tracks 호환성
 
@@ -211,7 +211,8 @@ flowchart LR
 
 | 기능 | 허용 주체 | 범위와 제한 |
 |---|---|---|
-| 공개 지원 폼 조회 | 비로그인 포함 | 기수·학교별 공개 Form만 조회 |
+| 공개 지원 폼·선택 트랙 구조 조회 | 비로그인 포함 | 기수·학교별 공개 Form, 또는 `COMMON + 1·2지망 TRACK` section만 조회 |
+| 익명 지원서 생성·조회·수정·제출 | 비로그인 지원자 | 생성 시 개인정보 동의 필수. 이후 정규화 email + application key와 내부 Form access key를 모두 검증 |
 | 지원서 생성·수정·제출·철회, 본인 면접 일정 | 로그인 지원자 | `CurrentMember`와 application/FormResponse 소유권 일치 필요 |
 | 시즌·차수·폼·quota·공통 문항 관리 | 학교 회장/부회장, 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | 학교 역할은 자기 학교 시즌만 가능 |
 | stage 평가 저장·제출 | 해당 차수의 evaluator whitelist | 같은 evaluator가 `DOCUMENT`와 `INTERVIEW` 평가에 모두 참여 가능 |
@@ -228,6 +229,11 @@ flowchart LR
 
 ```text
 GET    /api/v1/recruiting/public/forms?gisuId={gisuId}&schoolId={schoolId}
+GET    /api/v1/recruiting/public/forms/{applicationFormId}/structure?firstChoice={track}&secondChoice={track}
+POST   /api/v1/recruiting/public/applications
+POST   /api/v1/recruiting/public/applications/lookup
+PUT    /api/v1/recruiting/public/applications
+POST   /api/v1/recruiting/public/applications/submit
 
 POST   /api/v1/recruiting/applications
 PUT    /api/v1/recruiting/applications/{applicationId}
@@ -282,9 +288,9 @@ GET    /api/v1/recruiting/admin/summary
 GET    /api/v1/recruiting/admin/statistics.csv
 ```
 
-공개 Form 탐색은 위 route 하나이며, 지원서 credential 없이 필수 양수 `gisuId`와 `schoolId`로 게시된 Form 목록만 조회한다.
+credential은 URL이나 access log에 포함하지 않고 request body로만 전달한다. 조회 결과는 서류·최종 발표 시각 전까지 `PENDING`으로 마스킹하고, 최종 발표 전에는 `acceptedTrack`을 제공하지 않는다. Form raw access key는 생성·조회·수정·제출 응답 어디에도 노출하지 않는다.
 
-REST에는 현재 서류 결과 결정과 면접 skip route가 없다. 두 동작은 아래 GraphQL mutation에는 존재한다. `applicationNo`/`applicantIdentityKey` 결과 조회와 application key 기반 익명 조회·수정·제출·claim은 deferred 범위이므로 현재 REST/GraphQL route가 없다. 일정 교집합과 메일 발송 route도 양쪽 모두 없다.
+REST에는 현재 서류 결과 결정과 면접 skip route가 없다. 두 동작은 아래 GraphQL mutation에는 존재한다. 익명 지원서를 로그인 회원에게 연결하는 claim, 일정 교집합과 메일 발송 route는 양쪽 모두 없다.
 
 ### CSV 계약
 
@@ -304,6 +310,8 @@ gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,sec
 
 ```text
 recruitingApplicationForms
+recruitingApplicationFormStructure
+recruitingApplicationByCredential
 recruitingApplication
 recruitingSeasonConfiguration
 recruitingRoundEvaluators
@@ -336,8 +344,11 @@ createRecruitingApplicationInterviewQuestion
 updateRecruitingApplicationInterviewQuestion
 deactivateRecruitingApplicationInterviewQuestion
 createRecruitingApplicationDraft
+createAnonymousRecruitingApplicationDraft
 updateRecruitingApplicationDraft
+updateAnonymousRecruitingApplication
 submitRecruitingApplication
+submitAnonymousRecruitingApplication
 cancelRecruitingApplication
 decideRecruitingDocument
 decideRecruitingFinal
@@ -356,7 +367,6 @@ GraphQL actor는 input의 `memberId`가 아니라 공용 `@CurrentMember MemberP
 
 ### 의도적으로 없는 계약
 
-- application key/email을 이용한 익명 지원서 조회·수정·제출 query/mutation
 - 익명 지원서를 로그인 member에게 이전하는 claim mutation
 - FormResponse 일정 교집합 또는 schedule candidate query
 - 면접 요청·확정 메일을 직접 보내는 mutation
@@ -371,15 +381,16 @@ GraphQL actor는 input의 `memberId`가 아니라 공용 `@CurrentMember MemberP
 - [#1146](https://github.com/UMC-PRODUCT/umc-product-server/issues/1146): Form이 schedule question, 응답 소속 검증, 익명·로그인 FormResponse와 공통 가능 시간 계산을 소유한다. Recruiting은 `availabilityFormId`와 `availabilityFormResponseId`, 확정된 면접 상태만 소유한다.
 - [#1147](https://github.com/UMC-PRODUCT/umc-product-server/issues/1147): Notification이 허용된 Thymeleaf template, 변수 검증, commit 이후 outbox 발송과 재시도를 소유한다. Recruiting은 발송 상태만 추적한다.
 - Form window: 별도 issue 없이 plain TODO다. Form의 published/start/end 공개 계약이 생기면 Round 일정 동기화와 실제 접수창 검증을 연결한다.
-- anonymous/claim: application key 기반 익명 조회·수정·제출과 로그인 후 ownership claim은 후속 범위다. 현재 외부 표면에는 노출하지 않는다.
+- anonymous claim: application key 기반 조회·수정·제출은 제공하며, 로그인 후 FormResponse와 RecruitingApplication ownership 이전만 후속 범위다.
 
 ## Migration과 rollback 가정
 
 Recruiting migration은 기존 데이터에 대해 무손실 in-place upgrade가 아니다.
 
-- `V2026.07.12.00.00`은 기존 Challenger 단일 `track`을 `tracks` singleton array로 옮긴 뒤 기존 컬럼을 삭제한다.
+- `V2026.07.12.00.01`은 기존 Challenger 단일 `track`을 `tracks` singleton array로 옮긴 뒤 기존 컬럼을 삭제한다.
 - `V2026.07.12.17.00`은 기존 recruiting application/form을 `TRUNCATE ... CASCADE`한 뒤 현재 schema로 바꾼다.
 - `V2026.07.13.10.00`은 assignment/template/criterion/score 평가 테이블을 삭제하고 새 평가·일정 테이블을 만든다.
+- `V2026.07.15.13.30`은 익명 지원서의 내부 Form access key 컬럼과 로그인/익명 identity mode check를 추가한다.
 - Flyway down migration은 제공하지 않는다. 운영 반영 전 DB snapshot과 백업을 확보하고 모집이 닫힌 maintenance window에서 적용한다.
 - rollback은 트래픽을 중단하고 pre-migration DB snapshot을 복원한 뒤 이전 application binary를 배포하는 방식이다. DB를 복원하지 않은 채 이전 binary만 재배포하면 안 된다.
 - 적용 후 문제가 발견됐지만 현재 Recruiting 데이터 보존이 필요하면 rollback SQL을 즉석 작성하지 않고 forward-fix migration을 추가한다.
@@ -387,9 +398,10 @@ Recruiting migration은 기존 데이터에 대해 무손실 in-place upgrade가
 
 ## PII와 로그 정책
 
-- application key, 원문 email, applicant name, contact snapshot, Form 답변은 로그·trace·CSV·증거 transcript에 원문으로 남기지 않는다.
+- application key, Form response access key, 원문 email, applicant name, contact snapshot, Form 답변은 로그·trace·CSV·증거 transcript에 원문으로 남기지 않는다.
 - CSV email은 `EmailMasker` 결과만 사용한다. 일반 REST/GraphQL 목록 응답에는 credential과 원문 PII를 추가하지 않는다.
 - prepared SQL은 바인딩 값을 출력하지 않고 `?`를 유지한다. plain SQL literal과 comment는 `[REDACTED]`로 치환한다.
 - 테스트 증거에 생성 결과가 필요하면 application key와 token을 `[REDACTED]`로 기록한다.
+- 익명 credential REST·GraphQL 요청은 client IP 기준 초당 1회·분당 5회로 제한한다. GraphQL alias/fragment로 여러 credential field를 묶으면 field 수만큼 token을 소비한다.
 
 정책 근거는 [P6Spy SQL 로그 보안 정책](../../guides/P6Spy_SQL_로그_보안_정책.md)과 [ADR-016 민감정보 로깅 정책](../../adr/016-structured-json-logging-with-mdc.md)을 참조한다.

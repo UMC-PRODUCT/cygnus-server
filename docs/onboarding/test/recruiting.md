@@ -2,16 +2,16 @@
 
 ## 범위
 
-현재 `src/test/java/com/umc/product/recruiting`에는 실행 가능한 `*Test.java` 78개가 있다. 최종 remediation focused 실행의 JUnit XML 기준 Recruiting은 78 suites/classes, 346 tests, failures 0, errors 0, skipped 0이다. 원시 로그와 집계는 로컬 evidence `.omo/evidence/recruiting-v2-final-doc-count-remediation.md`에 기록한다.
+Recruiting 테스트는 도메인 불변식부터 실제 PostgreSQL migration, REST·GraphQL schema와 실제 HTTP 흐름까지 계층별로 검증한다. 테스트 클래스와 실행 건수는 구현과 함께 증가하므로 이 문서에 고정하지 않고 Gradle 및 JUnit XML 결과를 기준으로 판단한다.
 
-| 계층 | 테스트 클래스 수 | 주요 검증 |
-|---|---:|---|
-| Domain | 10 | 시즌·차수·지원서·평가·일정 상태와 불변식 |
-| Application command | 20 | 지원, 평가, 권한, 판정, quota 예약, 등록 |
-| Application query/evaluator | 8 | visibility, question scope, CSV, 권한 판정 |
-| REST adapter | 10 | route, OpenAPI, 인증·인가, DTO mapping, 실제 HTTP |
-| GraphQL adapter | 12 | 실행 schema, introspection, CurrentMember, 실제 HTTP |
-| Persistence/ID adapter | 17 | migration, DB constraint, repository, key 충돌, concurrency |
+| 계층 | 주요 검증 |
+|---|---|
+| Domain | 지원서·시즌·차수·평가·일정 상태와 불변식 |
+| Application command | 지원, 평가, 권한, 판정, quota 예약, 등록 |
+| Application query/evaluator | 결과 공개 경계, question scope, CSV, 권한 판정 |
+| REST adapter | route, OpenAPI, 인증·인가, DTO mapping, 실제 HTTP |
+| GraphQL adapter | 실행 schema, introspection, CurrentMember, 실제 HTTP |
+| Persistence/ID adapter | migration, DB constraint, repository, key 충돌, concurrency |
 
 ## 검증 층위
 
@@ -26,7 +26,7 @@
 주요 보호 범위는 다음과 같다.
 
 - Season/Quota/Round: lifecycle, 트랙 subset, `INFRA_PLUS` 거부, 일정 순서와 면접 optional shape
-- Form/Application: Round당 Form 하나, section policy, 로그인 소유권, Form response 연결, 제출·철회, 재지원
+- Form/Application: Round당 Form 하나, section policy와 조건부 이동, 로그인·익명 Form response 연결, 제출·수정·철회, 재지원
 - Evaluator/Question: Round 단위 공통 whitelist, 공통 질문 생성자·최종 변경자, 공통·개별 문항, 첫 제출 후 mutation freeze
 - Evaluation/Schedule: `DRAFT/SUBMITTED`, peer visibility, 가능 일정 요청·제출·확정, mail state shape
 - Decision/Registration: 최종 합격 track, 중복 합격, READY 예약·취소, REGISTERED 멱등 처리
@@ -80,8 +80,8 @@ Migration 테스트는 빈 최신 schema만 확인하지 않는다. 필요한 �
 
 | 테스트 | 실제 관찰 |
 |---|---|
-| `RecruitingApplicationRandomPortIntegrationTest` | JWT 지원서 생성, 비로그인·malformed 요청 거부, 공개 Form 익명 접근, CSV actor 결속과 exact redaction, PostgreSQL P6Spy binding redaction |
-| `RecruitingGraphQlRandomPortIntegrationTest` | `/graphql` JWT CurrentMember 성공, 비로그인 `COMMON-403`, 제거된 익명 query의 validation 실패 |
+| `RecruitingApplicationRandomPortIntegrationTest` | JWT 지원서 생성, 익명 지원서 생성·credential 조회, 공개 Form 접근, CSV actor 결속과 exact redaction, PostgreSQL P6Spy binding redaction |
+| `RecruitingGraphQlRandomPortIntegrationTest` | `/graphql` JWT CurrentMember 성공, 비로그인 `COMMON-403`, 익명 지원서 credential 조회 |
 
 대표 재실행:
 
@@ -108,10 +108,6 @@ git diff --check
 Migration version 중복은 파일명에서 `V<version>__` 부분을 추출해 같은 version이 두 번 이상 존재하는지 검사한다. 중복 0건이어야 한다.
 
 전체 `test`가 통과한 뒤 RANDOM_PORT 두 클래스를 다시 실행한다. 실패 시 XML의 `tests`, `failures`, `errors`, `skipped` 합계를 근거로 보고하고, 테스트 task stdout의 추정치로 건수를 만들지 않는다.
-
-## Evidence
-
-- `.omo/evidence/recruiting-v2-final-doc-count-remediation.md`: 78 suites/346 tests focused 실행, REST/GraphQL 인가, CSV, Form 상태, root-only lock, format/diff 검증
 
 ## 실패 분류
 
