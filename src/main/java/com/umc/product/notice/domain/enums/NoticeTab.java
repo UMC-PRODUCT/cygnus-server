@@ -1,9 +1,11 @@
 package com.umc.product.notice.domain.enums;
 
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+
+import com.umc.product.common.domain.enums.ChallengerRoleType;
+
 import lombok.Getter;
 
 /**
@@ -44,7 +46,7 @@ public enum NoticeTab {
             case SCHOOL_PART_LEADER, SCHOOL_ETC_ADMIN -> SCHOOL_PART_LEADER;
             case SCHOOL_PRESIDENT, SCHOOL_VICE_PRESIDENT, CHAPTER_PRESIDENT -> SCHOOL_CORE;
             case CENTRAL_EDUCATION_TEAM_MEMBER, CENTRAL_OPERATING_TEAM_MEMBER -> CENTRAL_MEMBER;
-            case SUPER_ADMIN, CENTRAL_PRESIDENT, CENTRAL_VICE_PRESIDENT -> null;
+            case CENTRAL_PRESIDENT, CENTRAL_VICE_PRESIDENT -> null;
         });
     }
 

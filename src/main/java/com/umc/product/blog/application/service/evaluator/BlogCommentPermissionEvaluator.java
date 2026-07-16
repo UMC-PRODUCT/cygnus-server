@@ -6,7 +6,6 @@ import com.umc.product.authorization.application.port.out.ResourcePermissionEval
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
-import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.blog.application.port.out.LoadBlogCommentPort;
 import com.umc.product.blog.domain.BlogComment;
@@ -56,8 +55,6 @@ public class BlogCommentPermissionEvaluator implements ResourcePermissionEvaluat
     }
 
     private boolean isSuperAdmin(SubjectAttributes subjectAttributes) {
-        return subjectAttributes.roleAttributes().stream()
-            .map(RoleAttribute::roleType)
-            .anyMatch(roleType -> roleType != null && roleType.isSuperAdmin());
+        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin();
     }
 }

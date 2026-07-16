@@ -96,7 +96,6 @@ public class BlogContentQueryService implements GetBlogContentUseCase {
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return memberId != null && getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin());
+        return memberId != null && getChallengerRoleUseCase.isSuperAdmin(memberId);
     }
 }

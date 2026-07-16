@@ -12,6 +12,7 @@
 - [Audit](audit.md)
 - [Authentication](authentication.md)
 - [Authorization](authorization.md)
+- [Authorization 운영 안전 가이드](authorization-operational-safety.md)
 - [Certificate PDF Template](certificate-pdf-template.md)
 - [Challenger](challenger.md)
 - [Community](community.md)

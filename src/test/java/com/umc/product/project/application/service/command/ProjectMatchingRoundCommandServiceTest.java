@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.reset;
 
 import java.time.Instant;
 import java.util.List;
@@ -62,6 +63,21 @@ class ProjectMatchingRoundCommandServiceTest {
 
     @Nested
     class lifecycleHooks {
+
+        @Test
+        void system_role_super_admin은_challenger_role_없이_차수를_생성한다() {
+            reset(getChallengerRoleUseCase);
+            CreateProjectMatchingRoundCommand command = createCommand(1L);
+            ProjectMatchingRound saved = futureRound(MatchingType.PLAN_DESIGN);
+            given(getChallengerRoleUseCase.isSuperAdmin(EXECUTOR_MEMBER_ID)).willReturn(true);
+            given(loadProjectMatchingRoundPort.listOverlapping(any(), any(), any())).willReturn(List.of());
+            given(saveProjectMatchingRoundPort.save(any())).willReturn(saved);
+
+            sut.create(command);
+
+            then(getChallengerRoleUseCase).should(never()).findAllByMemberId(EXECUTOR_MEMBER_ID);
+            then(saveProjectMatchingRoundPort).should().save(any());
+        }
 
         @Test
         void create는_저장_후_scheduleMatchingRoundDeadlinePort에_schedule_호출한다() {

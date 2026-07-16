@@ -17,34 +17,23 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
-import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
-import com.umc.product.authorization.domain.ChallengerRole;
-import com.umc.product.challenger.domain.Challenger;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.maintenance.adapter.in.web.dto.request.StartMaintenanceRequest;
 import com.umc.product.maintenance.domain.MaintenanceScope;
+import com.umc.product.member.adapter.out.persistence.MemberSystemRoleJpaRepository;
 import com.umc.product.member.domain.Member;
-import com.umc.product.organization.domain.Gisu;
+import com.umc.product.member.domain.MemberSystemRole;
+import com.umc.product.member.domain.MemberSystemRoleType;
 import com.umc.product.support.IntegrationTestSupport;
-import com.umc.product.support.fixture.ChallengerFixture;
-import com.umc.product.support.fixture.GisuFixture;
 import com.umc.product.support.fixture.MemberFixture;
 
 @DisplayName("AdminMaintenanceController 통합 테스트")
 class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
-    SaveChallengerRolePort saveChallengerRolePort;
-
-    @Autowired
     MemberFixture memberFixture;
 
     @Autowired
-    ChallengerFixture challengerFixture;
-
-    @Autowired
-    GisuFixture gisuFixture;
+    MemberSystemRoleJpaRepository memberSystemRoleJpaRepository;
 
     private String superAdminToken;
     private String normalUserToken;
@@ -169,16 +158,8 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
     }
 
     private Long setUpSuperAdmin() {
-        Gisu gisu = gisuFixture.비활성_기수(99L);
         Member member = memberFixture.일반("super-admin-fixture");
-        Challenger challenger = challengerFixture.챌린저(member.getId(), ChallengerPart.WEB, gisu.getId());
-        saveChallengerRolePort.save(ChallengerRole.create(
-            challenger.getId(),
-            ChallengerRoleType.SUPER_ADMIN,
-            null,
-            null,
-            gisu.getId()
-        ));
+        memberSystemRoleJpaRepository.save(MemberSystemRole.create(member.getId(), MemberSystemRoleType.SUPER_ADMIN));
         return member.getId();
     }
 }

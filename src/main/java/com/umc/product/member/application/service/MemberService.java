@@ -1,5 +1,11 @@
 package com.umc.product.member.application.service;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.audit.domain.AuditLogEvent;
 import com.umc.product.authentication.application.port.in.command.OAuthAuthenticationUseCase;
@@ -7,6 +13,7 @@ import com.umc.product.authentication.application.port.in.command.dto.LinkOAuthC
 import com.umc.product.authentication.application.port.in.command.dto.UnlinkOAuthCommand;
 import com.umc.product.authentication.application.port.in.query.GetMemberOAuthUseCase;
 import com.umc.product.authentication.application.port.in.query.dto.MemberOAuthInfo;
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.member.application.port.in.command.ManageMemberUseCase;
@@ -24,11 +31,8 @@ import com.umc.product.notification.application.port.in.dto.SendWebhookAlarmComm
 import com.umc.product.notification.domain.WebhookPlatform;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
-import java.util.ArrayList;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +50,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
 
     private final DomainEventPublisher eventPublisher;
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @Override
     @Transactional
@@ -175,6 +180,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
         }
 
         saveMemberPort.delete(memberToDelete);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(memberId);
 
         eventPublisher.publish(
             AuditLogEvent.builder()

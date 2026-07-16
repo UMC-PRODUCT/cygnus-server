@@ -29,7 +29,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -113,7 +113,7 @@ class ProjectApplicationCommandServiceTest {
     @Mock
     GetChallengerUseCase getChallengerUseCase;
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     @Mock
     GetFormUseCase getFormUseCase;
 
@@ -131,7 +131,7 @@ class ProjectApplicationCommandServiceTest {
             loadProjectMatchingRoundPort,
             manageFormResponseUseCase,
             getChallengerUseCase,
-            getChallengerRoleUseCase,
+            checkChallengerAuthorityUseCase,
             List.of(new DeveloperMatchingPolicy(), new DesignerMatchingPolicy()),
             getFormUseCase
         );
@@ -485,7 +485,7 @@ class ProjectApplicationCommandServiceTest {
             ReflectionTestUtils.setField(application, "id", APPLICATION_ID);
             ReflectionTestUtils.setField(application, "status", ProjectApplicationStatus.SUBMITTED);
             given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.of(application));
-            given(getChallengerRoleUseCase.isSuperAdmin(DECIDER_MEMBER_ID)).willReturn(true);
+            given(checkChallengerAuthorityUseCase.isSuperAdmin(DECIDER_MEMBER_ID)).willReturn(true);
 
             ProjectApplicationInfo result = sut.decide(
                 APPLICATION_ID, ApplicationDecisionStatus.APPROVED, "슈퍼어드민 수정", DECIDER_MEMBER_ID

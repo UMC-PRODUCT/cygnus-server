@@ -172,8 +172,7 @@ public class BlogCommentCommandService implements CreateBlogCommentUseCase, Upda
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return memberId != null && getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin());
+        return memberId != null && getChallengerRoleUseCase.isSuperAdmin(memberId);
     }
 
     private BlogContent getPublishedContent(String typeValue, String slug) {

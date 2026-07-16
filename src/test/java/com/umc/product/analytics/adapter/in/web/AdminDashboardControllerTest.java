@@ -38,9 +38,9 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardAct
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardContextInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
+import com.umc.product.analytics.domain.AdminAnalyticsRoleType;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -146,7 +146,7 @@ class AdminDashboardControllerTest {
     @DisplayName("대시보드 context API 응답")
     void 대시보드_context_API_응답() throws Exception {
         given(getAdminDashboardContextUseCase.getContext(MEMBER_ID)).willReturn(new AdminDashboardContextInfo(
-            ChallengerRoleType.CENTRAL_PRESIDENT,
+            AdminAnalyticsRoleType.SUPER_ADMIN,
             7L,
             null,
             null,
@@ -156,7 +156,7 @@ class AdminDashboardControllerTest {
 
         mockMvc.perform(get("/api/v1/analytics/admin/dashboard/context"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result.roleType").value("CENTRAL_PRESIDENT"))
+            .andExpect(jsonPath("$.result.roleType").value("SUPER_ADMIN"))
             .andExpect(jsonPath("$.result.scopeType").value("CENTRAL"))
             .andDo(restDocsHandler);
     }

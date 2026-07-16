@@ -10,16 +10,21 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.member.application.port.in.query.CheckMemberExistenceUseCase;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -32,11 +37,18 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 @Slf4j
-public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
+public class ChallengerRoleQueryService implements
+    ListChallengerRoleUseCase,
+    CheckChallengerAuthorityUseCase,
+    GetChallengerRoleUseCase {
 
     private final LoadChallengerRolePort loadChallengerRolePort;
 
     private final GetGisuUseCase getGisuUseCase;
+
+    private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
+
+    private final CheckMemberExistenceUseCase checkMemberExistenceUseCase;
 
     private ChallengerRoleInfo getChallengerRoleInfoFromEntity(ChallengerRole role) {
         return ChallengerRoleInfo.from(
@@ -52,28 +64,57 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public List<ChallengerRoleInfo> findAllByMemberId(Long memberId) {
+    public List<ChallengerRoleInfo> listByMemberId(Long memberId) {
         return loadChallengerRolePort.findByMemberId(memberId).stream()
             .map(this::getChallengerRoleInfoFromEntity)
             .toList();
     }
 
     @Override
-    public List<ChallengerRoleBasicInfo> findAllBasicByMemberId(Long memberId) {
+    public List<ChallengerRoleBasicInfo> listBasicByMemberId(Long memberId) {
         return loadChallengerRolePort.findByMemberId(memberId).stream()
             .map(ChallengerRoleBasicInfo::from)
             .toList();
     }
 
     @Override
-    public boolean isSuperAdmin(Long memberId) {
-        return loadChallengerRolePort.findByMemberId(memberId).stream()
-            .map(ChallengerRole::getChallengerRoleType)
-            .anyMatch(ChallengerRoleType::isSuperAdmin);
+    public List<ChallengerRoleInfo> listByMemberIdAndGisuId(Long memberId, Long gisuId) {
+        if (gisuId == null) {
+            throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
+                "gisuId는 null일 수 없습니다.");
+        }
+
+        return loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId).stream()
+            .map(this::getChallengerRoleInfoFromEntity)
+            .toList();
     }
 
     @Override
-    public boolean isCentralCore(Long memberId) {
+    public boolean isSuperAdmin(Long memberId) {
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        return hasSystemSuperAdmin(memberId);
+    }
+
+    private boolean memberExists(Long memberId) {
+        return checkMemberExistenceUseCase.existsById(memberId);
+    }
+
+    private boolean hasSystemSuperAdmin(Long memberId) {
+        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+            .map(role -> SystemRoleType.from(role.roleType()))
+            .anyMatch(roleType -> roleType == SystemRoleType.SUPER_ADMIN);
+    }
+
+    @Override
+    public boolean isCentralCoreInAnyGisu(Long memberId) {
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
+        }
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
 
         return roles.stream()
@@ -82,7 +123,13 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public boolean isCentralMember(Long memberId) {
+    public boolean isCentralMemberInAnyGisu(Long memberId) {
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
+        }
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
 
         return roles.stream()
@@ -91,10 +138,16 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public boolean isSchoolCore(Long memberId, Long schoolId) {
+    public boolean isSchoolCoreInAnyGisu(Long memberId, Long schoolId) {
         if (schoolId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -107,10 +160,16 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public boolean isSchoolAdmin(Long memberId, Long schoolId) {
+    public boolean isSchoolAdminInAnyGisu(Long memberId, Long schoolId) {
         if (schoolId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -123,10 +182,16 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public boolean isChapterPresident(Long memberId, Long chapterId) {
+    public boolean isChapterPresidentInAnyGisu(Long memberId, Long chapterId) {
         if (chapterId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "chapterId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findByMemberId(memberId);
@@ -178,6 +243,9 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
         if (role == null) {
             return false;
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
 
@@ -194,6 +262,9 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
         if (roles == null || roles.length == 0) {
             return false;
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
 
         Set<ChallengerRoleType> targetRoles = Arrays.stream(roles).collect(Collectors.toSet());
         List<ChallengerRole> memberRoles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
@@ -208,6 +279,9 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
         if (gisuId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "gisuId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
         }
         if (roles == null || roles.length == 0) {
             return true;
@@ -229,6 +303,12 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "gisuId는 null일 수 없습니다.");
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
 
@@ -238,7 +318,7 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public Map<Long, List<ChallengerRoleType>> getAllRoleTypesByChallengerIds(Set<Long> challengerIds) {
+    public Map<Long, List<ChallengerRoleType>> mapRoleTypesByChallengerIds(Set<Long> challengerIds) {
         if (challengerIds == null || challengerIds.isEmpty()) {
             return Map.of();
         }
@@ -251,7 +331,7 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
     }
 
     @Override
-    public Set<ChallengerPart> getAllResponsiblePartByMemberIdAndGisuId(Long memberId, Long gisuId) {
+    public Set<ChallengerPart> listResponsiblePartsByMemberIdAndGisuId(Long memberId, Long gisuId) {
         return loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId).stream()
             .map(ChallengerRole::getResponsiblePart)
             .filter(Objects::nonNull)
@@ -263,6 +343,12 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
         if (gisuId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "gisuId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
@@ -281,6 +367,12 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
         if (schoolId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
@@ -302,6 +394,12 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "schoolId는 null일 수 없습니다.");
         }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
+        }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);
 
@@ -321,6 +419,12 @@ public class ChallengerRoleQueryService implements GetChallengerRoleUseCase {
         if (chapterId == null) {
             throw new AuthorizationDomainException(AuthorizationErrorCode.INVALID_INPUT_VALUE,
                 "chapterId는 null일 수 없습니다.");
+        }
+        if (!memberExists(memberId)) {
+            return false;
+        }
+        if (hasSystemSuperAdmin(memberId)) {
+            return true;
         }
 
         List<ChallengerRole> roles = loadChallengerRolePort.findRolesByMemberIdAndGisuId(memberId, gisuId);

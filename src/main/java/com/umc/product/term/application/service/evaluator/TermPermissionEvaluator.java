@@ -2,7 +2,6 @@ package com.umc.product.term.application.service.evaluator;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
@@ -11,15 +10,11 @@ import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.term.domain.exception.TermDomainException;
 import com.umc.product.term.domain.exception.TermErrorCode;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
-@RequiredArgsConstructor
 public class TermPermissionEvaluator implements ResourcePermissionEvaluator {
-
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     /**
      * 이 Evaluator가 처리할 수 있는 ResourceType
@@ -44,7 +39,6 @@ public class TermPermissionEvaluator implements ResourcePermissionEvaluator {
     }
 
     private boolean canWriteTerm(SubjectAttributes subjectAttributes) {
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roles -> roles.roleType().isSuperAdmin());
+        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin();
     }
 }

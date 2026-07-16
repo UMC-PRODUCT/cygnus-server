@@ -110,4 +110,24 @@ class ChallengerRecordControllerTest {
 
         then(manageChallengerRecordUseCase).should(never()).createBulk(any());
     }
+
+    @Test
+    @DisplayName("챌린저 기록 생성 요청에 SUPER_ADMIN을 입력하면 400")
+    void 챌린저_기록_생성_요청에_super_admin을_입력하면_400() throws Exception {
+        mockMvc.perform(post("/api/v1/challenger-record")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "gisuId": 1,
+                      "chapterId": 2,
+                      "schoolId": 3,
+                      "part": "SPRINGBOOT",
+                      "memberName": "홍길동",
+                      "challengerRoleType": "SUPER_ADMIN"
+                    }
+                    """))
+            .andExpect(status().isBadRequest());
+
+        then(manageChallengerRecordUseCase).should(never()).create(any());
+    }
 }

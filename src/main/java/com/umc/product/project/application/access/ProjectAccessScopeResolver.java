@@ -44,7 +44,7 @@ public class ProjectAccessScopeResolver {
      * <p>
      * 권한 별 노출 가능 status:
      * <ul>
-     *   <li>총괄단(SUPER_ADMIN/총괄/부총괄) ∪ 지부장: DRAFT 제외 전체 (PR/IP/COMPLETED/ABORTED)</li>
+     *   <li>SUPER_ADMIN ∪ 총괄단(총괄/부총괄) ∪ 지부장: DRAFT 제외 전체 (PR/IP/COMPLETED/ABORTED)</li>
      *   <li>그 외(일반 챌린저, 학교 회장단): 공개 status (IN_PROGRESS / COMPLETED)</li>
      * </ul>
      * 호출자가 본인 권한 외 status 를 요청하면 {@link ProjectErrorCode#PROJECT_ACCESS_DENIED} 로 거부한다.
@@ -52,6 +52,13 @@ public class ProjectAccessScopeResolver {
     public ProjectAccessScope resolveForPublicSearch(
         Long memberId, Long gisuId, Set<ProjectStatus> requestedStatuses
     ) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            if (requestedStatuses.contains(ProjectStatus.DRAFT)) {
+                throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
+            }
+            return new All(requestedStatuses);
+        }
+
         List<ChallengerRoleInfo> rolesInGisu = getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
             .filter(role -> Objects.equals(role.gisuId(), gisuId))
             .toList();
@@ -90,6 +97,10 @@ public class ProjectAccessScopeResolver {
     public ProjectAccessScope resolveForManagement(
         Long memberId, Long gisuId, Set<ProjectStatus> requestedStatuses
     ) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            return includeOwnerProjects(new All(requestedStatuses), memberId, gisuId, requestedStatuses);
+        }
+
         List<ChallengerRoleInfo> rolesInGisu = getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
             .filter(role -> Objects.equals(role.gisuId(), gisuId))
             .toList();

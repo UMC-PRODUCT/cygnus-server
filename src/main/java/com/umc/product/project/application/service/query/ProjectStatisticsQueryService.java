@@ -239,7 +239,7 @@ public class ProjectStatisticsQueryService implements GetProjectStatisticsUseCas
     }
 
     /**
-     * 지부 단위 통계 접근 권한 검증. 총괄단(SUPER_ADMIN 포함) / 해당 지부장 / 해당 지부 소속 학교 회장·부회장이면 통과,
+     * 지부 단위 통계 접근 권한 검증. SUPER_ADMIN / 총괄단 / 해당 지부장 / 해당 지부 소속 학교 회장·부회장이면 통과,
      * 그 외에는 {@code PROJECT_ACCESS_DENIED}.
      * <p>
      * 요청 chapterId 는 치환하지 않고 통과/거부만 판정한다(총괄단의 타 지부 조회 보장).

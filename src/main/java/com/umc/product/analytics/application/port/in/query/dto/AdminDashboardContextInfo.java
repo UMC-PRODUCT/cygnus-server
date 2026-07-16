@@ -1,12 +1,12 @@
 package com.umc.product.analytics.application.port.in.query.dto;
 
+import com.umc.product.analytics.domain.AdminAnalyticsRoleType;
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 
 public record AdminDashboardContextInfo(
-    ChallengerRoleType roleType,
+    AdminAnalyticsRoleType roleType,
     Long gisuId,
     Long chapterId,
     Long schoolId,

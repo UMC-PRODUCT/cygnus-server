@@ -6,12 +6,14 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.member.application.dto.MemberSearchAccessScope;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
+import com.umc.product.member.domain.MemberSystemRoleType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,11 +21,16 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class MemberSearchAccessScopeResolver {
 
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final ListChallengerRoleUseCase listChallengerRoleUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
+    private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
 
     public MemberSearchAccessScope resolve(Long memberId) {
-        List<ChallengerRoleBasicInfo> roles = getChallengerRoleUseCase.findAllBasicByMemberId(memberId);
+        if (hasSuperAdminRole(memberId)) {
+            return MemberSearchAccessScope.allowAll();
+        }
+
+        List<ChallengerRoleBasicInfo> roles = listChallengerRoleUseCase.listBasicByMemberId(memberId);
 
         if (roles.stream().map(ChallengerRoleBasicInfo::roleType).anyMatch(this::grantsUnrestrictedAccess)) {
             return MemberSearchAccessScope.allowAll();
@@ -49,9 +56,13 @@ public class MemberSearchAccessScopeResolver {
     }
 
     private boolean grantsUnrestrictedAccess(ChallengerRoleType roleType) {
-        return roleType == ChallengerRoleType.SUPER_ADMIN
-            || roleType == ChallengerRoleType.CENTRAL_PRESIDENT
+        return roleType == ChallengerRoleType.CENTRAL_PRESIDENT
             || roleType == ChallengerRoleType.CENTRAL_VICE_PRESIDENT;
+    }
+
+    private boolean hasSuperAdminRole(Long memberId) {
+        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+            .anyMatch(role -> MemberSystemRoleType.SUPER_ADMIN.name().equals(role.roleType()));
     }
 
     private boolean grantsSchoolAccess(ChallengerRoleType roleType) {
