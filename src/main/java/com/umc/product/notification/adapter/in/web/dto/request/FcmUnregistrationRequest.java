@@ -5,10 +5,10 @@ import com.umc.product.notification.application.port.in.dto.UnregisterFcmTokenCo
 import jakarta.validation.constraints.NotBlank;
 
 public record FcmUnregistrationRequest(
-    @NotBlank String fcmToken
+    @NotBlank String installationId
 ) {
 
     public UnregisterFcmTokenCommand toCommand(Long memberId) {
-        return UnregisterFcmTokenCommand.of(memberId, fcmToken);
+        return UnregisterFcmTokenCommand.of(memberId, installationId);
     }
 }

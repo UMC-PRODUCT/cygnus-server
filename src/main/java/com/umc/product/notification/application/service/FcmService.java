@@ -24,19 +24,19 @@ public class FcmService implements ManageFcmUseCase {
     @Override
     @Transactional
     public void registerFcmToken(RegisterFcmTokenCommand command) {
-        deactivateTokensOwnedByOtherMembers(command.memberId(), command.fcmToken());
+        deactivateTokenAssignedToOtherInstallations(command.installationId(), command.fcmToken());
 
-        loadFcmPort.findByMemberIdAndToken(command.memberId(), command.fcmToken())
+        loadFcmPort.findByInstallationIdForUpdate(command.installationId())
             .ifPresentOrElse(
                 token -> {
-                    token.register(command.platform(), command.deviceId(), command.appVersion());
+                    token.register(command.memberId(), command.fcmToken(), command.platform(), command.appVersion());
                     saveFcmPort.save(token);
                 },
                 () -> saveFcmPort.save(FcmToken.create(
                     command.memberId(),
+                    command.installationId(),
                     command.fcmToken(),
                     command.platform(),
-                    command.deviceId(),
                     command.appVersion()
                 ))
             );
@@ -45,16 +45,17 @@ public class FcmService implements ManageFcmUseCase {
     @Override
     @Transactional
     public void unregisterFcmToken(UnregisterFcmTokenCommand command) {
-        loadFcmPort.findByMemberIdAndToken(command.memberId(), command.fcmToken())
+        loadFcmPort.findByInstallationIdForUpdate(command.installationId())
+            .filter(token -> token.belongsTo(command.memberId()))
             .ifPresent(token -> {
                 token.deactivate();
                 saveFcmPort.save(token);
             });
     }
 
-    private void deactivateTokensOwnedByOtherMembers(Long memberId, String fcmToken) {
+    private void deactivateTokenAssignedToOtherInstallations(String installationId, String fcmToken) {
         loadFcmPort.listActiveByToken(fcmToken).stream()
-            .filter(token -> !token.belongsTo(memberId))
+            .filter(token -> !token.isInstalledAs(installationId))
             .forEach(token -> {
                 token.deactivate();
                 saveFcmPort.save(token);

@@ -6,13 +6,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public record FcmRegistrationRequest(
+    @NotBlank @Size(max = 100) String installationId,
     @NotBlank String fcmToken,
     @Size(max = 30) String platform,
-    @Size(max = 100) String deviceId,
     @Size(max = 50) String appVersion
 ) {
 
     public RegisterFcmTokenCommand toCommand(Long memberId) {
-        return RegisterFcmTokenCommand.of(memberId, fcmToken, platform, deviceId, appVersion);
+        return RegisterFcmTokenCommand.of(memberId, installationId, fcmToken, platform, appVersion);
     }
 }

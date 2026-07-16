@@ -14,7 +14,7 @@ class FcmTokenTest {
     @Test
     @DisplayName("생성 시 등록 시각과 검증 시각을 함께 초기화한다")
     void create_등록시각과_검증시각_초기화() {
-        FcmToken token = FcmToken.create(1L, "token", "ios", "device", "1.0.0");
+        FcmToken token = FcmToken.create(1L, "installation", "token", "ios", "1.0.0");
 
         assertThat(token.isActive()).isTrue();
         assertThat(token.getLastRegisteredAt()).isNotNull();
@@ -24,16 +24,18 @@ class FcmTokenTest {
     @Test
     @DisplayName("재등록 시 등록 시각과 검증 시각을 갱신하고 다시 활성화한다")
     void register_등록시각과_검증시각_갱신() {
-        FcmToken token = FcmToken.create(1L, "token");
+        FcmToken token = FcmToken.create(1L, "installation", "token");
         token.deactivate();
         ReflectionTestUtils.setField(token, "lastRegisteredAt", Instant.EPOCH);
         ReflectionTestUtils.setField(token, "lastValidatedAt", Instant.EPOCH);
 
-        token.register("android", "device", "1.0.1");
+        token.register(2L, "new-token", "android", "1.0.1");
 
         assertThat(token.isActive()).isTrue();
         assertThat(token.getDeactivatedAt()).isNull();
         assertThat(token.getLastRegisteredAt()).isAfter(Instant.EPOCH);
         assertThat(token.getLastValidatedAt()).isEqualTo(token.getLastRegisteredAt());
+        assertThat(token.getMemberId()).isEqualTo(2L);
+        assertThat(token.getFcmToken()).isEqualTo("new-token");
     }
 }

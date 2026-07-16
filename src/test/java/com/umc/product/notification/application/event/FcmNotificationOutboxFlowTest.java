@@ -163,7 +163,7 @@ class FcmNotificationOutboxFlowTest {
     private static List<FcmToken> createTokens(int count) {
         List<FcmToken> tokens = new ArrayList<>();
         for (long id = 1; id <= count; id++) {
-            FcmToken token = FcmToken.create(id, "token-" + id);
+            FcmToken token = FcmToken.create(id, "installation-" + id, "token-" + id);
             ReflectionTestUtils.setField(token, "id", id);
             tokens.add(token);
         }
@@ -208,8 +208,8 @@ class FcmNotificationOutboxFlowTest {
         }
 
         @Override
-        public Optional<FcmToken> findByMemberIdAndToken(Long memberId, String fcmToken) {
-            return Optional.empty();
+        public Optional<FcmToken> findByInstallationIdForUpdate(String installationId) {
+            return tokens.stream().filter(token -> token.isInstalledAs(installationId)).findFirst();
         }
 
         @Override

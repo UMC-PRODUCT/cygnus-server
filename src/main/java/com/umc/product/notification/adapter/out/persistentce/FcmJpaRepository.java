@@ -6,14 +6,18 @@ import java.util.Optional;
 
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import com.umc.product.notification.domain.FcmToken;
 
+import jakarta.persistence.LockModeType;
+
 public interface FcmJpaRepository extends JpaRepository<FcmToken, Long> {
 
-    Optional<FcmToken> findByMemberIdAndFcmToken(Long memberId, String fcmToken);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<FcmToken> findByInstallationId(String installationId);
 
     List<FcmToken> findAllByMemberIdAndIsActiveTrue(Long memberId);
 

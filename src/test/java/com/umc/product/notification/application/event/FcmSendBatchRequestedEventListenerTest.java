@@ -162,7 +162,7 @@ class FcmSendBatchRequestedEventListenerTest {
     }
 
     private FcmToken token(Long id, Long memberId, String value) {
-        FcmToken token = FcmToken.create(memberId, value);
+        FcmToken token = FcmToken.create(memberId, "installation-" + memberId, value);
         ReflectionTestUtils.setField(token, "id", id);
         return token;
     }
@@ -176,8 +176,8 @@ class FcmSendBatchRequestedEventListenerTest {
         }
 
         @Override
-        public Optional<FcmToken> findByMemberIdAndToken(Long memberId, String fcmToken) {
-            return Optional.empty();
+        public Optional<FcmToken> findByInstallationIdForUpdate(String installationId) {
+            return tokens.stream().filter(token -> token.isInstalledAs(installationId)).findFirst();
         }
 
         @Override

@@ -2,8 +2,8 @@
 ALTER TABLE fcm_token
     -- iOS/Android별 payload 정책과 운영 현황을 구분하기 위한 선택 정보다.
     ADD COLUMN platform VARCHAR(30),
-    -- 동일 기기의 token 교체와 향후 device 단위 upsert 정책에 사용할 선택 식별자다.
-    ADD COLUMN device_id VARCHAR(100),
+    -- 앱 설치를 식별하고 해당 installation의 회원·token을 원자적으로 교체하는 식별자다.
+    ADD COLUMN installation_id VARCHAR(100),
     -- 앱 버전별 payload 호환성과 점진 배포 상태를 확인하기 위한 선택 정보다.
     ADD COLUMN app_version VARCHAR(50),
     -- 마지막 등록·재등록 시점으로, 장기간 갱신되지 않은 token 정리 기준에 사용한다.
@@ -17,6 +17,23 @@ ALTER TABLE fcm_token
 UPDATE fcm_token
 SET last_registered_at = COALESCE(updated_at, created_at)
 WHERE last_registered_at IS NULL;
+
+-- 기존 token-only 등록은 installation 소유권을 검증할 수 없어 모두 비활성화한다.
+-- 신규 앱이 installationId와 함께 재등록한 token만 다시 활성화된다.
+UPDATE fcm_token
+SET is_active = FALSE,
+    deactivated_at = COALESCE(deactivated_at, CURRENT_TIMESTAMP)
+WHERE is_active = TRUE;
+
+-- 하나의 installation은 하나의 row와 현재 token만 보유한다.
+CREATE UNIQUE INDEX uix_fcm_token_installation_id
+    ON fcm_token (installation_id)
+    WHERE installation_id IS NOT NULL;
+
+-- 과거 row는 installation_id가 NULL일 수 있지만 다시 활성화할 수는 없다.
+ALTER TABLE fcm_token
+    ADD CONSTRAINT chk_fcm_token_active_installation
+        CHECK (is_active = FALSE OR installation_id IS NOT NULL);
 
 -- 같은 token의 활성 소유자를 빠르게 조회해 다른 회원에게 재등록될 때 이전 token을 비활성화한다.
 CREATE INDEX ix_fcm_token_active_token

@@ -37,8 +37,8 @@ public class FcmToken extends BaseEntity {
     @Column(name = "platform", length = 30)
     private String platform;
 
-    @Column(name = "device_id", length = 100)
-    private String deviceId;
+    @Column(name = "installation_id", length = 100)
+    private String installationId;
 
     @Column(name = "app_version", length = 50)
     private String appVersion;
@@ -53,28 +53,37 @@ public class FcmToken extends BaseEntity {
     private Instant lastValidatedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private FcmToken(Long memberId, String fcmToken, String platform, String deviceId, String appVersion) {
-        this.memberId = memberId;
-        this.fcmToken = fcmToken;
-        register(platform, deviceId, appVersion);
+    private FcmToken(
+        Long memberId,
+        String fcmToken,
+        String installationId,
+        String platform,
+        String appVersion
+    ) {
+        this.installationId = installationId;
+        register(memberId, fcmToken, platform, appVersion);
     }
 
-    public static FcmToken create(Long memberId, String fcmToken) {
-        return FcmToken.builder().memberId(memberId).fcmToken(fcmToken).build();
+    public static FcmToken create(Long memberId, String installationId, String fcmToken) {
+        return FcmToken.builder()
+            .memberId(memberId)
+            .fcmToken(fcmToken)
+            .installationId(installationId)
+            .build();
     }
 
     public static FcmToken create(
         Long memberId,
+        String installationId,
         String fcmToken,
         String platform,
-        String deviceId,
         String appVersion
     ) {
         return FcmToken.builder()
             .memberId(memberId)
             .fcmToken(fcmToken)
+            .installationId(installationId)
             .platform(platform)
-            .deviceId(deviceId)
             .appVersion(appVersion)
             .build();
     }
@@ -83,15 +92,20 @@ public class FcmToken extends BaseEntity {
         return this.memberId != null && this.memberId.equals(memberId);
     }
 
+    public boolean isInstalledAs(String installationId) {
+        return this.installationId != null && this.installationId.equals(installationId);
+    }
+
     public void activate() {
         this.isActive = true;
         this.deactivatedAt = null;
     }
 
-    public void register(String platform, String deviceId, String appVersion) {
+    public void register(Long memberId, String fcmToken, String platform, String appVersion) {
         Instant registeredAt = Instant.now();
+        this.memberId = memberId;
+        this.fcmToken = fcmToken;
         this.platform = platform;
-        this.deviceId = deviceId;
         this.appVersion = appVersion;
         this.lastRegisteredAt = registeredAt;
         this.lastValidatedAt = registeredAt;

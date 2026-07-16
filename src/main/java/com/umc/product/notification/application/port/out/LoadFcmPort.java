@@ -8,7 +8,7 @@ import com.umc.product.notification.domain.FcmToken;
 
 public interface LoadFcmPort {
 
-    Optional<FcmToken> findByMemberIdAndToken(Long memberId, String fcmToken);
+    Optional<FcmToken> findByInstallationIdForUpdate(String installationId);
 
     List<FcmToken> listActiveByMemberId(Long memberId);
 
