@@ -26,14 +26,14 @@
 
 강점:
 - 관리자 발송 API는 `@CheckAccess(ResourceType.FCM, WRITE)`와 audit annotation을 가진다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/FcmAdminController.java:35`, `src/main/java/com/umc/product/notification/adapter/in/web/FcmAdminController.java:38`, `src/main/java/com/umc/product/notification/adapter/in/web/FcmAdminController.java:39`.
-- 토큰 등록/삭제는 `@CurrentMember`와 `@Valid` request를 사용한다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java:29`, `src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java:31`, `src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java:32`.
+- installation 등록/삭제는 `@CurrentMember`를 사용하며 등록 request의 `installationId`와 `fcmToken`을 검증한다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java`.
 - Firebase credential은 설정 문자열에서 초기화되며 로그에는 credential 본문이 남지 않는다. 근거: `src/main/java/com/umc/product/global/config/FcmConfig.java:25`, `src/main/java/com/umc/product/global/config/FcmConfig.java:32`, `src/main/java/com/umc/product/global/config/FcmConfig.java:36`.
 - 발송 결과에서 `UNREGISTERED`는 invalid token으로 반환되어 비활성화 경로로 연결된다. 근거: `src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:86`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:69`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:77`.
 
 Must-fix:
 - 관리자 발송 target은 최소 하나의 대상과 `parts` 원소의 null 여부를 검증한다. 다만 `memberIds` 최대 개수, target 조합 정책, 대량 발송 확인/승인 정책은 추가로 필요하다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java`.
 - `data` key/value는 길이 제한만 있고 Firebase reserved key, 민감정보, 내부 URL/deepLink scheme/domain allowlist 검증이 없다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:48`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:49`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:50`. Firebase는 `from`, `gcm`, `google` 같은 reserved key와 민감 데이터 전송 주의를 문서화한다. 근거 URL: https://firebase.google.com/docs/cloud-messaging/customize-messages/set-message-type.
-- 인증 사용자 토큰 등록 abuse 방어가 약하다. `fcmToken`은 `@NotBlank`만 있고 길이 제한이 없다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java:8`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java:9`. 같은 회원의 새 토큰은 계속 저장될 수 있고 사용자별 활성 토큰 수 제한이 없다. 근거: `src/main/java/com/umc/product/notification/application/service/FcmService.java:26`, `src/main/java/com/umc/product/notification/application/service/FcmService.java:29`, `src/main/java/com/umc/product/notification/application/service/FcmService.java:35`.
+- 인증 사용자 등록은 `installationId` 필수값과 token 최대 길이로 보강되었고, 같은 installation은 기존 row를 갱신한다. 다만 회원별 installation 수 제한과 신규 token 즉시 검증은 아직 없다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java`, `src/main/java/com/umc/product/notification/application/service/FcmService.java`.
 - 신규/재등록 토큰은 `lastValidatedAt`이 등록 시각으로 설정되고, 기본 stale 기간은 30일이다. 유효하지 않은 과대/임의 토큰이 검증 대기에서 오래 빠질 수 있다. 근거: `src/main/java/com/umc/product/notification/domain/FcmToken.java:91`, `src/main/java/com/umc/product/notification/domain/FcmToken.java:97`, `src/main/resources/application.yml:336`.
 
 Acceptable risks / 운영 주의:
@@ -60,7 +60,7 @@ Acceptable risks / 운영 주의:
 2. Android/iOS 전용 옵션을 `FcmSendRequest`에 추가하고 `FirebaseFcmMessageAdapter`에서 `AndroidConfig`/`ApnsConfig`를 구성한다.
 3. 관리자 발송 target validation, 대량 발송 제한, deepLink/imageUrl allowlist, data reserved key denylist를 추가한다.
 4. audience를 pluggable resolver 전략으로 분리해 새로운 대상 축을 event 계약 수정 없이 추가할 수 있게 한다.
-5. 토큰 등록에는 token 길이 제한, 회원별 활성 토큰 수 제한, deviceId 기반 upsert 정책, invalid-format 즉시 dry-run 검증 또는 빠른 quarantine을 추가한다.
+5. 신규 token의 invalid-format 즉시 dry-run 검증 또는 빠른 quarantine을 적용한다. 회원별 활성 installation 수 제한은 멀티 디바이스 요구사항과 함께 별도로 결정한다.
 6. requestId/notificationId 기반 deduplication과 delivery metric/reporting을 표준화한다.
 
 ## Evidence
