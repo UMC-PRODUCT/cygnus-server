@@ -9,7 +9,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
@@ -21,7 +25,9 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingApplication
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
+import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
+import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
@@ -45,6 +51,8 @@ public class RecruitingQueryService implements
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final GetFormUseCase getFormUseCase;
+    private final GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
 
     @Override
     public RecruitingApplicationInfo getById(Long applicationId, Long requesterMemberId) {
@@ -58,6 +66,38 @@ public class RecruitingQueryService implements
         return loadSeasonPort.findByGisuIdAndSchoolId(gisuId, schoolId)
             .map(this::listPublishedForms)
             .orElseGet(List::of);
+    }
+
+    @Override
+    public FormWithStructureInfo getPublicFormStructure(
+        Long applicationFormId,
+        ChallengerTrack firstChoice,
+        ChallengerTrack secondChoice
+    ) {
+        RecruitingApplicationForm applicationForm = loadApplicationFormPort.getById(applicationFormId);
+        if (applicationForm.getStatus() != RecruitingApplicationFormStatus.PUBLISHED) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_PUBLISHED);
+        }
+        RecruitingApplicantProfile.validateChoices(applicationForm.getRound(), firstChoice, secondChoice);
+        var scope = getQuestionScopeUseCase.getQuestionScope(applicationFormId, firstChoice, secondChoice);
+        FormWithStructureInfo structure = getFormUseCase.getFormWithStructureByQuestionIds(
+            applicationForm.getFormId(),
+            scope.allowedQuestionIds()
+        );
+        return FormWithStructureInfo.builder()
+            .formId(structure.formId())
+            .createdMemberId(structure.createdMemberId())
+            .title(structure.title())
+            .description(structure.description())
+            .status(structure.status())
+            .isAnonymous(structure.isAnonymous())
+            .allowDuplicateResponses(structure.allowDuplicateResponses())
+            .createdAt(structure.createdAt())
+            .updatedAt(structure.updatedAt())
+            .sections(structure.sections().stream()
+                .filter(section -> !section.questions().isEmpty())
+                .toList())
+            .build();
     }
 
     @Override

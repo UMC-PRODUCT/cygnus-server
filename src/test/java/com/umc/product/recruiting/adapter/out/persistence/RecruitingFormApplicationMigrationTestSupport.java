@@ -12,8 +12,10 @@ import org.testcontainers.junit.jupiter.Container;
 
 abstract class RecruitingFormApplicationMigrationTestSupport {
 
-    private static final String MIGRATION_PATH =
-        "db/migration/V2026.07.12.17.00__remodel_recruiting_form_application.sql";
+    private static final java.util.List<String> MIGRATION_PATHS = java.util.List.of(
+        "db/migration/V2026.07.12.17.00__remodel_recruiting_form_application.sql",
+        "db/migration/V2026.07.15.13.30__add_recruiting_anonymous_response_access.sql"
+    );
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18-alpine");
@@ -93,9 +95,11 @@ abstract class RecruitingFormApplicationMigrationTestSupport {
     }
 
     void executeMigration() throws Exception {
-        String sql = new ClassPathResource(MIGRATION_PATH).getContentAsString(StandardCharsets.UTF_8);
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
-            statement.execute(sql);
+            for (String migrationPath : MIGRATION_PATHS) {
+                String sql = new ClassPathResource(migrationPath).getContentAsString(StandardCharsets.UTF_8);
+                statement.execute(sql);
+            }
         }
     }
 

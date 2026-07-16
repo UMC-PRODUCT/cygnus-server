@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -46,6 +47,7 @@ import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 import com.umc.product.support.PersistenceAdapterTest;
+import com.umc.product.term.application.port.in.query.GetTermUseCase;
 
 @PersistenceAdapterTest
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -68,6 +70,7 @@ class RecruitingApplicantConcurrencyTest {
     private static final Long APPLICANT_MEMBER_ID = 201L;
     private static final Long DECIDER_MEMBER_ID = 999L;
     private static final String APPLICANT_EMAIL = "same-applicant@example.com";
+    private static final Instant TEST_NOW = Instant.parse("2026-07-15T00:00:00Z");
 
     @Autowired
     RecruitingSeasonPersistenceAdapter seasonAdapter;
@@ -94,11 +97,16 @@ class RecruitingApplicantConcurrencyTest {
     RecruitingApplicationKeyIssuer applicationKeyIssuer;
     @MockitoBean
     GetChallengerRoleUseCase getChallengerRoleUseCase;
+    @MockitoBean
+    GetTermUseCase getTermUseCase;
+    @MockitoBean
+    Clock clock;
 
     @Test
     @DisplayName("같은 기수 지원자가 다른 학교에 동시에 지원해도 하나만 생성된다")
     void onlyOneConcurrentApplicationAcrossSchoolsSucceeds() throws Exception {
         CreationFixture fixture = persistCreationFixture();
+        given(clock.instant()).willReturn(TEST_NOW);
         given(manageFormResponseUseCase.createDraft(any())).willReturn(701L);
         given(applicationKeyIssuer.issue(APPLICANT_EMAIL)).willReturn("A1B2C3");
 
@@ -252,17 +260,16 @@ class RecruitingApplicantConcurrencyTest {
     }
 
     private RecruitingRoundConfiguration openConfiguration() {
-        Instant now = Instant.now();
         return RecruitingRoundConfiguration.of(
             List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
             false,
-            now.minus(1, ChronoUnit.DAYS),
-            now.plus(1, ChronoUnit.DAYS),
-            now.plus(2, ChronoUnit.DAYS),
+            TEST_NOW.minus(1, ChronoUnit.DAYS),
+            TEST_NOW.plus(1, ChronoUnit.DAYS),
+            TEST_NOW.plus(2, ChronoUnit.DAYS),
             false,
             null,
             null,
-            now.plus(3, ChronoUnit.DAYS),
+            TEST_NOW.plus(3, ChronoUnit.DAYS),
             null,
             null,
             null

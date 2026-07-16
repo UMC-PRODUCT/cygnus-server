@@ -9,6 +9,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -767,6 +768,37 @@ class FormResponseCommandServiceTest {
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
+    }
+
+    @Test
+    @DisplayName("제출 완료 익명 응답 수정은 allowed 범위 밖 질문을 거부한다")
+    void updateAnonymousResponse_allowed_범위_밖_질문_거부() {
+        String rawKey = "raw";
+        String hash = "hash";
+        FormResponse response = FormResponse.createAnonymousDraft(publishedForm(true), hash);
+        ReflectionTestUtils.setField(response, "id", FORM_RESPONSE_ID);
+        response.submit(Instant.parse("2026-07-15T00:00:00Z"), null);
+        Question selectedTrackQuestion = question(10L, false);
+        Question otherTrackQuestion = question(20L, false);
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.of(response));
+        given(loadQuestionPort.listByFormId(FORM_ID))
+            .willReturn(List.of(selectedTrackQuestion, otherTrackQuestion));
+
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .answers(List.of(AnswerCommand.builder()
+                .questionId(otherTrackQuestion.getId())
+                .textValue("다른 트랙 답변")
+                .build()))
+            .allowedQuestionIds(Set.of(selectedTrackQuestion.getId()))
+            .requiredQuestionIds(Set.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
 
         then(saveAnswerPort).should(never()).deleteAllByFormResponseId(any());
     }

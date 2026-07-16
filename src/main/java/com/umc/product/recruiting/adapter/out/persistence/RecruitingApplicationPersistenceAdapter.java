@@ -33,6 +33,17 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
+    public Optional<RecruitingApplication> findByApplicantEmailAndApplicationKey(
+        String applicantEmail,
+        String applicationKey
+    ) {
+        return recruitingApplicationJpaRepository.findByApplicantProfile_ApplicantEmailAndApplicationKey(
+            applicantEmail,
+            applicationKey
+        );
+    }
+
+    @Override
     public RecruitingApplication getById(Long id) {
         return findById(id)
             .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));

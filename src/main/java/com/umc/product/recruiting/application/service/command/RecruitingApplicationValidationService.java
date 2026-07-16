@@ -59,6 +59,17 @@ public class RecruitingApplicationValidationService {
         }
     }
 
+    public void validateAnonymousFormResponseOwnership(RecruitingApplication application) {
+        FormResponseInfo formResponse = getFormResponseUseCase.findByAccessKey(application.getFormResponseAccessKey())
+            .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));
+        boolean anonymousResponse = formResponse.respondentMemberId() == null;
+        boolean linkedResponse = Objects.equals(formResponse.id(), application.getFormResponseId());
+        boolean linkedForm = Objects.equals(formResponse.formId(), application.getApplicationForm().getFormId());
+        if (!anonymousResponse || !linkedResponse || !linkedForm) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_APPLICANT_MISMATCH);
+        }
+    }
+
     public void validateUpdate(
         RecruitingRound round,
         Long applicantMemberId,
@@ -103,15 +114,17 @@ public class RecruitingApplicationValidationService {
         String applicantEmail,
         Long excludedApplicationId
     ) {
+        boolean memberDuplicate = applicantMemberId != null && (excludedApplicationId == null
+            ? loadApplicationPort.existsByRoundIdAndApplicantMemberId(roundId, applicantMemberId)
+            : loadApplicationPort.existsByRoundIdAndApplicantMemberIdAndIdNot(
+                roundId,
+                applicantMemberId,
+                excludedApplicationId
+            ));
         if (excludedApplicationId == null) {
-            return loadApplicationPort.existsByRoundIdAndApplicantMemberId(roundId, applicantMemberId)
-                || loadApplicationPort.existsByRoundIdAndApplicantEmail(roundId, applicantEmail);
+            return memberDuplicate || loadApplicationPort.existsByRoundIdAndApplicantEmail(roundId, applicantEmail);
         }
-        return loadApplicationPort.existsByRoundIdAndApplicantMemberIdAndIdNot(
-            roundId,
-            applicantMemberId,
-            excludedApplicationId
-        ) || loadApplicationPort.existsByRoundIdAndApplicantEmailAndIdNot(
+        return memberDuplicate || loadApplicationPort.existsByRoundIdAndApplicantEmailAndIdNot(
             roundId,
             applicantEmail,
             excludedApplicationId

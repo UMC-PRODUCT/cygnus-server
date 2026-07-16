@@ -118,17 +118,24 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             .findSubmittedByFormIdAndRespondentMemberId(command.formId(), command.respondentMemberId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
+        validateSubmitScope(command.formId(), command.allowedQuestionIds(), command.requiredQuestionIds());
         validateAnswers(command.formId(), command.answers());
+        Set<Long> answeredQuestionIds = extractQuestionIds(command.answers());
+        if (command.allowedQuestionIds() != null) {
+            validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
+        }
         validateAllRequiredAnsweredOnPath(
             command.formId(),
-            extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            answeredQuestionIds,
+            extractSingleSelectedOptionIds(command.answers()),
+            command.requiredQuestionIds()
         );
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
         List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
         saveAnswers(data);
+        saveEmptyAnswersForUnanswered(existing, command.allowedQuestionIds(), answeredQuestionIds);
 
         existing.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(existing);
@@ -243,17 +250,28 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     public void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command) {
         FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
 
+        validateSubmitScope(
+            existing.getForm().getId(),
+            command.allowedQuestionIds(),
+            command.requiredQuestionIds()
+        );
         validateAnswers(existing.getForm().getId(), command.answers());
+        Set<Long> answeredQuestionIds = extractQuestionIds(command.answers());
+        if (command.allowedQuestionIds() != null) {
+            validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
+        }
         validateAllRequiredAnsweredOnPath(
             existing.getForm().getId(),
-            extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            answeredQuestionIds,
+            extractSingleSelectedOptionIds(command.answers()),
+            command.requiredQuestionIds()
         );
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
         List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
         saveAnswers(data);
+        saveEmptyAnswersForUnanswered(existing, command.allowedQuestionIds(), answeredQuestionIds);
 
         existing.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(existing);

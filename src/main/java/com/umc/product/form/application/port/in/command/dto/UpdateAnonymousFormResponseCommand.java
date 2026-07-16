@@ -1,6 +1,7 @@
 package com.umc.product.form.application.port.in.command.dto;
 
 import java.util.List;
+import java.util.Set;
 
 import lombok.Builder;
 
@@ -16,6 +17,8 @@ import lombok.Builder;
 @Builder
 public record UpdateAnonymousFormResponseCommand(
     String responseAccessKey,
-    List<AnswerCommand> answers
+    List<AnswerCommand> answers,
+    Set<Long> requiredQuestionIds,
+    Set<Long> allowedQuestionIds
 ) {
 }

@@ -14,6 +14,11 @@ public interface LoadRecruitingApplicationPort {
 
     Optional<RecruitingApplication> findById(Long id);
 
+    Optional<RecruitingApplication> findByApplicantEmailAndApplicationKey(
+        String applicantEmail,
+        String applicationKey
+    );
+
     RecruitingApplication getById(Long id);
 
     Optional<RecruitingApplication> findByIdWithDetails(Long id);

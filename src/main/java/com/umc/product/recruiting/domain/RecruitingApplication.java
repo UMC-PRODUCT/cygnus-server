@@ -67,6 +67,9 @@ public class RecruitingApplication extends BaseEntity {
     @Column(nullable = false, name = "form_response_id")
     private Long formResponseId;
 
+    @Column(name = "form_response_access_key", length = 128)
+    private String formResponseAccessKey;
+
     @Column(name = "applicant_member_id")
     private Long applicantMemberId;
 
@@ -110,17 +113,32 @@ public class RecruitingApplication extends BaseEntity {
     private RecruitingApplication(
         RecruitingApplicationForm applicationForm,
         Long formResponseId,
+        String formResponseAccessKey,
         Long applicantMemberId,
         RecruitingApplicantProfile applicantProfile,
-        String applicationKey
+        String applicationKey,
+        Long privacyTermId,
+        Instant privacyAgreedAt
     ) {
-        validateRequired(applicationForm, formResponseId, applicantMemberId, applicantProfile, applicationKey);
+        validateRequired(
+            applicationForm,
+            formResponseId,
+            formResponseAccessKey,
+            applicantMemberId,
+            applicantProfile,
+            applicationKey,
+            privacyTermId,
+            privacyAgreedAt
+        );
         this.round = applicationForm.getRound();
         this.applicationForm = applicationForm;
         this.formResponseId = formResponseId;
+        this.formResponseAccessKey = formResponseAccessKey;
         this.applicantMemberId = applicantMemberId;
         this.applicantProfile = applicantProfile;
         this.applicationKey = applicationKey;
+        this.privacyTermId = privacyTermId;
+        this.privacyAgreedAt = privacyAgreedAt;
         this.status = RecruitingApplicationStatus.DRAFT;
         this.registrationStatus = RecruitingApplicationRegistrationStatus.NOT_READY;
     }
@@ -141,15 +159,36 @@ public class RecruitingApplication extends BaseEntity {
             .build();
     }
 
+    public static RecruitingApplication createAnonymousDraft(
+        RecruitingApplicationForm applicationForm,
+        Long formResponseId,
+        String formResponseAccessKey,
+        RecruitingApplicantProfile applicantProfile,
+        String applicationKey,
+        Long privacyTermId,
+        Instant privacyAgreedAt
+    ) {
+        return RecruitingApplication.builder()
+            .applicationForm(applicationForm)
+            .formResponseId(formResponseId)
+            .formResponseAccessKey(formResponseAccessKey)
+            .applicantProfile(applicantProfile)
+            .applicationKey(applicationKey)
+            .privacyTermId(privacyTermId)
+            .privacyAgreedAt(privacyAgreedAt)
+            .build();
+    }
+
     public void updateDraft(Long requesterMemberId, RecruitingApplicantProfile applicantProfile) {
-        if (status != RecruitingApplicationStatus.DRAFT) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
-        }
+        validateEditable();
         validateApplicant(requesterMemberId);
-        if (applicantProfile == null) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REQUIRED_FIELD);
-        }
-        this.applicantProfile = applicantProfile;
+        updateApplicantProfile(applicantProfile);
+    }
+
+    public void updateAnonymous(String credentialEmail, RecruitingApplicantProfile applicantProfile) {
+        validateEditable();
+        validateAnonymousApplicant(credentialEmail);
+        updateApplicantProfile(applicantProfile);
     }
 
     public void recordPrivacyConsent(Long termId, Instant agreedAt) {
@@ -176,6 +215,12 @@ public class RecruitingApplication extends BaseEntity {
     public void submit(Long memberId) {
         validateApplicant(memberId);
         transitionTo(RecruitingApplicationStatus.SUBMITTED, memberId, null);
+        this.submittedAt = Instant.now();
+    }
+
+    public void submitAnonymous(String credentialEmail) {
+        validateAnonymousApplicant(credentialEmail);
+        transitionTo(RecruitingApplicationStatus.SUBMITTED, null, null);
         this.submittedAt = Instant.now();
     }
 
@@ -244,19 +289,39 @@ public class RecruitingApplication extends BaseEntity {
     private static void validateRequired(
         RecruitingApplicationForm applicationForm,
         Long formResponseId,
+        String formResponseAccessKey,
         Long applicantMemberId,
         RecruitingApplicantProfile applicantProfile,
-        String applicationKey
+        String applicationKey,
+        Long privacyTermId,
+        Instant privacyAgreedAt
     ) {
         if (applicationForm == null
             || formResponseId == null
-            || applicantMemberId == null
             || applicantProfile == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REQUIRED_FIELD);
         }
         if (applicationKey == null || !APPLICATION_KEY_PATTERN.matcher(applicationKey).matches()) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_KEY);
         }
+        if (applicantMemberId == null) {
+            if (formResponseAccessKey == null || formResponseAccessKey.isBlank()
+                || privacyTermId == null || privacyTermId <= 0 || privacyAgreedAt == null) {
+                throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_PRIVACY_CONSENT);
+            }
+            return;
+        }
+        if (formResponseAccessKey != null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REQUIRED_FIELD);
+        }
+    }
+
+    public boolean isAnonymous() {
+        return applicantMemberId == null;
+    }
+
+    public boolean isEditable() {
+        return status == RecruitingApplicationStatus.DRAFT || status == RecruitingApplicationStatus.SUBMITTED;
     }
 
     public String getApplicantName() {
@@ -279,6 +344,28 @@ public class RecruitingApplication extends BaseEntity {
         RecruitingApplicationLifecyclePolicy.requireTransition(status, targetStatus);
         this.status = targetStatus;
         recordStatusChange(memberId, reason);
+    }
+
+    private void validateEditable() {
+        if (!isEditable()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
+        }
+    }
+
+    public void validateAnonymousApplicant(String credentialEmail) {
+        if (!isAnonymous()
+            || formResponseAccessKey == null
+            || credentialEmail == null
+            || !credentialEmail.equals(getApplicantEmail())) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
+        }
+    }
+
+    private void updateApplicantProfile(RecruitingApplicantProfile applicantProfile) {
+        if (applicantProfile == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_REQUIRED_FIELD);
+        }
+        this.applicantProfile = applicantProfile;
     }
 
     private void requireRegistrationStatus(RecruitingApplicationRegistrationStatus expectedStatus) {

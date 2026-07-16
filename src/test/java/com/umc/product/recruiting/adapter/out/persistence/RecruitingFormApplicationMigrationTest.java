@@ -41,7 +41,8 @@ class RecruitingFormApplicationMigrationTest extends RecruitingFormApplicationMi
                 "privacy_term_id",
                 "privacy_agreed_at",
                 "application_key",
-                "accepted_track"
+                "accepted_track",
+                "form_response_access_key"
             );
             assertThat(columns).doesNotContain("applicant_identity_key", "application_no", "masked_email");
         }

@@ -2,6 +2,7 @@ package com.umc.product.recruiting.adapter.out.persistence;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -13,6 +14,11 @@ import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 public interface RecruitingApplicationJpaRepository extends JpaRepository<RecruitingApplication, Long> {
 
     boolean existsByApplicantProfile_ApplicantEmailAndApplicationKey(String applicantEmail, String applicationKey);
+
+    Optional<RecruitingApplication> findByApplicantProfile_ApplicantEmailAndApplicationKey(
+        String applicantEmail,
+        String applicationKey
+    );
 
     boolean existsByRound_IdAndApplicantMemberId(Long roundId, Long applicantMemberId);
 

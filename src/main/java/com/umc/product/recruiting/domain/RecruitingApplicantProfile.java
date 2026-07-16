@@ -72,7 +72,7 @@ public class RecruitingApplicantProfile {
         }
     }
 
-    private static void validateChoices(
+    public static void validateChoices(
         RecruitingRound round,
         ChallengerTrack firstChoice,
         ChallengerTrack secondChoice

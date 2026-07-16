@@ -26,7 +26,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
 import com.umc.product.recruiting.application.port.in.command.dto.AddRecruitingFormSectionPolicyCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationFormCommandService;
@@ -85,10 +84,7 @@ class RecruitingApplicationFormPolicyConcurrencyTest {
         Fixture fixture = persistFixture();
         given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(FormWithStructureInfo.builder()
             .formId(FORM_ID)
-            .sections(List.of(SectionWithQuestions.builder()
-                .sectionId(FORM_SECTION_ID)
-                .questions(List.of())
-                .build()))
+            .sections(List.of())
             .build());
         CountDownLatch publishHasRootLock = new CountDownLatch(1);
         CountDownLatch allowPublish = new CountDownLatch(1);

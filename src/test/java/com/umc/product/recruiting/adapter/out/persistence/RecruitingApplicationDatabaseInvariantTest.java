@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.sql.Connection;
 
@@ -86,6 +87,44 @@ class RecruitingApplicationDatabaseInvariantTest extends RecruitingFormApplicati
                 2, 2, 2006, 206, '합격트랙', 'accepted@example.com',
                 'PLAN', 'DESIGN', NULL, NULL, 'V4W5X6', 'WEB_PRODUCT_ENGINEER'
                 """);
+        }
+    }
+
+    @Test
+    @DisplayName("익명 지원서는 회원 ID 없이 개인정보 증적과 Form access key를 모두 가져야 한다")
+    void enforceAnonymousIdentityModeConstraint() throws Exception {
+        clearLegacyRecruitingData();
+        executeMigration();
+
+        try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
+            insertApplicationForms(statement);
+            statement.executeUpdate("""
+                INSERT INTO recruiting_application (
+                    created_at, updated_at, recruiting_round_id, recruiting_application_form_id,
+                    form_response_id, applicant_member_id, applicant_name, applicant_email,
+                    first_choice, second_choice, privacy_term_id, privacy_agreed_at,
+                    application_key, accepted_track, status, registration_status, form_response_access_key
+                ) VALUES (
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1,
+                    3000, NULL, '익명지원자', 'anonymous@example.com',
+                    'PLAN', NULL, 10, CURRENT_TIMESTAMP,
+                    'N1M2O3', NULL, 'DRAFT', 'NOT_READY', 'raw-form-access-key'
+                )
+                """);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                INSERT INTO recruiting_application (
+                    created_at, updated_at, recruiting_round_id, recruiting_application_form_id,
+                    form_response_id, applicant_member_id, applicant_name, applicant_email,
+                    first_choice, second_choice, privacy_term_id, privacy_agreed_at,
+                    application_key, accepted_track, status, registration_status, form_response_access_key
+                ) VALUES (
+                    CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 2, 2,
+                    3001, NULL, '키누락', 'missing-key@example.com',
+                    'PLAN', NULL, 10, CURRENT_TIMESTAMP,
+                    'P4Q5R6', NULL, 'DRAFT', 'NOT_READY', NULL
+                )
+                """)).isInstanceOf(Exception.class);
         }
     }
 

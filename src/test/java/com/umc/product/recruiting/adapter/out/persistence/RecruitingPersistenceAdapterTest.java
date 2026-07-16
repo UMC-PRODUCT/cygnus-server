@@ -2,6 +2,7 @@ package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -84,6 +85,40 @@ class RecruitingPersistenceAdapterTest extends RecruitingPersistenceAdapterTestS
             application.getId() + 1
         )).isTrue();
         assertThat(reloaded.getApplicationForm().getRound().getSeason().getSchoolId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("익명 지원서는 email과 application key로 조회하고 Form raw key를 내부에 보존한다")
+    void saveAndLoadAnonymousApplicationByCredential() {
+        RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(1L, 10L));
+        RecruitingRound round = roundAdapter.save(RecruitingRound.createRegular(season, applicationConfiguration()));
+        RecruitingApplicationForm form = formAdapter.save(RecruitingApplicationForm.create(round, 100L));
+        RecruitingApplication application = applicationAdapter.save(RecruitingApplication.createAnonymousDraft(
+            form,
+            1_000L,
+            "raw-form-access-key",
+            RecruitingApplicantProfile.create(
+                round,
+                "익명지원자",
+                RecruitingApplicantEmail.from("anonymous@example.com"),
+                ChallengerTrack.WEB_PRODUCT_ENGINEER,
+                null
+            ),
+            "A1B2C3",
+            3L,
+            Instant.parse("2026-07-15T00:00:00Z")
+        ));
+        em.flush();
+        em.clear();
+
+        RecruitingApplication found = applicationAdapter.findByApplicantEmailAndApplicationKey(
+            "anonymous@example.com",
+            "A1B2C3"
+        ).orElseThrow();
+
+        assertThat(found.getId()).isEqualTo(application.getId());
+        assertThat(found.isAnonymous()).isTrue();
+        assertThat(found.getFormResponseAccessKey()).isEqualTo("raw-form-access-key");
     }
 
     @Test
