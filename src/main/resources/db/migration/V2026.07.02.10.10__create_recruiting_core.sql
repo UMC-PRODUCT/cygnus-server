@@ -126,6 +126,3 @@ CREATE UNIQUE INDEX uk_recruiting_application_active_round_identity
 
 CREATE INDEX ix_recruiting_application_status
     ON public.recruiting_application (status);
-
-CREATE INDEX ix_recruiting_application_registration_status
-    ON public.recruiting_application (registration_status);
