@@ -49,6 +49,10 @@ public enum FormErrorCode implements BaseCode {
         "조건부 섹션 이동은 자기 자신을 대상으로 할 수 없어요. 이동 대상 섹션을 다시 선택해주세요."),
     FORM_INVALID_TRANSITION(HttpStatus.CONFLICT, "FORM-0038", "현재 폼 상태에서는 할 수 없는 작업이에요."),
     FORM_HAS_RESPONSES(HttpStatus.CONFLICT, "FORM-0039", "응답이 있는 폼은 초안 상태로 되돌릴 수 없어요."),
+    INVALID_NEXT_SECTION_BACKWARD(HttpStatus.BAD_REQUEST, "FORM-0040",
+        "조건부 섹션 이동은 뒤 섹션으로만 갈 수 있어요. 앞이나 같은 위치 섹션은 선택할 수 없어요."),
+    MULTIPLE_BRANCHING_QUESTIONS_IN_SECTION(HttpStatus.BAD_REQUEST, "FORM-0041",
+        "한 섹션에는 조건부 이동을 지정한 질문을 하나만 둘 수 있어요. 다른 질문의 이동 설정을 먼저 해제해주세요."),
     ;
 
     private final HttpStatus httpStatus;
