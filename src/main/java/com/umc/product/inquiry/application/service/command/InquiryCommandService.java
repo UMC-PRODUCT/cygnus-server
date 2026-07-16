@@ -7,6 +7,9 @@ import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomComman
 import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
+import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.MarkInquiryReadUseCase;
@@ -55,6 +58,7 @@ public class InquiryCommandService implements
     private final JoinChatRoomUseCase joinChatRoomUseCase;
     private final CheckChatRoomAccessUseCase checkChatRoomAccessUseCase;
     private final MarkChatRoomReadUseCase markChatRoomReadUseCase;
+    private final GetChatMessagesUseCase getChatMessagesUseCase;
     private final LoadInquiryPort loadInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
 
@@ -135,8 +139,17 @@ public class InquiryCommandService implements
     @Override
     public void markRead(MarkInquiryReadCommand command) {
         Inquiry inquiry = loadInquiryPort.getById(command.inquiryId());
+        Long chatRoomId = inquiry.getChatRoomId();
+        // 엔진 markRead 는 "lastSeenMessageId 까지 읽음"이므로, 방의 최신(id DESC 1건) 메시지 id 를 넘기면 기존의 "방 전체 읽음"과 동치가 된다.
+        ChatMessageCursorResult latest = getChatMessagesUseCase.getMessages(
+            new GetChatMessagesQuery(chatRoomId, command.memberId(), null, 1));
+        if (latest.content().isEmpty()) {
+            // 메시지가 없는 빈 방이면 읽음 처리할 대상도 없으므로 no-op 으로 정상 반환한다.
+            return;
+        }
+        Long lastSeenMessageId = latest.content().get(0).messageId();
         markChatRoomReadUseCase.markRead(
-            MarkChatRoomReadCommand.of(inquiry.getChatRoomId(), command.memberId()));
+            MarkChatRoomReadCommand.of(chatRoomId, command.memberId(), lastSeenMessageId));
     }
 
     /**

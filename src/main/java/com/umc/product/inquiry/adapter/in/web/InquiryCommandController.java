@@ -1,10 +1,10 @@
 package com.umc.product.inquiry.adapter.in.web;
 
-import com.umc.product.chat.adapter.in.web.dto.response.ChatMessageResponse;
 import com.umc.product.inquiry.adapter.in.web.dto.request.AssignInquiryManagerRequest;
 import com.umc.product.inquiry.adapter.in.web.dto.request.SendInquiryMessageRequest;
 import com.umc.product.inquiry.adapter.in.web.dto.request.SubmitInquiryRequest;
 import com.umc.product.inquiry.adapter.in.web.dto.request.TransferInquiryManagerRequest;
+import com.umc.product.inquiry.adapter.in.web.dto.response.InquiryMessageResponse;
 import com.umc.product.inquiry.adapter.in.web.dto.response.InquiryResponse;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
@@ -97,7 +97,7 @@ public class InquiryCommandController {
 
     @PostMapping("/{inquiryId}/messages")
     @io.swagger.v3.oas.annotations.Operation(summary = "문의 메시지 전송")
-    public ChatMessageResponse sendMessage(
+    public InquiryMessageResponse sendMessage(
         @PathVariable Long inquiryId,
         @Valid @RequestBody SendInquiryMessageRequest request,
         @CurrentMember MemberPrincipal principal
@@ -105,7 +105,7 @@ public class InquiryCommandController {
         Long senderMemberId = principal.getMemberId();
         Long chatRoomId = getInquiryUseCase.getById(
             new GetInquiryQuery(inquiryId, senderMemberId)).chatRoomId();
-        return ChatMessageResponse.from(
+        return InquiryMessageResponse.from(
             sendInquiryMessageUseCase.send(
                 new SendInquiryMessageCommand(
                     chatRoomId,

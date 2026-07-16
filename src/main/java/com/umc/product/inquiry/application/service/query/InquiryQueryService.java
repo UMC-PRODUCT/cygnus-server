@@ -1,7 +1,7 @@
 package com.umc.product.inquiry.application.service.query;
 
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
-import com.umc.product.chat.application.port.in.query.GetMyChatRoomsUseCase;
+import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
@@ -38,14 +38,17 @@ public class InquiryQueryService implements GetInquiryListUseCase, GetInquiryUse
     private final LoadInquiryPort loadInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
     private final GetChatMessagesUseCase getChatMessagesUseCase;
-    private final GetMyChatRoomsUseCase getMyChatRoomsUseCase;
+    private final ListChatRoomSummariesUseCase listChatRoomSummariesUseCase;
 
     @Override
     public CursorResponse<InquirySummaryInfo> getList(GetInquiryListQuery query) {
         InquiryAccessScope scope = scopeResolver.resolve(query.memberId());
         List<Inquiry> rows = loadInquiryPort.listByScope(scope, query);
 
-        Map<Long, Long> unreadByRoom = buildUnreadMap(query.memberId());
+        List<Long> roomIds = rows.stream()
+            .map(Inquiry::getChatRoomId)
+            .toList();
+        Map<Long, Long> unreadByRoom = buildUnreadMap(query.memberId(), roomIds);
 
         boolean hasNext = rows.size() > query.size();
         List<Inquiry> page = hasNext ? rows.subList(0, query.size()) : rows;
@@ -63,7 +66,8 @@ public class InquiryQueryService implements GetInquiryListUseCase, GetInquiryUse
         Inquiry inquiry = loadInquiryPort.getById(query.inquiryId());
         verifyAccess(query.requesterMemberId(), inquiry);
 
-        Map<Long, Long> unreadByRoom = buildUnreadMap(query.requesterMemberId());
+        Map<Long, Long> unreadByRoom = buildUnreadMap(
+            query.requesterMemberId(), List.of(inquiry.getChatRoomId()));
         long unreadCount = unreadByRoom.getOrDefault(inquiry.getChatRoomId(), 0L);
         return InquiryInfo.from(inquiry, unreadCount);
     }
@@ -95,8 +99,11 @@ public class InquiryQueryService implements GetInquiryListUseCase, GetInquiryUse
     /**
      * 요청자의 채팅방별 미읽음 수 맵을 구성한다. 요청자가 멤버가 아닌 방은 결과에 포함되지 않으므로 0으로 처리된다.
      */
-    private Map<Long, Long> buildUnreadMap(Long memberId) {
-        return getMyChatRoomsUseCase.getMyChatRooms(memberId).stream()
+    private Map<Long, Long> buildUnreadMap(Long memberId, List<Long> roomIds) {
+        if (roomIds.isEmpty()) {
+            return Map.of();
+        }
+        return listChatRoomSummariesUseCase.listRoomSummaries(memberId, roomIds).stream()
             .collect(Collectors.toMap(ChatRoomSummaryInfo::roomId, ChatRoomSummaryInfo::unreadCount));
     }
 }
