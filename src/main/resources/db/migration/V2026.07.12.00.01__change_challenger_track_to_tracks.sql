@@ -23,7 +23,15 @@ ALTER TABLE public.challenger
             ]::TEXT[]
         ),
     ADD CONSTRAINT challenger_tracks_no_null_elements_check
-        CHECK (array_position(tracks, NULL) IS NULL);
+        CHECK (array_position(tracks, NULL) IS NULL),
+    ADD CONSTRAINT challenger_tracks_no_duplicates_check
+        CHECK (
+            cardinality(array_positions(tracks, 'PLAN')) <= 1
+            AND cardinality(array_positions(tracks, 'DESIGN')) <= 1
+            AND cardinality(array_positions(tracks, 'WEB_PRODUCT_ENGINEER')) <= 1
+            AND cardinality(array_positions(tracks, 'MOBILE_PRODUCT_ENGINEER')) <= 1
+            AND cardinality(array_positions(tracks, 'INFRA_PLUS')) <= 1
+        );
 
 ALTER TABLE public.challenger
     DROP CONSTRAINT IF EXISTS challenger_track_check,

@@ -172,6 +172,13 @@ class ChallengerTracksMigrationTest {
                 WHERE member_id = 2
                 """))
                 .isInstanceOf(SQLException.class);
+
+            assertThatThrownBy(() -> statement.executeUpdate("""
+                UPDATE public.challenger
+                SET tracks = ARRAY['DESIGN', 'DESIGN']::TEXT[]
+                WHERE member_id = 2
+                """))
+                .isInstanceOf(SQLException.class);
         }
     }
 }
