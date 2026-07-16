@@ -36,6 +36,7 @@ import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
@@ -66,6 +67,9 @@ class MemberChallengerGraphQlControllerTest {
 
     @MockitoBean
     GetGisuUseCase getGisuUseCase;
+
+    @MockitoBean
+    SearchMemberUseCase searchMemberUseCase;
 
     @BeforeEach
     void setUpSecurityContext() {

@@ -21,7 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class ChallengerTracksMigrationTest {
 
     private static final String MIGRATION_PATH =
-        "db/migration/V2026.07.12.00.00__change_challenger_track_to_tracks.sql";
+        "db/migration/V2026.07.12.00.01__change_challenger_track_to_tracks.sql";
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18-alpine");
