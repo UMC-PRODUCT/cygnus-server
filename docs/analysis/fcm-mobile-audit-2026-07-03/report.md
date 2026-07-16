@@ -2,7 +2,7 @@
 
 ## 결론
 
-현재 FCM 알림 구조는 발송 요청 이벤트, audience 해석, 500개 단위 배치 발송, invalid token 비활성화까지 갖춰져 있어 서버 측 발송 파이프라인의 기본기는 양호하다. 단, durable queue로서의 `event_outbox` 장점은 `EVENT_OUTBOX_ENABLED=true` 환경에 한정된다. 기본 설정은 `src/main/resources/application.yml:324`에서 `enabled: ${EVENT_OUTBOX_ENABLED:false}`다.
+현재 FCM 알림 구조는 발송 요청 이벤트, audience 해석, 500개 단위 배치 발송, invalid token 비활성화까지 갖춰져 있어 서버 측 발송 파이프라인의 기본기는 양호하다. Domain Event는 공용 `event_outbox`에 항상 저장되며, relay를 중지해도 이벤트는 `PENDING` 상태로 보존된다.
 
 다만 모바일 친화성은 "기본 알림 표시 + data 전달" 수준이다. Android/iOS가 FCM을 서로 다르게 해석하는 지점인 channel, click action/category, APNs badge/sound/content-available/mutable-content, priority/TTL/collapse key 같은 플랫폼별 설정이 서버 계약에 없다. 따라서 앱이 `data.deepLink`를 직접 파싱한다는 별도 클라이언트 계약 없이는 탭 이동, 포그라운드 처리, 백그라운드 처리의 일관성을 보장하기 어렵다.
 
@@ -31,7 +31,7 @@
 - 발송 결과에서 `UNREGISTERED`는 invalid token으로 반환되어 비활성화 경로로 연결된다. 근거: `src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:86`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:69`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:77`.
 
 Must-fix:
-- 관리자 발송 target에는 "최소 하나의 target 필요", `memberIds` 최대 개수, target 조합 정책, 대량 발송 확인/승인 정책이 없다. `Target` 필드는 `memberIds`, `gisuId`, `chapterId`, `schoolId`, `parts`만 선언하고 검증 annotation이 없다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:36`.
+- 관리자 발송 target은 최소 하나의 대상과 `parts` 원소의 null 여부를 검증한다. 다만 `memberIds` 최대 개수, target 조합 정책, 대량 발송 확인/승인 정책은 추가로 필요하다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java`.
 - `data` key/value는 길이 제한만 있고 Firebase reserved key, 민감정보, 내부 URL/deepLink scheme/domain allowlist 검증이 없다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:48`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:49`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmAdminSendRequest.java:50`. Firebase는 `from`, `gcm`, `google` 같은 reserved key와 민감 데이터 전송 주의를 문서화한다. 근거 URL: https://firebase.google.com/docs/cloud-messaging/customize-messages/set-message-type.
 - 인증 사용자 토큰 등록 abuse 방어가 약하다. `fcmToken`은 `@NotBlank`만 있고 길이 제한이 없다. 근거: `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java:8`, `src/main/java/com/umc/product/notification/adapter/in/web/dto/request/FcmRegistrationRequest.java:9`. 같은 회원의 새 토큰은 계속 저장될 수 있고 사용자별 활성 토큰 수 제한이 없다. 근거: `src/main/java/com/umc/product/notification/application/service/FcmService.java:26`, `src/main/java/com/umc/product/notification/application/service/FcmService.java:29`, `src/main/java/com/umc/product/notification/application/service/FcmService.java:35`.
 - 신규/재등록 토큰은 `lastValidatedAt`이 등록 시각으로 설정되고, 기본 stale 기간은 30일이다. 유효하지 않은 과대/임의 토큰이 검증 대기에서 오래 빠질 수 있다. 근거: `src/main/java/com/umc/product/notification/domain/FcmToken.java:91`, `src/main/java/com/umc/product/notification/domain/FcmToken.java:97`, `src/main/resources/application.yml:336`.
@@ -46,13 +46,13 @@ Acceptable risks / 운영 주의:
 강점:
 - 요청 이벤트와 발송 배치 이벤트가 분리되어 있고, 실제 Firebase 호출은 outbound port 뒤에 있다. 근거: `src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:14`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:11`, `src/main/java/com/umc/product/notification/application/port/out/SendFcmMessagePort.java:6`.
 - `FcmAudienceResolver`와 `FcmSendBatchRequestedEventListener`가 분리되어 audience 해석과 전송 책임은 나뉘어 있다. 근거: `src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:30`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:35`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEventListener.java:49`.
-- 공용 `event_outbox`를 durable queue로 쓰는 방향은 at-least-once delivery와 재시도 모델에 맞지만, 실제 durable 동작은 `EVENT_OUTBOX_ENABLED=true`일 때로 제한해 표현해야 한다. 근거: `src/main/resources/application.yml:324`.
+- 공용 `event_outbox`를 durable queue로 사용하며, relay 중지 여부와 무관하게 발행 이벤트를 영속화한다. 근거: `src/main/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisher.java`.
 
 제한:
 - 타깃 모델이 `memberIds + gisu/chapter/school/parts`에 고정되어 있다. role, subscription tag, dynamic segment, user preference 기반 알림은 event/command/resolver를 함께 확장해야 한다. 근거: `src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:19`, `src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:20`, `src/main/java/com/umc/product/notification/application/event/FcmNotificationRequestedEvent.java:23`.
 - `FcmAudienceResolver`는 gisu가 없으면 조직 필터를 해석하지 않고, gisu/chapter/school/part 순서의 UMC 조직 모델에 직접 묶여 있다. 근거: `src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:36`, `src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:41`, `src/main/java/com/umc/product/notification/application/service/FcmAudienceResolver.java:71`.
 - 메시지 모델이 raw title/body/data 중심이라 template, localization, priority, channel, schedule, quiet hours, per-user preference 같은 기능을 넣을 표준 위치가 없다. 근거: `src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendRequest.java:6`, `src/main/java/com/umc/product/notification/application/event/FcmSendBatchRequestedEvent.java:16`.
-- `SendFcmMessagePort` 결과가 aggregate 중심이라 per-token error taxonomy, retry class, dead-letter/reporting을 세밀하게 확장하기 어렵다. 근거: `src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendResult.java:5`, `src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java:74`.
+- `SendFcmMessagePort` 결과는 invalid/retryable token ID를 구분하지만, 상세 오류 taxonomy와 dead-letter/reporting 계약은 아직 없다. 근거: `src/main/java/com/umc/product/notification/application/port/out/dto/FcmSendResult.java`, `src/main/java/com/umc/product/notification/adapter/out/external/fcm/FirebaseFcmMessageAdapter.java`.
 
 ## 권장 개선 순서
 
@@ -65,12 +65,4 @@ Acceptable risks / 운영 주의:
 
 ## Evidence
 
-- `./evidence/C001-mobile-payload.txt`
-- `./evidence/C002-security.txt`
-- `./evidence/C003-extensibility.txt`
-- `./evidence/code-review.md`
-- `./evidence/manual-qa.md`
-- `./evidence/final-gate-review.md`
-- `./evidence/quality-gate.json`
-- `./evidence/ulw-goals.json`
-- cleanup: no runtime resources spawned; no server, tmux, browser, or container left running.
+- [검토 실행 순서](./evidence/execution-sequence.md)
