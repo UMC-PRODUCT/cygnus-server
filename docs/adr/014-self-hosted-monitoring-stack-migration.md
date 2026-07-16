@@ -12,7 +12,7 @@ Proposed (2026-05-09)
 
 #### 1.1 Metrics (Micrometer → Grafana Cloud Mimir)
 
-- 수집 어댑터: `io.micrometer:micrometer-registry-prometheus` + `io.micrometer:micrometer-registry-otlp` ([build.gradle.kts §128~131](../../build.gradle.kts#L128-L131))
+- 수집 어댑터: `io.micrometer:micrometer-registry-prometheus` + `io.micrometer:micrometer-registry-otlp` ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts))
 - 노출 경로 두 가지:
     - Pull: `:9090/actuator/prometheus` ([application.yml §253-263](../../src/main/resources/application.yml#L253-L263)). 현재 사내에서 scrape 하는 주체가 명시되어 있지 않다 (운영 시 Grafana Cloud agent 가 pull 하지 않고 push 만 사용 중).
     - Push: `management.otlp.metrics.export.url=${PROM_URL}` 로 OTLP 형식 push. `Authorization: Basic ${PROM_AUTH}` 헤더 사용, step 30s ([application.yml §270-280](../../src/main/resources/application.yml#L270-L280)).
@@ -21,15 +21,15 @@ Proposed (2026-05-09)
 
 #### 1.2 Tracing (Micrometer Tracing → OTel → Grafana Cloud Tempo)
 
-- 어댑터: `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp` + `context-propagation` ([build.gradle.kts §138~141](../../build.gradle.kts#L138-L141))
+- 어댑터: `micrometer-tracing-bridge-otel` + `opentelemetry-exporter-otlp` + `context-propagation` ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts))
 - 엔드포인트: `management.otlp.tracing.endpoint=${TEMPO_URL:http://localhost:4318}`, 인증은 `Basic ${TEMPO_AUTH}` ([application.yml §270-274](../../src/main/resources/application.yml#L270-L274))
 - sampling: `TRACE_SAMPLING_PROBABILITY` 기본 1.0 — **모든 요청 trace 가 외부로 송신** 된다. 운영에서 줄여 운영 중일 가능성이 있으나 환경변수 미세팅 시 100% 가 디폴트.
 
-#### 1.3 Logs (logback Loki4j → Grafana Cloud Loki)
+#### 1.3 Logs (logback → OpenTelemetry Collector)
 
-- 어댑터: `com.github.loki4j:loki-logback-appender:1.5.2` ([build.gradle.kts §129](../../build.gradle.kts#L129))
-- 엔드포인트: `${LOKI_URL:-http://localhost:3100/loki/api/v1/push}`, basic auth (`${LOKI_USERNAME}` / `${GRAFANA_API_KEY}`) ([logback-spring.xml §35-52](../../src/main/resources/logback-spring.xml#L35-L52))
-- 라벨: `application=${SPRING_APPLICATION_NAME}, level=%level`. **모든 profile (local 포함) 이 LOKI 어펜더를 활성화** 한다. 즉 로컬 개발자의 노트북에서 발생한 로그도 환경변수만 세팅되어 있으면 Grafana Cloud 로 전송된다.
+- 어댑터: `logstash-logback-encoder` + `opentelemetry-logback-appender-1.0` ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts))
+- 엔드포인트: `${OTEL_LOGS_URL:${OTEL_URL:http://localhost:4318}/v1/logs}`, 인증은 `OTEL_LOGS_AUTH_HEADER` ([application.yml](../../src/main/resources/application.yml))
+- 출력: local은 텍스트, dev/staging/prod는 JSON stdout을 사용하며 모든 profile이 OTLP logs를 함께 전송한다 ([logback-spring.xml](../../src/main/resources/logback-spring.xml)).
 
 #### 1.4 도커 자산 / 로컬 스택
 
@@ -466,7 +466,7 @@ GitHub Actions 의 secret 도 같은 매핑으로 정리하고, 변경 PR 은 �
 - 기존 코드 / 설정
     - [application.yml — management 섹션](../../src/main/resources/application.yml#L252-L418)
     - [logback-spring.xml — Loki 어펜더](../../src/main/resources/logback-spring.xml)
-    - [build.gradle.kts — micrometer / opentelemetry / loki 의존성](../../build.gradle.kts#L127-L138)
+    - [dependencies.gradle.kts — micrometer / opentelemetry 의존성](../../gradle/dependencies.gradle.kts)
     - [docker/monitoring/config/grafana/provisioning/datasources/](../../docker/monitoring/config/grafana/provisioning/datasources/) — 현재 빈 디렉터리, Phase 1 에서 채움.
 - 외부 자료
     - [Grafana OSS docker-compose example](https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/)
