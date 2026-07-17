@@ -155,7 +155,7 @@ public record ProjectApplicationGraphQlResponse(
         String description,
         boolean required,
         long orderNo,
-        List<ProjectApplicationFormGraphQlResponse.ApplicationFormOptionGraphQlResponse> options,
+        List<ProjectApplicationFormGraphQlResponse.ProjectFormOptionGraphQlResponse> options,
         ProjectApplicationAnswerGraphQlResponse answer
     ) {
         public static ProjectApplicationResponseQuestionGraphQlResponse from(
@@ -171,7 +171,7 @@ public record ProjectApplicationGraphQlResponse(
                 info.isRequired(),
                 info.orderNo(),
                 info.options().stream()
-                    .map(ProjectApplicationFormGraphQlResponse.ApplicationFormOptionGraphQlResponse::from)
+                    .map(ProjectApplicationFormGraphQlResponse.ProjectFormOptionGraphQlResponse::from)
                     .toList(),
                 answer == null ? null : ProjectApplicationAnswerGraphQlResponse.from(answer, filesByFileId)
             );

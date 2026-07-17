@@ -19,7 +19,11 @@ import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.schema.GraphQLEnumType;
 import graphql.schema.GraphQLFieldDefinition;
 import graphql.schema.GraphQLInterfaceType;
+import graphql.schema.GraphQLList;
+import graphql.schema.GraphQLNamedType;
+import graphql.schema.GraphQLNonNull;
 import graphql.schema.GraphQLObjectType;
+import graphql.schema.GraphQLType;
 
 class GraphQlRuntimeWiringConfigTest {
 
@@ -89,6 +93,56 @@ class GraphQlRuntimeWiringConfigTest {
     }
 
     @Test
+    @DisplayName("Project GraphQL은 MemberSummary와 shared form 구현 계약을 노출한다")
+    void projectGraphQlSchemaUsesSummaryAndFormImplementations() throws IOException {
+        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
+            .getResources("classpath*:graphql/**/*.graphqls");
+
+        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
+            .schemaResources(schemaResources)
+            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
+            .build();
+
+        assertThat(graphQlSource.schema().getType("MemberSummary")).isInstanceOf(GraphQLObjectType.class);
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("MemberSummary"),
+            "memberId", "nickname", "name", "schoolName");
+
+        GraphQLObjectType project = (GraphQLObjectType) graphQlSource.schema().getType("Project");
+        assertThat(typeName(project.getFieldDefinition("productOwner").getType())).isEqualTo("MemberSummary");
+        assertThat(typeName(project.getFieldDefinition("coProductOwners").getType()))
+            .isEqualTo("[MemberSummary!]!");
+
+        GraphQLObjectType projectApplicationForm =
+            (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationForm");
+        assertThat(projectApplicationForm.getInterfaces())
+            .extracting(interfaceType -> interfaceType.getName())
+            .containsExactly("Form");
+        assertFieldNames(projectApplicationForm,
+            "projectId", "applicationFormId", "title", "description", "sections");
+        assertThat(typeName(projectApplicationForm.getFieldDefinition("sections").getType()))
+            .isEqualTo("[ApplicationFormSection!]!");
+
+        GraphQLObjectType applicationFormSection =
+            (GraphQLObjectType) graphQlSource.schema().getType("ApplicationFormSection");
+        assertThat(applicationFormSection.getInterfaces())
+            .extracting(interfaceType -> interfaceType.getName())
+            .containsExactly("FormSection");
+        assertFieldNames(applicationFormSection,
+            "sectionId", "type", "allowedParts", "title", "description", "orderNo", "questions");
+        assertThat(typeName(applicationFormSection.getFieldDefinition("questions").getType()))
+            .isEqualTo("[FormQuestion!]!");
+
+        GraphQLObjectType responseQuestion =
+            (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationResponseQuestion");
+        assertThat(typeName(responseQuestion.getFieldDefinition("options").getType()))
+            .isEqualTo("[FormOption!]!");
+
+        assertThat(graphQlSource.schema().getType("MemberBrief")).isNull();
+        assertThat(graphQlSource.schema().getType("ApplicationFormQuestion")).isNull();
+        assertThat(graphQlSource.schema().getType("ApplicationFormOption")).isNull();
+    }
+
+    @Test
     @DisplayName("Project GraphQL schema는 shared 선언을 소유하지 않는다")
     void projectGraphQlSchemaDoesNotOwnSharedDeclarations() throws IOException {
         Resource projectSchema = new PathMatchingResourcePatternResolver()
@@ -123,5 +177,15 @@ class GraphQlRuntimeWiringConfigTest {
         assertThat(type.getValues())
             .extracting(value -> value.getName())
             .containsExactly(enumValues);
+    }
+
+    private String typeName(GraphQLType type) {
+        if (type instanceof GraphQLNonNull nonNull) {
+            return typeName(nonNull.getWrappedType()) + "!";
+        }
+        if (type instanceof GraphQLList list) {
+            return "[" + typeName(list.getWrappedType()) + "]";
+        }
+        return ((GraphQLNamedType) type).getName();
     }
 }
