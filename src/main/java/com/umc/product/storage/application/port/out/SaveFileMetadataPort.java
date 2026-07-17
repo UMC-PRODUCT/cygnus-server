@@ -16,6 +16,11 @@ public interface SaveFileMetadataPort {
     FileMetadata save(FileMetadata fileMetadata);
 
     /**
+     * 대기 중인 파일 메타데이터 변경을 데이터베이스에 반영합니다.
+     */
+    void flush();
+
+    /**
      * 파일 메타데이터를 삭제합니다.
      *
      * @param fileId 파일 고유 ID

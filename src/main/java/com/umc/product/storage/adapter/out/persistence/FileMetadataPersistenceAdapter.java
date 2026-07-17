@@ -56,6 +56,11 @@ public class FileMetadataPersistenceAdapter
     }
 
     @Override
+    public void flush() {
+        fileMetadataRepository.flush();
+    }
+
+    @Override
     @Transactional
     public void deleteByFileId(String fileId) {
         fileMetadataRepository.deleteById(fileId);

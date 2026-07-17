@@ -9,14 +9,19 @@ import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 
 import java.lang.reflect.Method;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -24,16 +29,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
+import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
+import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
 import com.umc.product.storage.application.port.out.LoadFileUsagePort;
+import com.umc.product.storage.application.port.out.LockFileMetadataPort;
 import com.umc.product.storage.application.port.out.SaveFileMetadataPort;
 import com.umc.product.storage.application.port.out.StoragePort;
 import com.umc.product.storage.application.port.out.dto.StorageObjectInfo;
@@ -61,12 +69,14 @@ class FileCommandServiceUnitTest {
     LoadFileUsagePort loadFileUsagePort;
 
     @Mock
+    LockFileMetadataPort lockFileMetadataPort;
+
+    @Mock
     FileDeletionService fileDeletionService;
 
     @Mock
     Clock clock;
 
-    @InjectMocks
     FileCommandService sut;
 
     @BeforeEach
@@ -76,24 +86,173 @@ class FileCommandServiceUnitTest {
             anyString(),
             anyString()
         )).thenCallRealMethod();
+        GeneratedFileMetadataService generatedFileMetadataService = new GeneratedFileMetadataService(
+            lockFileMetadataPort,
+            loadFileUsagePort,
+            saveFileMetadataPort,
+            clock
+        );
+        sut = new FileCommandService(
+            storagePort,
+            loadFileMetadataPort,
+            saveFileMetadataPort,
+            loadFileUsagePort,
+            fileDeletionService,
+            generatedFileMetadataService,
+            clock
+        );
     }
 
     @Test
-    @DisplayName("파일 삭제는 클래스 공통 트랜잭션으로 외부 스토리지 I/O를 감싸지 않는다")
-    void 파일_삭제는_클래스_공통_트랜잭션으로_외부_스토리지_IO를_감싸지_않는다() throws NoSuchMethodException {
+    @DisplayName("파일 삭제와 생성 파일 S3 I/O는 클래스 공통 트랜잭션으로 감싸지 않는다")
+    void 파일_삭제와_생성_파일_S3_IO는_클래스_공통_트랜잭션으로_감싸지_않는다() throws NoSuchMethodException {
         // when
         Method getFileUploadUrl = FileCommandService.class.getMethod(
             "getFileUploadUrl",
             com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand.class
         );
+        Method storeGeneratedFile = FileCommandService.class.getMethod("store", StoreGeneratedFileCommand.class);
         Method confirmUpload = FileCommandService.class.getMethod("confirmUpload", String.class);
         Method deleteFile = FileCommandService.class.getMethod("deleteFile", DeleteFileCommand.class);
+        Method createPending = GeneratedFileMetadataService.class.getMethod("createPending", FileMetadata.class);
+        Method confirmGenerated = GeneratedFileMetadataService.class.getMethod("confirmGenerated", String.class);
 
         // then
         assertThat(FileCommandService.class.getAnnotation(Transactional.class)).isNull();
         assertThat(getFileUploadUrl.getAnnotation(Transactional.class)).isNotNull();
+        assertThat(storeGeneratedFile.getAnnotation(Transactional.class).propagation())
+            .isEqualTo(Propagation.NOT_SUPPORTED);
         assertThat(confirmUpload.getAnnotation(Transactional.class)).isNotNull();
         assertThat(deleteFile.getAnnotation(Transactional.class)).isNull();
+        assertThat(createPending.getAnnotation(Transactional.class).propagation())
+            .isEqualTo(Propagation.REQUIRES_NEW);
+        assertThat(confirmGenerated.getAnnotation(Transactional.class).propagation())
+            .isEqualTo(Propagation.REQUIRES_NEW);
+    }
+
+    @Test
+    @DisplayName("생성 파일은 pending metadata를 먼저 저장한 뒤 S3 업로드와 lock confirm을 수행한다")
+    void 생성_파일은_pending_metadata_S3_upload_lock_confirm_순서로_저장한다() {
+        // given
+        StoreGeneratedFileCommand command = generatedFileCommand(1L);
+        AtomicInteger saveCount = new AtomicInteger();
+        AtomicReference<FileMetadata> pending = new AtomicReference<>();
+        AtomicReference<FileMetadata> confirmed = new AtomicReference<>();
+        given(saveFileMetadataPort.save(org.mockito.ArgumentMatchers.any(FileMetadata.class)))
+            .willAnswer(invocation -> {
+                FileMetadata metadata = invocation.getArgument(0);
+                if (saveCount.incrementAndGet() == 1) {
+                    assertThat(metadata.isUploaded()).isFalse();
+                    assertThat(metadata.getConfirmedAt()).isNull();
+                    pending.set(metadata);
+                } else {
+                    confirmed.set(metadata);
+                }
+                return metadata;
+            });
+        given(lockFileMetadataPort.lockAllByFileIds(org.mockito.ArgumentMatchers.anyList()))
+            .willAnswer(invocation -> List.of(copyPending(pending.get())));
+        given(loadFileUsagePort.countByFileId(anyString())).willReturn(0L);
+        given(clock.instant()).willReturn(NOW);
+        org.mockito.BDDMockito.willAnswer(invocation -> {
+            assertThat(pending.get()).isNotNull();
+            assertThat(pending.get().isUploaded()).isFalse();
+            return null;
+        }).given(storagePort).uploadObject(anyString(), anyString(), org.mockito.ArgumentMatchers.any(byte[].class));
+
+        // when
+        GeneratedFileInfo result = sut.store(command);
+
+        // then
+        InOrder order = inOrder(saveFileMetadataPort, storagePort, lockFileMetadataPort);
+        order.verify(saveFileMetadataPort).save(org.mockito.ArgumentMatchers.any(FileMetadata.class));
+        order.verify(storagePort).uploadObject(
+            result.storageKey(),
+            "application/pdf",
+            command.content()
+        );
+        order.verify(lockFileMetadataPort).lockAllByFileIds(List.of(result.fileId()));
+        order.verify(saveFileMetadataPort).save(org.mockito.ArgumentMatchers.any(FileMetadata.class));
+        assertThat(saveCount).hasValue(2);
+        assertThat(pending.get().getUploadedMemberId()).isEqualTo(1L);
+        assertThat(confirmed.get().getConfirmedAt()).isEqualTo(NOW);
+        assertThat(confirmed.get().getUnreferencedAt()).isEqualTo(NOW);
+    }
+
+    @Test
+    @DisplayName("생성 파일 S3 업로드 실패는 pending metadata를 남기고 confirm을 호출하지 않는다")
+    void 생성_파일_S3_upload_실패는_pending_metadata를_남긴다() {
+        // given
+        StoreGeneratedFileCommand command = generatedFileCommand(1L);
+        AtomicReference<FileMetadata> pending = new AtomicReference<>();
+        given(saveFileMetadataPort.save(org.mockito.ArgumentMatchers.any(FileMetadata.class)))
+            .willAnswer(invocation -> {
+                FileMetadata metadata = invocation.getArgument(0);
+                pending.set(metadata);
+                return metadata;
+            });
+        willThrow(new StorageException(StorageErrorCode.STORAGE_UPLOAD_FAILED))
+            .given(storagePort)
+            .uploadObject(anyString(), anyString(), org.mockito.ArgumentMatchers.any(byte[].class));
+
+        // when & then
+        assertThatThrownBy(() -> sut.store(command))
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.STORAGE_UPLOAD_FAILED);
+        assertThat(pending.get()).isNotNull();
+        assertThat(pending.get().isUploaded()).isFalse();
+        assertThat(pending.get().getConfirmedAt()).isNull();
+        then(lockFileMetadataPort).shouldHaveNoInteractions();
+        then(saveFileMetadataPort).should(times(1)).save(pending.get());
+        then(storagePort).should(never()).delete(anyString());
+    }
+
+    @Test
+    @DisplayName("생성 파일 confirm 실패는 이미 저장한 pending metadata와 S3 객체를 삭제하지 않는다")
+    void 생성_파일_confirm_실패는_pending_metadata와_S3_객체를_삭제하지_않는다() {
+        // given
+        StoreGeneratedFileCommand command = generatedFileCommand(1L);
+        AtomicInteger saveCount = new AtomicInteger();
+        AtomicReference<FileMetadata> pending = new AtomicReference<>();
+        given(saveFileMetadataPort.save(org.mockito.ArgumentMatchers.any(FileMetadata.class)))
+            .willAnswer(invocation -> {
+                FileMetadata metadata = invocation.getArgument(0);
+                if (saveCount.incrementAndGet() == 1) {
+                    pending.set(metadata);
+                    return metadata;
+                }
+                throw new IllegalStateException("confirm failed");
+            });
+        given(lockFileMetadataPort.lockAllByFileIds(org.mockito.ArgumentMatchers.anyList()))
+            .willAnswer(invocation -> List.of(copyPending(pending.get())));
+        given(loadFileUsagePort.countByFileId(anyString())).willReturn(0L);
+        given(clock.instant()).willReturn(NOW);
+
+        // when & then
+        assertThatThrownBy(() -> sut.store(command))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("confirm failed");
+        assertThat(pending.get().isUploaded()).isFalse();
+        assertThat(pending.get().getConfirmedAt()).isNull();
+        then(storagePort).should(never()).delete(anyString());
+        then(saveFileMetadataPort).should(times(2))
+            .save(org.mockito.ArgumentMatchers.any(FileMetadata.class));
+    }
+
+    @Test
+    @DisplayName("생성자 member ID가 null이면 generated file command 생성을 거부한다")
+    void 생성자_member_ID가_null이면_generated_file_command를_거부한다() {
+        byte[] content = "pdf-content".getBytes(StandardCharsets.UTF_8);
+
+        assertThatThrownBy(() -> StoreGeneratedFileCommand.of(
+            "certificate.pdf",
+            "application/pdf",
+            content,
+            FileCategory.CERTIFICATE,
+            null
+        )).isInstanceOf(NullPointerException.class)
+            .hasMessage("generatedByMemberId must not be null");
     }
 
     @Test
@@ -311,6 +470,29 @@ class FileCommandServiceUnitTest {
             .storageProvider(StorageProvider.AWS_S3)
             .storageKey(category.getPathPrefix() + "/" + fileId + ".pdf")
             .uploadedMemberId(1L)
+            .build();
+    }
+
+    private StoreGeneratedFileCommand generatedFileCommand(Long generatedByMemberId) {
+        return StoreGeneratedFileCommand.of(
+            "certificate.pdf",
+            "application/pdf",
+            "pdf-content".getBytes(StandardCharsets.UTF_8),
+            FileCategory.CERTIFICATE,
+            generatedByMemberId
+        );
+    }
+
+    private FileMetadata copyPending(FileMetadata source) {
+        return FileMetadata.builder()
+            .fileId(source.getId())
+            .originalFileName(source.getOriginalFileName())
+            .category(source.getCategory())
+            .contentType(source.getContentType())
+            .fileSize(source.getFileSize())
+            .storageProvider(source.getStorageProvider())
+            .storageKey(source.getStorageKey())
+            .uploadedMemberId(source.getUploadedMemberId())
             .build();
     }
 

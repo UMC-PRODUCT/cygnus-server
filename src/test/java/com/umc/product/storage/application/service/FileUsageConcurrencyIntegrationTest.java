@@ -26,6 +26,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
@@ -67,6 +69,9 @@ class FileUsageConcurrencyIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
 
     @Test
     void 동일_owner_concurrent_replace는_exact_snapshot으로_직렬화된다() throws Exception {
@@ -128,6 +133,28 @@ class FileUsageConcurrencyIntegrationTest extends IntegrationTestSupport {
         // then
         assertThat(totalUsageCount()).isEqualTo(1L);
         assertThat(unreferencedAt("shared-file")).isNull();
+    }
+
+    @Test
+    void lifecycle_batch_flush는_outer_transaction_rollback에_참여한다() {
+        // given
+        saveConfirmedFile("rollback-file", 7L);
+        FileUsageCoordinate coordinate = FileUsageCoordinate.of("notice", "10", "images");
+        manageFileUsageUseCase.replaceUsages(replace(coordinate, Set.of("rollback-file"), 7L));
+        TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);
+
+        // when
+        Boolean lifecycleVisibleBeforeRollback = transactionTemplate.execute(status -> {
+            manageFileUsageUseCase.removeAll(new BulkRemoveFileUsagesCommand(List.of(coordinate)));
+            boolean lifecycleVisible = unreferencedAt("rollback-file") != null;
+            status.setRollbackOnly();
+            return lifecycleVisible;
+        });
+
+        // then
+        assertThat(lifecycleVisibleBeforeRollback).isTrue();
+        assertThat(usageSnapshot(coordinate)).containsExactly("rollback-file");
+        assertThat(unreferencedAt("rollback-file")).isNull();
     }
 
     @Test

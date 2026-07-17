@@ -6,19 +6,27 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.support.TransactionOperations;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
+import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
+import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
+import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
 import com.umc.product.storage.application.port.out.SaveFileMetadataPort;
 import com.umc.product.storage.application.port.out.dto.StorageObjectInfo;
@@ -38,10 +46,16 @@ class FileCommandServiceTest extends UseCaseTestSupport {
     private ManageFileUseCase manageFileUseCase;
 
     @Autowired
+    private StoreGeneratedFileUseCase storeGeneratedFileUseCase;
+
+    @Autowired
     private LoadFileMetadataPort loadFileMetadataPort;
 
     @Autowired
     private SaveFileMetadataPort saveFileMetadataPort;
+
+    @Autowired
+    private TransactionOperations transactionOperations;
 
 
     @Test
@@ -186,6 +200,80 @@ class FileCommandServiceTest extends UseCaseTestSupport {
             .isInstanceOf(StorageException.class);
     }
 
+    @Test
+    void 생성_파일은_S3_upload_전에_committed_pending_metadata가_조회된다() {
+        // given
+        AtomicReference<String> generatedFileId = new AtomicReference<>();
+        given(storagePort.generateStorageKey(
+            org.mockito.ArgumentMatchers.eq(FileCategory.CERTIFICATE),
+            anyString(),
+            org.mockito.ArgumentMatchers.eq("pdf")
+        )).willAnswer(invocation -> {
+            String fileId = invocation.getArgument(1);
+            generatedFileId.set(fileId);
+            return "private/certificate/" + fileId + ".pdf";
+        });
+        org.mockito.BDDMockito.willAnswer(invocation -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
+            FileMetadata pending = loadFileMetadataPort.findByFileId(generatedFileId.get()).orElseThrow();
+            assertThat(pending.isUploaded()).isFalse();
+            assertThat(pending.getConfirmedAt()).isNull();
+            assertThat(pending.getUnreferencedAt()).isNull();
+            return null;
+        }).given(storagePort).uploadObject(
+            anyString(),
+            org.mockito.ArgumentMatchers.eq("application/pdf"),
+            org.mockito.ArgumentMatchers.any(byte[].class)
+        );
+
+        // when
+        AtomicReference<GeneratedFileInfo> storedFile = new AtomicReference<>();
+        transactionOperations.executeWithoutResult(status -> {
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            storedFile.set(storeGeneratedFileUseCase.store(generatedFileCommand()));
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+        });
+
+        // then
+        GeneratedFileInfo result = storedFile.get();
+        FileMetadata confirmed = loadFileMetadataPort.findByFileId(result.fileId()).orElseThrow();
+        assertThat(confirmed.getUploadedMemberId()).isEqualTo(1L);
+        assertThat(confirmed.getConfirmedAt()).isNotNull();
+        assertThat(confirmed.getUnreferencedAt()).isEqualTo(confirmed.getConfirmedAt());
+    }
+
+    @Test
+    void 생성_파일_S3_upload_실패는_committed_pending_metadata를_보존한다() {
+        // given
+        AtomicReference<String> generatedFileId = new AtomicReference<>();
+        given(storagePort.generateStorageKey(
+            org.mockito.ArgumentMatchers.eq(FileCategory.CERTIFICATE),
+            anyString(),
+            org.mockito.ArgumentMatchers.eq("pdf")
+        )).willAnswer(invocation -> {
+            String fileId = invocation.getArgument(1);
+            generatedFileId.set(fileId);
+            return "private/certificate/" + fileId + ".pdf";
+        });
+        willThrow(new StorageException(StorageErrorCode.STORAGE_UPLOAD_FAILED))
+            .given(storagePort)
+            .uploadObject(
+                anyString(),
+                org.mockito.ArgumentMatchers.eq("application/pdf"),
+                org.mockito.ArgumentMatchers.any(byte[].class)
+            );
+
+        // when & then
+        assertThatThrownBy(() -> storeGeneratedFileUseCase.store(generatedFileCommand()))
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.STORAGE_UPLOAD_FAILED);
+        FileMetadata pending = loadFileMetadataPort.findByFileId(generatedFileId.get()).orElseThrow();
+        assertThat(pending.isUploaded()).isFalse();
+        assertThat(pending.getConfirmedAt()).isNull();
+        assertThat(pending.getUnreferencedAt()).isNull();
+    }
+
     /**
      * ✅ 학습 포인트 11: 삭제 동작 검증 - verify()로 Mock 메서드가 호출되었는지 확인
      */
@@ -221,6 +309,16 @@ class FileCommandServiceTest extends UseCaseTestSupport {
             .fileId(fileId)
             .requesterMemberId(requesterMemberId)
             .build();
+    }
+
+    private StoreGeneratedFileCommand generatedFileCommand() {
+        return StoreGeneratedFileCommand.of(
+            "certificate.pdf",
+            "application/pdf",
+            "pdf-content".getBytes(StandardCharsets.UTF_8),
+            FileCategory.CERTIFICATE,
+            1L
+        );
     }
 
     /**

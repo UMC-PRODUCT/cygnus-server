@@ -105,6 +105,10 @@ class FileUsageCommandServiceTest {
         order.verify(lockFileMetadataPort).lockAllByFileIds(List.of("file-a", "file-b"));
         order.verify(saveFileUsagePort).removeUsages(10L, Set.of("file-b"));
         order.verify(saveFileUsagePort).addUsages(10L, Set.of("file-a"));
+        InOrder lifecycleOrder = inOrder(saveFileMetadataPort);
+        lifecycleOrder.verify(saveFileMetadataPort).save(newFile);
+        lifecycleOrder.verify(saveFileMetadataPort).save(oldFile);
+        lifecycleOrder.verify(saveFileMetadataPort).flush();
         assertThat(newFile.getUnreferencedAt()).isNull();
         assertThat(oldFile.getUnreferencedAt()).isEqualTo(NOW);
     }
@@ -195,6 +199,10 @@ class FileUsageCommandServiceTest {
         lockOrder.verify(lockFileMetadataPort).lockAllByFileIds(List.of("file-a", "file-b"));
         then(saveFileUsagePort).should().removeUsages(10L, Set.of("file-b"));
         then(saveFileUsagePort).should().removeUsages(20L, Set.of("file-a"));
+        InOrder lifecycleOrder = inOrder(saveFileMetadataPort);
+        lifecycleOrder.verify(saveFileMetadataPort).save(firstFile);
+        lifecycleOrder.verify(saveFileMetadataPort).save(secondFile);
+        lifecycleOrder.verify(saveFileMetadataPort).flush();
         assertThat(firstFile.getUnreferencedAt()).isEqualTo(NOW);
         assertThat(secondFile.getUnreferencedAt()).isEqualTo(NOW);
     }

@@ -72,6 +72,9 @@ public class FileUsageCommandService implements ManageFileUsageUseCase {
 
         markAttached(newlyAttachedFileIds, metadataById);
         markDetached(removedFileIds, metadataById);
+        if (!newlyAttachedFileIds.isEmpty() || !removedFileIds.isEmpty()) {
+            saveFileMetadataPort.flush();
+        }
     }
 
     @Override
@@ -103,6 +106,9 @@ public class FileUsageCommandService implements ManageFileUsageUseCase {
             }
         });
         markDetached(new LinkedHashSet<>(fileIdsToLock), metadataById);
+        if (!fileIdsToLock.isEmpty()) {
+            saveFileMetadataPort.flush();
+        }
     }
 
     private Map<String, FileMetadata> lockMetadata(List<String> fileIds) {

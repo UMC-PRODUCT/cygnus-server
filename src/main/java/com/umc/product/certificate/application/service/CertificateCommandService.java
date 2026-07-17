@@ -3,9 +3,11 @@ package com.umc.product.certificate.application.service;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import org.springframework.stereotype.Service;
@@ -32,12 +34,18 @@ import com.umc.product.certificate.domain.CertificateIssueSpec;
 import com.umc.product.certificate.domain.exception.CertificateErrorCode;
 import com.umc.product.certificate.domain.exception.CertificateException;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
 import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
 import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 import com.umc.product.storage.domain.enums.FileCategory;
+import com.umc.product.storage.domain.exception.StorageErrorCode;
+import com.umc.product.storage.domain.exception.StorageException;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,18 +60,23 @@ public class CertificateCommandService implements
 
     private static final int SERIAL_GENERATION_RETRY_COUNT = 5;
     private static final String PDF_CONTENT_TYPE = "application/pdf";
+    private static final String CERTIFICATE_USAGE_NAMESPACE = "certificate";
+    private static final String CERTIFICATE_FILE_SLOT = "file";
+    private static final String COMPENSATION_JOB_NAME = "certificate-generated-file-compensation";
 
     private final LoadCertificatePort loadCertificatePort;
     private final LockCertificateIssuancePort lockCertificateIssuancePort;
     private final SaveCertificatePort saveCertificatePort;
     private final StoreGeneratedFileUseCase storeGeneratedFileUseCase;
     private final ManageFileUseCase manageFileUseCase;
+    private final ManageFileUsageUseCase manageFileUsageUseCase;
     private final RenderCertificatePdfPort renderCertificatePdfPort;
     private final CertificateSerialNumberGenerator serialNumberGenerator;
     private final CertificateIssueContextResolver contextResolver;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final CertificateProperties certificateProperties;
     private final TransactionOperations transactionOperations;
+    private final OperationalMetrics operationalMetrics;
     private final Clock clock;
 
     @Override
@@ -198,12 +211,33 @@ public class CertificateCommandService implements
     }
 
     private void deleteUnusedGeneratedFile(GeneratedFileInfo fileInfo, Long requesterMemberId) {
+        Instant startedAt = clock.instant();
         try {
             manageFileUseCase.deleteFile(DeleteFileCommand.builder()
                 .fileId(fileInfo.fileId())
                 .requesterMemberId(requesterMemberId)
                 .build());
+            operationalMetrics.recordBatchJob(
+                COMPENSATION_JOB_NAME,
+                "deleted",
+                Duration.between(startedAt, clock.instant()),
+                1L
+            );
         } catch (RuntimeException e) {
+            String result = "retry_pending";
+            if (e instanceof StorageException storageException) {
+                if (storageException.getBaseCode() == StorageErrorCode.FILE_USAGE_REGISTRY_NOT_READY) {
+                    result = "deferred_not_ready";
+                } else if (storageException.getBaseCode() == StorageErrorCode.FILE_IN_USE) {
+                    result = "protected_in_use";
+                }
+            }
+            operationalMetrics.recordBatchJob(
+                COMPENSATION_JOB_NAME,
+                result,
+                Duration.between(startedAt, clock.instant()),
+                1L
+            );
             log.warn("사용하지 않는 인증서 파일을 삭제하지 못했습니다: fileId={}", fileInfo.fileId(), e);
         }
     }
@@ -231,7 +265,18 @@ public class CertificateCommandService implements
             .fileSha256(fileSha256)
             .build());
 
-        return CertificateIssueInfo.from(saveCertificatePort.save(certificate));
+        Certificate saved = saveCertificatePort.save(certificate);
+        Long certificateId = Objects.requireNonNull(saved.getId(), "저장된 인증서 ID는 필수입니다.");
+        manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+            FileUsageCoordinate.of(
+                CERTIFICATE_USAGE_NAMESPACE,
+                certificateId.toString(),
+                CERTIFICATE_FILE_SLOT
+            ),
+            Set.of(fileInfo.fileId()),
+            context.issuedByMemberId()
+        ));
+        return CertificateIssueInfo.from(saved);
     }
 
     private byte[] renderPdf(CertificateIssueContext context, String serialNumber, Instant issuedAt, Instant expiresAt) {

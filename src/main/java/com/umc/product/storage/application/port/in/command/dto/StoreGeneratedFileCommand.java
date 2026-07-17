@@ -17,6 +17,7 @@ public record StoreGeneratedFileCommand(
         Objects.requireNonNull(contentType, "contentType must not be null");
         Objects.requireNonNull(content, "content must not be null");
         Objects.requireNonNull(category, "category must not be null");
+        Objects.requireNonNull(generatedByMemberId, "generatedByMemberId must not be null");
         if (content.length == 0) {
             throw new IllegalArgumentException("content must not be empty");
         }

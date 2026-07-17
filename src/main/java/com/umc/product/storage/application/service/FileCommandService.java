@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
@@ -43,6 +44,7 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     private final SaveFileMetadataPort saveFileMetadataPort;
     private final LoadFileUsagePort loadFileUsagePort;
     private final FileDeletionService fileDeletionService;
+    private final GeneratedFileMetadataService generatedFileMetadataService;
     private final Clock clock;
 
     @Audited(
@@ -112,15 +114,13 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
         description = "'서버 생성 파일을 저장했습니다.'"
     )
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public GeneratedFileInfo store(StoreGeneratedFileCommand command) {
         validateGeneratedFile(command);
 
         String fileId = UUID.randomUUID().toString();
         String extension = extractExtension(command.fileName());
         String storageKey = storagePort.generateStorageKey(command.category(), fileId, extension);
-
-        storagePort.uploadObject(storageKey, command.contentType(), command.content());
 
         FileMetadata metadata = FileMetadata.builder()
             .fileId(fileId)
@@ -132,10 +132,10 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
             .storageKey(storageKey)
             .uploadedMemberId(command.generatedByMemberId())
             .build();
-        Instant confirmedAt = clock.instant();
-        metadata.markAsUploaded(confirmedAt);
-        metadata.markUnreferenced(confirmedAt);
-        saveFileMetadataPort.save(metadata);
+
+        generatedFileMetadataService.createPending(metadata);
+        storagePort.uploadObject(storageKey, command.contentType(), command.content());
+        generatedFileMetadataService.confirmGenerated(fileId);
 
         log.info("서버 생성 파일을 저장했습니다: fileId={}, category={}", fileId, command.category());
         return GeneratedFileInfo.of(fileId, storageKey, command.fileSize());
