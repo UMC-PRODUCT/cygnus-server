@@ -57,6 +57,8 @@ public enum FormErrorCode implements BaseCode {
         "이미 다른 사용자에게 등록된 응답이에요. 응답을 다시 확인해주세요."),
     DRAFT_SCHEMA_MISMATCH(HttpStatus.BAD_REQUEST, "FORM-0041",
         "폼이 수정되었어요. 아래 질문의 답변을 다시 확인해주세요."),
+    FORM_RESPONSE_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "FORM-0042",
+        "이 응답이 방금 다른 곳에서 수정됐어요. 새로고침 후 다시 시도해주세요."),
     ;
 
     private final HttpStatus httpStatus;

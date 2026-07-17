@@ -18,6 +18,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -35,6 +36,14 @@ public class FormResponse extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * 동시 update/submit/delete 방어용 낙관적 락 버전. JPA 가 flush 시점에 {@code UPDATE ... WHERE version = ?} 로 CAS 를 수행하며,
+     * stale 쓰기는 {@link org.springframework.orm.ObjectOptimisticLockingFailureException} 으로 전파돼 HTTP 409 로 매핑된다.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "form_id", nullable = false)
