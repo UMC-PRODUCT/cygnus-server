@@ -1,6 +1,7 @@
 package com.umc.product.form.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -29,6 +30,8 @@ import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.form.domain.exception.FormErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class FormQueryServiceTest {
@@ -183,6 +186,22 @@ class FormQueryServiceTest {
         assertThat(result.get(10L).id()).isEqualTo(10L);
         assertThat(result.get(30L).id()).isEqualTo(30L);
         verify(loadFormPort, times(1)).batchGetByIds(List.of(20L, 10L, 30L));
+        verifyNoInteractions(loadFormSectionPort, loadQuestionPort, loadQuestionOptionPort);
+    }
+
+    @Test
+    @DisplayName("batchGetByIds_폼이_누락되면_FORM_NOT_FOUND를_그대로_전파함")
+    void batchGetByIds_폼_누락_FORM_NOT_FOUND_전파() {
+        // given
+        FormDomainException exception = new FormDomainException(FormErrorCode.FORM_NOT_FOUND);
+        given(loadFormPort.batchGetByIds(List.of(20L, 10L))).willThrow(exception);
+
+        // when & then
+        assertThatThrownBy(() -> sut.batchGetByIds(List.of(20L, 10L)))
+            .isSameAs(exception)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_NOT_FOUND);
+        verify(loadFormPort, times(1)).batchGetByIds(List.of(20L, 10L));
         verifyNoInteractions(loadFormSectionPort, loadQuestionPort, loadQuestionOptionPort);
     }
 
