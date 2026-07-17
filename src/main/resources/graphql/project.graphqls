@@ -38,8 +38,8 @@ type Project {
   externalLink: String
   gisuId: ID!
   chapterId: ID!
-  productOwner: MemberBrief
-  coProductOwners: [MemberBrief!]!
+  productOwner: MemberSummary
+  coProductOwners: [MemberSummary!]!
   partQuotas: [ProjectPartQuota!]!
   createdAt: String!
   updatedAt: String!
@@ -50,7 +50,7 @@ type Project {
 type ProjectMember {
   projectMemberId: ID!
   projectId: ID!
-  member: MemberBrief!
+  member: MemberSummary!
   part: ChallengerPart!
   leader: Boolean!
   description: String
@@ -70,7 +70,7 @@ type ProjectApplication {
   formResponse: ProjectApplicationFormResponse
 }
 
-type ProjectApplicationForm {
+type ProjectApplicationForm implements Form {
   projectId: ID!
   applicationFormId: ID!
   title: String!
@@ -78,38 +78,14 @@ type ProjectApplicationForm {
   sections: [ApplicationFormSection!]!
 }
 
-type ApplicationFormSection {
+type ApplicationFormSection implements FormSection {
   sectionId: ID!
   type: FormSectionType!
   allowedParts: [ChallengerPart!]!
   title: String!
   description: String
   orderNo: Int!
-  questions: [ApplicationFormQuestion!]!
-}
-
-type ApplicationFormQuestion {
-  questionId: ID!
-  type: QuestionType!
-  title: String!
-  description: String
-  required: Boolean!
-  orderNo: Int!
-  options: [ApplicationFormOption!]!
-}
-
-type ApplicationFormOption {
-  optionId: ID!
-  content: String!
-  orderNo: Int!
-  other: Boolean!
-}
-
-type MemberBrief {
-  memberId: ID!
-  nickname: String
-  name: String
-  schoolName: String
+  questions: [FormQuestion!]!
 }
 
 type ProjectPartQuota {
@@ -160,7 +136,7 @@ type ProjectApplicationResponseQuestion {
   description: String
   required: Boolean!
   orderNo: Int!
-  options: [ApplicationFormOption!]!
+  options: [FormOption!]!
   answer: ProjectApplicationAnswer
 }
 

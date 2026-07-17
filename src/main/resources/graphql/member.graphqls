@@ -49,6 +49,13 @@ type MemberSearchChallenger {
   challengerStatus: ChallengerStatus!
 }
 
+type MemberSummary {
+  memberId: ID!
+  nickname: String
+  name: String
+  schoolName: String
+}
+
 type Member {
   memberId: ID!
   name: String

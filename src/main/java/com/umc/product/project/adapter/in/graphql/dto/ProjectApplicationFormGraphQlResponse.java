@@ -13,7 +13,7 @@ public record ProjectApplicationFormGraphQlResponse(
     Long applicationFormId,
     String title,
     String description,
-    List<ApplicationFormSectionGraphQlResponse> sections
+    List<ProjectApplicationFormSectionGraphQlResponse> sections
 ) {
     public static ProjectApplicationFormGraphQlResponse from(ApplicationFormInfo info) {
         return new ProjectApplicationFormGraphQlResponse(
@@ -21,62 +21,62 @@ public record ProjectApplicationFormGraphQlResponse(
             info.applicationFormId(),
             info.title(),
             info.description(),
-            info.sections().stream().map(ApplicationFormSectionGraphQlResponse::from).toList()
+            info.sections().stream().map(ProjectApplicationFormSectionGraphQlResponse::from).toList()
         );
     }
 
-    public record ApplicationFormSectionGraphQlResponse(
+    public record ProjectApplicationFormSectionGraphQlResponse(
         Long sectionId,
         FormSectionType type,
         Set<ChallengerPart> allowedParts,
         String title,
         String description,
         long orderNo,
-        List<ApplicationFormQuestionGraphQlResponse> questions
+        List<ProjectFormQuestionGraphQlResponse> questions
     ) {
-        public static ApplicationFormSectionGraphQlResponse from(ApplicationFormInfo.SectionInfo info) {
-            return new ApplicationFormSectionGraphQlResponse(
+        public static ProjectApplicationFormSectionGraphQlResponse from(ApplicationFormInfo.SectionInfo info) {
+            return new ProjectApplicationFormSectionGraphQlResponse(
                 info.sectionId(),
                 info.type(),
                 info.allowedParts(),
                 info.title(),
                 info.description(),
                 info.orderNo(),
-                info.questions().stream().map(ApplicationFormQuestionGraphQlResponse::from).toList()
+                info.questions().stream().map(ProjectFormQuestionGraphQlResponse::from).toList()
             );
         }
     }
 
-    public record ApplicationFormQuestionGraphQlResponse(
+    public record ProjectFormQuestionGraphQlResponse(
         Long questionId,
         QuestionType type,
         String title,
         String description,
         boolean required,
         long orderNo,
-        List<ApplicationFormOptionGraphQlResponse> options
+        List<ProjectFormOptionGraphQlResponse> options
     ) {
-        public static ApplicationFormQuestionGraphQlResponse from(ApplicationFormInfo.QuestionInfo info) {
-            return new ApplicationFormQuestionGraphQlResponse(
+        public static ProjectFormQuestionGraphQlResponse from(ApplicationFormInfo.QuestionInfo info) {
+            return new ProjectFormQuestionGraphQlResponse(
                 info.questionId(),
                 info.type(),
                 info.title(),
                 info.description(),
                 info.isRequired(),
                 info.orderNo(),
-                info.options().stream().map(ApplicationFormOptionGraphQlResponse::from).toList()
+                info.options().stream().map(ProjectFormOptionGraphQlResponse::from).toList()
             );
         }
     }
 
-    public record ApplicationFormOptionGraphQlResponse(
+    public record ProjectFormOptionGraphQlResponse(
         Long optionId,
         String content,
         long orderNo,
         boolean other
     ) {
-        public static ApplicationFormOptionGraphQlResponse from(ApplicationFormInfo.OptionInfo info) {
-            return new ApplicationFormOptionGraphQlResponse(
+        public static ProjectFormOptionGraphQlResponse from(ApplicationFormInfo.OptionInfo info) {
+            return new ProjectFormOptionGraphQlResponse(
                 info.optionId(),
                 info.content(),
                 info.orderNo(),

@@ -39,6 +39,7 @@ import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -201,6 +202,65 @@ class ProjectGraphQlControllerTest {
     }
 
     @Test
+    @DisplayName("Project 회원 참조는 MemberSummary의 네 필드와 기존 값을 응답한다")
+    void Project_회원_참조는_MemberSummary의_네_필드와_기존_값을_응답한다() {
+        SubjectAttributes subject = subject();
+        given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfoWithMemberRefs());
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(true);
+        given(getProjectMemberUseCase.listByProjectIds(List.of(PROJECT_ID))).willReturn(Map.of(
+            PROJECT_ID,
+            List.of(projectMemberInfo(null))
+        ));
+        given(getMemberUseCase.findAllByIds(Set.of(100L))).willReturn(Map.of(100L, memberInfo(100L)));
+        given(getMemberUseCase.findAllByIds(Set.of(101L))).willReturn(Map.of(101L, memberInfo(101L)));
+        given(getMemberUseCase.findAllByIds(Set.of(200L))).willReturn(Map.of(200L, memberInfo(200L)));
+
+        graphQlTester.document("""
+                query {
+                  project(id: 42) {
+                    productOwner {
+                      memberId
+                      nickname
+                      name
+                      schoolName
+                    }
+                    coProductOwners {
+                      memberId
+                      nickname
+                      name
+                      schoolName
+                    }
+                    members {
+                      member {
+                        memberId
+                        nickname
+                        name
+                        schoolName
+                      }
+                    }
+                  }
+                }
+                """)
+            .execute()
+            .path("project.productOwner.memberId").entity(String.class).isEqualTo("100")
+            .path("project.productOwner.nickname").entity(String.class).isEqualTo("nick100")
+            .path("project.productOwner.name").entity(String.class).isEqualTo("member100")
+            .path("project.productOwner.schoolName").entity(String.class).isEqualTo("중앙대학교")
+            .path("project.coProductOwners[0].memberId").entity(String.class).isEqualTo("101")
+            .path("project.coProductOwners[0].nickname").entity(String.class).isEqualTo("nick101")
+            .path("project.coProductOwners[0].name").entity(String.class).isEqualTo("member101")
+            .path("project.coProductOwners[0].schoolName").entity(String.class).isEqualTo("중앙대학교")
+            .path("project.members[0].member.memberId").entity(String.class).isEqualTo("200")
+            .path("project.members[0].member.nickname").entity(String.class).isEqualTo("nick200")
+            .path("project.members[0].member.name").entity(String.class).isEqualTo("member200")
+            .path("project.members[0].member.schoolName").entity(String.class).isEqualTo("중앙대학교");
+
+        then(checkPermissionUseCase).should().loadSubject(REQUESTER_ID);
+        then(checkPermissionUseCase).should().check(subject, projectReadPermission(PROJECT_ID));
+    }
+
+    @Test
     @DisplayName("Project.applicationForm은 PROJECT READ 권한을 검사하고 질문과 옵션을 응답한다")
     void Project_applicationForm은_PROJECT_READ_권한을_검사하고_질문과_옵션을_응답한다() {
         SubjectAttributes subject = subject();
@@ -214,12 +274,15 @@ class ProjectGraphQlControllerTest {
                 query {
                   project(id: 42) {
                     applicationForm {
+                      projectId
                       applicationFormId
                       title
+                      description
                       sections {
                         sectionId
                         type
                         questions {
+                          title
                           questionId
                           type
                           required
@@ -235,9 +298,13 @@ class ProjectGraphQlControllerTest {
                 }
                 """)
             .execute()
+            .path("project.applicationForm.projectId").entity(String.class).isEqualTo("42")
             .path("project.applicationForm.applicationFormId").entity(String.class).isEqualTo("500")
+            .path("project.applicationForm.title").entity(String.class).isEqualTo("Triple 지원서")
+            .path("project.applicationForm.description").entity(String.class).isEqualTo("지원서 설명")
             .path("project.applicationForm.sections[0].sectionId").entity(String.class).isEqualTo("600")
             .path("project.applicationForm.sections[0].type").entity(String.class).isEqualTo("COMMON")
+            .path("project.applicationForm.sections[0].questions[0].title").entity(String.class).isEqualTo("선호")
             .path("project.applicationForm.sections[0].questions[0].questionId").entity(String.class).isEqualTo("700")
             .path("project.applicationForm.sections[0].questions[0].required").entity(Boolean.class).isEqualTo(true)
             .path("project.applicationForm.sections[0].questions[0].options[0].optionId").entity(String.class)
@@ -332,6 +399,14 @@ class ProjectGraphQlControllerTest {
     }
 
     private ProjectInfo projectInfo() {
+        return projectInfo(List.of());
+    }
+
+    private ProjectInfo projectInfoWithMemberRefs() {
+        return projectInfo(List.of(101L));
+    }
+
+    private ProjectInfo projectInfo(List<Long> coProductOwnerMemberIds) {
         return ProjectInfo.builder()
             .id(PROJECT_ID)
             .status(ProjectStatus.IN_PROGRESS)
@@ -343,10 +418,19 @@ class ProjectGraphQlControllerTest {
             .gisuId(1L)
             .chapterId(7L)
             .productOwnerMemberId(100L)
-            .coProductOwnerMemberIds(List.of())
+            .coProductOwnerMemberIds(coProductOwnerMemberIds)
             .partQuotas(List.of(ProjectPartQuotaInfo.of(ChallengerPart.WEB, 3L, 1L)))
             .createdAt(Instant.parse("2026-06-01T00:00:00Z"))
             .updatedAt(Instant.parse("2026-06-02T00:00:00Z"))
+            .build();
+    }
+
+    private MemberInfo memberInfo(Long memberId) {
+        return MemberInfo.builder()
+            .id(memberId)
+            .name("member" + memberId)
+            .nickname("nick" + memberId)
+            .schoolName("중앙대학교")
             .build();
     }
 
