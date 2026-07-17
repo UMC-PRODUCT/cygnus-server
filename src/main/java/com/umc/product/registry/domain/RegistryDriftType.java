@@ -1,0 +1,12 @@
+package com.umc.product.registry.domain;
+
+public enum RegistryDriftType {
+    SOURCE_ONLY_MISSING,
+    REGISTRY_ONLY_STALE,
+    BROKEN_REFERENCE,
+    DUPLICATE_REFERENCE,
+    INVALID_REFERENCE,
+    OWNERSHIP_CONFLICT,
+    LIFECYCLE_CONFLICT,
+    UPLOAD_CONFIRMATION_MISMATCH
+}
