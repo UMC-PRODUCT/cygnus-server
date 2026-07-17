@@ -1,24 +1,27 @@
 package com.umc.product.community.adapter.out.persistence;
 
-import com.umc.product.community.adapter.out.persistence.entity.ScrapJpaEntity;
+import java.util.Optional;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.community.application.port.out.scrap.LoadScrapPort;
 import com.umc.product.community.application.port.out.scrap.SaveScrapPort;
 import com.umc.product.community.domain.Scrap;
-import java.util.Optional;
+
+import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
 public class ScrapPersistenceAdapter implements LoadScrapPort, SaveScrapPort {
 
     private final ScrapRepository scrapRepository;
+    private final EntityManager entityManager;
 
     @Override
     public Optional<Scrap> findByPostIdAndChallengerId(Long postId, Long challengerId) {
-        return scrapRepository.findByPostIdAndChallengerId(postId, challengerId)
-            .map(ScrapJpaEntity::toDomain);
+        return scrapRepository.findByPostIdAndChallengerId(postId, challengerId);
     }
 
     @Override
@@ -33,15 +36,13 @@ public class ScrapPersistenceAdapter implements LoadScrapPort, SaveScrapPort {
 
     @Override
     public Scrap save(Scrap scrap) {
-        ScrapJpaEntity entity = ScrapJpaEntity.from(scrap);
-        ScrapJpaEntity saved = scrapRepository.save(entity);
-        return saved.toDomain();
+        return scrapRepository.save(scrap);
     }
 
     @Override
     public void delete(Scrap scrap) {
-        if (scrap.getScrapId() != null) {
-            scrapRepository.deleteById(scrap.getScrapId().id());
+        if (scrap.getId() != null) {
+            scrapRepository.deleteById(scrap.getId());
         }
     }
 
@@ -54,17 +55,23 @@ public class ScrapPersistenceAdapter implements LoadScrapPort, SaveScrapPort {
     @Override
     @Transactional
     public boolean toggleScrap(Long postId, Long challengerId) {
-        Optional<ScrapJpaEntity> existing = scrapRepository.findByPostIdAndChallengerId(postId, challengerId);
+        lockToggle(postId, challengerId);
+        Optional<Scrap> existing = scrapRepository.findByPostIdAndChallengerId(postId, challengerId);
 
         if (existing.isPresent()) {
-            // 스크랩 취소
             scrapRepository.delete(existing.get());
             return false;
-        } else {
-            // 스크랩 추가
-            ScrapJpaEntity scrap = ScrapJpaEntity.of(postId, challengerId);
-            scrapRepository.save(scrap);
-            return true;
         }
+
+        Scrap scrap = Scrap.create(postId, challengerId);
+        scrapRepository.save(scrap);
+        return true;
+    }
+
+    private void lockToggle(Long postId, Long challengerId) {
+        String scopeKey = "community-scrap|" + postId + '|' + challengerId;
+        entityManager.createNativeQuery("SELECT pg_advisory_xact_lock(hashtextextended(:scopeKey, 0))")
+            .setParameter("scopeKey", scopeKey)
+            .getSingleResult();
     }
 }

@@ -55,7 +55,7 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
             command.authorChallengerId()
         );
 
-        Post savedPost = savePostPort.save(post, command.authorChallengerId());
+        Post savedPost = savePostPort.save(post);
         String authorName = authorInfoProvider.getAuthorName(command.authorChallengerId());
         return PostInfo.from(savedPost, command.authorChallengerId(), authorName);
     }
@@ -86,7 +86,7 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
             command.authorChallengerId()
         );
 
-        Post savedPost = savePostPort.save(post, command.authorChallengerId());
+        Post savedPost = savePostPort.save(post);
         String authorName = authorInfoProvider.getAuthorName(command.authorChallengerId());
         return PostInfo.from(savedPost, command.authorChallengerId(), authorName);
     }

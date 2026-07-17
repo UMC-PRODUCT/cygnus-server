@@ -1,16 +1,18 @@
 package com.umc.product.community.adapter.out.persistence;
 
-import com.umc.product.community.adapter.out.persistence.entity.ScrapJpaEntity;
 import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ScrapRepository extends JpaRepository<ScrapJpaEntity, Long> {
+import com.umc.product.community.domain.Scrap;
 
-    Optional<ScrapJpaEntity> findByPostIdAndChallengerId(Long postId, Long challengerId);
+public interface ScrapRepository extends JpaRepository<Scrap, Long> {
+
+    Optional<Scrap> findByPostIdAndChallengerId(Long postId, Long challengerId);
 
     boolean existsByPostIdAndChallengerId(Long postId, Long challengerId);
 
@@ -18,6 +20,6 @@ public interface ScrapRepository extends JpaRepository<ScrapJpaEntity, Long> {
 
     void deleteByPostIdAndChallengerId(Long postId, Long challengerId);
 
-    @Query("SELECT s.postId FROM ScrapJpaEntity s WHERE s.challengerId = :challengerId ORDER BY s.createdAt DESC")
+    @Query("SELECT s.postId FROM Scrap s WHERE s.challengerId = :challengerId ORDER BY s.createdAt DESC")
     Page<Long> findPostIdsByChallengerId(@Param("challengerId") Long challengerId, Pageable pageable);
 }

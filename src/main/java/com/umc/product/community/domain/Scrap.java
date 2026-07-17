@@ -1,24 +1,46 @@
 package com.umc.product.community.domain;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
+import com.umc.product.common.BaseEntity;
 
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(
+    name = "scrap",
+    uniqueConstraints = @UniqueConstraint(columnNames = {"post_id", "challenger_id"})
+)
 @Getter
-public class Scrap {
-    private final ScrapId scrapId;
-    private final Long postId;
-    private final Long challengerId;
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Scrap extends BaseEntity {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "post_id", nullable = false)
+    private Long postId;
+
+    @Column(name = "challenger_id", nullable = false)
+    private Long challengerId;
+
+    private Scrap(Long postId, Long challengerId) {
+        this.postId = postId;
+        this.challengerId = challengerId;
+    }
 
     public static Scrap create(Long postId, Long challengerId) {
         validatePostId(postId);
         validateChallengerId(challengerId);
-        return new Scrap(null, postId, challengerId);
-    }
-
-    public static Scrap reconstruct(ScrapId scrapId, Long postId, Long challengerId) {
-        return new Scrap(scrapId, postId, challengerId);
+        return new Scrap(postId, challengerId);
     }
 
     private static void validatePostId(Long postId) {
@@ -33,11 +55,4 @@ public class Scrap {
         }
     }
 
-    public record ScrapId(Long id) {
-        public ScrapId {
-            if (id <= 0) {
-                throw new IllegalArgumentException("ID는 양수여야 합니다.");
-            }
-        }
-    }
 }
