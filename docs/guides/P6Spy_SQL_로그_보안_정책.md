@@ -23,4 +23,4 @@ P6Spy 로그와 DB tracing span에는 SQL 구조만 남기고 바인딩 값은 �
 
 - `P6SpyConfigTest`: prepared INSERT/SELECT와 plain SQL redaction, 비민감 SQL 구조 보존.
 - `QueryStatsJdbcEventListenerTest`: DB span의 inline literal redaction.
-- `RecruitingApplicationRandomPortIntegrationTest`: 실제 PostgreSQL P6Spy INSERT/SELECT 출력과 random-port HTTP transcript 검증.
+- `P6SpyLogRedactionIntegrationTest`: 실제 PostgreSQL P6Spy INSERT/SELECT 출력의 parameter 비노출 검증.
