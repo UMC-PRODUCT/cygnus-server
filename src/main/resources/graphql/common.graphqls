@@ -1,0 +1,12 @@
+scalar Long
+
+enum ChallengerPart {
+  PLAN
+  DESIGN
+  WEB
+  ANDROID
+  IOS
+  NODEJS
+  SPRINGBOOT
+  ADMIN
+}
