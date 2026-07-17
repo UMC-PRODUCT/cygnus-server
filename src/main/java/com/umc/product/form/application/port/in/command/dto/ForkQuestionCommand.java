@@ -8,7 +8,6 @@ import lombok.Builder;
  */
 @Builder
 public record ForkQuestionCommand(
-    Long originQuestionId,
-    Long requesterMemberId
+    Long originQuestionId
 ) {
 }

@@ -44,7 +44,7 @@ class ChatRoomOwnershipPersistenceAdapterTest {
     @Test
     @DisplayName("binding을 저장하고 room id로 lock 조회한다")
     void savesAndLocksBinding() {
-        ChatRoomOwnerReference reference = reference(roomId, "10");
+        ChatRoomOwnerReference reference = ChatRoomOwnerReference.standalone(roomId);
 
         sut.save(reference);
         em.flush();

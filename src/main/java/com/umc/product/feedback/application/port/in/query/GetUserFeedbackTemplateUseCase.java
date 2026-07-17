@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTemplateInfo;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
+import com.umc.product.form.application.port.in.FormActorContext;
 
 /**
  * 사용자 피드백 템플릿 조회 UseCase.
@@ -18,9 +19,9 @@ public interface GetUserFeedbackTemplateUseCase {
      * <p>
      * 활성 템플릿이 없거나 현재 기수가 없는 경우 {@link Optional#empty()}를 반환합니다.
      *
-     * @param requesterMemberId 요청자 Member ID (타입 판별 기준)
+     * @param actorContext 서버가 해석한 인증 actor (타입 판별 기준)
      * @param context           피드백 발생 컨텍스트
      * @return 해당 context + targetType의 활성 템플릿, 없으면 Optional.empty()
      */
-    Optional<UserFeedbackTemplateInfo> findTemplate(Long requesterMemberId, UserFeedbackContext context);
+    Optional<UserFeedbackTemplateInfo> findTemplate(FormActorContext actorContext, UserFeedbackContext context);
 }

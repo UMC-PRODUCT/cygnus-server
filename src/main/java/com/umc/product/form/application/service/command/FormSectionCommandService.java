@@ -10,6 +10,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
 import com.umc.product.form.application.port.in.command.dto.CreateFormSectionCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormSectionCommand;
@@ -20,7 +21,10 @@ import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.SaveFormSectionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormOperation;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
@@ -37,9 +41,15 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
     private final SaveFormSectionPort saveFormSectionPort;
     private final SaveQuestionPort saveQuestionPort;
     private final SaveQuestionOptionPort saveQuestionOptionPort;
+    private final FormOwnershipAccessService ownershipAccessService;
 
     @Override
-    public Long createSection(CreateFormSectionCommand command) {
+    public Long createSection(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateFormSectionCommand command
+    ) {
+        requireStructureAccess(command.formId(), expectedOwner, actorContext);
         Form form = loadFormPort.findById(command.formId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
 
@@ -53,17 +63,29 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
     }
 
     @Override
-    public void updateSection(UpdateFormSectionCommand command) {
+    public void updateSection(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateFormSectionCommand command
+    ) {
         FormSection section = loadFormSectionPort.findById(command.sectionId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requireStructureAccess(section.getForm().getId(), expectedOwner, actorContext);
 
         section.update(command.title(), command.description(), Boolean.TRUE.equals(command.clearDescription()));
         saveFormSectionPort.save(section);
     }
 
     @Override
-    public void deleteSection(DeleteFormSectionCommand command) {
+    public void deleteSection(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteFormSectionCommand command
+    ) {
         Long sectionId = command.sectionId();
+        FormSection section = loadFormSectionPort.findById(sectionId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requireStructureAccess(section.getForm().getId(), expectedOwner, actorContext);
 
         // cascade (자식부터)
         saveQuestionOptionPort.deleteBySectionId(sectionId);
@@ -72,7 +94,12 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
     }
 
     @Override
-    public void reorderSections(ReorderFormSectionsCommand command) {
+    public void reorderSections(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        ReorderFormSectionsCommand command
+    ) {
+        requireStructureAccess(command.formId(), expectedOwner, actorContext);
         List<FormSection> sections = loadFormSectionPort.listByFormId(command.formId());
 
         Set<Long> existingIds = sections.stream()
@@ -95,5 +122,15 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
         }
 
         saveFormSectionPort.saveAll(sections);
+    }
+
+    private void requireStructureAccess(
+        Long formId,
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+        ownershipAccessService.requireMutation(
+            formId, expectedOwner, actorContext, FormOperation.MANAGE_STRUCTURE
+        );
     }
 }

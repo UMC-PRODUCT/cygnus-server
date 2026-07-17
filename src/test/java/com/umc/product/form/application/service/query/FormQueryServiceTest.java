@@ -1,5 +1,7 @@
 package com.umc.product.form.application.service.query;
 
+import static com.umc.product.form.application.service.FormAccessTestFixtures.actor;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.owner;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
@@ -19,6 +21,7 @@ import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
@@ -35,6 +38,8 @@ class FormQueryServiceTest {
     LoadQuestionPort loadQuestionPort;
     @Mock
     LoadQuestionOptionPort loadQuestionOptionPort;
+    @Mock
+    FormOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     FormQueryService sut;
@@ -57,7 +62,9 @@ class FormQueryServiceTest {
         given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(10L))).willReturn(List.of());
 
         // when
-        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(7L, Set.of(10L));
+        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(
+            owner(7L), actor(1L), Set.of(10L)
+        );
 
         // then
         assertThat(result.sections()).hasSize(1);
@@ -80,7 +87,9 @@ class FormQueryServiceTest {
         given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(10L))).willReturn(List.of());
 
         // when
-        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(7L, Set.of(10L));
+        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(
+            owner(7L), actor(1L), Set.of(10L)
+        );
 
         // then — questionId=20은 조회 요청 자체가 없었으므로 결과에도 없음
         assertThat(result.sections().get(0).questions())
@@ -99,7 +108,9 @@ class FormQueryServiceTest {
         given(loadFormSectionPort.listByFormId(7L)).willReturn(List.of(section));
 
         // when
-        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(7L, Set.of());
+        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(
+            owner(7L), actor(1L), Set.of()
+        );
 
         // then — 섹션은 있지만 질문은 없음
         assertThat(result.sections()).hasSize(1);
@@ -121,7 +132,9 @@ class FormQueryServiceTest {
         given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(10L))).willReturn(List.of());
 
         // when
-        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(7L, Set.of(10L));
+        FormWithStructureInfo result = sut.getFormWithStructureByQuestionIds(
+            owner(7L), actor(1L), Set.of(10L)
+        );
 
         // then — isActive=false여도 questionIds에 포함되어 있으면 구조에 포함됨
         assertThat(result.sections().get(0).questions())
@@ -148,7 +161,7 @@ class FormQueryServiceTest {
         given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(20L))).willReturn(List.of());
 
         // when
-        FormWithStructureInfo result = sut.getFormWithStructure(7L);
+        FormWithStructureInfo result = sut.getFormWithStructure(owner(7L), actor(1L));
 
         // then — 활성 질문만 포함됨 (어댑터가 isActive 필터 책임)
         assertThat(result.sections().get(0).questions())

@@ -7,7 +7,6 @@ import lombok.Builder;
  */
 @Builder
 public record DeleteFormSectionCommand(
-    Long sectionId,
-    Long requesterMemberId
+    Long sectionId
 ) {
 }

@@ -1,5 +1,6 @@
 package com.umc.product.form.application.port.out;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.domain.FormOperation;
 import com.umc.product.form.domain.FormOwnerReference;
 
@@ -12,5 +13,9 @@ public interface FormOwnerPolicy {
 
     String namespace();
 
-    boolean allows(FormOwnerReference ownerReference, FormOperation operation, Long memberId);
+    boolean allows(
+        FormOwnerReference ownerReference,
+        FormOperation operation,
+        FormActorContext actorContext
+    );
 }

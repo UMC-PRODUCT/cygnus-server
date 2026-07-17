@@ -11,7 +11,6 @@ import lombok.Builder;
 @Builder
 public record ReorderQuestionsCommand(
     Long sectionId,
-    Long requesterMemberId,
     List<Long> orderedQuestionIds
 ) {
 }

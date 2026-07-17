@@ -9,8 +9,11 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.query.GetVoteUseCase;
 import com.umc.product.form.application.port.in.query.dto.VoteInfo;
+import com.umc.product.form.domain.FormOwnerReference;
+import com.umc.product.notice.application.policy.NoticeVoteOwnerReferenceFactory;
 import com.umc.product.notice.application.port.in.query.GetNoticeContentUseCase;
 import com.umc.product.notice.application.port.in.query.dto.NoticeImageInfo;
 import com.umc.product.notice.application.port.in.query.dto.NoticeLinkInfo;
@@ -59,7 +62,12 @@ public class NoticeContentQueryService implements GetNoticeContentUseCase {
             return null;
         }
 
-        VoteInfo formInfo = getVoteUseCase.getVoteInfo(vote.getVoteId(), memberId);
+        FormOwnerReference expectedOwner = NoticeVoteOwnerReferenceFactory.expectedOwner(
+            noticeId, vote.getVoteId());
+        FormActorContext actorContext = memberId == null
+            ? FormActorContext.anonymous()
+            : FormActorContext.authenticated(memberId);
+        VoteInfo formInfo = getVoteUseCase.getVoteInfo(expectedOwner, actorContext);
         if (formInfo == null) {
             return null;
         }

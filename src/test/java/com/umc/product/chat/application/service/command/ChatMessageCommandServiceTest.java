@@ -20,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
-import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
@@ -28,7 +27,11 @@ import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatMessagePort;
+import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOperation;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 import com.umc.product.chat.domain.exception.ChatDomainException;
@@ -57,7 +60,7 @@ class ChatMessageCommandServiceTest {
     @Mock
     ChatAttachmentPolicy chatAttachmentPolicy;
     @Mock
-    ChatRoomAccessPolicy chatRoomAccessPolicy;
+    ChatRoomOwnershipAccessService ownershipAccessService;
     @Mock
     DomainEventPublisher domainEventPublisher;
 
@@ -68,7 +71,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("정상 전송 시 메시지를 저장하고 생성 이벤트를 발행한다")
     void send_success() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "안녕", null);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.TEXT, "안녕", null);
         ChatMessage saved = ChatMessage.create(1L, 10L, MessageContentType.TEXT, "안녕", null);
         ReflectionTestUtils.setField(saved, "id", 100L);
         Instant createdAt = Instant.parse("2026-06-13T00:00:00Z");
@@ -83,6 +86,7 @@ class ChatMessageCommandServiceTest {
         assertThat(result.replyToMessageId()).isNull();
 
         // 방 row 락을 잡은 뒤 저장한다(동시 전송 직렬화)
+        then(ownershipAccessService).should().verifyForUpdate(owner(), ChatRoomOperation.SEND, actor());
         then(loadChatRoomPort).should().getByIdForUpdate(1L);
         then(saveChatMessagePort).should().save(any(ChatMessage.class));
         // 발신자 읽음 위치는 원자 단조 갱신으로 처리한다
@@ -102,7 +106,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("답장 대상이 같은 방에 있으면 답장 메시지를 저장하고 생성 이벤트에 포함한다")
     void send_reply_success() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "답장", null, 90L);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.TEXT, "답장", null, 90L);
         ChatMessage saved = ChatMessage.create(1L, 10L, MessageContentType.TEXT, "답장", null, 90L);
         ReflectionTestUtils.setField(saved, "id", 100L);
         Instant createdAt = Instant.parse("2026-06-13T00:00:00Z");
@@ -127,7 +131,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("답장 대상이 같은 방에 없으면 전송할 수 없고 저장/발행하지 않는다")
     void send_invalidReplyTarget() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "답장", null, 90L);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.TEXT, "답장", null, 90L);
         given(loadChatMessagePort.existsByIdAndRoomId(90L, 1L)).willReturn(false);
 
         assertThatThrownBy(() -> sut.send(command))
@@ -143,7 +147,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("SYSTEM 타입은 전송할 수 없다")
     void send_systemRejected() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.SYSTEM, "x", null);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.SYSTEM, "x", null);
 
         assertThatThrownBy(() -> sut.send(command))
             .isInstanceOf(ChatDomainException.class)
@@ -158,7 +162,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("내용과 첨부가 모두 비어 있으면 전송할 수 없다")
     void send_emptyRejected() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "   ", List.of());
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.TEXT, "   ", List.of());
 
         assertThatThrownBy(() -> sut.send(command))
             .isInstanceOf(ChatDomainException.class)
@@ -173,7 +177,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("IMAGE 메시지에 첨부파일이 없으면 전송할 수 없다")
     void send_imageWithoutAttachmentRejected() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.IMAGE, "캡션", List.of());
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.IMAGE, "캡션", List.of());
 
         assertThatThrownBy(() -> sut.send(command))
             .isInstanceOf(ChatDomainException.class)
@@ -188,7 +192,7 @@ class ChatMessageCommandServiceTest {
     @DisplayName("TEXT 메시지에는 파일을 첨부할 수 없다")
     void send_textWithAttachmentRejected() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "본문", List.of("file-1"));
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.TEXT, "본문", List.of("file-1"));
 
         assertThatThrownBy(() -> sut.send(command))
             .isInstanceOf(ChatDomainException.class)
@@ -203,8 +207,8 @@ class ChatMessageCommandServiceTest {
     @DisplayName("중복된 파일 ID는 첨부할 수 없다")
     void send_duplicateAttachmentRejected() {
         SendChatMessageCommand command = new SendChatMessageCommand(
-            1L,
-            10L,
+            owner(),
+            actor(),
             MessageContentType.IMAGE,
             null,
             List.of("file-1", "file-1")
@@ -228,7 +232,7 @@ class ChatMessageCommandServiceTest {
             fileMetadataInfo("file-2", "png", "image/png")
         );
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.IMAGE, "캡션", fileIds);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.IMAGE, "캡션", fileIds);
         ChatMessage saved = ChatMessage.create(1L, 10L, MessageContentType.IMAGE, "캡션", fileIds);
         ReflectionTestUtils.setField(saved, "id", 100L);
         ReflectionTestUtils.setField(saved, "createdAt", Instant.parse("2026-06-13T00:00:00Z"));
@@ -248,7 +252,7 @@ class ChatMessageCommandServiceTest {
     void send_invalidStorageFileRejected() {
         List<String> fileIds = List.of("file-1");
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.IMAGE, null, fileIds);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.IMAGE, null, fileIds);
         willThrow(new StorageException(StorageErrorCode.FILE_USE_FORBIDDEN))
             .given(getFileUseCase).batchGetUsableByIds(fileIds, 10L);
 
@@ -266,9 +270,9 @@ class ChatMessageCommandServiceTest {
     @DisplayName("방 멤버가 아니면 전송할 수 없고 저장/발행하지 않는다")
     void send_notMember() {
         SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "안녕", null);
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.TEXT, "안녕", null);
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(ownershipAccessService).verifyForUpdate(owner(), ChatRoomOperation.SEND, actor());
 
         assertThatThrownBy(() -> sut.send(command))
             .isInstanceOf(ChatDomainException.class)
@@ -285,9 +289,9 @@ class ChatMessageCommandServiceTest {
         given(loadChatMessagePort.getByIdAndRoomId(40L, 1L))
             .willReturn(ChatMessage.create(1L, 20L, MessageContentType.TEXT, "확인한 메시지", null));
 
-        sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L));
+        sut.markRead(MarkChatRoomReadCommand.of(owner(), self(), 40L));
 
-        then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
+        then(ownershipAccessService).should().verifyForUpdate(owner(), ChatRoomOperation.READ, self());
         then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 40L);
     }
 
@@ -297,7 +301,7 @@ class ChatMessageCommandServiceTest {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND))
             .given(loadChatMessagePort).getByIdAndRoomId(40L, 1L);
 
-        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L)))
+        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(owner(), self(), 40L)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
@@ -309,15 +313,27 @@ class ChatMessageCommandServiceTest {
     @DisplayName("읽음 처리 요청자가 방 멤버가 아니면 예외를 던지고 최신 메시지 조회/갱신을 하지 않는다")
     void markRead_notMember() {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(ownershipAccessService).verifyForUpdate(owner(), ChatRoomOperation.READ, self());
 
-        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L)))
+        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(owner(), self(), 40L)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
 
         then(loadChatMessagePort).shouldHaveNoInteractions();
         then(saveChatMemberPort).shouldHaveNoInteractions();
+    }
+
+    private ChatRoomOwnerReference owner() {
+        return ChatRoomOwnerReference.standalone(1L);
+    }
+
+    private ChatRoomActorContext actor() {
+        return ChatRoomActorContext.actor(10L);
+    }
+
+    private ChatRoomActorContext self() {
+        return ChatRoomActorContext.actorAndTarget(10L, 10L);
     }
 
     private FileMetadataInfo fileMetadataInfo(String fileId, String extension, String contentType) {

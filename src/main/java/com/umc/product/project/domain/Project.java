@@ -218,8 +218,12 @@ public class Project extends BaseEntity {
      * @param hasActiveRound 현재 시점에 활성화된 매칭 차수 존재 여부
      */
     public void validateApplicationFormEditable(boolean hasActiveRound) {
-        if (this.status == ProjectStatus.DRAFT || this.status == ProjectStatus.PENDING_REVIEW) return;
-        if (this.status == ProjectStatus.IN_PROGRESS && !hasActiveRound) return;
+        if (this.status == ProjectStatus.DRAFT || this.status == ProjectStatus.PENDING_REVIEW) {
+            return;
+        }
+        if (this.status == ProjectStatus.IN_PROGRESS && !hasActiveRound) {
+            return;
+        }
         throw new ProjectDomainException(ProjectErrorCode.PROJECT_INVALID_STATE);
     }
 
@@ -254,8 +258,13 @@ public class Project extends BaseEntity {
      * 파트별 TO/지원 폼 등 외부 도메인 의존 검증은 Service 레이어에서 호출 전 수행한다.
      */
     public void publish() {
-        validateStatus(ProjectStatus.PENDING_REVIEW);
+        validatePublishable();
         this.status = ProjectStatus.IN_PROGRESS;
+    }
+
+    /** 공개 전 외부 도메인 작업을 시작하기 전에 상태 전이 가능 여부만 검증한다. */
+    public void validatePublishable() {
+        validateStatus(ProjectStatus.PENDING_REVIEW);
     }
 
     /**

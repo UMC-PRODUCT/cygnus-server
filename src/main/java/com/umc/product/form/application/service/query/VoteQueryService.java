@@ -9,6 +9,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.query.GetVoteUseCase;
 import com.umc.product.form.application.port.in.query.dto.VoteInfo;
 import com.umc.product.form.application.port.in.query.dto.VoteInfo.VoteOptionInfo;
@@ -17,7 +18,10 @@ import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormOperation;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
@@ -39,16 +43,26 @@ public class VoteQueryService implements GetVoteUseCase {
     private final LoadFormSectionPort loadFormSectionPort;
     private final LoadQuestionPort loadQuestionPort;
     private final LoadQuestionOptionPort loadQuestionOptionPort;
+    private final FormOwnershipAccessService ownershipAccessService;
 
     @Override
-    public VoteInfo getVoteInfo(Long formId, Long memberId) {
+    public VoteInfo getVoteInfo(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+        Long formId = expectedOwner == null ? null : expectedOwner.formId();
+        ownershipAccessService.requireRead(
+            formId, expectedOwner, actorContext, FormOperation.READ
+        );
         Form form = loadFormPort.findById(formId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
 
         // 1. 투표 통계 데이터 로드
         Map<Long, Long> counts = loadAnswerPort.countVotesByOptionId(formId);
         long totalParticipants = loadAnswerPort.countTotalParticipants(formId);
-        List<Long> mySelections = loadAnswerPort.findSelectedOptionIdsByMember(formId, memberId);
+        List<Long> mySelections = actorContext.authenticatedMemberId()
+            .map(memberId -> loadAnswerPort.findSelectedOptionIdsByMember(formId, memberId))
+            .orElseGet(List::of);
 
         // 2. 투표 구조 로드 (섹션 -> 질문 -> 옵션)
         // 공식적으로는 1섹션 1질문 구조를 전제로 하지만, 확장성을 고려하여 조회
@@ -97,8 +111,15 @@ public class VoteQueryService implements GetVoteUseCase {
     }
 
     @Override
-    public Long getPrimaryQuestionId(Long voteId) {
-        List<Question> questions = loadQuestionPort.listByFormId(voteId);
+    public Long getPrimaryQuestionId(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+        Long formId = expectedOwner == null ? null : expectedOwner.formId();
+        ownershipAccessService.requireRead(
+            formId, expectedOwner, actorContext, FormOperation.RESPOND
+        );
+        List<Question> questions = loadQuestionPort.listByFormId(formId);
         if (questions.isEmpty()) {
             throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE);
         }

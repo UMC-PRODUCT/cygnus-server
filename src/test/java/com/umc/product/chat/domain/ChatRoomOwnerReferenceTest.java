@@ -26,6 +26,19 @@ class ChatRoomOwnerReferenceTest {
     }
 
     @Test
+    @DisplayName("standalone factory는 creator가 아니라 room ID 문자열을 owner key로 사용한다")
+    void createsStandaloneReferenceFromRoomId() {
+        ChatRoomOwnerReference reference = ChatRoomOwnerReference.standalone(10L);
+
+        assertThat(reference).isEqualTo(ChatRoomOwnerReference.of(
+            10L,
+            ChatRoomOwnerReference.STANDALONE_NAMESPACE,
+            "10",
+            ChatRoomOwnerReference.DEFAULT_SLOT
+        ));
+    }
+
+    @Test
     @DisplayName("namespace grammar를 벗어난 binding을 거부한다")
     void rejectsInvalidNamespace() {
         assertThatThrownBy(() -> ChatRoomOwnerReference.of(

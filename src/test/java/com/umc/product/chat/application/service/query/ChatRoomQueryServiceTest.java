@@ -21,9 +21,13 @@ import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
+import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.ChatRoom;
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOperation;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
@@ -38,6 +42,8 @@ class ChatRoomQueryServiceTest {
     LoadChatMemberPort loadChatMemberPort;
     @Mock
     LoadChatMessagePort loadChatMessagePort;
+    @Mock
+    ChatRoomOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     ChatRoomQueryService sut;
@@ -53,13 +59,12 @@ class ChatRoomQueryServiceTest {
         ReflectionTestUtils.setField(room, "createdAt", createdAt);
         ReflectionTestUtils.setField(pinnedMessage, "createdAt", pinnedMessageCreatedAt);
 
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 10L)).willReturn(true);
         given(loadChatRoomPort.getById(1L)).willReturn(room);
         given(loadChatMemberPort.listByRoomId(1L))
             .willReturn(List.of(member(1L, 10L), member(1L, 20L)));
         given(loadChatMessagePort.getByIdAndRoomId(100L, 1L)).willReturn(pinnedMessage);
 
-        ChatRoomInfo result = sut.getById(1L, 10L);
+        ChatRoomInfo result = sut.getById(owner(), actor());
 
         assertThat(result.roomId()).isEqualTo(1L);
         assertThat(result.createdAt()).isEqualTo(createdAt);
@@ -74,17 +79,17 @@ class ChatRoomQueryServiceTest {
             90L
         ));
         assertThat(result.memberIds()).containsExactly(10L, 20L);
+        then(ownershipAccessService).should().verify(owner(), ChatRoomOperation.READ, actor());
     }
 
     @Test
     @DisplayName("고정 메시지가 없으면 채팅방 상세 정보의 고정 메시지는 null이다")
     void getById_withoutPinnedMessage() {
         ChatRoom room = room(1L);
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 10L)).willReturn(true);
         given(loadChatRoomPort.getById(1L)).willReturn(room);
         given(loadChatMemberPort.listByRoomId(1L)).willReturn(List.of(member(1L, 10L)));
 
-        ChatRoomInfo result = sut.getById(1L, 10L);
+        ChatRoomInfo result = sut.getById(owner(), actor());
 
         assertThat(result.pinnedMessage()).isNull();
         then(loadChatMessagePort).shouldHaveNoInteractions();
@@ -93,14 +98,32 @@ class ChatRoomQueryServiceTest {
     @Test
     @DisplayName("방 멤버가 아니면 채팅방 상세 정보를 조회하지 않고 접근 거부 예외를 던진다")
     void getById_accessDenied() {
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 99L)).willReturn(false);
+        ChatRoomActorContext deniedActor = ChatRoomActorContext.actor(99L);
+        org.mockito.BDDMockito.willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
+            .given(ownershipAccessService).verify(owner(), ChatRoomOperation.READ, deniedActor);
 
-        assertThatThrownBy(() -> sut.getById(1L, 99L))
+        assertThatThrownBy(() -> sut.getById(owner(), deniedActor))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
 
         then(loadChatRoomPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("room access query는 raw room ID가 아니라 expected owner와 actor로 fail-closed 평가한다")
+    void hasChatRoomAccess_usesOwnershipContext() {
+        given(ownershipAccessService.isAllowed(owner(), ChatRoomOperation.READ, actor())).willReturn(true);
+
+        assertThat(sut.hasChatRoomAccess(owner(), actor())).isTrue();
+    }
+
+    private ChatRoomOwnerReference owner() {
+        return ChatRoomOwnerReference.standalone(1L);
+    }
+
+    private ChatRoomActorContext actor() {
+        return ChatRoomActorContext.actor(10L);
     }
 
     private ChatRoom room(Long id) {

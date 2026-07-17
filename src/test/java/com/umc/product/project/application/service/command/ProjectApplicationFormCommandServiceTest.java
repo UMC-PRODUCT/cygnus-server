@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -23,12 +23,17 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.FormActorContext;
+import com.umc.product.form.application.port.in.FormOwnerReferenceFactory;
 import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.ManageQuestionOptionUseCase;
@@ -53,6 +58,8 @@ import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand;
 import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationFormSectionEntry;
 import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionEntry;
@@ -106,6 +113,16 @@ class ProjectApplicationFormCommandServiceTest {
         lenient().when(loadMatchingRoundPort.listOpenAt(any(), any(Instant.class))).thenReturn(List.of());
     }
 
+    @Test
+    @DisplayName("Form 생성과 consumer mirror 저장은 REQUIRED transaction 경계에 있다")
+    void 지원_Form_생성과_consumer_mirror_저장은_REQUIRED_transaction이다() {
+        Transactional transactional = ProjectApplicationFormCommandService.class
+            .getAnnotation(Transactional.class);
+
+        assertThat(transactional).isNotNull();
+        assertThat(transactional.propagation()).isEqualTo(Propagation.REQUIRED);
+    }
+
     /* =====================================================
      * 폼 라이프사이클 (C6 회귀 보장)
      * ===================================================== */
@@ -118,20 +135,32 @@ class ProjectApplicationFormCommandServiceTest {
             Project project = createProject(42L, ProjectStatus.DRAFT, "Triple");
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.empty());
-            given(manageFormUseCase.createDraft(any())).willReturn(500L);
+            given(manageFormUseCase.createDraft(any(), any(), any())).willReturn(500L);
 
             ProjectApplicationForm savedForm = createApplicationForm(project, 100L, 500L);
             given(saveApplicationFormPort.save(any())).willReturn(savedForm);
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(emptyStructure());
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(emptyStructure());
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of());
 
             sut.upsert(emptyCommand(42L));
 
+            ArgumentCaptor<FormOwnerReferenceFactory> factoryCaptor =
+                ArgumentCaptor.forClass(FormOwnerReferenceFactory.class);
+            ArgumentCaptor<FormActorContext> actorCaptor = ArgumentCaptor.forClass(FormActorContext.class);
             ArgumentCaptor<CreateDraftFormCommand> captor = ArgumentCaptor.forClass(CreateDraftFormCommand.class);
-            then(manageFormUseCase).should().createDraft(captor.capture());
+            InOrder order = inOrder(manageFormUseCase, saveApplicationFormPort);
+            order.verify(manageFormUseCase).createDraft(
+                factoryCaptor.capture(), actorCaptor.capture(), captor.capture()
+            );
+            order.verify(saveApplicationFormPort).save(any());
+            assertThat(factoryCaptor.getValue().create(500L).namespace())
+                .isEqualTo("project.application-form");
+            assertThat(factoryCaptor.getValue().create(500L).ownerResourceKey()).isEqualTo("42");
+            assertThat(factoryCaptor.getValue().create(500L).slot()).isEqualTo("default");
+            assertThat(actorCaptor.getValue().authenticatedMemberId()).contains(99L);
             assertThat(captor.getValue().title()).isEqualTo("Triple");
             assertThat(captor.getValue().allowDuplicateResponses()).isTrue();
-            then(manageFormUseCase).should(never()).updateForm(any());
+            then(manageFormUseCase).should(never()).updateForm(any(), any(), any());
         }
 
         @Test
@@ -139,16 +168,32 @@ class ProjectApplicationFormCommandServiceTest {
             Project project = createProject(42L, ProjectStatus.DRAFT, null);
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.empty());
-            given(manageFormUseCase.createDraft(any())).willReturn(500L);
+            given(manageFormUseCase.createDraft(any(), any(), any())).willReturn(500L);
             given(saveApplicationFormPort.save(any())).willReturn(createApplicationForm(project, 100L, 500L));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(emptyStructure());
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(emptyStructure());
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of());
 
             sut.upsert(emptyCommand(42L));
 
             ArgumentCaptor<CreateDraftFormCommand> captor = ArgumentCaptor.forClass(CreateDraftFormCommand.class);
-            then(manageFormUseCase).should().createDraft(captor.capture());
+            then(manageFormUseCase).should().createDraft(any(), any(), captor.capture());
             assertThat(captor.getValue().title()).isEqualTo("프로젝트 지원서");
+        }
+
+        @Test
+        @DisplayName("ownership 등록 실패 시 consumer formId mirror를 저장하지 않는다")
+        void ownership_등록_실패_시_formId_mirror를_저장하지_않는다() {
+            Project project = createProject(42L, ProjectStatus.DRAFT, "Triple");
+            given(loadProjectPort.getById(42L)).willReturn(project);
+            given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.empty());
+            given(manageFormUseCase.createDraft(any(), any(), any()))
+                .willThrow(new FormDomainException(FormErrorCode.FORM_OWNERSHIP_FORBIDDEN));
+
+            assertThatThrownBy(() -> sut.upsert(emptyCommand(42L)))
+                .isInstanceOf(FormDomainException.class);
+
+            then(saveApplicationFormPort).should(never()).save(any());
+            then(manageFormSectionUseCase).shouldHaveNoInteractions();
         }
 
         @Test
@@ -163,7 +208,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             sut.upsert(cmd);
 
-            then(manageFormUseCase).should(never()).updateForm(any());
+            then(manageFormUseCase).should(never()).updateForm(any(), any(), any());
         }
 
         @Test
@@ -179,7 +224,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<UpdateFormCommand> captor = ArgumentCaptor.forClass(UpdateFormCommand.class);
-            then(manageFormUseCase).should().updateForm(captor.capture());
+            then(manageFormUseCase).should().updateForm(any(), any(), captor.capture());
             assertThat(captor.getValue().title()).isEqualTo("새 제목");
         }
 
@@ -196,7 +241,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<UpdateFormCommand> captor = ArgumentCaptor.forClass(UpdateFormCommand.class);
-            then(manageFormUseCase).should().updateForm(captor.capture());
+            then(manageFormUseCase).should().updateForm(any(), any(), captor.capture());
             assertThat(captor.getValue().description()).isNull();
             assertThat(captor.getValue().clearDescription()).isTrue();
         }
@@ -232,7 +277,7 @@ class ProjectApplicationFormCommandServiceTest {
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_INVALID_STATE);
 
-            then(manageFormUseCase).should(never()).createDraft(any());
+            then(manageFormUseCase).should(never()).createDraft(any(), any(), any());
         }
     }
 
@@ -251,7 +296,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L))
+            given(getFormUseCase.getFormWithStructure(any(), any()))
                 .willReturn(structure(List.of(
                     existingSection(1000L, "공통", null, 1L, List.of(
                         existingQuestion(2000L, QuestionType.SHORT_TEXT, "기존 질문", null, true, 1L, List.of())
@@ -264,7 +309,7 @@ class ProjectApplicationFormCommandServiceTest {
                 )));
             given(loadPolicyPort.listByApplicationFormId(100L))
                 .willReturn(List.of(ProjectApplicationFormPolicy.createCommon(form, 1000L)));
-            given(manageQuestionUseCase.forkQuestion(any())).willReturn(9999L);
+            given(manageQuestionUseCase.forkQuestion(any(), any(), any())).willReturn(9999L);
 
             sut.upsert(commandWithSections(42L, List.of(
                 section(1000L, FormSectionType.COMMON, Set.of(), "공통", 1, List.of(
@@ -281,12 +326,12 @@ class ProjectApplicationFormCommandServiceTest {
             )));
 
             ArgumentCaptor<ForkQuestionCommand> captor = ArgumentCaptor.forClass(ForkQuestionCommand.class);
-            then(manageQuestionUseCase).should().forkQuestion(captor.capture());
+            then(manageQuestionUseCase).should().forkQuestion(any(), any(), captor.capture());
             assertThat(captor.getValue().originQuestionId()).isEqualTo(2000L);
 
             ArgumentCaptor<UpdateQuestionCommand> updateCaptor =
                 ArgumentCaptor.forClass(UpdateQuestionCommand.class);
-            then(manageQuestionUseCase).should().updateQuestion(updateCaptor.capture());
+            then(manageQuestionUseCase).should().updateQuestion(any(), any(), updateCaptor.capture());
             assertThat(updateCaptor.getValue().questionId()).isEqualTo(9999L);
             assertThat(updateCaptor.getValue().type()).isEqualTo(QuestionType.LONG_TEXT);
             assertThat(updateCaptor.getValue().title()).isEqualTo("변경된 질문");
@@ -309,11 +354,11 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(emptyStructure());
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(emptyStructure());
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of());
-            given(manageFormSectionUseCase.createSection(any())).willReturn(1000L);
-            given(manageQuestionUseCase.createQuestion(any())).willReturn(2000L);
-            given(manageQuestionOptionUseCase.createOption(any())).willReturn(3000L, 3001L);
+            given(manageFormSectionUseCase.createSection(any(), any(), any())).willReturn(1000L);
+            given(manageQuestionUseCase.createQuestion(any(), any(), any())).willReturn(2000L);
+            given(manageQuestionOptionUseCase.createOption(any(), any(), any())).willReturn(3000L, 3001L);
 
             UpsertApplicationFormCommand cmd = commandWithSections(42L, List.of(
                 section(null, FormSectionType.PART, Set.of(ChallengerPart.WEB), "프론트엔드", 1, List.of(
@@ -327,7 +372,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<CreateFormSectionCommand> sectionCaptor = ArgumentCaptor.forClass(CreateFormSectionCommand.class);
-            then(manageFormSectionUseCase).should().createSection(sectionCaptor.capture());
+            then(manageFormSectionUseCase).should().createSection(any(), any(), sectionCaptor.capture());
             assertThat(sectionCaptor.getValue().title()).isEqualTo("프론트엔드");
 
             ArgumentCaptor<ProjectApplicationFormPolicy> policyCaptor =
@@ -336,13 +381,13 @@ class ProjectApplicationFormCommandServiceTest {
             assertThat(policyCaptor.getValue().getType()).isEqualTo(FormSectionType.PART);
             assertThat(policyCaptor.getValue().getAllowedParts()).containsExactly(ChallengerPart.WEB);
 
-            then(manageQuestionUseCase).should().createQuestion(any(CreateQuestionCommand.class));
+            then(manageQuestionUseCase).should().createQuestion(any(), any(), any(CreateQuestionCommand.class));
             then(manageQuestionOptionUseCase).should(times(2))
-                .createOption(any(CreateQuestionOptionCommand.class));
+                .createOption(any(), any(), any(CreateQuestionOptionCommand.class));
 
             ArgumentCaptor<ReorderFormSectionsCommand> reorderCaptor =
                 ArgumentCaptor.forClass(ReorderFormSectionsCommand.class);
-            then(manageFormSectionUseCase).should().reorderSections(reorderCaptor.capture());
+            then(manageFormSectionUseCase).should().reorderSections(any(), any(), reorderCaptor.capture());
             assertThat(reorderCaptor.getValue().orderedSectionIds()).containsExactly(1000L);
         }
 
@@ -355,7 +400,7 @@ class ProjectApplicationFormCommandServiceTest {
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
 
             // 기존: 섹션 1 (COMMON) — title="공통"
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of())
             )));
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(
@@ -369,9 +414,9 @@ class ProjectApplicationFormCommandServiceTest {
 
             sut.upsert(cmd);
 
-            then(manageFormSectionUseCase).should(never()).updateSection(any());
+            then(manageFormSectionUseCase).should(never()).updateSection(any(), any(), any());
             then(savePolicyPort).should(never()).save(any());
-            then(manageFormSectionUseCase).should(never()).deleteSection(any());
+            then(manageFormSectionUseCase).should(never()).deleteSection(any(), any(), any());
         }
 
         @Test
@@ -381,7 +426,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "예전 이름", null, 1L, List.of())
             )));
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(
@@ -395,7 +440,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<UpdateFormSectionCommand> captor = ArgumentCaptor.forClass(UpdateFormSectionCommand.class);
-            then(manageFormSectionUseCase).should().updateSection(captor.capture());
+            then(manageFormSectionUseCase).should().updateSection(any(), any(), captor.capture());
             assertThat(captor.getValue().title()).isEqualTo("새 이름");
         }
 
@@ -406,7 +451,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", "기존 설명", 1L, List.of())
             )));
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(
@@ -420,7 +465,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<UpdateFormSectionCommand> captor = ArgumentCaptor.forClass(UpdateFormSectionCommand.class);
-            then(manageFormSectionUseCase).should().updateSection(captor.capture());
+            then(manageFormSectionUseCase).should().updateSection(any(), any(), captor.capture());
             assertThat(captor.getValue().description()).isNull();
             assertThat(captor.getValue().clearDescription()).isTrue();
         }
@@ -434,7 +479,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of())
             )));
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(existingPolicy));
@@ -457,7 +502,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of()),
                 existingSection(1001L, "지울 섹션", null, 2L, List.of())
             )));
@@ -474,7 +519,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             ArgumentCaptor<DeleteFormSectionCommand> deleteCaptor =
                 ArgumentCaptor.forClass(DeleteFormSectionCommand.class);
-            then(manageFormSectionUseCase).should().deleteSection(deleteCaptor.capture());
+            then(manageFormSectionUseCase).should().deleteSection(any(), any(), deleteCaptor.capture());
             assertThat(deleteCaptor.getValue().sectionId()).isEqualTo(1001L);
             then(savePolicyPort).should().deleteByFormSectionId(1001L);
         }
@@ -490,7 +535,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of(
                     existingQuestion(2000L, QuestionType.SHORT_TEXT, "남길 질문", null, true, 1L, List.of()),
                     existingQuestion(2001L, QuestionType.SHORT_TEXT, "지울 질문", null, false, 2L, List.of())
@@ -509,7 +554,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<DeleteQuestionCommand> captor = ArgumentCaptor.forClass(DeleteQuestionCommand.class);
-            then(manageQuestionUseCase).should().deleteQuestion(captor.capture());
+            then(manageQuestionUseCase).should().deleteQuestion(any(), any(), captor.capture());
             assertThat(captor.getValue().questionId()).isEqualTo(2001L);
         }
 
@@ -520,7 +565,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of(
                     existingQuestion(2000L, QuestionType.SHORT_TEXT, "자기소개", "기존 설명", true, 1L, List.of())
                 ))
@@ -538,7 +583,7 @@ class ProjectApplicationFormCommandServiceTest {
             sut.upsert(cmd);
 
             ArgumentCaptor<UpdateQuestionCommand> captor = ArgumentCaptor.forClass(UpdateQuestionCommand.class);
-            then(manageQuestionUseCase).should().updateQuestion(captor.capture());
+            then(manageQuestionUseCase).should().updateQuestion(any(), any(), captor.capture());
             assertThat(captor.getValue().description()).isNull();
             assertThat(captor.getValue().clearDescription()).isTrue();
         }
@@ -550,7 +595,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of(
                     existingQuestion(2000L, QuestionType.RADIO, "선호도", null, true, 1L, List.of(
                         existingOption(3000L, "예전 답안", 1L, false)
@@ -571,7 +616,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             ArgumentCaptor<UpdateQuestionOptionCommand> captor =
                 ArgumentCaptor.forClass(UpdateQuestionOptionCommand.class);
-            then(manageQuestionOptionUseCase).should().updateOption(captor.capture());
+            then(manageQuestionOptionUseCase).should().updateOption(any(), any(), captor.capture());
             assertThat(captor.getValue().content()).isEqualTo("새 답안");
         }
 
@@ -582,7 +627,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "공통", null, 1L, List.of(
                     existingQuestion(2000L, QuestionType.RADIO, "선호도", null, true, 1L, List.of(
                         existingOption(3000L, "남길 옵션", 1L, false),
@@ -604,7 +649,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             ArgumentCaptor<DeleteQuestionOptionCommand> captor =
                 ArgumentCaptor.forClass(DeleteQuestionOptionCommand.class);
-            then(manageQuestionOptionUseCase).should().deleteOption(captor.capture());
+            then(manageQuestionOptionUseCase).should().deleteOption(any(), any(), captor.capture());
             assertThat(captor.getValue().optionId()).isEqualTo(3001L);
         }
     }
@@ -657,7 +702,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(emptyStructure());
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(emptyStructure());
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of());
 
             UpsertApplicationFormCommand cmd = commandWithSections(42L, List.of(
@@ -677,7 +722,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(emptyStructure());
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(emptyStructure());
             given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of());
 
             UpsertApplicationFormCommand cmd = commandWithSections(42L, List.of(
@@ -699,7 +744,7 @@ class ProjectApplicationFormCommandServiceTest {
 
             given(loadProjectPort.getById(42L)).willReturn(project);
             given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
-            given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(List.of(
+            given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(structure(List.of(
                 existingSection(1000L, "A", null, 1L, List.of(
                     existingQuestion(2000L, QuestionType.SHORT_TEXT, "Q1", null, true, 1L, List.of())
                 )),
@@ -738,13 +783,13 @@ class ProjectApplicationFormCommandServiceTest {
         given(loadProjectPort.getById(42L)).willReturn(project);
         given(loadApplicationFormPort.findByProjectId(42L)).willReturn(Optional.of(form));
         // service 가 두 번 호출 — 1) syncFormMetaIfChanged + applyDiff 시점, 2) assembleResponse 시점
-        given(getFormUseCase.getFormWithStructure(eq(500L)))
+        given(getFormUseCase.getFormWithStructure(any(), any()))
             .willReturn(emptyStructure())
             .willReturn(structure(List.of(existingSection(1000L, "공통", null, 1L, List.of()))));
         given(loadPolicyPort.listByApplicationFormId(100L))
             .willReturn(List.of())
             .willReturn(List.of(ProjectApplicationFormPolicy.createCommon(form, 1000L)));
-        given(manageFormSectionUseCase.createSection(any())).willReturn(1000L);
+        given(manageFormSectionUseCase.createSection(any(), any(), any())).willReturn(1000L);
 
         UpsertApplicationFormCommand cmd = commandWithSections(42L, List.of(
             section(null, FormSectionType.COMMON, Set.of(), "공통", 1, List.of())
@@ -852,7 +897,7 @@ class ProjectApplicationFormCommandServiceTest {
 
         given(loadProjectPort.getById(projectId)).willReturn(project);
         given(loadApplicationFormPort.findByProjectId(projectId)).willReturn(Optional.of(form));
-        given(getFormUseCase.getFormWithStructure(formFormId))
+        given(getFormUseCase.getFormWithStructure(any(), any()))
             .willReturn(structureWithMeta(formFormId, formTitle, formDescription, List.of()));
         given(loadPolicyPort.listByApplicationFormId(formRowId)).willReturn(List.of());
     }

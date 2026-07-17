@@ -8,7 +8,6 @@ import lombok.Builder;
  */
 @Builder
 public record DeleteQuestionOptionCommand(
-    Long optionId,
-    Long requesterMemberId
+    Long optionId
 ) {
 }

@@ -7,7 +7,6 @@ import lombok.Builder;
  */
 @Builder
 public record PublishFormCommand(
-    Long formId,
-    Long requesterMemberId
+    Long formId
 ) {
 }

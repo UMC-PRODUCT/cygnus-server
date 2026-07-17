@@ -20,8 +20,16 @@ public class UserFeedbackTemplatePersistenceAdapter implements LoadUserFeedbackT
     private final UserFeedbackTemplateJpaRepository repository;
 
     @Override
-    public Optional<UserFeedbackTemplate> findByContextAndTargetType(UserFeedbackContext context, UserFeedbackTargetType targetType) {
+    public Optional<UserFeedbackTemplate> findByContextAndTargetType(
+        UserFeedbackContext context,
+        UserFeedbackTargetType targetType
+    ) {
         return repository.findByContextAndTargetTypeAndIsActiveTrue(context, targetType);
+    }
+
+    @Override
+    public Optional<UserFeedbackTemplate> findById(Long id) {
+        return repository.findById(id);
     }
 
     @Override

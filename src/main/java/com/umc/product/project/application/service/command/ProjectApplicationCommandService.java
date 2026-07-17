@@ -18,6 +18,7 @@ import com.umc.product.authorization.application.port.in.query.CheckChallengerAu
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
@@ -25,7 +26,9 @@ import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormRespo
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactory;
 import com.umc.product.project.application.port.in.command.CancelProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.DecideApplicationUseCase;
@@ -148,9 +151,10 @@ public class ProjectApplicationCommandService implements
         ProjectApplicationForm form, Long applicantMemberId, ProjectMatchingRound round
     ) {
         Long formResponseId = manageFormResponseUseCase.createDraft(
+            expectedOwner(form),
+            FormActorContext.authenticated(applicantMemberId),
             CreateDraftFormResponseCommand.builder()
                 .formId(form.getFormId())
-                .respondentMemberId(applicantMemberId)
                 .build()
         );
 
@@ -166,13 +170,15 @@ public class ProjectApplicationCommandService implements
         ProjectApplication application = loadDraftApplication(
             command.projectId(), command.applicationId(), command.requesterMemberId()
         );
-        VisibleQuestionScope questionScope = resolveVisibleQuestionScope(application);
+        FormAccess formAccess = FormAccess.of(application, command.requesterMemberId());
+        VisibleQuestionScope questionScope = resolveVisibleQuestionScope(application, formAccess);
         validateAnswerQuestionIdsAllowed(command.answers(), questionScope.allowedQuestionIds());
 
         manageFormResponseUseCase.updateDraft(
+            formAccess.expectedOwner(),
+            formAccess.actorContext(),
             UpdateDraftFormResponseCommand.builder()
                 .formResponseId(application.getFormResponseId())
-                .requesterMemberId(command.requesterMemberId())
                 .answers(toAnswerCommands(command.answers()))
                 .build()
         );
@@ -208,13 +214,15 @@ public class ProjectApplicationCommandService implements
             throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_DUPLICATE_SUBMISSION);
         }
 
-        VisibleQuestionScope questionScope = resolveVisibleQuestionScope(application);
+        FormAccess formAccess = FormAccess.of(application, command.requesterMemberId());
+        VisibleQuestionScope questionScope = resolveVisibleQuestionScope(application, formAccess);
 
         // Form submitDraft — Project 가 계산한 노출 질문 scope 안에서 필수 답변 누락 검증 포함
         manageFormResponseUseCase.submitDraft(
+            formAccess.expectedOwner(),
+            formAccess.actorContext(),
             SubmitDraftFormResponseCommand.builder()
                 .formResponseId(application.getFormResponseId())
-                .requesterMemberId(command.requesterMemberId())
                 .requiredQuestionIds(questionScope.requiredQuestionIds())
                 .allowedQuestionIds(questionScope.allowedQuestionIds())
                 .build()
@@ -454,7 +462,10 @@ public class ProjectApplicationCommandService implements
         return application;
     }
 
-    private VisibleQuestionScope resolveVisibleQuestionScope(ProjectApplication application) {
+    private VisibleQuestionScope resolveVisibleQuestionScope(
+        ProjectApplication application,
+        FormAccess formAccess
+    ) {
         ProjectApplicationForm applicationForm = application.getApplicationForm();
         Project project = applicationForm.getProject();
         ChallengerPart applicantPart = getChallengerUseCase
@@ -469,7 +480,9 @@ public class ProjectApplicationCommandService implements
                     (first, second) -> second
                 ));
 
-        FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
+        FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructure(
+            formAccess.expectedOwner(), formAccess.actorContext()
+        );
         Set<Long> allowedQuestionIds = new HashSet<>();
         Set<Long> requiredQuestionIds = new HashSet<>();
         for (FormWithStructureInfo.SectionWithQuestions section : formStructure.sections()) {
@@ -518,5 +531,24 @@ public class ProjectApplicationCommandService implements
         Set<Long> allowedQuestionIds,
         Set<Long> requiredQuestionIds
     ) {
+    }
+
+    private static FormOwnerReference expectedOwner(ProjectApplicationForm applicationForm) {
+        return ProjectApplicationFormOwnerReferenceFactory
+            .forProject(applicationForm.getProject().getId())
+            .create(applicationForm.getFormId());
+    }
+
+    private record FormAccess(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+
+        private static FormAccess of(ProjectApplication application, Long requesterMemberId) {
+            return new FormAccess(
+                ProjectApplicationCommandService.expectedOwner(application.getApplicationForm()),
+                FormActorContext.authenticated(requesterMemberId)
+            );
+        }
     }
 }

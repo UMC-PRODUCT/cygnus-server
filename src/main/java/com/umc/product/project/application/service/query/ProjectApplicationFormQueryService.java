@@ -18,8 +18,11 @@ import com.umc.product.authorization.application.port.in.query.dto.ChallengerRol
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.FormOwnerReference;
+import com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactory;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
@@ -79,7 +82,10 @@ public class ProjectApplicationFormQueryService implements GetProjectApplication
         Map<Long, ChallengerPart> applicantPartsByGisuId =
             resolveApplicantParts(applicationForms, fullViewAllowedByProjectId, requesterMemberId);
         Map<Long, FormWithStructureInfo> formStructuresByFormId =
-            getFormUseCase.batchGetFormsWithStructure(formIds(applicationForms));
+            getFormUseCase.batchGetFormsWithStructure(
+                expectedOwners(applicationForms),
+                FormActorContext.authenticated(requesterMemberId)
+            );
         Map<Long, List<ProjectApplicationFormPolicy>> policiesByApplicationFormId =
             loadPolicyPort.listByApplicationFormIds(applicationFormIds(applicationForms));
 
@@ -114,7 +120,10 @@ public class ProjectApplicationFormQueryService implements GetProjectApplication
         }
 
         // 권한 확인이 완료된 경우에만 데이터 조회
-        FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
+        FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructure(
+            expectedOwner(applicationForm),
+            FormActorContext.authenticated(requesterMemberId)
+        );
         List<ProjectApplicationFormPolicy> policies =
             loadPolicyPort.listByApplicationFormId(applicationForm.getId());
 
@@ -237,10 +246,16 @@ public class ProjectApplicationFormQueryService implements GetProjectApplication
         return result;
     }
 
-    private Set<Long> formIds(List<ProjectApplicationForm> applicationForms) {
+    private List<FormOwnerReference> expectedOwners(List<ProjectApplicationForm> applicationForms) {
         return applicationForms.stream()
-            .map(ProjectApplicationForm::getFormId)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+            .map(this::expectedOwner)
+            .toList();
+    }
+
+    private FormOwnerReference expectedOwner(ProjectApplicationForm applicationForm) {
+        return ProjectApplicationFormOwnerReferenceFactory
+            .forProject(applicationForm.getProject().getId())
+            .create(applicationForm.getFormId());
     }
 
     private Set<Long> applicationFormIds(List<ProjectApplicationForm> applicationForms) {

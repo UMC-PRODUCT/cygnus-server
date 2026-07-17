@@ -1,10 +1,10 @@
 package com.umc.product.chat.application.port.in.command.dto;
 
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
+
 public record LeaveChatRoomCommand(
-    Long roomId,
-    Long memberId
+    ChatRoomOwnerReference expectedOwner,
+    ChatRoomActorContext actorContext
 ) {
-    public static LeaveChatRoomCommand of(Long roomId, Long memberId) {
-        return new LeaveChatRoomCommand(roomId, memberId);
-    }
 }

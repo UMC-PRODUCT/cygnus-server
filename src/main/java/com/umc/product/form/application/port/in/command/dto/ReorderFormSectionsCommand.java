@@ -12,7 +12,6 @@ import lombok.Builder;
 @Builder
 public record ReorderFormSectionsCommand(
     Long formId,
-    Long requesterMemberId,
     List<Long> orderedSectionIds
 ) {
 }

@@ -1,5 +1,9 @@
 package com.umc.product.form.application.service.query;
 
+import static com.umc.product.form.application.service.FormAccessTestFixtures.actor;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.anonymous;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.owner;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.responseActor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,6 +26,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.query.GetAnswerUseCase;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.exception.FormDomainException;
@@ -38,6 +43,8 @@ class FormResponseQueryServiceTest {
     GetAnswerUseCase getAnswerUseCase;
     @Mock
     SecureTokenGenerator secureTokenGenerator;
+    @Mock
+    FormOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     FormResponseQueryService sut;
@@ -45,7 +52,7 @@ class FormResponseQueryServiceTest {
     @Test
     @DisplayName("listDraftByRespondentMemberId: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void listDraftByRespondentMemberId_null_예외() {
-        assertThatThrownBy(() -> sut.listDraftByRespondentMemberId(null))
+        assertThatThrownBy(() -> sut.listDraftByRespondent(List.of(owner(FORM_ID)), anonymous()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
@@ -56,7 +63,7 @@ class FormResponseQueryServiceTest {
     @Test
     @DisplayName("findDraftByFormIdAndRespondentMemberId: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void findDraftByFormIdAndRespondentMemberId_null_예외() {
-        assertThatThrownBy(() -> sut.findDraftByFormIdAndRespondentMemberId(FORM_ID, null))
+        assertThatThrownBy(() -> sut.findDraftByRespondent(owner(FORM_ID), anonymous()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
@@ -67,7 +74,7 @@ class FormResponseQueryServiceTest {
     @Test
     @DisplayName("findSubmittedByFormIdAndRespondentMemberId: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void findSubmittedByFormIdAndRespondentMemberId_null_예외() {
-        assertThatThrownBy(() -> sut.findSubmittedByFormIdAndRespondentMemberId(FORM_ID, null))
+        assertThatThrownBy(() -> sut.findSubmittedByRespondent(owner(FORM_ID), anonymous()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
@@ -82,7 +89,7 @@ class FormResponseQueryServiceTest {
     @Test
     @DisplayName("findByAccessKey: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void findByAccessKey_null_예외() {
-        assertThatThrownBy(() -> sut.findByAccessKey(null))
+        assertThatThrownBy(() -> sut.findByAccessKey(owner(FORM_ID), anonymous()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
@@ -98,7 +105,7 @@ class FormResponseQueryServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThat(sut.findByAccessKey(rawKey)).isEmpty();
+        assertThat(sut.findByAccessKey(owner(FORM_ID), responseActor(rawKey))).isEmpty();
     }
 
     @Test
@@ -110,7 +117,7 @@ class FormResponseQueryServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
 
-        assertThat(sut.findByAccessKey(rawKey)).isEmpty();
+        assertThat(sut.findByAccessKey(owner(FORM_ID), responseActor(rawKey))).isEmpty();
     }
 
     @Test
@@ -122,13 +129,13 @@ class FormResponseQueryServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(anonymousResponse));
 
-        assertThat(sut.findByAccessKey(rawKey)).isPresent();
+        assertThat(sut.findByAccessKey(owner(FORM_ID), responseActor(rawKey))).isPresent();
     }
 
     @Test
     @DisplayName("getResponseWithAnswersByAccessKey: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void getResponseWithAnswersByAccessKey_null_예외() {
-        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(null))
+        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(owner(FORM_ID), anonymous()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
@@ -144,7 +151,9 @@ class FormResponseQueryServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(rawKey))
+        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(
+            owner(FORM_ID), responseActor(rawKey)
+        ))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
@@ -159,7 +168,9 @@ class FormResponseQueryServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
 
-        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(rawKey))
+        assertThatThrownBy(() -> sut.getResponseWithAnswersByAccessKey(
+            owner(FORM_ID), responseActor(rawKey)
+        ))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
@@ -173,9 +184,13 @@ class FormResponseQueryServiceTest {
         FormResponse anonymousResponse = anonymousResponseWithId(300L);
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findByAccessKeyHash(hash)).willReturn(Optional.of(anonymousResponse));
-        given(getAnswerUseCase.listByFormResponseIdAsAnonymous(300L, rawKey)).willReturn(List.of());
+        given(getAnswerUseCase.listByFormResponseIdAsAnonymous(
+            owner(FORM_ID), responseActor(rawKey), 300L
+        )).willReturn(List.of());
 
-        assertThat(sut.getResponseWithAnswersByAccessKey(rawKey)).isNotNull();
+        assertThat(sut.getResponseWithAnswersByAccessKey(
+            owner(FORM_ID), responseActor(rawKey)
+        )).isNotNull();
     }
 
     // ============================================================
@@ -188,9 +203,11 @@ class FormResponseQueryServiceTest {
         FormResponse anonymousResponse = anonymousResponseWithId(300L);
         given(loadFormResponsePort.findById(300L)).willReturn(Optional.of(anonymousResponse));
 
-        assertThat(sut.findResponseWithAnswers(300L)).isEmpty();
+        assertThat(sut.findResponseWithAnswers(
+            owner(FORM_ID), actor(200L), 300L
+        )).isEmpty();
 
-        then(getAnswerUseCase).should(never()).listByFormResponseId(anyLong());
+        then(getAnswerUseCase).should(never()).listByFormResponseId(any(), any(), anyLong());
     }
 
     @Test
@@ -198,9 +215,13 @@ class FormResponseQueryServiceTest {
     void findResponseWithAnswers_기명_응답이면_반환() {
         FormResponse namedResponse = namedResponseWithId(300L, 200L);
         given(loadFormResponsePort.findById(300L)).willReturn(Optional.of(namedResponse));
-        given(getAnswerUseCase.listByFormResponseId(300L)).willReturn(List.of());
+        given(getAnswerUseCase.listByFormResponseId(
+            owner(FORM_ID), actor(200L), 300L
+        )).willReturn(List.of());
 
-        assertThat(sut.findResponseWithAnswers(300L)).isPresent();
+        assertThat(sut.findResponseWithAnswers(
+            owner(FORM_ID), actor(200L), 300L
+        )).isPresent();
     }
 
     @Test
@@ -209,7 +230,9 @@ class FormResponseQueryServiceTest {
         FormResponse anonymousResponse = anonymousResponseWithId(300L);
         given(loadFormResponsePort.findById(300L)).willReturn(Optional.of(anonymousResponse));
 
-        assertThatThrownBy(() -> sut.getResponseWithAnswers(300L))
+        assertThatThrownBy(() -> sut.getResponseWithAnswers(
+            owner(FORM_ID), actor(200L), 300L
+        ))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
@@ -222,10 +245,14 @@ class FormResponseQueryServiceTest {
         FormResponse anonymous = anonymousResponseWithId(301L);
         given(loadFormResponsePort.listByIdsWithForm(java.util.Set.of(300L, 301L)))
             .willReturn(List.of(named, anonymous));
-        given(getAnswerUseCase.listByFormResponseIds(java.util.Set.of(300L, 301L)))
+        given(getAnswerUseCase.listByFormResponseIds(
+            List.of(owner(FORM_ID)), actor(200L), java.util.Set.of(300L, 301L)
+        ))
             .willReturn(java.util.Map.of());
 
-        var result = sut.findResponsesWithAnswers(java.util.Set.of(300L, 301L));
+        var result = sut.findResponsesWithAnswers(
+            List.of(owner(FORM_ID)), actor(200L), java.util.Set.of(300L, 301L)
+        );
 
         assertThat(result).containsOnlyKeys(300L);
     }

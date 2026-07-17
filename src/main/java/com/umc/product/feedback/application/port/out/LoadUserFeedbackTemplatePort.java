@@ -20,7 +20,15 @@ public interface LoadUserFeedbackTemplatePort {
     /**
      * context + targetType 조합으로 활성 템플릿을 단건 조회합니다. 없으면 Optional.empty().
      */
-    Optional<UserFeedbackTemplate> findByContextAndTargetType(UserFeedbackContext context, UserFeedbackTargetType targetType);
+    Optional<UserFeedbackTemplate> findByContextAndTargetType(
+        UserFeedbackContext context,
+        UserFeedbackTargetType targetType
+    );
+
+    /**
+     * ID로 UserFeedbackTemplate을 조회합니다. 없으면 Optional.empty().
+     */
+    Optional<UserFeedbackTemplate> findById(Long id);
 
     /**
      * ID로 UserFeedbackTemplate을 조회합니다. 존재하지 않으면 도메인 예외를 던집니다.

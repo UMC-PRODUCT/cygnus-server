@@ -9,7 +9,6 @@ import lombok.Builder;
 @Builder
 public record SubmitUserFeedbackResponseCommand(
     Long templateId,
-    Long respondentMemberId,
     List<AnswerCommand> answers
 ) {
 }

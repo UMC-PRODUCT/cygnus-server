@@ -1,5 +1,6 @@
 package com.umc.product.form.application.port.in.command;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
@@ -15,6 +16,7 @@ import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.exception.FormErrorCode;
 
 /**
@@ -35,13 +37,11 @@ import com.umc.product.form.domain.exception.FormErrorCode;
  * <ul>
  *   <li><b>기명 응답</b> ({@code submitImmediately}, {@code updateResponse}, {@code deleteResponse},
  *       {@code createDraft}, {@code updateDraft}, {@code submitDraft}, {@code deleteDraft}):
- *       {@code respondentMemberId} (SUBMITTED 계열) 또는 {@code requesterMemberId} (DRAFT 계열) 필수.
- *       null 이거나 소유자와 다르면 예외.</li>
+ *       actor context의 authenticated member가 필수이며 응답 소유자와 다르면 예외.</li>
  *   <li><b>익명 응답</b> ({@code submitAnonymousImmediately}, {@code updateAnonymousResponse},
  *       {@code deleteAnonymousResponse}, {@code createAnonymousDraft}, {@code updateAnonymousDraft},
  *       {@code submitAnonymousDraft}, {@code deleteAnonymousDraft}):
- *       서버가 발급한 {@code responseAccessKey}(raw) 를 sha256 매칭으로 인증. UX 코드(예: 지원 코드) 는
- *       소비 도메인이 raw key 와 매핑해서 관리.</li>
+ *       서버가 발급한 response credential을 actor context로 전달하고 sha256 매칭으로 인증한다.</li>
  * </ul>
  * 상세 설계: docs/analysis/form-anonymous-response-design.md
  */
@@ -56,7 +56,11 @@ public interface ManageFormResponseUseCase {
      *
      * @return 생성된 FormResponse ID
      */
-    Long submitImmediately(SubmitFormResponseCommand command);
+    Long submitImmediately(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitFormResponseCommand command
+    );
 
     /**
      * (기명 전용) 기존 SUBMITTED 응답의 답변을 전체 교체한다 (재제출 의미).
@@ -66,14 +70,22 @@ public interface ManageFormResponseUseCase {
      * 작성 중인 응답을 갱신하려는 경우는 {@link #updateDraft} 사용.
      * 해당 폼에 대한 기존 SUBMITTED 응답이 없으면 예외.
      */
-    void updateResponse(UpdateFormResponseCommand command);
+    void updateResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateFormResponseCommand command
+    );
 
     /**
      * (기명 전용) 본인이 제출한 SUBMITTED 응답을 삭제한다. (FormResponse + 연관 Answer 모두 삭제)
      * 삭제 후 다시 제출 가능. 기존 응답이 없으면 예외.
      * DRAFT 상태 응답 삭제는 {@link #deleteDraft} 사용.
      */
-    void deleteResponse(DeleteFormResponseCommand command);
+    void deleteResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteFormResponseCommand command
+    );
 
     /**
      * (기명 전용) 폼에 대한 draft 응답을 최초 생성한다. (빈 draft).
@@ -82,7 +94,11 @@ public interface ManageFormResponseUseCase {
      *
      * @return 생성된 FormResponse ID
      */
-    Long createDraft(CreateDraftFormResponseCommand command);
+    Long createDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateDraftFormResponseCommand command
+    );
 
     /**
      * (기명 전용) 기존 draft 응답의 답변을 전체 교체한다 (작성 중 임시저장).
@@ -92,11 +108,15 @@ public interface ManageFormResponseUseCase {
      * 필수 누락은 {@link #submitDraft} 시점에 검증.
      * <p>
      * draft가 아닌 응답(SUBMITTED) 또는 존재하지 않는 응답 ID면 예외.
-     * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
+     * actor context의 authenticated member가 draft 소유자와 일치해야 한다.
      * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
      * 익명 draft 조작은 {@link #updateAnonymousDraft} 사용.
      */
-    void updateDraft(UpdateDraftFormResponseCommand command);
+    void updateDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateDraftFormResponseCommand command
+    );
 
     /**
      * (기명 전용) draft 응답을 SUBMITTED 로 전환(최종 제출)한다.
@@ -105,21 +125,29 @@ public interface ManageFormResponseUseCase {
      * 결과 status 가 SUBMITTED 가 되므로 저장된 답변 기준으로 필수 답변 누락 검증을 수행.
      * <p>
      * draft 가 아닌 응답이면 예외.
-     * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
+     * actor context의 authenticated member가 draft 소유자와 일치해야 한다.
      * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
      * 익명 draft 조작은 {@link #submitAnonymousDraft} 사용.
      */
-    void submitDraft(SubmitDraftFormResponseCommand command);
+    void submitDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitDraftFormResponseCommand command
+    );
 
     /**
      * (기명 전용) draft 응답을 삭제한다. (연관 Answer 포함)
      * SUBMITTED 상태인 응답을 이 메서드로 삭제하면 예외 — SUBMITTED 삭제는 {@link #deleteResponse} 사용.
      * <p>
-     * {@code requesterMemberId} 가 draft 소유자와 일치해야 한다.
+     * actor context의 authenticated member가 draft 소유자와 일치해야 한다.
      * 익명 draft 이거나, 소유자와 다르거나, null 이면 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN} 예외.
      * 익명 draft 조작은 {@link #deleteAnonymousDraft} 사용.
      */
-    void deleteDraft(DeleteDraftFormResponseCommand command);
+    void deleteDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteDraftFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 폼에 대한 익명 응답을 즉시 제출한다. (draft 없이 바로 SUBMITTED 상태 생성)
@@ -131,28 +159,40 @@ public interface ManageFormResponseUseCase {
      * <p>
      * 익명 응답의 중복 정책은 form 엔진에서 강제하지 않는다 — 소비 도메인 책임.
      */
-    AnonymousFormResponseResult submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand command);
+    AnonymousFormResponseResult submitAnonymousImmediately(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitAnonymousImmediatelyFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 이미 SUBMITTED 상태인 익명 응답의 답변을 전체 교체한다 (재제출).
      * <p>
-     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답을 찾는다.
+     * actor context의 response credential을 sha256 매칭해 응답을 찾는다.
      * 매칭 실패, SUBMITTED 아님, 기명 응답인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
      * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      * <p>
      * 검증 정책은 기명 {@link #updateResponse} 와 동일 — 형식 + 필수 답변 누락 검증.
      */
-    void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command);
+    void updateAnonymousResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateAnonymousFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 이미 SUBMITTED 상태인 익명 응답을 삭제한다. (FormResponse + 연관 Answer 모두 삭제)
      * <p>
-     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답을 찾는다.
+     * actor context의 response credential을 sha256 매칭해 응답을 찾는다.
      * 매칭 실패, SUBMITTED 아님, 기명 응답인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
      * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      * DRAFT 상태 익명 응답 삭제는 {@link #deleteAnonymousDraft} 사용.
      */
-    void deleteAnonymousResponse(DeleteAnonymousFormResponseCommand command);
+    void deleteAnonymousResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteAnonymousFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 익명 draft 응답을 최초 생성한다.
@@ -162,36 +202,52 @@ public interface ManageFormResponseUseCase {
      * <p>
      * 익명 응답의 중복 정책은 form 엔진에서 강제하지 않는다 — 소비 도메인 책임.
      */
-    AnonymousFormResponseResult createAnonymousDraft(CreateAnonymousDraftFormResponseCommand command);
+    AnonymousFormResponseResult createAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateAnonymousDraftFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 익명 draft 응답의 답변을 전체 교체한다 (익명 임시저장).
      * <p>
-     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 draft 를 찾는다.
+     * actor context의 response credential을 sha256 매칭해 draft를 찾는다.
      * 매칭 실패, DRAFT 아님, 기명 draft 인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
      * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      * <p>
      * 답변 검증 정책은 {@link #updateDraft} 와 동일 — 형식만, 필수 누락은 submit 시점 검증.
      */
-    void updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand command);
+    void updateAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateAnonymousDraftFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 익명 draft 응답을 SUBMITTED 로 전환(최종 제출)한다.
      * <p>
-     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 draft 를 찾는다.
+     * actor context의 response credential을 sha256 매칭해 draft를 찾는다.
      * 매칭 실패, DRAFT 아님, 기명 draft 인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
      * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      * <p>
      * 검증 정책은 {@link #submitDraft} 와 동일 — 저장된 답변 기준으로 필수 답변 누락 검증 수행.
      */
-    void submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand command);
+    void submitAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitAnonymousDraftFormResponseCommand command
+    );
 
     /**
      * (익명 전용) 익명 draft 응답을 삭제한다. (연관 Answer 포함)
      * <p>
-     * {@code responseAccessKey}(raw) 의 sha256 매칭으로 draft 를 찾는다.
+     * actor context의 response credential을 sha256 매칭해 draft를 찾는다.
      * 매칭 실패, DRAFT 아님, 기명 draft 인 경우 모두 {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}.
      * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      */
-    void deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand command);
+    void deleteAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteAnonymousDraftFormResponseCommand command
+    );
 }

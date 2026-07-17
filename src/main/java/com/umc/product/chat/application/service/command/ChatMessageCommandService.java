@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
-import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
 import com.umc.product.chat.application.port.in.command.SendChatMessageUseCase;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
@@ -16,7 +15,10 @@ import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatMessagePort;
+import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOperation;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 import com.umc.product.chat.domain.exception.ChatDomainException;
@@ -38,7 +40,7 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     private final SaveChatMemberPort saveChatMemberPort;
     private final GetFileUseCase getFileUseCase;
     private final ChatAttachmentPolicy chatAttachmentPolicy;
-    private final ChatRoomAccessPolicy chatRoomAccessPolicy;
+    private final ChatRoomOwnershipAccessService ownershipAccessService;
     private final DomainEventPublisher domainEventPublisher;
 
     /**
@@ -51,18 +53,20 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     public ChatMessageInfo send(SendChatMessageCommand command) {
         validate(command);
 
-        // 방 멤버만 전송 가능
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
+        ownershipAccessService.verifyForUpdate(
+            command.expectedOwner(), ChatRoomOperation.SEND, command.actorContext());
         validateReplyTarget(command);
         validateAttachments(command);
 
         // 같은 방의 동시 전송을 직렬화한다(방 row 락). insert 이전에 락을 잡아야 방 안에서 message id 배정
         // 순서가 commit 순서와 일치하고, 그 결과 읽음 watermark(id 기준)가 안전해진다.
-        loadChatRoomPort.getByIdForUpdate(command.roomId());
+        Long roomId = command.expectedOwner().roomId();
+        Long actorMemberId = command.actorContext().actorMemberId();
+        loadChatRoomPort.getByIdForUpdate(roomId);
 
         ChatMessage saved = saveChatMessagePort.save(ChatMessage.create(
-            command.roomId(),
-            command.senderMemberId(),
+            roomId,
+            actorMemberId,
             command.contentType(),
             command.content(),
             command.fileMetadataIds(),
@@ -78,11 +82,16 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
 
     @Override
     public void markRead(MarkChatRoomReadCommand command) {
-        // 방 멤버만 읽음 처리 가능(원자 갱신은 비멤버면 no-op이라 여기서 명시적으로 검증한다).
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.memberId());
-        loadChatMessagePort.getByIdAndRoomId(command.lastSeenMessageId(), command.roomId());
+        ChatRoomActorContext actorContext = command.actorContext();
+        ChatRoomOperation operation = actorContext != null && actorContext.isSelfTarget()
+            ? ChatRoomOperation.READ
+            : ChatRoomOperation.MEMBERSHIP_MANAGE;
+        ownershipAccessService.verifyForUpdate(command.expectedOwner(), operation, actorContext);
+        Long roomId = command.expectedOwner().roomId();
+        Long targetMemberId = targetMemberId(actorContext);
+        loadChatMessagePort.getByIdAndRoomId(command.lastSeenMessageId(), roomId);
         saveChatMemberPort.bumpLastReadMessageId(
-            command.roomId(), command.memberId(), command.lastSeenMessageId());
+            roomId, targetMemberId, command.lastSeenMessageId());
     }
 
     private void validate(SendChatMessageCommand command) {
@@ -119,7 +128,7 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
 
         List<FileMetadataInfo> files = getFileUseCase.batchGetUsableByIds(
             command.fileMetadataIds(),
-            command.senderMemberId()
+            command.actorContext().actorMemberId()
         );
         chatAttachmentPolicy.validate(command.contentType(), files);
     }
@@ -127,7 +136,8 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     private void markSenderRead(SendChatMessageCommand command, ChatMessage saved) {
         // 발신자는 자기 메시지를 읽은 것으로 처리한다. markRead 와 동일하게 원자 단조 갱신을 사용해
         // 다른 기기의 동시 읽음 처리와 lost update 가 나지 않도록 한다.
-        saveChatMemberPort.bumpLastReadMessageId(command.roomId(), command.senderMemberId(), saved.getId());
+        saveChatMemberPort.bumpLastReadMessageId(
+            command.expectedOwner().roomId(), command.actorContext().actorMemberId(), saved.getId());
     }
 
     private void validateReplyTarget(SendChatMessageCommand command) {
@@ -135,8 +145,16 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         if (replyToMessageId == null) {
             return;
         }
-        if (!loadChatMessagePort.existsByIdAndRoomId(replyToMessageId, command.roomId())) {
+        if (!loadChatMessagePort.existsByIdAndRoomId(replyToMessageId, command.expectedOwner().roomId())) {
             throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_INVALID_REPLY_TARGET);
         }
+    }
+
+    private Long targetMemberId(ChatRoomActorContext actorContext) {
+        Long targetMemberId = actorContext.targetMemberId();
+        if (targetMemberId == null || targetMemberId <= 0) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
+        }
+        return targetMemberId;
     }
 }

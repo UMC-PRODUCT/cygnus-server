@@ -1,5 +1,7 @@
 package com.umc.product.form.application.service.command;
 
+import static com.umc.product.form.application.service.FormAccessTestFixtures.actor;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.ownerFactory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -14,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.form.application.port.in.FormOwnerReferenceFactory;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
 import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
@@ -22,7 +25,9 @@ import com.umc.product.form.application.port.out.SaveFormResponsePort;
 import com.umc.product.form.application.port.out.SaveFormSectionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormOperation;
 
 @ExtendWith(MockitoExtension.class)
 class FormCommandServiceTest {
@@ -41,6 +46,8 @@ class FormCommandServiceTest {
     SaveFormResponsePort saveFormResponsePort;
     @Mock
     SaveAnswerPort saveAnswerPort;
+    @Mock
+    FormOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     FormCommandService sut;
@@ -48,14 +55,14 @@ class FormCommandServiceTest {
     @Test
     @DisplayName("createDraft는 요청 description을 신규 폼에 저장한다")
     void createDraft_description_저장() {
+        FormOwnerReferenceFactory factory = ownerFactory();
         given(saveFormPort.save(any(Form.class))).willAnswer(invocation -> {
             Form form = invocation.getArgument(0);
             ReflectionTestUtils.setField(form, "id", 1L);
             return form;
         });
 
-        Long result = sut.createDraft(CreateDraftFormCommand.builder()
-            .createdMemberId(10L)
+        Long result = sut.createDraft(factory, actor(10L), CreateDraftFormCommand.builder()
             .title("지원서")
             .description("지원 폼 설명")
             .allowDuplicateResponses(true)
@@ -63,6 +70,9 @@ class FormCommandServiceTest {
 
         ArgumentCaptor<Form> captor = ArgumentCaptor.forClass(Form.class);
         then(saveFormPort).should().save(captor.capture());
+        then(ownershipAccessService).should().registerNewForm(
+            1L, factory, actor(10L), FormOperation.MANAGE_STRUCTURE
+        );
         assertThat(result).isEqualTo(1L);
         assertThat(captor.getValue().getDescription()).isEqualTo("지원 폼 설명");
     }

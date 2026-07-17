@@ -6,8 +6,12 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.FormActorContext;
+import com.umc.product.form.application.port.in.FormOwnerReferenceFactory;
 import com.umc.product.form.application.port.in.command.ManageVoteUseCase;
 import com.umc.product.form.application.port.in.command.dto.CreateVoteCommand;
+import com.umc.product.form.domain.FormOwnerReference;
+import com.umc.product.notice.application.policy.NoticeVoteOwnerReferenceFactory;
 import com.umc.product.notice.application.port.in.command.ManageNoticeContentUseCase;
 import com.umc.product.notice.application.port.in.command.dto.AddNoticeImagesCommand;
 import com.umc.product.notice.application.port.in.command.dto.AddNoticeLinksCommand;
@@ -56,9 +60,12 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
             throw new NoticeDomainException(NoticeErrorCode.VOTE_ALREADY_EXISTS);
         }
 
+        FormActorContext actorContext = FormActorContext.authenticated(command.createdMemberId());
+        FormOwnerReferenceFactory ownerFactory = NoticeVoteOwnerReferenceFactory.forNotice(noticeId);
         Long voteId = manageVoteUseCase.createVote(
+            ownerFactory,
+            actorContext,
             CreateVoteCommand.builder()
-                .createdMemberId(command.createdMemberId())
                 .title(command.title())
                 .isAnonymous(command.isAnonymous())
                 .allowMultipleChoice(command.allowMultipleChoice())
@@ -130,20 +137,27 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
         NoticeVote vote = loadNoticeVotePort.findVoteByNoticeId(noticeId)
             .orElseThrow(() -> new NoticeDomainException(NoticeErrorCode.NOTICE_VOTE_NOT_FOUND));
 
+        FormOwnerReference expectedOwner = NoticeVoteOwnerReferenceFactory.expectedOwner(
+            noticeId, vote.getVoteId());
+        manageVoteUseCase.deleteVote(expectedOwner, FormActorContext.authenticated(memberId));
         saveNoticeVotePort.deleteVote(vote);
-        manageVoteUseCase.deleteVote(vote.getVoteId());
     }
 
     @Override
     public void removeContentsByNoticeId(Long noticeId, Long memberId) {
-        saveNoticeImagePort.deleteAllImagesByNoticeId(noticeId);
-        saveNoticeLinkPort.deleteAllLinksByNoticeId(noticeId);
+        Notice notice = findNoticeById(noticeId);
+        notice.validateAuthorMember(memberId);
 
         loadNoticeVotePort.findVoteByNoticeId(noticeId)
             .ifPresent(vote -> {
-                saveNoticeVotePort.deleteAllVotesByNoticeId(noticeId);
-                manageVoteUseCase.deleteVote(vote.getVoteId());
+                FormOwnerReference expectedOwner = NoticeVoteOwnerReferenceFactory.expectedOwner(
+                    noticeId, vote.getVoteId());
+                manageVoteUseCase.deleteVote(expectedOwner, FormActorContext.authenticated(memberId));
+                saveNoticeVotePort.deleteVote(vote);
             });
+
+        saveNoticeImagePort.deleteAllImagesByNoticeId(noticeId);
+        saveNoticeLinkPort.deleteAllLinksByNoticeId(noticeId);
     }
 
     @Override

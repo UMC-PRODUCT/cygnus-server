@@ -12,7 +12,6 @@ import lombok.Builder;
 @Builder
 public record UpdateQuestionCommand(
     Long questionId,
-    Long requesterMemberId,
     QuestionType type,
     String title,
     String description,

@@ -9,7 +9,6 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.CheckChatMessageReadUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
 import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
@@ -22,8 +21,12 @@ import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
+import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOperation;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
 
 import lombok.RequiredArgsConstructor;
 
@@ -37,7 +40,7 @@ public class ChatMessageQueryService implements
 
     private final LoadChatMessagePort loadChatMessagePort;
     private final LoadChatMemberPort loadChatMemberPort;
-    private final ChatRoomAccessPolicy chatRoomAccessPolicy;
+    private final ChatRoomOwnershipAccessService ownershipAccessService;
 
     /**
      * 방 메시지 내역을 최신순 커서 페이지네이션으로 조회한다. (size + 1 조회 후 hasNext 판별)
@@ -46,9 +49,10 @@ public class ChatMessageQueryService implements
      */
     @Override
     public ChatMessageCursorResult getMessages(GetChatMessagesQuery query) {
-        chatRoomAccessPolicy.verifyMember(query.roomId(), query.memberId());
+        ownershipAccessService.verify(query.expectedOwner(), ChatRoomOperation.READ, query.actorContext());
+        Long roomId = query.expectedOwner().roomId();
 
-        List<ChatMessage> rows = loadChatMessagePort.listByRoomId(query.roomId(), query.cursorId(), query.size() + 1);
+        List<ChatMessage> rows = loadChatMessagePort.listByRoomId(roomId, query.cursorId(), query.size() + 1);
 
         boolean hasNext = rows.size() > query.size();
         List<ChatMessage> page = hasNext ? rows.subList(0, query.size()) : rows;
@@ -68,13 +72,15 @@ public class ChatMessageQueryService implements
      */
     @Override
     public ChatMessageReadStatusInfo checkRead(CheckChatMessageReadQuery query) {
-        chatRoomAccessPolicy.verifyMember(query.roomId(), query.requesterMemberId());
+        ownershipAccessService.verify(query.expectedOwner(), ChatRoomOperation.READ, query.actorContext());
+        Long roomId = query.expectedOwner().roomId();
+        Long targetMemberId = query.actorContext().targetMemberId();
 
-        ChatMessage message = loadChatMessagePort.getByIdAndRoomId(query.messageId(), query.roomId());
-        ChatMember targetMember = loadChatMemberPort.getByRoomIdAndMemberId(query.roomId(), query.targetMemberId());
+        ChatMessage message = loadChatMessagePort.getByIdAndRoomId(query.messageId(), roomId);
+        ChatMember targetMember = loadChatMemberPort.getByRoomIdAndMemberId(roomId, targetMemberId);
 
         boolean read = isReadByTarget(message, targetMember);
-        return new ChatMessageReadStatusInfo(query.roomId(), query.messageId(), query.targetMemberId(), read);
+        return new ChatMessageReadStatusInfo(roomId, query.messageId(), targetMemberId, read);
     }
 
     /**
@@ -83,13 +89,24 @@ public class ChatMessageQueryService implements
      * 엔진은 멤버의 방을 스스로 열거하지 않는다. 전달받은 roomId 집합을 멤버가 실제 참여 중인 방으로 좁힌 뒤에만 조립하므로, 서로 다른 소비 도메인의 방이 한 응답에 섞이지 않는다(도메인 간 데이터
      * 격리).
      * <p>
-     * 방 개수와 무관하게 쿼리 3회로 고정한다(N+1 방지)
+     * ownership/membership 인가가 끝난 뒤 메시지 조립 쿼리는 방 개수와 무관하게 3회로 고정한다.
      */
     @Override
-    public List<ChatRoomSummaryInfo> listRoomSummaries(Long memberId, List<Long> roomIds) {
-        if (roomIds == null || roomIds.isEmpty()) {
+    public List<ChatRoomSummaryInfo> listRoomSummaries(
+        ChatRoomActorContext actorContext,
+        List<ChatRoomOwnerReference> expectedOwners
+    ) {
+        ownershipAccessService.verifyAuthenticatedActor(actorContext);
+        if (expectedOwners == null || expectedOwners.isEmpty()) {
             return List.of();
         }
+
+        expectedOwners.forEach(expectedOwner ->
+            ownershipAccessService.verify(expectedOwner, ChatRoomOperation.READ, actorContext));
+        List<Long> roomIds = expectedOwners.stream()
+            .map(ChatRoomOwnerReference::roomId)
+            .toList();
+        Long memberId = actorContext.actorMemberId();
 
         // 소비 도메인이 넘긴 방 중 멤버가 실제 참여 중인 방으로 한정한다(격리 + 방어).
         List<Long> scopedRoomIds = loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(memberId, roomIds);

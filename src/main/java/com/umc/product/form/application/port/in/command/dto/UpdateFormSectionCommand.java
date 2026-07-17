@@ -9,7 +9,6 @@ import lombok.Builder;
 @Builder
 public record UpdateFormSectionCommand(
     Long sectionId,
-    Long requesterMemberId,
     String title,
     String description,
     Boolean clearDescription

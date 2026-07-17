@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authentication.application.service.SecureTokenGenerator;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
@@ -43,9 +44,12 @@ import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
 import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormOperation;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
@@ -73,6 +77,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private final SaveFormResponsePort saveFormResponsePort;
     private final SaveAnswerPort saveAnswerPort;
     private final GetFileUseCase getFileUseCase;
+    private final FormOwnershipAccessService ownershipAccessService;
     // authentication 도메인의 공용 crypto util 재사용 (SSO Auth Code 발급과 동일 패턴).
     // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
     private final SecureTokenGenerator secureTokenGenerator;
@@ -85,11 +90,16 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         description = "'설문 응답을 제출했습니다.'"
     )
     @Override
-    public Long submitImmediately(SubmitFormResponseCommand command) {
-        requireRespondentMemberId(command.respondentMemberId());
+    public Long submitImmediately(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitFormResponseCommand command
+    ) {
+        requireRespondAccess(command.formId(), expectedOwner, actorContext);
+        Long respondentMemberId = requireRespondentMemberId(actorContext);
         Form form = loadPublishedForm(command.formId());
 
-        validateDuplicateResponsePolicy(form, command.respondentMemberId());
+        validateDuplicateResponsePolicy(form, respondentMemberId);
 
         validateAnswers(command.formId(), command.answers());
         validateAllRequiredAnsweredOnPath(
@@ -98,7 +108,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             extractSingleSelectedOptionIds(command.answers())
         );
 
-        FormResponse response = FormResponse.createDraft(form, command.respondentMemberId());
+        FormResponse response = FormResponse.createDraft(form, respondentMemberId);
         response.submit(Instant.now(), null);
         FormResponse saved = saveFormResponsePort.save(response);
 
@@ -109,13 +119,18 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void updateResponse(UpdateFormResponseCommand command) {
-        requireRespondentMemberId(command.respondentMemberId());
+    public void updateResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateFormResponseCommand command
+    ) {
+        requireRespondAccess(command.formId(), expectedOwner, actorContext);
+        Long respondentMemberId = requireRespondentMemberId(actorContext);
         Form form = loadPublishedForm(command.formId());
         validateSingleResponseLookupPolicy(form);
 
         FormResponse existing = loadFormResponsePort
-            .findSubmittedByFormIdAndRespondentMemberId(command.formId(), command.respondentMemberId())
+            .findSubmittedByFormIdAndRespondentMemberId(command.formId(), respondentMemberId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
         validateAnswers(command.formId(), command.answers());
@@ -135,13 +150,18 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void deleteResponse(DeleteFormResponseCommand command) {
-        requireRespondentMemberId(command.respondentMemberId());
+    public void deleteResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteFormResponseCommand command
+    ) {
+        requireRespondAccess(command.formId(), expectedOwner, actorContext);
+        Long respondentMemberId = requireRespondentMemberId(actorContext);
         Form form = loadPublishedForm(command.formId());
         validateSingleResponseLookupPolicy(form);
 
         FormResponse existing = loadFormResponsePort
-            .findSubmittedByFormIdAndRespondentMemberId(command.formId(), command.respondentMemberId())
+            .findSubmittedByFormIdAndRespondentMemberId(command.formId(), respondentMemberId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
@@ -149,19 +169,29 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public Long createDraft(CreateDraftFormResponseCommand command) {
-        requireRespondentMemberId(command.respondentMemberId());
+    public Long createDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateDraftFormResponseCommand command
+    ) {
+        requireRespondAccess(command.formId(), expectedOwner, actorContext);
+        Long respondentMemberId = requireRespondentMemberId(actorContext);
         Form form = loadPublishedForm(command.formId());
 
-        validateDuplicateResponsePolicy(form, command.respondentMemberId());
+        validateDuplicateResponsePolicy(form, respondentMemberId);
 
-        FormResponse draft = FormResponse.createDraft(form, command.respondentMemberId());
+        FormResponse draft = FormResponse.createDraft(form, respondentMemberId);
         return saveFormResponsePort.save(draft).getId();
     }
 
     @Override
-    public void updateDraft(UpdateDraftFormResponseCommand command) {
-        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
+    public void updateDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateDraftFormResponseCommand command
+    ) {
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), actorContext);
+        requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
         // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
         validateAnswers(draft.getForm().getId(), command.answers());
@@ -176,8 +206,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void submitDraft(SubmitDraftFormResponseCommand command) {
-        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
+    public void submitDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitDraftFormResponseCommand command
+    ) {
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), actorContext);
+        requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
         validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
@@ -204,15 +239,25 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void deleteDraft(DeleteDraftFormResponseCommand command) {
-        FormResponse draft = loadDraftAsOwner(command.formResponseId(), command.requesterMemberId());
+    public void deleteDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteDraftFormResponseCommand command
+    ) {
+        FormResponse draft = loadDraftAsOwner(command.formResponseId(), actorContext);
+        requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
     }
 
     @Override
-    public AnonymousFormResponseResult submitAnonymousImmediately(SubmitAnonymousImmediatelyFormResponseCommand command) {
+    public AnonymousFormResponseResult submitAnonymousImmediately(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitAnonymousImmediatelyFormResponseCommand command
+    ) {
+        requireRespondAccess(command.formId(), expectedOwner, actorContext);
         Form form = loadPublishedForm(command.formId());
 
         // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
@@ -240,8 +285,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command) {
-        FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
+    public void updateAnonymousResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateAnonymousFormResponseCommand command
+    ) {
+        FormResponse existing = loadSubmittedAsAnonymous(actorContext);
+        requireRespondAccess(existing.getForm().getId(), expectedOwner, actorContext);
 
         validateAnswers(existing.getForm().getId(), command.answers());
         validateAllRequiredAnsweredOnPath(
@@ -260,15 +310,25 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void deleteAnonymousResponse(DeleteAnonymousFormResponseCommand command) {
-        FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
+    public void deleteAnonymousResponse(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteAnonymousFormResponseCommand command
+    ) {
+        FormResponse existing = loadSubmittedAsAnonymous(actorContext);
+        requireRespondAccess(existing.getForm().getId(), expectedOwner, actorContext);
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
         saveFormResponsePort.deleteById(existing.getId());
     }
 
     @Override
-    public AnonymousFormResponseResult createAnonymousDraft(CreateAnonymousDraftFormResponseCommand command) {
+    public AnonymousFormResponseResult createAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateAnonymousDraftFormResponseCommand command
+    ) {
+        requireRespondAccess(command.formId(), expectedOwner, actorContext);
         Form form = loadPublishedForm(command.formId());
 
         // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
@@ -285,8 +345,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand command) {
-        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+    public void updateAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateAnonymousDraftFormResponseCommand command
+    ) {
+        FormResponse draft = loadDraftAsAnonymous(actorContext);
+        requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
         // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
         validateAnswers(draft.getForm().getId(), command.answers());
@@ -301,8 +366,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand command) {
-        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+    public void submitAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        SubmitAnonymousDraftFormResponseCommand command
+    ) {
+        FormResponse draft = loadDraftAsAnonymous(actorContext);
+        requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
         validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
@@ -329,8 +399,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     }
 
     @Override
-    public void deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand command) {
-        FormResponse draft = loadDraftAsAnonymous(command.responseAccessKey());
+    public void deleteAnonymousDraft(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteAnonymousDraftFormResponseCommand command
+    ) {
+        FormResponse draft = loadDraftAsAnonymous(actorContext);
+        requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
@@ -360,10 +435,8 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
      * </ul>
      * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      */
-    private FormResponse loadDraftAsAnonymous(String rawAccessKey) {
-        if (rawAccessKey == null) {
-            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
-        }
+    private FormResponse loadDraftAsAnonymous(FormActorContext actorContext) {
+        String rawAccessKey = requireResponseAccessKey(actorContext);
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
@@ -385,10 +458,8 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
      * </ul>
      * rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      */
-    private FormResponse loadSubmittedAsAnonymous(String rawAccessKey) {
-        if (rawAccessKey == null) {
-            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
-        }
+    private FormResponse loadSubmittedAsAnonymous(FormActorContext actorContext) {
+        String rawAccessKey = requireResponseAccessKey(actorContext);
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse response = loadFormResponsePort.findSubmittedByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
@@ -411,8 +482,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
      *   <li>요청자 memberId 가 null (auth 계층에서 걸러졌어야 하는 케이스, 방어 목적)</li>
      * </ul>
      */
-    private FormResponse loadDraftAsOwner(Long formResponseId, Long requesterMemberId) {
+    private FormResponse loadDraftAsOwner(Long formResponseId, FormActorContext actorContext) {
         FormResponse draft = loadDraft(formResponseId);
+        Long requesterMemberId = actorContext == null
+            ? null
+            : actorContext.authenticatedMemberId().orElse(null);
         if (draft.getRespondentMemberId() == null
             || !draft.getRespondentMemberId().equals(requesterMemberId)) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
@@ -453,10 +527,29 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         }
     }
 
-    private static void requireRespondentMemberId(Long respondentMemberId) {
-        if (respondentMemberId == null) {
+    private static Long requireRespondentMemberId(FormActorContext actorContext) {
+        if (actorContext == null || actorContext.authenticatedMemberId().isEmpty()) {
             throw new FormDomainException(FormErrorCode.RESPONDENT_MEMBER_ID_REQUIRED);
         }
+        return actorContext.authenticatedMemberId().orElseThrow();
+    }
+
+    private static String requireResponseAccessKey(FormActorContext actorContext) {
+        if (actorContext == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+        return actorContext.responseAccessKey()
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED));
+    }
+
+    private void requireRespondAccess(
+        Long formId,
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+        ownershipAccessService.requireMutation(
+            formId, expectedOwner, actorContext, FormOperation.RESPOND
+        );
     }
 
     /**
@@ -591,9 +684,13 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
             FormSection next = null;
             for (Question q : questionsBySection.getOrDefault(current.getId(), List.of())) {
-                if (q.getType() != QuestionType.RADIO && q.getType() != QuestionType.DROPDOWN) continue;
+                if (q.getType() != QuestionType.RADIO && q.getType() != QuestionType.DROPDOWN) {
+                    continue;
+                }
                 Long selectedOptionId = selectedOptionByQuestion.get(q.getId());
-                if (selectedOptionId == null) continue;
+                if (selectedOptionId == null) {
+                    continue;
+                }
                 Long nextSectionId = optionToNextSection.get(selectedOptionId);
                 if (nextSectionId != null && !visited.contains(nextSectionId)) {
                     next = sectionById.get(nextSectionId);

@@ -70,7 +70,7 @@ class ProjectApplicationFormQueryServiceTest {
         Optional<ApplicationFormInfo> result = sut.findByProjectId(PROJECT_ID, PM_MEMBER_ID);
 
         assertThat(result).isEmpty();
-        then(getFormUseCase).should(never()).getFormWithStructure(any());
+        then(getFormUseCase).should(never()).getFormWithStructure(any(), any());
         then(loadPolicyPort).should(never()).listByApplicationFormId(any());
     }
 
@@ -81,7 +81,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
             ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
@@ -113,7 +113,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
             ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
@@ -137,7 +137,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
             ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
@@ -163,7 +163,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
             ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
@@ -192,7 +192,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
             ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
@@ -233,7 +233,7 @@ class ProjectApplicationFormQueryServiceTest {
             .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.APPLICATION_FORM_ACCESS_NOT_ALLOWED);
 
         // 외부 사용자는 권한 검증 단계에서 차단되어 폼/정책 조회는 발생하지 않음
-        then(getFormUseCase).should(never()).getFormWithStructure(any());
+        then(getFormUseCase).should(never()).getFormWithStructure(any(), any());
         then(loadPolicyPort).should(never()).listByApplicationFormId(any());
     }
 
@@ -245,7 +245,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID)
             // PART_SECTION_ID 정책 누락
@@ -271,7 +271,7 @@ class ProjectApplicationFormQueryServiceTest {
         ProjectApplicationForm applicationForm = createApplicationForm(project);
 
         given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
-        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(getFormUseCase.getFormWithStructure(any(), any())).willReturn(buildFormStructure());
         given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of(
             ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID)
             // PART_SECTION_ID 정책 누락
@@ -295,7 +295,7 @@ class ProjectApplicationFormQueryServiceTest {
         given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID, 99L))).willReturn(Map.of(
             PROJECT_ID, applicationForm
         ));
-        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
+        given(getFormUseCase.batchGetFormsWithStructure(any(), any()))
             .willReturn(Map.of(FORM_ID, buildFormStructure()));
         given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID))).willReturn(Map.of(
             APPLICATION_FORM_ID,

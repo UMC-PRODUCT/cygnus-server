@@ -11,7 +11,6 @@ import lombok.Builder;
  */
 @Builder
 public record CreateDraftFormCommand(
-    Long createdMemberId,
     String title,
     String description,
     boolean isAnonymous,

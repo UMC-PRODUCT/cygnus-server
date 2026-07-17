@@ -7,5 +7,12 @@ public enum FormOperation {
     DELETE,
     READ,
     RESPOND,
-    READ_RESPONSES
+    READ_RESPONSES;
+
+    public boolean requiresAuthenticatedMember() {
+        return switch (this) {
+            case MANAGE_STRUCTURE, PUBLISH, DELETE, READ_RESPONSES -> true;
+            case READ, RESPOND -> false;
+        };
+    }
 }

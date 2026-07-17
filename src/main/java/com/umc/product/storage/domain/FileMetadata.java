@@ -161,6 +161,49 @@ public class FileMetadata extends BaseEntity {
     }
 
     /**
+     * 파일이 하나 이상의 owner에게 참조되고 있음을 표시합니다.
+     */
+    public void markReferenced() {
+        this.unreferencedAt = null;
+    }
+
+    /**
+     * 마지막 전역 usage가 제거된 시각을 기록합니다.
+     */
+    public void markUnreferenced(Instant unreferencedAt) {
+        if (unreferencedAt == null) {
+            throw new IllegalArgumentException("미참조 시작 시각은 필수입니다.");
+        }
+        this.unreferencedAt = unreferencedAt;
+    }
+
+    /**
+     * 물리 삭제를 수행할 worker가 사용할 단일 CAS claim을 설정합니다.
+     */
+    public void claimCleanup(UUID token, Instant claimedAt) {
+        if (token == null || claimedAt == null) {
+            throw new IllegalArgumentException("cleanup claim token과 시각은 필수입니다.");
+        }
+        if (cleanupClaimToken != null || cleanupFailedAt != null) {
+            throw new IllegalStateException("이미 cleanup이 진행 또는 격리된 파일입니다.");
+        }
+        this.cleanupClaimToken = token;
+        this.cleanupClaimedAt = claimedAt;
+    }
+
+    public boolean hasCleanupClaim() {
+        return cleanupClaimToken != null;
+    }
+
+    public boolean hasCleanupFailure() {
+        return cleanupFailedAt != null;
+    }
+
+    public boolean matchesCleanupClaim(UUID token) {
+        return token != null && token.equals(cleanupClaimToken);
+    }
+
+    /**
      * Registry READY 전 audit mode에서 legacy 완료 row를 보호하기 위한 호환 판정입니다.
      */
     public boolean isConfirmedForAudit() {
@@ -171,6 +214,13 @@ public class FileMetadata extends BaseEntity {
      * 실제 스토리지 객체 정보가 요청 메타데이터와 일치하는지 검증하고 업로드 완료 처리합니다.
      */
     public void confirmUploaded(long actualFileSize, String actualContentType) {
+        confirmUploaded(actualFileSize, actualContentType, Instant.now());
+    }
+
+    /**
+     * 실제 객체 검증과 canonical 완료 시각 기록을 원자적으로 수행합니다.
+     */
+    public void confirmUploaded(long actualFileSize, String actualContentType, Instant confirmedAt) {
         if (!category.isAllowedSize(actualFileSize)) {
             throw new StorageException(StorageErrorCode.FILE_SIZE_EXCEEDED);
         }
@@ -183,7 +233,7 @@ public class FileMetadata extends BaseEntity {
             throw new StorageException(StorageErrorCode.INVALID_CONTENT_TYPE);
         }
 
-        markAsUploaded();
+        markAsUploaded(confirmedAt);
     }
 
     /**

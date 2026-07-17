@@ -10,7 +10,6 @@ import lombok.Builder;
  */
 @Builder
 public record DeleteFormResponseCommand(
-    Long formId,
-    Long respondentMemberId
+    Long formId
 ) {
 }

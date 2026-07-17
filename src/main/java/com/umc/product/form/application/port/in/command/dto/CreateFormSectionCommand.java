@@ -9,7 +9,6 @@ import lombok.Builder;
 @Builder
 public record CreateFormSectionCommand(
     Long formId,
-    Long requesterMemberId,
     String title,
     String description
 ) {

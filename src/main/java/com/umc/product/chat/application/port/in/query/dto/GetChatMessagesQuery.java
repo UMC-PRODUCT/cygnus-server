@@ -1,5 +1,7 @@
 package com.umc.product.chat.application.port.in.query.dto;
 
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
 
@@ -10,8 +12,8 @@ import com.umc.product.chat.domain.exception.ChatErrorCode;
  * 벗어나면 {@link ChatErrorCode#CHAT_MESSAGE_INVALID_PAGE_SIZE}.
  */
 public record GetChatMessagesQuery(
-    Long roomId,
-    Long memberId,
+    ChatRoomOwnerReference expectedOwner,
+    ChatRoomActorContext actorContext,
     Long cursorId,
     int size
 ) {

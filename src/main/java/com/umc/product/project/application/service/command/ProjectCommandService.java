@@ -14,6 +14,7 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
@@ -23,6 +24,7 @@ import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactory;
 import com.umc.product.project.application.port.in.command.AbortProjectUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectUseCase;
 import com.umc.product.project.application.port.in.command.DeleteProjectUseCase;
@@ -251,12 +253,16 @@ public class ProjectCommandService implements
         ProjectApplicationForm form = loadProjectApplicationFormPort.findByProjectId(project.getId())
             .orElseThrow(() -> new ProjectDomainException(ProjectErrorCode.APPLICATION_FORM_NOT_FOUND));
 
-        project.publish();
+        project.validatePublishable();
+        manageFormUseCase.publishForm(
+            ProjectApplicationFormOwnerReferenceFactory.forProject(project.getId()).create(form.getFormId()),
+            FormActorContext.authenticated(command.requesterMemberId()),
+            PublishFormCommand.builder()
+                .formId(form.getFormId())
+                .build()
+        );
 
-        manageFormUseCase.publishForm(PublishFormCommand.builder()
-            .formId(form.getFormId())
-            .requesterMemberId(command.requesterMemberId())
-            .build());
+        project.publish();
 
         return project.getStatus();
     }
@@ -270,8 +276,9 @@ public class ProjectCommandService implements
      *   <li>ProjectMember 일괄 삭제</li>
      *   <li>Project 삭제</li>
      * </ol>
-     * 권한 검증은 Controller 단의 {@code @CheckAccess(DELETE)} + {@link com.umc.product.project.application.service.evaluator.ProjectPermissionEvaluator}
-     * 가 담당. 본 Service 는 도메인 상태 invariant 만 책임진다.
+     * 권한 검증은 Controller 단의 {@code @CheckAccess(DELETE)}
+     * + {@link com.umc.product.project.application.service.evaluator.ProjectPermissionEvaluator}가 담당.
+     * 본 Service 는 도메인 상태 invariant 만 책임진다.
      */
     @Audited(
         domain = Domain.PROJECT,
@@ -289,10 +296,13 @@ public class ProjectCommandService implements
             .ifPresent(form -> {
                 saveProjectApplicationFormPolicyPort.deleteAllByApplicationFormId(form.getId());
                 saveProjectApplicationFormPort.deleteAllByProjectId(project.getId());
-                manageFormUseCase.deleteForm(DeleteFormCommand.builder()
-                    .formId(form.getFormId())
-                    .requesterMemberId(command.requesterMemberId())
-                    .build());
+                manageFormUseCase.deleteForm(
+                    ProjectApplicationFormOwnerReferenceFactory.forProject(project.getId()).create(form.getFormId()),
+                    FormActorContext.authenticated(command.requesterMemberId()),
+                    DeleteFormCommand.builder()
+                        .formId(form.getFormId())
+                        .build()
+                );
             });
 
         saveProjectPartQuotaPort.deleteAllByProjectId(project.getId());

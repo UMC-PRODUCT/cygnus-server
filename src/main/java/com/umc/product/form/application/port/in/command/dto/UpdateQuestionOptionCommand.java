@@ -10,7 +10,6 @@ import lombok.Builder;
 @Builder
 public record UpdateQuestionOptionCommand(
     Long optionId,
-    Long requesterMemberId,
     String content,
     Boolean isOther,
     Long nextSectionId,

@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageQuestionOptionUseCase;
 import com.umc.product.form.application.port.in.command.dto.CreateQuestionOptionCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteQuestionOptionCommand;
@@ -20,6 +21,9 @@ import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
+import com.umc.product.form.domain.FormOperation;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
@@ -38,11 +42,17 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
     private final LoadQuestionPort loadQuestionPort;
     private final LoadQuestionOptionPort loadQuestionOptionPort;
     private final SaveQuestionOptionPort saveQuestionOptionPort;
+    private final FormOwnershipAccessService ownershipAccessService;
 
     @Override
-    public Long createOption(CreateQuestionOptionCommand command) {
+    public Long createOption(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateQuestionOptionCommand command
+    ) {
         Question question = loadQuestionPort.findById(command.questionId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requireStructureAccess(rootFormId(question), expectedOwner, actorContext);
 
         long nextOrderNo = loadQuestionOptionPort.listByQuestionId(command.questionId()).stream()
             .mapToLong(QuestionOption::getOrderNo)
@@ -67,9 +77,14 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
     }
 
     @Override
-    public void updateOption(UpdateQuestionOptionCommand command) {
+    public void updateOption(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateQuestionOptionCommand command
+    ) {
         QuestionOption option = loadQuestionOptionPort.findById(command.optionId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requireStructureAccess(rootFormId(option.getQuestion()), expectedOwner, actorContext);
 
         boolean clearNextSectionId = Boolean.TRUE.equals(command.clearNextSectionId());
         if (command.nextSectionId() != null) {
@@ -83,12 +98,26 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
     }
 
     @Override
-    public void deleteOption(DeleteQuestionOptionCommand command) {
+    public void deleteOption(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteQuestionOptionCommand command
+    ) {
+        QuestionOption option = loadQuestionOptionPort.findById(command.optionId())
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requireStructureAccess(rootFormId(option.getQuestion()), expectedOwner, actorContext);
         saveQuestionOptionPort.deleteById(command.optionId());
     }
 
     @Override
-    public void reorderOptions(ReorderQuestionOptionsCommand command) {
+    public void reorderOptions(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        ReorderQuestionOptionsCommand command
+    ) {
+        Question question = loadQuestionPort.findById(command.questionId())
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.QUESTION_NOT_FOUND));
+        requireStructureAccess(rootFormId(question), expectedOwner, actorContext);
         List<QuestionOption> options = loadQuestionOptionPort.listByQuestionId(command.questionId());
 
         Set<Long> existingIds = options.stream()
@@ -136,5 +165,19 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
             throw new FormDomainException(FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
                 "nextSectionId는 동일한 폼의 섹션이어야 합니다.");
         }
+    }
+
+    private void requireStructureAccess(
+        Long formId,
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+        ownershipAccessService.requireMutation(
+            formId, expectedOwner, actorContext, FormOperation.MANAGE_STRUCTURE
+        );
+    }
+
+    private static Long rootFormId(Question question) {
+        return question.getFormSection().getForm().getId();
     }
 }

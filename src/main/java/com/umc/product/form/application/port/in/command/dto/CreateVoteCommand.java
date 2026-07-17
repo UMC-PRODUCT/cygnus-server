@@ -9,7 +9,6 @@ import lombok.Builder;
  */
 @Builder
 public record CreateVoteCommand(
-    Long createdMemberId,
     String title,
     boolean isAnonymous,
     boolean allowMultipleChoice,

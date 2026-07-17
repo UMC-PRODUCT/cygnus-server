@@ -1,6 +1,7 @@
 package com.umc.product.feedback.application.port.in.command;
 
 import com.umc.product.feedback.application.port.in.command.dto.SubmitUserFeedbackResponseCommand;
+import com.umc.product.form.application.port.in.FormActorContext;
 
 /**
  * 사용자 피드백 응답 제출 UseCase.
@@ -12,5 +13,5 @@ import com.umc.product.feedback.application.port.in.command.dto.SubmitUserFeedba
  */
 public interface SubmitUserFeedbackResponseUseCase {
 
-    Long submit(SubmitUserFeedbackResponseCommand command);
+    Long submit(FormActorContext actorContext, SubmitUserFeedbackResponseCommand command);
 }

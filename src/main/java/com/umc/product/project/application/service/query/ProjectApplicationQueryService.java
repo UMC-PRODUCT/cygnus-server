@@ -20,13 +20,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
 import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.project.application.access.ProjectApplicationAccessScope;
 import com.umc.product.project.application.access.ProjectApplicationAccessScopeResolver;
+import com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactory;
 import com.umc.product.project.application.port.in.query.GetMyProjectApplicationsUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.SearchProjectApplicationsUseCase;
@@ -112,10 +115,15 @@ public class ProjectApplicationQueryService
 
         List<ProjectApplicationFormPolicy> formPolicies =
             loadProjectApplicationFormPolicyPort.listByApplicationFormId(applicationForm.getId());
+        FormAccess formAccess = FormAccess.of(applicationForm, query.requesterMemberId());
         // dangling formResponseId 는 invariant 위반이지만, 클라이언트에는 PROJECT_APPLICATION_NOT_FOUND 로 통일한다.
         // 다른 도메인 에러가 외부로 새지 않게 하기 위함이다.
         FormResponseWithAnswersInfo formResponseWithAnswers =
-            getFormResponseUseCase.findResponseWithAnswers(application.getFormResponseId())
+            getFormResponseUseCase.findResponseWithAnswers(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
+                application.getFormResponseId()
+            )
                 .orElseThrow(() -> new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND));
         // 답변이 존재하는 questionId 기준으로 폼 구조를 조립한다.
         // fork로 비활성화된 구 버전 질문도 Answer.questionId 역추적으로 포함하기 위함이다.
@@ -123,7 +131,7 @@ public class ProjectApplicationQueryService
             .map(AnswerInfo::questionId)
             .collect(Collectors.toSet());
         FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructureByQuestionIds(
-            applicationForm.getFormId(), answeredQuestionIds);
+            formAccess.expectedOwner(), formAccess.actorContext(), answeredQuestionIds);
         Map<String, FileInfo> filesByFileId = resolveFiles(formResponseWithAnswers.answers());
 
         return ProjectApplicationDetailInfo.of(
@@ -172,7 +180,7 @@ public class ProjectApplicationQueryService
         Map<Long, List<ProjectApplicationFormPolicy>> policiesByApplicationFormId =
             loadProjectApplicationFormPolicyPort.listByApplicationFormIds(applicationFormIds(applications));
         Map<Long, FormResponseWithAnswersInfo> formResponsesById =
-            getFormResponseUseCase.findResponsesWithAnswers(formResponseIds(applications));
+            resolveFormResponsesById(applications, queriesByApplicationId);
         Map<Long, Map<String, FileInfo>> filesByApplicationId =
             resolveFilesByApplicationId(applications, formResponsesById);
 
@@ -181,17 +189,24 @@ public class ProjectApplicationQueryService
         for (Long applicationId : queriesByApplicationId.keySet()) {
             ProjectApplication application = applicationsById.get(applicationId);
             Project project = application.getApplicationForm().getProject();
+            Long requesterMemberId = queriesByApplicationId.get(applicationId).requesterMemberId();
             FormResponseWithAnswersInfo formResponseWithAnswers =
                 getRequiredFormResponse(formResponsesById, application.getFormResponseId());
-            FormStructureKey formStructureKey = formStructureKey(application, formResponseWithAnswers);
+            FormStructureKey formStructureKey = formStructureKey(
+                application, formResponseWithAnswers, requesterMemberId
+            );
             FormWithStructureInfo formStructure = formStructuresByKey.computeIfAbsent(
                 formStructureKey,
-                key -> getFormUseCase.getFormWithStructureByQuestionIds(key.formId(), key.questionIds())
+                key -> getFormUseCase.getFormWithStructureByQuestionIds(
+                    key.expectedOwner(),
+                    FormActorContext.authenticated(key.requesterMemberId()),
+                    key.questionIds()
+                )
             );
 
             boolean isApplicantSelf = Objects.equals(
                 application.getApplicantMemberId(),
-                queriesByApplicationId.get(applicationId).requesterMemberId()
+                requesterMemberId
             );
             result.put(applicationId, ProjectApplicationDetailInfo.of(
                 application,
@@ -492,6 +507,33 @@ public class ProjectApplicationQueryService
             .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    private Map<Long, FormResponseWithAnswersInfo> resolveFormResponsesById(
+        List<ProjectApplication> applications,
+        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId
+    ) {
+        Map<Long, List<ProjectApplication>> applicationsByRequesterId = applications.stream()
+            .collect(Collectors.groupingBy(
+                application -> queriesByApplicationId.get(application.getId()).requesterMemberId(),
+                LinkedHashMap::new,
+                Collectors.toList()
+            ));
+
+        Map<Long, FormResponseWithAnswersInfo> result = new LinkedHashMap<>();
+        applicationsByRequesterId.forEach((requesterMemberId, requesterApplications) -> {
+            Map<Long, FormOwnerReference> ownersByFormId = new LinkedHashMap<>();
+            for (ProjectApplication application : requesterApplications) {
+                FormAccess access = FormAccess.of(application.getApplicationForm(), requesterMemberId);
+                ownersByFormId.putIfAbsent(access.expectedOwner().formId(), access.expectedOwner());
+            }
+            result.putAll(getFormResponseUseCase.findResponsesWithAnswers(
+                ownersByFormId.values(),
+                FormActorContext.authenticated(requesterMemberId),
+                formResponseIds(requesterApplications)
+            ));
+        });
+        return result;
+    }
+
     private FormResponseWithAnswersInfo getRequiredFormResponse(
         Map<Long, FormResponseWithAnswersInfo> formResponsesById,
         Long formResponseId
@@ -505,12 +547,16 @@ public class ProjectApplicationQueryService
 
     private FormStructureKey formStructureKey(
         ProjectApplication application,
-        FormResponseWithAnswersInfo formResponseWithAnswers
+        FormResponseWithAnswersInfo formResponseWithAnswers,
+        Long requesterMemberId
     ) {
         Set<Long> answeredQuestionIds = formResponseWithAnswers.answers().stream()
             .map(AnswerInfo::questionId)
             .collect(Collectors.toUnmodifiableSet());
-        return new FormStructureKey(application.getApplicationForm().getFormId(), answeredQuestionIds);
+        FormAccess formAccess = FormAccess.of(application.getApplicationForm(), requesterMemberId);
+        return new FormStructureKey(
+            formAccess.expectedOwner(), requesterMemberId, answeredQuestionIds
+        );
     }
 
     private Map<Long, Map<String, FileInfo>> resolveFilesByApplicationId(
@@ -557,6 +603,28 @@ public class ProjectApplicationQueryService
     private record GisuMemberKey(Long gisuId, Long memberId) {
     }
 
-    private record FormStructureKey(Long formId, Set<Long> questionIds) {
+    private record FormStructureKey(
+        FormOwnerReference expectedOwner,
+        Long requesterMemberId,
+        Set<Long> questionIds
+    ) {
+    }
+
+    private record FormAccess(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+
+        private static FormAccess of(
+            ProjectApplicationForm applicationForm,
+            Long requesterMemberId
+        ) {
+            return new FormAccess(
+                ProjectApplicationFormOwnerReferenceFactory
+                    .forProject(applicationForm.getProject().getId())
+                    .create(applicationForm.getFormId()),
+                FormActorContext.authenticated(requesterMemberId)
+            );
+        }
     }
 }

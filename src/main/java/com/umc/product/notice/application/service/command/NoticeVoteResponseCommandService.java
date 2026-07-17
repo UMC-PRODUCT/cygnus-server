@@ -8,13 +8,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
 import com.umc.product.form.application.port.in.query.GetVoteUseCase;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.notice.application.policy.NoticeVoteOwnerReferenceFactory;
 import com.umc.product.notice.application.port.in.command.ManageNoticeVoteResponseUseCase;
 import com.umc.product.notice.application.port.in.command.dto.SubmitNoticeVoteResponseCommand;
 import com.umc.product.notice.application.port.in.command.dto.UpdateNoticeVoteResponseCommand;
@@ -45,12 +48,15 @@ public class NoticeVoteResponseCommandService implements ManageNoticeVoteRespons
     @Override
     public Long submit(SubmitNoticeVoteResponseCommand command) {
         NoticeVote noticeVote = loadOpenNoticeVote(command.noticeId());
-        Long questionId = getVoteUseCase.getPrimaryQuestionId(noticeVote.getVoteId());
+        FormOwnerReference expectedOwner = expectedOwner(command.noticeId(), noticeVote);
+        FormActorContext actorContext = FormActorContext.authenticated(command.respondentMemberId());
+        Long questionId = getVoteUseCase.getPrimaryQuestionId(expectedOwner, actorContext);
 
         return manageFormResponseUseCase.submitImmediately(
+            expectedOwner,
+            actorContext,
             SubmitFormResponseCommand.builder()
                 .formId(noticeVote.getVoteId())
-                .respondentMemberId(command.respondentMemberId())
                 .answers(List.of(buildAnswerCommand(questionId, command.selectedOptionIds())))
                 .build()
         );
@@ -63,22 +69,26 @@ public class NoticeVoteResponseCommandService implements ManageNoticeVoteRespons
         }
 
         NoticeVote noticeVote = loadOpenNoticeVote(command.noticeId());
+        FormOwnerReference expectedOwner = expectedOwner(command.noticeId(), noticeVote);
+        FormActorContext actorContext = FormActorContext.authenticated(command.respondentMemberId());
 
         if (command.selectedOptionIds().isEmpty()) {
             manageFormResponseUseCase.deleteResponse(
+                expectedOwner,
+                actorContext,
                 DeleteFormResponseCommand.builder()
                     .formId(noticeVote.getVoteId())
-                    .respondentMemberId(command.respondentMemberId())
                     .build()
             );
             return;
         }
 
-        Long questionId = getVoteUseCase.getPrimaryQuestionId(noticeVote.getVoteId());
+        Long questionId = getVoteUseCase.getPrimaryQuestionId(expectedOwner, actorContext);
         manageFormResponseUseCase.updateResponse(
+            expectedOwner,
+            actorContext,
             UpdateFormResponseCommand.builder()
                 .formId(noticeVote.getVoteId())
-                .respondentMemberId(command.respondentMemberId())
                 .answers(List.of(buildAnswerCommand(questionId, command.selectedOptionIds())))
                 .build()
         );
@@ -97,6 +107,10 @@ public class NoticeVoteResponseCommandService implements ManageNoticeVoteRespons
         }
 
         return noticeVote;
+    }
+
+    private FormOwnerReference expectedOwner(Long noticeId, NoticeVote noticeVote) {
+        return NoticeVoteOwnerReferenceFactory.expectedOwner(noticeId, noticeVote.getVoteId());
     }
 
     private AnswerCommand buildAnswerCommand(Long questionId, List<Long> selectedOptionIds) {

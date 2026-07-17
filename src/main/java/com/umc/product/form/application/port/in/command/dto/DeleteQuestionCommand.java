@@ -7,7 +7,6 @@ import lombok.Builder;
  */
 @Builder
 public record DeleteQuestionCommand(
-    Long questionId,
-    Long requesterMemberId
+    Long questionId
 ) {
 }

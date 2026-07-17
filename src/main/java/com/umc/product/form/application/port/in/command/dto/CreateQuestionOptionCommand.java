@@ -11,7 +11,6 @@ import lombok.Builder;
 @Builder
 public record CreateQuestionOptionCommand(
     Long questionId,
-    Long requesterMemberId,
     String content,
     boolean isOther,
     Long nextSectionId

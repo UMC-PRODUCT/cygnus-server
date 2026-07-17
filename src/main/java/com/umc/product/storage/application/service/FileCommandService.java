@@ -1,6 +1,7 @@
 package com.umc.product.storage.application.service;
 
-import java.util.Objects;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -8,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
 import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
@@ -18,6 +18,7 @@ import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
 import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
+import com.umc.product.storage.application.port.out.LoadFileUsagePort;
 import com.umc.product.storage.application.port.out.SaveFileMetadataPort;
 import com.umc.product.storage.application.port.out.StoragePort;
 import com.umc.product.storage.application.port.out.dto.StorageObjectInfo;
@@ -40,7 +41,9 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     private final StoragePort storagePort;
     private final LoadFileMetadataPort loadFileMetadataPort;
     private final SaveFileMetadataPort saveFileMetadataPort;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final LoadFileUsagePort loadFileUsagePort;
+    private final FileDeletionService fileDeletionService;
+    private final Clock clock;
 
     @Audited(
         domain = Domain.STORAGE,
@@ -129,7 +132,9 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
             .storageKey(storageKey)
             .uploadedMemberId(command.generatedByMemberId())
             .build();
-        metadata.markAsUploaded();
+        Instant confirmedAt = clock.instant();
+        metadata.markAsUploaded(confirmedAt);
+        metadata.markUnreferenced(confirmedAt);
         saveFileMetadataPort.save(metadata);
 
         log.info("서버 생성 파일을 저장했습니다: fileId={}, category={}", fileId, command.category());
@@ -156,7 +161,13 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
         StorageObjectInfo objectInfo = storagePort.findObjectInfoByStorageKey(metadata.getStorageKey())
             .orElseThrow(() -> new StorageException(StorageErrorCode.FILE_UPLOAD_NOT_COMPLETED));
 
-        confirmUploaded(metadata, objectInfo);
+        Instant confirmedAt = clock.instant();
+        confirmUploaded(metadata, objectInfo, confirmedAt);
+        if (loadFileUsagePort.countByFileId(fileId) == 0L) {
+            metadata.markUnreferenced(confirmedAt);
+        } else {
+            metadata.markReferenced();
+        }
         saveFileMetadataPort.save(metadata);
 
         log.info("파일 업로드를 확인했습니다: fileId={}", fileId);
@@ -171,31 +182,16 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     )
     @Override
     public void deleteFile(DeleteFileCommand command) {
-        FileMetadata metadata = loadFileMetadataPort.findByFileId(command.fileId())
-            .orElseThrow(() -> new StorageException(StorageErrorCode.FILE_NOT_FOUND));
-
-        validateDeletePermission(metadata, command.requesterMemberId());
-
-        // 스토리지에서 파일 삭제
-        storagePort.delete(metadata.getStorageKey());
-
-        // 메타데이터 삭제
-        saveFileMetadataPort.deleteByFileId(command.fileId());
+        FileDeletionService.DeletionClaim claim = fileDeletionService.claim(command);
+        storagePort.delete(claim.storageKey());
+        fileDeletionService.finalizeDeletion(claim);
 
         log.info("파일을 삭제했습니다: fileId={}", command.fileId());
     }
 
-    private void validateDeletePermission(FileMetadata metadata, Long requesterMemberId) {
-        if (Objects.equals(metadata.getUploadedMemberId(), requesterMemberId) || isSuperAdmin(requesterMemberId)) {
-            return;
-        }
-
-        throw new StorageException(StorageErrorCode.FILE_DELETE_FORBIDDEN);
-    }
-
-    private void confirmUploaded(FileMetadata metadata, StorageObjectInfo objectInfo) {
+    private void confirmUploaded(FileMetadata metadata, StorageObjectInfo objectInfo, Instant confirmedAt) {
         try {
-            metadata.confirmUploaded(objectInfo.contentLength(), objectInfo.contentType());
+            metadata.confirmUploaded(objectInfo.contentLength(), objectInfo.contentType(), confirmedAt);
         } catch (StorageException e) {
             deleteInvalidUpload(metadata.getStorageKey(), e);
             throw e;
@@ -213,10 +209,6 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
                 deleteException
             );
         }
-    }
-
-    private boolean isSuperAdmin(Long memberId) {
-        return getChallengerRoleUseCase.isSuperAdmin(memberId);
     }
 
     private void validateFile(PrepareFileUploadCommand command) {

@@ -12,10 +12,12 @@ import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
+import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatRoom;
-import com.umc.product.chat.domain.exception.ChatDomainException;
-import com.umc.product.chat.domain.exception.ChatErrorCode;
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOperation;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,13 +29,12 @@ public class ChatRoomQueryService implements GetChatRoomUseCase, CheckChatRoomAc
     private final LoadChatRoomPort loadChatRoomPort;
     private final LoadChatMemberPort loadChatMemberPort;
     private final LoadChatMessagePort loadChatMessagePort;
+    private final ChatRoomOwnershipAccessService ownershipAccessService;
 
     @Override
-    public ChatRoomInfo getById(Long roomId, Long memberId) {
-        if (!loadChatMemberPort.existsByRoomIdAndMemberId(roomId, memberId)) {
-            throw new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
-        }
-
+    public ChatRoomInfo getById(ChatRoomOwnerReference expectedOwner, ChatRoomActorContext actorContext) {
+        ownershipAccessService.verify(expectedOwner, ChatRoomOperation.READ, actorContext);
+        Long roomId = expectedOwner.roomId();
         ChatRoom chatRoom = loadChatRoomPort.getById(roomId);
         List<Long> memberIds = loadChatMemberPort.listByRoomId(roomId).stream()
             .map(ChatMember::getMemberId)
@@ -42,8 +43,8 @@ public class ChatRoomQueryService implements GetChatRoomUseCase, CheckChatRoomAc
     }
 
     @Override
-    public boolean hasChatRoomAccess(Long memberId, Long chatRoomId) {
-        return loadChatMemberPort.existsByRoomIdAndMemberId(chatRoomId, memberId);
+    public boolean hasChatRoomAccess(ChatRoomOwnerReference expectedOwner, ChatRoomActorContext actorContext) {
+        return ownershipAccessService.isAllowed(expectedOwner, ChatRoomOperation.READ, actorContext);
     }
 
     private ChatMessageInfo getPinnedMessage(ChatRoom chatRoom) {

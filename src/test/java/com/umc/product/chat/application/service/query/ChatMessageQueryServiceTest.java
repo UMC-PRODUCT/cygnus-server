@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willDoNothing;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.times;
 
@@ -19,7 +20,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
@@ -28,8 +28,12 @@ import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
+import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOperation;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
@@ -43,7 +47,7 @@ class ChatMessageQueryServiceTest {
     @Mock
     LoadChatMemberPort loadChatMemberPort;
     @Mock
-    ChatRoomAccessPolicy chatRoomAccessPolicy;
+    ChatRoomOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     ChatMessageQueryService sut;
@@ -54,7 +58,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.listByRoomId(eq(1L), eq(null), anyInt()))
             .willReturn(List.of(message(30L, 1L), message(20L, 1L), message(10L, 1L)));
 
-        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2));
+        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(owner(1L), actor(), null, 2));
 
         assertThat(result.hasNext()).isTrue();
         assertThat(result.content()).hasSize(2);
@@ -68,7 +72,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.listByRoomId(eq(1L), eq(null), anyInt()))
             .willReturn(List.of(message(30L, 1L), message(20L, 1L)));
 
-        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2));
+        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(owner(1L), actor(), null, 2));
 
         assertThat(result.hasNext()).isFalse();
         assertThat(result.content()).hasSize(2);
@@ -79,9 +83,9 @@ class ChatMessageQueryServiceTest {
     @DisplayName("요청자가 방 멤버가 아니면 메시지를 조회하지 않고 접근 거부 예외를 던진다")
     void getMessages_accessDenied() {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(ownershipAccessService).verify(owner(1L), ChatRoomOperation.READ, actor());
 
-        assertThatThrownBy(() -> sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2)))
+        assertThatThrownBy(() -> sut.getMessages(new GetChatMessagesQuery(owner(1L), actor(), null, 2)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
@@ -95,7 +99,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.listByRoomId(eq(1L), eq(null), anyInt()))
             .willReturn(List.of(message(30L, 1L, 20L)));
 
-        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2));
+        ChatMessageCursorResult result = sut.getMessages(new GetChatMessagesQuery(owner(1L), actor(), null, 2));
 
         assertThat(result.content()).hasSize(1);
         assertThat(result.content().get(0).replyToMessageId()).isEqualTo(20L);
@@ -110,7 +114,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
 
         ChatMessageReadStatusInfo result =
-            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+            sut.checkRead(new CheckChatMessageReadQuery(owner(1L), context(10L, 20L), 20L));
 
         assertThat(result.roomId()).isEqualTo(1L);
         assertThat(result.messageId()).isEqualTo(20L);
@@ -126,7 +130,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
 
         ChatMessageReadStatusInfo result =
-            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+            sut.checkRead(new CheckChatMessageReadQuery(owner(1L), context(10L, 20L), 20L));
 
         assertThat(result.read()).isFalse();
     }
@@ -140,7 +144,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
 
         ChatMessageReadStatusInfo result =
-            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+            sut.checkRead(new CheckChatMessageReadQuery(owner(1L), context(10L, 20L), 20L));
 
         assertThat(result.read()).isFalse();
     }
@@ -153,7 +157,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 20L)).willReturn(targetMember);
 
         ChatMessageReadStatusInfo result =
-            sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 20L));
+            sut.checkRead(new CheckChatMessageReadQuery(owner(1L), context(10L, 20L), 20L));
 
         assertThat(result.read()).isFalse();
     }
@@ -162,9 +166,11 @@ class ChatMessageQueryServiceTest {
     @DisplayName("요청자가 방 멤버가 아니면 읽음 여부를 조회하지 않고 접근 거부 예외를 던진다")
     void checkRead_requesterAccessDenied() {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(ownershipAccessService).verify(
+                owner(1L), ChatRoomOperation.READ, context(10L, 30L));
 
-        assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
+        assertThatThrownBy(() -> sut.checkRead(
+            new CheckChatMessageReadQuery(owner(1L), context(10L, 30L), 20L)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
@@ -179,7 +185,8 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.getByIdAndRoomId(20L, 1L))
             .willThrow(new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
 
-        assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
+        assertThatThrownBy(() -> sut.checkRead(
+            new CheckChatMessageReadQuery(owner(1L), context(10L, 30L), 20L)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
@@ -194,7 +201,8 @@ class ChatMessageQueryServiceTest {
         given(loadChatMemberPort.getByRoomIdAndMemberId(1L, 30L))
             .willThrow(new ChatDomainException(ChatErrorCode.CHAT_MEMBER_NOT_FOUND));
 
-        assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
+        assertThatThrownBy(() -> sut.checkRead(
+            new CheckChatMessageReadQuery(owner(1L), context(10L, 30L), 20L)))
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_MEMBER_NOT_FOUND);
@@ -203,7 +211,7 @@ class ChatMessageQueryServiceTest {
     @Test
     @DisplayName("roomId 집합이 비어 있으면 어떤 포트도 호출하지 않고 빈 목록을 반환한다")
     void listRoomSummaries_emptyInput() {
-        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, List.of());
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(actor(), List.of());
 
         assertThat(result).isEmpty();
         then(loadChatMemberPort).shouldHaveNoInteractions();
@@ -211,14 +219,20 @@ class ChatMessageQueryServiceTest {
     }
 
     @Test
-    @DisplayName("전달한 roomId 중 참여 중인 방이 없으면 빈 목록을 반환하고 메시지 포트를 호출하지 않는다")
-    void listRoomSummaries_noMembership_empty() {
-        given(loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(10L, List.of(1L, 2L)))
-            .willReturn(List.of());
+    @DisplayName("expected owner 중 policy 또는 membership을 통과하지 못한 방이 있으면 조회를 거부한다")
+    void listRoomSummaries_accessDenied() {
+        willDoNothing()
+            .given(ownershipAccessService).verify(owner(1L), ChatRoomOperation.READ, actor());
+        willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
+            .given(ownershipAccessService).verify(owner(2L), ChatRoomOperation.READ, actor());
 
-        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, List.of(1L, 2L));
+        assertThatThrownBy(() -> sut.listRoomSummaries(actor(), owners(1L, 2L)))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
 
-        assertThat(result).isEmpty();
+        then(ownershipAccessService).should().verify(owner(1L), ChatRoomOperation.READ, actor());
+        then(ownershipAccessService).should().verify(owner(2L), ChatRoomOperation.READ, actor());
         then(loadChatMessagePort).shouldHaveNoInteractions();
     }
 
@@ -235,7 +249,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.countUnreadByRooms(10L, List.of(1L, 2L, 3L)))
             .willReturn(List.of(new RoomUnreadCount(1L, 5L)));
 
-        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, ownedRoomIds);
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(actor(), owners(1L, 2L, 3L));
 
         // 마지막 메시지 최신순 정렬: room1(100) > room2(90) > room3(없음)
         assertThat(result).extracting("roomId").containsExactly(1L, 2L, 3L);
@@ -265,7 +279,7 @@ class ChatMessageQueryServiceTest {
         given(loadChatMessagePort.countUnreadByRooms(10L, List.of(1L)))
             .willReturn(List.of());
 
-        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(10L, inquiryOwnedRoomIds);
+        List<ChatRoomSummaryInfo> result = sut.listRoomSummaries(actor(), owners(1L));
 
         // community 방(99)은 결과에도, 어떤 배치 쿼리에도 등장하지 않는다.
         assertThat(result).extracting("roomId").containsExactly(1L);
@@ -289,5 +303,21 @@ class ChatMessageQueryServiceTest {
         ChatMessage message = ChatMessage.create(roomId, senderMemberId, MessageContentType.TEXT, "msg", null);
         ReflectionTestUtils.setField(message, "id", id);
         return message;
+    }
+
+    private ChatRoomOwnerReference owner(Long roomId) {
+        return ChatRoomOwnerReference.standalone(roomId);
+    }
+
+    private List<ChatRoomOwnerReference> owners(Long... roomIds) {
+        return java.util.Arrays.stream(roomIds).map(ChatRoomOwnerReference::standalone).toList();
+    }
+
+    private ChatRoomActorContext actor() {
+        return ChatRoomActorContext.actor(10L);
+    }
+
+    private ChatRoomActorContext context(Long actorId, Long targetId) {
+        return ChatRoomActorContext.actorAndTarget(actorId, targetId);
     }
 }

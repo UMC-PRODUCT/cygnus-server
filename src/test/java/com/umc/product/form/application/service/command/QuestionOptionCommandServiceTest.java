@@ -1,8 +1,13 @@
 package com.umc.product.form.application.service.command;
 
+import static com.umc.product.form.application.service.FormAccessTestFixtures.actor;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.owner;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.never;
 
 import java.util.List;
 import java.util.Optional;
@@ -21,7 +26,9 @@ import com.umc.product.form.application.port.out.LoadFormSectionPort;
 import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormOperation;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
@@ -40,6 +47,8 @@ class QuestionOptionCommandServiceTest {
     LoadQuestionOptionPort loadQuestionOptionPort;
     @Mock
     SaveQuestionOptionPort saveQuestionOptionPort;
+    @Mock
+    FormOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     QuestionOptionCommandService sut;
@@ -59,13 +68,12 @@ class QuestionOptionCommandServiceTest {
 
         CreateQuestionOptionCommand command = CreateQuestionOptionCommand.builder()
             .questionId(30L)
-            .requesterMemberId(99L)
             .content("남자")
             .isOther(false)
             .nextSectionId(20L)
             .build();
 
-        assertThatThrownBy(() -> sut.createOption(command))
+        assertThatThrownBy(() -> sut.createOption(owner(1L), actor(99L), command))
             .isInstanceOf(FormDomainException.class)
             .hasFieldOrPropertyWithValue("baseCode", FormErrorCode.INVALID_NEXT_SECTION_SELF_LOOP);
     }
@@ -87,11 +95,10 @@ class QuestionOptionCommandServiceTest {
 
         UpdateQuestionOptionCommand command = UpdateQuestionOptionCommand.builder()
             .optionId(40L)
-            .requesterMemberId(99L)
             .nextSectionId(20L)
             .build();
 
-        assertThatThrownBy(() -> sut.updateOption(command))
+        assertThatThrownBy(() -> sut.updateOption(owner(1L), actor(99L), command))
             .isInstanceOf(FormDomainException.class)
             .hasFieldOrPropertyWithValue("baseCode", FormErrorCode.INVALID_NEXT_SECTION_SELF_LOOP);
     }
@@ -120,12 +127,38 @@ class QuestionOptionCommandServiceTest {
 
         CreateQuestionOptionCommand command = CreateQuestionOptionCommand.builder()
             .questionId(30L)
-            .requesterMemberId(99L)
             .content("남자")
             .isOther(false)
             .nextSectionId(21L)
             .build();
 
-        sut.createOption(command);
+        sut.createOption(owner(100L), actor(99L), command);
+    }
+
+    @Test
+    @DisplayName("foreign option 수정은 question-section-form parent chain ownership으로 거부한다")
+    void foreign_option_수정은_parent_form_ownership으로_거부한다() {
+        Form form = Form.createDraft("지원서", 10L);
+        ReflectionTestUtils.setField(form, "id", 100L);
+        FormSection section = FormSection.create(form, "공통", null, 1L);
+        Question question = Question.create("질문", QuestionType.RADIO, true, 1L);
+        question.assignTo(section);
+        QuestionOption option = QuestionOption.create("선택", 1L, false, null);
+        option.assignTo(question);
+        ReflectionTestUtils.setField(option, "id", 40L);
+        given(loadQuestionOptionPort.findById(40L)).willReturn(Optional.of(option));
+        willThrow(new FormDomainException(FormErrorCode.FORM_OWNERSHIP_FORBIDDEN))
+            .given(ownershipAccessService)
+            .requireMutation(100L, owner(999L), actor(99L), FormOperation.MANAGE_STRUCTURE);
+
+        assertThatThrownBy(() -> sut.updateOption(
+            owner(999L),
+            actor(99L),
+            UpdateQuestionOptionCommand.builder().optionId(40L).content("변경").build()
+        ))
+            .isInstanceOf(FormDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", FormErrorCode.FORM_OWNERSHIP_FORBIDDEN);
+
+        then(saveQuestionOptionPort).should(never()).save(option);
     }
 }

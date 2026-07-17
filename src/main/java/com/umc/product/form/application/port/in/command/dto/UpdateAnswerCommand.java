@@ -14,7 +14,6 @@ import lombok.Builder;
 @Builder
 public record UpdateAnswerCommand(
     Long answerId,
-    Long requesterMemberId,
     String textValue,
     List<Long> selectedOptionIds,
     List<String> fileIds,

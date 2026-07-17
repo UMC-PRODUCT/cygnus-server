@@ -1,9 +1,11 @@
 package com.umc.product.chat.application.port.in.query.dto;
 
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
+
 public record CheckChatMessageReadQuery(
-    Long roomId,
-    Long messageId,
-    Long requesterMemberId,
-    Long targetMemberId
+    ChatRoomOwnerReference expectedOwner,
+    ChatRoomActorContext actorContext,
+    Long messageId
 ) {
 }

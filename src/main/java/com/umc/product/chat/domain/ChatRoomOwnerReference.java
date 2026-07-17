@@ -16,6 +16,9 @@ public record ChatRoomOwnerReference(
     String slot
 ) {
 
+    public static final String STANDALONE_NAMESPACE = "chat.standalone";
+    public static final String DEFAULT_SLOT = "default";
+
     public static final int NAMESPACE_MAX_LENGTH = 100;
     public static final int OWNER_RESOURCE_KEY_MAX_LENGTH = 128;
     public static final int SLOT_MAX_LENGTH = 50;
@@ -42,6 +45,12 @@ public record ChatRoomOwnerReference(
         String slot
     ) {
         return new ChatRoomOwnerReference(roomId, namespace, ownerResourceKey, slot);
+    }
+
+    /** 새 engine-native room의 canonical server-generated ownership binding을 만든다. */
+    public static ChatRoomOwnerReference standalone(Long roomId) {
+        requireRoomId(roomId);
+        return of(roomId, STANDALONE_NAMESPACE, roomId.toString(), DEFAULT_SLOT);
     }
 
     public static ChatRoomOwnerReference from(ChatRoomOwnership ownership) {

@@ -18,6 +18,13 @@ public enum StorageErrorCode implements BaseCode {
     FILE_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "STORAGE-0013",
         "파일을 삭제할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."),
     FILE_USE_FORBIDDEN(HttpStatus.FORBIDDEN, "STORAGE-0016", "이 파일을 사용할 권한이 없어요. 본인이 업로드한 파일만 사용할 수 있어요."),
+    FILE_IN_USE(HttpStatus.CONFLICT, "STORAGE-0017", "사용 중인 파일은 삭제할 수 없어요."),
+    FILE_USAGE_REGISTRY_NOT_READY(HttpStatus.SERVICE_UNAVAILABLE, "STORAGE-0018",
+        "파일 사용 정보 준비가 끝나기 전에는 파일을 삭제할 수 없어요."),
+    FILE_CLEANUP_IN_PROGRESS(HttpStatus.CONFLICT, "STORAGE-0019",
+        "삭제가 진행 중인 파일은 사용할 수 없어요."),
+    FILE_CLEANUP_FAILED(HttpStatus.CONFLICT, "STORAGE-0020",
+        "삭제 실패로 격리된 파일은 사용할 수 없어요."),
 
     // 파일 검증 에러
     INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "STORAGE-0004", "지원하지 않는 파일 형식이에요. 다른 파일을 선택해주세요."),
@@ -28,7 +35,8 @@ public enum StorageErrorCode implements BaseCode {
     // 스토리지 에러
     STORAGE_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0007", "파일을 업로드하지 못했어요. 잠시 후 다시 시도해주세요."),
     STORAGE_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0008", "파일을 삭제하지 못했어요. 잠시 후 다시 시도해주세요."),
-    STORAGE_URL_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0009", "파일 접근 링크를 만들지 못했어요. 잠시 후 다시 시도해주세요."),
+    STORAGE_URL_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0009",
+        "파일 접근 링크를 만들지 못했어요. 잠시 후 다시 시도해주세요."),
     STORAGE_METADATA_READ_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0015",
         "파일 정보를 확인하지 못했어요. 잠시 후 다시 시도해주세요."),
 
@@ -36,8 +44,7 @@ public enum StorageErrorCode implements BaseCode {
     CDN_SIGNING_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0010", "CDN 접근 링크를 만들지 못했어요. 관리자에게 문의해주세요."),
     NO_ENV_KEYS(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0011", "CDN 설정이 누락됐어요. 관리자에게 문의해주세요."),
     INVALID_SPRING_PROFILE(HttpStatus.INTERNAL_SERVER_ERROR, "STORAGE-0012",
-        "서버 실행 환경이 올바르지 않아요. 관리자에게 문의해주세요."),
-    ;
+        "서버 실행 환경이 올바르지 않아요. 관리자에게 문의해주세요.");
 
 
     private final HttpStatus httpStatus;

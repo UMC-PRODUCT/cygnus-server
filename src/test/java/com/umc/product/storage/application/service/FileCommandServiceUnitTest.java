@@ -6,29 +6,34 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import java.lang.reflect.Method;
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
+import com.umc.product.storage.application.port.out.LoadFileUsagePort;
 import com.umc.product.storage.application.port.out.SaveFileMetadataPort;
 import com.umc.product.storage.application.port.out.StoragePort;
 import com.umc.product.storage.application.port.out.dto.StorageObjectInfo;
@@ -41,6 +46,8 @@ import com.umc.product.storage.domain.exception.StorageException;
 @ExtendWith(MockitoExtension.class)
 class FileCommandServiceUnitTest {
 
+    private static final Instant NOW = Instant.parse("2026-07-17T00:00:00Z");
+
     @Mock
     StoragePort storagePort;
 
@@ -51,7 +58,13 @@ class FileCommandServiceUnitTest {
     SaveFileMetadataPort saveFileMetadataPort;
 
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    LoadFileUsagePort loadFileUsagePort;
+
+    @Mock
+    FileDeletionService fileDeletionService;
+
+    @Mock
+    Clock clock;
 
     @InjectMocks
     FileCommandService sut;
@@ -203,6 +216,8 @@ class FileCommandServiceUnitTest {
         given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
         given(storagePort.findObjectInfoByStorageKey(metadata.getStorageKey()))
             .willReturn(Optional.of(StorageObjectInfo.of(metadata.getStorageKey(), 1024L, "application/pdf")));
+        given(loadFileUsagePort.countByFileId("file-id")).willReturn(0L);
+        given(clock.instant()).willReturn(NOW);
 
         // when
         sut.confirmUpload("file-id");
@@ -211,59 +226,71 @@ class FileCommandServiceUnitTest {
         ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
         then(saveFileMetadataPort).should().save(captor.capture());
         assertThat(captor.getValue().isUploaded()).isTrue();
+        assertThat(captor.getValue().getConfirmedAt()).isEqualTo(NOW);
+        assertThat(captor.getValue().getUnreferencedAt()).isEqualTo(NOW);
         then(storagePort).should(never()).delete(anyString());
     }
 
     @Test
-    @DisplayName("작성자가 아니어도 SUPER_ADMIN이면 파일을 삭제한다")
-    void 작성자가_아니어도_SUPER_ADMIN이면_파일을_삭제한다() {
+    void 파일_삭제는_claim_S3_finalize_순서로_호출한다() {
         // given
-        FileMetadata metadata = uploadedFile("file-id", 1L);
-        given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
-        given(getChallengerRoleUseCase.isSuperAdmin(2L)).willReturn(true);
+        DeleteFileCommand command = deleteCommand("file-id", 1L);
+        FileDeletionService.DeletionClaim claim = new FileDeletionService.DeletionClaim(
+            "file-id",
+            "test/file-id.pdf",
+            UUID.fromString("00000000-0000-0000-0000-000000000001")
+        );
+        given(fileDeletionService.claim(command)).willReturn(claim);
 
         // when
-        sut.deleteFile(deleteCommand("file-id", 2L));
+        sut.deleteFile(command);
 
         // then
-        then(storagePort).should().delete(metadata.getStorageKey());
-        then(saveFileMetadataPort).should().deleteByFileId("file-id");
+        InOrder order = inOrder(fileDeletionService, storagePort);
+        order.verify(fileDeletionService).claim(command);
+        order.verify(storagePort).delete(claim.storageKey());
+        order.verify(fileDeletionService).finalizeDeletion(claim);
+        then(saveFileMetadataPort).should(never()).deleteByFileId(anyString());
     }
 
     @Test
-    @DisplayName("작성자도 SUPER_ADMIN도 아니면 파일을 삭제할 수 없다")
-    void 작성자도_SUPER_ADMIN도_아니면_파일을_삭제할_수_없다() {
+    void claim이_거부되면_S3를_호출하지_않는다() {
         // given
-        FileMetadata metadata = uploadedFile("file-id", 1L);
-        given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
-        given(getChallengerRoleUseCase.isSuperAdmin(2L)).willReturn(false);
+        DeleteFileCommand command = deleteCommand("file-id", 2L);
+        given(fileDeletionService.claim(command))
+            .willThrow(new StorageException(StorageErrorCode.FILE_DELETE_FORBIDDEN));
 
         // when & then
-        assertThatThrownBy(() -> sut.deleteFile(deleteCommand("file-id", 2L)))
+        assertThatThrownBy(() -> sut.deleteFile(command))
             .isInstanceOf(StorageException.class)
             .extracting("baseCode")
             .isEqualTo(StorageErrorCode.FILE_DELETE_FORBIDDEN);
 
         then(storagePort).should(never()).delete(anyString());
-        then(saveFileMetadataPort).should(never()).deleteByFileId(anyString());
+        then(fileDeletionService).should(never()).finalizeDeletion(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    @DisplayName("S3 삭제가 실패하면 파일 메타데이터를 삭제하지 않는다")
-    void S3_삭제가_실패하면_파일_메타데이터를_삭제하지_않는다() {
+    void S3_삭제_실패는_claim을_finalize하지_않는다() {
         // given
-        FileMetadata metadata = uploadedFile("file-id", 1L);
-        given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
+        DeleteFileCommand command = deleteCommand("file-id", 1L);
+        FileDeletionService.DeletionClaim claim = new FileDeletionService.DeletionClaim(
+            "file-id",
+            "test/file-id.pdf",
+            UUID.fromString("00000000-0000-0000-0000-000000000001")
+        );
+        given(fileDeletionService.claim(command)).willReturn(claim);
         willThrow(new StorageException(StorageErrorCode.STORAGE_DELETE_FAILED))
             .given(storagePort)
-            .delete(metadata.getStorageKey());
+            .delete(claim.storageKey());
 
         // when & then
-        assertThatThrownBy(() -> sut.deleteFile(deleteCommand("file-id", 1L)))
+        assertThatThrownBy(() -> sut.deleteFile(command))
             .isInstanceOf(StorageException.class)
             .extracting("baseCode")
             .isEqualTo(StorageErrorCode.STORAGE_DELETE_FAILED);
 
+        then(fileDeletionService).should(never()).finalizeDeletion(claim);
         then(saveFileMetadataPort).should(never()).deleteByFileId(anyString());
     }
 
@@ -287,18 +314,4 @@ class FileCommandServiceUnitTest {
             .build();
     }
 
-    private FileMetadata uploadedFile(String fileId, Long uploadedMemberId) {
-        FileMetadata metadata = FileMetadata.builder()
-            .fileId(fileId)
-            .originalFileName("document.pdf")
-            .category(FileCategory.ETC)
-            .contentType("application/pdf")
-            .fileSize(1024L)
-            .storageProvider(StorageProvider.AWS_S3)
-            .storageKey("test/" + fileId + ".pdf")
-            .uploadedMemberId(uploadedMemberId)
-            .build();
-        metadata.markAsUploaded();
-        return metadata;
-    }
 }

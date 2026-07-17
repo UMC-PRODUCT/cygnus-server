@@ -10,7 +10,6 @@ import lombok.Builder;
 @Builder
 public record ReorderQuestionOptionsCommand(
     Long questionId,
-    Long requesterMemberId,
     List<Long> orderedOptionIds
 ) {
 }

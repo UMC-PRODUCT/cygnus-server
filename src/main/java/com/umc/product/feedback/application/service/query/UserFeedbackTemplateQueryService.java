@@ -10,11 +10,13 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.feedback.application.policy.FeedbackTemplateOwnerReferenceFactory;
 import com.umc.product.feedback.application.port.in.query.GetUserFeedbackTemplateUseCase;
 import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTemplateInfo;
 import com.umc.product.feedback.application.port.out.LoadUserFeedbackTemplatePort;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
 import com.umc.product.feedback.domain.enums.UserFeedbackTargetType;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
@@ -32,7 +34,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class UserFeedbackTemplateQueryService implements GetUserFeedbackTemplateUseCase {
+public class UserFeedbackTemplateQueryService
+    implements GetUserFeedbackTemplateUseCase {
 
     private final LoadUserFeedbackTemplatePort loadUserFeedbackTemplatePort;
 
@@ -41,17 +44,32 @@ public class UserFeedbackTemplateQueryService implements GetUserFeedbackTemplate
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetFormUseCase getFormUseCase;
+    private final FeedbackTemplateOwnerReferenceFactory ownerReferenceFactory;
 
     @Override
-    public Optional<UserFeedbackTemplateInfo> findTemplate(Long requesterMemberId, UserFeedbackContext context) {
+    public Optional<UserFeedbackTemplateInfo> findTemplate(
+        FormActorContext actorContext,
+        UserFeedbackContext context
+    ) {
+        if (actorContext == null || context == null) {
+            return Optional.empty();
+        }
+        Optional<Long> memberId = actorContext.authenticatedMemberId();
+        if (memberId.isEmpty()) {
+            return Optional.empty();
+        }
+
         return getGisuUseCase.findActiveGisu()
-            .flatMap(gisu -> resolveTargetType(requesterMemberId, gisu.gisuId(), gisu.generation())
+            .flatMap(gisu -> resolveTargetType(memberId.get(), gisu.gisuId(), gisu.generation())
                 .flatMap(targetType -> loadUserFeedbackTemplatePort.findByContextAndTargetType(context, targetType)
                     .map(template -> UserFeedbackTemplateInfo.builder()
                         .templateId(template.getId())
                         .context(template.getContext())
                         .targetType(template.getTargetType())
-                        .form(getFormUseCase.getFormWithStructure(template.getFormId()))
+                        .form(getFormUseCase.getFormWithStructure(
+                            ownerReferenceFactory.create(template.getId(), template.getFormId()),
+                            actorContext
+                        ))
                         .build())));
     }
 

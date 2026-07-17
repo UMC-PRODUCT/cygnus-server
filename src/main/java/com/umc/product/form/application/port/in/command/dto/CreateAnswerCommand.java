@@ -23,7 +23,6 @@ import lombok.Builder;
 public record CreateAnswerCommand(
     Long formResponseId,
     Long questionId,
-    Long requesterMemberId,
     String textValue,
     List<Long> selectedOptionIds,
     List<String> fileIds,

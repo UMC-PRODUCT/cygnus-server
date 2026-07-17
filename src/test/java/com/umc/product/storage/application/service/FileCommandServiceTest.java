@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.LocalDateTime;
@@ -24,6 +25,7 @@ import com.umc.product.storage.application.port.out.dto.StorageObjectInfo;
 import com.umc.product.storage.domain.FileMetadata;
 import com.umc.product.storage.domain.enums.FileCategory;
 import com.umc.product.storage.domain.enums.StorageProvider;
+import com.umc.product.storage.domain.exception.StorageErrorCode;
 import com.umc.product.storage.domain.exception.StorageException;
 import com.umc.product.support.UseCaseTestSupport;
 
@@ -156,6 +158,8 @@ class FileCommandServiceTest extends UseCaseTestSupport {
         FileMetadata updated = loadFileMetadataPort.findByFileId(metadata.getId())
             .orElseThrow();
         assertThat(updated.isUploaded()).isTrue();
+        assertThat(updated.getConfirmedAt()).isNotNull();
+        assertThat(updated.getUnreferencedAt()).isEqualTo(updated.getConfirmedAt());
     }
 
     @Test
@@ -186,19 +190,18 @@ class FileCommandServiceTest extends UseCaseTestSupport {
      * ✅ 학습 포인트 11: 삭제 동작 검증 - verify()로 Mock 메서드가 호출되었는지 확인
      */
     @Test
-    void 파일을_삭제한다() {
+    void READY_전에는_업로드된_파일도_삭제하지_않는다() {
         // given
         FileMetadata metadata = saveTestFile("test-file-4", "document.pdf", true);
         String fileId = metadata.getId();
 
-        // when
-        manageFileUseCase.deleteFile(deleteCommand(fileId, 1L));
-
-        // then: 스토리지에서 파일이 삭제되었는지 확인
-        verify(storagePort).delete(metadata.getStorageKey());
-
-        // DB에서 메타데이터가 삭제되었는지 확인
-        assertThat(loadFileMetadataPort.findByFileId(fileId)).isEmpty();
+        // when & then
+        assertThatThrownBy(() -> manageFileUseCase.deleteFile(deleteCommand(fileId, 1L)))
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.FILE_USAGE_REGISTRY_NOT_READY);
+        verify(storagePort, never()).delete(metadata.getStorageKey());
+        assertThat(loadFileMetadataPort.findByFileId(fileId)).isPresent();
     }
 
     @Test
@@ -208,7 +211,9 @@ class FileCommandServiceTest extends UseCaseTestSupport {
 
         // when & then
         assertThatThrownBy(() -> manageFileUseCase.deleteFile(deleteCommand(nonExistentFileId, 1L)))
-            .isInstanceOf(StorageException.class);
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.FILE_USAGE_REGISTRY_NOT_READY);
     }
 
     private DeleteFileCommand deleteCommand(String fileId, Long requesterMemberId) {

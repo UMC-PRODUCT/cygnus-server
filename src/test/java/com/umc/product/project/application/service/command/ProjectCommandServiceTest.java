@@ -602,7 +602,7 @@ class ProjectCommandServiceTest {
                     .projectId(1L).requesterMemberId(99L).build());
 
             assertThat(status).isEqualTo(ProjectStatus.IN_PROGRESS);
-            org.mockito.BDDMockito.then(manageFormUseCase).should().publishForm(any());
+            org.mockito.BDDMockito.then(manageFormUseCase).should().publishForm(any(), any(), any());
         }
 
         @Test
@@ -624,6 +624,7 @@ class ProjectCommandServiceTest {
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_INVALID_STATE);
+            then(manageFormUseCase).should(never()).publishForm(any(), any(), any());
         }
 
         @Test
@@ -675,7 +676,7 @@ class ProjectCommandServiceTest {
 
             then(saveProjectApplicationFormPolicyPort).should(never()).deleteAllByApplicationFormId(any());
             then(saveProjectApplicationFormPort).should(never()).deleteAllByProjectId(any());
-            then(manageFormUseCase).should(never()).deleteForm(any());
+            then(manageFormUseCase).should(never()).deleteForm(any(), any(), any());
             then(saveProjectPartQuotaPort).should().deleteAllByProjectId(1L);
             then(saveProjectMemberPort).should().deleteAllByProjectId(1L);
             then(saveProjectPort).should().delete(project);
@@ -697,7 +698,7 @@ class ProjectCommandServiceTest {
 
             then(saveProjectApplicationFormPolicyPort).should().deleteAllByApplicationFormId(55L);
             then(saveProjectApplicationFormPort).should().deleteAllByProjectId(1L);
-            then(manageFormUseCase).should().deleteForm(any());
+            then(manageFormUseCase).should().deleteForm(any(), any(), any());
             then(saveProjectPartQuotaPort).should().deleteAllByProjectId(1L);
             then(saveProjectMemberPort).should().deleteAllByProjectId(1L);
             then(saveProjectPort).should().delete(project);

@@ -1,9 +1,11 @@
 package com.umc.product.form.application.port.in.command;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.dto.CreateFormSectionCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormSectionCommand;
 import com.umc.product.form.application.port.in.command.dto.ReorderFormSectionsCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormSectionCommand;
+import com.umc.product.form.domain.FormOwnerReference;
 
 /**
  * FormSection(폼 섹션) 관리 UseCase.
@@ -21,23 +23,39 @@ public interface ManageFormSectionUseCase {
      *
      * @return 생성된 FormSection ID
      */
-    Long createSection(CreateFormSectionCommand command);
+    Long createSection(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateFormSectionCommand command
+    );
 
     /**
      * 섹션의 title/description 부분 업데이트.
      * null 인 필드는 기존 값 유지.
      */
-    void updateSection(UpdateFormSectionCommand command);
+    void updateSection(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateFormSectionCommand command
+    );
 
     /**
      * 섹션을 삭제한다. 연관 Question / QuestionOption 도 cascade 삭제.
      */
-    void deleteSection(DeleteFormSectionCommand command);
+    void deleteSection(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteFormSectionCommand command
+    );
 
     /**
      * 폼 내 섹션들의 순서를 재배치한다.
      * 입력 리스트 순서대로 orderNo가 1부터 재부여된다.
      * 폼의 모든 섹션 ID 가 누락 / 중복 / 외부 ID 없이 정확히 일치해야 한다.
      */
-    void reorderSections(ReorderFormSectionsCommand command);
+    void reorderSections(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        ReorderFormSectionsCommand command
+    );
 }

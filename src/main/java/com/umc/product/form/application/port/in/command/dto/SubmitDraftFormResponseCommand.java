@@ -14,13 +14,12 @@ import lombok.Builder;
  * {@code requiredQuestionIds} / {@code allowedQuestionIds} 는 특정 제품 흐름에서 제출 검증 범위를 좁힐 때 사용한다.
  * 둘 다 {@code null} 이면 기존처럼 form 전체 기준으로 검증한다.
  * <p>
- * (기명 전용) {@code requesterMemberId} 는 권한 검증용 — draft 소유자 본인만 가능.
- * 소유자와 다르거나, draft 가 익명이거나, null 이면 FORM_RESPONSE_FORBIDDEN 예외.
+ * 기명 actor는 별도 context로 전달되며 draft 소유자 본인만 가능하다.
+ * 소유자와 다르거나 draft가 익명이거나 인증 actor가 없으면 FORM_RESPONSE_FORBIDDEN 예외.
  */
 @Builder
 public record SubmitDraftFormResponseCommand(
     Long formResponseId,
-    Long requesterMemberId,
     String submittedIp,
     Set<Long> requiredQuestionIds,
     Set<Long> allowedQuestionIds

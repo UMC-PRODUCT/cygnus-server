@@ -13,6 +13,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.ManageQuestionOptionUseCase;
@@ -37,7 +38,9 @@ import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.Option;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.QuestionWithOptions;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.SectionWithQuestions;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactory;
 import com.umc.product.project.application.port.in.command.UpsertProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand;
 import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationFormSectionEntry;
@@ -95,6 +98,7 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         validateOptionTypeRules(command.sections());
 
         Project project = loadProjectPort.getById(command.projectId());
+        FormActorContext actorContext = FormActorContext.authenticated(command.requesterMemberId());
         boolean hasActiveRound = !loadMatchingRoundPort.listOpenAt(project.getChapterId(), Instant.now()).isEmpty();
         project.validateApplicationFormEditable(hasActiveRound);
 
@@ -102,22 +106,27 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
 
         ProjectApplicationForm applicationForm;
         FormWithStructureInfo existingStructure;
+        FormAccess formAccess;
 
         var maybeExisting = loadApplicationFormPort.findByProjectId(command.projectId());
         if (maybeExisting.isPresent()) {
             applicationForm = maybeExisting.get();
+            formAccess = FormAccess.of(applicationForm, actorContext);
             // 메타 + 구조를 한 번에 가져와 syncFormMetaIfChanged / applyDiff 둘 다 재사용 (cross-domain 호출 1회 절감)
-            existingStructure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
-            syncFormMetaIfChanged(applicationForm, existingStructure, project, command);
+            existingStructure = getFormUseCase.getFormWithStructure(
+                formAccess.expectedOwner(), formAccess.actorContext()
+            );
+            syncFormMetaIfChanged(applicationForm, existingStructure, project, command, formAccess);
         } else {
-            applicationForm = createApplicationForm(project, command);
+            applicationForm = createApplicationForm(project, command, actorContext);
+            formAccess = FormAccess.of(applicationForm, actorContext);
             // 신규 폼은 비어있는 구조 — 호출 없이 직접 생성
             existingStructure = emptyStructureFor(applicationForm.getFormId());
         }
 
-        applyDiff(applicationForm, existingStructure, command, shouldFork);
+        applyDiff(applicationForm, existingStructure, command, shouldFork, formAccess);
 
-        return assembleResponse(applicationForm);
+        return assembleResponse(applicationForm, formAccess);
     }
 
     private FormWithStructureInfo emptyStructureFor(Long formId) {
@@ -131,10 +140,15 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
      * 1) 폼 라이프사이클 (생성 / 메타 sync)
      * ===================================================== */
 
-    private ProjectApplicationForm createApplicationForm(Project project, UpsertApplicationFormCommand command) {
+    private ProjectApplicationForm createApplicationForm(
+        Project project,
+        UpsertApplicationFormCommand command,
+        FormActorContext actorContext
+    ) {
         Long formId = manageFormUseCase.createDraft(
+            ProjectApplicationFormOwnerReferenceFactory.forProject(project.getId()),
+            actorContext,
             CreateDraftFormCommand.builder()
-                .createdMemberId(command.requesterMemberId())
                 .title(resolveTitle(project, command))
                 .description(command.description())
                 .isAnonymous(false)
@@ -148,7 +162,8 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         ProjectApplicationForm applicationForm,
         FormWithStructureInfo existing,
         Project project,
-        UpsertApplicationFormCommand command
+        UpsertApplicationFormCommand command,
+        FormAccess formAccess
     ) {
         String resolvedTitle = resolveTitle(project, command);
 
@@ -158,9 +173,10 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         }
 
         manageFormUseCase.updateForm(
+            formAccess.expectedOwner(),
+            formAccess.actorContext(),
             UpdateFormCommand.builder()
                 .formId(applicationForm.getFormId())
-                .requesterMemberId(command.requesterMemberId())
                 .title(resolvedTitle)
                 .description(command.description())
                 .clearDescription(command.description() == null)
@@ -188,7 +204,8 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         ProjectApplicationForm applicationForm,
         FormWithStructureInfo existing,
         UpsertApplicationFormCommand command,
-        boolean shouldFork
+        boolean shouldFork,
+        FormAccess formAccess
     ) {
         Map<Long, SectionWithQuestions> existingSectionById = existing.sections().stream()
             .collect(Collectors.toMap(SectionWithQuestions::sectionId, Function.identity()));
@@ -200,16 +217,17 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         validateQuestionAndOptionIds(command.sections(), existingSectionById);
 
         List<Long> orderedSectionIds = applySectionDiff(
-            applicationForm, command, existingSectionById, policyByFormSectionId, shouldFork
+            applicationForm, command, existingSectionById, policyByFormSectionId, shouldFork, formAccess
         );
 
-        deleteRemovedSections(command.sections(), existing.sections(), command.requesterMemberId());
+        deleteRemovedSections(command.sections(), existing.sections(), formAccess);
 
         if (!orderedSectionIds.isEmpty()) {
             manageFormSectionUseCase.reorderSections(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 ReorderFormSectionsCommand.builder()
                     .formId(applicationForm.getFormId())
-                    .requesterMemberId(command.requesterMemberId())
                     .orderedSectionIds(orderedSectionIds)
                     .build()
             );
@@ -221,18 +239,19 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         UpsertApplicationFormCommand command,
         Map<Long, SectionWithQuestions> existingSectionById,
         Map<Long, ProjectApplicationFormPolicy> policyByFormSectionId,
-        boolean shouldFork
+        boolean shouldFork,
+        FormAccess formAccess
     ) {
         List<Long> orderedSectionIds = new ArrayList<>();
         for (ApplicationFormSectionEntry entry : command.sections()) {
             Long sectionId = (entry.sectionId() == null)
-                ? createNewSection(applicationForm, entry, command.requesterMemberId())
+                ? createNewSection(applicationForm, entry, formAccess)
                 : updateExistingSection(
                     entry,
                     existingSectionById.get(entry.sectionId()),
                     policyByFormSectionId.get(entry.sectionId()),
-                    command.requesterMemberId(),
-                    shouldFork
+                    shouldFork,
+                    formAccess
                 );
             orderedSectionIds.add(sectionId);
         }
@@ -242,12 +261,13 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
     private Long createNewSection(
         ProjectApplicationForm applicationForm,
         ApplicationFormSectionEntry entry,
-        Long requesterMemberId
+        FormAccess formAccess
     ) {
         Long sectionId = manageFormSectionUseCase.createSection(
+            formAccess.expectedOwner(),
+            formAccess.actorContext(),
             CreateFormSectionCommand.builder()
                 .formId(applicationForm.getFormId())
-                .requesterMemberId(requesterMemberId)
                 .title(entry.title())
                 .description(entry.description())
                 .build()
@@ -258,13 +278,14 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         // 본문 순서대로 reorder 명시 호출 — Form 단의 자동 orderNo 부여 정책에 의존하지 않음
         List<Long> newQuestionIds = new ArrayList<>();
         for (ApplicationQuestionEntry questionEntry : entry.questions()) {
-            newQuestionIds.add(createNewQuestion(sectionId, questionEntry, requesterMemberId));
+            newQuestionIds.add(createNewQuestion(sectionId, questionEntry, formAccess));
         }
         if (!newQuestionIds.isEmpty()) {
             manageQuestionUseCase.reorderQuestions(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 ReorderQuestionsCommand.builder()
                     .sectionId(sectionId)
-                    .requesterMemberId(requesterMemberId)
                     .orderedQuestionIds(newQuestionIds)
                     .build()
             );
@@ -277,14 +298,15 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         ApplicationFormSectionEntry entry,
         SectionWithQuestions existingSection,
         ProjectApplicationFormPolicy existingPolicy,
-        Long requesterMemberId,
-        boolean shouldFork
+        boolean shouldFork,
+        FormAccess formAccess
     ) {
         if (sectionMetaChanged(existingSection, entry)) {
             manageFormSectionUseCase.updateSection(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 UpdateFormSectionCommand.builder()
                     .sectionId(entry.sectionId())
-                    .requesterMemberId(requesterMemberId)
                     .title(entry.title())
                     .description(entry.description())
                     .clearDescription(entry.description() == null)
@@ -297,14 +319,14 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
             savePolicyPort.save(existingPolicy);
         }
 
-        applyQuestionDiff(entry, existingSection, requesterMemberId, shouldFork);
+        applyQuestionDiff(entry, existingSection, shouldFork, formAccess);
         return entry.sectionId();
     }
 
     private void deleteRemovedSections(
         List<ApplicationFormSectionEntry> requestSections,
         List<SectionWithQuestions> existingSections,
-        Long requesterMemberId
+        FormAccess formAccess
     ) {
         Set<Long> requestedExistingIds = requestSections.stream()
             .map(ApplicationFormSectionEntry::sectionId)
@@ -316,9 +338,10 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
                 continue;
             }
             manageFormSectionUseCase.deleteSection(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 DeleteFormSectionCommand.builder()
                     .sectionId(existing.sectionId())
-                    .requesterMemberId(requesterMemberId)
                     .build()
             );
             savePolicyPort.deleteByFormSectionId(existing.sectionId());
@@ -328,8 +351,8 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
     private void applyQuestionDiff(
         ApplicationFormSectionEntry sectionEntry,
         SectionWithQuestions existingSection,
-        Long requesterMemberId,
-        boolean shouldFork
+        boolean shouldFork,
+        FormAccess formAccess
     ) {
         Map<Long, QuestionWithOptions> existingQuestionById = existingSection.questions().stream()
             .collect(Collectors.toMap(QuestionWithOptions::questionId, Function.identity()));
@@ -337,34 +360,36 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         List<Long> orderedQuestionIds = new ArrayList<>();
         for (ApplicationQuestionEntry questionEntry : sectionEntry.questions()) {
             Long questionId = (questionEntry.questionId() == null)
-                ? createNewQuestion(sectionEntry.sectionId(), questionEntry, requesterMemberId)
+                ? createNewQuestion(sectionEntry.sectionId(), questionEntry, formAccess)
                 : updateExistingQuestion(
                     questionEntry,
                     existingQuestionById.get(questionEntry.questionId()),
-                    requesterMemberId,
-                    shouldFork
+                    shouldFork,
+                    formAccess
                 );
             orderedQuestionIds.add(questionId);
         }
 
-        deleteRemovedQuestions(sectionEntry.questions(), existingSection.questions(), requesterMemberId, shouldFork);
+        deleteRemovedQuestions(sectionEntry.questions(), existingSection.questions(), shouldFork, formAccess);
 
         if (!orderedQuestionIds.isEmpty()) {
             manageQuestionUseCase.reorderQuestions(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 ReorderQuestionsCommand.builder()
                     .sectionId(sectionEntry.sectionId())
-                    .requesterMemberId(requesterMemberId)
                     .orderedQuestionIds(orderedQuestionIds)
                     .build()
             );
         }
     }
 
-    private Long createNewQuestion(Long sectionId, ApplicationQuestionEntry entry, Long requesterMemberId) {
+    private Long createNewQuestion(Long sectionId, ApplicationQuestionEntry entry, FormAccess formAccess) {
         Long questionId = manageQuestionUseCase.createQuestion(
+            formAccess.expectedOwner(),
+            formAccess.actorContext(),
             CreateQuestionCommand.builder()
                 .sectionId(sectionId)
-                .requesterMemberId(requesterMemberId)
                 .type(entry.type())
                 .title(entry.title())
                 .description(entry.description())
@@ -375,13 +400,14 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         // 본문 순서대로 reorder 명시 호출 — Form 단의 자동 orderNo 부여 정책에 의존하지 않음
         List<Long> newOptionIds = new ArrayList<>();
         for (ApplicationQuestionOptionEntry optionEntry : entry.options()) {
-            newOptionIds.add(createNewOption(questionId, optionEntry, requesterMemberId));
+            newOptionIds.add(createNewOption(questionId, optionEntry, formAccess));
         }
         if (!newOptionIds.isEmpty()) {
             manageQuestionOptionUseCase.reorderOptions(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 ReorderQuestionOptionsCommand.builder()
                     .questionId(questionId)
-                    .requesterMemberId(requesterMemberId)
                     .orderedOptionIds(newOptionIds)
                     .build()
             );
@@ -393,21 +419,23 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
     private Long updateExistingQuestion(
         ApplicationQuestionEntry entry,
         QuestionWithOptions existingQuestion,
-        Long requesterMemberId,
-        boolean shouldFork
+        boolean shouldFork,
+        FormAccess formAccess
     ) {
         if (questionMetaChanged(existingQuestion, entry)) {
             if (shouldFork) {
                 Long newQuestionId = manageQuestionUseCase.forkQuestion(
+                    formAccess.expectedOwner(),
+                    formAccess.actorContext(),
                     ForkQuestionCommand.builder()
                         .originQuestionId(entry.questionId())
-                        .requesterMemberId(requesterMemberId)
                         .build()
                 );
                 manageQuestionUseCase.updateQuestion(
+                    formAccess.expectedOwner(),
+                    formAccess.actorContext(),
                     UpdateQuestionCommand.builder()
                         .questionId(newQuestionId)
-                        .requesterMemberId(requesterMemberId)
                         .type(entry.type())
                         .title(entry.title())
                         .description(entry.description())
@@ -417,13 +445,14 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
                 );
                 List<Long> newOptionIds = new ArrayList<>();
                 for (ApplicationQuestionOptionEntry optionEntry : entry.options()) {
-                    newOptionIds.add(createNewOption(newQuestionId, optionEntry, requesterMemberId));
+                    newOptionIds.add(createNewOption(newQuestionId, optionEntry, formAccess));
                 }
                 if (!newOptionIds.isEmpty()) {
                     manageQuestionOptionUseCase.reorderOptions(
+                        formAccess.expectedOwner(),
+                        formAccess.actorContext(),
                         ReorderQuestionOptionsCommand.builder()
                             .questionId(newQuestionId)
-                            .requesterMemberId(requesterMemberId)
                             .orderedOptionIds(newOptionIds)
                             .build()
                     );
@@ -431,9 +460,10 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
                 return newQuestionId;
             }
             manageQuestionUseCase.updateQuestion(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 UpdateQuestionCommand.builder()
                     .questionId(entry.questionId())
-                    .requesterMemberId(requesterMemberId)
                     .type(entry.type())
                     .title(entry.title())
                     .description(entry.description())
@@ -443,15 +473,15 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
             );
         }
 
-        applyOptionDiff(entry, existingQuestion, requesterMemberId);
+        applyOptionDiff(entry, existingQuestion, formAccess);
         return entry.questionId();
     }
 
     private void deleteRemovedQuestions(
         List<ApplicationQuestionEntry> requestQuestions,
         List<QuestionWithOptions> existingQuestions,
-        Long requesterMemberId,
-        boolean shouldFork
+        boolean shouldFork,
+        FormAccess formAccess
     ) {
         Set<Long> requestedExistingIds = requestQuestions.stream()
             .map(ApplicationQuestionEntry::questionId)
@@ -464,12 +494,15 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
             }
             if (shouldFork) {
                 // 차수 사이 수정: 기존 응답자의 Answer 보존을 위해 물리 삭제 대신 비활성화
-                manageQuestionUseCase.deactivateQuestion(existing.questionId());
+                manageQuestionUseCase.deactivateQuestion(
+                    formAccess.expectedOwner(), formAccess.actorContext(), existing.questionId()
+                );
             } else {
                 manageQuestionUseCase.deleteQuestion(
+                    formAccess.expectedOwner(),
+                    formAccess.actorContext(),
                     DeleteQuestionCommand.builder()
                         .questionId(existing.questionId())
-                        .requesterMemberId(requesterMemberId)
                         .build()
                 );
             }
@@ -479,7 +512,7 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
     private void applyOptionDiff(
         ApplicationQuestionEntry questionEntry,
         QuestionWithOptions existingQuestion,
-        Long requesterMemberId
+        FormAccess formAccess
     ) {
         Map<Long, Option> existingOptionById = existingQuestion.options().stream()
             .collect(Collectors.toMap(Option::optionId, Function.identity()));
@@ -487,33 +520,35 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
         List<Long> orderedOptionIds = new ArrayList<>();
         for (ApplicationQuestionOptionEntry optionEntry : questionEntry.options()) {
             Long optionId = (optionEntry.optionId() == null)
-                ? createNewOption(questionEntry.questionId(), optionEntry, requesterMemberId)
+                ? createNewOption(questionEntry.questionId(), optionEntry, formAccess)
                 : updateExistingOption(
                     optionEntry,
                     existingOptionById.get(optionEntry.optionId()),
-                    requesterMemberId
+                    formAccess
                 );
             orderedOptionIds.add(optionId);
         }
 
-        deleteRemovedOptions(questionEntry.options(), existingQuestion.options(), requesterMemberId);
+        deleteRemovedOptions(questionEntry.options(), existingQuestion.options(), formAccess);
 
         if (!orderedOptionIds.isEmpty()) {
             manageQuestionOptionUseCase.reorderOptions(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 ReorderQuestionOptionsCommand.builder()
                     .questionId(questionEntry.questionId())
-                    .requesterMemberId(requesterMemberId)
                     .orderedOptionIds(orderedOptionIds)
                     .build()
             );
         }
     }
 
-    private Long createNewOption(Long questionId, ApplicationQuestionOptionEntry entry, Long requesterMemberId) {
+    private Long createNewOption(Long questionId, ApplicationQuestionOptionEntry entry, FormAccess formAccess) {
         return manageQuestionOptionUseCase.createOption(
+            formAccess.expectedOwner(),
+            formAccess.actorContext(),
             CreateQuestionOptionCommand.builder()
                 .questionId(questionId)
-                .requesterMemberId(requesterMemberId)
                 .content(entry.content())
                 .isOther(entry.isOther())
                 .build()
@@ -523,13 +558,14 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
     private Long updateExistingOption(
         ApplicationQuestionOptionEntry entry,
         Option existingOption,
-        Long requesterMemberId
+        FormAccess formAccess
     ) {
         if (optionMetaChanged(existingOption, entry)) {
             manageQuestionOptionUseCase.updateOption(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 UpdateQuestionOptionCommand.builder()
                     .optionId(entry.optionId())
-                    .requesterMemberId(requesterMemberId)
                     .content(entry.content())
                     .isOther(entry.isOther())
                     .build()
@@ -541,7 +577,7 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
     private void deleteRemovedOptions(
         List<ApplicationQuestionOptionEntry> requestOptions,
         List<Option> existingOptions,
-        Long requesterMemberId
+        FormAccess formAccess
     ) {
         Set<Long> requestedExistingIds = requestOptions.stream()
             .map(ApplicationQuestionOptionEntry::optionId)
@@ -553,9 +589,10 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
                 continue;
             }
             manageQuestionOptionUseCase.deleteOption(
+                formAccess.expectedOwner(),
+                formAccess.actorContext(),
                 DeleteQuestionOptionCommand.builder()
                     .optionId(existing.optionId())
-                    .requesterMemberId(requesterMemberId)
                     .build()
             );
         }
@@ -694,10 +731,33 @@ public class ProjectApplicationFormCommandService implements UpsertProjectApplic
      * 5) 응답 조립
      * ===================================================== */
 
-    private ApplicationFormInfo assembleResponse(ProjectApplicationForm applicationForm) {
-        FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
+    private ApplicationFormInfo assembleResponse(
+        ProjectApplicationForm applicationForm,
+        FormAccess formAccess
+    ) {
+        FormWithStructureInfo formStructure = getFormUseCase.getFormWithStructure(
+            formAccess.expectedOwner(), formAccess.actorContext()
+        );
         List<ProjectApplicationFormPolicy> policies =
             loadPolicyPort.listByApplicationFormId(applicationForm.getId());
         return ApplicationFormInfo.of(applicationForm, formStructure, policies);
+    }
+
+    private record FormAccess(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext
+    ) {
+
+        private static FormAccess of(
+            ProjectApplicationForm applicationForm,
+            FormActorContext actorContext
+        ) {
+            return new FormAccess(
+                ProjectApplicationFormOwnerReferenceFactory
+                    .forProject(applicationForm.getProject().getId())
+                    .create(applicationForm.getFormId()),
+                actorContext
+            );
+        }
     }
 }

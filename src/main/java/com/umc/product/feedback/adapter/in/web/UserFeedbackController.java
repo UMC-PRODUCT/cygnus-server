@@ -13,6 +13,7 @@ import com.umc.product.feedback.adapter.in.web.dto.response.UserFeedbackSubmitRe
 import com.umc.product.feedback.application.port.in.command.SubmitUserFeedbackResponseUseCase;
 import com.umc.product.feedback.application.port.in.query.GetUserFeedbackTemplateUseCase;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 
@@ -49,7 +50,7 @@ public class UserFeedbackController {
         @RequestParam UserFeedbackContext context
     ) {
         return getUserFeedbackTemplateUseCase
-            .findTemplate(memberPrincipal.getMemberId(), context)
+            .findTemplate(FormActorContext.authenticated(memberPrincipal.getMemberId()), context)
             .map(GetUserFeedbackTemplateResponse::from)
             .orElse(null);
     }
@@ -67,7 +68,8 @@ public class UserFeedbackController {
         @Valid @RequestBody SubmitUserFeedbackResponseRequest request
     ) {
         Long formResponseId = submitUserFeedbackResponseUseCase.submit(
-            request.toCommand(memberPrincipal.getMemberId())
+            FormActorContext.authenticated(memberPrincipal.getMemberId()),
+            request.toCommand()
         );
         return UserFeedbackSubmitResponse.from(formResponseId);
     }

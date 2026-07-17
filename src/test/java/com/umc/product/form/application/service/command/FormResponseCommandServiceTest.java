@@ -1,5 +1,9 @@
 package com.umc.product.form.application.service.command;
 
+import static com.umc.product.form.application.service.FormAccessTestFixtures.actor;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.anonymous;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.owner;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.responseActor;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -7,6 +11,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
 import java.util.List;
@@ -46,8 +51,10 @@ import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.Form;
+import com.umc.product.form.domain.FormOperation;
 import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
@@ -84,6 +91,8 @@ class FormResponseCommandServiceTest {
     GetFileUseCase getFileUseCase;
     @Mock
     SecureTokenGenerator secureTokenGenerator;
+    @Mock
+    FormOwnershipAccessService ownershipAccessService;
 
     @InjectMocks
     FormResponseCommandService sut;
@@ -94,9 +103,8 @@ class FormResponseCommandServiceTest {
         given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
         given(loadFormResponsePort.existsByFormIdAndMemberId(FORM_ID, MEMBER_ID)).willReturn(true);
 
-        assertThatThrownBy(() -> sut.createDraft(CreateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.createDraft(owner(FORM_ID), actor(MEMBER_ID), CreateDraftFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(MEMBER_ID)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -111,9 +119,8 @@ class FormResponseCommandServiceTest {
         given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
         given(loadFormResponsePort.existsByFormIdAndMemberId(FORM_ID, MEMBER_ID)).willReturn(true);
 
-        assertThatThrownBy(() -> sut.submitImmediately(SubmitFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitImmediately(owner(FORM_ID), actor(MEMBER_ID), SubmitFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(MEMBER_ID)
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -133,9 +140,8 @@ class FormResponseCommandServiceTest {
             return response;
         });
 
-        Long result = sut.createDraft(CreateDraftFormResponseCommand.builder()
+        Long result = sut.createDraft(owner(FORM_ID), actor(MEMBER_ID), CreateDraftFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(MEMBER_ID)
             .build());
 
         assertThat(result).isEqualTo(FORM_RESPONSE_ID);
@@ -153,9 +159,8 @@ class FormResponseCommandServiceTest {
             return response;
         });
 
-        Long result = sut.submitImmediately(SubmitFormResponseCommand.builder()
+        Long result = sut.submitImmediately(owner(FORM_ID), actor(MEMBER_ID), SubmitFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(MEMBER_ID)
             .answers(List.of())
             .build());
 
@@ -168,9 +173,8 @@ class FormResponseCommandServiceTest {
     void 중복_허용_폼은_단건_응답_수정을_막는다() {
         given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(true)));
 
-        assertThatThrownBy(() -> sut.updateResponse(UpdateFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateResponse(owner(FORM_ID), actor(MEMBER_ID), UpdateFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(MEMBER_ID)
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -186,9 +190,8 @@ class FormResponseCommandServiceTest {
     void 중복_허용_폼은_단건_응답_삭제를_막는다() {
         given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(true)));
 
-        assertThatThrownBy(() -> sut.deleteResponse(DeleteFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.deleteResponse(owner(FORM_ID), actor(MEMBER_ID), DeleteFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(MEMBER_ID)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -212,9 +215,8 @@ class FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(commonRequiredQuestion));
 
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .requiredQuestionIds(Set.of(commonRequiredQuestion.getId()))
             .allowedQuestionIds(Set.of(commonRequiredQuestion.getId()))
             .build());
@@ -237,9 +239,8 @@ class FormResponseCommandServiceTest {
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(answeredRequiredQuestion, missingRequiredQuestion));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -254,9 +255,8 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(formQuestion));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .allowedQuestionIds(Set.of(10L, 999L)) // 999L 은 폼 소속 아님
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -274,9 +274,8 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(formQuestion));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .requiredQuestionIds(Set.of(999L)) // 폼 소속 아님
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -295,9 +294,8 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .allowedQuestionIds(Set.of(10L))
             .requiredQuestionIds(Set.of(10L, 20L)) // Q20 은 allowed 밖
             .build()))
@@ -319,9 +317,8 @@ class FormResponseCommandServiceTest {
             .willReturn(List.of(answer(draft, hiddenQuestion)));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, hiddenQuestion));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .requiredQuestionIds(Set.of())
             .allowedQuestionIds(Set.of(10L))
             .build()))
@@ -352,9 +349,8 @@ class FormResponseCommandServiceTest {
             .willReturn(List.of(optionalUnanswered));
 
         // when
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .requiredQuestionIds(Set.of(10L))
             .allowedQuestionIds(Set.of(10L, 20L))
             .build());
@@ -385,9 +381,8 @@ class FormResponseCommandServiceTest {
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
         // when
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .requiredQuestionIds(Set.of(10L))
             .allowedQuestionIds(Set.of(10L))
             .build());
@@ -416,9 +411,8 @@ class FormResponseCommandServiceTest {
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
         // when
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .requiredQuestionIds(Set.of(10L))
             .allowedQuestionIds(Set.of(10L, 20L))
             .build());
@@ -442,9 +436,8 @@ class FormResponseCommandServiceTest {
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q));
 
         // when
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .build());
 
         // then — allowedQuestionIds null → early return
@@ -454,9 +447,8 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("createDraft: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void createDraft_respondentMemberIdNull_예외() {
-        assertThatThrownBy(() -> sut.createDraft(CreateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.createDraft(owner(FORM_ID), anonymous(), CreateDraftFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(null)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -469,9 +461,8 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("submitImmediately: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void submitImmediately_respondentMemberIdNull_예외() {
-        assertThatThrownBy(() -> sut.submitImmediately(SubmitFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitImmediately(owner(FORM_ID), anonymous(), SubmitFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(null)
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -484,9 +475,8 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("updateResponse: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void updateResponse_respondentMemberIdNull_예외() {
-        assertThatThrownBy(() -> sut.updateResponse(UpdateFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateResponse(owner(FORM_ID), anonymous(), UpdateFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(null)
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -499,9 +489,8 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("deleteResponse: respondentMemberId=null 이면 RESPONDENT_MEMBER_ID_REQUIRED")
     void deleteResponse_respondentMemberIdNull_예외() {
-        assertThatThrownBy(() -> sut.deleteResponse(DeleteFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.deleteResponse(owner(FORM_ID), anonymous(), DeleteFormResponseCommand.builder()
             .formId(FORM_ID)
-            .respondentMemberId(null)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -551,9 +540,8 @@ class FormResponseCommandServiceTest {
             .willReturn(List.of(o1));
 
         // when — S2의 필수 질문(qRequiredInSkipped)은 미답변이지만 건너뛴 섹션이므로 예외 없음
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .build());
 
         then(saveFormResponsePort).should().save(draft);
@@ -595,9 +583,8 @@ class FormResponseCommandServiceTest {
             .willReturn(List.of(o1));
 
         // when — caller 가 Q20(건너뛴 섹션 소속)을 required 로 넘겨도 건너뛴 섹션이므로 통과
-        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .allowedQuestionIds(Set.of(10L, 20L, 30L))
             .requiredQuestionIds(Set.of(10L, 20L))
             .build());
@@ -622,9 +609,8 @@ class FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .allowedQuestionIds(Set.of(10L, 20L))
             .requiredQuestionIds(Set.of(10L, 20L))
             .build()))
@@ -641,9 +627,8 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(question));
 
-        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateDraft(owner(FORM_ID), actor(MEMBER_ID), UpdateDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .answers(List.of(AnswerCommand.builder()
                 .questionId(question.getId())
                 .textValue("")
@@ -664,9 +649,8 @@ class FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(question));
 
-        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateDraft(owner(FORM_ID), actor(MEMBER_ID), UpdateDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .answers(List.of(AnswerCommand.builder()
                 .questionId(question.getId())
                 .textValue("   ")
@@ -699,7 +683,7 @@ class FormResponseCommandServiceTest {
             return response;
         });
 
-        AnonymousFormResponseResult result = sut.submitAnonymousImmediately(
+        AnonymousFormResponseResult result = sut.submitAnonymousImmediately(owner(FORM_ID), anonymous(),
             SubmitAnonymousImmediatelyFormResponseCommand.builder()
                 .formId(FORM_ID)
                 .answers(List.of())
@@ -721,8 +705,7 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("updateAnonymousResponse: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void updateAnonymousResponse_rawKey_null_예외() {
-        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
-            .responseAccessKey(null)
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(owner(FORM_ID), anonymous(), UpdateAnonymousFormResponseCommand.builder()
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -740,8 +723,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(owner(FORM_ID), responseActor(rawKey), UpdateAnonymousFormResponseCommand.builder()
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -760,8 +742,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
 
-        assertThatThrownBy(() -> sut.updateAnonymousResponse(UpdateAnonymousFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.updateAnonymousResponse(owner(FORM_ID), responseActor(rawKey), UpdateAnonymousFormResponseCommand.builder()
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -774,8 +755,7 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("deleteAnonymousResponse: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void deleteAnonymousResponse_rawKey_null_예외() {
-        assertThatThrownBy(() -> sut.deleteAnonymousResponse(DeleteAnonymousFormResponseCommand.builder()
-            .responseAccessKey(null)
+        assertThatThrownBy(() -> sut.deleteAnonymousResponse(owner(FORM_ID), anonymous(), DeleteAnonymousFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -792,8 +772,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut.deleteAnonymousResponse(DeleteAnonymousFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.deleteAnonymousResponse(owner(FORM_ID), responseActor(rawKey), DeleteAnonymousFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -811,8 +790,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findSubmittedByAccessKeyHash(hash)).willReturn(Optional.of(namedResponse));
 
-        assertThatThrownBy(() -> sut.deleteAnonymousResponse(DeleteAnonymousFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.deleteAnonymousResponse(owner(FORM_ID), responseActor(rawKey), DeleteAnonymousFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -836,7 +814,7 @@ class FormResponseCommandServiceTest {
             return response;
         });
 
-        AnonymousFormResponseResult result = sut.createAnonymousDraft(
+        AnonymousFormResponseResult result = sut.createAnonymousDraft(owner(FORM_ID), anonymous(),
             CreateAnonymousDraftFormResponseCommand.builder()
                 .formId(FORM_ID)
                 .build()
@@ -856,8 +834,7 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("updateAnonymousDraft: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void updateAnonymousDraft_rawKey_null_예외() {
-        assertThatThrownBy(() -> sut.updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(null)
+        assertThatThrownBy(() -> sut.updateAnonymousDraft(owner(FORM_ID), anonymous(), UpdateAnonymousDraftFormResponseCommand.builder()
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -875,8 +852,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut.updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.updateAnonymousDraft(owner(FORM_ID), responseActor(rawKey), UpdateAnonymousDraftFormResponseCommand.builder()
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -895,8 +871,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.of(namedDraft));
 
-        assertThatThrownBy(() -> sut.updateAnonymousDraft(UpdateAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.updateAnonymousDraft(owner(FORM_ID), responseActor(rawKey), UpdateAnonymousDraftFormResponseCommand.builder()
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -909,8 +884,7 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("submitAnonymousDraft: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void submitAnonymousDraft_rawKey_null_예외() {
-        assertThatThrownBy(() -> sut.submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(null)
+        assertThatThrownBy(() -> sut.submitAnonymousDraft(owner(FORM_ID), anonymous(), SubmitAnonymousDraftFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -927,8 +901,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut.submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.submitAnonymousDraft(owner(FORM_ID), responseActor(rawKey), SubmitAnonymousDraftFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -946,8 +919,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.of(namedDraft));
 
-        assertThatThrownBy(() -> sut.submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.submitAnonymousDraft(owner(FORM_ID), responseActor(rawKey), SubmitAnonymousDraftFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -959,8 +931,7 @@ class FormResponseCommandServiceTest {
     @Test
     @DisplayName("deleteAnonymousDraft: rawKey null 이면 RESPONSE_ACCESS_KEY_REQUIRED")
     void deleteAnonymousDraft_rawKey_null_예외() {
-        assertThatThrownBy(() -> sut.deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(null)
+        assertThatThrownBy(() -> sut.deleteAnonymousDraft(owner(FORM_ID), anonymous(), DeleteAnonymousDraftFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -977,8 +948,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.empty());
 
-        assertThatThrownBy(() -> sut.deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.deleteAnonymousDraft(owner(FORM_ID), responseActor(rawKey), DeleteAnonymousDraftFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -996,8 +966,7 @@ class FormResponseCommandServiceTest {
         given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
         given(loadFormResponsePort.findDraftByAccessKeyHash(hash)).willReturn(Optional.of(namedDraft));
 
-        assertThatThrownBy(() -> sut.deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand.builder()
-            .responseAccessKey(rawKey)
+        assertThatThrownBy(() -> sut.deleteAnonymousDraft(owner(FORM_ID), responseActor(rawKey), DeleteAnonymousDraftFormResponseCommand.builder()
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -1016,9 +985,8 @@ class FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateDraft(owner(FORM_ID), anonymous(), UpdateDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(null)
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -1035,9 +1003,8 @@ class FormResponseCommandServiceTest {
         ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
 
-        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateDraft(owner(FORM_ID), actor(MEMBER_ID), UpdateDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID)
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -1053,9 +1020,8 @@ class FormResponseCommandServiceTest {
         FormResponse draft = draftResponse(); // 소유자 = MEMBER_ID
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> sut.updateDraft(UpdateDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.updateDraft(owner(FORM_ID), actor(MEMBER_ID + 1), UpdateDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID + 1) // 다른 사용자
             .answers(List.of())
             .build()))
             .isInstanceOf(FormDomainException.class)
@@ -1071,9 +1037,8 @@ class FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), anonymous(), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(null)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -1088,9 +1053,8 @@ class FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.submitDraft(owner(FORM_ID), actor(MEMBER_ID + 1), SubmitDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID + 1)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -1105,9 +1069,8 @@ class FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> sut.deleteDraft(DeleteDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.deleteDraft(owner(FORM_ID), anonymous(), DeleteDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(null)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
@@ -1122,13 +1085,34 @@ class FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
 
-        assertThatThrownBy(() -> sut.deleteDraft(DeleteDraftFormResponseCommand.builder()
+        assertThatThrownBy(() -> sut.deleteDraft(owner(FORM_ID), actor(MEMBER_ID + 1), DeleteDraftFormResponseCommand.builder()
             .formResponseId(FORM_RESPONSE_ID)
-            .requesterMemberId(MEMBER_ID + 1)
             .build()))
             .isInstanceOf(FormDomainException.class)
             .extracting("baseCode")
             .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).deleteById(any());
+    }
+
+    @Test
+    @DisplayName("foreign response 삭제는 response-form parent chain ownership으로 거부한다")
+    void foreign_response_삭제는_parent_form_ownership으로_거부한다() {
+        FormResponse draft = draftResponse();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        willThrow(new FormDomainException(FormErrorCode.FORM_OWNERSHIP_FORBIDDEN))
+            .given(ownershipAccessService)
+            .requireMutation(
+                FORM_ID, owner(999L), actor(MEMBER_ID), FormOperation.RESPOND
+            );
+
+        assertThatThrownBy(() -> sut.deleteDraft(
+            owner(999L),
+            actor(MEMBER_ID),
+            DeleteDraftFormResponseCommand.builder().formResponseId(FORM_RESPONSE_ID).build()
+        ))
+            .isInstanceOf(FormDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", FormErrorCode.FORM_OWNERSHIP_FORBIDDEN);
 
         then(saveFormResponsePort).should(never()).deleteById(any());
     }

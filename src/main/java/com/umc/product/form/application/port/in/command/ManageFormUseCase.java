@@ -1,18 +1,23 @@
 package com.umc.product.form.application.port.in.command;
 
+import com.umc.product.form.application.port.in.FormActorContext;
+import com.umc.product.form.application.port.in.FormOwnerReferenceFactory;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
+import com.umc.product.form.domain.FormOwnerReference;
 
 /**
  * Form(폼) 생명주기 관리 UseCase.
  * <p>
- * 생성 흐름: {@link #createDraft} 로 DRAFT 상태로 시작 -> {@link #updateForm}으로 임시저장 업데이트 -> {@link #publishForm} 로 PUBLISHED 전환 시 응답 수집 가능.
+ * 생성 흐름: {@link #createDraft} 로 DRAFT 상태로 시작 -> {@link #updateForm}으로 임시저장 업데이트
+ * -> {@link #publishForm} 로 PUBLISHED 전환 시 응답 수집 가능.
  * <p>
  * 삭제는 {@link #deleteForm} — 연관된 FormSection / Question / QuestionOption / FormResponse / Answer 모두 cascade 삭제.
  * <p>
- * 권한 검증과 발행 상태 검증은 호출 측 (consumer 도메인) 책임. 본 UseCase 는 단순 동작만 보장한다.
+ * expected owner binding과 namespace policy 검증은 Form application 경계에서 수행한다.
+ * consumer 도메인은 자신의 policy evaluator와 trusted owner reference만 제공한다.
  * 응답 무결성은 {@code AnswerChoice.answeredAsContent} 스냅샷이 보장.
  */
 public interface ManageFormUseCase {
@@ -22,7 +27,11 @@ public interface ManageFormUseCase {
      *
      * @return 생성된 Form ID
      */
-    Long createDraft(CreateDraftFormCommand command);
+    Long createDraft(
+        FormOwnerReferenceFactory ownerFactory,
+        FormActorContext actorContext,
+        CreateDraftFormCommand command
+    );
 
     /**
      * 폼 메타데이터(title/description/isAnonymous) 부분 업데이트.
@@ -30,16 +39,16 @@ public interface ManageFormUseCase {
      * 발행된 폼도 수정 가능하도록 구현.
      * TODO: 관련 정책 확정 시 수정
      */
-    void updateForm(UpdateFormCommand command);
+    void updateForm(FormOwnerReference expectedOwner, FormActorContext actorContext, UpdateFormCommand command);
 
     /**
      * 폼을 DRAFT -> PUBLISHED 전환한다. 이후부터 응답 수집 가능.
      * 이미 PUBLISHED인 폼을 다시 발행하면 FORM_ALREADY_PUBLISHED 예외.
      */
-    void publishForm(PublishFormCommand command);
+    void publishForm(FormOwnerReference expectedOwner, FormActorContext actorContext, PublishFormCommand command);
 
     /**
      * 폼과 연관 구조(섹션/질문/옵션/응답/답변) 전부 cascade 삭제.
      */
-    void deleteForm(DeleteFormCommand command);
+    void deleteForm(FormOwnerReference expectedOwner, FormActorContext actorContext, DeleteFormCommand command);
 }

@@ -156,7 +156,7 @@ class AuditCoveragePolicyTest {
             spec("form.application.service.command.FormResponseCommandService", "submitImmediately", "FORM", "SUBMIT", "FormResponse", type("form.application.port.in.command.dto.SubmitFormResponseCommand")),
             spec("form.application.service.VoteService", "createVote", "FORM", "CREATE", "Vote", type("form.application.port.in.command.dto.CreateVoteCommand")),
 
-            spec("feedback.application.service.command.UserFeedbackResponseCommandService", "submit", "FEEDBACK", "SUBMIT", "UserFeedbackResponse", type("feedback.application.port.in.command.dto.SubmitUserFeedbackResponseCommand")),
+            spec("feedback.application.service.command.UserFeedbackResponseCommandService", "submit", "FEEDBACK", "SUBMIT", "UserFeedbackResponse", type("form.application.port.in.FormActorContext"), type("feedback.application.port.in.command.dto.SubmitUserFeedbackResponseCommand")),
 
             spec("project.application.service.command.ProjectCommandService", "create", "PROJECT", "CREATE", "Project", type("project.application.port.in.command.dto.CreateDraftProjectCommand")),
             spec("project.application.service.command.ProjectCommandService", "publish", "PROJECT", "PUBLISH", "Project", type("project.application.port.in.command.dto.PublishProjectCommand")),

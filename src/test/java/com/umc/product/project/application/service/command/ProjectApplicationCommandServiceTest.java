@@ -33,12 +33,14 @@ import com.umc.product.authorization.application.port.in.query.CheckChallengerAu
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.port.in.command.dto.ApplicationDecisionStatus;
@@ -169,8 +171,16 @@ class ProjectApplicationCommandServiceTest {
 
             ArgumentCaptor<UpdateDraftFormResponseCommand> captor =
                 ArgumentCaptor.forClass(UpdateDraftFormResponseCommand.class);
-            then(manageFormResponseUseCase).should().updateDraft(captor.capture());
+            ArgumentCaptor<FormOwnerReference> ownerCaptor = ArgumentCaptor.forClass(FormOwnerReference.class);
+            ArgumentCaptor<FormActorContext> actorCaptor = ArgumentCaptor.forClass(FormActorContext.class);
+            then(manageFormResponseUseCase).should().updateDraft(
+                ownerCaptor.capture(), actorCaptor.capture(), captor.capture()
+            );
             assertThat(result.applicationId()).isEqualTo(APPLICATION_ID);
+            assertThat(ownerCaptor.getValue()).isEqualTo(FormOwnerReference.of(
+                FORM_ID, "project.application-form", PROJECT_ID.toString(), "default"
+            ));
+            assertThat(actorCaptor.getValue().authenticatedMemberId()).contains(APPLICANT_MEMBER_ID);
             assertThat(captor.getValue().formResponseId()).isEqualTo(FORM_RESPONSE_ID);
             assertThat(captor.getValue().answers())
                 .extracting(AnswerCommand::questionId)
@@ -196,7 +206,7 @@ class ProjectApplicationCommandServiceTest {
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.APPLICATION_FORM_INVALID_QUESTION_ID);
 
-            then(manageFormResponseUseCase).should(never()).updateDraft(any());
+            then(manageFormResponseUseCase).should(never()).updateDraft(any(), any(), any());
         }
 
         @Test
@@ -216,7 +226,7 @@ class ProjectApplicationCommandServiceTest {
 
             ArgumentCaptor<SubmitDraftFormResponseCommand> captor =
                 ArgumentCaptor.forClass(SubmitDraftFormResponseCommand.class);
-            then(manageFormResponseUseCase).should().submitDraft(captor.capture());
+            then(manageFormResponseUseCase).should().submitDraft(any(), any(), captor.capture());
             assertThat(result.status()).isEqualTo(ProjectApplicationStatus.SUBMITTED);
             assertThat(captor.getValue().formResponseId()).isEqualTo(FORM_RESPONSE_ID);
             assertThat(captor.getValue().requiredQuestionIds())
@@ -243,7 +253,7 @@ class ProjectApplicationCommandServiceTest {
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
 
-            then(manageFormResponseUseCase).should(never()).updateDraft(any());
+            then(manageFormResponseUseCase).should(never()).updateDraft(any(), any(), any());
         }
 
         @Test
@@ -262,7 +272,7 @@ class ProjectApplicationCommandServiceTest {
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_DRAFT_APPLICATION_NOT_FOUND);
 
-            then(manageFormResponseUseCase).should(never()).submitDraft(any());
+            then(manageFormResponseUseCase).should(never()).submitDraft(any(), any(), any());
         }
     }
 
@@ -758,7 +768,7 @@ class ProjectApplicationCommandServiceTest {
                 ProjectApplicationFormPolicy.createForParts(form, WEB_SECTION_ID, Set.of(ChallengerPart.WEB)),
                 ProjectApplicationFormPolicy.createForParts(form, DESIGN_SECTION_ID, Set.of(ChallengerPart.DESIGN))
             ));
-        given(getFormUseCase.getFormWithStructure(FORM_ID))
+        given(getFormUseCase.getFormWithStructure(any(), any()))
             .willReturn(formStructure());
     }
 

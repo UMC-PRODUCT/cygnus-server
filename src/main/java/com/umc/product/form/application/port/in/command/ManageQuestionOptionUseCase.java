@@ -1,9 +1,11 @@
 package com.umc.product.form.application.port.in.command;
 
+import com.umc.product.form.application.port.in.FormActorContext;
 import com.umc.product.form.application.port.in.command.dto.CreateQuestionOptionCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteQuestionOptionCommand;
 import com.umc.product.form.application.port.in.command.dto.ReorderQuestionOptionsCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateQuestionOptionCommand;
+import com.umc.product.form.domain.FormOwnerReference;
 
 /**
  * QuestionOption(질문 선택지) 관리 UseCase.
@@ -23,23 +25,39 @@ public interface ManageQuestionOptionUseCase {
      *
      * @return 생성된 QuestionOption ID
      */
-    Long createOption(CreateQuestionOptionCommand command);
+    Long createOption(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        CreateQuestionOptionCommand command
+    );
 
     /**
      * 선택지의 content / isOther 부분 업데이트.
      * null 인 필드는 기존 값 유지.
      */
-    void updateOption(UpdateQuestionOptionCommand command);
+    void updateOption(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        UpdateQuestionOptionCommand command
+    );
 
     /**
      * 선택지 삭제. 연관 AnswerChoice의 question_option_id는 ON DELETE SET NULL로 처리됨.
      */
-    void deleteOption(DeleteQuestionOptionCommand command);
+    void deleteOption(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        DeleteQuestionOptionCommand command
+    );
 
     /**
      * 질문 내 선택지들의 순서를 재배치한다.
      * 입력 리스트 순서대로 orderNo가 1부터 재부여된다.
      * 질문의 모든 선택지 ID 가 누락 / 중복 / 외부 ID 없이 정확히 일치해야 한다.
      */
-    void reorderOptions(ReorderQuestionOptionsCommand command);
+    void reorderOptions(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        ReorderQuestionOptionsCommand command
+    );
 }

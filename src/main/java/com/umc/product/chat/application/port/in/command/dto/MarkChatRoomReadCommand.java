@@ -1,11 +1,18 @@
 package com.umc.product.chat.application.port.in.command.dto;
 
+import com.umc.product.chat.domain.ChatRoomActorContext;
+import com.umc.product.chat.domain.ChatRoomOwnerReference;
+
 public record MarkChatRoomReadCommand(
-    Long roomId,
-    Long memberId,
+    ChatRoomOwnerReference expectedOwner,
+    ChatRoomActorContext actorContext,
     Long lastSeenMessageId
 ) {
-    public static MarkChatRoomReadCommand of(Long roomId, Long memberId, Long lastSeenMessageId) {
-        return new MarkChatRoomReadCommand(roomId, memberId, lastSeenMessageId);
+    public static MarkChatRoomReadCommand of(
+        ChatRoomOwnerReference expectedOwner,
+        ChatRoomActorContext actorContext,
+        Long lastSeenMessageId
+    ) {
+        return new MarkChatRoomReadCommand(expectedOwner, actorContext, lastSeenMessageId);
     }
 }
