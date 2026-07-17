@@ -1,6 +1,8 @@
 package com.umc.product.storage.domain;
 
+import java.time.Instant;
 import java.util.Objects;
+import java.util.UUID;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.storage.domain.enums.FileCategory;
@@ -88,6 +90,36 @@ public class FileMetadata extends BaseEntity {
     @Column(nullable = false)
     private boolean isUploaded = false;
 
+    /**
+     * 업로드가 서버에서 확인된 시각. Legacy writer가 만든 row는 업로드 완료여도 null일 수 있습니다.
+     */
+    @Column(name = "confirmed_at")
+    private Instant confirmedAt;
+
+    /**
+     * 마지막 usage가 제거되어 미참조 상태가 시작된 시각
+     */
+    @Column(name = "unreferenced_at")
+    private Instant unreferencedAt;
+
+    /**
+     * 물리 삭제 claim을 식별하는 CAS token
+     */
+    @Column(name = "cleanup_claim_token")
+    private UUID cleanupClaimToken;
+
+    @Column(name = "cleanup_claimed_at")
+    private Instant cleanupClaimedAt;
+
+    @Column(name = "cleanup_attempts", nullable = false)
+    private int cleanupAttempts = 0;
+
+    @Column(name = "cleanup_next_attempt_at")
+    private Instant cleanupNextAttemptAt;
+
+    @Column(name = "cleanup_failed_at")
+    private Instant cleanupFailedAt;
+
     @Builder
     private FileMetadata(
         String fileId,
@@ -114,7 +146,25 @@ public class FileMetadata extends BaseEntity {
      * 업로드 완료 처리
      */
     public void markAsUploaded() {
+        markAsUploaded(Instant.now());
+    }
+
+    /**
+     * 호환 상태와 canonical 완료 시각을 원자적으로 변경합니다.
+     */
+    public void markAsUploaded(Instant confirmedAt) {
+        if (confirmedAt == null) {
+            throw new IllegalArgumentException("업로드 확인 시각은 필수입니다.");
+        }
         this.isUploaded = true;
+        this.confirmedAt = confirmedAt;
+    }
+
+    /**
+     * Registry READY 전 audit mode에서 legacy 완료 row를 보호하기 위한 호환 판정입니다.
+     */
+    public boolean isConfirmedForAudit() {
+        return confirmedAt != null || isUploaded;
     }
 
     /**

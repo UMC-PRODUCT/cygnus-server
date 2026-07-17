@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by ADR-027 ([ADR-027](./027-engine-resource-ownership-namespaces.md))
 
 ## Context
 

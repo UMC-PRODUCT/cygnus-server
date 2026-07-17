@@ -3,6 +3,8 @@ package com.umc.product.storage.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 
 import com.umc.product.storage.domain.enums.FileCategory;
@@ -35,10 +37,30 @@ class FileMetadataTest {
             .build();
 
         // when: 업로드 완료 처리
-        metadata.markAsUploaded();
+        Instant confirmedAt = Instant.parse("2026-07-17T00:00:00Z");
+        metadata.markAsUploaded(confirmedAt);
 
-        // then: isUploaded가 true가 되었는지 확인
+        // then: 호환 상태와 canonical 완료 시각이 함께 변경되는지 확인
         assertThat(metadata.isUploaded()).isTrue();
+        assertThat(metadata.getConfirmedAt()).isEqualTo(confirmedAt);
+        assertThat(metadata.isConfirmedForAudit()).isTrue();
+    }
+
+    @Test
+    void 신규_파일의_cleanup_lifecycle은_비어_있다() {
+        // given & when
+        FileMetadata metadata = createFileMetadata("document.pdf");
+
+        // then
+        assertThat(metadata.isUploaded()).isFalse();
+        assertThat(metadata.getConfirmedAt()).isNull();
+        assertThat(metadata.getUnreferencedAt()).isNull();
+        assertThat(metadata.getCleanupClaimToken()).isNull();
+        assertThat(metadata.getCleanupClaimedAt()).isNull();
+        assertThat(metadata.getCleanupAttempts()).isZero();
+        assertThat(metadata.getCleanupNextAttemptAt()).isNull();
+        assertThat(metadata.getCleanupFailedAt()).isNull();
+        assertThat(metadata.isConfirmedForAudit()).isFalse();
     }
 
     @Test
@@ -51,6 +73,7 @@ class FileMetadataTest {
 
         // then
         assertThat(metadata.isUploaded()).isTrue();
+        assertThat(metadata.getConfirmedAt()).isNotNull();
     }
 
     @Test
