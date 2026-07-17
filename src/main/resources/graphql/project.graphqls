@@ -1,5 +1,3 @@
-scalar Long
-
 extend type Query {
   project(id: ID!): Project
   projects(input: ProjectSearchInput!, page: ProjectPageInput): ProjectPage!
@@ -193,17 +191,6 @@ enum ProjectSort {
   NAME_DESC
 }
 
-enum ChallengerPart {
-  PLAN
-  DESIGN
-  WEB
-  ANDROID
-  IOS
-  NODEJS
-  SPRINGBOOT
-  ADMIN
-}
-
 enum PartQuotaStatus {
   RECRUITING
   COMPLETED
@@ -247,20 +234,4 @@ enum MatchingRoundPhaseView {
   SECOND
   THIRD
   RANDOM_MATCHING
-}
-
-enum FormResponseStatus {
-  DRAFT
-  SUBMITTED
-}
-
-enum QuestionType {
-  SHORT_TEXT
-  LONG_TEXT
-  RADIO
-  CHECKBOX
-  DROPDOWN
-  SCHEDULE
-  FILE
-  PORTFOLIO
 }
