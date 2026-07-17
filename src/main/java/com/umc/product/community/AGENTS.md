@@ -2,19 +2,19 @@
 
 ## OVERVIEW
 
-`community` owns posts, comments, reports, scraps, trophies, and user-facing community interactions.
+`community` owns posts, comments, reports, scraps, and user-facing community interactions. 주차별 우수 워크북 선정은 `curriculum`의 `WeeklyBestWorkbook`이 소유한다.
 
 ## STRUCTURE
 
 ```text
 community/
-├── domain/                         # post, comment, report, scrap, trophy entities
+├── domain/                         # post, comment, report, scrap entities
 ├── application/port/in             # command/query UseCases and DTOs
 ├── application/port/out            # persistence ports
 ├── application/service/command     # write flows
 ├── application/service/query       # read flows
 ├── application/service/evaluator   # visibility/author evaluators
-├── adapter/in/web                  # post/comment/report/trophy controllers
+├── adapter/in/web                  # post/comment/report controllers
 └── adapter/out/persistence         # adapters and QueryDSL repositories
 ```
 
@@ -26,12 +26,11 @@ community/
 | Comments | `CommentController.java`, `Comment*Service.java` | nested community replies/comments |
 | Reports | `ReportController.java`, `ReportCommandService.java` | moderation signal flow |
 | Scraps | `ScrapCommandService.java`, `ScrapPersistenceAdapter.java` | saved-post behavior |
-| Trophies | `TrophyController.java`, `TrophyQueryController.java` | trophy command/query surface |
-| QueryDSL | `PostQueryRepository.java`, `TrophyQueryRepository.java` | list/search projections |
+| QueryDSL | `PostQueryRepository.java` | list/search projections |
 
 ## CONVENTIONS
 
-- Keep post/comment/report/scrap/trophy write services separate.
+- Keep post/comment/report/scrap write services separate.
 - Author and visibility checks should happen before mutations or private reads.
 - Report flows should preserve target identity and reporter identity without exposing internal moderation state.
 - Query services should return application Info values and delegate joins to query repositories.

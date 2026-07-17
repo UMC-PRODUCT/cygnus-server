@@ -1,6 +1,7 @@
 # UMC PRODUCT API 엔드포인트 정리 분석
 
 > 작성일: 2026-05-06
+> 갱신일: 2026-07-17 — 커뮤니티 Trophy API 제거 및 WeeklyBestWorkbook 단일 기준 반영
 > 대상: `src/main/java/com/umc/product/**/adapter/in/web/**/*Controller.java` 전수 조사
 > 목적: 중복되거나 존재할 이유가 없는 API를 식별하고, 사유와 함께 정리 액션을 제안
 
@@ -36,7 +37,7 @@
 
 - 모든 핸들러가 `throw new NotImplementedException();`만 수행함.
 - Swagger 명세에는 정상 API처럼 노출되어 클라이언트가 잘못된 가정으로 통합 작업을 시작할 위험.
-- [TrophyController.java:28](../../src/main/java/com/umc/product/community/adapter/in/web/TrophyController.java#L28)에 이미 "베스트 워크북 생성"이 `community` 도메인으로 구현되어 있어, 워크북 도메인의 책임 경계가 모호해짐.
+- 베스트 워크북 책임은 `curriculum` 도메인의 `WeeklyBestWorkbook`으로 일원화한다. 과거 커뮤니티 모델과의 중복은 릴리스 범위에서 제거한다.
 
 **액션**: 인터페이스 설계가 동결될 때까지 컨트롤러 자체를 비공개(예: 전용 Profile 분리, 또는 단순 삭제 후 PR로 부활) 처리.
 
@@ -59,12 +60,9 @@
 
 ## 2. 🟠 중복 / 통합 권고
 
-### 2-1. Trophy(community) ↔ ChallengerWorkbook v2 weekly-best 이중 모델링
+### 2-1. 과거 베스트 워크북 이중 모델링 정리 (역사적 기록)
 
-- [TrophyController.java:27-36](../../src/main/java/com/umc/product/community/adapter/in/web/TrophyController.java#L27-L36) `POST /api/v1/trophies` — Operation summary가 **"베스트 워크북 생성"**.
-- [ChallengerWorkbookCommandV2Controller](../../src/main/java/com/umc/product/curriculum/adapter/in/web/v2/ChallengerWorkbookCommandV2Controller.java) `POST /weekly-best`, `PATCH /weekly-best/{...}`, `DELETE /weekly-best/{...}` — 동일 개념을 curriculum 도메인에서 다시 정의(미구현).
-
-**사유**: "베스트 워크북"이라는 단일 도메인 개념이 **community(trophy)** 와 **curriculum(weekly-best-workbook)** 두 곳에 동시에 모델링됨. 운영 중인 쪽(`/api/v1/trophies`)을 단일 진실 원천(SSoT)으로 두고 v2 쪽은 통째로 폐기하거나, 반대로 v2가 정식 API라면 community의 trophy 명칭을 정리하고 마이그레이션 계획 필요. **현재 상태가 가장 나쁨** — 어느 쪽이 정답인지 코드만 보고 알 수 없음.
+과거에는 커뮤니티의 Trophy 모델과 커리큘럼의 `WeeklyBestWorkbook`이 모두 베스트 워크북을 표현하려는 중복 상태였다. 2026-07-17 릴리스 범위에서는 커뮤니티 Trophy API를 제거하고, `WeeklyBestWorkbook`을 베스트 워크북 선정 결과의 유일한 SSoT로 유지한다. 이 절의 Trophy 언급은 과거 구조를 설명하기 위한 기록이며 현재 API 목록이 아니다.
 
 ### 2-2. Notice 컨트롤러 4-way 분할
 
@@ -168,7 +166,7 @@
 | 3  | `GET /schools/link/{schoolId}`                         | 🔴 | 삭제                          |
 | 4  | `GET /schools/unassigned`                              | 🔴 | 삭제                          |
 | 5  | `GET /authorization/challenger-role/{id}`              | 🔴 | 사용처 확인 후 삭제                 |
-| 6  | Trophy ↔ v2 weekly-best 이중 모델                          | 🟠 | 한쪽 폐기 결정                    |
+| 6  | 과거 Trophy ↔ v2 weekly-best 이중 모델                          | ✅ | Trophy API 제거, `WeeklyBestWorkbook` 유지 완료 |
 | 7  | NoticeContentController + NoticeVoteResponseController | 🟠 | NoticeCommandController로 통합 |
 | 8  | `read-statics` 명명 (오타)                                 | 🟠 | `read-statistics`로 정정       |
 | 9  | Challenger search cursor/offset 병행                     | 🟠 | 한쪽으로 일원화                    |
@@ -185,6 +183,6 @@
 가장 큰 영향을 주는 항목 두 가지:
 
 1. **Curriculum v2 미구현 컨트롤러 5개 일괄 정리** — 잘못된 API 명세로 인한 클라이언트 통합 비용 최소화
-2. **Trophy/Workbook 이중 모델 정리** — 도메인 경계의 SSoT(단일 진실 원천) 회복
+2. **완료: 베스트 워크북 SSoT 정리** — `WeeklyBestWorkbook` 유지, 과거 Trophy API 제거
 
-위 두 가지를 우선 처리한 뒤, `@Deprecated(forRemoval=true)` 항목과 명명 정정(읽기 통계 오타, StudyGroup PATCH)을 차례로 정리하는 것을 권장합니다.
+Curriculum v2 정리 이후에는 `@Deprecated(forRemoval=true)` 항목과 명명 정정(읽기 통계 오타, StudyGroup PATCH)을 차례로 정리하는 것을 권장합니다. 베스트 워크북 SSoT 항목은 위 릴리스에서 완료했다.
