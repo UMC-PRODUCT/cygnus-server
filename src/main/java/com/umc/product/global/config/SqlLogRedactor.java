@@ -1,5 +1,6 @@
 package com.umc.product.global.config;
 
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.springframework.util.StringUtils;
@@ -8,14 +9,9 @@ public final class SqlLogRedactor {
 
     public static final String REDACTED = "[REDACTED]";
 
-    private static final Pattern BLOCK_COMMENT = Pattern.compile("/\\*.*?\\*/", Pattern.DOTALL);
-    private static final Pattern LINE_COMMENT = Pattern.compile("--[^\\r\\n]*");
-    private static final Pattern TAGGED_DOLLAR_QUOTED = Pattern.compile(
-        "\\$([A-Za-z_][A-Za-z0-9_]*)\\$.*?\\$\\1\\$",
-        Pattern.DOTALL
+    private static final Pattern SQL_TOKEN_PATTERN = Pattern.compile(
+        "(?s)(/\\*.*?\\*/)|(--[^\\r\\n]*)|(\\$([A-Za-z_][A-Za-z0-9_]*)\\$.*?\\$\\4\\$)|(\\$\\$.*?\\$\\$)|('(?:''|[^'])*')"
     );
-    private static final Pattern DOLLAR_QUOTED = Pattern.compile("\\$\\$.*?\\$\\$", Pattern.DOTALL);
-    private static final Pattern STRING_LITERAL = Pattern.compile("'(?:''|[^'])*'", Pattern.DOTALL);
 
     private SqlLogRedactor() {
     }
@@ -30,10 +26,20 @@ public final class SqlLogRedactor {
             return sql;
         }
 
-        String redacted = BLOCK_COMMENT.matcher(sql).replaceAll("/* " + REDACTED + " */");
-        redacted = LINE_COMMENT.matcher(redacted).replaceAll("-- " + REDACTED);
-        redacted = TAGGED_DOLLAR_QUOTED.matcher(redacted).replaceAll("'" + REDACTED + "'");
-        redacted = DOLLAR_QUOTED.matcher(redacted).replaceAll("'" + REDACTED + "'");
-        return STRING_LITERAL.matcher(redacted).replaceAll("'" + REDACTED + "'");
+        Matcher matcher = SQL_TOKEN_PATTERN.matcher(sql);
+        StringBuilder result = new StringBuilder();
+        while (matcher.find()) {
+            String replacement;
+            if (matcher.group(1) != null) {
+                replacement = "/* " + REDACTED + " */";
+            } else if (matcher.group(2) != null) {
+                replacement = "-- " + REDACTED;
+            } else {
+                replacement = "'" + REDACTED + "'";
+            }
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+        return result.toString();
     }
 }

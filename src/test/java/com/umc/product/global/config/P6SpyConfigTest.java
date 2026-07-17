@@ -74,6 +74,28 @@ class P6SpyConfigTest {
             .contains("select", "count(*)", "recruiting_application");
     }
 
+    @Test
+    @DisplayName("문자열 내부 주석 기호와 주석 내부 따옴표를 SQL token 경계에 맞게 치환한다")
+    void 문자열과_주석의_token_경계를_보존한다() {
+        String sql = """
+            select '%s -- not a comment' as applicant_email,
+                   application_key /* comment with '%s' */
+            from recruiting_application
+            """.formatted(PROBE_EMAIL, PROBE_KEY);
+
+        String output = format("", sql);
+
+        assertThat(output)
+            .contains(
+                "select",
+                "'[REDACTED]' as applicant_email",
+                "application_key /* [REDACTED] */",
+                "from",
+                "recruiting_application"
+            )
+            .doesNotContain(PROBE_EMAIL, PROBE_KEY);
+    }
+
     private String format(String prepared, String sql) {
         return formatter.formatMessage(1, "now", 3L, "statement", prepared, sql, "jdbc:postgresql:test");
     }
