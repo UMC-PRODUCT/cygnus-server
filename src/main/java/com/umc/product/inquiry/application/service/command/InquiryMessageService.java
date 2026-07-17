@@ -54,12 +54,18 @@ public class InquiryMessageService implements SendInquiryMessageUseCase {
             inquiry.startProgress();
         }
 
-        // 3) 운영진이 메시지를 보내면 채팅방 멤버 등록 + 열람 처리
+        // 3) 읽음 상태 갱신
+        //    - 운영진 메시지: 채팅방 멤버 등록 후 열람 처리(isRead = true)
+        //    - 문의자 메시지: 운영진이 아직 읽지 않은 상태로 전환(isRead = false)
+        //      CLOSED → reopen() 이 이미 markAsUnread() 를 호출하지만, 중복 호출은 무해하며
+        //      RECEIVED/IN_PROGRESS 케이스도 동일하게 처리하기 위해 else 브랜치에서 통합한다.
         if (isOperator) {
             if (!checkChatRoomAccessUseCase.hasChatRoomAccess(command.senderMemberId(), command.chatRoomId())) {
                 joinChatRoomUseCase.joinChatRoom(new JoinChatRoomCommand(command.chatRoomId(), command.senderMemberId()));
             }
             inquiry.markAsRead();
+        } else {
+            inquiry.markAsUnread();
         }
 
         // 4) 메시지 전송 (chat send 재사용 — DB 저장 + 이벤트 발행, broadcast는 AFTER_COMMIT)
