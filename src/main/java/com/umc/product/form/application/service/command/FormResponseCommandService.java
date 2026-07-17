@@ -21,6 +21,7 @@ import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.ClaimAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
@@ -404,6 +405,41 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
 
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
+    }
+
+    @Override
+    public Long claimAnonymousResponse(ClaimAnonymousFormResponseCommand command) {
+        requireRespondentMemberId(command.requesterMemberId());
+        if (command.responseAccessKey() == null) {
+            throw new FormDomainException(FormErrorCode.RESPONSE_ACCESS_KEY_REQUIRED);
+        }
+
+        FormResponse response = loadFormResponsePort.findById(command.formResponseId())
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
+
+        if (response.getRespondentMemberId() != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_ALREADY_CLAIMED);
+        }
+
+        String hash = secureTokenGenerator.sha256Hex(command.responseAccessKey());
+        if (!hash.equals(response.getResponseAccessKeyHash())) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+        }
+
+        validateDuplicateResponsePolicy(response.getForm(), command.requesterMemberId());
+
+        response.claimBy(command.requesterMemberId());
+        FormResponse saved = saveFormResponsePort.save(response);
+
+        FormResponseStatus previousState = saved.getStatus();
+        log.info(
+            "Anonymous form response claimed by member: formResponse={}, member={}, previousState={}",
+            saved.getId(),
+            command.requesterMemberId(),
+            previousState
+        );
+
+        return saved.getId();
     }
 
     /**

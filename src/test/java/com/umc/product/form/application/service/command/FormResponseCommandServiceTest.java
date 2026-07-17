@@ -25,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.authentication.application.service.SecureTokenGenerator;
 import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.ClaimAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
@@ -1054,6 +1055,173 @@ class   FormResponseCommandServiceTest {
             .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
 
         then(saveFormResponsePort).should(never()).deleteById(any());
+    }
+
+    // ============================================================
+    //          익명 → 기명 등록 (claim)
+    // ============================================================
+
+    @Test
+    @DisplayName("claimAnonymousResponse: DRAFT 익명 응답 등록 성공 — respondentMemberId 세팅, access_key_hash null")
+    void claimAnonymousResponse_DRAFT_등록_성공() {
+        String rawKey = "raw-key";
+        String hash = "hash";
+        Form form = publishedForm(false);
+        FormResponse anonymousDraft = FormResponse.createAnonymousDraft(form, hash);
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.existsByFormIdAndMemberId(FORM_ID, MEMBER_ID)).willReturn(false);
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(inv -> inv.getArgument(0));
+
+        Long result = sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey(rawKey)
+            .requesterMemberId(MEMBER_ID)
+            .build());
+
+        assertThat(result).isEqualTo(FORM_RESPONSE_ID);
+        assertThat(anonymousDraft.getRespondentMemberId()).isEqualTo(MEMBER_ID);
+        assertThat(anonymousDraft.getResponseAccessKeyHash()).isNull();
+        then(saveFormResponsePort).should().save(anonymousDraft);
+    }
+
+    @Test
+    @DisplayName("claimAnonymousResponse: SUBMITTED 익명 응답 등록 성공")
+    void claimAnonymousResponse_SUBMITTED_등록_성공() {
+        String rawKey = "raw-key";
+        String hash = "hash";
+        Form form = publishedForm(false);
+        FormResponse anonymousSubmitted = FormResponse.createAnonymousDraft(form, hash);
+        anonymousSubmitted.submit(java.time.Instant.now(), null);
+        ReflectionTestUtils.setField(anonymousSubmitted, "id", FORM_RESPONSE_ID);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousSubmitted));
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.existsByFormIdAndMemberId(FORM_ID, MEMBER_ID)).willReturn(false);
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(inv -> inv.getArgument(0));
+
+        Long result = sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey(rawKey)
+            .requesterMemberId(MEMBER_ID)
+            .build());
+
+        assertThat(result).isEqualTo(FORM_RESPONSE_ID);
+        assertThat(anonymousSubmitted.getRespondentMemberId()).isEqualTo(MEMBER_ID);
+        assertThat(anonymousSubmitted.getResponseAccessKeyHash()).isNull();
+        assertThat(anonymousSubmitted.getStatus())
+            .isEqualTo(com.umc.product.form.domain.enums.FormResponseStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("claimAnonymousResponse: 이미 기명 응답이면 FORM_RESPONSE_ALREADY_CLAIMED")
+    void claimAnonymousResponse_이미_기명_응답이면_예외() {
+        FormResponse namedResponse = draftResponse(); // respondentMemberId = MEMBER_ID
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(namedResponse));
+
+        assertThatThrownBy(() -> sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey("raw")
+            .requesterMemberId(MEMBER_ID + 1)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_ALREADY_CLAIMED);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("claimAnonymousResponse: rawKey hash mismatch 면 FORM_RESPONSE_FORBIDDEN")
+    void claimAnonymousResponse_hash_mismatch_FORBIDDEN() {
+        String rawKey = "raw-key";
+        Form form = publishedForm(false);
+        FormResponse anonymousDraft = FormResponse.createAnonymousDraft(form, "stored-hash");
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn("different-hash");
+
+        assertThatThrownBy(() -> sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey(rawKey)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("claimAnonymousResponse: 중복 불허 폼에서 requester 가 같은 폼에 다른 응답이 있으면 FORM_RESPONSE_ALREADY_EXISTS")
+    void claimAnonymousResponse_중복_불허_폼_기존_응답_있으면_예외() {
+        String rawKey = "raw-key";
+        String hash = "hash";
+        Form form = publishedForm(false);
+        FormResponse anonymousDraft = FormResponse.createAnonymousDraft(form, hash);
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(loadFormResponsePort.existsByFormIdAndMemberId(FORM_ID, MEMBER_ID)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey(rawKey)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_ALREADY_EXISTS);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("claimAnonymousResponse: 중복 허용 폼에서 requester 가 같은 폼에 다른 응답이 있어도 등록 성공")
+    void claimAnonymousResponse_중복_허용_폼_기존_응답_있어도_성공() {
+        String rawKey = "raw-key";
+        String hash = "hash";
+        Form form = publishedForm(true);
+        FormResponse anonymousDraft = FormResponse.createAnonymousDraft(form, hash);
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(anonymousDraft));
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn(hash);
+        given(saveFormResponsePort.save(any(FormResponse.class))).willAnswer(inv -> inv.getArgument(0));
+
+        Long result = sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey(rawKey)
+            .requesterMemberId(MEMBER_ID)
+            .build());
+
+        assertThat(result).isEqualTo(FORM_RESPONSE_ID);
+        assertThat(anonymousDraft.getRespondentMemberId()).isEqualTo(MEMBER_ID);
+        assertThat(anonymousDraft.getResponseAccessKeyHash()).isNull();
+        // 중복 허용 폼은 existsByFormIdAndMemberId 를 아예 호출하지 않는다
+        then(loadFormResponsePort).should(never()).existsByFormIdAndMemberId(any(), any());
+    }
+
+    @Test
+    @DisplayName("claimAnonymousResponse: 존재하지 않는 formResponseId 면 FORM_RESPONSE_NOT_FOUND")
+    void claimAnonymousResponse_없는_응답이면_NOT_FOUND() {
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.claimAnonymousResponse(ClaimAnonymousFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .responseAccessKey("raw")
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_RESPONSE_NOT_FOUND);
+
+        then(saveFormResponsePort).should(never()).save(any());
     }
 
     // ============================================================
