@@ -3,6 +3,7 @@ package com.umc.product.maintenance.domain;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+
 import org.springframework.util.AntPathMatcher;
 
 public enum MaintenanceDomain {
@@ -23,8 +24,7 @@ public enum MaintenanceDomain {
         "/api/v1/notices/**"
     )),
     COMMUNITY(List.of(
-        "/api/v1/posts/**",
-        "/api/v1/trophies/**"
+        "/api/v1/posts/**"
     )),
     ORGANIZATION(List.of(
         "/api/v1/gisu/**",
