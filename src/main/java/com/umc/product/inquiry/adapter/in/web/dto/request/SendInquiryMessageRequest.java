@@ -12,7 +12,7 @@ public record SendInquiryMessageRequest(
     String content,
     List<String> fileMetadataIds
 ) {
-    public SendInquiryMessageCommand toCommand(Long chatRoomId, Long senderMemberId) {
-        return new SendInquiryMessageCommand(chatRoomId, senderMemberId, contentType, content, fileMetadataIds);
+    public SendInquiryMessageCommand toCommand(Long inquiryId, Long senderMemberId) {
+        return new SendInquiryMessageCommand(inquiryId, senderMemberId, contentType, content, fileMetadataIds);
     }
 }

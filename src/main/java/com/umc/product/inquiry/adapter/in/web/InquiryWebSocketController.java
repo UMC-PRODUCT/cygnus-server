@@ -21,9 +21,10 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 문의 채팅방 메시지 STOMP 수신 컨트롤러.
  * <p>
- * 클라이언트는 {@code /app/inquiry/rooms/{chatRoomId}/messages} 로 전송하고,
- * broadcast는 {@code /topic/chat/rooms/{chatRoomId}/messages} 로 구독한다.
- * (broadcast destination은 chat 도메인과 공유한다.)
+ * 클라이언트는 {@code /app/inquiry/{inquiryId}/message} 로 전송한다. (ADR-011 §2)
+ * broadcast는 현재 {@code /topic/chat/rooms/{chatRoomId}/messages} 로 구독한다.
+ * (broadcast destination은 chat 도메인 이벤트 리스너가 처리하며, ADR-011 §2 기준
+ * {@code /topic/inquiry/{inquiryId}} 로의 전환은 후속 PR에서 정렬 예정이다.)
  * <p>
  * 이 컨트롤러는 저장 및 상태 전환만 위임하고 값을 반환하지 않는다.
  * 실시간 broadcast는 메시지 생성 이벤트를 수신하는 {@code ChatMessageBroadcastListener} 가 AFTER_COMMIT에서 처리한다.
@@ -35,14 +36,14 @@ public class InquiryWebSocketController {
 
     private final SendInquiryMessageUseCase sendInquiryMessageUseCase;
 
-    @MessageMapping("/inquiry/rooms/{chatRoomId}/messages")
+    @MessageMapping("/inquiry/{inquiryId}/message")
     public void send(
-        @DestinationVariable Long chatRoomId,
+        @DestinationVariable Long inquiryId,
         @Valid @Payload SendInquiryMessageRequest request,
         Principal principal
     ) {
         Long senderMemberId = extractMemberId(principal);
-        sendInquiryMessageUseCase.send(request.toCommand(chatRoomId, senderMemberId));
+        sendInquiryMessageUseCase.send(request.toCommand(inquiryId, senderMemberId));
     }
 
     // TODO: STOMP handler가 늘어나면 messaging 전용 ArgumentResolver로 분리해

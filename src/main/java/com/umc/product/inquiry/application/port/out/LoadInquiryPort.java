@@ -10,7 +10,5 @@ public interface LoadInquiryPort {
 
     Inquiry getById(Long inquiryId);
 
-    Inquiry getByChatRoomId(Long chatRoomId);
-
     List<Inquiry> listByScope(InquiryAccessScope scope, GetInquiryListQuery filter);
 }

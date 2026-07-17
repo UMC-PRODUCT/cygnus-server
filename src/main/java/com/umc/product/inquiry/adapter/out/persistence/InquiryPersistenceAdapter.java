@@ -33,12 +33,6 @@ public class InquiryPersistenceAdapter implements SaveInquiryPort, LoadInquiryPo
     }
 
     @Override
-    public Inquiry getByChatRoomId(Long chatRoomId) {
-        return inquiryJpaRepository.findByChatRoomId(chatRoomId)
-            .orElseThrow(() -> new InquiryDomainException(InquiryErrorCode.INQUIRY_NOT_FOUND));
-    }
-
-    @Override
     public List<Inquiry> listByScope(InquiryAccessScope scope, GetInquiryListQuery filter) {
         return inquiryQueryRepository.listByScope(scope, filter);
     }

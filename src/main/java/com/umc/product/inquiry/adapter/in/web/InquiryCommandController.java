@@ -26,8 +26,6 @@ import com.umc.product.inquiry.application.port.in.command.TransferInquiryManage
 import com.umc.product.inquiry.application.port.in.command.dto.CloseInquiryCommand;
 import com.umc.product.inquiry.application.port.in.command.dto.MarkInquiryReadCommand;
 import com.umc.product.inquiry.application.port.in.command.dto.SendInquiryMessageCommand;
-import com.umc.product.inquiry.application.port.in.query.GetInquiryUseCase;
-import com.umc.product.inquiry.application.port.in.query.dto.GetInquiryQuery;
 
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -47,7 +45,6 @@ public class InquiryCommandController {
     private final CloseInquiryUseCase closeInquiryUseCase;
     private final MarkInquiryReadUseCase markInquiryReadUseCase;
     private final SendInquiryMessageUseCase sendInquiryMessageUseCase;
-    private final GetInquiryUseCase getInquiryUseCase;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -104,14 +101,11 @@ public class InquiryCommandController {
         @Valid @RequestBody SendInquiryMessageRequest request,
         @CurrentMember MemberPrincipal principal
     ) {
-        Long senderMemberId = principal.getMemberId();
-        Long chatRoomId = getInquiryUseCase.getById(
-            new GetInquiryQuery(inquiryId, senderMemberId)).chatRoomId();
         return InquiryMessageResponse.from(
             sendInquiryMessageUseCase.send(
                 new SendInquiryMessageCommand(
-                    chatRoomId,
-                    senderMemberId,
+                    inquiryId,
+                    principal.getMemberId(),
                     request.contentType(),
                     request.content(),
                     request.fileMetadataIds()

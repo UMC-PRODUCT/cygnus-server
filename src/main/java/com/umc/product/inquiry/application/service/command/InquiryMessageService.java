@@ -40,8 +40,9 @@ public class InquiryMessageService implements SendInquiryMessageUseCase {
 
     @Override
     public ChatMessageInfo send(SendInquiryMessageCommand command) {
-        // 1) 이 채팅방의 문의 로드
-        Inquiry inquiry = loadInquiryPort.getByChatRoomId(command.chatRoomId());
+        // 1) inquiryId로 문의 로드 (컨트롤러에서 chatRoomId 변환 없이 직접 전달)
+        Inquiry inquiry = loadInquiryPort.getById(command.inquiryId());
+        Long chatRoomId = inquiry.getChatRoomId();
 
         // 2) 상태 전환
         //    - CLOSED: 발신자 구분 없이 reopen() (카카오톡 채널 방식)
@@ -60,8 +61,8 @@ public class InquiryMessageService implements SendInquiryMessageUseCase {
         //      CLOSED → reopen() 이 이미 markAsUnread() 를 호출하지만, 중복 호출은 무해하며
         //      RECEIVED/IN_PROGRESS 케이스도 동일하게 처리하기 위해 else 브랜치에서 통합한다.
         if (isOperator) {
-            if (!checkChatRoomAccessUseCase.hasChatRoomAccess(command.senderMemberId(), command.chatRoomId())) {
-                joinChatRoomUseCase.joinChatRoom(new JoinChatRoomCommand(command.chatRoomId(), command.senderMemberId()));
+            if (!checkChatRoomAccessUseCase.hasChatRoomAccess(command.senderMemberId(), chatRoomId)) {
+                joinChatRoomUseCase.joinChatRoom(new JoinChatRoomCommand(chatRoomId, command.senderMemberId()));
             }
             inquiry.markAsRead();
         } else {
@@ -71,7 +72,7 @@ public class InquiryMessageService implements SendInquiryMessageUseCase {
         // 4) 메시지 전송 (chat send 재사용 — DB 저장 + 이벤트 발행, broadcast는 AFTER_COMMIT)
         ChatMessageInfo result = sendChatMessageUseCase.send(
             new SendChatMessageCommand(
-                command.chatRoomId(),
+                chatRoomId,
                 command.senderMemberId(),
                 command.contentType(),
                 command.content(),
