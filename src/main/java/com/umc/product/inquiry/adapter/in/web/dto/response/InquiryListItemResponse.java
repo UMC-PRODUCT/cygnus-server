@@ -1,10 +1,11 @@
 package com.umc.product.inquiry.adapter.in.web.dto.response;
 
+import java.time.Instant;
+
 import com.umc.product.inquiry.application.port.in.query.dto.InquirySummaryInfo;
 import com.umc.product.inquiry.domain.enums.InquiryCategory;
 import com.umc.product.inquiry.domain.enums.InquiryStatus;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
-import java.time.Instant;
 
 public record InquiryListItemResponse(
     Long id,

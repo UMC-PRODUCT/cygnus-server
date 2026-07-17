@@ -1,5 +1,9 @@
 package com.umc.product.inquiry.adapter.out.persistence;
 
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.inquiry.application.access.InquiryAccessScope;
 import com.umc.product.inquiry.application.port.in.query.dto.GetInquiryListQuery;
 import com.umc.product.inquiry.application.port.out.LoadInquiryPort;
@@ -7,9 +11,8 @@ import com.umc.product.inquiry.application.port.out.SaveInquiryPort;
 import com.umc.product.inquiry.domain.Inquiry;
 import com.umc.product.inquiry.domain.exception.InquiryDomainException;
 import com.umc.product.inquiry.domain.exception.InquiryErrorCode;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor

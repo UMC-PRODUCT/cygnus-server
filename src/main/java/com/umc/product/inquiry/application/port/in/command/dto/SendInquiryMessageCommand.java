@@ -1,7 +1,8 @@
 package com.umc.product.inquiry.application.port.in.command.dto;
 
-import com.umc.product.chat.domain.MessageContentType;
 import java.util.List;
+
+import com.umc.product.chat.domain.MessageContentType;
 
 /**
  * 문의 채팅방으로의 메시지 전송 명령.

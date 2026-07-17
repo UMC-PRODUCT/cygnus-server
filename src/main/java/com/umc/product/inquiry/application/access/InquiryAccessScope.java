@@ -1,7 +1,8 @@
 package com.umc.product.inquiry.application.access;
 
-import com.umc.product.inquiry.domain.enums.InquiryTarget;
 import java.util.List;
+
+import com.umc.product.inquiry.domain.enums.InquiryTarget;
 
 /**
  * 문의 목록 조회 시 적용되는 가시 범위.

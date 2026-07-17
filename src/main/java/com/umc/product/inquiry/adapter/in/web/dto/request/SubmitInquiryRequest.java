@@ -3,6 +3,7 @@ package com.umc.product.inquiry.adapter.in.web.dto.request;
 import com.umc.product.inquiry.application.port.in.command.dto.SubmitInquiryCommand;
 import com.umc.product.inquiry.domain.enums.InquiryCategory;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
+
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
@@ -13,14 +14,11 @@ import jakarta.validation.constraints.NotNull;
  * authorMemberId는 인증 주체에서 채워진다.
  */
 public record SubmitInquiryRequest(
-    @NotBlank(message = "제목은 필수입니다.")
-    String title,
+    @NotBlank(message = "제목은 필수입니다.") String title,
 
-    @NotBlank(message = "내용은 필수입니다.")
-    String content,
+    @NotBlank(message = "내용은 필수입니다.") String content,
 
-    @NotNull(message = "카테고리는 필수입니다.")
-    InquiryCategory category,
+    @NotNull(message = "카테고리는 필수입니다.") InquiryCategory category,
 
     @NotNull(message = "문의 대상(target)은 필수입니다.")
     InquiryTarget target,

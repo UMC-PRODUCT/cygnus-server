@@ -1,6 +1,7 @@
 package com.umc.product.inquiry.adapter.in.web.dto.request;
 
 import com.umc.product.inquiry.application.port.in.command.dto.AssignInquiryManagerCommand;
+
 import jakarta.validation.constraints.NotNull;
 
 public record AssignInquiryManagerRequest(

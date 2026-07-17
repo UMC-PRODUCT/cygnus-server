@@ -2,6 +2,10 @@ package com.umc.product.inquiry.adapter.out.persistence;
 
 import static com.umc.product.inquiry.domain.QInquiry.inquiry;
 
+import java.util.List;
+
+import org.springframework.stereotype.Repository;
+
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -12,9 +16,8 @@ import com.umc.product.inquiry.application.access.InquiryAccessScope.TargetCondi
 import com.umc.product.inquiry.application.port.in.query.dto.GetInquiryListQuery;
 import com.umc.product.inquiry.domain.Inquiry;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Repository;
 
 @Repository
 @RequiredArgsConstructor

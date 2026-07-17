@@ -1,19 +1,22 @@
 package com.umc.product.inquiry.adapter.in.web;
 
-import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
-import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.inquiry.adapter.in.web.dto.request.SendInquiryMessageRequest;
-import com.umc.product.inquiry.application.port.in.command.SendInquiryMessageUseCase;
-import jakarta.validation.Valid;
 import java.security.Principal;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+
+import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
+import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.inquiry.adapter.in.web.dto.request.SendInquiryMessageRequest;
+import com.umc.product.inquiry.application.port.in.command.SendInquiryMessageUseCase;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 문의 채팅방 메시지 STOMP 수신 컨트롤러.

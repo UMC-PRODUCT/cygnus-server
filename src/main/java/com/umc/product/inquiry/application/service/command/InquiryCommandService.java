@@ -1,5 +1,8 @@
 package com.umc.product.inquiry.application.service.command;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.chat.application.port.in.command.CreateChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
@@ -30,9 +33,8 @@ import com.umc.product.inquiry.domain.enums.InquiryTarget;
 import com.umc.product.inquiry.domain.exception.InquiryDomainException;
 import com.umc.product.inquiry.domain.exception.InquiryErrorCode;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 문의 생성 및 운영진 관리(담당자 지정/이관, 종료) 흐름을 단일 트랜잭션으로 엮는다.

@@ -1,10 +1,11 @@
 package com.umc.product.inquiry.application.port.in.query.dto;
 
+import java.util.List;
+
 import com.umc.product.inquiry.domain.Inquiry;
 import com.umc.product.inquiry.domain.enums.InquiryCategory;
 import com.umc.product.inquiry.domain.enums.InquiryStatus;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
-import java.util.List;
 
 /**
  * 문의 조회/생성 결과 정보. 도메인 엔티티(Inquiry)를 외부 계층에 노출하지 않기 위한 전달용 record.

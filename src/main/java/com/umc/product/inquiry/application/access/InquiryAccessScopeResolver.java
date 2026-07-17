@@ -1,5 +1,10 @@
 package com.umc.product.inquiry.application.access;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.common.domain.enums.OrganizationType;
@@ -7,10 +12,8 @@ import com.umc.product.inquiry.application.access.InquiryAccessScope.OperatorSco
 import com.umc.product.inquiry.application.access.InquiryAccessScope.OwnedOnly;
 import com.umc.product.inquiry.application.access.InquiryAccessScope.TargetCondition;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
-import java.util.ArrayList;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * 요청 멤버의 역할 목록을 기반으로 문의 목록 조회 가시 범위를 결정한다.

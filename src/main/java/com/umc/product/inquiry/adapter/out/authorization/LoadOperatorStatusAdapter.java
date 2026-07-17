@@ -1,11 +1,13 @@
 package com.umc.product.inquiry.adapter.out.authorization;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.inquiry.application.port.out.LoadOperatorStatusPort;
 import com.umc.product.inquiry.application.port.out.dto.LoadOperatorStatusContext;
 import com.umc.product.inquiry.domain.Inquiry;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * 운영진 판정 어댑터.

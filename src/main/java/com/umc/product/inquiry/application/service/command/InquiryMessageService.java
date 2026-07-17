@@ -1,5 +1,8 @@
 package com.umc.product.inquiry.application.service.command;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.SendChatMessageUseCase;
 import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
@@ -14,9 +17,8 @@ import com.umc.product.inquiry.application.port.out.SaveInquiryPort;
 import com.umc.product.inquiry.application.port.out.dto.LoadOperatorStatusContext;
 import com.umc.product.inquiry.domain.Inquiry;
 import com.umc.product.inquiry.domain.enums.InquiryStatus;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 문의 메시지 전송 흐름을 단일 트랜잭션으로 엮는다.

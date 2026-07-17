@@ -1,9 +1,10 @@
 package com.umc.product.inquiry.adapter.in.web.dto.response;
 
-import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
-import com.umc.product.chat.domain.MessageContentType;
 import java.time.Instant;
 import java.util.List;
+
+import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
+import com.umc.product.chat.domain.MessageContentType;
 
 public record InquiryMessageResponse(
     Long messageId,
