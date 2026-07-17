@@ -28,6 +28,15 @@ public interface GetFormUseCase {
     FormInfo getById(Long formId);
 
     /**
+     * 여러 Form의 메타데이터를 요청 ID의 첫 등장 순서로 조회한다.
+     * <p>
+     * 입력된 모든 formId는 존재해야 한다. 누락 시 FORM_NOT_FOUND 예외.
+     *
+     * @return formId -> Form 메타데이터
+     */
+    Map<Long, FormInfo> batchGetByIds(Collection<Long> formIds);
+
+    /**
      * 폼 전체 구조(섹션 → 질문 → 옵션 중첩)를 한 번에 조회.
      * 편집기 초기 로딩이나 응답자 UI 렌더링 시 N+1 왕복을 피하기 위한 facade.
      */

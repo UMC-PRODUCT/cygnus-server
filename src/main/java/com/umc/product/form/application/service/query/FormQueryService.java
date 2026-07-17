@@ -55,6 +55,32 @@ public class FormQueryService implements GetFormUseCase {
     }
 
     @Override
+    public Map<Long, FormInfo> batchGetByIds(Collection<Long> formIds) {
+        if (formIds == null || formIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> uniqueFormIds = formIds.stream()
+            .distinct()
+            .toList();
+
+        Map<Long, FormInfo> formsById = loadFormPort.batchGetByIds(uniqueFormIds).stream()
+            .collect(Collectors.toMap(
+                Form::getId,
+                FormInfo::from,
+                (left, right) -> left
+            ));
+
+        return uniqueFormIds.stream()
+            .collect(Collectors.toMap(
+                formId -> formId,
+                formsById::get,
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+    }
+
+    @Override
     public FormWithStructureInfo getFormWithStructure(Long formId) {
         Form form = loadFormPort.findById(formId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));

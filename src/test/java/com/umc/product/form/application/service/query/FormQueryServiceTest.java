@@ -2,8 +2,12 @@ package com.umc.product.form.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormInfo;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.LoadFormSectionPort;
@@ -154,6 +160,52 @@ class FormQueryServiceTest {
         assertThat(result.sections().get(0).questions())
             .extracting(FormWithStructureInfo.QuestionWithOptions::questionId)
             .containsExactly(20L);
+    }
+
+    @Test
+    @DisplayName("batchGetByIds_중복_ID는_첫_등장_순서로_제거하고_메타데이터만_반환함")
+    void batchGetByIds_중복_ID_첫_등장_순서_메타데이터_반환() {
+        // given
+        Form form20 = createForm(20L);
+        Form form10 = createForm(10L);
+        Form form30 = createForm(30L);
+        List<Long> requestedIds = List.of(20L, 10L, 20L, 30L, 10L);
+        given(loadFormPort.batchGetByIds(List.of(20L, 10L, 30L)))
+            .willReturn(List.of(form10, form30, form20));
+        GetFormUseCase useCase = sut;
+
+        // when
+        Map<Long, FormInfo> result = useCase.batchGetByIds(requestedIds);
+
+        // then
+        assertThat(result.keySet()).containsExactly(20L, 10L, 30L);
+        assertThat(result.get(20L).id()).isEqualTo(20L);
+        assertThat(result.get(10L).id()).isEqualTo(10L);
+        assertThat(result.get(30L).id()).isEqualTo(30L);
+        verify(loadFormPort, times(1)).batchGetByIds(List.of(20L, 10L, 30L));
+        verifyNoInteractions(loadFormSectionPort, loadQuestionPort, loadQuestionOptionPort);
+    }
+
+    @Test
+    @DisplayName("batchGetByIds_null이면_빈_맵을_반환하고_모든_port를_호출하지_않음")
+    void batchGetByIds_null_빈_맵_반환_포트_미호출() {
+        // when
+        Map<Long, FormInfo> result = sut.batchGetByIds(null);
+
+        // then
+        assertThat(result).isEqualTo(Map.of());
+        verifyNoInteractions(loadFormPort, loadFormSectionPort, loadQuestionPort, loadQuestionOptionPort);
+    }
+
+    @Test
+    @DisplayName("batchGetByIds_빈_컬렉션이면_빈_맵을_반환하고_모든_port를_호출하지_않음")
+    void batchGetByIds_빈_컬렉션_빈_맵_반환_포트_미호출() {
+        // when
+        Map<Long, FormInfo> result = sut.batchGetByIds(List.of());
+
+        // then
+        assertThat(result).isEqualTo(Map.of());
+        verifyNoInteractions(loadFormPort, loadFormSectionPort, loadQuestionPort, loadQuestionOptionPort);
     }
 
     // ============================================================
