@@ -59,7 +59,7 @@ public class StompChannelInterceptor implements ChannelInterceptor {
         // WebSocket 세션에 인증 정보 바인딩 - 이후 메시지에서 Principal로 접근 가능
         accessor.setUser(authentication);
 
-        log.info("WebSocket CONNECT 인증 성공: memberId={}", memberId);
+        log.info("WebSocket 연결 인증에 성공했습니다: memberId={}", memberId);
 
         return message;
     }
