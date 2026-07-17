@@ -55,6 +55,8 @@ public enum FormErrorCode implements BaseCode {
         "한 섹션에는 조건부 이동을 지정한 질문을 하나만 둘 수 있어요. 다른 질문의 이동 설정을 먼저 해제해주세요."),
     FORM_RESPONSE_ALREADY_CLAIMED(HttpStatus.CONFLICT, "FORM-0040",
         "이미 다른 사용자에게 등록된 응답이에요. 응답을 다시 확인해주세요."),
+    DRAFT_SCHEMA_MISMATCH(HttpStatus.BAD_REQUEST, "FORM-0041",
+        "폼이 수정되었어요. 아래 질문의 답변을 다시 확인해주세요."),
     ;
 
     private final HttpStatus httpStatus;

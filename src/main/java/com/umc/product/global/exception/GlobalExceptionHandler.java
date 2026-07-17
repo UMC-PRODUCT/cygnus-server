@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.umc.product.form.domain.exception.DraftSchemaMismatchException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.response.ApiErrorResponseFactory;
 import com.umc.product.global.response.ApiResponse;
@@ -171,6 +172,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             : e.getMessage();
 
         return buildResponse(e, CommonErrorCode.INTERNAL_SERVER_ERROR, HttpHeaders.EMPTY, request, errorDetail);
+    }
+
+    /**
+     * draft 제출 시 스키마 재검증 실패 처리 — 응답 body 에 staleQuestionIds 목록을 함께 노출한다.
+     */
+    @ExceptionHandler(DraftSchemaMismatchException.class)
+    public ResponseEntity<Object> onDraftSchemaMismatch(DraftSchemaMismatchException e, WebRequest request) {
+        log.warn("[BUSINESS EXCEPTION] domain={}, code={}, staleQuestionIds={}",
+            e.getDomain(), e.getBaseCode().getCode(), e.getStaleQuestionIds());
+
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("staleQuestionIds", e.getStaleQuestionIds());
+        ApiResponse<Object> body = ApiErrorResponseFactory.from(e.getBaseCode(), detail);
+        return super.handleExceptionInternal(
+            e,
+            body,
+            HttpHeaders.EMPTY,
+            e.getBaseCode().getHttpStatus(),
+            request
+        );
     }
 
     @ExceptionHandler(value = BusinessException.class)

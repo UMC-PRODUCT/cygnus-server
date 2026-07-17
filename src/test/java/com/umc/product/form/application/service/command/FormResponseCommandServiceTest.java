@@ -55,6 +55,7 @@ import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.form.domain.exception.DraftSchemaMismatchException;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
@@ -211,6 +212,7 @@ class   FormResponseCommandServiceTest {
         ReflectionTestUtils.setField(answered, "id", 1000L);
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(commonRequiredQuestion));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(commonRequiredQuestion));
 
@@ -250,9 +252,12 @@ class   FormResponseCommandServiceTest {
         Question answeredRequiredQuestion = questionInSection(10L, section, true);
         Question missingRequiredQuestion = questionInSection(20L, section, true);
 
+        Answer answered = answer(draft, answeredRequiredQuestion);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, answeredRequiredQuestion)));
+            .willReturn(List.of(answered));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(answeredRequiredQuestion));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(answeredRequiredQuestion, missingRequiredQuestion));
@@ -334,9 +339,12 @@ class   FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         Question q10 = question(10L, false);
         Question hiddenQuestion = question(20L, false);
+        Answer hiddenAnswer = answer(draft, hiddenQuestion);
+        ReflectionTestUtils.setField(hiddenAnswer, "id", 1000L);
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, hiddenQuestion)));
+            .willReturn(List.of(hiddenAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(20L))).willReturn(List.of(hiddenQuestion));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, hiddenQuestion));
 
         assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
@@ -365,6 +373,7 @@ class   FormResponseCommandServiceTest {
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(requiredAnswered));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(requiredAnswered, optionalUnanswered));
@@ -401,6 +410,7 @@ class   FormResponseCommandServiceTest {
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(q10));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
@@ -412,8 +422,8 @@ class   FormResponseCommandServiceTest {
             .allowedQuestionIds(Set.of(10L))
             .build());
 
-        // then — Q20은 allowedQuestionIds 밖이므로 listByIdIn 호출 안 됨
-        then(loadQuestionPort).should(never()).listByIdIn(any());
+        // then — 미답변 질문 없으므로 saveEmpty용 listByIdIn 호출 안 됨 (Q20 도 allowed 밖이라 대상 아님)
+        then(loadQuestionPort).should(never()).listByIdIn(argThat(ids -> ids.contains(20L)));
     }
 
     @Test
@@ -432,6 +442,7 @@ class   FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(answered10, answered20));
+        given(loadQuestionPort.listByIdIn(Set.of(10L, 20L))).willReturn(List.of(q10, q20));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
@@ -443,8 +454,9 @@ class   FormResponseCommandServiceTest {
             .allowedQuestionIds(Set.of(10L, 20L))
             .build());
 
-        // then — 미답변 질문 없으므로 listByIdIn 호출 안 함
-        then(loadQuestionPort).should(never()).listByIdIn(any());
+        // then — 미답변 질문 없으므로 saveEmpty 용 listByIdIn (unanswered 대상) 호출 안 됨.
+        // 재검증용 listByIdIn(referenced Q ids) 은 정상 호출됐다.
+        then(saveAnswerPort).should(never()).saveAll(argThat(list -> !list.isEmpty()));
     }
 
     @Test
@@ -454,10 +466,13 @@ class   FormResponseCommandServiceTest {
         FormResponse draft = draftResponse();
         FormSection section = section(1L, 1L);
         Question q = questionInSection(10L, section, true);
+        Answer answered = answer(draft, q);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
-            .willReturn(List.of(answer(draft, q)));
+            .willReturn(List.of(answered));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(q));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q));
 
@@ -467,8 +482,8 @@ class   FormResponseCommandServiceTest {
             .requesterMemberId(MEMBER_ID)
             .build());
 
-        // then — allowedQuestionIds null → early return
-        then(loadQuestionPort).should(never()).listByIdIn(any());
+        // then — allowedQuestionIds null → saveEmpty 진입 안 함 (빈 answer 저장 없음)
+        then(saveAnswerPort).should(never()).saveAll(argThat(list -> !list.isEmpty()));
     }
 
     @Test
@@ -556,6 +571,8 @@ class   FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(radioAnswer, optionalAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L, 30L)))
+            .willReturn(List.of(qRadio, qOptional));
         given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
             // radioAnswer → o1 선택
             var mockChoice = org.mockito.Mockito.mock(
@@ -567,7 +584,7 @@ class   FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(qRadio, qRequiredInSkipped, qOptional));
-        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+        given(loadQuestionOptionPort.listByQuestionIdIn(argThat(ids -> ids.contains(qRadio.getId()))))
             .willReturn(List.of(o1));
 
         // when — S2의 필수 질문(qRequiredInSkipped)은 미답변이지만 건너뛴 섹션이므로 예외 없음
@@ -601,6 +618,7 @@ class   FormResponseCommandServiceTest {
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(radioAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qRadio));
         given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
             var mockChoice = org.mockito.Mockito.mock(
                 com.umc.product.form.domain.AnswerChoice.class);
@@ -611,8 +629,9 @@ class   FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(qRadio, qRequiredInSkipped, qOptional));
-        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+        given(loadQuestionOptionPort.listByQuestionIdIn(argThat(ids -> ids.contains(qRadio.getId()))))
             .willReturn(List.of(o1));
+        given(loadQuestionPort.listByIdIn(Set.of(30L))).willReturn(List.of(qOptional));
 
         // when — caller 가 Q20(건너뛴 섹션 소속)을 required 로 넘겨도 건너뛴 섹션이므로 통과
         sut.submitDraft(SubmitDraftFormResponseCommand.builder()
@@ -639,6 +658,7 @@ class   FormResponseCommandServiceTest {
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(q10));
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
         given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(q10, q20));
 
@@ -1475,6 +1495,8 @@ class   FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(radioAnswer, orphanAnswer, onPathAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L, 20L, 30L)))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
         given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
             var mockChoice = org.mockito.Mockito.mock(
                 com.umc.product.form.domain.AnswerChoice.class);
@@ -1485,7 +1507,7 @@ class   FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(qRadio, qInSkipped, qOptional));
-        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+        given(loadQuestionOptionPort.listByQuestionIdIn(argThat(ids -> ids.contains(qRadio.getId()))))
             .willReturn(List.of(o1));
 
         // when
@@ -1529,6 +1551,8 @@ class   FormResponseCommandServiceTest {
             .willReturn(Optional.of(anonymousDraft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(radioAnswer, orphanAnswer, onPathAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L, 20L, 30L)))
+            .willReturn(List.of(qRadio, qInSkipped, qOptional));
         given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
             var mockChoice = org.mockito.Mockito.mock(
                 com.umc.product.form.domain.AnswerChoice.class);
@@ -1539,7 +1563,7 @@ class   FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(qRadio, qInSkipped, qOptional));
-        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+        given(loadQuestionOptionPort.listByQuestionIdIn(argThat(ids -> ids.contains(qRadio.getId()))))
             .willReturn(List.of(o1));
 
         sut.submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand.builder()
@@ -1573,6 +1597,7 @@ class   FormResponseCommandServiceTest {
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
             .willReturn(List.of(radioAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qRadio));
         given(loadAnswerPort.listChoicesByAnswerIdIn(any())).willAnswer(inv -> {
             var mockChoice = org.mockito.Mockito.mock(
                 com.umc.product.form.domain.AnswerChoice.class);
@@ -1583,7 +1608,7 @@ class   FormResponseCommandServiceTest {
         given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(s1, s2, s3));
         given(loadQuestionPort.listByFormId(FORM_ID))
             .willReturn(List.of(qRadio, qInSkipped, qOptional));
-        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(qRadio.getId())))
+        given(loadQuestionOptionPort.listByQuestionIdIn(argThat(ids -> ids.contains(qRadio.getId()))))
             .willReturn(List.of(o1));
         given(loadQuestionPort.listByIdIn(Set.of(30L))).willReturn(List.of(qOptional));
 
@@ -1599,6 +1624,294 @@ class   FormResponseCommandServiceTest {
         then(saveAnswerPort).should().saveAll(argThat(answers ->
             answers.size() == 1 && answers.get(0).getQuestion().getId().equals(30L)
         ));
+    }
+
+    // ============================================================
+    //     draft 제출 시 저장된 답변의 현재 스키마 재검증
+    // ============================================================
+
+    @Test
+    @DisplayName("submitDraft: 저장된 RADIO 답변이 현재 옵션에 없으면 거부")
+    void submitDraft_저장된_RADIO_답변이_현재_옵션에_없으면_거부() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, section);
+        Answer radioAnswer = answer(draft, qRadio);
+        ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
+
+        // 저장 시점 옵션 (id=100) — draft 이후 삭제된 상황을 재현하기 위해 현재 옵션 목록에는 다른 옵션만 존재
+        QuestionOption oldOption = QuestionOption.create("삭제된 옵션", 1L, false);
+        ReflectionTestUtils.setField(oldOption, "id", 100L);
+        ReflectionTestUtils.setField(oldOption, "question", qRadio);
+        QuestionOption newOption = QuestionOption.create("현재 옵션", 1L, false);
+        ReflectionTestUtils.setField(newOption, "id", 200L);
+        ReflectionTestUtils.setField(newOption, "question", qRadio);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(radioAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qRadio));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(10L))).willReturn(List.of(newOption));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(Set.of(1000L))).willAnswer(inv -> {
+            var mockChoice = org.mockito.Mockito.mock(
+                com.umc.product.form.domain.AnswerChoice.class);
+            given(mockChoice.getAnswer()).willReturn(radioAnswer);
+            given(mockChoice.getQuestionOption()).willReturn(oldOption);
+            return List.of(mockChoice);
+        });
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactly(10L));
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("submitDraft: 저장된 CHECKBOX 답변이 현재 옵션에 없으면 거부")
+    void submitDraft_저장된_CHECKBOX_답변이_현재_옵션에_없으면_거부() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qCheckbox = questionInSection(10L, QuestionType.CHECKBOX, false, section);
+        Answer checkboxAnswer = answer(draft, qCheckbox);
+        ReflectionTestUtils.setField(checkboxAnswer, "id", 1000L);
+
+        QuestionOption keptOption = QuestionOption.create("유지 옵션", 1L, false);
+        ReflectionTestUtils.setField(keptOption, "id", 100L);
+        ReflectionTestUtils.setField(keptOption, "question", qCheckbox);
+        QuestionOption removedOption = QuestionOption.create("삭제된 옵션", 2L, false);
+        ReflectionTestUtils.setField(removedOption, "id", 200L);
+        ReflectionTestUtils.setField(removedOption, "question", qCheckbox);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(checkboxAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qCheckbox));
+        // 현재 스키마: keptOption 만 남음 (removedOption 은 삭제됨)
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(10L))).willReturn(List.of(keptOption));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(Set.of(1000L))).willAnswer(inv -> {
+            var kept = org.mockito.Mockito.mock(com.umc.product.form.domain.AnswerChoice.class);
+            given(kept.getAnswer()).willReturn(checkboxAnswer);
+            given(kept.getQuestionOption()).willReturn(keptOption);
+            var removed = org.mockito.Mockito.mock(com.umc.product.form.domain.AnswerChoice.class);
+            given(removed.getAnswer()).willReturn(checkboxAnswer);
+            given(removed.getQuestionOption()).willReturn(removedOption);
+            return List.of(kept, removed);
+        });
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactly(10L));
+    }
+
+    @Test
+    @DisplayName("submitDraft: 저장된 TEXT 답변의 타입이 SCHEDULE 로 바뀌면 거부")
+    void submitDraft_저장된_TEXT_답변의_타입이_SCHEDULE로_바뀌면_거부() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qCurrent = questionInSection(10L, QuestionType.SCHEDULE, false, section);
+        // 저장된 답변은 SHORT_TEXT 였는데 이후 SCHEDULE 로 type 이 바뀐 상황
+        Answer textAnswer = Answer.create(draft, qCurrent, QuestionType.SHORT_TEXT, "저장된 텍스트", null);
+        ReflectionTestUtils.setField(textAnswer, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(textAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qCurrent));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactly(10L));
+    }
+
+    @Test
+    @DisplayName("submitDraft: 저장된 FILE 답변의 fileId 가 스토리지에 없으면 거부")
+    void submitDraft_저장된_FILE_답변의_fileId가_스토리지에_없으면_거부() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qFile = questionInSection(10L, QuestionType.FILE, false, section);
+        Answer fileAnswer = Answer.create(
+            draft, qFile, QuestionType.FILE, null, Set.of("file-missing")
+        );
+        ReflectionTestUtils.setField(fileAnswer, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(fileAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qFile));
+        given(getFileUseCase.existsById("file-missing")).willReturn(false);
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactly(10L));
+    }
+
+    @Test
+    @DisplayName("submitDraft: 여러 질문이 stale 이면 모두 staleQuestionIds 에 포함")
+    void submitDraft_여러_질문이_stale이면_모두_staleQuestionIds에_포함() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qRadio = questionInSection(10L, QuestionType.RADIO, false, section);
+        Question qCurrentFile = questionInSection(20L, QuestionType.FILE, false, section);
+
+        Answer radioAnswer = answer(draft, qRadio);
+        ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
+        // Q20 은 draft 시점 SHORT_TEXT 였으나 이후 FILE 로 type 변경됨
+        Answer textAnswer = Answer.create(draft, qCurrentFile, QuestionType.SHORT_TEXT, "텍스트", null);
+        ReflectionTestUtils.setField(textAnswer, "id", 1001L);
+
+        QuestionOption removed = QuestionOption.create("삭제된 옵션", 1L, false);
+        ReflectionTestUtils.setField(removed, "id", 100L);
+        ReflectionTestUtils.setField(removed, "question", qRadio);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
+            .willReturn(List.of(radioAnswer, textAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L, 20L)))
+            .willReturn(List.of(qRadio, qCurrentFile));
+        // 현재 옵션 목록 비어있음 — Q10 의 저장된 옵션은 이제 없음
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(10L))).willReturn(List.of());
+        given(loadAnswerPort.listChoicesByAnswerIdIn(Set.of(1000L))).willAnswer(inv -> {
+            var mockChoice = org.mockito.Mockito.mock(com.umc.product.form.domain.AnswerChoice.class);
+            given(mockChoice.getAnswer()).willReturn(radioAnswer);
+            given(mockChoice.getQuestionOption()).willReturn(removed);
+            return List.of(mockChoice);
+        });
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactlyInAnyOrder(10L, 20L));
+    }
+
+    @Test
+    @DisplayName("submitDraft: 스키마가 그대로면 회귀 없이 통과")
+    void submitDraft_스키마가_그대로면_회귀_없이_통과() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qText = questionInSection(10L, QuestionType.SHORT_TEXT, false, section);
+        Answer textAnswer = answer(draft, qText);
+        ReflectionTestUtils.setField(textAnswer, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(textAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qText));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(qText));
+
+        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build());
+
+        then(saveFormResponsePort).should().save(draft);
+        then(saveAnswerPort).should(never())
+            .deleteByFormResponseIdAndQuestionIdIn(any(), any());
+    }
+
+    @Test
+    @DisplayName("submitDraft: 참조 Question 이 하드 삭제된 answer 는 무언 제거 후 나머지만 검증")
+    void submitDraft_참조_Question이_하드_삭제된_answer는_무언_제거_후_나머지만_검증() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        Question qKept = questionInSection(10L, QuestionType.SHORT_TEXT, false, section);
+        Question qHardDeletedRef = questionInSection(999L, QuestionType.SHORT_TEXT, false, section);
+
+        Answer keptAnswer = answer(draft, qKept);
+        ReflectionTestUtils.setField(keptAnswer, "id", 1000L);
+        Answer orphanRefAnswer = answer(draft, qHardDeletedRef);
+        ReflectionTestUtils.setField(orphanRefAnswer, "id", 1001L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID))
+            .willReturn(List.of(keptAnswer, orphanRefAnswer));
+        // Q999 는 DB 에서 이미 하드 삭제 — listByIdIn 결과에서 빠짐
+        given(loadQuestionPort.listByIdIn(Set.of(10L, 999L))).willReturn(List.of(qKept));
+        given(loadFormSectionPort.listByFormId(FORM_ID)).willReturn(List.of(section));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(qKept));
+
+        sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build());
+
+        // 하드 삭제된 참조는 조용히 제거되고, 나머지는 검증 통과 → 정상 제출
+        then(saveAnswerPort).should()
+            .deleteByFormResponseIdAndQuestionIdIn(FORM_RESPONSE_ID, Set.of(999L));
+        then(saveFormResponsePort).should().save(draft);
+    }
+
+    @Test
+    @DisplayName("submitDraft: 참조가 비활성 fork 원본이면 재검증에서 거부")
+    void submitDraft_참조가_비활성_fork_원본이면_거부() {
+        FormResponse draft = draftResponse();
+        FormSection section = section(1L, 1L);
+        // 저장된 답변이 가리키는 fork 원본 (isActive=false)
+        Question qForkParent = questionInSection(10L, QuestionType.SHORT_TEXT, false, section);
+        qForkParent.deactivate();
+        Answer answered = answer(draft, qForkParent);
+        ReflectionTestUtils.setField(answered, "id", 1000L);
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answered));
+        // listByIdIn 은 isActive 무관으로 fork 원본 row 를 그대로 반환
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qForkParent));
+
+        // fork 로 활성 스키마가 교체된 상태 → draft 는 stale 로 판정되어 400
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactly(10L));
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("submitAnonymousDraft: 같은 방식으로 동작 — 스키마 어긋난 답변 거부")
+    void submitAnonymousDraft_같은_방식으로_동작() {
+        Form form = publishedForm(true);
+        FormResponse anonymousDraft = FormResponse.createAnonymousDraft(form, "hash");
+        ReflectionTestUtils.setField(anonymousDraft, "id", FORM_RESPONSE_ID);
+
+        FormSection section = section(1L, 1L);
+        Question qCurrent = questionInSection(10L, QuestionType.LONG_TEXT, false, section);
+        // 저장 시점 SHORT_TEXT, 이후 LONG_TEXT 로 변경된 상황
+        Answer textAnswer = Answer.create(
+            anonymousDraft, qCurrent, QuestionType.SHORT_TEXT, "저장된 텍스트", null
+        );
+        ReflectionTestUtils.setField(textAnswer, "id", 1000L);
+
+        String rawKey = "raw";
+        given(secureTokenGenerator.sha256Hex(rawKey)).willReturn("hash");
+        given(loadFormResponsePort.findDraftByAccessKeyHash("hash"))
+            .willReturn(Optional.of(anonymousDraft));
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(textAnswer));
+        given(loadQuestionPort.listByIdIn(Set.of(10L))).willReturn(List.of(qCurrent));
+
+        assertThatThrownBy(() -> sut.submitAnonymousDraft(SubmitAnonymousDraftFormResponseCommand.builder()
+            .responseAccessKey(rawKey)
+            .build()))
+            .isInstanceOf(DraftSchemaMismatchException.class)
+            .satisfies(ex -> assertThat(((DraftSchemaMismatchException) ex).getStaleQuestionIds())
+                .containsExactly(10L));
     }
 
     private Form publishedForm(boolean allowDuplicateResponses) {
@@ -1641,6 +1954,11 @@ class   FormResponseCommandServiceTest {
     }
 
     private Answer answer(FormResponse formResponse, Question question) {
-        return Answer.create(formResponse, question, QuestionType.SHORT_TEXT, "답변", null);
+        QuestionType type = question.getType();
+        String textValue = switch (type) {
+            case SHORT_TEXT, LONG_TEXT, PORTFOLIO -> "답변";
+            default -> null;
+        };
+        return Answer.create(formResponse, question, type, textValue, null);
     }
 }

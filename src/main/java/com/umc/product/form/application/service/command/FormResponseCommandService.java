@@ -53,6 +53,7 @@ import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.form.domain.exception.DraftSchemaMismatchException;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.global.exception.constant.Domain;
@@ -203,6 +204,10 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
+        // draft 저장 이후 폼 스키마가 바뀌었는지 재검증한다.
+        // - 참조 Question 이 하드 삭제된 answer 는 조용히 정리 후 나머지만 검증
+        // - 남은 answer 가 현재 스키마 (type / 옵션 / 파일) 와 어긋나면 DRAFT_SCHEMA_MISMATCH 로 거부
+        savedAnswers = revalidateDraftAnswersAgainstSchema(draft, savedAnswers);
         Set<Long> answeredQuestionIds = savedAnswers.stream()
             .map(answer -> answer.getQuestion().getId())
             .collect(Collectors.toSet());
@@ -364,6 +369,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
+        savedAnswers = revalidateDraftAnswersAgainstSchema(draft, savedAnswers);
         Set<Long> answeredQuestionIds = savedAnswers.stream()
             .map(answer -> answer.getQuestion().getId())
             .collect(Collectors.toSet());
@@ -718,6 +724,159 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         return questionIds.stream()
             .filter(id -> !orphanQuestionIds.contains(id))
             .collect(Collectors.toSet());
+    }
+
+    /**
+     * draft 제출 시 저장돼 있던 answer 를 현재 스키마와 대조한다.
+     * <p>
+     * 순서:
+     * <ol>
+     *   <li>참조 Question 이 하드 삭제된 answer 는 조용히 삭제 (INFO 로그) 후 나머지 리스트로 이어간다.</li>
+     *   <li>남은 answer 를 현재 Question 의 type / 옵션 / 파일과 대조한다.
+     *       어긋난 answer 의 questionId 를 모아 {@link DraftSchemaMismatchException} 으로 400 응답.</li>
+     * </ol>
+     * <p>
+     * 참조 Question 이 {@code isActive=false} (#822 fork 로 새 활성 버전이 생긴 상태) 이면 stale 로 판정한다.
+     * fork 는 이미 SUBMITTED 된 응답의 스키마 보존이 목적이고, draft 는 아직 확정 전이라 fork 발생 시 새 활성 스키마 기준 재확인이 더 안전하다.
+     * <p>
+     * 반환값: hard-deleted 참조를 제외한 살아남은 answer 목록. 이후 필수 검증, 방문 경로 계산, orphan 정리에 사용.
+     */
+    private List<Answer> revalidateDraftAnswersAgainstSchema(FormResponse draft, List<Answer> savedAnswers) {
+        if (savedAnswers.isEmpty()) {
+            return savedAnswers;
+        }
+
+        Long formResponseId = draft.getId();
+
+        Set<Long> referencedQuestionIds = savedAnswers.stream()
+            .map(a -> a.getQuestion().getId())
+            .collect(Collectors.toSet());
+        List<Question> existingQuestions = loadQuestionPort.listByIdIn(referencedQuestionIds);
+        Set<Long> existingQuestionIds = existingQuestions.stream()
+            .map(Question::getId)
+            .collect(Collectors.toSet());
+
+        List<Answer> survivingAnswers;
+        Set<Long> hardDeletedIds = referencedQuestionIds.stream()
+            .filter(id -> !existingQuestionIds.contains(id))
+            .collect(Collectors.toSet());
+        if (!hardDeletedIds.isEmpty()) {
+            int discarded = saveAnswerPort.deleteByFormResponseIdAndQuestionIdIn(formResponseId, hardDeletedIds);
+            if (discarded > 0) {
+                log.info(
+                    "Discarded {} answers referencing hard-deleted questions on draft submit for form_response={}",
+                    discarded,
+                    formResponseId
+                );
+            }
+            survivingAnswers = savedAnswers.stream()
+                .filter(a -> existingQuestionIds.contains(a.getQuestion().getId()))
+                .toList();
+        } else {
+            survivingAnswers = savedAnswers;
+        }
+
+        if (survivingAnswers.isEmpty()) {
+            return survivingAnswers;
+        }
+
+        Map<Long, Question> questionById = existingQuestions.stream()
+            .collect(Collectors.toMap(Question::getId, Function.identity()));
+
+        Set<Long> choiceQuestionIds = survivingAnswers.stream()
+            .filter(a -> isChoiceType(a.getAnsweredAsType()))
+            .map(a -> a.getQuestion().getId())
+            .collect(Collectors.toSet());
+        Map<Long, Set<Long>> validOptionIdsByQuestion = new HashMap<>();
+        if (!choiceQuestionIds.isEmpty()) {
+            loadQuestionOptionPort.listByQuestionIdIn(choiceQuestionIds).forEach(opt -> {
+                Long qid = opt.getQuestion().getId();
+                validOptionIdsByQuestion.computeIfAbsent(qid, k -> new HashSet<>()).add(opt.getId());
+            });
+        }
+
+        Set<Long> choiceAnswerIds = survivingAnswers.stream()
+            .filter(a -> isChoiceType(a.getAnsweredAsType()))
+            .map(Answer::getId)
+            .collect(Collectors.toSet());
+        Map<Long, List<AnswerChoice>> choicesByAnswerId = new HashMap<>();
+        if (!choiceAnswerIds.isEmpty()) {
+            loadAnswerPort.listChoicesByAnswerIdIn(choiceAnswerIds).forEach(choice -> {
+                Long aid = choice.getAnswer().getId();
+                choicesByAnswerId.computeIfAbsent(aid, k -> new ArrayList<>()).add(choice);
+            });
+        }
+
+        List<Long> staleQuestionIds = new ArrayList<>();
+        for (Answer answer : survivingAnswers) {
+            Question current = questionById.get(answer.getQuestion().getId());
+            if (!isAnswerCompatibleWithCurrentSchema(answer, current, validOptionIdsByQuestion, choicesByAnswerId)) {
+                staleQuestionIds.add(current.getId());
+            }
+        }
+
+        if (!staleQuestionIds.isEmpty()) {
+            throw new DraftSchemaMismatchException(staleQuestionIds);
+        }
+
+        return survivingAnswers;
+    }
+
+    private static boolean isChoiceType(QuestionType type) {
+        return type == QuestionType.RADIO
+            || type == QuestionType.DROPDOWN
+            || type == QuestionType.CHECKBOX;
+    }
+
+    private boolean isAnswerCompatibleWithCurrentSchema(
+        Answer answer,
+        Question current,
+        Map<Long, Set<Long>> validOptionIdsByQuestion,
+        Map<Long, List<AnswerChoice>> choicesByAnswerId
+    ) {
+        // 참조 Question 이 isActive=false 면 #822 fork 로 교체된 상태 — draft 는 새 활성 스키마 기준
+        // 으로 재확인이 필요하므로 stale 로 판정.
+        if (!current.isActive()) {
+            return false;
+        }
+        QuestionType answeredAsType = answer.getAnsweredAsType();
+        QuestionType currentType = current.getType();
+
+        if (isChoiceType(answeredAsType)) {
+            if (!isChoiceType(currentType)) {
+                return false;
+            }
+            Set<Long> validOptions = validOptionIdsByQuestion.getOrDefault(current.getId(), Set.of());
+            List<AnswerChoice> choices = choicesByAnswerId.getOrDefault(answer.getId(), List.of());
+            if (choices.isEmpty()) {
+                return false;
+            }
+            for (AnswerChoice choice : choices) {
+                QuestionOption opt = choice.getQuestionOption();
+                if (opt == null || !validOptions.contains(opt.getId())) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        if (answeredAsType == QuestionType.FILE) {
+            if (currentType != QuestionType.FILE) {
+                return false;
+            }
+            Set<String> fileIds = answer.getFileIds();
+            if (fileIds != null) {
+                for (String fileId : fileIds) {
+                    if (!getFileUseCase.existsById(fileId)) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        // SHORT_TEXT / LONG_TEXT / SCHEDULE / PORTFOLIO — type equality check
+        return currentType == answeredAsType;
     }
 
     /**
