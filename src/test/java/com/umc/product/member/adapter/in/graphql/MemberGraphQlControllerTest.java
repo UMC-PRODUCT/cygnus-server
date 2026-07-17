@@ -41,6 +41,7 @@ import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
@@ -60,7 +61,7 @@ import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 
 @GraphQlTest({MemberGraphQlController.class, OrganizationGraphQlController.class})
-@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class})
+@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, CurrentMemberSecurityConfig.class})
 @DisplayName("MemberGraphQlController")
 class MemberGraphQlControllerTest {
 

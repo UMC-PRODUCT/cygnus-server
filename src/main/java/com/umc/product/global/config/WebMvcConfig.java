@@ -13,6 +13,7 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import com.umc.product.global.client.ClientContextConfig;
 import com.umc.product.global.logging.OperationalMetricsConfig;
 import com.umc.product.global.ratelimit.ApiRateLimitInterceptor;
+import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.resolver.CurrentMemberArgumentResolver;
 
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,8 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 @Import({
     ClientContextConfig.class,
-    OperationalMetricsConfig.class
+    OperationalMetricsConfig.class,
+    CurrentMemberSecurityConfig.class
 })
 @RequiredArgsConstructor
 public class WebMvcConfig implements WebMvcConfigurer {
