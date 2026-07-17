@@ -9,6 +9,7 @@ import com.umc.product.feedback.application.port.in.query.GetUserFeedbackTemplat
 import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTemplateDetailInfo;
 import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTemplateSummaryInfo;
 import com.umc.product.feedback.application.port.out.LoadUserFeedbackTemplatePort;
+import com.umc.product.feedback.domain.UserFeedbackTemplate;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
 import com.umc.product.feedback.domain.enums.UserFeedbackTargetType;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
@@ -29,8 +30,17 @@ public class UserFeedbackTemplateAdminQueryService implements GetUserFeedbackTem
         UserFeedbackTargetType targetType,
         Boolean active
     ) {
-        return loadTemplatePort.listByCondition(context, targetType, active).stream()
-            .map(template -> UserFeedbackTemplateSummaryInfo.of(template, getFormUseCase.getById(template.getFormId())))
+        List<UserFeedbackTemplate> templates = loadTemplatePort.listByCondition(context, targetType, active);
+        if (templates.isEmpty()) {
+            return List.of();
+        }
+
+        var formsById = getFormUseCase.batchGetByIds(templates.stream()
+            .map(UserFeedbackTemplate::getFormId)
+            .toList());
+
+        return templates.stream()
+            .map(template -> UserFeedbackTemplateSummaryInfo.of(template, formsById.get(template.getFormId())))
             .toList();
     }
 
