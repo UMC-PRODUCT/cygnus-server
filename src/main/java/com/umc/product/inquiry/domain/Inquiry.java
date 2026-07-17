@@ -1,11 +1,18 @@
 package com.umc.product.inquiry.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.umc.product.common.BaseEntity;
 import com.umc.product.inquiry.domain.enums.InquiryCategory;
 import com.umc.product.inquiry.domain.enums.InquiryStatus;
 import com.umc.product.inquiry.domain.enums.InquiryTarget;
 import com.umc.product.inquiry.domain.exception.InquiryDomainException;
 import com.umc.product.inquiry.domain.exception.InquiryErrorCode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,15 +21,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Entity
 @Getter
@@ -155,6 +158,26 @@ public class Inquiry extends BaseEntity {
     }
 
     /**
+     * 열람 상태를 미열람으로 되돌린다.
+     */
+    public void markAsUnread() {
+        this.isRead = false;
+    }
+
+    /**
+     * 해당 멤버가 이 문의에 접근할 수 있는지 판정한다.
+     * <p>
+     * 접근 가능 조건: 작성자이거나 운영진이다. 운영진 여부는 {@code LoadOperatorStatusPort}로 판정한
+     * 결과를 호출자가 주입한다.
+     *
+     * @param memberId   접근을 시도하는 멤버 ID
+     * @param isOperator 해당 멤버의 운영진 여부
+     */
+    public boolean isAccessibleBy(Long memberId, boolean isOperator) {
+        return this.authorMemberId.equals(memberId) || isOperator;
+    }
+
+    /**
      * RECEIVED → IN_PROGRESS 전환. RESPONDER의 첫 메시지 전송 시 자동 호출된다.
      */
     public void startProgress() {
@@ -184,6 +207,6 @@ public class Inquiry extends BaseEntity {
             throw new InquiryDomainException(InquiryErrorCode.INQUIRY_INVALID_STATUS_FOR_REOPEN);
         }
         this.status = InquiryStatus.IN_PROGRESS;
-        this.isRead = false;
+        markAsUnread();
     }
 }
