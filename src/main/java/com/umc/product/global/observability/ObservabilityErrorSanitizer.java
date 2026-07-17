@@ -79,7 +79,7 @@ public final class ObservabilityErrorSanitizer {
 
     private static String redactDoubleQuotedValues(String message) {
         Matcher matcher = DOUBLE_QUOTED_VALUE.matcher(message);
-        StringBuffer result = new StringBuffer();
+        StringBuilder result = new StringBuilder();
         while (matcher.find()) {
             String prefix = message.substring(Math.max(0, matcher.start() - 32), matcher.start());
             String replacement = CONSTRAINT_PREFIX.matcher(prefix).find() ? matcher.group() : "\"" + REDACTED + "\"";
