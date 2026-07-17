@@ -28,6 +28,7 @@ import com.umc.product.organization.application.port.out.query.LoadSchoolPort;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SchoolService")
@@ -55,6 +56,9 @@ class SchoolServiceTest {
 
     @Mock
     EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
+
+    @Mock
+    ManageFileUsageUseCase manageFileUsageUseCase;
 
     @InjectMocks
     SchoolService sut;
@@ -85,9 +89,11 @@ class SchoolServiceTest {
     @Test
     @DisplayName("학교의 지부를 변경하면 해당 학교 회원들의 권한 snapshot 캐시를 제거한다")
     void evict_authority_snapshot_after_update_school_chapter() {
-        given(loadSchoolPort.findById(SCHOOL_ID)).willReturn(school());
+        School school = school();
+        given(loadSchoolPort.findById(SCHOOL_ID)).willReturn(school);
         given(loadChapterPort.findById(CHAPTER_ID)).willReturn(chapter());
         given(getMemberUseCase.listIdsBySchoolId(SCHOOL_ID)).willReturn(Set.of(1L, 2L));
+        given(saveSchoolPort.save(school)).willReturn(school);
 
         sut.updateSchool(SCHOOL_ID, new UpdateSchoolCommand("변경 학교", CHAPTER_ID, null, null, null));
 

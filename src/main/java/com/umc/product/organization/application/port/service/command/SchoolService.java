@@ -22,6 +22,10 @@ import com.umc.product.organization.application.port.out.query.LoadSchoolPort;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.School;
 import com.umc.product.organization.domain.SchoolLink;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.BulkRemoveFileUsagesCommand;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +40,7 @@ public class SchoolService implements ManageSchoolUseCase {
     private final SaveChapterSchoolPort saveChapterSchoolPort;
     private final GetMemberUseCase getMemberUseCase;
     private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
+    private final ManageFileUsageUseCase manageFileUsageUseCase;
 
     @Override
     public Long create(CreateSchoolCommand command) {
@@ -50,6 +55,7 @@ public class SchoolService implements ManageSchoolUseCase {
         newSchool.updateLinks(links);
 
         School savedSchool = saveSchoolPort.save(newSchool);
+        replaceLogoUsage(savedSchool, command.requesterMemberId());
 
         return savedSchool.getId();
     }
@@ -75,6 +81,9 @@ public class SchoolService implements ManageSchoolUseCase {
             school.updateChapterSchool(chapter);
             evictAuthoritySnapshotsBySchoolId(schoolId);
         }
+
+        School savedSchool = saveSchoolPort.save(school);
+        replaceLogoUsage(savedSchool, command.requesterMemberId());
     }
 
     @Override
@@ -86,6 +95,11 @@ public class SchoolService implements ManageSchoolUseCase {
 
         Set<Long> memberIds = listMemberIdsBySchoolIds(schoolIds);
 
+        List<FileUsageCoordinate> owners = schoolIds.stream()
+            .distinct()
+            .map(this::schoolLogoCoordinate)
+            .toList();
+        manageFileUsageUseCase.removeAll(new BulkRemoveFileUsagesCommand(owners));
         saveChapterSchoolPort.deleteAllBySchoolIds(schoolIds);
         saveSchoolPort.deleteAllLinksBySchoolIds(schoolIds);
         saveSchoolPort.deleteAllByIds(schoolIds);
@@ -125,5 +139,17 @@ public class SchoolService implements ManageSchoolUseCase {
         return getMemberUseCase.listIdsBySchoolIds(schoolIdSet).values().stream()
             .flatMap(Set::stream)
             .collect(Collectors.toSet());
+    }
+
+    private void replaceLogoUsage(School school, Long requesterMemberId) {
+        manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+            schoolLogoCoordinate(school.getId()),
+            school.getLogoImageId() == null ? Set.of() : Set.of(school.getLogoImageId()),
+            requesterMemberId
+        ));
+    }
+
+    private FileUsageCoordinate schoolLogoCoordinate(Long schoolId) {
+        return FileUsageCoordinate.of("organization.school", String.valueOf(schoolId), "logo");
     }
 }

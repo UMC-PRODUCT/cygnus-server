@@ -25,6 +25,7 @@ import com.umc.product.member.domain.Member;
 import com.umc.product.notification.application.port.in.SendWebhookAlarmUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
 import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,6 +64,9 @@ class MemberServiceAuthorityCacheTest {
 
     @Mock
     EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
+
+    @Mock
+    ManageFileUsageUseCase manageFileUsageUseCase;
 
     @InjectMocks
     MemberService sut;

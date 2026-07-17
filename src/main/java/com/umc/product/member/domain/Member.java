@@ -90,13 +90,15 @@ public class Member extends BaseEntity {
         }
 
         if (profileImageId != null) {
-            this.profileImageId = profileImageId;
+            this.profileImageId = profileImageId.isBlank() ? null : profileImageId;
         }
     }
 
     public void updateProfile(String profileImageId) {
         validateActive();
-        this.profileImageId = profileImageId;
+        if (profileImageId != null) {
+            this.profileImageId = profileImageId.isBlank() ? null : profileImageId;
+        }
     }
 
     public void changeEmail(String email) {

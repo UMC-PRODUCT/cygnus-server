@@ -1,5 +1,7 @@
 package com.umc.product.organization.adapter.in.web.swagger;
 
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.organization.adapter.in.web.dto.request.AssignSchoolRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateSchoolRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.DeleteSchoolsRequest;
@@ -21,7 +23,10 @@ public interface AdminSchoolControllerApi {
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "404", description = "지부를 찾을 수 없음")
     })
-    void createSchool(CreateSchoolRequest request);
+    void createSchool(
+        CreateSchoolRequest request,
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal
+    );
 
     @Operation(operationId = "SCHOOL-002", summary = "학교 수정", description = "학교 정보를 수정합니다. 입력된 필드만 수정됩니다.")
     @ApiResponses(value = {
@@ -30,7 +35,8 @@ public interface AdminSchoolControllerApi {
     })
     void updateSchool(
         @Parameter(description = "학교 ID", required = true) Long schoolId,
-        UpdateSchoolRequest request
+        UpdateSchoolRequest request,
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal
     );
 
     @Operation(operationId = "SCHOOL-003", summary = "학교 삭제", description = "여러 학교를 일괄 삭제합니다")

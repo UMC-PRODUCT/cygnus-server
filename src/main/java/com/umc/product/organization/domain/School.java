@@ -1,6 +1,13 @@
 package com.umc.product.organization.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.hibernate.annotations.BatchSize;
+import org.springframework.util.StringUtils;
+
 import com.umc.product.common.BaseEntity;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,14 +16,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.BatchSize;
-import org.springframework.util.StringUtils;
 
 @Entity
 @Getter
@@ -60,8 +63,8 @@ public class School extends BaseEntity {
     }
 
     public void updateLogoImageId(String logoImageId) {
-        if (StringUtils.hasText(logoImageId)) {
-            this.logoImageId = logoImageId;
+        if (logoImageId != null) {
+            this.logoImageId = StringUtils.hasText(logoImageId) ? logoImageId : null;
         }
     }
 

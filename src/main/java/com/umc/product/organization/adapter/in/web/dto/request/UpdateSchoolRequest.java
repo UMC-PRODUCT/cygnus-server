@@ -1,9 +1,11 @@
 package com.umc.product.organization.adapter.in.web.dto.request;
 
+import java.util.List;
+
 import com.umc.product.organization.application.port.in.command.dto.UpdateSchoolCommand;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
-import java.util.List;
 
 @Schema(description = "학교 수정 요청")
 public record UpdateSchoolRequest(
@@ -20,11 +22,15 @@ public record UpdateSchoolRequest(
         String logoImageId,
 
         @Schema(description = "학교 링크 목록 (전달 시 전체 교체)")
-        @Valid
-        List<SchoolLinkRequest> links
+        @Valid List<SchoolLinkRequest> links
 ) {
     public UpdateSchoolCommand toCommand() {
+        return toCommand(null);
+    }
+
+    public UpdateSchoolCommand toCommand(Long requesterMemberId) {
         return new UpdateSchoolCommand(
+                requesterMemberId,
                 schoolName,
                 chapterId,
                 remark,

@@ -2,6 +2,8 @@ package com.umc.product.member.application.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +32,10 @@ import com.umc.product.notification.application.port.in.SendWebhookAlarmUseCase;
 import com.umc.product.notification.application.port.in.dto.SendWebhookAlarmCommand;
 import com.umc.product.notification.domain.WebhookPlatform;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.BulkRemoveFileUsagesCommand;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -47,6 +53,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
     private final GetMemberOAuthUseCase getMemberOAuthUseCase;
     private final ManageTermAgreementUseCase manageTermAgreementUseCase;
     private final GetSchoolUseCase getSchoolUseCase;
+    private final ManageFileUsageUseCase manageFileUsageUseCase;
 
     private final DomainEventPublisher eventPublisher;
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
@@ -56,7 +63,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
     @Transactional
     public Long register(OAuthRegisterMemberCommand command) {
         registrationValidator.validateSchoolExists(command.schoolId());
-        registrationValidator.validateProfileImageExists(command.profileImageId());
+        registrationValidator.validateProfileImageNotProvided(command.profileImageId());
         registrationValidator.validateMandatoryTermsAgreed(command.termConsents());
 
         Member savedMember = saveMemberPort.save(command.toEntity());
@@ -109,7 +116,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
     public List<Long> batchRegister(List<OAuthRegisterMemberCommand> commands) {
         commands.forEach(command -> {
             registrationValidator.validateSchoolExists(command.schoolId());
-            registrationValidator.validateProfileImageExists(command.profileImageId());
+            registrationValidator.validateProfileImageNotProvided(command.profileImageId());
             registrationValidator.validateMandatoryTermsAgreed(command.termConsents());
         });
 
@@ -150,10 +157,20 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
     @Transactional
     public void updateMember(UpdateMemberCommand command) {
         Member member = findById(command.memberId());
+        Long requesterMemberId = Objects.requireNonNull(
+            command.requesterMemberId(),
+            "프로필 수정 요청 회원 ID는 필수입니다."
+        );
 
-        registrationValidator.validateProfileImageExists(command.newProfileImageId());
+        if (command.newProfileImageId() != null
+            && !command.newProfileImageId().isBlank()
+            && !Objects.equals(member.getProfileImageId(), command.newProfileImageId())) {
+            registrationValidator.validateProfileImageUsable(command.newProfileImageId(), requesterMemberId);
+        }
 
         member.updateProfile(command.newProfileImageId());
+        Member savedMember = saveMemberPort.save(member);
+        replaceMemberProfileUsage(savedMember, requesterMemberId);
     }
 
     @Override
@@ -179,6 +196,7 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
             );
         }
 
+        manageFileUsageUseCase.removeAll(new BulkRemoveFileUsagesCommand(List.of(memberProfileCoordinate(memberId))));
         saveMemberPort.delete(memberToDelete);
         evictAuthoritySnapshotCacheUseCase.evictByMemberId(memberId);
 
@@ -199,5 +217,17 @@ public class MemberService implements ManageMemberUseCase, RegisterOAuthMemberUs
     private Member findById(Long memberId) {
         return loadMemberPort.findById(memberId).orElseThrow(
             () -> new MemberDomainException(MemberErrorCode.MEMBER_NOT_FOUND));
+    }
+
+    private void replaceMemberProfileUsage(Member member, Long requesterMemberId) {
+        manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+            memberProfileCoordinate(member.getId()),
+            member.getProfileImageId() == null ? Set.of() : Set.of(member.getProfileImageId()),
+            requesterMemberId
+        ));
+    }
+
+    private FileUsageCoordinate memberProfileCoordinate(Long memberId) {
+        return FileUsageCoordinate.of("member", String.valueOf(memberId), "profile-image");
     }
 }

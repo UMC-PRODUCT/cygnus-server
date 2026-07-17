@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,9 +42,11 @@ import com.umc.product.organization.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.BulkRemoveFileUsagesCommand;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
-import com.umc.product.storage.domain.exception.StorageErrorCode;
-import com.umc.product.storage.domain.exception.StorageException;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 
 import lombok.RequiredArgsConstructor;
 
@@ -65,6 +68,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final SaveUmcProductSquadParticipantPort saveUmcProductSquadParticipantPort;
     private final GetMemberUseCase getMemberUseCase;
     private final GetFileUseCase getFileUseCase;
+    private final ManageFileUsageUseCase manageFileUsageUseCase;
     private final UmcProductAccessPolicy umcProductAccessPolicy;
 
     @Audited(
@@ -79,7 +83,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         validateCanManage(command.requesterMemberId());
         getMemberUseCase.getById(command.memberId());
         validateMemberNotDuplicated(command.memberId());
-        validateProfileImage(command.profileImageId());
+        validateProfileImage(command.profileImageId(), command.requesterMemberId());
         validateInitialActivityPeriods(command.activityPeriods());
 
         UmcProductMember member = saveUmcProductMemberPort.save(UmcProductMember.create(
@@ -88,6 +92,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         command.activityPeriods().stream()
             .map(period -> UmcProductMemberActivityPeriod.create(member, period.startDate(), period.endDate()))
             .forEach(saveUmcProductMemberActivityPeriodPort::save);
+        replaceProfileImageUsage(member, command.requesterMemberId());
         return member.getId();
     }
 
@@ -104,9 +109,16 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         if (!umcProductAccessPolicy.canManageMemberProfile(command.requesterMemberId(), member.getMemberId())) {
             throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACCESS_DENIED);
         }
-        validateProfileImage(command.profileImageId());
-        member.updateProfile(command.introduction(), command.profileImageId());
-        saveUmcProductMemberPort.save(member);
+        if (command.profileImageId() != null
+            && !Objects.equals(member.getProfileImageId(), command.profileImageId())) {
+            validateProfileImage(command.profileImageId(), command.requesterMemberId());
+        }
+        String profileImageId = command.profileImageId() == null
+            ? member.getProfileImageId()
+            : command.profileImageId();
+        member.updateProfile(command.introduction(), profileImageId);
+        UmcProductMember savedMember = saveUmcProductMemberPort.save(member);
+        replaceProfileImageUsage(savedMember, command.requesterMemberId());
     }
 
     @Override
@@ -124,6 +136,9 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         saveUmcProductChapterMembershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductLeadershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductMemberActivityPeriodPort.deleteAllByUmcProductMemberId(member.getId());
+        manageFileUsageUseCase.removeAll(
+            new BulkRemoveFileUsagesCommand(List.of(profileImageCoordinate(member.getId())))
+        );
         saveUmcProductMemberPort.delete(member);
     }
 
@@ -475,10 +490,26 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         }
     }
 
-    private void validateProfileImage(String profileImageId) {
-        if (profileImageId != null && !profileImageId.isBlank() && !getFileUseCase.existsById(profileImageId)) {
-            throw new StorageException(StorageErrorCode.FILE_NOT_FOUND);
+    private void validateProfileImage(String profileImageId, Long requesterMemberId) {
+        if (profileImageId != null && !profileImageId.isBlank()) {
+            getFileUseCase.batchGetUsableByIds(List.of(profileImageId), requesterMemberId);
         }
+    }
+
+    private void replaceProfileImageUsage(UmcProductMember member, Long requesterMemberId) {
+        manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+            profileImageCoordinate(member.getId()),
+            member.getProfileImageId() == null ? Set.of() : Set.of(member.getProfileImageId()),
+            requesterMemberId
+        ));
+    }
+
+    private FileUsageCoordinate profileImageCoordinate(Long umcProductMemberId) {
+        return FileUsageCoordinate.of(
+            "organization.umc-product-member",
+            String.valueOf(umcProductMemberId),
+            "profile-image"
+        );
     }
 
     private static void validatePeriod(LocalDate startDate, LocalDate endDate) {

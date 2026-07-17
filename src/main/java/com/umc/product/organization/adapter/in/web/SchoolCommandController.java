@@ -1,5 +1,6 @@
 package com.umc.product.organization.adapter.in.web;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.organization.adapter.in.web.dto.request.AssignSchoolRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateSchoolRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.DeleteSchoolsRequest;
@@ -36,8 +39,11 @@ public class SchoolCommandController implements AdminSchoolControllerApi {
     )
     @Override
     @PostMapping
-    public void createSchool(@RequestBody @Valid CreateSchoolRequest request) {
-        manageSchoolUseCase.create(request.toCommand());
+    public void createSchool(
+        @RequestBody @Valid CreateSchoolRequest request,
+        @CurrentMember MemberPrincipal memberPrincipal
+    ) {
+        manageSchoolUseCase.create(request.toCommand(currentMemberId(memberPrincipal)));
     }
 
     @CheckAccess(
@@ -47,8 +53,12 @@ public class SchoolCommandController implements AdminSchoolControllerApi {
     )
     @Override
     @PatchMapping("/{schoolId}")
-    public void updateSchool(@PathVariable Long schoolId, @RequestBody @Valid UpdateSchoolRequest request) {
-        manageSchoolUseCase.updateSchool(schoolId, request.toCommand());
+    public void updateSchool(
+        @PathVariable Long schoolId,
+        @RequestBody @Valid UpdateSchoolRequest request,
+        @CurrentMember MemberPrincipal memberPrincipal
+    ) {
+        manageSchoolUseCase.updateSchool(schoolId, request.toCommand(currentMemberId(memberPrincipal)));
     }
 
     @CheckAccess(
@@ -82,5 +92,12 @@ public class SchoolCommandController implements AdminSchoolControllerApi {
     @PatchMapping("/{schoolId}/unassign")
     public void unassignFromChapter(@PathVariable Long schoolId, @RequestBody @Valid UnassignSchoolRequest request) {
         manageSchoolUseCase.unassignFromChapter(request.toCommand(schoolId));
+    }
+
+    private Long currentMemberId(MemberPrincipal memberPrincipal) {
+        if (memberPrincipal == null) {
+            throw new AccessDeniedException("인증이 필요합니다.");
+        }
+        return memberPrincipal.getMemberId();
     }
 }

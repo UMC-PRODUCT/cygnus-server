@@ -1,16 +1,21 @@
 package com.umc.product.member.application.service;
 
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.member.application.port.in.command.dto.TermConsents;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.term.application.port.in.query.GetTermUseCase;
 import com.umc.product.term.domain.exception.TermDomainException;
 import com.umc.product.term.domain.exception.TermErrorCode;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -20,12 +25,15 @@ public class MemberRegistrationValidator {
     private final GetSchoolUseCase getSchoolUseCase;
     private final GetFileUseCase getFileUseCase;
 
-    /**
-     * 사진 ID가 주어진 경우 해당 파일이 존재하는지 확인
-     */
-    protected void validateProfileImageExists(String profileImageId) {
+    protected void validateProfileImageNotProvided(String profileImageId) {
         if (profileImageId != null) {
-            getFileUseCase.throwIfNotExists(profileImageId);
+            throw new MemberDomainException(MemberErrorCode.PROFILE_IMAGE_NOT_ALLOWED_DURING_REGISTRATION);
+        }
+    }
+
+    protected void validateProfileImageUsable(String profileImageId, Long requesterMemberId) {
+        if (profileImageId != null) {
+            getFileUseCase.batchGetUsableByIds(List.of(profileImageId), requesterMemberId);
         }
     }
 

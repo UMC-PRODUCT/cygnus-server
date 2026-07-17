@@ -39,7 +39,11 @@ import com.umc.product.organization.domain.UmcProductChapterMembership;
 import com.umc.product.organization.domain.UmcProductMember;
 import com.umc.product.organization.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.BulkRemoveFileUsagesCommand;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UMC PRODUCT 멤버 명령 서비스")
@@ -72,6 +76,8 @@ class UmcProductMemberCommandServiceTest {
     @Mock
     GetFileUseCase getFileUseCase;
     @Mock
+    ManageFileUsageUseCase manageFileUsageUseCase;
+    @Mock
     UmcProductAccessPolicy umcProductAccessPolicy;
 
     @InjectMocks
@@ -82,7 +88,8 @@ class UmcProductMemberCommandServiceTest {
         UmcProductMember member = member(1L, 100L);
         given(loadUmcProductMemberPort.getByIdWithLock(1L)).willReturn(member);
         given(umcProductAccessPolicy.canManageMemberProfile(100L, 100L)).willReturn(true);
-        given(getFileUseCase.existsById("product-profile")).willReturn(true);
+        given(getFileUseCase.batchGetUsableByIds(List.of("product-profile"), 100L)).willReturn(List.of());
+        given(saveUmcProductMemberPort.save(member)).willReturn(member);
 
         sut.updateProfile(UpdateUmcProductMemberProfileCommand.of(
             1L,
@@ -92,6 +99,25 @@ class UmcProductMemberCommandServiceTest {
         ));
 
         then(saveUmcProductMemberPort).should().save(member);
+        then(manageFileUsageUseCase).should().replaceUsages(new ReplaceFileUsagesCommand(
+            FileUsageCoordinate.of("organization.umc-product-member", "1", "profile-image"),
+            java.util.Set.of("product-profile"),
+            100L
+        ));
+    }
+
+    @Test
+    void UMC_PRODUCT_멤버_삭제는_aggregate_delete_전에_profile_usage를_비운다() {
+        UmcProductMember member = member(1L, 100L);
+        given(umcProductAccessPolicy.canManageUmcProduct(999L)).willReturn(true);
+        given(loadUmcProductMemberPort.getByIdWithLock(1L)).willReturn(member);
+
+        sut.delete(1L, 999L);
+
+        then(manageFileUsageUseCase).should().removeAll(new BulkRemoveFileUsagesCommand(List.of(
+            FileUsageCoordinate.of("organization.umc-product-member", "1", "profile-image")
+        )));
+        then(saveUmcProductMemberPort).should().delete(member);
     }
 
     @Test

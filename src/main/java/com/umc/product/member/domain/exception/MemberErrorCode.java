@@ -26,6 +26,8 @@ public enum MemberErrorCode implements BaseCode {
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "MEMBER-0013", "비밀번호가 올바르지 않아요. 다시 입력해주세요."),
     MEMBER_SEARCH_ACCESS_DENIED(HttpStatus.FORBIDDEN, "MEMBER-0014",
         "챌린저 기록이 있는 회원만 회원 검색을 사용할 수 있어요."),
+    PROFILE_IMAGE_NOT_ALLOWED_DURING_REGISTRATION(HttpStatus.BAD_REQUEST, "MEMBER-0015",
+        "회원가입 단계에서는 프로필 이미지를 등록할 수 없어요. 가입 후 프로필을 수정해주세요."),
     ;
 
     private final HttpStatus httpStatus;

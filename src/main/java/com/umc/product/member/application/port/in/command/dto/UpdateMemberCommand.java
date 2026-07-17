@@ -6,9 +6,19 @@ public record UpdateMemberCommand(
         Long memberId,
         String newNickname,
         String newProfileImageId,
-        MemberStatus newStatus
+        MemberStatus newStatus,
+        Long requesterMemberId
 
 ) {
+    public UpdateMemberCommand(
+            Long memberId,
+            String newNickname,
+            String newProfileImageId,
+            MemberStatus newStatus
+    ) {
+        this(memberId, newNickname, newProfileImageId, newStatus, memberId);
+    }
+
     public static UpdateMemberCommand forProfileUpdate(
             Long memberId,
             String newProfileImageId
@@ -17,7 +27,22 @@ public record UpdateMemberCommand(
                 memberId,
                 null,
                 newProfileImageId,
-                null
+                null,
+                memberId
+        );
+    }
+
+    public static UpdateMemberCommand forProfileUpdate(
+            Long memberId,
+            Long requesterMemberId,
+            String newProfileImageId
+    ) {
+        return new UpdateMemberCommand(
+                memberId,
+                null,
+                newProfileImageId,
+                null,
+                requesterMemberId
         );
     }
 }

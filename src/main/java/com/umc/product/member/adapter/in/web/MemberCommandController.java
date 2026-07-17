@@ -145,6 +145,7 @@ public class MemberCommandController {
     ) {
         manageMemberUseCase.updateMember(UpdateMemberCommand.forProfileUpdate(
             memberPrincipal.getMemberId(),
+            memberPrincipal.getMemberId(),
             request.profileImageId())
         );
 
