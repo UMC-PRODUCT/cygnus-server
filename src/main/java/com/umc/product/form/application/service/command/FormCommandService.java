@@ -19,6 +19,7 @@ import com.umc.product.form.application.port.out.SaveFormResponsePort;
 import com.umc.product.form.application.port.out.SaveFormSectionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormOperation;
@@ -42,6 +43,7 @@ public class FormCommandService implements ManageFormUseCase {
     private final SaveFormResponsePort saveFormResponsePort;
     private final SaveAnswerPort saveAnswerPort;
     private final FormOwnershipAccessService ownershipAccessService;
+    private final FormAnswerAttachmentUsageService attachmentUsageService;
 
     @Audited(
         domain = Domain.FORM,
@@ -128,6 +130,7 @@ public class FormCommandService implements ManageFormUseCase {
         );
 
         // 응답 트리 (자식부터)
+        attachmentUsageService.detachByFormId(formId);
         saveAnswerPort.deleteByFormId(formId);
         saveFormResponsePort.deleteByFormId(formId);
 

@@ -50,6 +50,11 @@ public class ChatMessagePersistenceAdapter implements
     }
 
     @Override
+    public List<Long> listIdsByRoomId(Long roomId) {
+        return chatMessageJpaRepository.findIdsByRoomId(roomId);
+    }
+
+    @Override
     public List<ChatMessage> listLatestPerRoom(List<Long> roomIds) {
         return chatMessageQueryRepository.listLatestPerRoom(roomIds);
     }

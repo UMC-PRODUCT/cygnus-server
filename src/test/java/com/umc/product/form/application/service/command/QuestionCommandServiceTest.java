@@ -29,6 +29,7 @@ import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormOperation;
@@ -53,6 +54,8 @@ class QuestionCommandServiceTest {
     SaveAnswerPort saveAnswerPort;
     @Mock
     FormOwnershipAccessService ownershipAccessService;
+    @Mock
+    FormAnswerAttachmentUsageService attachmentUsageService;
 
     @InjectMocks
     QuestionCommandService sut;

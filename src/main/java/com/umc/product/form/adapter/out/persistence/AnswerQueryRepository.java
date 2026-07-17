@@ -11,6 +11,7 @@ import com.umc.product.form.domain.QAnswer;
 import com.umc.product.form.domain.QFormResponse;
 import com.umc.product.form.domain.QFormSection;
 import com.umc.product.form.domain.QQuestion;
+import com.umc.product.form.domain.enums.QuestionType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -56,6 +57,45 @@ public class AnswerQueryRepository {
             .join(q.formSection, s)
             .where(a.formResponse.id.in(formResponseIds))
             .orderBy(a.formResponse.id.asc(), s.orderNo.asc(), q.orderNo.asc())
+            .fetch();
+    }
+
+    public List<Long> findAttachmentIdsByFormResponseId(Long formResponseId) {
+        QAnswer answer = QAnswer.answer;
+        return queryFactory
+            .select(answer.id)
+            .from(answer)
+            .where(
+                answer.formResponse.id.eq(formResponseId),
+                answer.answeredAsType.in(QuestionType.FILE, QuestionType.PORTFOLIO)
+            )
+            .orderBy(answer.id.asc())
+            .fetch();
+    }
+
+    public List<Long> findAttachmentIdsByFormId(Long formId) {
+        QAnswer answer = QAnswer.answer;
+        return queryFactory
+            .select(answer.id)
+            .from(answer)
+            .where(
+                answer.formResponse.form.id.eq(formId),
+                answer.answeredAsType.in(QuestionType.FILE, QuestionType.PORTFOLIO)
+            )
+            .orderBy(answer.id.asc())
+            .fetch();
+    }
+
+    public List<Long> findAttachmentIdsByQuestionId(Long questionId) {
+        QAnswer answer = QAnswer.answer;
+        return queryFactory
+            .select(answer.id)
+            .from(answer)
+            .where(
+                answer.question.id.eq(questionId),
+                answer.answeredAsType.in(QuestionType.FILE, QuestionType.PORTFOLIO)
+            )
+            .orderBy(answer.id.asc())
             .fetch();
     }
 

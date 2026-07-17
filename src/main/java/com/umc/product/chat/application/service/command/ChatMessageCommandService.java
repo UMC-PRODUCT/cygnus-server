@@ -15,6 +15,7 @@ import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatMessagePort;
+import com.umc.product.chat.application.service.ChatMessageAttachmentUsageService;
 import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.ChatRoomActorContext;
@@ -41,6 +42,7 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     private final GetFileUseCase getFileUseCase;
     private final ChatAttachmentPolicy chatAttachmentPolicy;
     private final ChatRoomOwnershipAccessService ownershipAccessService;
+    private final ChatMessageAttachmentUsageService attachmentUsageService;
     private final DomainEventPublisher domainEventPublisher;
 
     /**
@@ -73,6 +75,7 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
             command.replyToMessageId()
         ));
 
+        attachmentUsageService.synchronize(saved, actorMemberId);
         markSenderRead(command, saved);
 
         domainEventPublisher.publish(ChatMessageCreatedEvent.from(saved));

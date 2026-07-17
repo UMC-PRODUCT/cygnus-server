@@ -51,6 +51,7 @@ import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.Form;
@@ -93,6 +94,8 @@ class FormResponseCommandServiceTest {
     SecureTokenGenerator secureTokenGenerator;
     @Mock
     FormOwnershipAccessService ownershipAccessService;
+    @Mock
+    FormAnswerAttachmentUsageService attachmentUsageService;
 
     @InjectMocks
     FormResponseCommandService sut;

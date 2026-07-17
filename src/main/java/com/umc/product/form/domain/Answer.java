@@ -128,4 +128,9 @@ public class Answer extends BaseEntity {
             this.fileIds = fileIds.isEmpty() ? null : fileIds;
         }
     }
+
+    public void replaceContent(String textValue, Set<String> fileIds) {
+        this.textValue = textValue == null || textValue.isBlank() ? null : textValue;
+        this.fileIds = fileIds == null || fileIds.isEmpty() ? null : fileIds;
+    }
 }

@@ -24,6 +24,7 @@ import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.FormOperation;
 import com.umc.product.form.domain.FormOwnerReference;
@@ -47,6 +48,7 @@ public class QuestionCommandService implements ManageQuestionUseCase {
     private final SaveQuestionOptionPort saveQuestionOptionPort;
     private final SaveAnswerPort saveAnswerPort;
     private final FormOwnershipAccessService ownershipAccessService;
+    private final FormAnswerAttachmentUsageService attachmentUsageService;
 
     @Override
     public Long createQuestion(
@@ -113,6 +115,7 @@ public class QuestionCommandService implements ManageQuestionUseCase {
 
         // FK 의존성 거꾸로: AnswerChoice/Answer -> QuestionOption -> Question
         // (Answer cascade 는 SaveAnswerPort.deleteByQuestionId 가 내부적으로 AnswerChoice -> Answer 순으로 처리)
+        attachmentUsageService.detachByQuestionId(questionId);
         saveAnswerPort.deleteByQuestionId(questionId);
         saveQuestionOptionPort.deleteAllByQuestionId(questionId);
         saveQuestionPort.deleteById(questionId);

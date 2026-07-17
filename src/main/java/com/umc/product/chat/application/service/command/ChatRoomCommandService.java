@@ -16,6 +16,7 @@ import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatRoomOwnershipPort;
 import com.umc.product.chat.application.port.out.SaveChatRoomPort;
+import com.umc.product.chat.application.service.ChatMessageAttachmentUsageService;
 import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatRoom;
@@ -41,6 +42,7 @@ public class ChatRoomCommandService implements
     private final SaveChatMemberPort saveChatMemberPort;
     private final SaveChatRoomOwnershipPort saveChatRoomOwnershipPort;
     private final ChatRoomOwnershipAccessService ownershipAccessService;
+    private final ChatMessageAttachmentUsageService attachmentUsageService;
     private final DomainEventPublisher domainEventPublisher;
 
     @Override
@@ -65,6 +67,7 @@ public class ChatRoomCommandService implements
         ownershipAccessService.verifyForUpdate(expectedOwner, ChatRoomOperation.DELETE, actorContext);
         Long roomId = expectedOwner.roomId();
         ChatRoom chatRoom = loadChatRoomPort.getById(roomId);
+        attachmentUsageService.detachByRoomId(roomId);
         saveChatRoomPort.delete(chatRoom);
     }
 

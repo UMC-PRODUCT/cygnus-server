@@ -1,6 +1,7 @@
 package com.umc.product.form.application.service.command;
 
 import static com.umc.product.form.application.service.FormAccessTestFixtures.actor;
+import static com.umc.product.form.application.service.FormAccessTestFixtures.owner;
 import static com.umc.product.form.application.service.FormAccessTestFixtures.ownerFactory;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -11,13 +12,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.form.application.port.in.FormOwnerReferenceFactory;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
+import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormPort;
@@ -25,6 +29,7 @@ import com.umc.product.form.application.port.out.SaveFormResponsePort;
 import com.umc.product.form.application.port.out.SaveFormSectionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormOperation;
@@ -48,6 +53,8 @@ class FormCommandServiceTest {
     SaveAnswerPort saveAnswerPort;
     @Mock
     FormOwnershipAccessService ownershipAccessService;
+    @Mock
+    FormAnswerAttachmentUsageService attachmentUsageService;
 
     @InjectMocks
     FormCommandService sut;
@@ -75,5 +82,16 @@ class FormCommandServiceTest {
         );
         assertThat(result).isEqualTo(1L);
         assertThat(captor.getValue().getDescription()).isEqualTo("지원 폼 설명");
+    }
+
+    @Test
+    @DisplayName("폼 삭제는 Answer attachment usage를 먼저 batch detach한다")
+    void deleteForm_detachesAnswerUsageBeforeDelete() {
+        sut.deleteForm(owner(1L), actor(10L), DeleteFormCommand.builder().formId(1L).build());
+
+        InOrder order = Mockito.inOrder(attachmentUsageService, saveAnswerPort, saveFormPort);
+        order.verify(attachmentUsageService).detachByFormId(1L);
+        order.verify(saveAnswerPort).deleteByFormId(1L);
+        order.verify(saveFormPort).deleteById(1L);
     }
 }

@@ -27,6 +27,12 @@ public interface LoadAnswerPort {
      */
     List<Answer> listByFormResponseIds(Set<Long> formResponseIds);
 
+    List<Long> listAttachmentIdsByFormResponseId(Long formResponseId);
+
+    List<Long> listAttachmentIdsByFormId(Long formId);
+
+    List<Long> listAttachmentIdsByQuestionId(Long questionId);
+
     /**
      * 여러 답변의 AnswerChoice 를 한 번에 조회 (벌크 N+1 회피).
      * questionOption.orderNo 오름차순으로 정렬.

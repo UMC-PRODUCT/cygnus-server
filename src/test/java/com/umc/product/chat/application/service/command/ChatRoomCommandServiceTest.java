@@ -27,6 +27,7 @@ import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatRoomOwnershipPort;
 import com.umc.product.chat.application.port.out.SaveChatRoomPort;
+import com.umc.product.chat.application.service.ChatMessageAttachmentUsageService;
 import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
@@ -56,6 +57,8 @@ class ChatRoomCommandServiceTest {
     SaveChatRoomOwnershipPort saveChatRoomOwnershipPort;
     @Mock
     ChatRoomOwnershipAccessService ownershipAccessService;
+    @Mock
+    ChatMessageAttachmentUsageService attachmentUsageService;
     @Mock
     DomainEventPublisher domainEventPublisher;
 
@@ -172,6 +175,19 @@ class ChatRoomCommandServiceTest {
 
         then(loadChatRoomPort).shouldHaveNoInteractions();
         then(saveChatRoomPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("채팅방 삭제는 모든 message usage를 먼저 detach한다")
+    void delete_detachesMessagesBeforeRoom() {
+        ChatRoom room = room(1L);
+        given(loadChatRoomPort.getById(1L)).willReturn(room);
+
+        sut.delete(owner(), actor());
+
+        InOrder order = Mockito.inOrder(attachmentUsageService, saveChatRoomPort);
+        order.verify(attachmentUsageService).detachByRoomId(1L);
+        order.verify(saveChatRoomPort).delete(room);
     }
 
     private ChatRoomOwnerReference owner() {

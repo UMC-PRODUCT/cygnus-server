@@ -44,6 +44,7 @@ import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
@@ -78,6 +79,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private final SaveAnswerPort saveAnswerPort;
     private final GetFileUseCase getFileUseCase;
     private final FormOwnershipAccessService ownershipAccessService;
+    private final FormAnswerAttachmentUsageService attachmentUsageService;
     // authentication 도메인의 공용 crypto util 재사용 (SSO Auth Code 발급과 동일 패턴).
     // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
     private final SecureTokenGenerator secureTokenGenerator;
@@ -113,7 +115,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         FormResponse saved = saveFormResponsePort.save(response);
 
         List<AnswerWithOptions> data = buildAnswerData(saved, command.answers());
-        saveAnswers(data);
+        saveAnswers(data, respondentMemberId);
 
         return saved.getId();
     }
@@ -140,10 +142,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             extractSingleSelectedOptionIds(command.answers())
         );
 
+        attachmentUsageService.detachByFormResponseId(existing.getId());
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
         List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
-        saveAnswers(data);
+        saveAnswers(data, respondentMemberId);
 
         existing.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(existing);
@@ -164,6 +167,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             .findSubmittedByFormIdAndRespondentMemberId(command.formId(), respondentMemberId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
+        attachmentUsageService.detachByFormResponseId(existing.getId());
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
         saveFormResponsePort.deleteById(existing.getId());
     }
@@ -197,9 +201,10 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         validateAnswers(draft.getForm().getId(), command.answers());
 
         // 기존 답변 전체 교체
+        attachmentUsageService.detachByFormResponseId(draft.getId());
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         List<AnswerWithOptions> data = buildAnswerData(draft, command.answers());
-        saveAnswers(data);
+        saveAnswers(data, draft.getRespondentMemberId());
 
         draft.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(draft);
@@ -247,6 +252,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         FormResponse draft = loadDraftAsOwner(command.formResponseId(), actorContext);
         requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
+        attachmentUsageService.detachByFormResponseId(draft.getId());
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
     }
@@ -261,11 +267,12 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         Form form = loadPublishedForm(command.formId());
 
         // 익명은 중복 정책 검사 skip — 소비 도메인(리크루팅 등) 이 자체 rate limit / 유일성 검사로 방어.
-        validateAnswers(command.formId(), command.answers());
+        List<AnswerCommand> answers = resolveAnonymousAnswerCommands(command.answers(), List.of());
+        validateAnswers(command.formId(), answers, FileAnswerValidation.ANONYMOUS_SUBMIT);
         validateAllRequiredAnsweredOnPath(
             command.formId(),
-            extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            extractQuestionIds(answers),
+            extractSingleSelectedOptionIds(answers)
         );
 
         String rawAccessKey = secureTokenGenerator.generateOpaqueToken();
@@ -275,8 +282,8 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         response.submit(Instant.now(), null);
         FormResponse saved = saveFormResponsePort.save(response);
 
-        List<AnswerWithOptions> data = buildAnswerData(saved, command.answers());
-        saveAnswers(data);
+        List<AnswerWithOptions> data = buildAnswerData(saved, answers);
+        saveAnswers(data, null);
 
         return AnonymousFormResponseResult.builder()
             .formResponseId(saved.getId())
@@ -293,17 +300,16 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         FormResponse existing = loadSubmittedAsAnonymous(actorContext);
         requireRespondAccess(existing.getForm().getId(), expectedOwner, actorContext);
 
-        validateAnswers(existing.getForm().getId(), command.answers());
+        List<Answer> existingAnswers = loadAnswerPort.listByFormResponseId(existing.getId());
+        List<AnswerCommand> answers = resolveAnonymousAnswerCommands(command.answers(), existingAnswers);
+        validateAnswers(existing.getForm().getId(), answers, FileAnswerValidation.ANONYMOUS_SUBMIT);
         validateAllRequiredAnsweredOnPath(
             existing.getForm().getId(),
-            extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            extractQuestionIds(answers),
+            extractSingleSelectedOptionIds(answers)
         );
 
-        saveAnswerPort.deleteAllByFormResponseId(existing.getId());
-
-        List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
-        saveAnswers(data);
+        replaceAnonymousAnswers(existing, answers, existingAnswers);
 
         existing.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(existing);
@@ -318,6 +324,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         FormResponse existing = loadSubmittedAsAnonymous(actorContext);
         requireRespondAccess(existing.getForm().getId(), expectedOwner, actorContext);
 
+        attachmentUsageService.detachByFormResponseId(existing.getId());
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
         saveFormResponsePort.deleteById(existing.getId());
     }
@@ -354,12 +361,18 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
         // 형식 검증만 수행 — 작성 중이라 필수 누락은 정상
-        validateAnswers(draft.getForm().getId(), command.answers());
-
-        // 기존 답변 전체 교체
-        saveAnswerPort.deleteAllByFormResponseId(draft.getId());
-        List<AnswerWithOptions> data = buildAnswerData(draft, command.answers());
-        saveAnswers(data);
+        List<Answer> existingAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
+        List<AnswerCommand> answers = resolveAnonymousAnswerCommands(command.answers(), existingAnswers);
+        Set<Long> clearableFileQuestionIds = existingAnswers.stream()
+            .filter(answer -> answer.getQuestion().getType() == QuestionType.FILE)
+            .map(answer -> answer.getQuestion().getId())
+            .collect(Collectors.toSet());
+        validateAnswers(
+            draft.getForm().getId(),
+            answers,
+            new FileAnswerValidation(false, Set.copyOf(clearableFileQuestionIds))
+        );
+        replaceAnonymousAnswers(draft, answers, existingAnswers);
 
         draft.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(draft);
@@ -376,6 +389,20 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         validateSubmitScope(draft.getForm().getId(), command.allowedQuestionIds(), command.requiredQuestionIds());
 
         List<Answer> savedAnswers = loadAnswerPort.listByFormResponseId(draft.getId());
+        for (Answer answer : savedAnswers) {
+            if (FormAnswerAttachmentUsageService.isAttachmentAnswer(answer)) {
+                validateAnswerAgainstQuestion(
+                    new AnswerCommand(
+                        answer.getQuestion().getId(),
+                        answer.getTextValue(),
+                        null,
+                        answer.getFileIds() == null ? null : new ArrayList<>(answer.getFileIds())
+                    ),
+                    answer.getQuestion(),
+                    FileAnswerValidation.ANONYMOUS_SUBMIT
+                );
+            }
+        }
         Set<Long> answeredQuestionIds = savedAnswers.stream()
             .map(answer -> answer.getQuestion().getId())
             .collect(Collectors.toSet());
@@ -407,6 +434,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         FormResponse draft = loadDraftAsAnonymous(actorContext);
         requireRespondAccess(draft.getForm().getId(), expectedOwner, actorContext);
 
+        attachmentUsageService.detachByFormResponseId(draft.getId());
         saveAnswerPort.deleteAllByFormResponseId(draft.getId());
         saveFormResponsePort.deleteById(draft.getId());
     }
@@ -559,6 +587,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
      * 제출 시점 (submitImmediately, updateResponse, submitDraft) 에는 별도로 {@link #validateAllRequiredAnsweredOnPath} 호출 필요.
      */
     private void validateAnswers(Long formId, List<AnswerCommand> answers) {
+        validateAnswers(formId, answers, FileAnswerValidation.AUTHENTICATED);
+    }
+
+    private void validateAnswers(
+        Long formId,
+        List<AnswerCommand> answers,
+        FileAnswerValidation fileValidation
+    ) {
         if (answers == null) {
             throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
         }
@@ -578,7 +614,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
                 .findFirst()
                 .orElseThrow(() -> new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM));
 
-            validateAnswerAgainstQuestion(answerCommand, question);
+            validateAnswerAgainstQuestion(
+                answerCommand,
+                question,
+                fileValidation
+            );
         }
     }
 
@@ -752,7 +792,11 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         }
     }
 
-    private void validateAnswerAgainstQuestion(AnswerCommand answerCommand, Question question) {
+    private void validateAnswerAgainstQuestion(
+        AnswerCommand answerCommand,
+        Question question,
+        FileAnswerValidation fileValidation
+    ) {
         QuestionType type = question.getType();
         switch (type) {
             case SHORT_TEXT, LONG_TEXT -> {
@@ -778,11 +822,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             }
             case FILE -> {
                 List<String> fileIds = answerCommand.fileIds();
-                if (fileIds == null || fileIds.isEmpty()) {
+                if ((fileIds == null || fileIds.isEmpty())
+                    && !fileValidation.clearableQuestionIds().contains(question.getId())) {
                     throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                 }
-                for (String fileId : fileIds) {
-                    getFileUseCase.throwIfNotExists(fileId);
+                if (fileValidation.validateFileExistence()) {
+                    for (String fileId : fileIds) {
+                        getFileUseCase.throwIfNotExists(fileId);
+                    }
                 }
             }
             case PORTFOLIO -> {
@@ -793,7 +840,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
                 if (!hasText && !hasFiles) {
                     throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                 }
-                if (hasFiles) {
+                if (hasFiles && fileValidation.validateFileExistence()) {
                     for (String fileId : fileIds) {
                         getFileUseCase.throwIfNotExists(fileId);
                     }
@@ -877,12 +924,15 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             .map(q -> Answer.createEmpty(formResponse, q))
             .toList();
 
-        saveAnswerPort.saveAll(emptyAnswers);
+        List<Answer> savedAnswers = saveAnswerPort.saveAll(emptyAnswers);
+        savedAnswers.forEach(answer ->
+            attachmentUsageService.synchronize(answer, formResponse.getRespondentMemberId()));
     }
 
-    private void saveAnswers(List<AnswerWithOptions> data) {
+    private void saveAnswers(List<AnswerWithOptions> data, Long requesterMemberId) {
         List<Answer> answers = data.stream().map(AnswerWithOptions::answer).toList();
         List<Answer> savedAnswers = saveAnswerPort.saveAll(answers);
+        savedAnswers.forEach(answer -> attachmentUsageService.synchronize(answer, requesterMemberId));
 
         List<AnswerChoice> choices = new ArrayList<>();
         for (int i = 0; i < savedAnswers.size(); i++) {
@@ -896,9 +946,79 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         }
     }
 
+    private List<AnswerCommand> resolveAnonymousAnswerCommands(
+        List<AnswerCommand> commands,
+        List<Answer> existingAnswers
+    ) {
+        if (commands == null) {
+            throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+        }
+        Map<Long, Answer> existingByQuestionId = existingAnswers.stream()
+            .collect(Collectors.toMap(answer -> answer.getQuestion().getId(), Function.identity()));
+        return commands.stream()
+            .map(command -> {
+                Answer existing = existingByQuestionId.get(command.questionId());
+                Set<String> currentFileIds = existing == null ? null : existing.getFileIds();
+                Set<String> resolvedFileIds = attachmentUsageService.resolveAnonymousSnapshot(
+                    currentFileIds, command.fileIds());
+                return new AnswerCommand(
+                    command.questionId(),
+                    command.textValue(),
+                    command.selectedOptionIds(),
+                    new ArrayList<>(resolvedFileIds)
+                );
+            })
+            .toList();
+    }
+
+    private void replaceAnonymousAnswers(
+        FormResponse response,
+        List<AnswerCommand> commands,
+        List<Answer> existingAnswers
+    ) {
+        Set<Long> requestedQuestionIds = extractQuestionIds(commands);
+        List<Answer> removedAnswers = existingAnswers.stream()
+            .filter(answer -> !requestedQuestionIds.contains(answer.getQuestion().getId()))
+            .toList();
+        attachmentUsageService.detachAnswers(removedAnswers);
+        removedAnswers.forEach(answer -> saveAnswerPort.deleteByAnswerId(answer.getId()));
+
+        Map<Long, Answer> existingByQuestionId = existingAnswers.stream()
+            .filter(answer -> requestedQuestionIds.contains(answer.getQuestion().getId()))
+            .collect(Collectors.toMap(answer -> answer.getQuestion().getId(), Function.identity()));
+        List<AnswerChoice> choices = new ArrayList<>();
+        for (AnswerWithOptions replacement : buildAnswerData(response, commands)) {
+            Answer replacementAnswer = replacement.answer();
+            Answer current = existingByQuestionId.get(replacementAnswer.getQuestion().getId());
+            Answer saved;
+            if (current == null) {
+                saved = saveAnswerPort.save(replacementAnswer);
+            } else {
+                saveAnswerPort.deleteChoicesByAnswerId(current.getId());
+                current.replaceContent(replacementAnswer.getTextValue(), replacementAnswer.getFileIds());
+                saved = saveAnswerPort.save(current);
+            }
+            attachmentUsageService.synchronize(saved, null);
+            replacement.options().forEach(option -> choices.add(new AnswerChoice(saved, option)));
+        }
+        if (!choices.isEmpty()) {
+            saveAnswerPort.saveAllChoices(choices);
+        }
+    }
+
     private record AnswerWithOptions(
         Answer answer,
         List<QuestionOption> options
     ) {
+    }
+
+    private record FileAnswerValidation(
+        boolean validateFileExistence,
+        Set<Long> clearableQuestionIds
+    ) {
+        private static final FileAnswerValidation AUTHENTICATED =
+            new FileAnswerValidation(true, Set.of());
+        private static final FileAnswerValidation ANONYMOUS_SUBMIT =
+            new FileAnswerValidation(false, Set.of());
     }
 }

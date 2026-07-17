@@ -26,6 +26,8 @@ public interface LoadChatMessagePort {
      */
     List<ChatMessage> listByRoomId(Long roomId, Long cursorId, int size);
 
+    List<Long> listIdsByRoomId(Long roomId);
+
     /**
      * 여러 방의 마지막(가장 최신) 메시지를 한 번에 조회한다. (채팅방 목록 미리보기용)
      */

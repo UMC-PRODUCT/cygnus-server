@@ -14,8 +14,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -27,6 +29,7 @@ import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatMessagePort;
+import com.umc.product.chat.application.service.ChatMessageAttachmentUsageService;
 import com.umc.product.chat.application.service.ChatRoomOwnershipAccessService;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.ChatRoomActorContext;
@@ -61,6 +64,8 @@ class ChatMessageCommandServiceTest {
     ChatAttachmentPolicy chatAttachmentPolicy;
     @Mock
     ChatRoomOwnershipAccessService ownershipAccessService;
+    @Mock
+    ChatMessageAttachmentUsageService attachmentUsageService;
     @Mock
     DomainEventPublisher domainEventPublisher;
 
@@ -243,8 +248,40 @@ class ChatMessageCommandServiceTest {
 
         assertThat(result.fileMetadataIds()).containsExactly("file-1", "file-2");
         then(chatAttachmentPolicy).should().validate(MessageContentType.IMAGE, files);
-        then(saveChatMessagePort).should().save(any(ChatMessage.class));
-        then(domainEventPublisher).should().publish(any(ChatMessageCreatedEvent.class));
+        InOrder order = Mockito.inOrder(
+            loadChatRoomPort,
+            saveChatMessagePort,
+            attachmentUsageService,
+            saveChatMemberPort,
+            domainEventPublisher
+        );
+        order.verify(loadChatRoomPort).getByIdForUpdate(1L);
+        order.verify(saveChatMessagePort).save(any(ChatMessage.class));
+        order.verify(attachmentUsageService).synchronize(saved, 10L);
+        order.verify(saveChatMemberPort).bumpLastReadMessageId(1L, 10L, 100L);
+        order.verify(domainEventPublisher).publish(any(ChatMessageCreatedEvent.class));
+    }
+
+    @Test
+    @DisplayName("usage 등록 실패는 watermark와 생성 이벤트 전에 전송을 중단한다")
+    void send_usageFailureBeforeWatermarkAndEvent() {
+        List<String> fileIds = List.of("file-1");
+        List<FileMetadataInfo> files = List.of(fileMetadataInfo("file-1", "jpg", "image/jpeg"));
+        SendChatMessageCommand command =
+            new SendChatMessageCommand(owner(), actor(), MessageContentType.IMAGE, null, fileIds);
+        ChatMessage saved = ChatMessage.create(1L, 10L, MessageContentType.IMAGE, null, fileIds);
+        ReflectionTestUtils.setField(saved, "id", 100L);
+        given(getFileUseCase.batchGetUsableByIds(fileIds, 10L)).willReturn(files);
+        given(saveChatMessagePort.save(any(ChatMessage.class))).willReturn(saved);
+        willThrow(new StorageException(StorageErrorCode.FILE_CLEANUP_IN_PROGRESS))
+            .given(attachmentUsageService).synchronize(saved, 10L);
+
+        assertThatThrownBy(() -> sut.send(command))
+            .isInstanceOf(StorageException.class)
+            .hasFieldOrPropertyWithValue("baseCode", StorageErrorCode.FILE_CLEANUP_IN_PROGRESS);
+
+        then(saveChatMemberPort).shouldHaveNoInteractions();
+        then(domainEventPublisher).shouldHaveNoInteractions();
     }
 
     @Test

@@ -24,6 +24,7 @@ import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.AnswerChoice;
@@ -53,6 +54,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
     private final SaveFormResponsePort saveFormResponsePort;
     private final GetFileUseCase getFileUseCase;
     private final FormOwnershipAccessService ownershipAccessService;
+    private final FormAnswerAttachmentUsageService attachmentUsageService;
     // authentication 도메인의 crypto util
     // 재배치(common/security 등) 는 별도 리팩터 PR 대상.
     private final SecureTokenGenerator secureTokenGenerator;
@@ -80,6 +82,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             toFileIdSet(command.fileIds())
         );
         Answer saved = saveAnswerPort.save(answer);
+        attachmentUsageService.synchronize(saved, authenticatedMemberId(actorContext));
 
         // 객관식이면 AnswerChoice도 같이 저장
         List<AnswerChoice> choices = buildChoices(saved, question, command.selectedOptionIds());
@@ -113,7 +116,8 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             ? null  // null = keep
             : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
         existing.update(command.textValue(), requestedFileIds);
-        saveAnswerPort.save(existing);
+        Answer saved = saveAnswerPort.save(existing);
+        attachmentUsageService.synchronize(saved, authenticatedMemberId(actorContext));
 
         // 3. 새 AnswerChoice 저장 (객관식인 경우)
         List<AnswerChoice> choices = buildChoices(existing, question, command.selectedOptionIds());
@@ -135,6 +139,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         requireRespondAccess(existing.getFormResponse(), expectedOwner, actorContext);
         FormResponse draft = existing.getFormResponse();
 
+        attachmentUsageService.detachAnswer(existing);
         saveAnswerPort.deleteByAnswerId(existing.getId());
         draft.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(draft);
@@ -155,14 +160,23 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.ANSWER_ALREADY_EXISTS);
         }
 
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        Set<String> requestedFileIds = attachmentUsageService.resolveAnonymousSnapshot(
+            Set.of(), command.fileIds());
+        validateAnswerContent(
+            question,
+            command.textValue(),
+            command.selectedOptionIds(),
+            new ArrayList<>(requestedFileIds),
+            false
+        );
 
         Answer answer = Answer.create(
             draft, question, question.getType(),
             command.textValue(),
-            toFileIdSet(command.fileIds())
+            toNullableFileIdSet(requestedFileIds)
         );
         Answer saved = saveAnswerPort.save(answer);
+        attachmentUsageService.synchronize(saved, null);
 
         // 객관식이면 AnswerChoice도 같이 저장
         List<AnswerChoice> choices = buildChoices(saved, question, command.selectedOptionIds());
@@ -186,17 +200,23 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         requireRespondAccess(existing.getFormResponse(), expectedOwner, actorContext);
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        Set<String> requestedFileIds = attachmentUsageService.resolveAnonymousSnapshot(
+            existing.getFileIds(), command.fileIds());
+        validateAnswerContent(
+            question,
+            command.textValue(),
+            command.selectedOptionIds(),
+            new ArrayList<>(requestedFileIds),
+            false
+        );
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
 
         // 2. Answer 의 textValue / fileIds 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
-        Set<String> requestedFileIds = command.fileIds() == null
-            ? null  // null = keep
-            : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
         existing.update(command.textValue(), requestedFileIds);
-        saveAnswerPort.save(existing);
+        Answer saved = saveAnswerPort.save(existing);
+        attachmentUsageService.synchronize(saved, null);
 
         // 3. 새 AnswerChoice 저장 (객관식인 경우)
         List<AnswerChoice> choices = buildChoices(existing, question, command.selectedOptionIds());
@@ -218,6 +238,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         requireRespondAccess(existing.getFormResponse(), expectedOwner, actorContext);
         FormResponse draft = existing.getFormResponse();
 
+        attachmentUsageService.detachAnswer(existing);
         saveAnswerPort.deleteByAnswerId(existing.getId());
         draft.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(draft);
@@ -363,6 +384,16 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         List<Long> selectedOptionIds,
         List<String> fileIds
     ) {
+        validateAnswerContent(question, textValue, selectedOptionIds, fileIds, true);
+    }
+
+    private void validateAnswerContent(
+        Question question,
+        String textValue,
+        List<Long> selectedOptionIds,
+        List<String> fileIds,
+        boolean validateFileExistence
+    ) {
         switch (question.getType()) {
             case SHORT_TEXT, LONG_TEXT -> {
                 if (textValue == null || textValue.isBlank()) {
@@ -387,8 +418,10 @@ public class AnswerCommandService implements ManageAnswerUseCase {
                 if (fileIds == null || fileIds.isEmpty()) {
                     throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                 }
-                for (String fileId : fileIds) {
-                    getFileUseCase.throwIfNotExists(fileId);
+                if (validateFileExistence) {
+                    for (String fileId : fileIds) {
+                        getFileUseCase.throwIfNotExists(fileId);
+                    }
                 }
             }
             case PORTFOLIO -> {
@@ -397,7 +430,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
                 if (!hasText && !hasFiles) {
                     throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                 }
-                if (hasFiles) {
+                if (hasFiles && validateFileExistence) {
                     for (String fileId : fileIds) {
                         getFileUseCase.throwIfNotExists(fileId);
                     }
@@ -424,6 +457,10 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             return null;
         }
         return new HashSet<>(fileIds);
+    }
+
+    private static Set<String> toNullableFileIdSet(Set<String> fileIds) {
+        return fileIds.isEmpty() ? null : fileIds;
     }
 
     /**

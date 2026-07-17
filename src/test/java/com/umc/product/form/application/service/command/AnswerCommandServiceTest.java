@@ -6,12 +6,15 @@ import static com.umc.product.form.application.service.FormAccessTestFixtures.ow
 import static com.umc.product.form.application.service.FormAccessTestFixtures.responseActor;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -34,6 +37,7 @@ import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
 import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
+import com.umc.product.form.application.service.FormAnswerAttachmentUsageService;
 import com.umc.product.form.application.service.FormOwnershipAccessService;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.Form;
@@ -74,6 +78,8 @@ class AnswerCommandServiceTest {
     SecureTokenGenerator secureTokenGenerator;
     @Mock
     FormOwnershipAccessService ownershipAccessService;
+    @Mock
+    FormAnswerAttachmentUsageService attachmentUsageService;
 
     @InjectMocks
     AnswerCommandService sut;
@@ -498,6 +504,69 @@ class AnswerCommandServiceTest {
         then(saveAnswerPort).should().deleteByAnswerId(ANSWER_ID);
     }
 
+    @Test
+    @DisplayName("기명 FILE 답변은 ID 확정 직후 attachment usage를 등록한다")
+    void createAnswer_fileUsageAfterSave() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Question question = attachmentQuestion(draft.getForm(), QuestionType.FILE);
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+        given(saveAnswerPort.save(any(Answer.class))).willAnswer(invocation -> {
+            Answer saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", ANSWER_ID);
+            return saved;
+        });
+
+        sut.createAnswer(owner(FORM_ID), actor(OWNER_MEMBER_ID), CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .fileIds(List.of("file-a"))
+            .build());
+
+        then(attachmentUsageService).should().synchronize(any(Answer.class), eq(OWNER_MEMBER_ID));
+    }
+
+    @Test
+    @DisplayName("익명 FILE 답변 null update는 같은 Answer ID와 기존 snapshot을 유지한다")
+    void updateAnonymousAnswer_nullKeepsLegacySnapshotAndId() {
+        FormResponse draft = anonymousDraft();
+        Answer answer = attachmentAnswer(draft, Set.of("legacy-a", "legacy-b"));
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+        given(attachmentUsageService.resolveAnonymousSnapshot(answer.getFileIds(), null))
+            .willReturn(answer.getFileIds());
+        given(saveAnswerPort.save(answer)).willReturn(answer);
+
+        sut.updateAnonymousAnswer(owner(FORM_ID), responseActor(RAW_KEY),
+            UpdateAnonymousAnswerCommand.builder().answerId(ANSWER_ID).fileIds(null).build());
+
+        org.assertj.core.api.Assertions.assertThat(answer.getId()).isEqualTo(ANSWER_ID);
+        org.assertj.core.api.Assertions.assertThat(answer.getFileIds())
+            .containsExactlyInAnyOrder("legacy-a", "legacy-b");
+        then(attachmentUsageService).should().synchronize(answer, null);
+    }
+
+    @Test
+    @DisplayName("익명 FILE 답변에 legacy superset을 요청하면 저장 전에 거부한다")
+    void updateAnonymousAnswer_supersetRejectedBeforeSave() {
+        FormResponse draft = anonymousDraft();
+        Answer answer = attachmentAnswer(draft, Set.of("legacy-a"));
+        List<String> superset = List.of("legacy-a", "new-file");
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+        willThrow(new com.umc.product.storage.domain.exception.StorageException(
+            com.umc.product.storage.domain.exception.StorageErrorCode.FILE_USE_FORBIDDEN))
+            .given(attachmentUsageService).resolveAnonymousSnapshot(answer.getFileIds(), superset);
+
+        assertThatThrownBy(() -> sut.updateAnonymousAnswer(owner(FORM_ID), responseActor(RAW_KEY),
+            UpdateAnonymousAnswerCommand.builder().answerId(ANSWER_ID).fileIds(superset).build()))
+            .isInstanceOf(com.umc.product.storage.domain.exception.StorageException.class);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
     private FormResponse namedDraft(Long memberId) {
         Form form = publishedForm();
         FormResponse draft = FormResponse.createDraft(form, memberId);
@@ -525,5 +594,20 @@ class AnswerCommandServiceTest {
         Answer answer = Answer.create(formResponse, question, QuestionType.SHORT_TEXT, "답", null);
         ReflectionTestUtils.setField(answer, "id", ANSWER_ID);
         return answer;
+    }
+
+    private Answer attachmentAnswer(FormResponse formResponse, Set<String> fileIds) {
+        Question question = attachmentQuestion(formResponse.getForm(), QuestionType.FILE);
+        Answer answer = Answer.create(formResponse, question, QuestionType.FILE, null, fileIds);
+        ReflectionTestUtils.setField(answer, "id", ANSWER_ID);
+        return answer;
+    }
+
+    private Question attachmentQuestion(Form form, QuestionType type) {
+        FormSection section = FormSection.create(form, "섹션", null, 1L);
+        Question question = Question.create("첨부", type, false, 1L);
+        question.assignTo(section);
+        ReflectionTestUtils.setField(question, "id", QUESTION_ID);
+        return question;
     }
 }
