@@ -48,13 +48,13 @@ public class InquiryQueryService implements GetInquiryListUseCase, GetInquiryUse
         InquiryAccessScope scope = scopeResolver.resolve(query.memberId());
         List<Inquiry> rows = loadInquiryPort.listByScope(scope, query);
 
-        List<Long> roomIds = rows.stream()
+        boolean hasNext = rows.size() > query.size();
+        List<Inquiry> page = hasNext ? rows.subList(0, query.size()) : rows;
+
+        List<Long> roomIds = page.stream()
             .map(Inquiry::getChatRoomId)
             .toList();
         Map<Long, Long> unreadByRoom = buildUnreadMap(query.memberId(), roomIds);
-
-        boolean hasNext = rows.size() > query.size();
-        List<Inquiry> page = hasNext ? rows.subList(0, query.size()) : rows;
 
         List<InquirySummaryInfo> content = page.stream()
             .map(inquiry -> InquirySummaryInfo.from(inquiry, unreadByRoom.getOrDefault(inquiry.getChatRoomId(), 0L)))
