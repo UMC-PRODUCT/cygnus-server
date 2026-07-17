@@ -84,6 +84,18 @@ class SensitiveDataSanitizingTurboFilterTest {
         assertThat(exception.getMostSpecificCause().getMessage()).contains(PROBE_EMAIL, PROBE_KEY);
     }
 
+    @Test
+    @DisplayName("민감값을 정제한 뒤에도 로그 format과 parameter 배열을 보존한다")
+    void 정제된_로그_parameter_보존() {
+        logger.error("Rejected email: {}", PROBE_EMAIL);
+
+        assertThat(appender.list).hasSize(1);
+        ILoggingEvent event = appender.list.getFirst();
+        assertThat(event.getMessage()).isEqualTo("Rejected email: {}");
+        assertThat(event.getArgumentArray()).containsExactly("[REDACTED]");
+        assertThat(event.getFormattedMessage()).isEqualTo("Rejected email: [REDACTED]");
+    }
+
     private String throwableText(IThrowableProxy throwable) {
         if (throwable == null) {
             return "";

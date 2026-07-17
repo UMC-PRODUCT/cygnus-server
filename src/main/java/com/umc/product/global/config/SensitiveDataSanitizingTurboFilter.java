@@ -3,7 +3,6 @@ package com.umc.product.global.config;
 import java.util.Objects;
 
 import org.slf4j.Marker;
-import org.slf4j.helpers.MessageFormatter;
 
 import com.umc.product.global.observability.ObservabilityErrorSanitizer;
 
@@ -29,14 +28,13 @@ public class SensitiveDataSanitizingTurboFilter extends TurboFilter {
             return FilterReply.NEUTRAL;
         }
 
-        String message = MessageFormatter.arrayFormat(sanitized.format(), sanitized.parameters()).getMessage();
         LoggingEvent event = new LoggingEvent(
             SensitiveDataSanitizingTurboFilter.class.getName(),
             logger,
             level,
-            message,
+            sanitized.format(),
             sanitized.throwable(),
-            null
+            sanitized.parameters()
         );
         if (marker != null) {
             event.addMarker(marker);
