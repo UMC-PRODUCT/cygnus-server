@@ -1,13 +1,10 @@
 package com.umc.product.recruiting.application.service.evaluator;
 
-import java.util.Objects;
-
 import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
-import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
@@ -71,34 +68,21 @@ public class RecruitingPermissionEvaluator implements ResourcePermissionEvaluato
     }
 
     private boolean hasAnyRecruitingOperatorRole(SubjectAttributes subjectAttributes) {
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastCentralCore()
-                || roleAttribute.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu()
+            || subjectAttributes.roleAttributes().stream()
+            .anyMatch(roleAttribute -> roleAttribute.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
                 || roleAttribute.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT);
     }
 
     private boolean hasAnyCentralCoreRole(SubjectAttributes subjectAttributes) {
-        return subjectAttributes.roleAttributes().stream()
-            .map(RoleAttribute::roleType)
-            .anyMatch(ChallengerRoleType::isAtLeastCentralCore);
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
     }
 
     private boolean isCentralCoreInGisu(SubjectAttributes subjectAttributes, Long gisuId) {
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType().isSuperAdmin()
-                || (roleAttribute.roleType().isAtLeastCentralCore()
-                && Objects.equals(roleAttribute.gisuId(), gisuId)));
+        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInGisu(gisuId);
     }
 
     private boolean isSchoolCoreOf(SubjectAttributes subjectAttributes, Long gisuId, Long schoolId) {
-        return subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> isSchoolCore(roleAttribute.roleType())
-                && Objects.equals(roleAttribute.gisuId(), gisuId)
-                && Objects.equals(roleAttribute.organizationId(), schoolId));
-    }
-
-    private boolean isSchoolCore(ChallengerRoleType roleType) {
-        return roleType == ChallengerRoleType.SCHOOL_PRESIDENT
-            || roleType == ChallengerRoleType.SCHOOL_VICE_PRESIDENT;
+        return subjectAttributes.toAuthoritySnapshot().isSchoolCoreInGisu(gisuId, schoolId);
     }
 }

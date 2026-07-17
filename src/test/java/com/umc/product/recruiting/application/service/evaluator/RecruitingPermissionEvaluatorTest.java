@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,7 @@ import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
@@ -88,6 +90,26 @@ class RecruitingPermissionEvaluatorTest {
     }
 
     @Test
+    @DisplayName("SUPER_ADMIN은 기수와 무관하게 특정 모집 MANAGE 권한을 통과한다")
+    void SUPER_ADMIN은_기수와_무관하게_특정_모집_MANAGE_권한을_통과한다() {
+        givenSeason();
+        SubjectAttributes subject = superAdminSubject();
+
+        assertThat(sut.evaluate(subject, seasonPermission(PermissionType.MANAGE))).isTrue();
+    }
+
+    @Test
+    @DisplayName("SUPER_ADMIN은 모집 전체 MANAGE 권한을 통과한다")
+    void SUPER_ADMIN은_모집_전체_MANAGE_권한을_통과한다() {
+        SubjectAttributes subject = superAdminSubject();
+
+        assertThat(sut.evaluate(
+            subject,
+            ResourcePermission.ofType(ResourceType.RECRUITMENT, PermissionType.MANAGE)
+        )).isTrue();
+    }
+
+    @Test
     @DisplayName("학교 회장단은 자기 학교라도 MANAGE 권한을 거부한다")
     void 학교_회장단은_자기_학교라도_MANAGE_권한을_거부한다() {
         givenSeason();
@@ -135,6 +157,14 @@ class RecruitingPermissionEvaluatorTest {
             .schoolId(SCHOOL_ID)
             .gisuChallengerInfos(List.of())
             .roleAttributes(List.of(roles))
+            .build();
+    }
+
+    private SubjectAttributes superAdminSubject() {
+        return SubjectAttributes.builder()
+            .memberId(MEMBER_ID)
+            .schoolId(SCHOOL_ID)
+            .systemRoles(Set.of(SystemRoleType.SUPER_ADMIN))
             .build();
     }
 
