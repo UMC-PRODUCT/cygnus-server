@@ -5,17 +5,25 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import com.p6spy.engine.common.PreparedStatementInformation;
-import com.umc.product.global.observability.ObservabilityTracingProperties;
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
 import java.sql.SQLException;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+
+import com.p6spy.engine.common.PreparedStatementInformation;
+import com.umc.product.global.observability.ObservabilityTracingProperties;
+
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 
 class QueryStatsJdbcEventListenerTest {
+
+    private static final String PROBE_EMAIL = "span-probe@example.invalid";
+    private static final String PROBE_KEY = "R4S8F2";
+    private static final String CONSTRAINT_NAME = "uk_recruiting_application_email_key";
 
     private Tracer tracer;
     private Span span;
@@ -77,10 +85,30 @@ class QueryStatsJdbcEventListenerTest {
     }
 
     @Test
-    @DisplayName("DB 쿼리 실패 시 span에 예외를 기록하고 요청 통계에는 성공 쿼리만 반영한다")
-    void db_쿼리_실패_span_error_기록() {
+    @DisplayName("DB span에 SQL을 포함해도 문자열 literal은 노출하지 않는다")
+    void db_span_SQL_문자열_literal_redaction() {
+        ObservabilityTracingProperties properties = new ObservabilityTracingProperties();
+        properties.setIncludeSql(true);
+        sut = new QueryStatsJdbcEventListener(tracer, properties);
         PreparedStatementInformation info = mock(PreparedStatementInformation.class);
-        SQLException exception = new SQLException("boom");
+        given(info.getSql()).willReturn(
+            "select id from recruiting_application where applicant_email = 'sql-span@example.invalid'"
+        );
+
+        sut.onBeforeExecuteQuery(info);
+        sut.onAfterExecuteQuery(info, 1_000_000L, null);
+
+        then(span).should().tag(
+            "db.statement",
+            "select id from recruiting_application where applicant_email = '[REDACTED]'"
+        );
+    }
+
+    @Test
+    @DisplayName("민감 DB 쿼리 실패는 span에서 값만 치환하고 진단 메타데이터를 유지한다")
+    void 민감_DB_쿼리_실패_span_error_redaction() {
+        PreparedStatementInformation info = mock(PreparedStatementInformation.class);
+        SQLException exception = duplicateException();
 
         QueryStatsHolder.init();
 
@@ -88,9 +116,35 @@ class QueryStatsJdbcEventListenerTest {
         sut.onAfterExecuteQuery(info, 3_000_000L, exception);
 
         assertThat(QueryStatsHolder.getQueryCount()).isZero();
-        then(span).should().error(exception);
+        ArgumentCaptor<Throwable> errorCaptor = ArgumentCaptor.forClass(Throwable.class);
+        then(span).should().error(errorCaptor.capture());
+        assertThat(errorCaptor.getValue())
+            .isNotSameAs(exception)
+            .hasMessageContaining(SQLException.class.getName())
+            .hasMessageContaining("sqlState=23505")
+            .hasMessageContaining("vendorCode=0")
+            .hasMessageContaining("constraint=" + CONSTRAINT_NAME)
+            .hasMessageNotContaining(PROBE_EMAIL)
+            .hasMessageNotContaining(PROBE_KEY)
+            .hasMessageNotContaining("=(42,");
+        then(span).should().tag("app.error.class", SQLException.class.getName());
+        then(span).should().tag("db.error.class", SQLException.class.getName());
+        then(span).should().tag("db.response.sql_state", "23505");
+        then(span).should().tag("db.response.vendor_code", "0");
+        then(span).should().tag("db.constraint.name", CONSTRAINT_NAME);
         then(span).should().tag("db.query.elapsed_ms", "3");
         then(span).should().end();
         then(spanInScope).should().close();
+    }
+
+    private SQLException duplicateException() {
+        return new SQLException(
+            """
+                ERROR: duplicate key value violates unique constraint "%s"
+                  Detail: Key (recruiting_round_id, applicant_email, application_key)=(42, %s, %s) already exists.
+                """.formatted(CONSTRAINT_NAME, PROBE_EMAIL, PROBE_KEY),
+            "23505",
+            0
+        );
     }
 }
