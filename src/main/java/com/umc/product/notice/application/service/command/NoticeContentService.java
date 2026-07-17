@@ -1,7 +1,9 @@
 package com.umc.product.notice.application.service.command;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +34,9 @@ import com.umc.product.notice.domain.NoticeLink;
 import com.umc.product.notice.domain.NoticeVote;
 import com.umc.product.notice.domain.exception.NoticeDomainException;
 import com.umc.product.notice.domain.exception.NoticeErrorCode;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +55,7 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
     private final LoadNoticePort loadNoticePort;
 
     private final ManageVoteUseCase manageVoteUseCase;
+    private final ManageFileUsageUseCase manageFileUsageUseCase;
 
     @Override
     public AddNoticeVoteResult addVote(AddNoticeVoteCommand command, Long noticeId) {
@@ -104,6 +110,7 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
             .toList();
 
         List<NoticeImage> savedImages = saveNoticeImagePort.saveAllImages(images);
+        synchronizeImageUsages(noticeId, memberId);
         return savedImages.stream()
             .map(NoticeImage::getId)
             .toList();
@@ -157,6 +164,7 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
             });
 
         saveNoticeImagePort.deleteAllImagesByNoticeId(noticeId);
+        synchronizeImageUsages(noticeId, memberId);
         saveNoticeLinkPort.deleteAllLinksByNoticeId(noticeId);
     }
 
@@ -175,16 +183,16 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
 
         saveNoticeImagePort.deleteAllImagesByNoticeId(noticeId);
 
-        if (command.imageIds().isEmpty()) {
-            return;
+        if (!command.imageIds().isEmpty()) {
+            AtomicInteger order = new AtomicInteger(0);
+            List<NoticeImage> images = command.imageIds().stream()
+                .map(imageId -> NoticeImage.create(imageId, notice, order.getAndIncrement()))
+                .toList();
+
+            saveNoticeImagePort.saveAllImages(images);
         }
 
-        AtomicInteger order = new AtomicInteger(0);
-        List<NoticeImage> images = command.imageIds().stream()
-            .map(imageId -> NoticeImage.create(imageId, notice, order.getAndIncrement()))
-            .toList();
-
-        saveNoticeImagePort.saveAllImages(images);
+        synchronizeImageUsages(noticeId, memberId);
     }
 
     @Override
@@ -212,6 +220,17 @@ public class NoticeContentService implements ManageNoticeContentUseCase {
     private Notice findNoticeById(Long noticeId) {
         return loadNoticePort.findNoticeById(noticeId)
             .orElseThrow(() -> new NoticeDomainException(NoticeErrorCode.NOTICE_NOT_FOUND));
+    }
+
+    private void synchronizeImageUsages(Long noticeId, Long requesterMemberId) {
+        Set<String> imageIds = loadNoticeImagePort.findImagesByNoticeId(noticeId).stream()
+            .map(NoticeImage::getImageId)
+            .collect(Collectors.toSet());
+        manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+            FileUsageCoordinate.of("notice", noticeId.toString(), "images"),
+            imageIds,
+            requesterMemberId
+        ));
     }
 
 }

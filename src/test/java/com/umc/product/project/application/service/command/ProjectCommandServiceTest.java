@@ -6,10 +6,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+
+import java.util.List;
 
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -39,6 +44,10 @@ import com.umc.product.project.domain.Project;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.BulkRemoveFileUsagesCommand;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectCommandServiceTest {
@@ -75,6 +84,8 @@ class ProjectCommandServiceTest {
     GetChapterUseCase getChapterUseCase;
     @Mock
     com.umc.product.form.application.port.in.command.ManageFormUseCase manageFormUseCase;
+    @Mock
+    ManageFileUsageUseCase manageFileUsageUseCase;
 
     @InjectMocks
     ProjectCommandService sut;
@@ -418,6 +429,68 @@ class ProjectCommandServiceTest {
     class update {
 
         @Test
+        void logo와_thumbnail을_각각_독립된_usage_snapshot으로_동기화한다() {
+            Project project = createProject(ProjectStatus.DRAFT);
+            given(loadProjectPort.getById(1L)).willReturn(project);
+
+            sut.update(UpdateProjectCommand.builder()
+                .projectId(1L)
+                .requesterMemberId(100L)
+                .logoFileId("logo-file")
+                .thumbnailFileId("thumbnail-file")
+                .build());
+
+            ArgumentCaptor<ReplaceFileUsagesCommand> usageCaptor =
+                ArgumentCaptor.forClass(ReplaceFileUsagesCommand.class);
+            then(manageFileUsageUseCase).should(times(2)).replaceUsages(usageCaptor.capture());
+            assertThat(usageCaptor.getAllValues())
+                .extracting(ReplaceFileUsagesCommand::owner)
+                .containsExactly(
+                    FileUsageCoordinate.of("project", "1", "logo"),
+                    FileUsageCoordinate.of("project", "1", "thumbnail")
+                );
+            assertThat(usageCaptor.getAllValues().get(0).fileIds()).containsExactly("logo-file");
+            assertThat(usageCaptor.getAllValues().get(1).fileIds()).containsExactly("thumbnail-file");
+            assertThat(usageCaptor.getAllValues())
+                .extracting(ReplaceFileUsagesCommand::requesterMemberId)
+                .containsOnly(100L);
+        }
+
+        @Test
+        void thumbnail만_수정하면_logo_aggregate와_usage를_건드리지_않는다() {
+            Project project = createProject(ProjectStatus.DRAFT);
+            project.updateBasicInfo(null, null, null, "old-thumbnail", "old-logo");
+            given(loadProjectPort.getById(1L)).willReturn(project);
+
+            sut.update(UpdateProjectCommand.builder()
+                .projectId(1L)
+                .requesterMemberId(100L)
+                .thumbnailFileId("new-thumbnail")
+                .build());
+
+            ArgumentCaptor<ReplaceFileUsagesCommand> usageCaptor =
+                ArgumentCaptor.forClass(ReplaceFileUsagesCommand.class);
+            then(manageFileUsageUseCase).should().replaceUsages(usageCaptor.capture());
+            assertThat(usageCaptor.getValue().owner())
+                .isEqualTo(FileUsageCoordinate.of("project", "1", "thumbnail"));
+            assertThat(usageCaptor.getValue().fileIds()).containsExactly("new-thumbnail");
+            assertThat(project.getLogoFileId()).isEqualTo("old-logo");
+        }
+
+        @Test
+        void file_id가_null이면_기존_logo와_thumbnail_snapshot을_유지한다() {
+            Project project = createProject(ProjectStatus.DRAFT);
+            project.updateBasicInfo(null, null, null, "old-thumbnail", "old-logo");
+            given(loadProjectPort.getById(1L)).willReturn(project);
+
+            sut.update(updateCommand("새이름"));
+
+            assertThat(project.getLogoFileId()).isEqualTo("old-logo");
+            assertThat(project.getThumbnailFileId()).isEqualTo("old-thumbnail");
+            then(manageFileUsageUseCase).shouldHaveNoInteractions();
+        }
+
+        @Test
         void DRAFT_상태_수정_성공() {
             Project project = createProject(ProjectStatus.DRAFT);
             given(loadProjectPort.getById(1L)).willReturn(project);
@@ -677,6 +750,16 @@ class ProjectCommandServiceTest {
             then(saveProjectApplicationFormPolicyPort).should(never()).deleteAllByApplicationFormId(any());
             then(saveProjectApplicationFormPort).should(never()).deleteAllByProjectId(any());
             then(manageFormUseCase).should(never()).deleteForm(any(), any(), any());
+            ArgumentCaptor<BulkRemoveFileUsagesCommand> usageCaptor =
+                ArgumentCaptor.forClass(BulkRemoveFileUsagesCommand.class);
+            then(manageFileUsageUseCase).should().removeAll(usageCaptor.capture());
+            assertThat(usageCaptor.getValue().owners()).containsExactlyInAnyOrderElementsOf(List.of(
+                FileUsageCoordinate.of("project", "1", "logo"),
+                FileUsageCoordinate.of("project", "1", "thumbnail")
+            ));
+            InOrder deleteOrder = org.mockito.Mockito.inOrder(manageFileUsageUseCase, saveProjectPort);
+            deleteOrder.verify(manageFileUsageUseCase).removeAll(any());
+            deleteOrder.verify(saveProjectPort).delete(project);
             then(saveProjectPartQuotaPort).should().deleteAllByProjectId(1L);
             then(saveProjectMemberPort).should().deleteAllByProjectId(1L);
             then(saveProjectPort).should().delete(project);

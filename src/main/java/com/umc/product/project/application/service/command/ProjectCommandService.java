@@ -2,6 +2,7 @@ package com.umc.product.project.application.service.command;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +58,10 @@ import com.umc.product.project.domain.ProjectPartQuota;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
+import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCase;
+import com.umc.product.storage.application.port.in.command.dto.BulkRemoveFileUsagesCommand;
+import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
+import com.umc.product.storage.domain.FileUsageCoordinate;
 
 import lombok.RequiredArgsConstructor;
 
@@ -90,6 +95,7 @@ public class ProjectCommandService implements
     private final GetGisuUseCase getGisuUseCase;
     private final GetChapterUseCase getChapterUseCase;
     private final ManageFormUseCase manageFormUseCase;
+    private final ManageFileUsageUseCase manageFileUsageUseCase;
 
     @Audited(
         domain = Domain.PROJECT,
@@ -190,6 +196,20 @@ public class ProjectCommandService implements
             command.thumbnailFileId(),
             command.logoFileId()
         );
+        if (command.logoFileId() != null) {
+            manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+                projectLogoCoordinate(project.getId()),
+                Set.of(project.getLogoFileId()),
+                command.requesterMemberId()
+            ));
+        }
+        if (command.thumbnailFileId() != null) {
+            manageFileUsageUseCase.replaceUsages(new ReplaceFileUsagesCommand(
+                projectThumbnailCoordinate(project.getId()),
+                Set.of(project.getThumbnailFileId()),
+                command.requesterMemberId()
+            ));
+        }
         return project.getStatus();
     }
 
@@ -291,6 +311,10 @@ public class ProjectCommandService implements
     public void delete(DeleteProjectCommand command) {
         Project project = loadProjectPort.getById(command.projectId());
         project.validateDeletable();
+        manageFileUsageUseCase.removeAll(new BulkRemoveFileUsagesCommand(List.of(
+            projectLogoCoordinate(project.getId()),
+            projectThumbnailCoordinate(project.getId())
+        )));
 
         loadProjectApplicationFormPort.findByProjectId(project.getId())
             .ifPresent(form -> {
@@ -334,5 +358,13 @@ public class ProjectCommandService implements
         for (ProjectApplication application : inProgressApplications) {
             application.cancel(command.requesterMemberId(), command.reason());
         }
+    }
+
+    private FileUsageCoordinate projectLogoCoordinate(Long projectId) {
+        return FileUsageCoordinate.of("project", projectId.toString(), "logo");
+    }
+
+    private FileUsageCoordinate projectThumbnailCoordinate(Long projectId) {
+        return FileUsageCoordinate.of("project", projectId.toString(), "thumbnail");
     }
 }
