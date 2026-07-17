@@ -1,0 +1,52 @@
+extend type Query {
+  userFeedbackTemplates(input: UserFeedbackTemplateSearchInput): [UserFeedbackTemplateSummary!]!
+  userFeedbackTemplate(id: ID!): UserFeedbackTemplate
+}
+
+input UserFeedbackTemplateSearchInput {
+  context: UserFeedbackContext
+  targetType: UserFeedbackTargetType
+  active: Boolean
+}
+
+type UserFeedbackTemplateSummary {
+  templateId: ID!
+  context: UserFeedbackContext!
+  targetType: UserFeedbackTargetType!
+  active: Boolean!
+  formId: ID!
+  title: String!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type UserFeedbackTemplate {
+  templateId: ID!
+  context: UserFeedbackContext!
+  targetType: UserFeedbackTargetType!
+  active: Boolean!
+  form: UserFeedbackTemplateForm!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type UserFeedbackTemplateForm implements Form {
+  formId: ID!
+  title: String!
+  description: String
+  status: FormStatus!
+  anonymous: Boolean!
+  allowDuplicateResponses: Boolean!
+  sections: [UserFeedbackTemplateSection!]!
+}
+
+type UserFeedbackTemplateSection implements FormSection {
+  sectionId: ID!
+  title: String!
+  description: String
+  orderNo: Int!
+  questions: [FormQuestion!]!
+}
+
+enum UserFeedbackContext { APPLICATION_SUBMITTED MATCHING_COMPLETED APPLICATION_MONITORING }
+enum UserFeedbackTargetType { NEW_CHALLENGER EXPERIENCED_CHALLENGER ADMIN }
