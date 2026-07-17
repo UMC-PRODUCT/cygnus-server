@@ -11,40 +11,52 @@ GraphQL은 아직 pilot 범위다. 현재는 Query만 제공하고 Mutation은 �
 - `organization`: `gisu`, `chapter`, `school` 공개 조회
 - `member`: `me`, `member`, `members`, `memberSearch` 조회와 `school`, `challengers`, `gisu` nested field
 - `project`: `project`, `projects` 조회와 `members`, `application`, `applicationForm` nested field
+- `feedback`: `userFeedbackTemplates`, `userFeedbackTemplate` 관리자용 조회
 
 스키마 파일은 `src/main/resources/graphql` 아래에 있다.
 
 ```text
-src/main/resources/graphql/organization.graphqls
+src/main/resources/graphql/common.graphqls
+src/main/resources/graphql/form.graphqls
 src/main/resources/graphql/member.graphqls
+src/main/resources/graphql/organization.graphqls
 src/main/resources/graphql/project.graphqls
+src/main/resources/graphql/feedback.graphqls
 ```
 
-Spring GraphQL은 이 디렉터리의 `*.graphqls` 파일을 합쳐 하나의 schema로 로드한다. `extend type Query`로 root query를 도메인별 파일에서 확장한다.
+Spring GraphQL은 이 디렉터리의 `*.graphqls` 파일 6개를 합쳐 하나의 unified schema로 로드한다. `organization.graphqls`가 `type Query`를 소유하고, 나머지 query 파일은 `extend type Query`로 root query를 확장한다. 파일 분리는 소유권과 변경 위치를 나타내며, 실행 endpoint나 GraphQL namespace를 분리하지 않는다.
 
 ## Schema 구성 및 연관 관계
 
 ### 통합 schema 조립
 
-파일은 도메인별로 나뉘지만 endpoint와 실행 schema는 하나다. `organization.graphqls`가 root `Query`를 선언하고,
-`member.graphqls`와 `project.graphqls`가 `extend type Query`로 field를 추가한다.
+파일은 공용 계약과 도메인별 계약으로 나뉘지만 endpoint와 실행 schema는 하나다. `organization.graphqls`가 root `Query`를 선언하고,
+`member.graphqls`, `project.graphqls`, `feedback.graphqls`가 `extend type Query`로 field를 추가한다. `common.graphqls`와 `form.graphqls`는
+root query 없이 전역에서 참조되는 공용 type을 선언한다.
 
 ```mermaid
 flowchart TB
+    COMMON["common.graphqls<br/>Long, ChallengerPart"]
+    FORM["form.graphqls<br/>Form, FormSection<br/>FormQuestion, FormOption<br/>form/status enums"]
     ORG["organization.graphqls<br/>type Query<br/>organization types"]
-    MEMBER["member.graphqls<br/>extend type Query<br/>member types"]
-    PROJECT["project.graphqls<br/>extend type Query<br/>project types<br/>shared scalar and enums"]
+    MEMBER["member.graphqls<br/>extend type Query<br/>member types<br/>MemberSummary"]
+    PROJECT["project.graphqls<br/>extend type Query<br/>Project concrete types"]
+    FEEDBACK["feedback.graphqls<br/>extend type Query<br/>feedback concrete form/section"]
     LOADER["Spring GraphQL schema loader<br/>classpath graphql/*.graphqls"]
     QUERY["통합 Query"]
 
+    COMMON --> LOADER
+    FORM --> LOADER
     ORG --> LOADER
     MEMBER --> LOADER
     PROJECT --> LOADER
+    FEEDBACK --> LOADER
     LOADER --> QUERY
 
     QUERY --> OQ["gisuOrganizations, gisu, activeGisu<br/>chapters, chapter, schools, school"]
     QUERY --> MQ["me, member, members, memberSearch"]
     QUERY --> PQ["project, projects"]
+    QUERY --> FQ["userFeedbackTemplates, userFeedbackTemplate"]
 ```
 
 SDL 파일 경계는 Java package나 Hexagonal Architecture의 의존성 경계가 아니다. 모든 파일이 합쳐진 뒤 type 이름은
@@ -54,16 +66,29 @@ SDL 파일 경계는 Java package나 Hexagonal Architecture의 의존성 경계�
 
 | 공유 선언 | 선언 파일 | 사용하는 schema |
 | --- | --- | --- |
+| `Long`, `ChallengerPart` | `common.graphqls` | `member`, `project` |
+| `Form`, `FormSection`, `FormQuestion`, `FormOption` | `form.graphqls` | `project`, `feedback` |
+| `FormStatus`, `FormResponseStatus`, `QuestionType` | `form.graphqls` | `project`, `feedback` |
+| `MemberSummary` | `member.graphqls` | `project` |
 | `Gisu`, `SchoolDetail` | `organization.graphqls` | `organization`, `member` |
-| `Long`, `ChallengerPart` | `project.graphqls` | `project`, `member` |
+
+구체 구현의 소유권은 다음과 같다. `project.graphqls`의 `ProjectApplicationForm`은 `Form`을,
+`ApplicationFormSection`은 `FormSection`을 구현한다. `feedback.graphqls`의
+`UserFeedbackTemplateForm`은 `Form`을, `UserFeedbackTemplateSection`은 `FormSection`을 구현한다.
+질문·옵션 object와 공용 enum을 concrete 파일에 다시 선언하지 않는다.
 
 ### 주요 type 관계
 
 실선은 object field가 다른 object type을 선택하는 관계이고, 점선은 input, scalar, enum을 공유하는 관계다.
-`Project`는 `Member` type을 직접 재사용하지 않고 project 조회 목적에 맞춘 `MemberBrief`, `ProjectApplicant`를 사용한다.
+`Project`는 `Member` type을 직접 재사용하지 않고 project 조회 목적에 맞춘 `MemberSummary`, `ProjectApplicant`를 사용한다.
 
 ```mermaid
 flowchart LR
+    subgraph COMMON_SCHEMA["common.graphqls"]
+        Long["scalar Long"]
+        ChallengerPart["enum ChallengerPart"]
+    end
+
     subgraph ORG_SCHEMA["organization.graphqls"]
         Gisu["Gisu"]
         GisuChapter["GisuChapter"]
@@ -86,6 +111,7 @@ flowchart LR
         MemberSearchResult["MemberSearchResult"]
         MemberSearchChallenger["MemberSearchChallenger"]
         MemberSearchInput["MemberSearchInput"]
+        MemberSummary["MemberSummary"]
 
         Member -->|"challengers"| MemberChallenger
         MemberPage -->|"content"| MemberSearchResult
@@ -93,26 +119,53 @@ flowchart LR
         MemberSearchResult -->|"challengerRecords"| MemberSearchChallenger
     end
 
+    subgraph FORM_SCHEMA["form.graphqls"]
+        Form["Form"]
+        FormSection["FormSection"]
+        FormQuestion["FormQuestion"]
+        FormOption["FormOption"]
+        FormStatus["FormStatus"]
+        FormResponseStatus["FormResponseStatus"]
+        QuestionType["QuestionType"]
+
+        Form -->|"sections"| FormSection
+        FormSection -->|"questions"| FormQuestion
+        FormQuestion -->|"options"| FormOption
+    end
+
     subgraph PROJECT_SCHEMA["project.graphqls"]
         ProjectPage["ProjectPage"]
         Project["Project"]
+        ProjectSearchInput["ProjectSearchInput"]
         ProjectMember["ProjectMember"]
-        MemberBrief["MemberBrief"]
         ProjectApplication["ProjectApplication"]
         ProjectApplicationForm["ProjectApplicationForm"]
-        FormSection["ApplicationFormSection"]
-        FormQuestion["ApplicationFormQuestion"]
-        LongScalar["scalar Long"]
-        ChallengerPart["enum ChallengerPart"]
+        ApplicationFormSection["ApplicationFormSection"]
+
+        ProjectApplicationForm -.->|"implements Form"| Form
+        ApplicationFormSection -.->|"implements FormSection"| FormSection
 
         ProjectPage -->|"content"| Project
-        Project -->|"productOwner, coProductOwners"| MemberBrief
+        Project -->|"productOwner, coProductOwners"| MemberSummary
         Project -->|"members"| ProjectMember
         Project -->|"applicationForm"| ProjectApplicationForm
-        ProjectMember -->|"member"| MemberBrief
+        ProjectMember -->|"member"| MemberSummary
         ProjectMember -->|"application"| ProjectApplication
-        ProjectApplicationForm -->|"sections"| FormSection
-        FormSection -->|"questions"| FormQuestion
+        ProjectApplicationForm -->|"sections"| ApplicationFormSection
+        ApplicationFormSection -->|"questions"| FormQuestion
+        ProjectSearchInput -.->|"parts"| ChallengerPart
+    end
+
+    subgraph FEEDBACK_SCHEMA["feedback.graphqls"]
+        UserFeedbackTemplate["UserFeedbackTemplate"]
+        UserFeedbackTemplateForm["UserFeedbackTemplateForm"]
+        UserFeedbackTemplateSection["UserFeedbackTemplateSection"]
+
+        UserFeedbackTemplate -->|"form"| UserFeedbackTemplateForm
+        UserFeedbackTemplateForm -.->|"implements Form"| Form
+        UserFeedbackTemplateSection -.->|"implements FormSection"| FormSection
+        UserFeedbackTemplateForm -->|"sections"| UserFeedbackTemplateSection
+        UserFeedbackTemplateSection -->|"questions"| FormQuestion
     end
 
     Member -->|"school"| SchoolDetail
@@ -120,8 +173,12 @@ flowchart LR
     MemberSearchResult -->|"school"| SchoolDetail
     MemberSearchChallenger -->|"gisu"| Gisu
     MemberSearchInput -.->|"part"| ChallengerPart
-    MemberPage -.->|"totalElements"| LongScalar
+    MemberPage -.->|"totalElements"| Long
 ```
+
+위 diagram에서 `Long`과 `ChallengerPart`는 `common.graphqls` 선언이고, `Form*` type과 status enum은
+`form.graphqls` 선언이다. `ProjectApplicationForm`/`ApplicationFormSection`과
+`UserFeedbackTemplateForm`/`UserFeedbackTemplateSection`은 각각 project와 feedback의 concrete 확장이다.
 
 ### Resolver와 BatchMapping 연결
 
@@ -148,6 +205,10 @@ flowchart TB
         PROJECT_BATCH["BatchMapping<br/>Project.members<br/>Project.applicationForm<br/>Project.productOwner<br/>Project.coProductOwners<br/>ProjectMember.member<br/>ProjectMember.application"]
     end
 
+    subgraph FEEDBACK_ADAPTER["UserFeedbackTemplateGraphQlController"]
+        FEEDBACK_QUERY["QueryMapping<br/>userFeedbackTemplates<br/>userFeedbackTemplate"]
+    end
+
     PORTS["application/port/in/query<br/>Query UseCases"]
 
     CLIENT --> SCHEMA
@@ -157,6 +218,7 @@ flowchart TB
     SCHEMA --> MEMBER_BATCH
     SCHEMA --> ORG_BATCH
     SCHEMA --> PROJECT_BATCH
+    SCHEMA --> FEEDBACK_QUERY
 
     MEMBER_QUERY --> PORTS
     MEMBER_BATCH --> PORTS
@@ -164,6 +226,7 @@ flowchart TB
     ORG_BATCH --> PORTS
     PROJECT_QUERY --> PORTS
     PROJECT_BATCH --> PORTS
+    FEEDBACK_QUERY --> PORTS
 
     MEMBER_BATCH -->|"MemberSearchChallenger.gisu returns Gisu"| ORG_BATCH
 ```
@@ -318,6 +381,7 @@ query {
 | `member`, `members` | `MEMBER:READ` 검사 후 public view |
 | `project`, `projects` | `PROJECT:READ` 검사 |
 | `ProjectMember.application` | `PROJECT_APPLICATION:READ` 검사, 권한 없으면 `null` |
+| `userFeedbackTemplates`, `userFeedbackTemplate` | pilot에서는 `SUPER_ADMIN` 전용, 두 query 모두 `FEEDBACK READ` 검사 |
 
 새 private resolver를 추가할 때는 `/graphql` 경로가 public이라는 사실을 전제로 method 또는 field resolver 안에서 권한 검사를 명시해야 한다.
 
@@ -533,6 +597,80 @@ query {
 ```
 
 `ProjectMember.application`은 접근 권한이 없는 경우 GraphQL error를 내지 않고 `null`로 숨긴다. 한 응답 안에서 접근 가능한 지원서만 보여주기 위한 정책이다.
+
+## Feedback template 예시
+
+Feedback GraphQL은 pilot에서 query만 제공한다. mutation은 없으며, 응답자용 피드백 제출·조회 API도 이
+문서 범위에 포함하지 않는다. `userFeedbackTemplates`와 `userFeedbackTemplate`은 관리자용 template
+조회 query이며 pilot에서는 `SUPER_ADMIN` 전용 표면으로 운영한다. 두 query 모두 resolver에서
+`FEEDBACK READ` 권한을 검사한다.
+
+목록 query는 `context`, `targetType`, `active` 세 nullable filter를 `input`으로 받는다. 생략한 filter는
+조건을 적용하지 않는다.
+
+```graphql
+query {
+  userFeedbackTemplates(
+    input: {
+      context: APPLICATION_SUBMITTED
+      targetType: ADMIN
+      active: true
+    }
+  ) {
+    templateId
+    context
+    targetType
+    active
+    formId
+    title
+  }
+}
+```
+
+상세 query의 data field는 nullable이다. template을 찾지 못하면 `userFeedbackTemplate` data가 `null`이고,
+동시에 GraphQL error의 `code`는 `FEEDBACK-0001`, error type은 `NOT_FOUND`, HTTP status는 `404`다.
+
+```graphql
+query {
+  userFeedbackTemplate(id: 42) {
+    templateId
+    active
+    form {
+      formId
+      title
+      status
+      sections {
+        sectionId
+        title
+        questions {
+          questionId
+          type
+          options {
+            optionId
+            content
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+`active: false`인 template도 `FEEDBACK READ` 권한이 있는 관리자에게 계속 읽힌다. 비활성화는 응답자
+노출 상태를 뜻하며 관리자 조회 권한을 회수하지 않는다.
+
+### Pilot migration note: 제거된 type 이름
+
+기존 client의 fragment 또는 `__typename`이 제거된 `MemberBrief`, `ApplicationFormQuestion`,
+`ApplicationFormOption` 이름을 사용한다면 각각 `MemberSummary`, `FormQuestion`, `FormOption`으로
+마이그레이션해야 한다. 이 note 밖에서는 제거된 이름을 schema type으로 사용하지 않는다.
+
+### Pilot 범위 제한
+
+- mutation은 제공하지 않는다.
+- 응답자 access는 제공하지 않는다.
+- 기존 Project selection path와 field는 유지하며, 이번 pilot에서 새 Project field를 추가하지 않는다.
+- local fixture가 `SUPER_ADMIN` 계정을 보장한다고 가정하지 않는다.
 
 ## Resolver 구현 규칙
 
