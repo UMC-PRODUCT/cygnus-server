@@ -13,9 +13,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.lang.Nullable;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
@@ -25,7 +24,9 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.adapter.in.graphql.dto.MemberChallengerGraphQlResponse;
 import com.umc.product.member.adapter.in.graphql.dto.MemberGisuGraphQlResponse;
 import com.umc.product.member.adapter.in.graphql.dto.MemberGraphQlResponse;
@@ -56,23 +57,30 @@ public class MemberGraphQlController {
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetGisuUseCase getGisuUseCase;
     private final SearchMemberUseCase searchMemberUseCase;
+    private final CurrentMemberProvider currentMemberProvider;
 
     @QueryMapping
-    public MemberGraphQlResponse me() {
-        Long requesterMemberId = currentMemberId();
+    public MemberGraphQlResponse me(@Nullable @CurrentMember MemberPrincipal memberPrincipal) {
+        Long requesterMemberId = currentMemberId(memberPrincipal);
         return MemberGraphQlResponse.privateFrom(getMemberUseCase.getById(requesterMemberId));
     }
 
     @QueryMapping
-    public MemberGraphQlResponse member(@Argument Long id) {
-        Long requesterMemberId = currentMemberId();
+    public MemberGraphQlResponse member(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long id
+    ) {
+        Long requesterMemberId = currentMemberId(memberPrincipal);
         checkPermissionUseCase.checkOrThrow(requesterMemberId, memberReadPermission(id));
         return MemberGraphQlResponse.publicFrom(getMemberUseCase.getById(id));
     }
 
     @QueryMapping
-    public List<MemberGraphQlResponse> members(@Argument List<Long> ids) {
-        Long requesterMemberId = currentMemberId();
+    public List<MemberGraphQlResponse> members(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument List<Long> ids
+    ) {
+        Long requesterMemberId = currentMemberId(memberPrincipal);
         List<Long> uniqueMemberIds = uniqueMemberIds(ids);
         if (uniqueMemberIds.isEmpty()) {
             return List.of();
@@ -229,15 +237,14 @@ public class MemberGraphQlController {
         return result;
     }
 
+    private Long currentMemberId(MemberPrincipal memberPrincipal) {
+        return memberPrincipal == null
+            ? currentMemberProvider.getRequiredCurrentMemberId()
+            : memberPrincipal.getMemberId();
+    }
+
     private Long currentMemberId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("로그인이 필요해요. 로그인 후 다시 시도해주세요.");
-        }
-        if (authentication.getPrincipal() instanceof MemberPrincipal principal) {
-            return principal.getMemberId();
-        }
-        throw new AccessDeniedException("인증 정보가 올바르지 않아요. 다시 로그인해주세요.");
+        return currentMemberProvider.getRequiredCurrentMemberId();
     }
 
     private List<Long> uniqueMemberIds(List<Long> memberIds) {

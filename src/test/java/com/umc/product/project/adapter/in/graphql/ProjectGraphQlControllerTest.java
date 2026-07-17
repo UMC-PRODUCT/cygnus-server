@@ -37,6 +37,7 @@ import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
@@ -58,7 +59,7 @@ import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 
 @GraphQlTest(ProjectGraphQlController.class)
-@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class})
+@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, CurrentMemberSecurityConfig.class})
 @DisplayName("ProjectGraphQlController")
 class ProjectGraphQlControllerTest {
 
