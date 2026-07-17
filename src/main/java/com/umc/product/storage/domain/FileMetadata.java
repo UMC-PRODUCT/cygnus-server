@@ -165,6 +165,10 @@ public class FileMetadata extends BaseEntity {
      */
     public void markReferenced() {
         this.unreferencedAt = null;
+        if (cleanupClaimToken == null && cleanupFailedAt == null) {
+            this.cleanupAttempts = 0;
+            this.cleanupNextAttemptAt = null;
+        }
     }
 
     /**
@@ -187,8 +191,61 @@ public class FileMetadata extends BaseEntity {
         if (cleanupClaimToken != null || cleanupFailedAt != null) {
             throw new IllegalStateException("이미 cleanup이 진행 또는 격리된 파일입니다.");
         }
+        applyCleanupClaim(token, claimedAt);
+    }
+
+    public void reclaimCleanup(UUID token, Instant claimedAt) {
+        if (token == null || claimedAt == null) {
+            throw new IllegalArgumentException("cleanup reclaim token과 시각은 필수입니다.");
+        }
+        if (cleanupClaimToken == null || cleanupFailedAt != null) {
+            throw new IllegalStateException("reclaim할 active cleanup claim이 없습니다.");
+        }
+        applyCleanupClaim(token, claimedAt);
+    }
+
+    public boolean recordCleanupFailure(
+        UUID token,
+        Instant failedAt,
+        Instant nextAttemptAt,
+        int maxAttempts
+    ) {
+        if (failedAt == null || maxAttempts < 1) {
+            throw new IllegalArgumentException("cleanup 실패 시각과 max attempts는 필수입니다.");
+        }
+        if (!matchesCleanupClaim(token)) {
+            return false;
+        }
+        if (cleanupAttempts < maxAttempts && nextAttemptAt == null) {
+            throw new IllegalArgumentException("retry 대상 cleanup의 다음 시각은 필수입니다.");
+        }
+
+        this.cleanupClaimToken = null;
+        this.cleanupClaimedAt = null;
+        if (cleanupAttempts >= maxAttempts) {
+            this.cleanupNextAttemptAt = null;
+            this.cleanupFailedAt = failedAt;
+            return true;
+        }
+        this.cleanupNextAttemptAt = nextAttemptAt;
+        return true;
+    }
+
+    public void quarantineCleanup(Instant failedAt) {
+        if (failedAt == null) {
+            throw new IllegalArgumentException("cleanup 격리 시각은 필수입니다.");
+        }
+        this.cleanupClaimToken = null;
+        this.cleanupClaimedAt = null;
+        this.cleanupNextAttemptAt = null;
+        this.cleanupFailedAt = failedAt;
+    }
+
+    private void applyCleanupClaim(UUID token, Instant claimedAt) {
         this.cleanupClaimToken = token;
         this.cleanupClaimedAt = claimedAt;
+        this.cleanupAttempts++;
+        this.cleanupNextAttemptAt = null;
     }
 
     public boolean hasCleanupClaim() {

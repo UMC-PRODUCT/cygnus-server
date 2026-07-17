@@ -148,6 +148,26 @@ class FileUsageAttachmentValidationTest {
         assertAttachRejected(failed, 7L, StorageErrorCode.FILE_CLEANUP_FAILED);
     }
 
+    @Test
+    @DisplayName("backoff 중 reattach는 retry lifecycle을 취소한다")
+    void backoff_중_reattach는_retry_lifecycle을_취소한다() {
+        // given
+        UUID token = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        FileMetadata retrying = confirmedFile("file-a", 7L);
+        retrying.claimCleanup(token, NOW.minusSeconds(60));
+        retrying.recordCleanupFailure(token, NOW, NOW.plusSeconds(60), 10);
+        stubNewAttachment(retrying);
+        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.READY);
+
+        // when
+        sut.replaceUsages(replace("file-a", 7L));
+
+        // then
+        assertThat(retrying.getCleanupAttempts()).isZero();
+        assertThat(retrying.getCleanupNextAttemptAt()).isNull();
+        assertThat(retrying.getUnreferencedAt()).isNull();
+    }
+
     private void assertAttachRejected(
         FileMetadata metadata,
         Long requesterMemberId,

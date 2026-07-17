@@ -220,6 +220,16 @@ public class S3StorageAdapter implements StoragePort {
             s3Client.deleteObject(deleteRequest);
             log.info("S3 파일을 삭제했습니다: storageKey={}", storageKey);
             recordStorageMetric("DELETE_OBJECT", "success", startNanos);
+        } catch (NoSuchKeyException e) {
+            recordStorageMetric("DELETE_OBJECT", "not_found", startNanos);
+        } catch (S3Exception e) {
+            if (e.statusCode() == 404) {
+                recordStorageMetric("DELETE_OBJECT", "not_found", startNanos);
+                return;
+            }
+            recordStorageMetric("DELETE_OBJECT", "failure", startNanos);
+            log.error("S3 파일 삭제 실패: storageKey={}", storageKey, e);
+            throw new StorageException(StorageErrorCode.STORAGE_DELETE_FAILED, e);
         } catch (Exception e) {
             recordStorageMetric("DELETE_OBJECT", "failure", startNanos);
             log.error("S3 파일 삭제 실패: storageKey={}", storageKey, e);

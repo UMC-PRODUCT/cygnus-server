@@ -30,6 +30,7 @@ import com.umc.product.storage.domain.exception.StorageException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -281,6 +282,21 @@ class S3StorageAdapterTest {
             .hasCauseInstanceOf(S3Exception.class)
             .extracting("baseCode")
             .isEqualTo(StorageErrorCode.STORAGE_METADATA_READ_FAILED);
+    }
+
+    @Test
+    @DisplayName("DeleteObject에서 not found가 발생해도 idempotent success로 처리한다")
+    void DeleteObject_not_found는_idempotent_success다() {
+        // given
+        S3StorageAdapter sut = adapter();
+        given(s3Client.deleteObject(org.mockito.ArgumentMatchers.any(DeleteObjectRequest.class)))
+            .willThrow(S3Exception.builder().statusCode(404).build());
+
+        // when
+        sut.delete("private/portfolio/missing.pdf");
+
+        // then
+        verify(s3Client).deleteObject(org.mockito.ArgumentMatchers.any(DeleteObjectRequest.class));
     }
 
     private S3StorageAdapter adapter() {

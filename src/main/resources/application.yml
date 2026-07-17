@@ -376,6 +376,18 @@ app:
       # 자동 선발 스케줄러가 decisionDeadline 이후 대기하는 buffer. 환경변수 단위는 minute.
       deadline-buffer-minutes: ${PROJECT_MATCHING_ROUND_DEADLINE_BUFFER_MINUTES:1}
 
+  storage:
+    cleanup:
+      enabled: ${FILE_CLEANUP_ENABLED:false}
+      poll-interval: ${FILE_CLEANUP_POLL_INTERVAL:PT1M}
+      pending-retention: ${FILE_CLEANUP_PENDING_RETENTION:PT24H}
+      unreferenced-retention: ${FILE_CLEANUP_UNREFERENCED_RETENTION:PT168H}
+      claim-timeout: ${FILE_CLEANUP_CLAIM_TIMEOUT:PT15M}
+      batch-size: ${FILE_CLEANUP_BATCH_SIZE:100}
+      max-attempts: ${FILE_CLEANUP_MAX_ATTEMPTS:10}
+      initial-backoff: ${FILE_CLEANUP_INITIAL_BACKOFF:PT1M}
+      max-backoff: ${FILE_CLEANUP_MAX_BACKOFF:PT6H}
+
   super-admin:
     # true 면 SUPER_ADMIN 이 DRAFT 프로젝트/지원서 단건을 조회할 수 있다. 초기 배포 모니터링용으로만 켜고 안정화 후 끈다.
     allow-draft-read: ${SUPER_ADMIN_ALLOW_DRAFT_READ:false}
