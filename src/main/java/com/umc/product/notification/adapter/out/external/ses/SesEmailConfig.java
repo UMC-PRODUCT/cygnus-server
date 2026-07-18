@@ -4,10 +4,12 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.validation.annotation.Validated;
+
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+import software.amazon.awssdk.core.client.config.ClientOverrideConfiguration;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
 
@@ -26,6 +28,10 @@ public class SesEmailConfig {
         return SesV2Client.builder()
             .region(Region.of(properties.region()))
             .credentialsProvider(resolveCredentials(properties))
+            .overrideConfiguration(ClientOverrideConfiguration.builder()
+                .apiCallTimeout(properties.apiCallTimeout())
+                .apiCallAttemptTimeout(properties.apiCallAttemptTimeout())
+                .build())
             .build();
     }
 

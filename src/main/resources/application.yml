@@ -499,6 +499,8 @@ app:
         access-key-id: ${SES_ACCESS_KEY_ID:}
         secret-access-key: ${SES_SECRET_ACCESS_KEY:}
         configuration-set: ${SES_CONFIGURATION_SET:}
+        api-call-timeout: ${SES_API_CALL_TIMEOUT:PT30S}
+        api-call-attempt-timeout: ${SES_API_CALL_ATTEMPT_TIMEOUT:PT10S}
       sender:
         no-reply-address: ${EMAIL_NO_REPLY_ADDRESS}
         no-reply-display-name: ${EMAIL_NO_REPLY_DISPLAY_NAME:University MakeUs Challenge}

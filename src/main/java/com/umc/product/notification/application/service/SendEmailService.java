@@ -1,14 +1,23 @@
 package com.umc.product.notification.application.service;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.event.application.port.out.dto.OutboxPublishResult;
 import com.umc.product.notification.application.port.in.SendEmailUseCase;
+import com.umc.product.notification.application.port.in.dto.SendTemplateEmailCommand;
 import com.umc.product.notification.application.port.in.dto.SendVerificationEmailCommand;
+import com.umc.product.notification.application.port.in.dto.TemplateEmailRequestInfo;
 import com.umc.product.notification.application.port.out.SendEmailPort;
 import com.umc.product.notification.application.port.out.dto.EmailMessage;
+import com.umc.product.notification.domain.TemplateEmailRequestedEvent;
 import com.umc.product.notification.domain.exception.EmailDomainException;
 import com.umc.product.notification.domain.exception.EmailErrorCode;
 
@@ -26,6 +35,8 @@ public class SendEmailService implements SendEmailUseCase {
     private final TemplateEngine templateEngine;
     private final SendEmailPort sendEmailPort;
     private final EmailSenderProperties senderProperties;
+    private final EmailTemplateCatalog templateCatalog;
+    private final DomainEventPublisher domainEventPublisher;
 
     @Async("emailTaskExecutor")
     @Override
@@ -48,6 +59,28 @@ public class SendEmailService implements SendEmailUseCase {
             log.error("인증 이메일 발송 실패: recipientPresent={}", hasRecipient(command.to()), e);
             throw e;
         }
+    }
+
+    @Override
+    @Transactional
+    public TemplateEmailRequestInfo requestTemplateEmail(SendTemplateEmailCommand command) {
+        SendTemplateEmailCommand validated = templateCatalog.validate(command);
+        TemplateEmailRequestedEvent event = new TemplateEmailRequestedEvent(
+            validated.eventId(),
+            Instant.now(),
+            validated.recipient(),
+            validated.templateType(),
+            validated.variables()
+        );
+        OutboxPublishResult result = domainEventPublisher.publishOnce(event, validated.availableAt());
+        Instant availableAt = validated.availableAt().truncatedTo(ChronoUnit.MICROS);
+        return new TemplateEmailRequestInfo(
+            result.eventId(),
+            result.status(),
+            result.deduplicated(),
+            availableAt,
+            result.nextAttemptAt()
+        );
     }
 
     private String renderVerificationTemplate(SendVerificationEmailCommand command) {

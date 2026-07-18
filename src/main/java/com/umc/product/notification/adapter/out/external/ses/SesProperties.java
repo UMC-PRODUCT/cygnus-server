@@ -1,8 +1,11 @@
 package com.umc.product.notification.adapter.out.external.ses;
 
-import jakarta.validation.constraints.NotBlank;
+import java.time.Duration;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
+
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * AWS SES v2 인프라 설정.
@@ -22,8 +25,29 @@ public record SesProperties(
     @NotBlank String region,
     @NotBlank String accessKeyId,
     @NotBlank String secretAccessKey,
-    String configurationSet
+    String configurationSet,
+    Duration apiCallTimeout,
+    Duration apiCallAttemptTimeout
 ) {
+
+    private static final Duration DEFAULT_API_CALL_TIMEOUT = Duration.ofSeconds(30);
+    private static final Duration DEFAULT_API_CALL_ATTEMPT_TIMEOUT = Duration.ofSeconds(10);
+
+    public SesProperties {
+        apiCallTimeout = apiCallTimeout == null ? DEFAULT_API_CALL_TIMEOUT : apiCallTimeout;
+        apiCallAttemptTimeout = apiCallAttemptTimeout == null
+            ? DEFAULT_API_CALL_ATTEMPT_TIMEOUT
+            : apiCallAttemptTimeout;
+        if (apiCallTimeout.compareTo(Duration.ZERO) <= 0) {
+            throw new IllegalArgumentException("SES api call timeout은 0보다 커야 합니다.");
+        }
+        if (apiCallAttemptTimeout.compareTo(Duration.ZERO) <= 0) {
+            throw new IllegalArgumentException("SES api call attempt timeout은 0보다 커야 합니다.");
+        }
+        if (apiCallAttemptTimeout.compareTo(apiCallTimeout) > 0) {
+            throw new IllegalArgumentException("SES api call attempt timeout은 api call timeout을 초과할 수 없습니다.");
+        }
+    }
 
     public boolean hasStaticCredentials() {
         return accessKeyId != null && !accessKeyId.isBlank()
@@ -33,4 +57,5 @@ public record SesProperties(
     public boolean hasConfigurationSet() {
         return configurationSet != null && !configurationSet.isBlank();
     }
+
 }
