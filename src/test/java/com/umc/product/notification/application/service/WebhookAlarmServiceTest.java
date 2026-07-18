@@ -5,6 +5,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -15,7 +17,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
 
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.event.application.port.out.dto.OutboxPublishResult;
 import com.umc.product.global.event.domain.DomainEvent;
+import com.umc.product.global.event.domain.EventOutboxStatus;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.notification.application.port.in.dto.SendWebhookAlarmCommand;
 import com.umc.product.notification.application.port.out.SendWebhookPort;
@@ -70,6 +74,17 @@ class WebhookAlarmServiceTest {
         @Override
         public void publish(DomainEvent event) {
             events.add(event);
+        }
+
+        @Override
+        public OutboxPublishResult publishOnce(DomainEvent event, Instant availableAt) {
+            events.add(event);
+            return new OutboxPublishResult(
+                event.eventId(),
+                EventOutboxStatus.PENDING,
+                false,
+                availableAt.truncatedTo(ChronoUnit.MICROS)
+            );
         }
 
         @Override

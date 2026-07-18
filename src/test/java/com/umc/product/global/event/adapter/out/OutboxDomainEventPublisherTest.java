@@ -6,15 +6,18 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
+import com.umc.product.global.event.domain.EventOutboxStatus;
 
 import io.micrometer.tracing.Span;
 import io.micrometer.tracing.Tracer;
@@ -29,6 +32,7 @@ class OutboxDomainEventPublisherTest {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
             savePort,
+            savePort,
             new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()),
             Tracer.NOOP
         );
@@ -40,7 +44,15 @@ class OutboxDomainEventPublisherTest {
         EventOutbox outbox = savePort.saved.getFirst();
         assertThat(outbox.getEventId()).isEqualTo(event.eventId());
         assertThat(outbox.getEventType()).isEqualTo("test.created");
-        assertThat(outbox.getPayload()).contains("\"message\":\"hello\"");
+        assertThat(outbox.getEventClass()).isEqualTo(TestEvent.class.getName());
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
+        assertThat(outbox.getAttempts()).isZero();
+        assertThat(outbox.getPayload()).contains(
+            "\"eventId\":\"" + event.eventId() + "\"",
+            "\"occurredAt\":",
+            "\"eventType\":\"test.created\"",
+            "\"message\":\"hello\""
+        );
     }
 
     @Test
@@ -48,6 +60,7 @@ class OutboxDomainEventPublisherTest {
     void publishAll_저장() {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
+            savePort,
             savePort,
             new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()),
             Tracer.NOOP
@@ -60,6 +73,9 @@ class OutboxDomainEventPublisherTest {
         assertThat(savePort.saved)
             .extracting(EventOutbox::getEventId)
             .containsExactly(first.eventId(), second.eventId());
+        assertThat(savePort.saved)
+            .extracting(EventOutbox::getStatus)
+            .containsOnly(EventOutboxStatus.PENDING);
         assertThat(savePort.saveAllCalled).isTrue();
     }
 
@@ -69,6 +85,7 @@ class OutboxDomainEventPublisherTest {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         SimpleTracer tracer = new SimpleTracer();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
+            savePort,
             savePort,
             new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()),
             tracer
@@ -93,6 +110,7 @@ class OutboxDomainEventPublisherTest {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
             savePort,
+            savePort,
             new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()),
             new SimpleTracer()
         );
@@ -103,7 +121,7 @@ class OutboxDomainEventPublisherTest {
         assertThat(savePort.saved.getFirst().getTraceparent()).isNull();
     }
 
-    private static class FakeSaveEventOutboxPort implements SaveEventOutboxPort {
+    private static class FakeSaveEventOutboxPort implements SaveEventOutboxPort, LoadEventOutboxPort {
 
         private final List<EventOutbox> saved = new ArrayList<>();
 
@@ -113,9 +131,30 @@ class OutboxDomainEventPublisherTest {
         }
 
         @Override
+        public boolean saveIfAbsent(EventOutbox eventOutbox) {
+            if (saved.stream().anyMatch(savedOutbox -> savedOutbox.getEventId().equals(eventOutbox.getEventId()))) {
+                return false;
+            }
+            save(eventOutbox);
+            return true;
+        }
+
+        @Override
         public void saveAll(Collection<EventOutbox> eventOutboxes) {
             saveAllCalled = true;
             saved.addAll(eventOutboxes);
+        }
+
+        @Override
+        public Optional<EventOutbox> findByEventId(UUID eventId) {
+            return saved.stream()
+                .filter(outbox -> outbox.getEventId().equals(eventId))
+                .findFirst();
+        }
+
+        @Override
+        public List<EventOutbox> listPublishable(int limit, Instant now) {
+            return saved.stream().limit(limit).toList();
         }
 
         private boolean saveAllCalled;

@@ -3,10 +3,12 @@ package com.umc.product.authentication.application.event;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,7 @@ import com.umc.product.authentication.domain.EmailVerification;
 import com.umc.product.authentication.domain.EmailVerificationPurpose;
 import com.umc.product.global.event.adapter.out.EventPayloadSerializer;
 import com.umc.product.global.event.adapter.out.OutboxDomainEventPublisher;
+import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.security.JwtTokenProvider;
@@ -79,6 +82,7 @@ class SendVerificationEmailOutboxFlowTest {
             getMemberCredentialUseCase,
             new OutboxDomainEventPublisher(
                 saveEventOutboxPort,
+                saveEventOutboxPort,
                 new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()),
                 Tracer.NOOP
             )
@@ -105,7 +109,7 @@ class SendVerificationEmailOutboxFlowTest {
         assertThat(outbox.getPayload()).contains("\"email\":\"alice@example.com\"");
     }
 
-    private static class FakeSaveEventOutboxPort implements SaveEventOutboxPort {
+    private static class FakeSaveEventOutboxPort implements SaveEventOutboxPort, LoadEventOutboxPort {
 
         private final List<EventOutbox> saved = new ArrayList<>();
 
@@ -115,8 +119,29 @@ class SendVerificationEmailOutboxFlowTest {
         }
 
         @Override
+        public boolean saveIfAbsent(EventOutbox eventOutbox) {
+            if (saved.stream().anyMatch(savedOutbox -> savedOutbox.getEventId().equals(eventOutbox.getEventId()))) {
+                return false;
+            }
+            save(eventOutbox);
+            return true;
+        }
+
+        @Override
         public void saveAll(Collection<EventOutbox> eventOutboxes) {
             saved.addAll(eventOutboxes);
+        }
+
+        @Override
+        public Optional<EventOutbox> findByEventId(UUID eventId) {
+            return saved.stream()
+                .filter(outbox -> outbox.getEventId().equals(eventId))
+                .findFirst();
+        }
+
+        @Override
+        public List<EventOutbox> listPublishable(int limit, Instant now) {
+            return saved.stream().limit(limit).toList();
         }
     }
 }

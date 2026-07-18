@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.event.adapter.in.scheduler.EventOutboxPoller;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.application.service.EventOutboxRelayService;
 
@@ -18,6 +19,7 @@ class EventOutboxPublisherConfigurationTest {
 
     private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
         .withBean(SaveEventOutboxPort.class, () -> mock(SaveEventOutboxPort.class))
+        .withBean(LoadEventOutboxPort.class, () -> mock(LoadEventOutboxPort.class))
         .withBean(EventPayloadSerializer.class,
             () -> new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()))
         .withBean(EventOutboxRelayService.class, () -> mock(EventOutboxRelayService.class))

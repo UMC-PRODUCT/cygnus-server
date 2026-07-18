@@ -1,7 +1,9 @@
 package com.umc.product.global.event.application.port.out;
 
+import java.time.Instant;
 import java.util.Collection;
 
+import com.umc.product.global.event.application.port.out.dto.OutboxPublishResult;
 import com.umc.product.global.event.domain.DomainEvent;
 
 /**
@@ -19,6 +21,8 @@ public interface DomainEventPublisher {
      * 단일 도메인 이벤트를 발행한다.
      */
     void publish(DomainEvent event);
+
+    OutboxPublishResult publishOnce(DomainEvent event, Instant availableAt);
 
     /**
      * 여러 도메인 이벤트를 일괄 발행한다.
