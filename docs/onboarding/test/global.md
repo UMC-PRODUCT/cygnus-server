@@ -1,6 +1,6 @@
 # Global 테스트 케이스
 
-- 테스트 파일: 72개
+- 테스트 파일: 79개
 - 테스트 케이스: 306개 (`@Test` 303 + `@ParameterizedTest` 2 + `@RepeatedTest` 1)
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 - 문서 범위: 아래 목록은 architecture와 운영에 영향이 큰 대표 계약을 추적한다. 전체 테스트 목록의
@@ -24,8 +24,13 @@
 | `EventOutboxJpaRepositoryTest` | [`event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java) | due query 순서와 partial index, microsecond round-trip, `availableAt` 불변성, legacy null load, future 제외, schema constraint, lease fencing을 검증한다. |
 | `EventOutboxPersistenceAdapterTest` | [`event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java) | save/saveAll, atomic insert 결과 매핑, event ID 조회와 publishable 조회 포트 위임을 검증한다. |
 | `EventOutboxPublishOnceIntegrationTest` | [`event/application/service/EventOutboxPublishOnceIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxPublishOnceIntegrationTest.java) | PostgreSQL 동시 동일 요청에서 row 1개·writer 1개·나머지 deduplicated를 검증하고 class/type/nested payload/예약 시각/legacy 불일치 conflict가 원본을 보존하는지 검증한다. |
-| `EventOutboxRelayServiceTest` | [`event/application/service/EventOutboxRelayServiceTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java) | claim-one relay, transactional/non-transactional 경계, 성공·retry·max attempts·backoff, trace link, lease 소유권 fencing과 stable failure code를 검증한다. |
-| `EventOutboxRelayJdbcIntegrationTest` | [`event/application/service/EventOutboxRelayJdbcIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java) | 실제 Spring/PostgreSQL에서 publisher 단일 bean, NON_TRANSACTIONAL listener 중 JDBC connection 0, retry/PII-safe failure 기록을 검증한다. |
+| `EventOutboxRelayServiceTest` | [`event/application/service/EventOutboxRelayServiceTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java) | `relay_성공`, `relay_claims_one_row_immediately_before_dispatch`, `relay_실패_재시도`, `relay_최대_재시도_도달`로 기본 relay 성공·claim-one·재시도·최대 시도 실패를 검증한다. |
+| `EventOutboxRelayTracingTest` | [`event/application/service/EventOutboxRelayTracingTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayTracingTest.java) | `relay_span_link_부착`, `relay_traceparent_없음_link_미부착`으로 저장된 traceparent의 span link와 미설정 경계를 검증한다. |
+| `EventOutboxRelayNonTransactionalTest` | [`event/application/service/EventOutboxRelayNonTransactionalTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayNonTransactionalTest.java) | `relay_non_transactional_dispatch`, `relay_non_transactional_listener_failure`, `relay_retries_failed_listener_on_next_due_run`으로 transaction 밖 동기 listener, 실패 기록·재시도를 검증한다. |
+| `EventOutboxRelayLeaseFencingTest` | [`event/application/service/EventOutboxRelayLeaseFencingTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayLeaseFencingTest.java) | `relay_published_저장_실패_재시도`, `relay_optimistic_lock_failure_does_not_overwrite_new_owner`로 상태 저장 실패 재시도와 stale worker fencing을 검증한다. |
+| `EventOutboxRelayJdbcIntegrationTest` | [`event/application/service/EventOutboxRelayJdbcIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java) | `application_context_uses_single_outbox_publisher`, `non_transactional_listener_releases_jdbc_connection`, `transactional_listener_keeps_jdbc_connection`으로 publisher 단일 bean과 JDBC connection 경계를 검증한다. |
+| `EventOutboxRelayClaimJdbcIntegrationTest` | [`event/application/service/EventOutboxRelayClaimJdbcIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayClaimJdbcIntegrationTest.java) | `claims_next_outbox_only_after_non_transactional_listener_completes`로 첫 non-transactional listener 완료 전 다음 row를 claim하지 않는지 실제 PostgreSQL에서 검증한다. |
+| `EventOutboxRelayFailureSanitizationJdbcIntegrationTest` | [`event/application/service/EventOutboxRelayFailureSanitizationJdbcIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayFailureSanitizationJdbcIntegrationTest.java) | `stores_stable_failure_codes_without_raw_pii`로 provider business failure의 `EMAIL-0005` 또는 일반 runtime failure의 예외 class만 `last_error`에 남기고 raw PII를 DB/log에 기록하지 않는지 실제 PostgreSQL에서 검증한다. |
 | `EventOutboxStatusQueryServiceTest` | [`event/application/service/EventOutboxStatusQueryServiceTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxStatusQueryServiceTest.java) | event ID 상태 조회가 payload를 노출하지 않고 not-found stable code와 `readOnly` transaction을 유지하는지 검증한다. |
 | `EventOutboxStatusIntegrationTest` | [`event/application/service/EventOutboxStatusIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxStatusIntegrationTest.java) | PENDING/PROCESSING/PUBLISHED/FAILED별 `nextAttemptAt`·`leaseUntil`·`publishedAt` 의미와 JSON payload/PII 비노출을 검증한다. |
 
@@ -38,22 +43,6 @@
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
 | [12](../../../src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java#L12) | get, put, evict 요청을 저장소 포트로 위임한다 | 호출 put(spec, key, "auth"); 호출 get(spec, key); 호출 evict(CacheNamespace.GOOGLE_JWKS, key) | 실패: 예외 CacheLookup.Hit, CacheLookup.Miss; 검증 assertThat(hit).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) hit).value()).isEqualTo("auth"); assertThat(miss).isInstanceOf(CacheLookup.Miss.class); |
-
-### EventOutboxRelayServiceTest
-- 테스트 설명: EventOutboxRelayService
-- 위치: `src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [39](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L39) | publishable outbox를 DomainEvent로 복원해 Spring event bus로 발행하고 published 처리한다 | 호출 relay() | 실패: 예외 TestEvent; 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED); assertThat(publisher.events).hasSize(1); assertThat(publisher.events.getFirst()).isInstanceOf(TestEvent.class); assertThat(((TestEvent) publisher.... |
-| [69](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L69) | EventOutboxRelayService / 이벤트 복원 또는 발행 실패 시 별도 상태 저장 트랜잭션에서 attempts를 증가시키고 pending으로 남긴다 | 호출 relay() | 실패: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING); assertThat(outbox.getAttempts()).isEqualTo(1); assertThat(outbox.getLastError()).contains("publish failed"); assertThat(savePort.savedStatuses).cont... |
-| [100](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L100) | 최대 재시도 횟수에 도달하면 failed 상태로 저장한다 | 호출 relay() | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED); assertThat(outbox.getAttempts()).isEqualTo(2); assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.FAILED); |
-| [131](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L131) | 저장된 traceparent가 있으면 relay span에 원 요청 trace link를 부착한다 | 유효한 W3C traceparent | relay span link의 trace ID가 원 요청과 일치하고 PUBLISHED 처리 |
-| [167](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L167) | traceparent가 없으면 link 없이 relay span을 생성한다 | traceparent 없음 | link 없이 relay span 생성 후 PUBLISHED 처리 |
-| [198](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L198) | non-transactional listener 성공 후 상태 저장 실패를 재시도로 연결한다 | PUBLISHED 저장에서 예외 | listener 1회 실행, attempts 증가, PENDING 저장 |
-| [227](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L227) | non-transactional listener를 transaction 밖에서 실행한다 | `OutboxDispatchMode.NON_TRANSACTIONAL` | listener transaction 비활성, 별도 transaction에서 PUBLISHED 처리 |
-| [256](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L256) | non-transactional listener 예외를 재시도로 연결한다 | listener에서 외부 호출 예외 | attempts 증가, error 기록, PENDING 저장 |
-| [286](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java#L286) | lease 소유권을 잃은 worker는 최신 상태를 덮어쓰지 않는다 | PUBLISHED 저장에서 optimistic lock 예외 | listener 1회 실행 후 stale worker 상태 저장 생략 |
 
 ## Repository / Outbound Persistence
 
@@ -88,15 +77,6 @@
 | [13](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L13) | docs 진입 경로는 Scalar HTML로 리다이렉트한다 | HTTP GET /docs | 성공: is3xxRedirection |
 | [24](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L24) | SecurityConfig 통합 테스트 / 인증된 요청이어도 Swagger UI 경로는 접근할 수 없다 | HTTP GET /swagger-ui/index.html | 실패: HTTP 403 Forbidden |
 | [38](../../../src/test/java/com/umc/product/global/config/SecurityConfigIntegrationTest.java#L38) | SecurityConfig 통합 테스트 / 인증된 요청이어도 기존 OpenAPI JSON 경로는 접근할 수 없다 | HTTP GET /v3/api-docs | 실패: HTTP 403 Forbidden |
-
-### EventOutboxRelayJdbcIntegrationTest
-- 테스트 설명: non-transactional relay의 실제 JDBC connection 경계
-- 위치: `src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [45](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L45) | 전체 application context는 outbox publisher 하나만 등록한다 | 실제 Spring application context | `OutboxDomainEventPublisher` 단일 bean 등록 |
-| [53](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L53) | non-transactional listener 실행 중에는 JDBC connection을 점유하지 않는다 | 실제 PostgreSQL DataSource와 Hikari pool | 트랜잭션 비활성, active connection 0, PUBLISHED 처리 |
 
 ## Scheduler
 

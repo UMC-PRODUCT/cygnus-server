@@ -72,7 +72,16 @@ listener와 dispatch method에는 `@Async`나 `@TransactionalEventListener`를 �
 dispatch는 catalog subject/path로 Thymeleaf를 렌더링하고 `SendEmailPort`를 동기 호출한다.
 SES 성공 시 정상 반환하여 outbox가 `PUBLISHED`가 되고, 실패 시 `EMAIL-0005` 등 안정적인
 `EmailDomainException` code를 relay가 `last_error`에 기록해 retry/backoff를 적용한다. SES 외부
-호출 중에는 DB transaction을 유지하지 않는다.
+호출 중에는 DB transaction을 유지하지 않는다. 공용 relay의
+`EventOutboxRelayPolicy.PROCESSING_LEASE`는 `PT5M`이며, SES 설정은
+`0 < apiCallAttemptTimeout <= apiCallTimeout < PT5M` invariant를 따른다. 따라서
+`apiCallTimeout=PT5M` 또는 `PT6M`은 configuration startup에서 거부된다.
+
+신규 template-email dispatch의 Thymeleaf 렌더링/provider 경계에서 발생한 raw cause는
+`EMAIL-0004`(render) 또는 `EMAIL-0005`(send)의 cause-less `EmailDomainException`으로 변환한다.
+이 신규 동기 경로의 메시지·로그·outbox `last_error`에는 원문 PII나 외부 provider cause를 남기지
+않고 stable code만 전달한다. 이는 기존 verification async 경로의 전체 오류 처리 계약을
+일반화하거나 변경하는 설명이 아니다.
 
 SES v2 client timeout은 `apiCallTimeout=PT30S`, `apiCallAttemptTimeout=PT10S` 기본값이며
 `apiCallAttemptTimeout <= apiCallTimeout`을 검증한다. 이 한 호출이 5분 processing lease보다
