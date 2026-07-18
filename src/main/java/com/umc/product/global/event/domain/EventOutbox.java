@@ -1,7 +1,9 @@
 package com.umc.product.global.event.domain;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -26,6 +28,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "event_outbox")
 public class EventOutbox extends BaseEntity {
+
+    private static final Pattern PAYLOAD_FINGERPRINT_PATTERN = Pattern.compile("[0-9a-f]{64}");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,6 +62,12 @@ public class EventOutbox extends BaseEntity {
     @Column(name = "next_attempt_at", nullable = false)
     private Instant nextAttemptAt;
 
+    @Column(name = "payload_fingerprint", length = 64, updatable = false)
+    private String payloadFingerprint;
+
+    @Column(name = "available_at", updatable = false)
+    private Instant availableAt;
+
     @Column(name = "last_error")
     private String lastError;
 
@@ -69,20 +79,22 @@ public class EventOutbox extends BaseEntity {
     private String traceparent;
 
     private EventOutbox(
-        UUID eventId,
-        String eventType,
-        String eventClass,
+        DomainEvent event,
         String payload,
-        Instant nextAttemptAt,
-        String traceparent
+        String traceparent,
+        String payloadFingerprint,
+        Instant availableAt,
+        Instant nextAttemptAt
     ) {
-        this.eventId = eventId;
-        this.eventType = eventType;
-        this.eventClass = eventClass;
+        this.eventId = event.eventId();
+        this.eventType = event.eventType();
+        this.eventClass = event.getClass().getName();
         this.payload = payload;
         this.status = EventOutboxStatus.PENDING;
         this.attempts = 0;
         this.nextAttemptAt = nextAttemptAt;
+        this.payloadFingerprint = payloadFingerprint;
+        this.availableAt = availableAt;
         this.traceparent = traceparent;
     }
 
@@ -91,20 +103,60 @@ public class EventOutbox extends BaseEntity {
     }
 
     public static EventOutbox record(DomainEvent event, String payload, String traceparent) {
+        validateRequiredInputs(event, payload);
+        return new EventOutbox(
+            event,
+            payload,
+            traceparent,
+            null,
+            null,
+            Instant.now()
+        );
+    }
+
+    public static EventOutbox record(
+        DomainEvent event,
+        String payload,
+        String payloadFingerprint,
+        Instant availableAt
+    ) {
+        return record(event, payload, payloadFingerprint, availableAt, null);
+    }
+
+    public static EventOutbox record(
+        DomainEvent event,
+        String payload,
+        String payloadFingerprint,
+        Instant availableAt,
+        String traceparent
+    ) {
+        validateRequiredInputs(event, payload);
+        if (payloadFingerprint == null || !PAYLOAD_FINGERPRINT_PATTERN.matcher(payloadFingerprint).matches()) {
+            throw new IllegalArgumentException(
+                "event outbox payload fingerprint는 64자리 소문자 16진수여야 합니다."
+            );
+        }
+        if (availableAt == null) {
+            throw new IllegalArgumentException("event outbox availableAt은 필수입니다.");
+        }
+        Instant normalizedAvailableAt = availableAt.truncatedTo(ChronoUnit.MICROS);
+        return new EventOutbox(
+            event,
+            payload,
+            traceparent,
+            payloadFingerprint,
+            normalizedAvailableAt,
+            normalizedAvailableAt
+        );
+    }
+
+    private static void validateRequiredInputs(DomainEvent event, String payload) {
         if (event == null) {
             throw new IllegalArgumentException("domain event는 필수입니다.");
         }
         if (payload == null || payload.isBlank()) {
             throw new IllegalArgumentException("event outbox payload는 비어 있을 수 없습니다.");
         }
-        return new EventOutbox(
-            event.eventId(),
-            event.eventType(),
-            event.getClass().getName(),
-            payload,
-            Instant.now(),
-            traceparent
-        );
     }
 
     public void markPublished() {

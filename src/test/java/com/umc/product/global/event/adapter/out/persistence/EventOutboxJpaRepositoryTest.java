@@ -26,6 +26,7 @@ import jakarta.persistence.OptimisticLockException;
 class EventOutboxJpaRepositoryTest {
 
     private static final Instant NOW = Instant.parse("2026-07-13T00:00:00Z");
+    private static final String VALID_FINGERPRINT = "a".repeat(64);
 
     @Autowired
     private EventOutboxJpaRepository repository;
@@ -76,6 +77,97 @@ class EventOutboxJpaRepositoryTest {
                 """)
             .getSingleResult();
         assertThat(legacyIndexCount.longValue()).isZero();
+    }
+
+    @Test
+    @DisplayName("availableAt을 PostgreSQL microsecond 정밀도로 round-trip한다")
+    void availableAtRoundTripsAtMicrosecondPrecision() {
+        Instant input = Instant.parse("2026-07-18T00:00:00.123456789Z");
+        EventOutbox outbox = EventOutbox.record(TestEvent.create(), "{}", VALID_FINGERPRINT, input);
+
+        repository.saveAndFlush(outbox);
+        entityManager.clear();
+
+        EventOutbox loaded = repository.findById(outbox.getId()).orElseThrow();
+        Instant expected = Instant.parse("2026-07-18T00:00:00.123456Z");
+        assertThat(loaded.getAvailableAt()).isEqualTo(expected);
+        assertThat(loaded.getNextAttemptAt()).isEqualTo(expected);
+        assertThat(loaded.getPayloadFingerprint()).isEqualTo(VALID_FINGERPRINT);
+    }
+
+    @Test
+    @DisplayName("nextAttemptAt을 lease 시각으로 변경해도 availableAt은 불변이다")
+    void availableAtRemainsAfterNextAttemptAtChanges() {
+        Instant availableAt = Instant.parse("2026-07-18T00:00:00.123456Z");
+        EventOutbox outbox = EventOutbox.record(TestEvent.create(), "{}", VALID_FINGERPRINT, availableAt);
+        repository.saveAndFlush(outbox);
+        entityManager.clear();
+        EventOutbox loaded = repository.findById(outbox.getId()).orElseThrow();
+        Instant leaseUntil = Instant.parse("2026-07-18T00:05:00Z");
+
+        loaded.markProcessing(leaseUntil);
+        repository.saveAndFlush(loaded);
+        entityManager.clear();
+
+        EventOutbox reloaded = repository.findById(outbox.getId()).orElseThrow();
+        assertThat(reloaded.getAvailableAt()).isEqualTo(availableAt);
+        assertThat(reloaded.getNextAttemptAt()).isEqualTo(leaseUntil);
+    }
+
+    @Test
+    @DisplayName("신규 column이 null인 legacy row를 JPA로 round-trip한다")
+    void legacyNullColumnsRoundTrip() {
+        UUID eventId = insertOutbox("PENDING", NOW);
+        entityManager.flush();
+        entityManager.clear();
+        EventOutbox legacy = findByEventId(eventId);
+
+        legacy.markProcessing(NOW.plusSeconds(300));
+        entityManager.flush();
+        entityManager.clear();
+
+        EventOutbox reloaded = findByEventId(eventId);
+        assertThat(reloaded.getPayloadFingerprint()).isNull();
+        assertThat(reloaded.getAvailableAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("미래 availableAt의 outbox는 due 조회에서 제외한다")
+    void futureAvailableAtIsNotPublishable() {
+        EventOutbox future = EventOutbox.record(
+            TestEvent.create(),
+            "{}",
+            VALID_FINGERPRINT,
+            NOW.plusSeconds(60)
+        );
+        repository.saveAndFlush(future);
+        entityManager.clear();
+
+        List<EventOutbox> result = repository.findPublishableForUpdate(100, NOW);
+
+        assertThat(result).extracting(EventOutbox::getEventId).doesNotContain(future.getEventId());
+    }
+
+    @Test
+    @DisplayName("outbox 멱등 예약 column과 lowercase SHA-256 constraint를 추가한다")
+    void idempotentScheduleSchemaExists() {
+        Object[] fingerprintColumn = columnMetadata("payload_fingerprint");
+        Object[] availableAtColumn = columnMetadata("available_at");
+        Object constraintDefinition = entityManager.createNativeQuery("""
+                SELECT pg_get_constraintdef(oid)
+                FROM pg_constraint
+                WHERE conrelid = 'public.event_outbox'::regclass
+                  AND conname = 'chk_event_outbox_payload_fingerprint_sha256'
+                """)
+            .getSingleResult();
+
+        assertThat(fingerprintColumn[0]).isEqualTo("character varying");
+        assertThat(((Number) fingerprintColumn[1]).intValue()).isEqualTo(64);
+        assertThat(fingerprintColumn[3]).isEqualTo("YES");
+        assertThat(availableAtColumn[0]).isEqualTo("timestamp with time zone");
+        assertThat(((Number) availableAtColumn[2]).intValue()).isEqualTo(6);
+        assertThat(availableAtColumn[3]).isEqualTo("YES");
+        assertThat(constraintDefinition.toString()).contains("payload_fingerprint", "[0-9a-f]{64}");
     }
 
     @Test
@@ -131,6 +223,27 @@ class EventOutboxJpaRepositoryTest {
         cleanupEntityManager.remove(outbox);
         cleanupEntityManager.getTransaction().commit();
         cleanupEntityManager.close();
+    }
+
+    private EventOutbox findByEventId(UUID eventId) {
+        return entityManager.createQuery(
+                "SELECT outbox FROM EventOutbox outbox WHERE outbox.eventId = :eventId",
+                EventOutbox.class
+            )
+            .setParameter("eventId", eventId)
+            .getSingleResult();
+    }
+
+    private Object[] columnMetadata(String columnName) {
+        return (Object[]) entityManager.createNativeQuery("""
+                SELECT data_type, character_maximum_length, datetime_precision, is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'event_outbox'
+                  AND column_name = :columnName
+                """)
+            .setParameter("columnName", columnName)
+            .getSingleResult();
     }
 
     private UUID insertOutbox(String status, Instant nextAttemptAt) {
