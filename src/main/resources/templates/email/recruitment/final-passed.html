@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>최종 합격을 축하드립니다</title>
+</head>
+<body th:replace="~{email/recruitment/fragments :: email-shell(~{::email-content})}">
+<th:block th:fragment="email-content">
+    <h1 style="margin: 0 0 28px; color: #161919; font-size: 26px; font-weight: 800; line-height: 38px; letter-spacing: -0.02em; overflow-wrap: anywhere; word-break: keep-all;">
+        최종 합격을 축하드립니다.
+    </h1>
+    <p style="margin: 0 0 20px; color: #161919; font-size: 16px; font-weight: 400; line-height: 28px; overflow-wrap: anywhere; word-break: keep-all;">
+        <span th:text="${applicantName}">지원자</span>님, 최종 전형에 합격하셨습니다.
+    </p>
+    <p style="margin: 0 0 28px; color: #161919; font-size: 16px; font-weight: 400; line-height: 28px; overflow-wrap: anywhere; word-break: keep-all;">
+        UMC와 함께하게 된 것을 <span style="white-space: nowrap;">진심으로 환영합니다.</span> <span style="white-space: nowrap;">합격 트랙은</span> <span style="white-space: nowrap;">아래와 같습니다.</span>
+    </p>
+    <table border="0" cellpadding="0" cellspacing="0" role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tbody>
+        <tr th:replace="~{email/recruitment/fragments :: data-row('합격 트랙', ${acceptedTrack})}"></tr>
+        </tbody>
+    </table>
+</th:block>
+</body>
+</html>
