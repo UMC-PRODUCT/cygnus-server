@@ -54,6 +54,8 @@ class RecruitingGraphQlSurfaceTest {
                 .contains(
                     "recruitingApplicationForms",
                     "recruitingApplication",
+                    "recruitingSeasons",
+                    "recruitingRounds",
                     "recruitingSeasonConfiguration",
                     "recruitingRoundEvaluators",
                     "recruitingRoundInterviewQuestions",

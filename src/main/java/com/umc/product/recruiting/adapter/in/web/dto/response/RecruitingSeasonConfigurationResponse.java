@@ -65,7 +65,7 @@ public record RecruitingSeasonConfigurationResponse(
         @Schema(description = "문의 연락처") String contactText
     ) {
 
-        private static RoundResponse from(RecruitingRoundConfigurationInfo info) {
+        public static RoundResponse from(RecruitingRoundConfigurationInfo info) {
             return new RoundResponse(
                 info.id(),
                 info.type(),

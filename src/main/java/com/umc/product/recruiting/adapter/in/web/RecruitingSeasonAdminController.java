@@ -1,5 +1,7 @@
 package com.umc.product.recruiting.adapter.in.web;
 
+import java.util.List;
+
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -8,6 +10,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
@@ -22,7 +25,9 @@ import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingRou
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingRoundStatusRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingSeasonStatusRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingIdResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingRoundSummaryResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonConfigurationResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonSummaryResponse;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
@@ -30,6 +35,10 @@ import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -52,6 +61,65 @@ public class RecruitingSeasonAdminController {
     private final UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
     private final UpdateRecruitingRoundUseCase updateRoundUseCase;
     private final GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
+    private final SearchRecruitingSeasonUseCase searchSeasonUseCase;
+    private final SearchRecruitingRoundUseCase searchRoundUseCase;
+
+    @GetMapping("/seasons")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-000A",
+        summary = "모집 시즌 목록 조회",
+        description = "기수를 기준으로 현재 학교의 지부 소속을 반영한 모집 시즌과 차수를 조회합니다."
+    )
+    public List<RecruitingSeasonSummaryResponse> searchSeasons(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @Parameter(description = "조회할 기수 ID", example = "15")
+        @RequestParam @Positive Long gisuId,
+        @Parameter(description = "현재 학교 소속 기준 지부 ID", example = "2")
+        @RequestParam(required = false) @Positive Long chapterId,
+        @Parameter(description = "학교 ID", example = "3")
+        @RequestParam(required = false) @Positive Long schoolId
+    ) {
+        return searchSeasonUseCase.searchSeasons(RecruitingSeasonSearchQuery.builder()
+                .gisuId(gisuId)
+                .chapterId(chapterId)
+                .schoolId(schoolId)
+                .requesterMemberId(memberPrincipal.getMemberId())
+                .build())
+            .stream()
+            .map(RecruitingSeasonSummaryResponse::from)
+            .toList();
+    }
+
+    @GetMapping("/rounds")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-000B",
+        summary = "모집 차수 목록 조회",
+        description = "기수를 기준으로 지부, 학교 또는 시즌 조건에 맞는 모집 차수를 조회합니다."
+    )
+    public List<RecruitingRoundSummaryResponse> searchRounds(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @Parameter(description = "조회할 기수 ID", example = "15")
+        @RequestParam @Positive Long gisuId,
+        @Parameter(description = "현재 학교 소속 기준 지부 ID", example = "2")
+        @RequestParam(required = false) @Positive Long chapterId,
+        @Parameter(description = "학교 ID", example = "3")
+        @RequestParam(required = false) @Positive Long schoolId,
+        @Parameter(description = "모집 시즌 ID", example = "10")
+        @RequestParam(required = false) @Positive Long seasonId
+    ) {
+        return searchRoundUseCase.searchRounds(RecruitingRoundSearchQuery.builder()
+                .gisuId(gisuId)
+                .chapterId(chapterId)
+                .schoolId(schoolId)
+                .seasonId(seasonId)
+                .requesterMemberId(memberPrincipal.getMemberId())
+                .build())
+            .stream()
+            .map(RecruitingRoundSummaryResponse::from)
+            .toList();
+    }
 
     @GetMapping("/seasons/{seasonId}")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)

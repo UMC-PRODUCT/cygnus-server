@@ -35,6 +35,8 @@ import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 
 @WebMvcTest(RecruitingSeasonAdminController.class)
 @Import(JacksonConfig.class)
@@ -77,6 +79,10 @@ class RecruitingRoundAdminControllerTest {
     UpdateRecruitingRoundUseCase updateRoundUseCase;
     @MockitoBean
     GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
+    @MockitoBean
+    SearchRecruitingSeasonUseCase searchSeasonUseCase;
+    @MockitoBean
+    SearchRecruitingRoundUseCase searchRoundUseCase;
 
     @Test
     @DisplayName("면접 차수 생성 요청의 전체 설정을 command로 전달한다")

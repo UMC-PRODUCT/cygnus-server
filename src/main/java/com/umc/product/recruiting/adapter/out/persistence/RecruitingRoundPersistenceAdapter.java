@@ -45,6 +45,14 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
     }
 
     @Override
+    public List<RecruitingRound> listBySeasonIds(List<Long> seasonIds) {
+        if (seasonIds.isEmpty()) {
+            return List.of();
+        }
+        return recruitingRoundJpaRepository.findAllBySeasonIds(seasonIds);
+    }
+
+    @Override
     public boolean existsBySeasonIdAndTypeAndRoundNo(Long seasonId, RecruitingRoundType type, Integer roundNo) {
         return recruitingRoundJpaRepository.existsBySeason_IdAndTypeAndRoundNo(seasonId, type, roundNo);
     }

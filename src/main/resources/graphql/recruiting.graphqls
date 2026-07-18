@@ -10,6 +10,8 @@ extend type Query {
     input: RecruitingApplicationCredentialInput!
   ): RecruitingPublicApplication!
   recruitingApplication(applicationId: ID!): RecruitingApplication!
+  recruitingSeasons(input: RecruitingSeasonSearchInput!): [RecruitingSeasonSummary!]!
+  recruitingRounds(input: RecruitingRoundSearchInput!): [RecruitingRoundSummary!]!
   recruitingSeasonConfiguration(seasonId: ID!): RecruitingSeasonConfiguration!
   recruitingRoundEvaluators(
     seasonId: ID!
@@ -143,6 +145,19 @@ input RecruitingApplicationCredentialInput {
 input RecruitingStatusSummaryInput {
   gisuId: ID!
   schoolId: ID!
+}
+
+input RecruitingSeasonSearchInput {
+  gisuId: ID!
+  chapterId: ID
+  schoolId: ID
+}
+
+input RecruitingRoundSearchInput {
+  gisuId: ID!
+  chapterId: ID
+  schoolId: ID
+  seasonId: ID
 }
 
 input CreateRecruitingSeasonInput {
@@ -404,6 +419,42 @@ type RecruitingSeasonConfiguration {
   status: RecruitingSeasonStatus!
   quotas: [RecruitingSeasonTrackQuota!]!
   rounds: [RecruitingRoundConfiguration!]!
+}
+
+type RecruitingSeasonSummary {
+  seasonId: ID!
+  gisuId: ID!
+  chapterId: ID!
+  chapterName: String!
+  schoolId: ID!
+  schoolName: String!
+  status: RecruitingSeasonStatus!
+  rounds: [RecruitingRoundConfiguration!]!
+}
+
+type RecruitingRoundSummary {
+  seasonId: ID!
+  gisuId: ID!
+  chapterId: ID!
+  chapterName: String!
+  schoolId: ID!
+  schoolName: String!
+  id: ID!
+  type: RecruitingRoundType!
+  roundNo: Int
+  status: RecruitingRoundStatus!
+  recruitableTracks: [ChallengerTrack!]!
+  secondChoiceEnabled: Boolean!
+  documentStartAt: Instant!
+  documentEndAt: Instant!
+  documentResultPublishedAt: Instant!
+  interviewRequired: Boolean!
+  interviewStartAt: Instant
+  interviewEndAt: Instant
+  finalResultPublishedAt: Instant!
+  availabilityFormId: ID
+  announcement: String
+  contactText: String
 }
 
 type RecruitingSeasonTrackQuota {

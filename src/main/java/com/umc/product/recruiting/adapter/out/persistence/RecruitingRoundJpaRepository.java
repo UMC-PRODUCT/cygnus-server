@@ -24,6 +24,9 @@ public interface RecruitingRoundJpaRepository extends JpaRepository<RecruitingRo
 
     List<RecruitingRound> findAllBySeason_IdOrderByRoundNoAscIdAsc(Long seasonId);
 
+    @Query("SELECT round FROM RecruitingRound round JOIN FETCH round.season WHERE round.season.id IN :seasonIds")
+    List<RecruitingRound> findAllBySeasonIds(@Param("seasonIds") List<Long> seasonIds);
+
     boolean existsBySeason_IdAndTypeAndRoundNo(Long seasonId, RecruitingRoundType type, Integer roundNo);
 
 }

@@ -102,6 +102,27 @@ class RecruitingSeasonRoundPersistenceAdapterTest {
             .containsExactly(5);
     }
 
+    @Test
+    @DisplayName("여러 시즌의 차수를 한 번에 조회하면 시즌도 함께 로딩한다")
+    void listRoundsBySeasonIds() {
+        RecruitingSeason firstSeason = seasonAdapter.save(RecruitingSeason.create(14L, 140L));
+        RecruitingSeason secondSeason = seasonAdapter.save(RecruitingSeason.create(14L, 150L));
+        RecruitingRound firstRound = roundAdapter.save(RecruitingRound.createRegular(
+            firstSeason,
+            noInterviewConfiguration()
+        ));
+        RecruitingRound secondRound = roundAdapter.save(RecruitingRound.createRegular(
+            secondSeason,
+            noInterviewConfiguration()
+        ));
+        em.flush();
+        em.clear();
+
+        assertThat(roundAdapter.listBySeasonIds(List.of(firstSeason.getId(), secondSeason.getId())))
+            .extracting(RecruitingRound::getId)
+            .containsExactlyInAnyOrder(firstRound.getId(), secondRound.getId());
+    }
+
     private RecruitingRoundConfiguration noInterviewConfiguration() {
         return RecruitingRoundConfiguration.of(
             List.of(ChallengerTrack.PLAN, ChallengerTrack.DESIGN),

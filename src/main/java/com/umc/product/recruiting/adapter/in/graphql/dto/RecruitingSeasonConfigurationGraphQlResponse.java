@@ -57,7 +57,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
         String contactText
     ) {
 
-        private static Round from(RecruitingRoundConfigurationInfo info) {
+        public static Round from(RecruitingRoundConfigurationInfo info) {
             return new Round(
                 info.id(),
                 info.type(),

@@ -1,5 +1,7 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
+import java.util.List;
+
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -12,7 +14,11 @@ import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSearchGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonConfigurationGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonSearchGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingStatusSummaryGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingStatusSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.ReplaceRecruitingSeasonTrackQuotasGraphQlRequest;
@@ -27,6 +33,8 @@ import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +44,8 @@ public class RecruitingAdminGraphQlController {
 
     private final GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     private final GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
+    private final SearchRecruitingSeasonUseCase searchSeasonUseCase;
+    private final SearchRecruitingRoundUseCase searchRoundUseCase;
     private final CreateRecruitingSeasonUseCase createSeasonUseCase;
     private final UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
     private final ReplaceRecruitingSeasonTrackQuotasUseCase replaceSeasonTrackQuotasUseCase;
@@ -43,6 +53,30 @@ public class RecruitingAdminGraphQlController {
     private final UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
     private final UpdateRecruitingRoundUseCase updateRoundUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
+
+    @QueryMapping
+    public List<RecruitingSeasonSummaryGraphQlResponse> recruitingSeasons(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument RecruitingSeasonSearchGraphQlRequest input
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        permissionSupport.assertRecruitmentTypePermission(requesterMemberId, PermissionType.READ);
+        return searchSeasonUseCase.searchSeasons(input.toQuery(requesterMemberId)).stream()
+            .map(RecruitingSeasonSummaryGraphQlResponse::from)
+            .toList();
+    }
+
+    @QueryMapping
+    public List<RecruitingRoundSummaryGraphQlResponse> recruitingRounds(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument RecruitingRoundSearchGraphQlRequest input
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        permissionSupport.assertRecruitmentTypePermission(requesterMemberId, PermissionType.READ);
+        return searchRoundUseCase.searchRounds(input.toQuery(requesterMemberId)).stream()
+            .map(RecruitingRoundSummaryGraphQlResponse::from)
+            .toList();
+    }
 
     @QueryMapping
     public RecruitingSeasonConfigurationGraphQlResponse recruitingSeasonConfiguration(

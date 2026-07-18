@@ -16,5 +16,7 @@ public interface LoadRecruitingRoundPort {
 
     List<RecruitingRound> listBySeasonId(Long seasonId);
 
+    List<RecruitingRound> listBySeasonIds(List<Long> seasonIds);
+
     boolean existsBySeasonIdAndTypeAndRoundNo(Long seasonId, RecruitingRoundType type, Integer roundNo);
 }
