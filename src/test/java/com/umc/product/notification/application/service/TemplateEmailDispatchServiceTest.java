@@ -32,7 +32,7 @@ import com.umc.product.notification.domain.exception.EmailErrorCode;
 @DisplayName("Template email 동기 dispatch 서비스")
 class TemplateEmailDispatchServiceTest {
 
-    private static final String RAW_PII = "applicant@test.umc.local 민감한 지원 정보";
+    private static final String RAW_PII = "홍길동 연락처 010-1234-5678";
 
     @Test
     @DisplayName("catalog의 제목과 resource path로 실제 Thymeleaf 본문을 렌더링해 동기로 발송한다")
@@ -78,6 +78,9 @@ class TemplateEmailDispatchServiceTest {
                 assertThat(emailException.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED);
                 assertThat(String.valueOf(emailException.getMessage()))
                     .doesNotContain(RAW_PII, "applicant@test.umc.local");
+                assertThat(emailException.getCause())
+                    .as("telemetry error에 도달 가능한 raw render cause")
+                    .isNull();
             });
     }
 
@@ -100,6 +103,9 @@ class TemplateEmailDispatchServiceTest {
                 assertThat(emailException.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_SEND_FAILED);
                 assertThat(String.valueOf(emailException.getMessage()))
                     .doesNotContain(RAW_PII, "applicant@test.umc.local");
+                assertThat(emailException.getCause())
+                    .as("telemetry error에 도달 가능한 raw provider cause")
+                    .isNull();
             });
     }
 

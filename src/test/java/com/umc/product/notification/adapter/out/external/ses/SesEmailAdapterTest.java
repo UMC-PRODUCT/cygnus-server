@@ -33,7 +33,7 @@ import software.amazon.awssdk.services.sesv2.model.SendEmailResponse;
 @ExtendWith(MockitoExtension.class)
 class SesEmailAdapterTest {
 
-    private static final String RAW_PII = "applicant@test.umc.local 민감한 지원 정보";
+    private static final String RAW_PII = "홍길동 연락처 010-1234-5678";
 
     @Mock
     private SesV2Client sesV2Client;
@@ -107,6 +107,9 @@ class SesEmailAdapterTest {
                     assertThat(emailException.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_SEND_FAILED);
                     assertThat(String.valueOf(emailException.getMessage()))
                         .doesNotContain(RAW_PII, "applicant@test.umc.local");
+                    assertThat(emailException.getCause())
+                        .as("telemetry error에 도달 가능한 raw provider cause")
+                        .isNull();
                 });
         } finally {
             logger.detachAppender(appender);

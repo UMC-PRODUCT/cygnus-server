@@ -19,6 +19,7 @@ import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
+import com.umc.product.global.event.domain.EventOutboxRelayPolicy;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.global.observability.ObservabilityErrorSanitizer;
@@ -36,7 +37,6 @@ public class EventOutboxRelayService {
 
     private static final Duration BASE_BACKOFF = Duration.ofSeconds(5);
     private static final Duration MAX_BACKOFF = Duration.ofMinutes(5);
-    private static final Duration PROCESSING_LEASE = Duration.ofMinutes(5);
     private static final String RELAY_SPAN_NAME = "outbox.relay.publish";
 
     private final LoadEventOutboxPort loadEventOutboxPort;
@@ -110,7 +110,7 @@ public class EventOutboxRelayService {
                 return null;
             }
             EventOutbox outbox = publishableOutboxes.getFirst();
-            outbox.markProcessing(now.plus(PROCESSING_LEASE));
+            outbox.markProcessing(now.plus(EventOutboxRelayPolicy.PROCESSING_LEASE));
             saveEventOutboxPort.save(outbox);
             return outbox;
         });

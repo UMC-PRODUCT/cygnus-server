@@ -5,6 +5,8 @@ import java.time.Duration;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
+import com.umc.product.global.event.domain.EventOutboxRelayPolicy;
+
 import jakarta.validation.constraints.NotBlank;
 
 /**
@@ -40,6 +42,9 @@ public record SesProperties(
             : apiCallAttemptTimeout;
         if (apiCallTimeout.compareTo(Duration.ZERO) <= 0) {
             throw new IllegalArgumentException("SES api call timeout은 0보다 커야 합니다.");
+        }
+        if (apiCallTimeout.compareTo(EventOutboxRelayPolicy.PROCESSING_LEASE) >= 0) {
+            throw new IllegalArgumentException("SES api call timeout은 outbox processing lease보다 짧아야 합니다.");
         }
         if (apiCallAttemptTimeout.compareTo(Duration.ZERO) <= 0) {
             throw new IllegalArgumentException("SES api call attempt timeout은 0보다 커야 합니다.");

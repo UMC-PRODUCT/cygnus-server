@@ -39,7 +39,7 @@ public class TemplateEmailDispatchService implements DeliverTemplateEmailUseCase
         } catch (EmailDomainException exception) {
             throw exception;
         } catch (RuntimeException exception) {
-            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED, exception);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
@@ -49,7 +49,7 @@ public class TemplateEmailDispatchService implements DeliverTemplateEmailUseCase
             event.variables().forEach(context::setVariable);
             return templateEngine.process(templateCatalog.templateResourcePath(event.type()), context);
         } catch (RuntimeException exception) {
-            throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED, exception);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED);
         }
     }
 }

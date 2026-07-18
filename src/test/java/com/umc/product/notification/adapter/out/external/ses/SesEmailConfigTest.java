@@ -6,6 +6,8 @@ import java.time.Duration;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Configuration;
@@ -79,6 +81,15 @@ class SesEmailConfigTest {
                 "app.notification.email.ses.api-call-timeout=PT5S",
                 "app.notification.email.ses.api-call-attempt-timeout=PT6S"
             )
+            .run(context -> assertThat(context).hasFailed());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PT5M", "PT6M"})
+    @DisplayName("processing lease 이상의 api call timeout은 configuration startup에서 거부한다")
+    void api_call_timeout은_processing_lease보다_짧아야_한다(String apiCallTimeout) {
+        contextRunner
+            .withPropertyValues("app.notification.email.ses.api-call-timeout=" + apiCallTimeout)
             .run(context -> assertThat(context).hasFailed());
     }
 

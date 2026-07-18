@@ -50,11 +50,11 @@ public class SesEmailAdapter implements SendEmailPort {
             String awsErrorCode = e.awsErrorDetails() != null ? e.awsErrorDetails().errorCode() : null;
             log.warn("SES 발송 실패: recipientPresent={}, awsErrorCode={}, errorClass={}",
                 hasRecipient(message.to()), awsErrorCode, e.getClass().getName());
-            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED, e);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED);
         } catch (RuntimeException e) {
             log.warn("SES 발송 중 예기치 못한 예외: recipientPresent={}, errorClass={}",
                 hasRecipient(message.to()), e.getClass().getName());
-            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED, e);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED);
         }
     }
 
