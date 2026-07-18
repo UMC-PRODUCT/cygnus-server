@@ -3,15 +3,12 @@ package com.umc.product.organization.adapter.in.graphql.dto;
 import java.time.Instant;
 import java.util.List;
 
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
 
-public record SchoolDetailGraphQlResponse(
-    Long chapterId,
-    String chapterName,
-    Long schoolId,
-    String schoolName,
+public record SchoolGraphQlResponse(
+    Long id,
+    String name,
     String remark,
     String logoImageUrl,
     List<SchoolLinkGraphQlResponse> links,
@@ -20,35 +17,14 @@ public record SchoolDetailGraphQlResponse(
     String updatedAt
 ) {
 
-    public static SchoolDetailGraphQlResponse from(SchoolDetailInfo info) {
+    public static SchoolGraphQlResponse from(SchoolDetailInfo info) {
         List<SchoolLinkGraphQlResponse> links = info.links() == null
             ? List.of()
             : info.links().stream()
                 .map(SchoolLinkGraphQlResponse::from)
                 .toList();
 
-        return new SchoolDetailGraphQlResponse(
-            info.chapterId(),
-            info.chapterName(),
-            info.schoolId(),
-            info.schoolName(),
-            info.remark(),
-            info.logoImageUrl(),
-            links,
-            info.isActive(),
-            format(info.createdAt()),
-            format(info.updatedAt())
-        );
-    }
-
-    public static SchoolDetailGraphQlResponse from(GisuOrganizationInfo.SchoolOrganizationInfo info) {
-        List<SchoolLinkGraphQlResponse> links = info.links().stream()
-            .map(SchoolLinkGraphQlResponse::from)
-            .toList();
-
-        return new SchoolDetailGraphQlResponse(
-            info.chapterId(),
-            info.chapterName(),
+        return new SchoolGraphQlResponse(
             info.schoolId(),
             info.schoolName(),
             info.remark(),
@@ -71,10 +47,6 @@ public record SchoolDetailGraphQlResponse(
     ) {
 
         public static SchoolLinkGraphQlResponse from(SchoolDetailInfo.SchoolLinkItem info) {
-            return new SchoolLinkGraphQlResponse(info.title(), info.type(), info.url());
-        }
-
-        public static SchoolLinkGraphQlResponse from(GisuOrganizationInfo.SchoolLinkInfo info) {
             return new SchoolLinkGraphQlResponse(info.title(), info.type(), info.url());
         }
     }

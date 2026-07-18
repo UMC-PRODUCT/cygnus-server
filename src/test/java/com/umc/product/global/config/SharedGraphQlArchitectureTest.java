@@ -37,7 +37,10 @@ class SharedGraphQlArchitectureTest {
         Map.entry("enum FormStatus", "form.graphqls"),
         Map.entry("enum FormResponseStatus", "form.graphqls"),
         Map.entry("enum QuestionType", "form.graphqls"),
-        Map.entry("type MemberSummary", "member.graphqls")
+        Map.entry("type Member", "member.graphqls"),
+        Map.entry("type Gisu", "organization.graphqls"),
+        Map.entry("type Chapter", "organization.graphqls"),
+        Map.entry("type School", "organization.graphqls")
     );
     private static final Map<String, String> FEEDBACK_DECLARATION_OWNERS = Map.ofEntries(
         Map.entry("type UserFeedbackTemplate", "feedback.graphqls"),

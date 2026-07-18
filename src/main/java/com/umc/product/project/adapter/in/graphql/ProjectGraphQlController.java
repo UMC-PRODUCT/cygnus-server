@@ -31,7 +31,6 @@ import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGrap
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectMemberGraphQlResponse;
-import com.umc.product.project.adapter.in.graphql.dto.ProjectMemberSummaryGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlRequest;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectSearchGraphQlRequest;
@@ -126,7 +125,7 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "Project", field = "productOwner")
-    public Map<ProjectGraphQlResponse, ProjectMemberSummaryGraphQlResponse> productOwnerByProject(
+    public Map<ProjectGraphQlResponse, MemberInfo> productOwnerByProject(
         List<ProjectGraphQlResponse> projects
     ) {
         Set<Long> memberIds = projects.stream()
@@ -135,15 +134,15 @@ public class ProjectGraphQlController {
             .collect(Collectors.toSet());
         Map<Long, MemberInfo> membersById = findMembers(memberIds);
 
-        Map<ProjectGraphQlResponse, ProjectMemberSummaryGraphQlResponse> result = new LinkedHashMap<>();
+        Map<ProjectGraphQlResponse, MemberInfo> result = new LinkedHashMap<>();
         for (ProjectGraphQlResponse project : projects) {
-            result.put(project, memberSummary(membersById, project.productOwnerMemberId()));
+            result.put(project, membersById.get(project.productOwnerMemberId()));
         }
         return result;
     }
 
     @BatchMapping(typeName = "Project", field = "coProductOwners")
-    public Map<ProjectGraphQlResponse, List<ProjectMemberSummaryGraphQlResponse>> coProductOwnersByProject(
+    public Map<ProjectGraphQlResponse, List<MemberInfo>> coProductOwnersByProject(
         List<ProjectGraphQlResponse> projects
     ) {
         Set<Long> memberIds = projects.stream()
@@ -159,7 +158,7 @@ public class ProjectGraphQlController {
                 project -> project.coProductOwnerMemberIds() == null
                     ? List.of()
                     : project.coProductOwnerMemberIds().stream()
-                        .map(memberId -> memberSummary(membersById, memberId))
+                        .map(membersById::get)
                         .filter(Objects::nonNull)
                         .toList(),
                 (left, right) -> left,
@@ -168,7 +167,7 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "ProjectMember", field = "member")
-    public Map<ProjectMemberGraphQlResponse, ProjectMemberSummaryGraphQlResponse> memberByProjectMember(
+    public Map<ProjectMemberGraphQlResponse, MemberInfo> memberByProjectMember(
         List<ProjectMemberGraphQlResponse> projectMembers
     ) {
         Set<Long> memberIds = projectMembers.stream()
@@ -177,9 +176,9 @@ public class ProjectGraphQlController {
             .collect(Collectors.toSet());
         Map<Long, MemberInfo> membersById = findMembers(memberIds);
 
-        Map<ProjectMemberGraphQlResponse, ProjectMemberSummaryGraphQlResponse> result = new LinkedHashMap<>();
+        Map<ProjectMemberGraphQlResponse, MemberInfo> result = new LinkedHashMap<>();
         for (ProjectMemberGraphQlResponse projectMember : projectMembers) {
-            result.put(projectMember, memberSummary(membersById, projectMember.memberId()));
+            result.put(projectMember, membersById.get(projectMember.memberId()));
         }
         return result;
     }
@@ -254,11 +253,6 @@ public class ProjectGraphQlController {
                 Collectors.toCollection(LinkedHashSet::new),
                 List::copyOf
             ));
-    }
-
-    private ProjectMemberSummaryGraphQlResponse memberSummary(Map<Long, MemberInfo> membersById, Long memberId) {
-        MemberInfo memberInfo = membersById.get(memberId);
-        return memberInfo == null ? null : ProjectMemberSummaryGraphQlResponse.from(memberInfo);
     }
 
     private Map<Long, MemberInfo> findMembers(Set<Long> memberIds) {

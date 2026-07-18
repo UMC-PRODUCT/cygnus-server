@@ -1,8 +1,10 @@
 package com.umc.product.organization.adapter.in.graphql;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -13,13 +15,10 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.organization.adapter.in.graphql.dto.ChapterGraphQlResponse;
-import com.umc.product.organization.adapter.in.graphql.dto.ChapterSchoolGraphQlResponse;
-import com.umc.product.organization.adapter.in.graphql.dto.GisuChapterGraphQlResponse;
 import com.umc.product.organization.adapter.in.graphql.dto.GisuGraphQlResponse;
 import com.umc.product.organization.adapter.in.graphql.dto.GisuOrganizationGraphQlRequest;
 import com.umc.product.organization.adapter.in.graphql.dto.GisuOrganizationPayloadGraphQlResponse;
-import com.umc.product.organization.adapter.in.graphql.dto.SchoolDetailGraphQlResponse;
-import com.umc.product.organization.adapter.in.graphql.dto.SchoolNameGraphQlResponse;
+import com.umc.product.organization.adapter.in.graphql.dto.SchoolGraphQlResponse;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuOrganizationUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -27,6 +26,7 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolNameInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -71,19 +71,27 @@ public class OrganizationGraphQlController {
     }
 
     @QueryMapping
-    public List<SchoolNameGraphQlResponse> schools() {
-        return getSchoolUseCase.getAllSchoolNames().stream()
-            .map(SchoolNameGraphQlResponse::from)
+    public List<SchoolGraphQlResponse> schools() {
+        List<SchoolNameInfo> schools = getSchoolUseCase.getAllSchoolNames();
+        Set<Long> schoolIds = schools.stream()
+            .map(SchoolNameInfo::schoolId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, SchoolDetailInfo> schoolById = schoolDetails(schoolIds);
+
+        return schools.stream()
+            .map(school -> schoolById.get(school.schoolId()))
+            .filter(Objects::nonNull)
+            .map(SchoolGraphQlResponse::from)
             .toList();
     }
 
     @QueryMapping
-    public SchoolDetailGraphQlResponse school(@Argument Long id) {
-        return SchoolDetailGraphQlResponse.from(getSchoolUseCase.getSchoolDetail(id));
+    public SchoolGraphQlResponse school(@Argument Long id) {
+        return SchoolGraphQlResponse.from(getSchoolUseCase.getSchoolDetail(id));
     }
 
     @BatchMapping(typeName = "Gisu", field = "chapters")
-    public Map<GisuGraphQlResponse, List<GisuChapterGraphQlResponse>> chaptersByGisu(
+    public Map<GisuGraphQlResponse, List<ChapterGraphQlResponse>> chaptersByGisu(
         List<GisuGraphQlResponse> gisus
     ) {
         Set<Long> gisuIds = gisuIds(gisus);
@@ -92,8 +100,8 @@ public class OrganizationGraphQlController {
         return gisus.stream()
             .collect(Collectors.toMap(
                 Function.identity(),
-                gisu -> chaptersByGisuId.getOrDefault(gisu.gisuId(), List.of()).stream()
-                    .map(chapter -> GisuChapterGraphQlResponse.from(gisu.gisuId(), chapter))
+                gisu -> chaptersByGisuId.getOrDefault(gisu.id(), List.of()).stream()
+                    .map(ChapterGraphQlResponse::from)
                     .toList(),
                 (left, right) -> left,
                 LinkedHashMap::new
@@ -101,7 +109,7 @@ public class OrganizationGraphQlController {
     }
 
     @BatchMapping(typeName = "Gisu", field = "schools")
-    public Map<GisuGraphQlResponse, List<SchoolDetailGraphQlResponse>> schoolsByGisu(
+    public Map<GisuGraphQlResponse, List<SchoolGraphQlResponse>> schoolsByGisu(
         List<GisuGraphQlResponse> gisus
     ) {
         Set<Long> gisuIds = gisuIds(gisus);
@@ -110,20 +118,21 @@ public class OrganizationGraphQlController {
         return gisus.stream()
             .collect(Collectors.toMap(
                 Function.identity(),
-                gisu -> schoolsByGisuId.getOrDefault(gisu.gisuId(), List.of()).stream()
-                    .map(SchoolDetailGraphQlResponse::from)
+                gisu -> schoolsByGisuId.getOrDefault(gisu.id(), List.of()).stream()
+                    .map(SchoolGraphQlResponse::from)
                     .toList(),
                 (left, right) -> left,
                 LinkedHashMap::new
             ));
     }
 
-    @BatchMapping(typeName = "GisuChapter", field = "schools")
-    public Map<GisuChapterGraphQlResponse, List<ChapterSchoolGraphQlResponse>> schoolsByGisuChapter(
-        List<GisuChapterGraphQlResponse> chapters
+    @BatchMapping(typeName = "Chapter", field = "schools")
+    public Map<ChapterGraphQlResponse, List<SchoolGraphQlResponse>> schoolsByChapter(
+        List<ChapterGraphQlResponse> chapters
     ) {
         Set<Long> gisuIds = chapters.stream()
-            .map(GisuChapterGraphQlResponse::gisuId)
+            .map(ChapterGraphQlResponse::gisuId)
+            .filter(Objects::nonNull)
             .collect(Collectors.toSet());
         Map<Long, List<ChapterWithSchoolsInfo>> chaptersByGisuId =
             getChapterUseCase.getChaptersWithSchoolsByGisuIds(gisuIds);
@@ -134,12 +143,19 @@ public class OrganizationGraphQlController {
                 Function.identity(),
                 (left, right) -> left
             ));
+        Set<Long> schoolIds = chapters.stream()
+            .flatMap(chapter -> chapterSchools(chapterById, chapter).stream())
+            .map(ChapterWithSchoolsInfo.SchoolInfo::schoolId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, SchoolDetailInfo> schoolById = schoolDetails(schoolIds);
 
         return chapters.stream()
             .collect(Collectors.toMap(
                 Function.identity(),
                 chapter -> chapterSchools(chapterById, chapter).stream()
-                    .map(ChapterSchoolGraphQlResponse::from)
+                    .map(school -> schoolById.get(school.schoolId()))
+                    .filter(Objects::nonNull)
+                    .map(SchoolGraphQlResponse::from)
                     .toList(),
                 (left, right) -> left,
                 LinkedHashMap::new
@@ -148,15 +164,27 @@ public class OrganizationGraphQlController {
 
     private Set<Long> gisuIds(List<GisuGraphQlResponse> gisus) {
         return gisus.stream()
-            .map(GisuGraphQlResponse::gisuId)
+            .map(GisuGraphQlResponse::id)
             .collect(Collectors.toSet());
     }
 
     private List<ChapterWithSchoolsInfo.SchoolInfo> chapterSchools(
         Map<Long, ChapterWithSchoolsInfo> chapterById,
-        GisuChapterGraphQlResponse chapter
+        ChapterGraphQlResponse chapter
     ) {
-        ChapterWithSchoolsInfo chapterWithSchools = chapterById.get(chapter.chapterId());
+        ChapterWithSchoolsInfo chapterWithSchools = chapterById.get(chapter.id());
         return chapterWithSchools == null ? List.of() : chapterWithSchools.schools();
+    }
+
+    private Map<Long, SchoolDetailInfo> schoolDetails(Set<Long> schoolIds) {
+        if (schoolIds.isEmpty()) {
+            return Map.of();
+        }
+        return getSchoolUseCase.listDetailsByIds(schoolIds).stream()
+            .collect(Collectors.toMap(
+                SchoolDetailInfo::schoolId,
+                Function.identity(),
+                (left, right) -> left
+            ));
     }
 }

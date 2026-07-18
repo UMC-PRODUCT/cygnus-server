@@ -60,8 +60,8 @@ class OrganizationGraphQlControllerTest {
     void 기수_조직_조회의_하위_지부와_학교는_GraphQL_field_resolver가_batch로_조회한다() {
         given(getGisuOrganizationUseCase.get(any())).willReturn(List.of(gisu(1L, 10L), gisu(2L, 11L)));
         given(getChapterUseCase.listByGisuIds(Set.of(1L, 2L))).willReturn(Map.of(
-            1L, List.of(new ChapterInfo(100L, "Ain 지부")),
-            2L, List.of(new ChapterInfo(200L, "Ner 지부"))
+            1L, List.of(new ChapterInfo(100L, 1L, "Ain 지부")),
+            2L, List.of(new ChapterInfo(200L, 2L, "Ner 지부"))
         ));
         given(getChapterUseCase.getChaptersWithSchoolsByGisuIds(Set.of(1L, 2L))).willReturn(Map.of(
             1L, List.of(chapterWithSchools(100L, "Ain 지부", 1000L, "중앙대학교")),
@@ -71,6 +71,10 @@ class OrganizationGraphQlControllerTest {
             1L, List.of(schoolDetail(1000L, "중앙대학교")),
             2L, List.of(schoolDetail(2000L, "동국대학교"))
         ));
+        given(getSchoolUseCase.listDetailsByIds(Set.of(1000L, 2000L))).willReturn(List.of(
+            schoolDetail(1000L, "중앙대학교"),
+            schoolDetail(2000L, "동국대학교")
+        ));
 
         graphQlTester.document("""
                 query {
@@ -78,21 +82,22 @@ class OrganizationGraphQlControllerTest {
                     ids: [1, 1, 2]
                   }) {
                     gisus {
-                      gisuId
+                      id
                       generation
                       active
                       startAt
                       chapters {
-                        chapterId
-                        chapterName
+                        id
+                        name
                         schools {
-                          schoolId
-                          schoolName
+                          id
+                          name
+                          active
                         }
                       }
                       schools {
-                        schoolId
-                        schoolName
+                        id
+                        name
                         active
                         links {
                           title
@@ -105,11 +110,11 @@ class OrganizationGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("gisuOrganizations.gisus[0].gisuId").entity(String.class).isEqualTo("1")
+            .path("gisuOrganizations.gisus[0].id").entity(String.class).isEqualTo("1")
             .path("gisuOrganizations.gisus[0].generation").entity(String.class).isEqualTo("10")
             .path("gisuOrganizations.gisus[0].active").entity(Boolean.class).isEqualTo(true)
-            .path("gisuOrganizations.gisus[0].chapters[0].chapterName").entity(String.class).isEqualTo("Ain 지부")
-            .path("gisuOrganizations.gisus[0].chapters[0].schools[0].schoolName").entity(String.class)
+            .path("gisuOrganizations.gisus[0].chapters[0].name").entity(String.class).isEqualTo("Ain 지부")
+            .path("gisuOrganizations.gisus[0].chapters[0].schools[0].name").entity(String.class)
             .isEqualTo("중앙대학교")
             .path("gisuOrganizations.gisus[0].schools[0].links[0].type").entity(String.class)
             .isEqualTo("KAKAO");
@@ -125,6 +130,7 @@ class OrganizationGraphQlControllerTest {
         then(getChapterUseCase).should().listByGisuIds(Set.of(1L, 2L));
         then(getChapterUseCase).should().getChaptersWithSchoolsByGisuIds(Set.of(1L, 2L));
         then(getSchoolUseCase).should().getSchoolListByGisuIds(Set.of(1L, 2L));
+        then(getSchoolUseCase).should().listDetailsByIds(Set.of(1000L, 2000L));
     }
 
     @Test
@@ -136,7 +142,7 @@ class OrganizationGraphQlControllerTest {
                 query {
                   gisuOrganizations(input: { generations: [11, 11, 12] }) {
                     gisus {
-                      gisuId
+                      id
                       generation
                     }
                   }
@@ -181,7 +187,7 @@ class OrganizationGraphQlControllerTest {
                 query {
                   gisuOrganizations(input: {}) {
                     gisus {
-                      gisuId
+                      id
                     }
                   }
                 }
@@ -200,7 +206,7 @@ class OrganizationGraphQlControllerTest {
                 query {
                   gisuOrganizations(input: { ids: [1], generations: [10] }) {
                     gisus {
-                      gisuId
+                      id
                     }
                   }
                 }
@@ -219,7 +225,7 @@ class OrganizationGraphQlControllerTest {
                 query {
                   gisuOrganizations(input: { active: false }) {
                     gisus {
-                      gisuId
+                      id
                     }
                   }
                 }
@@ -242,7 +248,7 @@ class OrganizationGraphQlControllerTest {
                     includeSchools: true
                   }) {
                     gisus {
-                      gisuId
+                      id
                     }
                   }
                 }
@@ -262,14 +268,14 @@ class OrganizationGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   gisu(id: 1) {
-                    gisuId
+                    id
                     generation
                     active
                   }
                 }
                 """)
             .execute()
-            .path("gisu.gisuId").entity(String.class).isEqualTo("1")
+            .path("gisu.id").entity(String.class).isEqualTo("1")
             .path("gisu.generation").entity(String.class).isEqualTo("10")
             .path("gisu.active").entity(Boolean.class).isEqualTo(true);
 
@@ -284,14 +290,14 @@ class OrganizationGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   activeGisu {
-                    gisuId
+                    id
                     generation
                     active
                   }
                 }
                 """)
             .execute()
-            .path("activeGisu.gisuId").entity(String.class).isEqualTo("3")
+            .path("activeGisu.id").entity(String.class).isEqualTo("3")
             .path("activeGisu.generation").entity(String.class).isEqualTo("12")
             .path("activeGisu.active").entity(Boolean.class).isEqualTo(true);
 
@@ -299,48 +305,69 @@ class OrganizationGraphQlControllerTest {
     }
 
     @Test
-    @DisplayName("전체 지부 조회와 지부 단건 조회는 GetChapterUseCase를 호출한다")
-    void 전체_지부_조회와_지부_단건_조회는_GetChapterUseCase를_호출한다() {
-        given(getChapterUseCase.getAllChapters()).willReturn(List.of(new ChapterInfo(1L, "Ain 지부")));
-        given(getChapterUseCase.getChapterById(2L)).willReturn(new ChapterInfo(2L, "Ner 지부"));
+    @DisplayName("전체 지부와 단건 지부는 같은 Chapter type으로 학교를 batch 조회한다")
+    void 전체_지부와_단건_지부는_같은_Chapter_type으로_학교를_batch_조회한다() {
+        given(getChapterUseCase.getAllChapters()).willReturn(List.of(new ChapterInfo(1L, 10L, "Ain 지부")));
+        given(getChapterUseCase.getChapterById(2L)).willReturn(new ChapterInfo(2L, 20L, "Ner 지부"));
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuIds(Set.of(10L))).willReturn(Map.of(
+            10L, List.of(chapterWithSchools(1L, "Ain 지부", 100L, "중앙대학교"))
+        ));
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuIds(Set.of(20L))).willReturn(Map.of(
+            20L, List.of(chapterWithSchools(2L, "Ner 지부", 200L, "동국대학교"))
+        ));
+        given(getSchoolUseCase.listDetailsByIds(Set.of(100L)))
+            .willReturn(List.of(schoolDetail(100L, "중앙대학교")));
+        given(getSchoolUseCase.listDetailsByIds(Set.of(200L)))
+            .willReturn(List.of(schoolDetail(200L, "동국대학교")));
 
         graphQlTester.document("""
                 query {
                   chapters {
                     id
                     name
+                    schools { id name active }
                   }
                   chapter(id: 2) {
                     id
                     name
+                    schools { id name active }
                   }
                 }
                 """)
             .execute()
             .path("chapters[0].id").entity(String.class).isEqualTo("1")
             .path("chapters[0].name").entity(String.class).isEqualTo("Ain 지부")
+            .path("chapters[0].schools[0].name").entity(String.class).isEqualTo("중앙대학교")
             .path("chapter.id").entity(String.class).isEqualTo("2")
-            .path("chapter.name").entity(String.class).isEqualTo("Ner 지부");
+            .path("chapter.name").entity(String.class).isEqualTo("Ner 지부")
+            .path("chapter.schools[0].name").entity(String.class).isEqualTo("동국대학교");
 
         then(getChapterUseCase).should().getAllChapters();
         then(getChapterUseCase).should().getChapterById(2L);
+        then(getChapterUseCase).should().getChaptersWithSchoolsByGisuIds(Set.of(10L));
+        then(getChapterUseCase).should().getChaptersWithSchoolsByGisuIds(Set.of(20L));
+        then(getSchoolUseCase).should().listDetailsByIds(Set.of(100L));
+        then(getSchoolUseCase).should().listDetailsByIds(Set.of(200L));
     }
 
     @Test
     @DisplayName("전체 학교 조회와 학교 단건 조회는 GetSchoolUseCase를 호출한다")
     void 전체_학교_조회와_학교_단건_조회는_GetSchoolUseCase를_호출한다() {
         given(getSchoolUseCase.getAllSchoolNames()).willReturn(List.of(new SchoolNameInfo(1L, "중앙대학교")));
+        given(getSchoolUseCase.listDetailsByIds(Set.of(1L)))
+            .willReturn(List.of(schoolDetail(1L, "중앙대학교")));
         given(getSchoolUseCase.getSchoolDetail(2L)).willReturn(schoolDetail(2L, "동국대학교"));
 
         graphQlTester.document("""
                 query {
                   schools {
-                    schoolId
-                    schoolName
+                    id
+                    name
+                    active
                   }
                   school(id: 2) {
-                    schoolId
-                    schoolName
+                    id
+                    name
                     active
                     createdAt
                     updatedAt
@@ -348,13 +375,15 @@ class OrganizationGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("schools[0].schoolId").entity(String.class).isEqualTo("1")
-            .path("schools[0].schoolName").entity(String.class).isEqualTo("중앙대학교")
-            .path("school.schoolId").entity(String.class).isEqualTo("2")
-            .path("school.schoolName").entity(String.class).isEqualTo("동국대학교")
+            .path("schools[0].id").entity(String.class).isEqualTo("1")
+            .path("schools[0].name").entity(String.class).isEqualTo("중앙대학교")
+            .path("schools[0].active").entity(Boolean.class).isEqualTo(true)
+            .path("school.id").entity(String.class).isEqualTo("2")
+            .path("school.name").entity(String.class).isEqualTo("동국대학교")
             .path("school.active").entity(Boolean.class).isEqualTo(true);
 
         then(getSchoolUseCase).should().getAllSchoolNames();
+        then(getSchoolUseCase).should().listDetailsByIds(Set.of(1L));
         then(getSchoolUseCase).should().getSchoolDetail(2L);
     }
 

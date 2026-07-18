@@ -33,7 +33,7 @@ type MemberSearchResult {
   nickname: String
   email: String
   schoolId: ID
-  school: SchoolDetail
+  school: School
   profileImageLink: String
   currentChallenger: MemberSearchChallenger
   isAdminInActiveGisu: Boolean!
@@ -49,13 +49,6 @@ type MemberSearchChallenger {
   challengerStatus: ChallengerStatus!
 }
 
-type MemberSummary {
-  memberId: ID!
-  nickname: String
-  name: String
-  schoolName: String
-}
-
 type Member {
   memberId: ID!
   name: String
@@ -65,7 +58,7 @@ type Member {
   schoolName: String
   profileImageLink: String
   status: MemberStatus
-  school: SchoolDetail
+  school: School
   challengers: [MemberChallenger!]!
 }
 
