@@ -4,7 +4,7 @@
 
 ## API 사용 문서
 
-- [GraphQL Onboarding](graphql.md): GraphQL endpoint, GraphiQL, Apollo Sandbox, schema 확인, query 작성, resolver 구현 규칙
+- [GraphQL Onboarding](graphql/README.md): GraphQL endpoint, schema 관계, 권한 관리, resolver 구현 규칙
 
 ## 도메인 문서
 
