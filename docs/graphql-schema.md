@@ -38,7 +38,266 @@ flowchart TD
   Query -->|"userFeedbackTemplates, userFeedbackTemplate"| Feedback
 ```
 
-## Type 관계
+## ERD 스타일 관계도
+
+아래 diagram은 database ERD가 아니라 unified GraphQL schema의 type 관계를 나타낸다. GraphQL
+interface 구현은 `<|..`, 응답 내부의 중첩 구조는 `*--`, 다른 domain type 참조는 `-->`로 표시한다.
+cardinality는 schema의 nullability와 list 형태를 기준으로 작성했으며 JPA 연관관계나 foreign key를
+의미하지 않는다.
+
+### Form, Project, Feedback
+
+```mermaid
+classDiagram
+  direction LR
+
+  class Form {
+    <<interface>>
+    +String! title
+    +String description
+    +FormSection[]! sections
+  }
+  class FormSection {
+    <<interface>>
+    +ID! sectionId
+    +String! title
+    +Int! orderNo
+    +FormQuestion[]! questions
+  }
+  class FormQuestion {
+    +ID! questionId
+    +QuestionType! type
+    +Boolean! required
+    +Int! orderNo
+    +FormOption[]! options
+  }
+  class FormOption {
+    +ID! optionId
+    +String! content
+    +Int! orderNo
+    +Boolean! other
+  }
+
+  class Project {
+    +ID! id
+    +ProjectStatus! status
+    +ProjectApplicationForm applicationForm
+  }
+  class ProjectApplicationForm {
+    +ID! projectId
+    +ID! applicationFormId
+    +ApplicationFormSection[]! sections
+  }
+  class ApplicationFormSection {
+    +FormSectionType! type
+    +ChallengerPart[]! allowedParts
+    +FormQuestion[]! questions
+  }
+  class ProjectApplicationFormResponse {
+    +ID! formResponseId
+    +FormResponseStatus! status
+    +ProjectApplicationResponseSection[]! sections
+  }
+  class ProjectApplicationResponseSection {
+    +ID! sectionId
+    +ProjectApplicationResponseQuestion[]! questions
+  }
+  class ProjectApplicationResponseQuestion {
+    +ID! questionId
+    +FormOption[]! options
+    +ProjectApplicationAnswer answer
+  }
+  class ProjectApplicationAnswer {
+    +ID! answerId
+    +QuestionType! answeredAsType
+    +String textValue
+  }
+  class ProjectApplicationSelectedOption {
+    +ID questionOptionId
+    +String! answeredAsContent
+  }
+  class ProjectApplicationFile {
+    +ID! fileId
+    +String! originalFileName
+    +String! url
+  }
+
+  class UserFeedbackTemplate {
+    +ID! templateId
+    +UserFeedbackContext! context
+    +UserFeedbackTargetType! targetType
+    +Boolean! active
+  }
+  class UserFeedbackTemplateSummary {
+    +ID! templateId
+    +ID! formId
+    +String! title
+    +Boolean! active
+  }
+  class UserFeedbackTemplateForm {
+    +ID! formId
+    +FormStatus! status
+    +Boolean! anonymous
+    +Boolean! allowDuplicateResponses
+    +UserFeedbackTemplateSection[]! sections
+  }
+  class UserFeedbackTemplateSection {
+    +ID! sectionId
+    +FormQuestion[]! questions
+  }
+
+  Form <|.. ProjectApplicationForm
+  Form <|.. UserFeedbackTemplateForm
+  FormSection <|.. ApplicationFormSection
+  FormSection <|.. UserFeedbackTemplateSection
+  Form "1" o-- "0..*" FormSection : sections
+  FormSection "1" *-- "0..*" FormQuestion : questions
+  FormQuestion "1" *-- "0..*" FormOption : options
+
+  Project "1" --> "0..1" ProjectApplicationForm : applicationForm
+  ProjectApplicationForm "1" *-- "0..*" ApplicationFormSection : sections
+  ApplicationFormSection "1" *-- "0..*" FormQuestion : questions
+  ProjectApplicationFormResponse "1" *-- "0..*" ProjectApplicationResponseSection : sections
+  ProjectApplicationResponseSection "1" *-- "0..*" ProjectApplicationResponseQuestion : questions
+  ProjectApplicationResponseQuestion "1" --> "0..*" FormOption : options
+  ProjectApplicationResponseQuestion "1" *-- "0..1" ProjectApplicationAnswer : answer
+  ProjectApplicationAnswer "1" *-- "0..*" ProjectApplicationSelectedOption : selectedOptions
+  ProjectApplicationAnswer "1" *-- "0..*" ProjectApplicationFile : files
+
+  UserFeedbackTemplateSummary ..> UserFeedbackTemplate : list projection
+  UserFeedbackTemplate "1" *-- "1" UserFeedbackTemplateForm : form
+  UserFeedbackTemplateForm "1" *-- "0..*" UserFeedbackTemplateSection : sections
+  UserFeedbackTemplateSection "1" *-- "0..*" FormQuestion : questions
+```
+
+Project의 `ApplicationFormSection.type`, `allowedParts`는 concrete type에만 존재한다. Feedback의
+`UserFeedbackTemplateSection`은 같은 `FormSection` interface를 구현하지만 두 Project 전용 field를
+노출하지 않는다.
+
+### Member, Organization, Project
+
+```mermaid
+classDiagram
+  direction LR
+
+  class Member {
+    +ID! memberId
+    +ID schoolId
+    +SchoolDetail school
+    +MemberChallenger[]! challengers
+  }
+  class MemberSummary {
+    +ID! memberId
+    +String nickname
+    +String name
+    +String schoolName
+  }
+  class MemberChallenger {
+    +ID! challengerId
+    +ID! gisuId
+    +ChallengerPart! part
+  }
+  class MemberSearchResult {
+    +ID! memberId
+    +SchoolDetail school
+    +MemberSearchChallenger[]! challengerRecords
+  }
+  class MemberSearchChallenger {
+    +ID! challengerId
+    +ID! gisuId
+    +ChallengerPart! part
+  }
+
+  class Gisu {
+    +ID! gisuId
+    +ID! generation
+    +GisuChapter[]! chapters
+    +GisuSchool[]! schools
+  }
+  class GisuChapter {
+    +ID! chapterId
+    +ChapterSchool[]! schools
+  }
+  class GisuSchool {
+    +ID! schoolId
+    +ID chapterId
+    +SchoolLink[]! links
+  }
+  class ChapterSchool {
+    +ID! schoolId
+    +String! schoolName
+  }
+  class SchoolDetail {
+    +ID! schoolId
+    +ID chapterId
+    +SchoolLink[]! links
+  }
+  class SchoolLink {
+    +SchoolLinkType! type
+    +String! url
+  }
+
+  class Project {
+    +ID! id
+    +ID! gisuId
+    +ID! chapterId
+    +MemberSummary productOwner
+    +MemberSummary[]! coProductOwners
+    +ProjectMember[]! members
+  }
+  class ProjectMember {
+    +ID! projectMemberId
+    +ChallengerPart! part
+    +MemberSummary! member
+    +ProjectApplication application
+  }
+  class ProjectApplication {
+    +ID! applicationId
+    +ProjectApplicant! applicant
+    +ProjectMatchingRoundBrief matchingRound
+    +ProjectApplicationFormResponse formResponse
+  }
+  class ProjectApplicant {
+    +ID! memberId
+    +ChallengerPart! part
+  }
+  class ProjectMatchingRoundBrief {
+    +ID! id
+    +MatchingType! type
+    +MatchingRoundPhaseView! phase
+  }
+  class ProjectApplicationFormResponse {
+    +ID! formResponseId
+  }
+
+  Member "1" *-- "0..*" MemberChallenger : challengers
+  Member "1" --> "0..1" SchoolDetail : school
+  MemberChallenger "0..*" --> "0..1" Gisu : gisu
+  MemberSearchResult "1" --> "0..1" SchoolDetail : school
+  MemberSearchResult "1" *-- "0..*" MemberSearchChallenger : challengerRecords
+  MemberSearchChallenger "0..*" --> "0..1" Gisu : gisu
+
+  Gisu "1" *-- "0..*" GisuChapter : chapters
+  Gisu "1" *-- "0..*" GisuSchool : schools
+  GisuChapter "1" *-- "0..*" ChapterSchool : schools
+  GisuSchool "1" *-- "0..*" SchoolLink : links
+  SchoolDetail "1" *-- "0..*" SchoolLink : links
+
+  Project "1" --> "0..1" MemberSummary : productOwner
+  Project "1" --> "0..*" MemberSummary : coProductOwners
+  Project "1" *-- "0..*" ProjectMember : members
+  ProjectMember "0..*" --> "1" MemberSummary : member
+  ProjectMember "1" *-- "0..1" ProjectApplication : application
+  ProjectApplication "1" *-- "1" ProjectApplicant : applicant
+  ProjectApplication "1" --> "0..1" ProjectMatchingRoundBrief : matchingRound
+  ProjectApplication "1" *-- "0..1" ProjectApplicationFormResponse : formResponse
+```
+
+`MemberSummary`는 Project가 참조하는 member 공통 projection이며 Project schema가 별도의 member
+brief type을 소유하지 않는다. `Member`, `MemberSearchResult`가 참조하는 `SchoolDetail`과 `Gisu`는
+organization schema가 소유한다.
+
+## 전체 Type 관계
 
 ```mermaid
 flowchart LR
