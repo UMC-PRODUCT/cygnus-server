@@ -7,8 +7,6 @@ import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import com.umc.product.registry.domain.RegistryName;
-import com.umc.product.registry.domain.RegistryStatus;
 import com.umc.product.registry.support.ControllableStoragePort.CleanupClaimObservation;
 
 public class RegistryEndToEndDatabaseProbe {
@@ -62,23 +60,6 @@ public class RegistryEndToEndDatabaseProbe {
         FileState state = fileState(fileId);
         return new CleanupClaimObservation(
             state.cleanupClaimToken(), state.cleanupClaimedAt(), state.cleanupAttempts());
-    }
-
-    public void setStorageStatus(RegistryStatus status, Instant now) {
-        jdbcTemplate.update("""
-            INSERT INTO registry_cutover_state
-                (registry_name, status, verified_at, details, updated_at)
-            VALUES (?, ?, ?, 'registry E2E', CURRENT_TIMESTAMP)
-            ON CONFLICT (registry_name) DO UPDATE
-            SET status = EXCLUDED.status,
-                verified_at = EXCLUDED.verified_at,
-                details = EXCLUDED.details,
-                updated_at = EXCLUDED.updated_at
-            """,
-            RegistryName.STORAGE_USAGE.canonicalName(),
-            status.name(),
-            status == RegistryStatus.READY ? Timestamp.from(now) : null
-        );
     }
 
     private static Instant instant(Timestamp timestamp) {

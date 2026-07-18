@@ -249,7 +249,7 @@ class FileCleanupServiceTest {
     @DisplayName("claim transaction은 enabled여도 registry가 READY가 아니면 port를 호출하지 않는다")
     void claim은_READY를_다시_확인한다() {
         // given
-        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.VALIDATED);
+        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.DISABLED);
         FileCleanupClaimService transactionService = transactionService(properties(true, 10));
 
         // when

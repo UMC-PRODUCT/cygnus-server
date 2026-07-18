@@ -26,7 +26,6 @@ import com.umc.product.chat.domain.ChatRoomOperation;
 import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
-import com.umc.product.registry.domain.RegistryStatus;
 import com.umc.product.registry.support.ControllableStoragePort;
 import com.umc.product.registry.support.MutableTestClock;
 import com.umc.product.registry.support.RegistryEndToEndDatabaseProbe;
@@ -39,8 +38,10 @@ import com.umc.product.storage.application.port.in.command.ManageFileUsageUseCas
 import com.umc.product.storage.application.port.in.command.RunFileCleanupUseCase;
 import com.umc.product.storage.application.port.in.command.dto.FileCleanupBatchResult;
 import com.umc.product.storage.application.port.in.command.dto.ReplaceFileUsagesCommand;
+import com.umc.product.storage.application.port.out.FileUsageRegistryReadinessPort;
 import com.umc.product.storage.application.service.FileCleanupClaimService;
 import com.umc.product.storage.domain.FileUsageCoordinate;
+import com.umc.product.storage.domain.enums.FileUsageRegistryStatus;
 import com.umc.product.storage.domain.exception.StorageErrorCode;
 import com.umc.product.storage.domain.exception.StorageException;
 import com.umc.product.support.IntegrationTestSupport;
@@ -76,10 +77,13 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
     private JdbcTemplate jdbcTemplate;
     @Autowired
     private FileCleanupClaimService claimService;
+    @Autowired
+    private MutableFileUsageRegistryReadiness readiness;
 
     @BeforeEach
     void resetExternalBoundary() {
         clock.reset(START);
+        readiness.setStatus(FileUsageRegistryStatus.READY);
         storage.reset();
         storage.bindTo(storagePort);
     }
@@ -130,14 +134,13 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
             true, START, START.plus(Duration.ofMinutes(30)), null, null, 0, null, null
         ));
 
-        database.setStorageStatus(RegistryStatus.READY, clock.instant());
         assertThat(cleanupUseCase.cleanupOrphans().claimed()).isZero();
         clock.advance(Duration.ofHours(2));
-        database.setStorageStatus(RegistryStatus.DISABLED, clock.instant());
+        readiness.setStatus(FileUsageRegistryStatus.DISABLED);
         assertThat(cleanupUseCase.cleanupOrphans().claimed()).isZero();
         assertThat(storage.calls()).noneMatch(call -> call.startsWith("delete:"));
 
-        database.setStorageStatus(RegistryStatus.READY, clock.instant());
+        readiness.setStatus(FileUsageRegistryStatus.READY);
         storage.observeActiveClaim(() -> database.claimObservation(file.fileId()));
         FileCleanupBatchResult result = cleanupUseCase.cleanupOrphans();
 
@@ -176,7 +179,6 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
     @DisplayName("S3 transient 실패는 claim을 유지하고 backoff 뒤 새 token으로 reclaim한다")
     void transientStorageFailureRetriesWithGuardedClaim() {
         UploadedFile file = scenario.uploadConfirmedPdf(storage);
-        database.setStorageStatus(RegistryStatus.READY, clock.instant());
         clock.advance(Duration.ofHours(2));
         storage.observeActiveClaim(() -> database.claimObservation(file.fileId()));
         storage.failNextDelete();
@@ -216,7 +218,6 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
     void finalizeFailureKeepsFenceAndRejectsAttach() {
         // given
         UploadedFile file = scenario.uploadConfirmedPdf(storage);
-        database.setStorageStatus(RegistryStatus.READY, clock.instant());
         clock.advance(Duration.ofHours(2));
         storage.observeActiveClaim(() -> database.claimObservation(file.fileId()));
         jdbcTemplate.execute("""
@@ -268,7 +269,6 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
     void reclaimedFailureRejectsAttachAndFencesResumedStaleWorker() {
         // given: T1이 claim한 뒤 S3 호출 전에 timeout된다.
         UploadedFile file = scenario.uploadConfirmedPdf(storage);
-        database.setStorageStatus(RegistryStatus.READY, clock.instant());
         clock.advance(Duration.ofHours(2));
         var staleT1 = claimService.claimBatch().getFirst();
         clock.advance(Duration.ofMinutes(16));
@@ -329,6 +329,12 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
         }
 
         @Bean
+        @Primary
+        MutableFileUsageRegistryReadiness registryEndToEndReadiness() {
+            return new MutableFileUsageRegistryReadiness();
+        }
+
+        @Bean
         RegistryEndToEndDatabaseProbe registryEndToEndDatabaseProbe(
             org.springframework.jdbc.core.JdbcTemplate jdbcTemplate
         ) {
@@ -355,6 +361,20 @@ class RegistryEndToEndIntegrationTest extends IntegrationTestSupport {
                         && Long.valueOf(RegistryEndToEndScenario.MEMBER_ID).equals(actor.actorMemberId());
                 }
             };
+        }
+    }
+
+    static class MutableFileUsageRegistryReadiness implements FileUsageRegistryReadinessPort {
+
+        private FileUsageRegistryStatus status = FileUsageRegistryStatus.READY;
+
+        @Override
+        public FileUsageRegistryStatus getStatus() {
+            return status;
+        }
+
+        void setStatus(FileUsageRegistryStatus status) {
+            this.status = status;
         }
     }
 }

@@ -1,4 +1,4 @@
-package com.umc.product.feedback.adapter.out.backfill;
+package com.umc.product.feedback.adapter.out.registry;
 
 import org.springframework.stereotype.Component;
 

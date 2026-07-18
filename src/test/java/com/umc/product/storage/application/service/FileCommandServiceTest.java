@@ -7,7 +7,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.nio.charset.StandardCharsets;
@@ -278,17 +277,19 @@ class FileCommandServiceTest extends UseCaseTestSupport {
      * ✅ 학습 포인트 11: 삭제 동작 검증 - verify()로 Mock 메서드가 호출되었는지 확인
      */
     @Test
-    void READY_전에는_업로드된_파일도_삭제하지_않는다() {
+    void certification_전에는_업로드된_파일을_삭제하지_않는다() {
         // given
         FileMetadata metadata = saveTestFile("test-file-4", "document.pdf", true);
         String fileId = metadata.getId();
 
-        // when & then
+        // when
         assertThatThrownBy(() -> manageFileUseCase.deleteFile(deleteCommand(fileId, 1L)))
             .isInstanceOf(StorageException.class)
             .extracting("baseCode")
             .isEqualTo(StorageErrorCode.FILE_USAGE_REGISTRY_NOT_READY);
-        verify(storagePort, never()).delete(metadata.getStorageKey());
+
+        // then
+        verify(storagePort, org.mockito.Mockito.never()).delete(metadata.getStorageKey());
         assertThat(loadFileMetadataPort.findByFileId(fileId)).isPresent();
     }
 

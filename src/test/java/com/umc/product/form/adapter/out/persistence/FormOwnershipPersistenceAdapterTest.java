@@ -3,6 +3,7 @@ package com.umc.product.form.adapter.out.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +27,11 @@ class FormOwnershipPersistenceAdapterTest {
 
     @Autowired
     FormOwnershipPersistenceAdapter sut;
+
+    @BeforeEach
+    void clearMigrationOwnership() {
+        em.getEntityManager().createNativeQuery("DELETE FROM form_ownership").executeUpdate();
+    }
 
     @Test
     @DisplayName("form ID와 owner tuple을 저장하고 다시 조회한다")

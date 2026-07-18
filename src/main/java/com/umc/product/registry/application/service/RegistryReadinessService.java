@@ -12,36 +12,33 @@ import org.springframework.stereotype.Service;
 
 import com.umc.product.registry.application.port.in.query.GetRegistryReadinessUseCase;
 import com.umc.product.registry.application.port.out.RegistryNamespaceCoveragePort;
-import com.umc.product.registry.application.port.out.RegistryStateQueryPort;
+import com.umc.product.registry.application.port.out.StorageUsageCutoverReadinessPort;
 import com.umc.product.registry.domain.OwnershipEnforcementMode;
 import com.umc.product.registry.domain.RegistryName;
 import com.umc.product.registry.domain.RegistryNamespaceCoverage;
-import com.umc.product.registry.domain.RegistryStatus;
 
 @Service
 public class RegistryReadinessService implements GetRegistryReadinessUseCase {
 
-    private final RegistryStateQueryPort stateQueryPort;
     private final Map<RegistryName, List<RegistryNamespaceCoveragePort>> coverageByRegistry;
     private final EngineOwnershipProperties properties;
+    private final StorageUsageCutoverReadinessPort storageUsageCutoverReadiness;
 
     public RegistryReadinessService(
-        RegistryStateQueryPort stateQueryPort,
         List<RegistryNamespaceCoveragePort> coveragePorts,
-        EngineOwnershipProperties properties
+        EngineOwnershipProperties properties,
+        StorageUsageCutoverReadinessPort storageUsageCutoverReadiness
     ) {
-        this.stateQueryPort = stateQueryPort;
         this.coverageByRegistry = indexCoverage(coveragePorts);
         this.properties = properties;
+        this.storageUsageCutoverReadiness = storageUsageCutoverReadiness;
     }
 
     @Override
     public boolean isReady(RegistryName registryName) {
-        if (!isDatabaseReady(registryName)) {
-            return false;
-        }
         return registryName == RegistryName.STORAGE_USAGE
-            || invalidNamespaces(registryName).isEmpty();
+            ? storageUsageCutoverReadiness.isReady()
+            : invalidNamespaces(registryName).isEmpty();
     }
 
     @Override
@@ -56,6 +53,11 @@ public class RegistryReadinessService implements GetRegistryReadinessUseCase {
 
     @Override
     public List<String> invalidNamespaces(RegistryName registryName) {
+        if (registryName == RegistryName.STORAGE_USAGE) {
+            return storageUsageCutoverReadiness.isReady()
+                ? List.of()
+                : List.of("<cutover-pending>");
+        }
         List<RegistryNamespaceCoveragePort> contributions = coverageByRegistry.getOrDefault(
             registryName,
             List.of()
@@ -113,15 +115,6 @@ public class RegistryReadinessService implements GetRegistryReadinessUseCase {
         return isReady(registryName)
             ? OwnershipEnforcementMode.STRICT
             : OwnershipEnforcementMode.BLOCKED;
-    }
-
-    private boolean isDatabaseReady(RegistryName registryName) {
-        try {
-            return stateQueryPort.loadState(registryName.canonicalName()).status()
-                == RegistryStatus.READY;
-        } catch (RuntimeException exception) {
-            return false;
-        }
     }
 
     private static Map<RegistryName, List<RegistryNamespaceCoveragePort>> indexCoverage(

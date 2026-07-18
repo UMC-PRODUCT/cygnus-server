@@ -1,3 +1,25 @@
+UPDATE file_metadata metadata
+SET unreferenced_at = CURRENT_TIMESTAMP
+WHERE EXISTS (
+    SELECT 1
+    FROM file_usage usage
+    JOIN file_usage_owner owner ON owner.id = usage.owner_id
+    WHERE usage.file_id = metadata.id
+      AND owner.usage_namespace = 'chat.message'
+)
+  AND NOT EXISTS (
+    SELECT 1
+    FROM file_usage usage
+    JOIN file_usage_owner owner ON owner.id = usage.owner_id
+    WHERE usage.file_id = metadata.id
+      AND owner.usage_namespace <> 'chat.message'
+);
+
+DELETE FROM file_usage_owner
+WHERE usage_namespace = 'chat.message';
+
+TRUNCATE TABLE chat_room RESTART IDENTITY CASCADE;
+
 CREATE TABLE chat_room_ownership
 (
     room_id            BIGINT                   NOT NULL,

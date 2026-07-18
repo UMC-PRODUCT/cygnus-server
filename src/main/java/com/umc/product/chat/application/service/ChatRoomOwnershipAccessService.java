@@ -97,8 +97,7 @@ public class ChatRoomOwnershipAccessService {
         Optional<ChatRoomOwnerReference> persisted
     ) {
         if (persisted.isEmpty()) {
-            allowAuditedMissingBinding(expectedOwner, operation, actorContext, policy);
-            return;
+            denyMissingBinding();
         }
         ChatRoomOwnerReference actualOwner = persisted.orElseThrow(this::accessDenied);
         if (!actualOwner.sameBinding(expectedOwner)
@@ -112,28 +111,16 @@ public class ChatRoomOwnershipAccessService {
         }
     }
 
-    private void allowAuditedMissingBinding(
-        ChatRoomOwnerReference expectedOwner,
-        ChatRoomOperation operation,
-        ChatRoomActorContext actorContext,
-        ChatRoomOwnerPolicy policy
-    ) {
+    private void denyMissingBinding() {
         if (registryReadiness.ownershipMode(RegistryName.CHAT_OWNERSHIP)
-                != OwnershipEnforcementMode.AUDIT
-            || operation == null
-            || !policy.allows(expectedOwner, operation, actorContext)) {
-            throw accessDenied();
+                == OwnershipEnforcementMode.AUDIT) {
+            operationalMetrics.recordSecurityEvent(
+                "chat",
+                "ownership_missing_binding",
+                "audit_denied"
+            );
         }
-        if (requiresMembership(operation)
-            && !loadChatMemberPort.existsByRoomIdAndMemberId(
-                expectedOwner.roomId(), actorContext.actorMemberId())) {
-            throw accessDenied();
-        }
-        operationalMetrics.recordSecurityEvent(
-            "chat",
-            "ownership_missing_binding",
-            "audit_allowed"
-        );
+        throw accessDenied();
     }
 
     private String expectedNamespace(ChatRoomOwnerReference expectedOwner) {

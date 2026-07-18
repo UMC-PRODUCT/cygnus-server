@@ -85,7 +85,7 @@ class FileUsageAttachmentValidationTest {
         FileMetadata legacy = pendingFile("legacy-file", 7L);
         ReflectionTestUtils.setField(legacy, "isUploaded", true);
         stubNewAttachment(legacy);
-        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.BACKFILLING);
+        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.DISABLED);
 
         // when
         sut.replaceUsages(replace("legacy-file", 7L));
@@ -179,7 +179,7 @@ class FileUsageAttachmentValidationTest {
     ) {
         stubNewAttachment(metadata);
         if (requesterMemberId != null) {
-            given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.BACKFILLING);
+            given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.DISABLED);
         }
         assertRejected(expectedError, replace("file-a", requesterMemberId));
     }

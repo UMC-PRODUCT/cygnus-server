@@ -107,13 +107,14 @@ class ChatRoomOwnershipAccessServiceTest {
 
         assertAccessDenied(() -> sut.verify(expectedOwner, ChatRoomOperation.READ, actorContext));
 
-        then(ownerPolicy).shouldHaveNoInteractions();
+        then(ownerPolicy).should(Mockito.never())
+            .allows(expectedOwner, ChatRoomOperation.READ, actorContext);
         then(loadChatMemberPort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("audit은 policy와 membership을 통과한 missing legacy binding만 허용한다")
-    void audit_missingBinding_requiresPolicyAndMembership() {
+    @DisplayName("audit도 missing legacy binding을 기록하고 거부한다")
+    void audit_missingBinding_isDenied() {
         GetRegistryReadinessUseCase readiness = Mockito.mock(GetRegistryReadinessUseCase.class);
         OperationalMetrics metrics = Mockito.mock(OperationalMetrics.class);
         ChatRoomOwnershipAccessService auditSut = new ChatRoomOwnershipAccessService(
@@ -126,13 +127,14 @@ class ChatRoomOwnershipAccessServiceTest {
         given(readiness.ownershipMode(RegistryName.CHAT_OWNERSHIP))
             .willReturn(OwnershipEnforcementMode.AUDIT);
         given(loadOwnershipPort.findByRoomId(ROOM_ID)).willReturn(Optional.empty());
-        given(ownerPolicy.allows(expectedOwner, ChatRoomOperation.READ, actorContext)).willReturn(true);
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(ROOM_ID, ACTOR_ID)).willReturn(true);
-
-        auditSut.verify(expectedOwner, ChatRoomOperation.READ, actorContext);
+        assertAccessDenied(() ->
+            auditSut.verify(expectedOwner, ChatRoomOperation.READ, actorContext));
 
         then(metrics).should().recordSecurityEvent(
-            "chat", "ownership_missing_binding", "audit_allowed");
+            "chat", "ownership_missing_binding", "audit_denied");
+        then(ownerPolicy).should(Mockito.never())
+            .allows(expectedOwner, ChatRoomOperation.READ, actorContext);
+        then(loadChatMemberPort).shouldHaveNoInteractions();
     }
 
     @Test

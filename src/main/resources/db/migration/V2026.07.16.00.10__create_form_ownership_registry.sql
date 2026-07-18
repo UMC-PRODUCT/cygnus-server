@@ -30,3 +30,32 @@ CREATE TABLE form_ownership
 
 CREATE INDEX idx_form_ownership_namespace
     ON form_ownership (namespace);
+
+INSERT INTO form_ownership
+    (form_id, namespace, owner_resource_key, slot, created_at, updated_at)
+SELECT form_id, 'project.application-form', project_id::text, 'default',
+       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM project_application_form
+
+UNION ALL
+
+SELECT vote_id, 'notice.vote', notice_id::text, 'default',
+       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM notice_vote
+
+UNION ALL
+
+SELECT form_id, 'feedback.template', id::text, 'default',
+       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM user_feedback_template;
+
+INSERT INTO form_ownership
+    (form_id, namespace, owner_resource_key, slot, created_at, updated_at)
+SELECT current_form.id, 'form.standalone', current_form.id::text, 'default',
+       CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+FROM form current_form
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM form_ownership ownership
+    WHERE ownership.form_id = current_form.id
+);

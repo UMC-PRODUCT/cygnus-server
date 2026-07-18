@@ -91,7 +91,7 @@ class FileDeletionServiceTest {
     @DisplayName("registry가 READY가 아니면 lifecycle이나 metadata 조회 전에 삭제를 차단한다")
     void registry가_READY가_아니면_metadata_조회_전에_삭제를_차단한다() {
         // given
-        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.BACKFILLING);
+        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.DISABLED);
 
         // when & then
         assertThatThrownBy(() -> sut.claim(deleteCommand(1L)))

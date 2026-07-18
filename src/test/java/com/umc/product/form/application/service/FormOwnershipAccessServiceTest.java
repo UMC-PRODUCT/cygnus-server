@@ -100,8 +100,8 @@ class FormOwnershipAccessServiceTest {
     }
 
     @Test
-    @DisplayName("audit은 기존 actor와 policy가 모두 허용한 missing legacy binding만 허용한다")
-    void audit은_인가를_통과한_missing_legacy_binding만_허용한다() {
+    @DisplayName("audit도 missing legacy binding을 기록하고 거부한다")
+    void audit도_missing_legacy_binding을_기록하고_거부한다() {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
@@ -118,10 +118,12 @@ class FormOwnershipAccessServiceTest {
             .willReturn(OwnershipEnforcementMode.AUDIT);
         given(loadPort.findByFormIdForUpdate(EXPECTED.formId())).willReturn(Optional.empty());
 
-        sut.requireMutation(EXPECTED.formId(), EXPECTED, ACTOR, FormOperation.DELETE);
+        assertOwnershipDenied(() -> sut.requireMutation(
+            EXPECTED.formId(), EXPECTED, ACTOR, FormOperation.DELETE
+        ));
 
-        verify(policy).allows(EXPECTED, FormOperation.DELETE, ACTOR);
-        verify(metrics).recordSecurityEvent("form", "ownership_missing_binding", "audit_allowed");
+        verify(policy, never()).allows(EXPECTED, FormOperation.DELETE, ACTOR);
+        verify(metrics).recordSecurityEvent("form", "ownership_missing_binding", "audit_denied");
         verifyNoInteractions(savePort);
     }
 

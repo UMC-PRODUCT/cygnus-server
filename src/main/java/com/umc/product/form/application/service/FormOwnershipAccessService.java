@@ -96,8 +96,7 @@ public class FormOwnershipAccessService {
             ? loadFormOwnershipPort.findByFormIdForUpdate(resolvedFormId)
             : loadFormOwnershipPort.findByFormId(resolvedFormId));
         if (ownership.isEmpty()) {
-            allowAuditedMissingBinding(expectedOwner, actorContext, operation);
-            return;
+            denyMissingBinding();
         }
         FormOwnerReference actualOwner = ownership.orElseThrow().toReference();
         if (!actualOwner.sameBinding(expectedOwner)) {
@@ -108,22 +107,16 @@ public class FormOwnershipAccessService {
         requirePolicyAllows(actualOwner, operation, actorContext);
     }
 
-    private void allowAuditedMissingBinding(
-        FormOwnerReference expectedOwner,
-        FormActorContext actorContext,
-        FormOperation operation
-    ) {
+    private void denyMissingBinding() {
         if (registryReadiness.ownershipMode(RegistryName.FORM_OWNERSHIP)
-                != OwnershipEnforcementMode.AUDIT) {
-            throw denied();
+                == OwnershipEnforcementMode.AUDIT) {
+            operationalMetrics.recordSecurityEvent(
+                "form",
+                "ownership_missing_binding",
+                "audit_denied"
+            );
         }
-        requireActor(operation, actorContext);
-        requirePolicyAllows(expectedOwner, operation, actorContext);
-        operationalMetrics.recordSecurityEvent(
-            "form",
-            "ownership_missing_binding",
-            "audit_allowed"
-        );
+        throw denied();
     }
 
     private void requirePolicyAllows(

@@ -89,8 +89,7 @@ class FormOwnershipAuditFormIdGuardTest {
         FormOperation operation
     ) {
         verify(fixture.policy, never()).allows(EXPECTED_OWNER, operation, ACTOR);
-        verify(fixture.metrics, never())
-            .recordSecurityEvent("form", "ownership_missing_binding", "audit_allowed");
+        verifyNoInteractions(fixture.metrics);
         verifyNoInteractions(fixture.loadPort, fixture.savePort);
     }
 

@@ -63,7 +63,7 @@ class OrphanFileCleanupSchedulerTest {
     @DisplayName("cleanup이 enabled여도 registry가 READY가 아니면 use case를 호출하지 않는다")
     void READY가_아니면_동작하지_않는다() {
         // given
-        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.BACKFILLING);
+        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.DISABLED);
         OrphanFileCleanupScheduler sut = scheduler(properties(true));
 
         // when
