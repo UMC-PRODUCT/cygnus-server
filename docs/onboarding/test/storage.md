@@ -1,6 +1,6 @@
 # Storage 테스트
 
-현재 테스트는 `src/test/java/com/umc/product/storage`에 있다. Storage 사용 registry, cleanup claim, lifecycle contract와 S3 경계를 함께 검증한다. 전체 운영 절차는 [Replica backfill 및 registry cutover runbook](../database-backfill-with-replicas.md), 도메인 설명은 [Storage 도메인](../domain/storage.md)에서 확인한다.
+현재 테스트는 `src/test/java/com/umc/product/storage`에 있다. Storage 사용 registry, cleanup claim, lifecycle contract와 S3 경계를 함께 검증한다. 전체 운영 절차는 [Replica 환경의 registry migration runbook](../database-backfill-with-replicas.md), 도메인 설명은 [Storage 도메인](../domain/storage.md)에서 확인한다.
 
 ## 실행 명령
 
@@ -51,13 +51,14 @@ S3 adapter만 확인할 때는 다음을 실행한다.
 
 failed cleanup을 수동 reset하는 운영 절차는 [Storage 도메인 cleanup section](../domain/storage.md#lifecycle과-cleanup)의 guarded transaction을 그대로 따른다. 테스트나 문서에 실제 file ID·member ID·token·secret을 넣지 않는다. S3 `NoSuchKey`/404 delete는 [`S3StorageAdapterTest`](../../../src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java)의 idempotent success 시나리오로 고정한다.
 
-## Backfill·reconcile·readiness
+## Flyway migration·readiness
 
-registry 전용 통합 테스트는 [`FileUsageBackfillIntegrationTest`](../../../src/test/java/com/umc/product/registry/backfill/FileUsageBackfillIntegrationTest.java), [`RegistryBackfillCoordinatorTest`](../../../src/test/java/com/umc/product/registry/backfill/RegistryBackfillCoordinatorTest.java), [`RegistryCutoverIntegrationTest`](../../../src/test/java/com/umc/product/registry/RegistryCutoverIntegrationTest.java), [`RegistryReadinessServiceTest`](../../../src/test/java/com/umc/product/registry/application/service/RegistryReadinessServiceTest.java)에 있다. 이 묶음은 다음을 확인한다.
+registry 전용 검증은 [`RegistryFlywayDataMigrationIntegrationTest`](../../../src/test/java/com/umc/product/registry/RegistryFlywayDataMigrationIntegrationTest.java)와 [`RegistryReadinessServiceTest`](../../../src/test/java/com/umc/product/registry/application/service/RegistryReadinessServiceTest.java)에 있다. 이 묶음은 다음을 확인한다.
 
-- 9개 canonical source를 keyset으로 재시작하고 checkpoint가 단조 증가한다.
-- source-only missing, registry-only stale, broken reference, ownership conflict와 lifecycle/duplicate/invalid drift를 0이 아니면 차단한다.
-- primary/replica mismatch, exact-one namespace coverage 누락/중복, old-writer drift가 `READY`와 property enable을 막는다.
-- rollback은 `STORAGE` maintenance 시작 → 세 registry `DISABLED` → cleanup/enforcement false → traffic 전환 순서를 지킨다.
+- 독립 PostgreSQL database에서 실제 Flyway target을 순서대로 적용해 9개 canonical Storage source와 4개 Form ownership mapping을 이관한다.
+- null/blank/duplicate/pending Storage reference와 Form duplicate가 migration transaction을 rollback하는지 확인한다.
+- 미도입 Chat row와 `chat.message` usage를 제거하고, Flyway 직후 Storage cutover는 `PENDING`인지 확인한다.
+- legacy-only late write는 certification을 실패시키며, exact reconciliation 이후에만 Storage readiness가 `READY`인지 확인한다.
+- lifecycle constraint와 exact-one namespace coverage 누락/중복이 cleanup/enforcement를 fail-closed로 막는다.
 
-정확한 `registry-backfill` one-shot invocation과 exit code 해석은 [운영 runbook](../database-backfill-with-replicas.md#registry-backfill-one-shot)을 사용한다.
+배포 전 query, Flyway 실패/rollback, replica 검증 순서는 [운영 runbook](../database-backfill-with-replicas.md)을 사용한다.

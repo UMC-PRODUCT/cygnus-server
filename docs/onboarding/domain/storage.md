@@ -2,7 +2,7 @@
 
 ## 역할과 경계
 
-`storage`는 파일 metadata, 업로드 완료 확인, 접근 URL, 물리 삭제와 파일 사용 관계를 소유한다. 현재 Java 패키지는 `com.umc.product.storage`이며, 소비 도메인의 엔티티·repository를 런타임에 조회하지 않는다. 기존 소비 테이블을 읽는 JDBC 코드는 `registry-backfill` profile의 backfill/reconcile 경계에만 있다.
+`storage`는 파일 metadata, 업로드 완료 확인, 접근 URL, 물리 삭제와 파일 사용 관계를 소유한다. 현재 Java 패키지는 `com.umc.product.storage`이며, 소비 도메인의 엔티티·repository를 런타임에 조회하지 않는다. 기존 소비 테이블은 Flyway data migration에서만 읽고 application runtime에는 cross-domain 조회 adapter를 두지 않는다.
 
 소비 도메인은 서버가 만든 `FileUsageCoordinate(namespace, resourceKey, slot)`으로 usage snapshot을 교체하거나 제거한다. 클라이언트가 namespace, resource key, slot을 입력하는 외부 계약은 없다. 파일 사용 registry와 Form/Chat ownership registry는 cardinality와 권한 의미가 달라 별도 registry로 유지한다. 설계 원칙은 [ADR-027](../../adr/027-engine-resource-ownership-namespaces.md)에 고정되어 있다.
 
@@ -14,22 +14,22 @@ expand migration은 [V2026.07.16.00.00](../../../src/main/resources/db/migration
 | --- | --- |
 | `file_usage_owner(id, usage_namespace, resource_key, slot, created_at, updated_at)` | opaque owner 좌표. `(usage_namespace, resource_key, slot)` unique이며 namespace/resource key/slot grammar CHECK를 가진다. |
 | `file_usage(id, owner_id, file_id, created_at)` | owner와 file의 N:M snapshot. `(owner_id, file_id)` unique, owner FK는 `ON DELETE CASCADE`, `file_metadata` FK는 `ON DELETE RESTRICT`다. |
+| `file_usage_registry_cutover(singleton, status, verified_at, ...)` | Flyway 이관 뒤 구버전 writer drain과 exact reconciliation을 운영자가 인증한 상태. `PENDING`에서는 cleanup과 직접 삭제를 차단한다. |
 | `file_metadata.confirmed_at` | 서버가 S3 객체 검증을 끝낸 canonical 완료 시각. expand 단계에서는 nullable이다. |
 | `file_metadata.unreferenced_at` | 전역 usage가 0이 된 시각. 마지막 detach에서만 설정하고 attach 시 null로 되돌린다. |
 | `cleanup_claim_token`, `cleanup_claimed_at` | 물리 삭제 worker의 단일 CAS claim. token이 일치할 때만 finalize한다. |
 | `cleanup_attempts`, `cleanup_next_attempt_at`, `cleanup_failed_at` | retry/backoff와 격리 상태. `cleanup_failed_at`이 있으면 scheduler 후보에서 제외한다. |
 | `idx_file_metadata_cleanup_candidate` | `cleanup_failed_at IS NULL`인 pending/unreferenced 후보 탐색용 partial index다. |
 
-backfill 제어 schema는 [V2026.07.16.00.30](../../../src/main/resources/db/migration/V2026.07.16.00.30__create_registry_backfill_control.sql)에서 추가한다.
-
-| 테이블 | 열/용도 |
-| --- | --- |
-| `registry_backfill_checkpoint` | `(registry_name, source_name)`별 `last_parent_id`, `processed_rows`, `completed`, `updated_at`. keyset 재시작 지점이다. |
-| `registry_cutover_state` | registry별 `DISABLED`, `BACKFILLING`, `VALIDATED`, `READY`, `BLOCKED`, 검증 시각과 상세 사유다. |
+Flyway는 cutover row를 항상 `PENDING`으로 만든다. 정상 startup은 schema/data migration 성공만 증명하며,
+구버전 writer가 더는 legacy column만 갱신하지 않는다는 증거는 아니다. maintenance write barrier에서 구버전
+fleet을 drain하고 9개 source와 registry의 양방향 차집합이 0인 certification SQL이 `READY`로 전환해야 한다.
+이 상태와 `app.storage.cleanup.enabled=true`가 모두 충족될 때만 물리 cleanup이 열린다. readiness adapter는
+Storage가 소유한 cutover row만 읽으며 소비 도메인 table을 조회하지 않는다.
 
 ## Lifecycle과 cleanup
 
-새 writer는 `is_uploaded`와 `confirmed_at`을 함께 변경한다. legacy row의 `is_uploaded=true, confirmed_at=NULL`은 audit 단계에서 `isConfirmedForAudit()` 호환으로 읽지만 `READY`에서는 attach를 허용하지 않는다. contract release는 [V2026.07.16.00.40](../../../src/main/resources/db/migration/V2026.07.16.00.40__enforce_file_upload_lifecycle.sql)에서 `is_uploaded = (confirmed_at IS NOT NULL)` CHECK를 `NOT VALID`로 추가한 뒤 validate한다. 이 artifact는 backfill/reconcile와 replica 확인이 끝난 뒤 적용한다.
+새 writer는 `is_uploaded`와 `confirmed_at`을 함께 변경한다. [V2026.07.16.00.00](../../../src/main/resources/db/migration/V2026.07.16.00.00__create_file_usage_registry_and_cleanup_state.sql)이 legacy `is_uploaded=true, confirmed_at=NULL` row를 먼저 보정하고, [V2026.07.16.00.40](../../../src/main/resources/db/migration/V2026.07.16.00.40__enforce_file_upload_lifecycle.sql)이 `is_uploaded = (confirmed_at IS NOT NULL)` CHECK를 추가·검증한다. 보정이나 validation이 실패하면 Flyway startup 전체가 실패한다.
 
 기본 cleanup 정책은 [application.yml](../../../src/main/resources/application.yml)의 `app.storage.cleanup`에 있으며 모두 fail-safe로 시작한다.
 
@@ -88,7 +88,7 @@ usage가 0이 아니거나 SELECT 후 token이 변했으면 reset하지 않는�
 
 ## 현재 canonical mapping
 
-backfill source의 원본은 [StorageFileUsageSource.java](../../../src/main/java/com/umc/product/storage/adapter/out/backfill/StorageFileUsageSource.java)에 있으며, 아래 아홉 개를 exact snapshot으로 취급한다.
+초기 이관 source의 원본은 [Storage usage migration](../../../src/main/resources/db/migration/V2026.07.16.00.00__create_file_usage_registry_and_cleanup_state.sql)에 있으며, 아래 아홉 개를 exact snapshot으로 취급한다.
 
 | source | legacy column/shape | usage namespace | resource key | slot |
 | --- | --- | --- | --- | --- |
@@ -102,14 +102,14 @@ backfill source의 원본은 [StorageFileUsageSource.java](../../../src/main/jav
 | `umc-product-member-profile-image` | `umc_product_member.profile_image_id` (scalar) | `organization.umc-product-member` | `umc_product_member.id` | `profile-image` |
 | `certificate-file` | `certificate.file_id` (scalar) | `certificate` | `certificate.id` | `file` |
 
-array source는 `unnest` 후 null/blank file ID를 제외한다. 같은 owner가 여러 file을 가질 수 있고, 한 file이 여러 owner에 공유될 수 있다. source에만 있고 registry에 없는 것은 missing drift, registry에만 있는 것은 stale drift로 기록한다. metadata가 없으면 broken, 기대 snapshot과 실제 snapshot이 다르면 conflict로 기록하며 자동으로 임의 선택하지 않는다.
+array source는 `unnest` 결과를 그대로 constraint에 넣는다. null/blank 원소와 동일 owner/file 중복은 NOT NULL/CHECK/UNIQUE를 실패시킨다. 같은 owner가 서로 다른 file을 가질 수 있고, 한 file이 여러 owner에 공유될 수 있다. metadata가 없거나 pending file을 참조하면 migration helper table의 FK/CHECK가 실패하여 application startup을 차단한다.
 
 ## 관측과 운영 진입점
 
 - batch scheduler는 `jobName=orphan_file_cleanup`으로 `operational.batch.job.seconds`, `operational.batch.job.total`, `operational.batch.job.processed.total`을 기록하고 `result=success|retry|failure`를 사용한다.
 - S3 adapter는 `operational.external.call.seconds`와 `.total`에 `provider=STORAGE`, `operation=DELETE_OBJECT`, `result=success|not_found|failure`를 기록한다. file ID, member ID, token 같은 고카디널리티 값은 tag로 넣지 않는다.
-- registry backfill은 `RegistryReconciliationResult.summary()` 로그(`registry=...,totalDrift=...,sources=[...]`)와 `registry_cutover_state.details`를 운영 증거로 사용한다.
-- 실행 절차, replica 검증, rollback은 [Replica backfill 및 registry cutover runbook](../database-backfill-with-replicas.md)을 따른다. 수동 물리 삭제와 cleanup enable은 세 registry가 `READY`가 될 때까지 금지한다.
+- 초기 이관은 Flyway schema history, registry row count, lifecycle constraint validation과 `file_usage_registry_cutover.verified_at`을 운영 증거로 사용한다.
+- 실행 절차, replica 검증, rollback은 [Replica 환경의 Flyway data migration runbook](../database-backfill-with-replicas.md)을 따른다. 수동 물리 삭제와 cleanup enable은 Flyway 이관과 application readiness 검증이 끝날 때까지 금지한다.
 
 ## 관련 코드와 테스트
 

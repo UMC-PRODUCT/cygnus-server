@@ -1,6 +1,6 @@
 # Form 테스트 (기존 문서 파일명: `survey.md`)
 
-실제 테스트 package는 `com.umc.product.form`이다. `src/test/java/com/umc/product/survey` 경로는 현재 구현에 없으며, 이 문서의 링크와 실행 명령은 모두 Form 경로를 가리킨다. 도메인 규칙은 [Form 도메인](../domain/survey.md), ownership/cutover 운영은 [runbook](../database-backfill-with-replicas.md)을 함께 읽는다.
+실제 테스트 package는 `com.umc.product.form`이다. `src/test/java/com/umc/product/survey` 경로는 현재 구현에 없으며, 이 문서의 링크와 실행 명령은 모두 Form 경로를 가리킨다. 도메인 규칙은 [Form 도메인](../domain/survey.md), ownership migration/enable 운영은 [runbook](../database-backfill-with-replicas.md)을 함께 읽는다.
 
 ## 실행 명령
 
@@ -14,13 +14,13 @@
   --tests 'com.umc.product.form.application.service.command.FormAnswerUsageCascadeIntegrationTest'
 ```
 
-Project/Notice/Feedback consumer policy와 backfill source는 다음 targeted test로 확인한다.
+Project/Notice/Feedback consumer policy와 Flyway ownership 이관은 다음 targeted test로 확인한다.
 
 ```bash
 ./gradlew test --tests 'com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactoryTest' \
   --tests 'com.umc.product.project.application.form.ProjectApplicationFormOwnerPolicyTest' \
   --tests 'com.umc.product.project.application.form.ProjectApplicationFormOwnershipContractTest' \
-  --tests 'com.umc.product.registry.backfill.EngineOwnershipBackfillIntegrationTest'
+  --tests 'com.umc.product.registry.RegistryFlywayDataMigrationIntegrationTest'
 ```
 
 ## Ownership schema와 정책
@@ -41,7 +41,7 @@ Project/Notice/Feedback consumer policy와 backfill source는 다음 targeted te
 | [`ProjectApplicationFormOwnerPolicyTest`](../../../src/test/java/com/umc/product/project/application/form/ProjectApplicationFormOwnerPolicyTest.java) | Project permission capability와 Form operation의 일대일 매핑, malformed key/unauthenticated actor fail-closed를 확인한다. |
 | [`ProjectApplicationFormOwnershipContractTest`](../../../src/test/java/com/umc/product/project/application/form/ProjectApplicationFormOwnershipContractTest.java) | 다른 Project owner key 또는 child에서 resolve한 Form ID mismatch가 policy 전에 거부된다. |
 | [`FeedbackTemplateOwnerPolicyTest`](../../../src/test/java/com/umc/product/feedback/application/policy/FeedbackTemplateOwnerPolicyTest.java) | `feedback.template` owner lookup, actor/business permission, missing ownership와 policy 예외의 false 수렴을 확인한다. |
-| [`EngineOwnershipBackfillIntegrationTest`](../../../src/test/java/com/umc/product/registry/backfill/EngineOwnershipBackfillIntegrationTest.java) | Project/Notice/Feedback와 standalone Form mapping을 PostgreSQL에 keyset backfill하고 duplicate/broken/stale/conflict drift를 보존·보고한다. |
+| [`RegistryFlywayDataMigrationIntegrationTest`](../../../src/test/java/com/umc/product/registry/RegistryFlywayDataMigrationIntegrationTest.java) | Project/Notice/Feedback와 standalone Form mapping을 실제 Flyway SQL로 이관하고 Storage/Chat migration 순서까지 검증한다. |
 
 Form readiness는 persisted namespace와 declared namespace의 합집합에 대해 evaluator가 정확히 하나인지 확인한다. `form.standalone`, `project.application-form`, `notice.vote`, `feedback.template` 중 하나라도 누락/중복/오염되면 `app.engine-ownership.enforcement-enabled=true`여도 STRICT가 되지 않는다.
 

@@ -1,233 +1,168 @@
 # Replica 환경의 Database Backfill 운영 가이드
 
-> 이 문서의 첫 번째 섹션은 UMC PRODUCT의 Storage usage/Form ownership/Chat ownership registry cutover 전용 runbook이다. 아래의 일반 PostgreSQL backfill 원칙은 이 절차를 보완한다. 운영 DB의 실제 secret, bucket 값, token, member/file/room ID는 명령·로그·문서에 남기지 말고 bind parameter와 배포 도구의 secret store를 사용한다.
+> Registry 초기 데이터 이관은 application adapter가 아니라 Flyway data migration이 담당한다. 운영 DB의 실제 secret, bucket 값, token, member/file/room ID는 명령·로그·문서에 남기지 않는다.
 
-## Registry cutover의 대상과 schema
+## Registry migration 범위
 
-세 registry의 canonical 이름은 `file-usage`, `form-ownership`, `chat-room-ownership`이다. expand migration은 [Storage usage](../../src/main/resources/db/migration/V2026.07.16.00.00__create_file_usage_registry_and_cleanup_state.sql), [Form ownership](../../src/main/resources/db/migration/V2026.07.16.00.10__create_form_ownership_registry.sql), [Chat ownership](../../src/main/resources/db/migration/V2026.07.16.00.20__create_chat_room_ownership_registry.sql), [backfill control](../../src/main/resources/db/migration/V2026.07.16.00.30__create_registry_backfill_control.sql) 순서다.
+세 registry의 canonical 이름은 `file-usage`, `form-ownership`, `chat-room-ownership`이다. migration은 다음 순서로 한 번에 적용한다.
 
-| registry | 핵심 schema | 삭제/쓰기 불변식 |
+| 순서 | migration | 역할 |
 | --- | --- | --- |
-| `file-usage` | `file_usage_owner` 좌표 + `file_usage(owner_id,file_id)` + `file_metadata` lifecycle/cleanup 열 | owner 좌표와 owner/file pair unique. usage→owner는 cascade, usage→metadata는 restrict. |
-| `form-ownership` | `form_ownership(form_id PK, namespace, owner_resource_key, slot)` | form FK cascade, Form ID와 owner tuple 모두 unique, binding insert-only immutable. |
-| `chat-room-ownership` | `chat_room_ownership(room_id PK, namespace, owner_resource_key, slot)` | room FK cascade, room ID와 owner tuple 모두 unique, binding insert-only immutable. |
-| control | `registry_backfill_checkpoint`, `registry_cutover_state` | source별 keyset checkpoint와 상태 CAS 전이. |
+| 1 | [Storage usage](../../src/main/resources/db/migration/V2026.07.16.00.00__create_file_usage_registry_and_cleanup_state.sql) | lifecycle 열과 usage registry를 만들고 현재 소비 테이블 9개에서 usage를 이관한다. |
+| 2 | [Form ownership](../../src/main/resources/db/migration/V2026.07.16.00.10__create_form_ownership_registry.sql) | Project application form, Notice vote, Feedback template를 named owner로 이관하고 나머지를 standalone으로 등록한다. |
+| 3 | [Chat ownership](../../src/main/resources/db/migration/V2026.07.16.00.20__create_chat_room_ownership_registry.sql) | 미도입 상태인 Chat 데이터를 비우고 ownership registry를 생성한다. |
+| 4 | [Upload lifecycle contract](../../src/main/resources/db/migration/V2026.07.16.00.40__enforce_file_upload_lifecycle.sql) | `is_uploaded = (confirmed_at IS NOT NULL)` constraint를 검증한다. |
 
-모든 좌표는 서버 trusted factory가 생성한다. namespace는 소문자 dot segment(전체 100자 이하), resource key는 영숫자 시작 128자 이하, slot은 소문자 kebab 50자 이하이며 요청·STOMP destination·GraphQL input으로 받지 않는다. 권한의 원본은 Form/Chat ownership row이고 기존 scalar는 navigation mirror다. 자세한 정책은 [ADR-027](../adr/027-engine-resource-ownership-namespaces.md)을 따른다.
+이 경로에는 `registry-backfill` profile, application runner, checkpoint, reconciliation adapter가 없다. Flyway가 primary에서 transaction으로 실행되며 statement나 constraint 하나라도 실패하면 애플리케이션 startup이 중단된다. migration 이후의 신규 write는 각 소비 도메인이 Storage/Form/Chat의 public UseCase를 호출해 같은 business transaction 안에서 registry를 갱신한다. 단, Flyway보다 오래 실행된 구버전 writer는 이 계약을 모르므로 배포 중 mutating traffic을 차단하고 전부 drain해야 한다.
 
-## State machine과 gate
+## Storage usage mapping
 
-`registry_cutover_state.status`의 허용 전이는 다음과 같다.
+[V2026.07.16.00.00](../../src/main/resources/db/migration/V2026.07.16.00.00__create_file_usage_registry_and_cleanup_state.sql)은 다음 legacy reference를 exact set으로 읽는다.
 
-```text
-DISABLED -> BACKFILLING -> VALIDATED -> READY
-     ^          |              |         |
-     |          +-> BLOCKED <-+---------+
-     +---------------- BLOCKED
-```
-
-- `DISABLED`: 기본/rollback 상태. cleanup과 strict ownership enforcement는 꺼져 있다.
-- `BACKFILLING`: preflight와 checkpoint reset 후 keyset write 중이다.
-- `VALIDATED`: 해당 registry의 backfill 후 reconcile이 clean이다. 아직 READY가 아니다.
-- `READY`: 세 registry final reconcile, primary/replica verification, exact-one namespace coverage가 모두 clean이고 cutover fence가 승인했다.
-- `BLOCKED`: preflight, drift, replica mismatch, old-writer drift, lifecycle 오류 또는 상태 경합. 수동 원인 확인 후 `DISABLED`로 되돌리고 checkpoint를 낮은 PK부터 다시 만든다.
-
-READY 전에는 수동 물리 삭제·cleanup scheduler·strict ownership을 열지 않는다. `RegistryCutoverFenceService`는 세 registry가 모두 validated/clean일 때만 `READY`로 전이하고 `enableCleanupAndEnforcement()`를 호출한다. READY 뒤 drift가 생기면 `reconcileRuntimeFence()`가 properties를 먼저 닫고 상태를 BLOCKED로 만든다.
-
-## Mapping catalog와 retention
-
-### Storage usage 9개 source
-
-`StorageFileUsageSource.ALL`의 source와 mapping은 다음과 같다. source명은 checkpoint의 `source_name`과 같다.
-
-| source | legacy table/column | namespace | resource key | slot | shape |
-| --- | --- | --- | --- | --- | --- |
-| `member-profile-image` | `member.profile_image_id` | `member` | `member.id` | `profile-image` | scalar |
-| `school-logo` | `school.logo_image_id` | `organization.school` | `school.id` | `logo` | scalar |
-| `notice-images` | `notice_image.notice_id/image_id` | `notice` | `notice.id` | `images` | scalar row |
-| `project-logo` | `project.logo_file_id` | `project` | `project.id` | `logo` | scalar |
-| `project-thumbnail` | `project.thumbnail_file_id` | `project` | `project.id` | `thumbnail` | scalar |
-| `form-answer-attachments` | `answer.file_ids` | `form.answer` | `answer.id` | `attachments` | array/unnest |
-| `chat-message-attachments` | `chat_message.file_metadata_ids` | `chat.message` | `chat_message.id` | `attachments` | array/unnest |
-| `umc-product-member-profile-image` | `umc_product_member.profile_image_id` | `organization.umc-product-member` | `umc_product_member.id` | `profile-image` | scalar |
-| `certificate-file` | `certificate.file_id` | `certificate` | `certificate.id` | `file` | scalar |
-
-### Form/Chat ownership
-
-| source | namespace/slot | owner resource key | 원본 |
+| legacy table/column | namespace | resource key | slot |
 | --- | --- | --- | --- |
-| `project-application-form` | `project.application-form/default` | `project_application_form.project_id` | [Project source](../../src/main/java/com/umc/product/project/adapter/out/backfill/ProjectFormOwnershipBackfillSource.java) |
-| `notice-vote` | `notice.vote/default` | `notice_vote.notice_id` | [Notice source](../../src/main/java/com/umc/product/notice/adapter/out/backfill/NoticeVoteFormOwnershipBackfillSource.java) |
-| `feedback-template` | `feedback.template/default` | `user_feedback_template.id` | [Feedback source](../../src/main/java/com/umc/product/feedback/adapter/out/backfill/FeedbackTemplateFormOwnershipBackfillSource.java) |
-| `form-standalone` | `form.standalone/default` | `form.id` | [Form rollout](../../src/main/java/com/umc/product/form/adapter/out/backfill/FormOwnershipRolloutAdapter.java) |
-| `chat-room` | `chat.standalone/default` | `chat_room.id` | [Chat rollout](../../src/main/java/com/umc/product/chat/adapter/out/backfill/ChatRoomOwnershipRolloutAdapter.java) |
+| `member.profile_image_id` | `member` | `member.id` | `profile-image` |
+| `school.logo_image_id` | `organization.school` | `school.id` | `logo` |
+| `notice_image.image_id` | `notice` | `notice_image.notice_id` | `images` |
+| `project.logo_file_id` | `project` | `project.id` | `logo` |
+| `project.thumbnail_file_id` | `project` | `project.id` | `thumbnail` |
+| `answer.file_ids[]` | `form.answer` | `answer.id` | `attachments` |
+| `chat_message.file_metadata_ids[]` | `chat.message` | `chat_message.id` | `attachments` |
+| `umc_product_member.profile_image_id` | `organization.umc-product-member` | `umc_product_member.id` | `profile-image` |
+| `certificate.file_id` | `certificate` | `certificate.id` | `file` |
 
-동일 Form/room의 복수 owner 또는 동일 tuple의 복수 engine ID는 preflight에서 hard-fail한다. missing/stale/broken/conflict를 자동으로 고치거나 덮어쓰지 않는다.
+업로드 완료 legacy row는 `confirmed_at = COALESCE(updated_at, created_at)`으로 정규화한다. null/blank, 동일 owner/file 중복, 존재하지 않는 metadata, 아직 업로드 완료되지 않은 참조는 snapshot table의 NOT NULL/CHECK/UNIQUE/FK가 migration을 실패시킨다. 사용 중인 파일은 `unreferenced_at=NULL`, 사용되지 않는 파일은 migration 시각으로 설정해 retention을 새로 시작한다. 이관 직후 `file_usage_registry_cutover`는 `PENDING`이며, writer drain 이후 exact reconciliation을 통과하기 전에는 cleanup이 열리지 않는다.
 
-### Storage cleanup retention과 claim
+## Form ownership과 Chat 초기화
 
-`app.storage.cleanup.enabled` 기본값은 `false`다. 기본 retention은 pending `PT24H`, confirmed-unreferenced `PT168H(7일)`, claim timeout `PT15M`, batch 100, max attempts 10, initial/max backoff `PT1M`/`PT6H`, poll interval `PT1M`이다. 환경 override 이름은 [application.yml](../../src/main/resources/application.yml)의 `FILE_CLEANUP_*`를 사용한다.
+Form mapping은 다음 네 종류다.
 
-candidate transaction은 usage 0과 retention을 `FOR UPDATE SKIP LOCKED`로 확인하고 token을 발급한다. transient failure는 token과 claimed 시각을 유지하고 next attempt만 예약하며, due 시점의 DB claim query가 새 token으로 CAS reclaim한다. S3 delete 직전에 독립 transaction으로 current active token과 usage 0을 재검증한 뒤, S3 delete는 transaction 밖에서 수행한다. finalize는 token CAS + usage 0을 다시 확인한다. retry/backoff와 최종 `FAILED`도 token을 유지하므로 attach fence가 열리지 않는다. `NoSuchKey`/404는 S3 adapter에서 `not_found` idempotent success로 기록하고 metadata finalize로 진행하며, scheduler에서는 success로 집계해 retry를 예약하지 않는다.
-
-`cleanup_failed_at` 수동 reset은 다음 guard를 모두 충족할 때만 승인한다.
-
-1. 대상 metadata를 `FOR UPDATE`로 잠근다.
-2. `SELECT COUNT(*) FROM file_usage WHERE file_id=:file_id`가 0인지 확인한다.
-3. lock한 row의 현재 token을 `:failed_token`으로 보존하고, 승인 도구가 서로 다른 새 UUID `:reset_token`을 발급한다.
-4. 같은 guarded transaction에서 old-token CAS로 `cleanup_claim_token=:reset_token`, `cleanup_claimed_at=CURRENT_TIMESTAMP`, `cleanup_next_attempt_at=CURRENT_TIMESTAMP`, `cleanup_failed_at=NULL`, `cleanup_attempts=0`으로 update한다. `WHERE cleanup_claim_token=:failed_token AND cleanup_failed_at IS NOT NULL AND NOT EXISTS (...)`를 포함하고 update count가 1일 때만 commit한다.
-5. usage가 생기거나 token이 변했거나 update count가 1이 아니면 즉시 rollback한다. token을 `NULL`로 열지 않아 old worker의 CAS와 reset 사이 attach를 모두 차단하며, due scheduler가 또 하나의 새 token으로 reclaim한다. reset은 cleanup enabled/READY를 우회하지 않는다.
-
-정확한 bind-parameter SQL은 [Storage 도메인 reset 절차](domain/storage.md#lifecycle과-cleanup)를 단일 원본으로 사용한다.
-
-## registry-backfill one-shot
-
-runner는 `registry-backfill` profile에서만 생성된다([`RegistryBackfillRunnerConfiguration`](../../src/main/java/com/umc/product/registry/adapter/in/runner/RegistryBackfillRunnerConfiguration.java)). action은 `app.registry.backfill.action`의 `BACKFILL` 또는 `RECONCILE`이고, `batch-size`와 `detail-limit`은 양수여야 한다. 아래 명령은 실제 저장소의 one-shot invocation이며 secret/실제 ID를 포함하지 않는다.
-
-```bash
-# keyset backfill + source reconcile. runner가 완료 후 Spring context를 종료한다.
-./gradlew bootRun --args='--spring.profiles.active=registry-backfill --app.registry.backfill.action=BACKFILL --app.registry.backfill.batch-size=500 --app.registry.backfill.detail-limit=100'
-
-# read-only source/registry reconcile. backfill row/checkpoint/state를 쓰지 않는다.
-./gradlew bootRun --args='--spring.profiles.active=registry-backfill --app.registry.backfill.action=RECONCILE --app.registry.backfill.detail-limit=100'
-```
-
-환경 변수로 같은 binding을 전달하려면 `SPRING_PROFILES_ACTIVE=registry-backfill APP_REGISTRY_BACKFILL_ACTION=BACKFILL`처럼 사용하되, 운영 secret은 shell history에 노출하지 않는다.
-
-### Action별 write/read-only
-
-| action | 실제 동작 | 운영 판정 |
+| source | namespace/slot | owner resource key |
 | --- | --- | --- |
-| `BACKFILL` | advisory lock 획득, preflight, checkpoint reset/저장, source table read, registry row insert, Storage의 `confirmed_at` 호환 보정 및 `unreferenced_at` 계산, final reconcile, 상태 `BACKFILLING→VALIDATED` 전이 | write action. primary에만 연결하고 replica routing endpoint로 실행하지 않는다. |
-| `RECONCILE` | 각 rollout의 source/registry/metadata를 읽고 `RegistryReconciliationResult.summary()`를 log로 출력한다. advisory lock은 잡지만 business row/checkpoint/state를 변경하지 않는다. | data read-only. 결과 drift가 있어도 coordinator는 result를 반환하므로 exit 0만으로 clean을 판단하지 않는다. |
+| `project_application_form` | `project.application-form/default` | `project_id` |
+| `notice_vote` | `notice.vote/default` | `notice_id` |
+| `user_feedback_template` | `feedback.template/default` | template `id` |
+| 그 외 `form` | `form.standalone/default` | form `id` |
 
-`BACKFILL`에서 drift 또는 예외가 나면 상태를 `BLOCKED`로 만들고 예외를 전파한다. 이미 `VALIDATED`/`READY`인 registry는 다시 BACKFILL하지 않는다. `BLOCKED` 재시도는 `DISABLED` 전이와 checkpoint reset 후 낮은 PK부터 full rescan한다.
+`form_ownership.form_id`와 owner tuple이 모두 unique이므로 동일 Form의 복수 owner, 동일 tuple의 복수 Form, 존재하지 않는 Form 참조는 migration을 실패시킨다. 임의의 row를 선택하거나 `ON CONFLICT DO NOTHING`으로 숨기지 않는다.
 
-### Exit code 해석
+Chat은 아직 도입 전이고 데이터가 없다는 배포 전제를 사용한다. migration은 `chat_room`을 `TRUNCATE ... CASCADE`하고 혹시 남아 있던 `chat.message` file usage도 제거한 뒤 해당 파일의 `unreferenced_at`을 다시 계산한다. 따라서 배포 직전 아래 preflight에서 Chat row가 0인지 확인해야 하며, 0이 아니라면 예정된 데이터 폐기인지 운영자가 다시 승인해야 한다.
 
-- `BACKFILL` exit `0`: runner가 종료했고 각 rollout의 reconcile이 clean하여 세 registry가 `VALIDATED`까지 갔다는 뜻이다. `READY`와 properties enable은 아직 cutover fence의 별도 gate다.
-- `BACKFILL` non-zero: preflight/table/DB 오류, checkpoint 경합, source mapping 오류 또는 drift 예외다. 해당 registry가 `BLOCKED`인지 status query로 확인하고 원인 정리 전 재실행하지 않는다.
-- `RECONCILE` exit `0`: 읽기 작업이 끝났다는 뜻일 뿐 drift 0이 아니다. 로그의 `registry=...,totalDrift=...`와 source counts를 확인한다.
-- `RECONCILE` non-zero: profile binding/startup, DB connection, adapter 예외다. 로그와 status를 함께 확인한다.
+## 배포 전 preflight
 
-## Preflight, checkpoint, status와 drift 판정
-
-### Preflight
-
-1. migration history에 `.00`, `.10`, `.20`, `.30`이 있고 대상 table/constraint/index가 존재하는지 확인한다.
-2. `SELECT pg_is_in_recovery()` 결과가 `false`인 primary인지 확인한다. replica endpoint에서 `BACKFILL`을 실행하지 않는다.
-3. Form source는 `project_id`별 복수 application form과 mapping source의 duplicate coordinate를 검사한다. Chat source는 `chat_room`과 ownership table 존재를 확인한다. Storage source는 9개 table/column/array type과 file metadata FK를 확인한다.
-4. dual-writer가 배포됐고 old pod가 drain됐으며 모든 serving pod version이 canonical mapping을 지원하는지 deployment inventory로 확인한다.
-5. baseline으로 primary latency/lock, replica replay lag/WAL disk, cleanup/enforcement property를 기록한다. 값이 임계치를 넘으면 시작하지 않는다.
-
-### Checkpoint/status 조회
-
-운영 console의 read-only SQL session에서 실제 ID 대신 일반 조회를 실행한다.
+read-only 운영 session에서 다음을 확인한다.
 
 ```sql
-SELECT registry_name, status, verified_at, details, updated_at
-FROM registry_cutover_state
-ORDER BY registry_name;
-
-SELECT registry_name, source_name, last_parent_id, processed_rows, completed, updated_at
-FROM registry_backfill_checkpoint
-ORDER BY registry_name, source_name;
-
 SELECT pg_is_in_recovery() AS is_replica;
+SELECT COUNT(*) AS chat_room_count FROM chat_room;
+
+WITH legacy_reference AS (
+    SELECT 'member'::text AS usage_namespace, id::text AS resource_key,
+           'profile-image'::text AS slot, profile_image_id::text AS file_id
+    FROM member WHERE profile_image_id IS NOT NULL
+    UNION ALL
+    SELECT 'organization.school', id::text, 'logo', logo_image_id::text
+    FROM school WHERE logo_image_id IS NOT NULL
+    UNION ALL
+    SELECT 'notice', notice_id::text, 'images', image_id::text FROM notice_image
+    UNION ALL
+    SELECT 'project', id::text, 'logo', logo_file_id::text
+    FROM project WHERE logo_file_id IS NOT NULL
+    UNION ALL
+    SELECT 'project', id::text, 'thumbnail', thumbnail_file_id::text
+    FROM project WHERE thumbnail_file_id IS NOT NULL
+    UNION ALL
+    SELECT 'form.answer', id::text, 'attachments', unnest(file_ids)::text FROM answer
+    UNION ALL
+    SELECT 'chat.message', id::text, 'attachments', unnest(file_metadata_ids)::text
+    FROM chat_message
+    UNION ALL
+    SELECT 'organization.umc-product-member', id::text, 'profile-image', profile_image_id::text
+    FROM umc_product_member WHERE profile_image_id IS NOT NULL
+    UNION ALL
+    SELECT 'certificate', id::text, 'file', file_id::text FROM certificate
+)
+SELECT
+    COUNT(*) FILTER (
+        WHERE reference.file_id IS NULL OR btrim(reference.file_id) = ''
+    ) AS invalid_file_references,
+    COUNT(*) FILTER (
+        WHERE reference.file_id IS NOT NULL
+          AND btrim(reference.file_id) <> ''
+          AND (metadata.id IS NULL OR metadata.is_uploaded = FALSE)
+    ) AS broken_or_pending_file_references,
+    (
+        SELECT COUNT(*)
+        FROM (
+            SELECT usage_namespace, resource_key, slot, file_id
+            FROM legacy_reference
+            WHERE file_id IS NOT NULL AND btrim(file_id) <> ''
+            GROUP BY usage_namespace, resource_key, slot, file_id
+            HAVING COUNT(*) > 1
+        ) duplicate
+    ) AS duplicate_file_references
+FROM legacy_reference reference
+LEFT JOIN file_metadata metadata ON metadata.id = reference.file_id;
 ```
 
-`last_parent_id`는 source별 keyset 경계이고 `completed=true`인 source만 다음 단계로 간주한다. checkpoint가 증가하지 않거나 source 순서가 뒤집히면 작업을 중단하고 `BLOCKED` 원인을 확인한다.
+- cleanup/enforcement를 false로 고정하고 LB, worker, queue consumer의 mutating traffic에 maintenance write barrier를 건다.
+- in-flight transaction을 drain한 뒤 구버전 writer fleet을 0개로 만들고, 구버전 DB session과 background writer가 남지 않았음을 확인한다.
+- barrier를 유지한 primary write endpoint에서 preflight를 실행한다.
+- `is_replica=false`, `chat_room_count=0`, 세 file-reference count가 모두 0이어야 한다.
+- Flyway migration timeout, DDL lock 대기 한도와 maintenance window를 명시한다.
+- primary latency, WAL disk, 필수 replica replay lag의 baseline과 중단 기준을 기록한다.
+- `app.storage.cleanup.enabled=false`, `app.engine-ownership.enforcement-enabled=false`로 배포를 시작한다.
 
-### Four-way drift
-
-모든 registry와 source는 다음 네 가지를 별도로 세고 detail limit 안에서 좌표를 기록한다.
-
-| 판정 | 코드 enum | 의미와 조치 |
-| --- | --- | --- |
-| missing | `SOURCE_ONLY_MISSING` | canonical source에는 있는데 registry row/usage가 없다. dual-writer·batch를 고친 뒤 재backfill한다. |
-| stale | `REGISTRY_ONLY_STALE` | registry에만 남은 row다. 원본 삭제/rollback 흔적을 확인하고 자동 삭제하지 않는다. |
-| broken | `BROKEN_REFERENCE` | source가 가리키는 metadata/Form/room이 없다. 원본 FK/legacy 데이터를 운영자가 정리할 때까지 차단한다. |
-| conflict | `OWNERSHIP_CONFLICT` | 같은 owner tuple의 다른 file/engine ID, mirror mismatch, 기대 namespace/slot 불일치다. 임의 overwrite 금지, owner 결정을 명시적으로 정리한다. |
-
-추가 blocker인 `DUPLICATE_REFERENCE`, `INVALID_REFERENCE`, `LIFECYCLE_CONFLICT`, `UPLOAD_CONFIRMATION_MISMATCH`, Form duplicate owner도 drift 0 gate에 포함한다. 네 종류를 합쳐 “정합성 양호”로 축약하지 말고 source별 count와 detail을 보존한다.
-
-### Exact-one namespace coverage
-
-Form coverage의 required namespace는 `form.standalone`, `project.application-form`, `notice.vote`, `feedback.template`이고 Chat coverage는 `chat.standalone`이다. `RegistryReadinessService`는 persisted namespace와 consumer declared namespace의 합집합을 만들고 evaluator count가 각 namespace당 정확히 1인지 확인한다. 0개·2개 이상·malformed·coverage adapter 예외·empty coverage는 모두 invalid이며 `STRICT`/READY를 열지 않는다.
+## 적용 후 검증과 enable 순서
 
 ```sql
-SELECT DISTINCT namespace FROM form_ownership ORDER BY namespace;
-SELECT DISTINCT namespace FROM chat_room_ownership ORDER BY namespace;
+SELECT version, description, success
+FROM flyway_schema_history
+WHERE version IN (
+    '2026.07.16.00.00',
+    '2026.07.16.00.10',
+    '2026.07.16.00.20',
+    '2026.07.16.00.40'
+)
+ORDER BY installed_rank;
+
+SELECT COUNT(*) FROM file_usage_owner;
+SELECT COUNT(*) FROM file_usage;
+SELECT namespace, COUNT(*) FROM form_ownership GROUP BY namespace ORDER BY namespace;
+SELECT COUNT(*) FROM chat_room;
+SELECT COUNT(*) FROM chat_room_ownership;
+
+SELECT status, verified_at
+FROM file_usage_registry_cutover
+WHERE singleton = TRUE;
+
+SELECT conname, convalidated
+FROM pg_constraint
+WHERE conname = 'ck_file_metadata_upload_lifecycle';
 ```
 
-위 SQL은 persisted 집합만 보여 주므로 declared/evaluator 집합은 application readiness 결과와 registry test artifact로 함께 확인한다. client가 namespace를 추가하거나 기존 evaluator를 우회하는 fallback은 허용하지 않는다.
+1. write barrier와 구버전 writer 0개 상태를 유지한 채 새 artifact 한 개를 시작해 네 migration을 완료한다.
+2. lifecycle constraint가 validated이고 `file_usage_registry_cutover.status=PENDING`인지 확인한 뒤 새 artifact만 원하는 replica 수로 확장한다.
+3. primary와 모든 필수 replica에서 migration version과 row count가 일치하고 replay lag가 baseline으로 돌아왔는지 확인한다.
+4. 새 writer만 존재하는 상태에서 [`certify_file_usage_registry_cutover.sql`](../../src/main/resources/db/operation/certify_file_usage_registry_cutover.sql)을 `psql -v ON_ERROR_STOP=1 -f ...`로 실행한다. 이 transaction은 9개 source와 registry를 잠그고 invalid/duplicate/broken reference 및 양방향 차집합이 하나라도 있으면 rollback한다.
+5. `file_usage_registry_cutover.status=READY`, `verified_at IS NOT NULL`과 Storage readiness를 확인한 후에만 mutating traffic barrier를 해제한다.
+6. Form/Chat namespace coverage가 각 namespace당 evaluator 정확히 하나인지 확인한다. AUDIT에서도 missing ownership은 기록 후 거부한다.
+7. 관측 window 동안 신규 write의 registry row와 legacy mirror가 같은 transaction에서 유지되는지 확인한다.
+8. ownership enforcement를 먼저 enable하고 오류율을 관찰한 뒤 `app.storage.cleanup.enabled=true`를 연다. cleanup retention과 claim/CAS 절차는 [Storage 도메인 문서](domain/storage.md#lifecycle과-cleanup)를 따른다.
 
-## Primary/replica 검증
+migration 실패는 해당 version의 transaction rollback 후 원본 데이터를 고쳐 같은 artifact로 재배포한다. 앞선 version이 이미 성공했더라도 cutover는 계속 `PENDING`이므로 cleanup을 열지 않고, 네 version이 모두 성공한 뒤 certification을 새로 실행한다. 성공한 Flyway 파일의 checksum을 운영에서 수정하지 않는다. certification 이후 문제가 발견되면 cleanup/enforcement property를 즉시 false로 닫고 forward migration으로 보정한다. PostgreSQL transaction이 rollback되면 Chat truncate도 되돌아가지만, migration이 성공한 뒤 애플리케이션 이미지만 rollback해서는 복원되지 않으므로 빈 데이터 확인과 백업 정책은 필수다.
 
-`BACKFILL`은 primary write endpoint에서 keyset batch를 commit한다. physical replica는 WAL replay, logical subscriber는 additive schema와 apply 상태를 먼저 확인한다. primary에서 다음을 관측한다.
+## Registry migration 완료 체크리스트
 
-```sql
-SELECT application_name, state, sync_state,
-       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), replay_lsn)) AS replay_gap,
-       write_lag, flush_lag, replay_lag
-FROM pg_stat_replication;
-
-SELECT slot_name, slot_type, active, wal_status,
-       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS retained_wal
-FROM pg_replication_slots;
-```
-
-필수 replica가 `streaming`에서 이탈하거나 baseline 대비 replay gap/WAL disk/DB latency/standby conflict가 증가하면 batch를 중지하고 따라잡을 때까지 기다린다. 모든 replica에서 migration, registry row count, lifecycle contract와 reconcile 결과가 보이고 logical apply error가 없어야 한다. synchronous durability를 낮춰서 속도를 확보하지 말고 batch size/속도를 줄인다.
-
-## Forward rollout 순서
-
-`RegistryCutoverPlan`이 요구하는 milestone 전체 순서를 [코드](../../src/main/java/com/umc/product/registry/domain/RegistryCutoverMilestone.java)와 동일하게 지킨다.
-
-1. `SCHEMA_EXPAND_ARTIFACT`: 네 expand migration을 replica/subscriber에 호환 순서로 배포한다. `.00.40` contract는 아직 적용하지 않는다.
-2. `STORAGE_MAINTENANCE_START`: 운영 control plane에서 정확히 `STORAGE` maintenance를 시작하고 Storage 쓰기/삭제 변경을 관찰한다.
-3. `DUAL_WRITER_ROLLING_DEPLOY`: 모든 runtime writer가 legacy source와 registry snapshot/binding을 같은 REQUIRED transaction에서 기록하도록 rolling deploy한다. 새 pod와 old pod가 섞이는 동안에는 backfill을 시작하지 않는다.
-4. `OLD_POD_DRAIN_AND_VERSION_CHECK`: old pod를 drain하고 serving pod image/version·writer capability inventory가 한 버전인지 확인한다. old writer가 남아 있으면 drift가 다시 생기므로 gate를 통과시키지 않는다.
-5. `STORAGE_MAINTENANCE_END`: dual-writer와 version 확인이 끝난 뒤 maintenance를 종료한다. 종료 시점을 deployment log에 기록한다.
-6. `KEYSET_BACKFILL`: 위 `BACKFILL` one-shot을 primary에서 실행한다. source별 checkpoint와 advisory lock으로 재시작한다.
-7. `PRIMARY_REPLICA_FOUR_DRIFT_ZERO`: primary와 모든 필수 replica가 catch up한 뒤 네 drift와 추가 lifecycle/duplicate drift가 모두 0인지 확인한다.
-8. `ROLLBACK_WINDOW_END`: 관측 window 동안 old-writer drift, replica mismatch, cleanup retry 폭증이 없는지 확인한다.
-9. `CONTRACT_00_40`: [lifecycle contract migration](../../src/main/resources/db/migration/V2026.07.16.00.40__enforce_file_upload_lifecycle.sql)을 `NOT VALID` 추가 → legacy mismatch 보정 → `VALIDATE` 순서로 실행하고 모든 replica에서 `convalidated=true`를 확인한다.
-10. `FINAL_RECONCILE`: `RECONCILE` one-shot과 readiness coverage를 다시 실행한다. 결과가 하나라도 non-zero이면 `BLOCKED`로 닫는다.
-11. `THREE_REGISTRIES_READY`: 세 registry를 `VALIDATED→READY`로 전환한다. `READY`는 application property만 true로 바꿨다는 뜻이 아니다.
-12. `PROPERTIES_ENABLE`: cutover fence의 `enableCleanupAndEnforcement()`를 호출한다. `app.engine-ownership.enforcement-enabled=true`와 `app.storage.cleanup.enabled=true`를 readiness/운영 config에 반영하되, 두 property 모두 세 registry READY와 final reconcile 뒤에만 enable한다. 이 호출은 code에서 한 번의 atomic runtime switch로 기록한다.
-
-### Property 순서
-
-- 시작/대기: `app.storage.cleanup.enabled=false`, `app.engine-ownership.enforcement-enabled=false`를 명시한다. repository 기본값도 둘 다 false다.
-- forward enable: `registry_cutover_state` 세 행이 `READY`이고 final reconcile/replica/coverage가 clean인지 확인한 다음 runtime switch로 enforcement와 cleanup을 함께 enable한다. cleanup을 READY 전 수동으로 먼저 켜지 않는다.
-- drift/rollback disable: `STORAGE` maintenance를 먼저 시작하고 세 registry를 `BLOCKED→DISABLED`로 닫은 다음 `disableCleanupAndEnforcement()`로 두 property를 false로 만든다. 그 후 traffic transition을 수행한다. transition 실패 시에도 properties는 false이며 traffic은 전환하지 않는다.
-
-## Rollback과 재시작
-
-rollback 사유는 status `details`와 deployment log에 남기되 secret·실제 ID는 남기지 않는다.
-
-1. `STORAGE` maintenance를 시작한다.
-2. runtime switch를 통해 cleanup/enforcement가 더 이상 write/delete를 하지 않게 준비한다.
-3. 각 registry를 현재 상태에서 `BLOCKED`로 만든 뒤 `DISABLED`로 CAS 전이한다. 이미 `DISABLED`면 no-op이다.
-4. `app.storage.cleanup.enabled=false`와 `app.engine-ownership.enforcement-enabled=false`를 확인한다.
-5. traffic을 이전 version/경로로 전환한다. 상태 전이나 property disable이 실패하면 traffic을 전환하지 않는다.
-6. 다음 forward rollout에서 source checkpoint를 삭제/reset하고 old-writer 변경까지 낮은 PK부터 full backfill한다. stale registry row는 보존한 채 reconcile 결과로 확인하고, 임의 삭제하지 않는다.
-
-READY 이후 runtime fence에서 old-writer source row, replica mismatch, namespace coverage 오류가 보이면 자동으로 properties를 닫고 세 registry를 `BLOCKED`로 전환한다. 원인 해결 전 재-enable하지 않는다.
-
-## 완료 체크리스트와 증거
-
-- [ ] start/end `STORAGE` maintenance, dual-writer rollout, old pod drain/version check가 deployment log에 있다.
-- [ ] `BACKFILL` exit와 registry별 `VALIDATED` status, source checkpoint `completed=true`를 확인했다.
-- [ ] `RECONCILE` summary의 `totalDrift=0`과 네 drift 및 추가 lifecycle drift 0을 확인했다.
-- [ ] primary `pg_is_in_recovery=false`, 필수 replica streaming/catch-up, logical apply error 없음, WAL disk 정상이다.
-- [ ] Form/Chat exact-one namespace coverage가 empty/missing/duplicate가 아니다.
-- [ ] `.00.40` lifecycle contract가 모든 replica에서 validated다.
-- [ ] 세 registry만 `READY`로 바꾸고 properties enable은 마지막에 한 번 수행했다.
-- [ ] rollback window와 `READY` 후 runtime fence가 clean이다.
-- [ ] cleanup claim/CAS, S3 not-found idempotent success, failed reset guard와 metric을 점검했다.
-
-운영 evidence에는 invocation, exit code, status/checkpoint SQL 결과, reconcile summary, replica lag snapshot, lifecycle constraint validation, property switch/maintenance 순서를 포함한다. production secret·실제 ID·token은 redaction한다.
+- [ ] maintenance write barrier를 걸고 구버전·background writer를 모두 drain했다.
+- [ ] primary endpoint, maintenance window, lock/timeout 기준을 확인했다.
+- [ ] Chat row와 Storage invalid/duplicate/broken/pending reference count가 모두 0이다.
+- [ ] 네 Flyway migration이 순서대로 성공했다.
+- [ ] exact reconciliation SQL이 성공했고 Storage cutover row와 readiness가 `READY`다.
+- [ ] Form/Chat exact-one namespace coverage가 유효하고 missing ownership이 fail-closed다.
+- [ ] primary/replica row count, WAL replay, lifecycle constraint validation을 확인했다.
+- [ ] 새 writer에만 traffic을 열고 관측 window 뒤 enforcement와 cleanup을 순서대로 enable했다.
+- [ ] 실제 ID, storage key, token, secret이 evidence에 남지 않았다.
 
 ## 목적
 

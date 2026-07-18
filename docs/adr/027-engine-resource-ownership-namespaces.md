@@ -35,14 +35,14 @@ ID를 주입할 수 있다. 반대로 namespace와 owner coordinate를 서버가
 3. **정책 registry의 누락과 중복이 안전하지 않다.** evaluator가 없거나 둘 이상이면 어떤 정책을
    적용할지 결정할 수 없으므로 allow가 아니라 fail-closed 해야 한다.
 4. **역사적 데이터는 이미 모호할 수 있다.** Project/Notice의 기존 mapping에 중복 owner 후보가
-   있으면 backfill이 임의의 row를 선택해서는 안 되며, preflight에서 hard-fail하고 운영자가 정리해야
-   한다.
+   있으면 data migration이 임의의 row를 선택해서는 안 되며, DB constraint로 hard-fail하고 운영자가
+   정리해야 한다.
 5. **실시간 책임 경계가 약해질 수 있다.** Chat engine이 consumer별 destination이나 권한을 직접
    알게 되면 재사용 가능한 engine 경계가 무너지고, DB commit 전 broadcast 같은 일관성 오류가 재발한다.
 
 ### 결정이 필요한 이유
 
-Form과 Chat 구현, Storage usage 구현, legacy backfill이 병렬로 진행되기 전에 권한 원본과 확장 지점을
+Form과 Chat 구현, Storage usage 구현, legacy data migration이 병렬로 진행되기 전에 권한 원본과 확장 지점을
 고정해야 한다. 이 결정을 미루면 각 consumer가 namespace 문자열, owner ID, engine ID를 제각각 해석하고
 부분적으로만 검증하게 되어 rolling cutover와 rollback을 안전하게 수행할 수 없다.
 
@@ -59,8 +59,8 @@ authorization truth로 사용하며, consumer scalar를 navigation mirror로만 
 
 - **Storage FileUsageRegistry**는 파일과 owner coordinate 사이의 N:M snapshot, attach/detach, lifecycle
   timestamp, cleanup claim을 소유한다. Storage 런타임은 consumer table/entity/repository/application
-  service를 import하거나 조회하지 않는다. 기존 테이블을 읽는 JDBC adapter는 restartable backfill과
-  reconciliation에만 허용되는 rollout 경계다.
+  service를 import하거나 조회하지 않는다. 기존 테이블을 읽는 SQL은 배포 시점의 Flyway data migration에만
+  존재한다.
 - **Form ownership registry**는 `formId`를 engine ID로 하는 Form 소유권 binding을 소유한다. Form
   domain/application에는 Project·Notice·Feedback 타입이나 공용 generic ownership entity를 두지 않고,
   consumer가 `FormOwnerPolicy` SPI로 자신의 정책을 제공한다.
@@ -88,12 +88,11 @@ aggregate, port, migration을 공유하지 않는다.
 - ownership binding은 insert-only immutable이다. 같은 engine ID에 다른 tuple을 덮어쓰거나 tuple의
   owner를 transfer하지 않는다. 동일 값의 재시도만 idempotent하게 허용한다.
 - `(namespace, ownerResourceKey, slot)`은 한 engine ID에만 연결되고, 한 engine ID도 한 ownership row만
-  가진다. 중복 후보는 애플리케이션에서 선택하지 않고 DB constraint와 preflight hard-fail로 차단한다.
+  가진다. 중복 후보는 애플리케이션에서 선택하지 않고 DB constraint로 migration을 hard-fail한다.
 
 `formId`와 `chatRoomId`는 이 tuple의 navigation mirror다. mirror를 먼저 믿어 ownership row를 생성하거나
 권한을 우회하지 않으며, 생성/변경 시 engine row, scalar mirror, ownership row는 하나의 REQUIRED
-transaction에서 함께 기록한다. row와 mirror가 불일치하면 read와 mutation 모두 fail-closed하고 reconciliation
-대상으로 남긴다.
+transaction에서 함께 기록한다. row와 mirror가 불일치하면 read와 mutation 모두 fail-closed한다.
 
 ### 3. Operation-aware exact-one policy SPI
 
@@ -158,19 +157,21 @@ policy와 **Chat membership 및 consumer business permission을 모두** 만족�
   SUBSCRIBE를 허용한다. malformed destination, 인증 주체 없음, authorizer 없음/복수 매칭은 fail-closed다.
   공통 계층은 위임과 broker 보호만 하며 consumer policy를 직접 분기하지 않는다.
 
-### 5. Backfill과 cutover 안전장치
+### 5. Flyway data migration과 enable 안전장치
 
 Project/Notice의 역사적 mapping을 ownership row로 옮길 때 동일 engine에 복수 owner가 있거나 동일
-`(namespace, ownerResourceKey, slot)`에 복수 engine이 있으면 **preflight를 hard-fail**한다. 어떤 후보를
-임의로 선택하거나 join에서 누락시켜 성공으로 보고하지 않는다. broken reference, stale row, mirror
-불일치, unknown/duplicate namespace도 reconciliation drift로 기록하고 `VALIDATED`/`READY` 전환을
-차단한다.
+`(namespace, ownerResourceKey, slot)`에 복수 engine이 있으면 **PK/unique/FK constraint로 Flyway migration을
+hard-fail**한다. 어떤 후보를 임의로 선택하거나 `ON CONFLICT DO NOTHING`으로 숨기지 않는다. Storage의
+broken file reference와 pending upload reference도 migration helper table의 constraint로 차단한다.
 
-backfill은 source별 checkpoint와 advisory lock을 사용해 재시작 가능해야 한다. `DISABLED → BACKFILLING →
-VALIDATED → READY` 상태와 `BLOCKED` 실패 상태를 유지하며, READY 전에는 cleanup과 strict ownership
-enforcement를 켜지 않는다. 기존 consumer table SQL은 Storage 런타임 코드가 아니라 rollout-only source
-adapter가 소유한다. rollback 시 상태를 DISABLED로 내리고 cleanup/enforcement를 끈 뒤 다음 forward
-backfill에서 checkpoint를 reset해 낮은 PK의 old-writer 변경까지 다시 읽는다.
+기존 consumer table SQL은 application adapter가 아니라 Flyway가 소유한다. Flyway transaction이 실패하면
+application startup도 실패하며 원본 데이터를 정리한 뒤 같은 artifact를 다시 적용한다. Flyway 성공만으로는
+동시에 실행 중인 구버전 writer를 증명할 수 없으므로 Storage cutover는 `PENDING`으로 시작한다. maintenance
+write barrier에서 구버전 writer를 모두 drain하고 9개 source와 usage registry의 invalid/duplicate/broken
+reference 및 양방향 차집합이 0인 guarded SQL만 `READY`를 기록한다. application adapter가 backfill이나
+consumer table reconciliation을 실행하지 않는다. Form/Chat은 ownership row 누락을 AUDIT에서도 기록 후
+거부하고, exact-one namespace coverage를 함께 사용한다. 관측 window가 끝나기 전에는 cleanup과 strict
+ownership enforcement를 켜지 않는다. 이후 rollback은 property를 먼저 끄고 forward migration으로 보정한다.
 
 ## Superseded / Retained from ADR-026
 
@@ -194,7 +195,7 @@ ADR-027은 ADR-026의 Proposed 결정을 대체하지만, 다음 보호 규칙�
   ownership row가 authorization truth이고 scalar는 navigation mirror다.
 - ADR-026의 consumer별 ad-hoc mapping은 Form/Chat ownership registry와 operation-aware exact-one policy
   SPI로 표준화한다. 기존 consumer는 `project.application-form`, `notice.vote`, `feedback.template`
-  policy adapter로 이행하고, owner 중복은 backfill preflight에서 중단한다.
+  policy adapter로 이행하고, owner 중복은 Flyway constraint에서 중단한다.
 - engine-native `form.standalone`과 `chat.standalone`의 operation matrix를 명시한다. 특히 standalone
   Chat의 `PIN`, `UNPIN`, `DELETE`, `MEMBERSHIP_MANAGE`는 허용하지 않는다.
 - Storage FileUsageRegistry는 engine ownership과 별개이며, Storage runtime consumer lookup은 금지한다.
@@ -214,11 +215,11 @@ ADR-027은 ADR-026의 Proposed 결정을 대체하지만, 다음 보호 규칙�
 
 - scalar가 stale하거나 다른 resource를 가리킬 때 권한 우회가 가능하다.
 - namespace별 operation 정책과 duplicate detection을 공통으로 검증하기 어렵다.
-- backfill에서 역사적 중복을 숨기고 임의의 owner를 선택할 위험이 있다.
+- data migration에서 역사적 중복을 숨기고 임의의 owner를 선택할 위험이 있다.
 
 선택하지 않은 이유:
 
-소유권을 명시적으로 잠그고 reconciliation할 원본이 필요하므로 scalar는 navigation mirror로 제한한다.
+소유권을 명시적으로 잠그고 일관성을 검증할 원본이 필요하므로 scalar는 navigation mirror로 제한한다.
 
 ### 대안 B: Storage와 Form/Chat ownership을 하나의 polymorphic registry로 통합
 
@@ -270,15 +271,15 @@ consumer 정책은 SPI adapter와 facade에 두고 engine core는 고정된 불�
 - operation-aware exact-one evaluator가 누락·중복 정책을 fail-closed로 처리해 새 consumer 추가 시
   readiness 검증을 강제한다.
 - Storage cleanup과 Form/Chat 권한을 독립적으로 rollout·rollback할 수 있다.
-- ADR-026의 consumer facade, AFTER_COMMIT broadcast, membership 이중 검증과 backfill 보호를 유지하면서
+- ADR-026의 consumer facade, AFTER_COMMIT broadcast, membership 이중 검증과 migration 보호를 유지하면서
   standalone Chat/Form의 계약도 명시된다.
 
 ### Negative
 
 - Form과 Chat에 각각 ownership row, persistence adapter, policy SPI, lock 및 migration을 추가해야 한다.
-- consumer scalar, ownership row, engine aggregate를 한 transaction에서 dual-write하고 drift를
-  reconciliation해야 하므로 구현·운영 복잡도가 증가한다.
-- exact-one registry와 backfill preflight가 실패하면 신규 consumer 또는 legacy data가 READY에 도달하지
+- consumer scalar, ownership row, engine aggregate를 한 transaction에서 함께 기록해야 하므로 구현·운영
+  복잡도가 증가한다.
+- exact-one registry와 Flyway constraint가 실패하면 신규 consumer 또는 legacy data가 readiness를 통과하지
   못하고 수동 정리가 필요하다.
 - broadcast는 여전히 best-effort라서 consumer 조회 API, deduplication, metric과 운영 알람을 유지해야 한다.
 
@@ -300,12 +301,11 @@ consumer 정책은 SPI adapter와 facade에 두고 engine core는 고정된 불�
 - **Phase 2 (consumer dual-write)**: Project·Notice·Feedback의 trusted owner factory와 Form/Chat facade,
   operation policy, consumer scalar+ownership transaction을 적용한다. Chat event는 기존처럼 AFTER_COMMIT
   consumer broadcast를 사용한다.
-- **Phase 3 (backfill/reconciliation)**: rollout-only source adapter가 keyset/checkpoint/advisory lock으로
-  현재 테이블을 읽고 four-way drift와 duplicate preflight를 검증한다. Project/Notice historical duplicate는
-  hard-fail로 운영자 정리 후 재실행한다.
-- **Phase 4 (cutover)**: 모든 registry가 `READY`이고 namespace coverage가 exact-one일 때만 strict ownership
-  enforcement와 tokenized cleanup을 별도 contract release에서 활성화한다. rollback은 maintenance,
-  `DISABLED`, property off, traffic 전환 순서를 따른다.
+- **Phase 3 (Flyway data migration)**: Storage의 현재 9개 source와 Form ownership mapping을 set-based SQL로
+  이관하고 Chat의 미도입 데이터를 비운다. broken/pending/duplicate mapping은 constraint로 hard-fail한다.
+- **Phase 4 (certify/enable)**: 구버전 writer drain 뒤 Storage exact reconciliation이 `READY`이고 Form/Chat
+  namespace coverage가 exact-one일 때만 strict ownership enforcement와 tokenized cleanup을 활성화한다.
+  missing ownership은 AUDIT에서도 허용하지 않는다. rollback은 property off 후 forward migration을 원칙으로 한다.
 
 ### 변경 영역 요약
 
@@ -319,10 +319,10 @@ consumer 정책은 SPI adapter와 facade에 두고 engine core는 고정된 불�
    adapter, dual-write transaction을 소유한다.
 5. **Global WebSocket** (`com.umc.product.global.websocket.*`): JWT, broker 보호, exact-one authorizer
    dispatch, generic `BroadcastPort`만 소유한다.
-6. **DB/migration** (`src/main/resources/db/migration/V*__*.sql`): 세 registry의 독립 schema와 unique/FK/
-   grammar constraint를 expand→backfill→validate 순으로 배포한다.
-7. **Test/운영** (`src/test/...`, `docs/onboarding/...`): operation matrix, duplicate hard-fail, rollback,
-   AFTER_COMMIT broadcast, readiness/cutover/cleanup gate를 검증한다.
+6. **DB/migration** (`src/main/resources/db/migration/V*__*.sql`): 세 registry의 독립 schema, 기존 데이터 이관,
+   unique/FK/grammar constraint validation을 한 Flyway 순서로 배포한다.
+7. **Test/운영** (`src/test/...`, `docs/onboarding/...`): operation matrix, duplicate hard-fail, migration rollback,
+   AFTER_COMMIT broadcast, readiness/cleanup gate를 검증한다.
 
 ### 구현 체크리스트
 
@@ -332,7 +332,7 @@ consumer 정책은 SPI adapter와 facade에 두고 engine core는 고정된 불�
 - [ ] Chat data-plane READ/SEND가 membership와 consumer permission을 모두 확인하는가?
 - [ ] 새 외부 DTO와 destination에 raw engine ID, owner coordinate, 호출자 namespace를 추가하지 않는가?
 - [ ] Storage runtime이 consumer entity/repository/application service를 import/query하지 않는가?
-- [ ] Project/Notice historical duplicate가 preflight hard-fail로 보고되는가?
+- [ ] Project/Notice historical duplicate와 broken Storage reference가 Flyway constraint로 hard-fail하는가?
 - [ ] event listener가 AFTER_COMMIT이고 broadcast가 source of truth가 아닌가?
 
 ## References

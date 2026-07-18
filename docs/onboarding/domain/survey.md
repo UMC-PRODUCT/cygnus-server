@@ -19,7 +19,7 @@ ownership row는 authorization truth이고 기존 `formId`/consumer mapping은 n
 | `feedback.template` | `user_feedback_template.id` | `default` | template owner 정책과 respondent credential을 유지한다. |
 | `form.standalone` | `form.id` | `default` | creator만 관리·게시·삭제·응답 결과 조회. published form은 공개 READ/RESPOND, draft는 creator만 READ다. |
 
-backfill source와 duplicate-owner preflight는 [`FormOwnershipRolloutAdapter`](../../../src/main/java/com/umc/product/form/adapter/out/backfill/FormOwnershipRolloutAdapter.java), Project/Notice/Feedback mapping은 각 `*FormOwnershipBackfillSource.java`에서 확인한다. 같은 Form에 복수 owner 또는 같은 tuple에 복수 Form이 있으면 preflight가 hard-fail하며 임의의 row를 선택하지 않는다.
+legacy ownership 이관은 [Form ownership migration](../../../src/main/resources/db/migration/V2026.07.16.00.10__create_form_ownership_registry.sql)에서 수행한다. 같은 Form에 복수 owner 또는 같은 tuple에 복수 Form이 있으면 PK/unique/FK constraint로 migration이 hard-fail하며 임의의 row를 선택하지 않는다.
 
 모든 root/child 조회와 mutation은 expected owner → persisted binding exact match → namespace evaluator → consumer business permission 순서로 평가한다. evaluator가 없거나 두 개이면 fail-closed한다. anonymous RESPOND/READ의 기존 access-key 계약은 유지하되 management와 `READ_RESPONSES`는 authenticated owner를 요구한다.
 
@@ -33,10 +33,10 @@ backfill source와 duplicate-owner preflight는 [`FormOwnershipRolloutAdapter`](
 
 ## 공개 계약과 운영 주의
 
-기존 REST/GraphQL 요청의 form/response 동작을 유지하며 namespace, owner resource key, raw engine ID를 새 외부 필드로 노출하지 않는다. Form core에 Project·Notice·Feedback 분기를 추가하지 말고 consumer policy adapter를 확장한다. strict enforcement는 `app.engine-ownership.enforcement-enabled=false`에서 시작해 세 registry `READY`, exact-one namespace coverage, final reconcile과 replica 검증 후에만 켠다.
+기존 REST/GraphQL 요청의 form/response 동작을 유지하며 namespace, owner resource key, raw engine ID를 새 외부 필드로 노출하지 않는다. Form core에 Project·Notice·Feedback 분기를 추가하지 말고 consumer policy adapter를 확장한다. strict enforcement는 `app.engine-ownership.enforcement-enabled=false`에서 시작해 Flyway 완료, exact-one namespace coverage와 replica 검증 후에만 켠다.
 
 ## 코드와 테스트 진입점
 
 - domain/application: [`Form.java`](../../../src/main/java/com/umc/product/form/domain/Form.java), [`FormOwnershipAccessService`](../../../src/main/java/com/umc/product/form/application/service/FormOwnershipAccessService.java), [`FormOwnerPolicyRegistry`](../../../src/main/java/com/umc/product/form/application/service/FormOwnerPolicyRegistry.java)
-- persistence/backfill: [`FormOwnershipPersistenceAdapter`](../../../src/main/java/com/umc/product/form/adapter/out/persistence/FormOwnershipPersistenceAdapter.java), [`FormOwnershipRolloutAdapter`](../../../src/main/java/com/umc/product/form/adapter/out/backfill/FormOwnershipRolloutAdapter.java)
+- persistence/migration: [`FormOwnershipPersistenceAdapter`](../../../src/main/java/com/umc/product/form/adapter/out/persistence/FormOwnershipPersistenceAdapter.java), [`V2026.07.16.00.10`](../../../src/main/resources/db/migration/V2026.07.16.00.10__create_form_ownership_registry.sql)
 - 테스트: [`Form 테스트`](../test/survey.md) (실제 package `com.umc.product.form`)

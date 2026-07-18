@@ -12,7 +12,11 @@ standalone room은 `chat_room_ownership(room_id PK, namespace, owner_resource_ke
 chat.standalone/{roomId}/default
 ```
 
-`chat_room` 전체를 `chat.standalone`으로 keyset backfill하며, missing/stale/broken/conflict를 임의 수정하지 않는다. Form과 동일하게 persisted·declared·evaluator namespace 집합을 exact-one으로 검증하고 coverage가 누락/중복/오염되면 readiness를 열지 않는다.
+Chat은 아직 운영 데이터가 없으므로 application backfill을 두지 않는다. 위 migration이 기존
+`chat_room`과 종속 row를 `TRUNCATE ... CASCADE`로 비운 뒤 ownership schema를 만들고,
+성공하지 못하면 application startup을 중단한다. 이후 신규 room은 room·ownership·creator membership을
+한 transaction에서 생성한다. persisted namespace가 비어 있어도 declared·evaluator namespace의
+exact-one 검증은 유지하며 coverage가 누락·중복·오염되면 strict enforcement를 열지 않는다.
 
 ## Operation matrix
 
@@ -35,6 +39,6 @@ message event는 DB commit 후 consumer facade로 위임한다. broadcast는 bes
 ## 코드와 테스트 진입점
 
 - ownership: [`ChatRoomOwnershipAccessService`](../../../src/main/java/com/umc/product/chat/application/service/ChatRoomOwnershipAccessService.java), [`ChatStandaloneRoomOwnerPolicy`](../../../src/main/java/com/umc/product/chat/application/policy/ChatStandaloneRoomOwnerPolicy.java)
-- persistence/backfill: [`ChatRoomOwnershipPersistenceAdapter`](../../../src/main/java/com/umc/product/chat/adapter/out/persistence/ChatRoomOwnershipPersistenceAdapter.java), [`ChatRoomOwnershipRolloutAdapter`](../../../src/main/java/com/umc/product/chat/adapter/out/backfill/ChatRoomOwnershipRolloutAdapter.java)
+- persistence: [`ChatRoomOwnershipPersistenceAdapter`](../../../src/main/java/com/umc/product/chat/adapter/out/persistence/ChatRoomOwnershipPersistenceAdapter.java)
 - usage: [`ChatMessageAttachmentUsageService`](../../../src/main/java/com/umc/product/chat/application/service/ChatMessageAttachmentUsageService.java)
 - 테스트: [`ChatRoomOwnershipAccessServiceTest`](../../../src/test/java/com/umc/product/chat/application/service/ChatRoomOwnershipAccessServiceTest.java), [`ChatRoomCommandServiceAtomicityTest`](../../../src/test/java/com/umc/product/chat/application/service/command/ChatRoomCommandServiceAtomicityTest.java), [`ChatMessageUsageCascadeIntegrationTest`](../../../src/test/java/com/umc/product/chat/application/service/command/ChatMessageUsageCascadeIntegrationTest.java)
