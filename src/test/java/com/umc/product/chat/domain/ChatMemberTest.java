@@ -10,6 +10,14 @@ import org.springframework.test.util.ReflectionTestUtils;
 class ChatMemberTest {
 
     @Test
+    @DisplayName("참여 시점의 초기 읽음 위치로 생성할 수 있다")
+    void createWithInitialReadWatermark() {
+        ChatMember member = ChatMember.of(1L, 10L, 5L);
+
+        assertThat(member.getLastReadMessageId()).isEqualTo(5L);
+    }
+
+    @Test
     @DisplayName("처음 읽으면 lastReadMessageId가 설정된다")
     void markRead_first() {
         ChatMember member = ChatMember.of(1L, 10L);

@@ -37,10 +37,16 @@ public class ChatMember extends BaseEntity {
     private Long lastReadMessageId;
 
     public static ChatMember of(Long roomId, Long memberId) {
-        return ChatMember.builder()
+        return of(roomId, memberId, null);
+    }
+
+    public static ChatMember of(Long roomId, Long memberId, Long initialLastReadMessageId) {
+        ChatMember member = ChatMember.builder()
             .roomId(roomId)
             .memberId(memberId)
             .build();
+        member.markRead(initialLastReadMessageId);
+        return member;
     }
 
     /**

@@ -1,6 +1,8 @@
 package com.umc.product.chat.application.port.out;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
 import com.umc.product.chat.domain.ChatMessage;
@@ -17,6 +19,14 @@ public interface LoadChatMessagePort {
     ChatMessage getByIdAndRoomId(Long messageId, Long roomId);
 
     boolean existsByIdAndRoomId(Long messageId, Long roomId);
+
+    Optional<ChatMessage> findByRoomIdAndSenderMemberIdAndClientMessageId(
+        Long roomId,
+        Long senderMemberId,
+        UUID clientMessageId
+    );
+
+    List<ChatMessage> listByIds(List<Long> messageIds);
 
     /**
      * 방 단위 메시지 내역을 최신순(id DESC)으로 커서 페이지네이션 조회한다.
