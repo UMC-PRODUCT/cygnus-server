@@ -221,6 +221,7 @@ class EventOutboxTest {
         EventOutbox published = EventOutbox.record(TestEvent.create("test.published"), "{}");
         EventOutbox failed = EventOutbox.record(TestEvent.create("test.failed"), "{}");
         published.markPublished();
+        failed.markPublished();
         failed.recordFailure("EVENT-OUTBOX-0002", Instant.parse("2026-07-18T00:01:00Z"), 1);
 
         Stream<EventOutboxStatusInfo> infos = Stream.of(published, failed).map(EventOutboxStatusInfo::from);
@@ -231,6 +232,7 @@ class EventOutboxTest {
                 assertThat(info.leaseUntil()).isNull();
             });
         assertThat(EventOutboxStatusInfo.from(published).publishedAt()).isEqualTo(published.getPublishedAt());
+        assertThat(EventOutboxStatusInfo.from(failed).status()).isEqualTo(EventOutboxStatus.FAILED);
         assertThat(EventOutboxStatusInfo.from(failed).publishedAt()).isNull();
         assertThat(EventOutboxStatusInfo.from(failed).failureCode()).isEqualTo("EVENT-OUTBOX-0002");
     }

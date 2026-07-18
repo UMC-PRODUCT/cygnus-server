@@ -10,9 +10,18 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.TransactionException;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import org.springframework.transaction.support.AbstractPlatformTransactionManager;
+import org.springframework.transaction.support.DefaultTransactionStatus;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import com.umc.product.global.event.application.port.in.query.GetEventOutboxStatusUseCase;
 import com.umc.product.global.event.application.port.in.query.dto.EventOutboxStatusInfo;
 import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
@@ -66,20 +75,28 @@ class EventOutboxStatusQueryServiceTest {
     }
 
     @Test
-    @DisplayName("상태 query service는 read-only transaction 경계를 선언한다")
-    void queryServiceDeclaresReadOnlyTransaction() {
-        Transactional transactional = AnnotatedElementUtils.findMergedAnnotation(
-            EventOutboxStatusQueryService.class,
-            Transactional.class
-        );
+    @DisplayName("Spring proxy는 load port를 active read-only transaction 안에서 호출한다")
+    void queryServiceUsesReadOnlyTransactionThroughProxy() {
+        try (AnnotationConfigApplicationContext context =
+                 new AnnotationConfigApplicationContext(QueryServiceTestConfiguration.class)) {
+            FakeLoadEventOutboxPort loadPort = context.getBean(FakeLoadEventOutboxPort.class);
+            EventOutbox outbox = EventOutbox.record(TestEvent.create(), "{}");
+            loadPort.outbox = outbox;
+            GetEventOutboxStatusUseCase service = context.getBean(GetEventOutboxStatusUseCase.class);
 
-        assertThat(transactional).isNotNull();
-        assertThat(transactional.readOnly()).isTrue();
+            EventOutboxStatusInfo info = service.getByEventId(outbox.getEventId());
+
+            assertThat(info.status()).isEqualTo(EventOutboxStatus.PENDING);
+            assertThat(loadPort.transactionActive).isTrue();
+            assertThat(loadPort.transactionReadOnly).isTrue();
+        }
     }
 
     private static class FakeLoadEventOutboxPort implements LoadEventOutboxPort {
 
-        private final EventOutbox outbox;
+        private EventOutbox outbox;
+        private boolean transactionActive;
+        private boolean transactionReadOnly;
 
         private FakeLoadEventOutboxPort(EventOutbox outbox) {
             this.outbox = outbox;
@@ -87,6 +104,8 @@ class EventOutboxStatusQueryServiceTest {
 
         @Override
         public Optional<EventOutbox> findByEventId(UUID eventId) {
+            transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
+            transactionReadOnly = TransactionSynchronizationManager.isCurrentTransactionReadOnly();
             if (outbox == null || !outbox.getEventId().equals(eventId)) {
                 return Optional.empty();
             }
@@ -96,6 +115,51 @@ class EventOutboxStatusQueryServiceTest {
         @Override
         public List<EventOutbox> listPublishable(int limit, Instant now) {
             return List.of();
+        }
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableTransactionManagement
+    static class QueryServiceTestConfiguration {
+
+        @Bean
+        FakeLoadEventOutboxPort loadEventOutboxPort() {
+            return new FakeLoadEventOutboxPort(null);
+        }
+
+        @Bean
+        EventOutboxStatusQueryService eventOutboxStatusQueryService(LoadEventOutboxPort loadEventOutboxPort) {
+            return new EventOutboxStatusQueryService(loadEventOutboxPort);
+        }
+
+        @Bean
+        PlatformTransactionManager transactionManager() {
+            return new LocalTransactionManager();
+        }
+    }
+
+    private static class LocalTransactionManager extends AbstractPlatformTransactionManager {
+
+        @Override
+        protected Object doGetTransaction() throws TransactionException {
+            return new Object();
+        }
+
+        @Override
+        protected void doBegin(Object transaction, TransactionDefinition definition) throws TransactionException {
+        }
+
+        @Override
+        protected void doCommit(DefaultTransactionStatus status) throws TransactionException {
+        }
+
+        @Override
+        protected void doRollback(DefaultTransactionStatus status) throws TransactionException {
+        }
+
+        @Override
+        protected boolean isExistingTransaction(Object transaction) throws TransactionException {
+            return false;
         }
     }
 

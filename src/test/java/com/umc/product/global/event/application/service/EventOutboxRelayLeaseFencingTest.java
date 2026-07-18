@@ -13,6 +13,7 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.event.adapter.out.EventPayloadDeserializer;
 import com.umc.product.global.event.adapter.out.EventPayloadSerializer;
+import com.umc.product.global.event.application.port.in.query.dto.EventOutboxStatusInfo;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.application.service.EventOutboxRelayTestFixtures.CapturingApplicationEventPublisher;
 import com.umc.product.global.event.application.service.EventOutboxRelayTestFixtures.FakeLoadEventOutboxPort;
@@ -49,10 +50,17 @@ class EventOutboxRelayLeaseFencingTest {
 
         relayService.relay();
 
-        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
-        assertThat(outbox.getAttempts()).isEqualTo(1);
+        EventOutboxStatusInfo persisted = savePort.savedStates.getLast();
+        EventOutboxStatusInfo queried = new EventOutboxStatusQueryService(loadPort)
+            .getByEventId(outbox.getEventId());
+        assertThat(persisted.status()).isEqualTo(EventOutboxStatus.PENDING);
+        assertThat(persisted.attempts()).isEqualTo(1);
+        assertThat(persisted.publishedAt()).isNull();
+        assertThat(queried).isEqualTo(persisted);
         assertThat(publisher.events).hasSize(1);
-        assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING);
+        assertThat(savePort.savedStates)
+            .extracting(EventOutboxStatusInfo::status)
+            .contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING);
     }
 
     @Test
@@ -83,7 +91,7 @@ class EventOutboxRelayLeaseFencingTest {
 
     private static class FailOnPublishedSaveEventOutboxPort implements SaveEventOutboxPort {
 
-        private final List<EventOutboxStatus> savedStatuses = new ArrayList<>();
+        private final List<EventOutboxStatusInfo> savedStates = new ArrayList<>();
 
         @Override
         public void save(EventOutbox eventOutbox) {
@@ -91,7 +99,7 @@ class EventOutboxRelayLeaseFencingTest {
             if (eventOutbox.getStatus() == EventOutboxStatus.PUBLISHED) {
                 throw new IllegalStateException("published 저장 실패");
             }
-            savedStatuses.add(eventOutbox.getStatus());
+            savedStates.add(EventOutboxStatusInfo.from(eventOutbox));
         }
 
         @Override
@@ -102,7 +110,7 @@ class EventOutboxRelayLeaseFencingTest {
 
         @Override
         public void saveAll(Collection<EventOutbox> eventOutboxes) {
-            eventOutboxes.forEach(eventOutbox -> savedStatuses.add(eventOutbox.getStatus()));
+            eventOutboxes.forEach(eventOutbox -> savedStates.add(EventOutboxStatusInfo.from(eventOutbox)));
         }
     }
 

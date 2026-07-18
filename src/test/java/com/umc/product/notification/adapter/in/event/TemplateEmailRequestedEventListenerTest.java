@@ -2,24 +2,20 @@ package com.umc.product.notification.adapter.in.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.BDDMockito.willAnswer;
-import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.verify;
 
-import java.lang.reflect.Method;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.CountDownLatch;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.event.EventListener;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.umc.product.notification.application.port.in.DeliverTemplateEmailUseCase;
@@ -27,53 +23,38 @@ import com.umc.product.notification.domain.EmailTemplateType;
 import com.umc.product.notification.domain.TemplateEmailRequestedEvent;
 
 @DisplayName("Template email 요청 event listener")
-@ExtendWith(MockitoExtension.class)
 class TemplateEmailRequestedEventListenerTest {
 
-    @Mock
-    private DeliverTemplateEmailUseCase deliverTemplateEmailUseCase;
-
     @Test
-    @DisplayName("일반 EventListener는 transaction 밖에서 동기 dispatch usecase에 위임한다")
-    void 일반_listener가_transaction_밖에서_동기_위임한다() {
-        AtomicBoolean transactionActive = new AtomicBoolean(true);
-        TemplateEmailRequestedEvent event = event();
-        willAnswer(invocation -> {
-            transactionActive.set(TransactionSynchronizationManager.isActualTransactionActive());
-            return null;
-        }).given(deliverTemplateEmailUseCase).deliver(event);
-        TemplateEmailRequestedEventListener listener =
-            new TemplateEmailRequestedEventListener(deliverTemplateEmailUseCase);
+    @DisplayName("Spring event dispatch는 호출 thread에서 transaction 없이 동기 완료된다")
+    void spring_event_dispatch가_동기로_완료된다() {
+        try (AnnotationConfigApplicationContext context =
+                 new AnnotationConfigApplicationContext(ListenerTestConfiguration.class)) {
+            ObservingDeliverTemplateEmailUseCase useCase =
+                context.getBean(ObservingDeliverTemplateEmailUseCase.class);
+            Thread callerThread = Thread.currentThread();
 
-        listener.handle(event);
+            context.publishEvent(event());
 
-        verify(deliverTemplateEmailUseCase).deliver(event);
-        assertThat(transactionActive).isFalse();
+            assertThat(useCase.completed.getCount()).isZero();
+            assertThat(useCase.invocationThread).isSameAs(callerThread);
+            assertThat(useCase.transactionActive).isFalse();
+        }
     }
 
     @Test
-    @DisplayName("dispatch 예외를 삼키지 않고 global relay까지 전파한다")
-    void dispatch_예외를_그대로_전파한다() {
-        TemplateEmailRequestedEvent event = event();
-        IllegalStateException failure = new IllegalStateException("provider failed");
-        willThrow(failure).given(deliverTemplateEmailUseCase).deliver(event);
-        TemplateEmailRequestedEventListener listener =
-            new TemplateEmailRequestedEventListener(deliverTemplateEmailUseCase);
+    @DisplayName("Spring event dispatch는 listener 예외를 호출자에게 그대로 전파한다")
+    void spring_event_dispatch가_listener_예외를_전파한다() {
+        try (AnnotationConfigApplicationContext context =
+                 new AnnotationConfigApplicationContext(ListenerTestConfiguration.class)) {
+            ObservingDeliverTemplateEmailUseCase useCase =
+                context.getBean(ObservingDeliverTemplateEmailUseCase.class);
+            IllegalStateException failure = new IllegalStateException("provider failed");
+            useCase.failure = failure;
+            ApplicationEventPublisher publisher = context;
 
-        assertThatThrownBy(() -> listener.handle(event)).isSameAs(failure);
-    }
-
-    @Test
-    @DisplayName("신규 listener에는 Async와 TransactionalEventListener가 없다")
-    void listener_annotation_경계를_고정한다() throws Exception {
-        Method handle = TemplateEmailRequestedEventListener.class.getMethod(
-            "handle",
-            TemplateEmailRequestedEvent.class
-        );
-
-        assertThat(handle.getAnnotation(EventListener.class)).isNotNull();
-        assertThat(handle.getAnnotation(Async.class)).isNull();
-        assertThat(handle.getAnnotation(TransactionalEventListener.class)).isNull();
+            assertThatThrownBy(() -> publisher.publishEvent(event())).isSameAs(failure);
+        }
     }
 
     private TemplateEmailRequestedEvent event() {
@@ -84,5 +65,50 @@ class TemplateEmailRequestedEventListenerTest {
             EmailTemplateType.RECRUITMENT_FINAL_FAILED,
             Map.of("applicantName", "홍길동")
         );
+    }
+
+    @Configuration(proxyBeanMethods = false)
+    @EnableAsync
+    static class ListenerTestConfiguration {
+
+        @Bean
+        ObservingDeliverTemplateEmailUseCase deliverTemplateEmailUseCase() {
+            return new ObservingDeliverTemplateEmailUseCase();
+        }
+
+        @Bean
+        TemplateEmailRequestedEventListener templateEmailRequestedEventListener(
+            DeliverTemplateEmailUseCase deliverTemplateEmailUseCase
+        ) {
+            return new TemplateEmailRequestedEventListener(deliverTemplateEmailUseCase);
+        }
+
+        @Bean(name = "emailTaskExecutor")
+        ThreadPoolTaskExecutor emailTaskExecutor() {
+            ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+            executor.setCorePoolSize(1);
+            executor.setMaxPoolSize(1);
+            executor.setThreadNamePrefix("listener-proxy-test-");
+            executor.initialize();
+            return executor;
+        }
+    }
+
+    static class ObservingDeliverTemplateEmailUseCase implements DeliverTemplateEmailUseCase {
+
+        private final CountDownLatch completed = new CountDownLatch(1);
+        private Thread invocationThread;
+        private boolean transactionActive;
+        private RuntimeException failure;
+
+        @Override
+        public void deliver(TemplateEmailRequestedEvent event) {
+            invocationThread = Thread.currentThread();
+            transactionActive = TransactionSynchronizationManager.isActualTransactionActive();
+            completed.countDown();
+            if (failure != null) {
+                throw failure;
+            }
+        }
     }
 }

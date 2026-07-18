@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
-import java.lang.reflect.Method;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -20,20 +19,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.transaction.annotation.Transactional;
 import org.thymeleaf.TemplateEngine;
-import org.thymeleaf.context.Context;
 
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.event.application.port.out.dto.OutboxPublishResult;
 import com.umc.product.global.event.domain.EventOutboxStatus;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.notification.application.port.in.dto.SendTemplateEmailCommand;
-import com.umc.product.notification.application.port.in.dto.SendVerificationEmailCommand;
 import com.umc.product.notification.application.port.in.dto.TemplateEmailRequestInfo;
 import com.umc.product.notification.application.port.out.SendEmailPort;
-import com.umc.product.notification.application.port.out.dto.EmailMessage;
 import com.umc.product.notification.domain.EmailTemplateType;
 import com.umc.product.notification.domain.TemplateEmailRequestedEvent;
 
@@ -109,42 +103,4 @@ class SendEmailServiceTest {
         ));
     }
 
-    @Test
-    @DisplayName("기존 verification 발송은 emailTaskExecutor 비동기 계약과 발신 형식을 유지한다")
-    void verification_이메일의_기존_비동기_동작을_유지한다() throws Exception {
-        given(templateEngine.process(eq("email/verification"), any(Context.class))).willReturn("<html>인증</html>");
-        SendVerificationEmailCommand command = SendVerificationEmailCommand.builder()
-            .to("member@test.umc.local")
-            .verificationCode("123456")
-            .build();
-
-        service.sendVerificationEmail(command);
-
-        ArgumentCaptor<EmailMessage> messageCaptor = ArgumentCaptor.forClass(EmailMessage.class);
-        verify(sendEmailPort).send(messageCaptor.capture());
-        assertThat(messageCaptor.getValue()).isEqualTo(new EmailMessage(
-            "noreply@test.umc.local",
-            "UMC 테스트",
-            "member@test.umc.local",
-            "이메일 인증 코드: 123456",
-            "<html>인증</html>"
-        ));
-        Method verificationMethod = SendEmailService.class.getMethod(
-            "sendVerificationEmail",
-            SendVerificationEmailCommand.class
-        );
-        assertThat(verificationMethod.getAnnotation(Async.class).value()).isEqualTo("emailTaskExecutor");
-    }
-
-    @Test
-    @DisplayName("template email 요청 method는 transaction 경계를 갖는다")
-    void template_email_요청은_transaction_경계를_갖는다() throws Exception {
-        Method requestMethod = SendEmailService.class.getMethod(
-            "requestTemplateEmail",
-            SendTemplateEmailCommand.class
-        );
-
-        assertThat(requestMethod.getAnnotation(Transactional.class)).isNotNull();
-        assertThat(requestMethod.getAnnotation(Async.class)).isNull();
-    }
 }

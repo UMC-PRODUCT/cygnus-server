@@ -176,6 +176,7 @@ public class EventOutbox extends BaseEntity {
     public void recordFailure(String errorMessage, Instant nextAttemptAt, int maxAttempts) {
         this.attempts++;
         this.lastError = errorMessage;
+        this.publishedAt = null;
         this.nextAttemptAt = nextAttemptAt;
         if (this.attempts >= maxAttempts) {
             this.status = EventOutboxStatus.FAILED;
