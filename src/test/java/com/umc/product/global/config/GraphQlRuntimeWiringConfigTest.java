@@ -93,8 +93,8 @@ class GraphQlRuntimeWiringConfigTest {
     }
 
     @Test
-    @DisplayName("Project GraphQL은 MemberSummary와 shared form 구현 계약을 노출한다")
-    void projectGraphQlSchemaUsesSummaryAndFormImplementations() throws IOException {
+    @DisplayName("Project GraphQL은 공통 Member와 shared form 구현 계약을 노출한다")
+    void projectGraphQlSchemaUsesMemberAndFormImplementations() throws IOException {
         Resource[] schemaResources = new PathMatchingResourcePatternResolver()
             .getResources("classpath*:graphql/**/*.graphqls");
 
@@ -103,14 +103,13 @@ class GraphQlRuntimeWiringConfigTest {
             .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
             .build();
 
-        assertThat(graphQlSource.schema().getType("MemberSummary")).isInstanceOf(GraphQLObjectType.class);
-        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("MemberSummary"),
-            "memberId", "nickname", "name", "schoolName");
+        assertThat(graphQlSource.schema().getType("MemberSummary")).isNull();
+        assertThat(graphQlSource.schema().getType("Member")).isInstanceOf(GraphQLObjectType.class);
 
         GraphQLObjectType project = (GraphQLObjectType) graphQlSource.schema().getType("Project");
-        assertThat(typeName(project.getFieldDefinition("productOwner").getType())).isEqualTo("MemberSummary");
+        assertThat(typeName(project.getFieldDefinition("productOwner").getType())).isEqualTo("Member");
         assertThat(typeName(project.getFieldDefinition("coProductOwners").getType()))
-            .isEqualTo("[MemberSummary!]!");
+            .isEqualTo("[Member!]!");
 
         GraphQLObjectType projectApplicationForm =
             (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationForm");
@@ -140,6 +139,36 @@ class GraphQlRuntimeWiringConfigTest {
         assertThat(graphQlSource.schema().getType("MemberBrief")).isNull();
         assertThat(graphQlSource.schema().getType("ApplicationFormQuestion")).isNull();
         assertThat(graphQlSource.schema().getType("ApplicationFormOption")).isNull();
+    }
+
+    @Test
+    @DisplayName("Organization GraphQL은 Gisu, Chapter, School 단일 타입을 사용한다")
+    void organizationGraphQlSchemaUsesCanonicalTypes() throws IOException {
+        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
+            .getResources("classpath*:graphql/**/*.graphqls");
+
+        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
+            .schemaResources(schemaResources)
+            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
+            .build();
+
+        GraphQLObjectType gisu = (GraphQLObjectType) graphQlSource.schema().getType("Gisu");
+        GraphQLObjectType chapter = (GraphQLObjectType) graphQlSource.schema().getType("Chapter");
+        GraphQLObjectType school = (GraphQLObjectType) graphQlSource.schema().getType("School");
+        GraphQLObjectType member = (GraphQLObjectType) graphQlSource.schema().getType("Member");
+
+        assertThat(typeName(gisu.getFieldDefinition("chapters").getType())).isEqualTo("[Chapter!]!");
+        assertThat(typeName(gisu.getFieldDefinition("schools").getType())).isEqualTo("[School!]!");
+        assertThat(typeName(chapter.getFieldDefinition("schools").getType())).isEqualTo("[School!]!");
+        assertThat(typeName(member.getFieldDefinition("school").getType())).isEqualTo("School");
+        assertFieldNames(school,
+            "id", "name", "remark", "logoImageUrl", "links", "active", "createdAt", "updatedAt");
+
+        assertThat(graphQlSource.schema().getType("GisuChapter")).isNull();
+        assertThat(graphQlSource.schema().getType("ChapterSchool")).isNull();
+        assertThat(graphQlSource.schema().getType("GisuSchool")).isNull();
+        assertThat(graphQlSource.schema().getType("SchoolName")).isNull();
+        assertThat(graphQlSource.schema().getType("SchoolDetail")).isNull();
     }
 
     @Test

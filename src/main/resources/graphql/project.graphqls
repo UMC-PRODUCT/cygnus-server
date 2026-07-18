@@ -38,8 +38,8 @@ type Project {
   externalLink: String
   gisuId: ID!
   chapterId: ID!
-  productOwner: MemberSummary
-  coProductOwners: [MemberSummary!]!
+  productOwner: Member
+  coProductOwners: [Member!]!
   partQuotas: [ProjectPartQuota!]!
   createdAt: String!
   updatedAt: String!
@@ -50,7 +50,7 @@ type Project {
 type ProjectMember {
   projectMemberId: ID!
   projectId: ID!
-  member: MemberSummary!
+  member: Member!
   part: ChallengerPart!
   leader: Boolean!
   description: String

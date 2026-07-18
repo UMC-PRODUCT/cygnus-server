@@ -6,7 +6,7 @@ import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationInfo;
 
 public record GisuGraphQlResponse(
-    Long gisuId,
+    Long id,
     Long generation,
     String startAt,
     String endAt,

@@ -32,15 +32,22 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.member.adapter.in.graphql.MemberFieldGraphQlController;
+import com.umc.product.member.adapter.in.graphql.MemberGraphQlController;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -59,7 +66,7 @@ import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 
-@GraphQlTest(ProjectGraphQlController.class)
+@GraphQlTest({ProjectGraphQlController.class, MemberGraphQlController.class, MemberFieldGraphQlController.class})
 @Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, CurrentMemberSecurityConfig.class})
 @DisplayName("ProjectGraphQlController")
 class ProjectGraphQlControllerTest {
@@ -88,6 +95,18 @@ class ProjectGraphQlControllerTest {
 
     @MockitoBean
     GetMemberUseCase getMemberUseCase;
+
+    @MockitoBean
+    GetSchoolUseCase getSchoolUseCase;
+
+    @MockitoBean
+    GetChallengerUseCase getChallengerUseCase;
+
+    @MockitoBean
+    GetGisuUseCase getGisuUseCase;
+
+    @MockitoBean
+    SearchMemberUseCase searchMemberUseCase;
 
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
@@ -203,8 +222,8 @@ class ProjectGraphQlControllerTest {
     }
 
     @Test
-    @DisplayName("Project 회원 참조는 MemberSummary의 네 필드와 기존 값을 응답한다")
-    void Project_회원_참조는_MemberSummary의_네_필드와_기존_값을_응답한다() {
+    @DisplayName("Project 회원 참조는 공통 Member를 사용하고 private field를 숨긴다")
+    void Project_회원_참조는_공통_Member를_사용하고_private_field를_숨긴다() {
         SubjectAttributes subject = subject();
         given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfoWithMemberRefs());
         given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
@@ -225,6 +244,8 @@ class ProjectGraphQlControllerTest {
                       nickname
                       name
                       schoolName
+                      email
+                      status
                     }
                     coProductOwners {
                       memberId
@@ -248,6 +269,8 @@ class ProjectGraphQlControllerTest {
             .path("project.productOwner.nickname").entity(String.class).isEqualTo("nick100")
             .path("project.productOwner.name").entity(String.class).isEqualTo("member100")
             .path("project.productOwner.schoolName").entity(String.class).isEqualTo("중앙대학교")
+            .path("project.productOwner.email").valueIsNull()
+            .path("project.productOwner.status").valueIsNull()
             .path("project.coProductOwners[0].memberId").entity(String.class).isEqualTo("101")
             .path("project.coProductOwners[0].nickname").entity(String.class).isEqualTo("nick101")
             .path("project.coProductOwners[0].name").entity(String.class).isEqualTo("member101")
@@ -259,6 +282,40 @@ class ProjectGraphQlControllerTest {
 
         then(checkPermissionUseCase).should().loadSubject(REQUESTER_ID);
         then(checkPermissionUseCase).should().check(subject, projectReadPermission(PROJECT_ID));
+    }
+
+    @Test
+    @DisplayName("Project 경로의 Member nested field는 MEMBER READ가 없으면 조회하지 않는다")
+    void Project_경로의_Member_nested_field는_MEMBER_READ가_없으면_조회하지_않는다() {
+        SubjectAttributes subject = subject();
+        given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfoWithMemberRefs());
+        given(getMemberUseCase.findAllByIds(Set.of(100L))).willReturn(Map.of(100L, memberInfo(100L)));
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, memberReadPermission(100L))).willReturn(false);
+
+        graphQlTester.document("""
+                query {
+                  project(id: 42) {
+                    productOwner {
+                      memberId
+                      email
+                      status
+                      school { id }
+                      challengers { challengerId }
+                    }
+                  }
+                }
+                """)
+            .execute()
+            .path("project.productOwner.memberId").entity(String.class).isEqualTo("100")
+            .path("project.productOwner.email").valueIsNull()
+            .path("project.productOwner.status").valueIsNull()
+            .path("project.productOwner.school").valueIsNull()
+            .path("project.productOwner.challengers").entityList(Object.class).hasSize(0);
+
+        then(getSchoolUseCase).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
+        then(getGisuUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -431,7 +488,9 @@ class ProjectGraphQlControllerTest {
             .id(memberId)
             .name("member" + memberId)
             .nickname("nick" + memberId)
+            .email("member" + memberId + "@example.com")
             .schoolName("중앙대학교")
+            .status(MemberStatus.ACTIVE)
             .build();
     }
 
@@ -513,6 +572,10 @@ class ProjectGraphQlControllerTest {
 
     private ResourcePermission projectReadPermission(Long projectId) {
         return ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
+    }
+
+    private ResourcePermission memberReadPermission(Long memberId) {
+        return ResourcePermission.of(ResourceType.MEMBER, memberId, PermissionType.READ);
     }
 
     private ResourcePermission applicationReadPermission(Long applicationId) {
