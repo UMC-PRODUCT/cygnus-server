@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
@@ -21,6 +22,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.websocket.application.service.StompClientMessageIdResolverRegistry;
+import com.umc.product.global.websocket.application.service.StompSendAuthorizerRegistry;
 import com.umc.product.global.websocket.application.service.StompSubscriptionAuthorizerRegistry;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,6 +32,15 @@ class StompAuthChannelInterceptorTest {
 
     @Mock
     StompSubscriptionAuthorizerRegistry subscriptionAuthorizerRegistry;
+
+    @Mock
+    StompSendAuthorizerRegistry sendAuthorizerRegistry;
+
+    @Mock
+    StompClientMessageIdResolverRegistry clientMessageIdResolverRegistry;
+
+    @Mock
+    ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     StompAuthChannelInterceptor sut;
