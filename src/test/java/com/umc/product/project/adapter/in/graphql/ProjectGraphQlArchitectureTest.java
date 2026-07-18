@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -16,28 +17,37 @@ class ProjectGraphQlArchitectureTest {
 
     private static final Path GRAPHQL_SOURCE_ROOT =
         Path.of("src/main/java/com/umc/product/project/adapter/in/graphql");
+    private static final Set<String> PROHIBITED_IMPORT_PATTERNS = Set.of(
+        ".adapter.in.web.",
+        ".member.adapter.in.graphql.",
+        ".form.adapter.in.graphql.",
+        ".feedback.adapter.in.graphql."
+    );
 
     @Test
-    @DisplayName("Project GraphQL adapter는 REST web adapter DTO에 의존하지 않는다")
-    void graphql_adapter_does_not_import_web_adapter() throws IOException {
-        List<String> violations = findJavaFiles()
-            .flatMap(ProjectGraphQlArchitectureTest::findWebAdapterImportViolations)
-            .toList();
+    @DisplayName("Project GraphQL adapter는 REST와 타 도메인 GraphQL adapter에 의존하지 않는다")
+    void graphql_adapter_does_not_import_prohibited_adapters() throws IOException {
+        List<String> violations = findProhibitedImportViolations();
 
         assertThat(violations).isEmpty();
     }
 
-    private static Stream<Path> findJavaFiles() throws IOException {
-        return Files.walk(GRAPHQL_SOURCE_ROOT)
-            .filter(path -> path.toString().endsWith(".java"));
+    private static List<String> findProhibitedImportViolations() throws IOException {
+        try (Stream<Path> javaFiles = Files.walk(GRAPHQL_SOURCE_ROOT)) {
+            return javaFiles
+                .filter(path -> path.toString().endsWith(".java"))
+                .flatMap(ProjectGraphQlArchitectureTest::findProhibitedImportViolations)
+                .toList();
+        }
     }
 
-    private static Stream<String> findWebAdapterImportViolations(Path path) {
+    private static Stream<String> findProhibitedImportViolations(Path path) {
         try {
             List<String> lines = Files.readAllLines(path);
             return IntStream.range(0, lines.size())
-                .filter(index -> lines.get(index).startsWith("import "))
-                .filter(index -> lines.get(index).contains(".adapter.in.web."))
+                .filter(index -> lines.get(index).trim().startsWith("import "))
+                .filter(index -> PROHIBITED_IMPORT_PATTERNS.stream()
+                    .anyMatch(lines.get(index)::contains))
                 .mapToObj(index -> "%s:%d %s".formatted(path, index + 1, lines.get(index).trim()));
         } catch (IOException e) {
             throw new IllegalStateException("Project GraphQL adapter import 정책 테스트 파일 읽기 실패: " + path, e);
