@@ -13,6 +13,11 @@ GraphQL은 아직 pilot 범위다. 현재는 Query만 제공하고 Mutation은 �
 - `project`: `project`, `projects` 조회와 `members`, `application`, `applicationForm` nested field
 - `feedback`: `userFeedbackTemplates`, `userFeedbackTemplate` 관리자용 조회
 
+주제별 상세 문서는 다음과 같다.
+
+- [GraphQL Schema 관계](schema-relationships.md): unified SDL 소유권, 공통 interface, domain 간 type 관계
+- [GraphQL 권한 관리](authorization.md): root/nested field 권한, batch 처리, partial response와 null bubbling
+
 스키마 파일은 `src/main/resources/graphql` 아래에 있다.
 
 ```text
@@ -39,7 +44,7 @@ flowchart TB
     COMMON["common.graphqls<br/>Long, ChallengerPart"]
     FORM["form.graphqls<br/>Form, FormSection<br/>FormQuestion, FormOption<br/>form/status enums"]
     ORG["organization.graphqls<br/>type Query<br/>organization types"]
-    MEMBER["member.graphqls<br/>extend type Query<br/>member types<br/>MemberSummary"]
+    MEMBER["member.graphqls<br/>extend type Query<br/>Member type"]
     PROJECT["project.graphqls<br/>extend type Query<br/>Project concrete types"]
     FEEDBACK["feedback.graphqls<br/>extend type Query<br/>feedback concrete form/section"]
     LOADER["Spring GraphQL schema loader<br/>classpath graphql/*.graphqls"]
@@ -69,8 +74,8 @@ SDL 파일 경계는 Java package나 Hexagonal Architecture의 의존성 경계�
 | `Long`, `ChallengerPart` | `common.graphqls` | `member`, `project` |
 | `Form`, `FormSection`, `FormQuestion`, `FormOption` | `form.graphqls` | `project`, `feedback` |
 | `FormStatus`, `FormResponseStatus`, `QuestionType` | `form.graphqls` | `project`, `feedback` |
-| `MemberSummary` | `member.graphqls` | `project` |
-| `Gisu`, `SchoolDetail` | `organization.graphqls` | `organization`, `member` |
+| `Member` | `member.graphqls` | `member`, `project` |
+| `Gisu`, `Chapter`, `School` | `organization.graphqls` | `organization`, `member` |
 
 구체 구현의 소유권은 다음과 같다. `project.graphqls`의 `ProjectApplicationForm`은 `Form`을,
 `ApplicationFormSection`은 `FormSection`을 구현한다. `feedback.graphqls`의
@@ -80,7 +85,8 @@ SDL 파일 경계는 Java package나 Hexagonal Architecture의 의존성 경계�
 ### 주요 type 관계
 
 실선은 object field가 다른 object type을 선택하는 관계이고, 점선은 input, scalar, enum을 공유하는 관계다.
-`Project`는 `Member` type을 직접 재사용하지 않고 project 조회 목적에 맞춘 `MemberSummary`, `ProjectApplicant`를 사용한다.
+`Project`의 owner와 member field는 member schema가 소유하는 공통 `Member` type을 사용한다.
+지원 당시 정보를 나타내는 `ProjectApplicant`는 별도 lifecycle의 application view이므로 Project가 소유한다.
 
 ```mermaid
 flowchart LR
@@ -91,17 +97,14 @@ flowchart LR
 
     subgraph ORG_SCHEMA["organization.graphqls"]
         Gisu["Gisu"]
-        GisuChapter["GisuChapter"]
-        ChapterSchool["ChapterSchool"]
-        GisuSchool["GisuSchool"]
-        SchoolDetail["SchoolDetail"]
+        Chapter["Chapter"]
+        School["School"]
         SchoolLink["SchoolLink"]
 
-        Gisu -->|"chapters"| GisuChapter
-        Gisu -->|"schools"| GisuSchool
-        GisuChapter -->|"schools"| ChapterSchool
-        GisuSchool -->|"links"| SchoolLink
-        SchoolDetail -->|"links"| SchoolLink
+        Gisu -->|"chapters"| Chapter
+        Gisu -->|"schools"| School
+        Chapter -->|"schools"| School
+        School -->|"links"| SchoolLink
     end
 
     subgraph MEMBER_SCHEMA["member.graphqls"]
@@ -111,7 +114,6 @@ flowchart LR
         MemberSearchResult["MemberSearchResult"]
         MemberSearchChallenger["MemberSearchChallenger"]
         MemberSearchInput["MemberSearchInput"]
-        MemberSummary["MemberSummary"]
 
         Member -->|"challengers"| MemberChallenger
         MemberPage -->|"content"| MemberSearchResult
@@ -146,10 +148,10 @@ flowchart LR
         ApplicationFormSection -.->|"implements FormSection"| FormSection
 
         ProjectPage -->|"content"| Project
-        Project -->|"productOwner, coProductOwners"| MemberSummary
+        Project -->|"productOwner, coProductOwners"| Member
         Project -->|"members"| ProjectMember
         Project -->|"applicationForm"| ProjectApplicationForm
-        ProjectMember -->|"member"| MemberSummary
+        ProjectMember -->|"member"| Member
         ProjectMember -->|"application"| ProjectApplication
         ProjectApplicationForm -->|"sections"| ApplicationFormSection
         ApplicationFormSection -->|"questions"| FormQuestion
@@ -168,9 +170,9 @@ flowchart LR
         UserFeedbackTemplateSection -->|"questions"| FormQuestion
     end
 
-    Member -->|"school"| SchoolDetail
+    Member -->|"school"| School
     MemberChallenger -->|"gisu"| Gisu
-    MemberSearchResult -->|"school"| SchoolDetail
+    MemberSearchResult -->|"school"| School
     MemberSearchChallenger -->|"gisu"| Gisu
     MemberSearchInput -.->|"part"| ChallengerPart
     MemberPage -.->|"totalElements"| Long
@@ -197,7 +199,7 @@ flowchart TB
 
     subgraph ORG_ADAPTER["OrganizationGraphQlController"]
         ORG_QUERY["QueryMapping<br/>organization root fields"]
-        ORG_BATCH["BatchMapping<br/>Gisu.chapters<br/>Gisu.schools<br/>GisuChapter.schools"]
+        ORG_BATCH["BatchMapping<br/>Gisu.chapters<br/>Gisu.schools<br/>Chapter.schools"]
     end
 
     subgraph PROJECT_ADAPTER["ProjectGraphQlController"]
@@ -341,16 +343,15 @@ query {
     memberId
     name
     school {
-      schoolId
-      schoolName
-      chapterName
+      id
+      name
     }
     challengers {
       challengerId
       part
       status
       gisu {
-        gisuId
+        id
         generation
       }
     }
@@ -392,21 +393,20 @@ query {
 ```graphql
 query {
   activeGisu {
-    gisuId
+    id
     generation
     active
     chapters {
-      chapterId
-      chapterName
+      id
+      name
       schools {
-        schoolId
-        schoolName
+        id
+        name
       }
     }
     schools {
-      schoolId
-      schoolName
-      chapterName
+      id
+      name
     }
   }
 }
@@ -418,11 +418,11 @@ query {
 query {
   gisuOrganizations(input: { active: true }) {
     gisus {
-      gisuId
+      id
       generation
       chapters {
-        chapterId
-        chapterName
+        id
+        name
       }
     }
   }
@@ -444,8 +444,8 @@ query {
     email
     status
     school {
-      schoolId
-      schoolName
+      id
+      name
     }
   }
 }
@@ -489,15 +489,15 @@ query {
       nickname
       email
       school {
-        schoolId
-        schoolName
+        id
+        name
       }
       currentChallenger {
         challengerId
         part
         challengerStatus
         gisu {
-          gisuId
+          id
           generation
         }
       }
@@ -506,7 +506,7 @@ query {
         part
         challengerStatus
         gisu {
-          gisuId
+          id
           generation
         }
       }
@@ -661,9 +661,10 @@ query {
 
 ### Pilot migration note: 제거된 type 이름
 
-기존 client의 fragment 또는 `__typename`이 제거된 `MemberBrief`, `ApplicationFormQuestion`,
-`ApplicationFormOption` 이름을 사용한다면 각각 `MemberSummary`, `FormQuestion`, `FormOption`으로
-마이그레이션해야 한다. 이 note 밖에서는 제거된 이름을 schema type으로 사용하지 않는다.
+기존 client의 fragment 또는 `__typename`이 제거된 `MemberBrief`, `MemberSummary`,
+`ApplicationFormQuestion`, `ApplicationFormOption` 이름을 사용한다면 각각 `Member`, `Member`,
+`FormQuestion`, `FormOption`으로 마이그레이션해야 한다. 이 note 밖에서는 제거된 이름을 schema type으로
+사용하지 않는다.
 
 ### Pilot 범위 제한
 

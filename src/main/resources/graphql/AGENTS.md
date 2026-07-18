@@ -13,7 +13,7 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 | Project schema | `project.graphqls` | project search/detail and application/form nested types |
 | Runtime wiring | `src/main/java/com/umc/product/global/config/GraphQlRuntimeWiringConfig.java` | scalars and runtime wiring |
 | Resolver code | `src/main/java/com/umc/product/*/adapter/in/graphql` | controller and DTO mapping |
-| GraphQL docs | `docs/onboarding/graphql.md`, `docs/graphql-schema.md` | pilot design and schema snapshot |
+| GraphQL docs | `docs/onboarding/graphql/README.md`, `docs/graphql-schema.md` | pilot design and schema snapshot |
 
 ## CONVENTIONS
 
@@ -22,6 +22,7 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 - Keep GraphQL request DTOs in `adapter/in/graphql/dto`.
 - Resolver code should delegate to Query UseCases; it must not call repositories directly.
 - Batch/nested fields should avoid N+1 by using batch mappings, IN queries, or DataLoader-aware patterns.
+- Reuse one object type for the same domain identity; do not create `Summary`, `Detail`, or parent-prefixed types only to vary field selection.
 - Keep enum names aligned with Java enum names unless a deliberate API compatibility reason exists.
 
 ## ANTI-PATTERNS

@@ -7,7 +7,7 @@
 | --- | --- |
 | `common.graphqls` | `Long`, `ChallengerPart` |
 | `form.graphqls` | `Form`, `FormSection`, `FormQuestion`, `FormOption`, `FormStatus`, `FormResponseStatus`, `QuestionType` |
-| `member.graphqls` | `MemberSummary`를 포함한 member type과 member query |
+| `member.graphqls` | 공통 `Member` type과 member query |
 | `organization.graphqls` | organization `Query`와 `Gisu`, 학교·지부 type |
 | `project.graphqls` | Project query와 Project concrete extension |
 | `feedback.graphqls` | Feedback query와 concrete form/section |
@@ -22,7 +22,7 @@ flowchart TD
   Loader["Spring GraphQL schema loader"] --> Schema["unified schema"]
   Common["common.graphqls<br/>Long, ChallengerPart"] --> Loader
   FormFile["form.graphqls<br/>Form, FormSection<br/>FormQuestion, FormOption<br/>Form/status enums"] --> Loader
-  MemberFile["member.graphqls<br/>MemberSummary"] --> Loader
+  MemberFile["member.graphqls<br/>Member"] --> Loader
   OrganizationFile["organization.graphqls<br/>type Query"] --> Loader
   ProjectFile["project.graphqls<br/>Project concrete types"] --> Loader
   FeedbackFile["feedback.graphqls<br/>Feedback concrete form/section"] --> Loader
@@ -183,14 +183,8 @@ classDiagram
   class Member {
     +ID! memberId
     +ID schoolId
-    +SchoolDetail school
+    +School school
     +MemberChallenger[]! challengers
-  }
-  class MemberSummary {
-    +ID! memberId
-    +String nickname
-    +String name
-    +String schoolName
   }
   class MemberChallenger {
     +ID! challengerId
@@ -199,7 +193,7 @@ classDiagram
   }
   class MemberSearchResult {
     +ID! memberId
-    +SchoolDetail school
+    +School school
     +MemberSearchChallenger[]! challengerRecords
   }
   class MemberSearchChallenger {
@@ -209,27 +203,19 @@ classDiagram
   }
 
   class Gisu {
-    +ID! gisuId
+    +ID! id
     +ID! generation
-    +GisuChapter[]! chapters
-    +GisuSchool[]! schools
+    +Chapter[]! chapters
+    +School[]! schools
   }
-  class GisuChapter {
-    +ID! chapterId
-    +ChapterSchool[]! schools
+  class Chapter {
+    +ID! id
+    +String! name
+    +School[]! schools
   }
-  class GisuSchool {
-    +ID! schoolId
-    +ID chapterId
-    +SchoolLink[]! links
-  }
-  class ChapterSchool {
-    +ID! schoolId
-    +String! schoolName
-  }
-  class SchoolDetail {
-    +ID! schoolId
-    +ID chapterId
+  class School {
+    +ID! id
+    +String! name
     +SchoolLink[]! links
   }
   class SchoolLink {
@@ -241,14 +227,14 @@ classDiagram
     +ID! id
     +ID! gisuId
     +ID! chapterId
-    +MemberSummary productOwner
-    +MemberSummary[]! coProductOwners
+    +Member productOwner
+    +Member[]! coProductOwners
     +ProjectMember[]! members
   }
   class ProjectMember {
     +ID! projectMemberId
     +ChallengerPart! part
-    +MemberSummary! member
+    +Member! member
     +ProjectApplication application
   }
   class ProjectApplication {
@@ -271,31 +257,29 @@ classDiagram
   }
 
   Member "1" *-- "0..*" MemberChallenger : challengers
-  Member "1" --> "0..1" SchoolDetail : school
+  Member "1" --> "0..1" School : school
   MemberChallenger "0..*" --> "0..1" Gisu : gisu
-  MemberSearchResult "1" --> "0..1" SchoolDetail : school
+  MemberSearchResult "1" --> "0..1" School : school
   MemberSearchResult "1" *-- "0..*" MemberSearchChallenger : challengerRecords
   MemberSearchChallenger "0..*" --> "0..1" Gisu : gisu
 
-  Gisu "1" *-- "0..*" GisuChapter : chapters
-  Gisu "1" *-- "0..*" GisuSchool : schools
-  GisuChapter "1" *-- "0..*" ChapterSchool : schools
-  GisuSchool "1" *-- "0..*" SchoolLink : links
-  SchoolDetail "1" *-- "0..*" SchoolLink : links
+  Gisu "1" *-- "0..*" Chapter : chapters
+  Gisu "1" *-- "0..*" School : schools
+  Chapter "1" *-- "0..*" School : schools
+  School "1" *-- "0..*" SchoolLink : links
 
-  Project "1" --> "0..1" MemberSummary : productOwner
-  Project "1" --> "0..*" MemberSummary : coProductOwners
+  Project "1" --> "0..1" Member : productOwner
+  Project "1" --> "0..*" Member : coProductOwners
   Project "1" *-- "0..*" ProjectMember : members
-  ProjectMember "0..*" --> "1" MemberSummary : member
+  ProjectMember "0..*" --> "1" Member : member
   ProjectMember "1" *-- "0..1" ProjectApplication : application
   ProjectApplication "1" *-- "1" ProjectApplicant : applicant
   ProjectApplication "1" --> "0..1" ProjectMatchingRoundBrief : matchingRound
   ProjectApplication "1" *-- "0..1" ProjectApplicationFormResponse : formResponse
 ```
 
-`MemberSummary`는 Project가 참조하는 member 공통 projection이며 Project schema가 별도의 member
-brief type을 소유하지 않는다. `Member`, `MemberSearchResult`가 참조하는 `SchoolDetail`과 `Gisu`는
-organization schema가 소유한다.
+Project는 member schema가 소유하는 공통 `Member` type을 직접 참조한다. `Member`,
+`MemberSearchResult`가 참조하는 `School`과 `Gisu`는 organization schema가 소유한다.
 
 ## 전체 Type 관계
 
@@ -322,7 +306,6 @@ flowchart LR
   subgraph MEMBER_SCHEMA["member.graphqls"]
     Member["Member"]
     MemberChallenger["MemberChallenger"]
-    MemberSummary["MemberSummary"]
     MemberSearchInput["MemberSearchInput"]
     Member -->|challengers| MemberChallenger
   end
@@ -331,19 +314,14 @@ flowchart LR
     Gisu["Gisu"]
     GisuOrganizationInput["GisuOrganizationInput"]
     GisuOrganizationPayload["GisuOrganizationPayload"]
-    GisuChapter["GisuChapter"]
-    GisuSchool["GisuSchool"]
     Chapter["Chapter"]
-    ChapterSchool["ChapterSchool"]
-    SchoolName["SchoolName"]
-    SchoolDetail["SchoolDetail"]
+    School["School"]
     SchoolLink["SchoolLink"]
     GisuOrganizationPayload -->|gisus| Gisu
-    Gisu -->|chapters| GisuChapter
-    Gisu -->|schools| GisuSchool
-    GisuChapter -->|schools| ChapterSchool
-    GisuSchool -->|links| SchoolLink
-    SchoolDetail -->|links| SchoolLink
+    Gisu -->|chapters| Chapter
+    Gisu -->|schools| School
+    Chapter -->|schools| School
+    School -->|links| SchoolLink
     GisuOrganizationInput -.->|filters| Gisu
   end
 
@@ -366,11 +344,11 @@ flowchart LR
     ProjectMatchingRoundBrief["ProjectMatchingRoundBrief"]
 
     ProjectPage -->|content| Project
-    Project -->|productOwner, coProductOwners| MemberSummary
+    Project -->|productOwner, coProductOwners| Member
     Project -->|partQuotas| ProjectPartQuota
     Project -->|members| ProjectMember
     Project -->|applicationForm| ProjectApplicationForm
-    ProjectMember -->|member| MemberSummary
+    ProjectMember -->|member| Member
     ProjectMember -->|application| ProjectApplication
     ProjectApplication -->|applicant| ProjectApplicant
     ProjectApplication -->|matchingRound| ProjectMatchingRoundBrief
@@ -403,7 +381,7 @@ flowchart LR
     UserFeedbackTemplateSection -->|questions| FormQuestion
   end
 
-  Member -->|school| SchoolDetail
+  Member -->|school| School
   MemberChallenger -->|gisu| Gisu
   MemberSearchInput -.->|part| ChallengerPart
   ProjectSearchInput -.->|gisuId, parts| ChallengerPart
@@ -457,6 +435,7 @@ mutation과 응답자 access는 제공하지 않으며, local fixture가 `SUPER_
 
 ### Pilot migration note: 제거된 type 이름
 
-기존 client의 fragment 또는 `__typename`이 제거된 `MemberBrief`, `ApplicationFormQuestion`,
-`ApplicationFormOption` 이름을 사용한다면 각각 `MemberSummary`, `FormQuestion`, `FormOption`으로
-마이그레이션해야 한다. 이 note 밖에서는 제거된 이름을 schema type으로 사용하지 않는다.
+기존 client의 fragment 또는 `__typename`이 제거된 `MemberBrief`, `MemberSummary`,
+`ApplicationFormQuestion`, `ApplicationFormOption` 이름을 사용한다면 각각 `Member`, `Member`,
+`FormQuestion`, `FormOption`으로 마이그레이션해야 한다. 이 note 밖에서는 제거된 이름을 schema type으로
+사용하지 않는다.
