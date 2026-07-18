@@ -3,9 +3,7 @@ package com.umc.product.recruiting.application.service.command;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.recruiting.application.port.in.command.SaveRecruitingApplicationEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationEvaluationUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.SaveRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationEvaluationPort;
@@ -22,36 +20,12 @@ import lombok.RequiredArgsConstructor;
 @Service
 @Transactional
 @RequiredArgsConstructor
-public class RecruitingApplicationEvaluationCommandService implements
-    SaveRecruitingApplicationEvaluationUseCase,
-    SubmitRecruitingApplicationEvaluationUseCase {
+public class RecruitingApplicationEvaluationCommandService implements SubmitRecruitingApplicationEvaluationUseCase {
 
     private final LoadRecruitingApplicationEvaluationPort loadEvaluationPort;
     private final SaveRecruitingApplicationEvaluationPort saveEvaluationPort;
     private final GetRecruitingRoundEvaluatorUseCase getRoundEvaluatorUseCase;
     private final RecruitingConcurrencyLockService concurrencyLockService;
-
-    @Override
-    public Long saveDraft(SaveRecruitingApplicationEvaluationCommand command) {
-        RecruitingApplication application = getAuthorizedApplication(
-            command.applicationId(),
-            command.requesterMemberId(),
-            command.stage()
-        );
-        RecruitingApplicationEvaluation evaluation = loadEvaluationPort
-            .findByApplicationIdAndEvaluatorMemberIdAndStage(
-                command.applicationId(),
-                command.requesterMemberId(),
-                command.stage()
-            )
-            .orElseGet(() -> RecruitingApplicationEvaluation.createDraft(
-                application,
-                command.requesterMemberId(),
-                command.stage()
-            ));
-        evaluation.updateDraft(command.decision(), command.comment());
-        return saveEvaluationPort.saveEvaluation(evaluation).getId();
-    }
 
     @Override
     public void submit(SubmitRecruitingApplicationEvaluationCommand command) {
@@ -60,18 +34,21 @@ public class RecruitingApplicationEvaluationCommandService implements
             command.requesterMemberId(),
             command.stage()
         );
-        RecruitingApplicationEvaluation evaluation = loadEvaluationPort
-            .findByApplicationIdAndEvaluatorMemberIdAndStage(
+        if (loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
                 command.applicationId(),
                 command.requesterMemberId(),
                 command.stage()
             )
-            .orElseGet(() -> RecruitingApplicationEvaluation.createDraft(
-                application,
-                command.requesterMemberId(),
-                command.stage()
-            ));
-        evaluation.submit(command.decision(), command.comment());
+            .isPresent()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_ALREADY_SUBMITTED);
+        }
+        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.create(
+            application,
+            command.requesterMemberId(),
+            command.stage(),
+            command.decision(),
+            command.comment()
+        );
         saveEvaluationPort.saveEvaluation(evaluation);
     }
 

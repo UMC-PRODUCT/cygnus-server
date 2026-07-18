@@ -70,16 +70,15 @@ class RecruitingApplicationEvaluationQueryServiceTest {
     }
 
     @Test
-    @DisplayName("본인 평가 제출 전에는 같은 단계의 본인 평가만 조회한다")
-    void 본인_평가_제출_전에는_같은_단계의_본인_평가만_조회한다() {
-        RecruitingApplicationEvaluation own = evaluation(20L, RecruitingEvaluatorStage.INTERVIEW);
+    @DisplayName("본인 평가 등록 전에는 같은 단계의 다른 평가를 조회할 수 없다")
+    void 본인_평가_등록_전에는_같은_단계의_다른_평가를_조회할_수_없다() {
         given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(Optional.of(own));
+        )).willReturn(Optional.empty());
 
         List<RecruitingApplicationEvaluationInfo> result = sut.listVisibleEvaluations(
             900L,
@@ -87,14 +86,13 @@ class RecruitingApplicationEvaluationQueryServiceTest {
             RecruitingEvaluatorStage.INTERVIEW
         );
 
-        assertThat(result).extracting(RecruitingApplicationEvaluationInfo::evaluatorMemberId).containsExactly(20L);
+        assertThat(result).isEmpty();
     }
 
     @Test
-    @DisplayName("본인 평가 제출 후에는 같은 단계의 다른 평가를 조회한다")
-    void 본인_평가_제출_후에는_같은_단계의_다른_평가를_조회한다() {
+    @DisplayName("본인 평가 등록 후에는 같은 단계의 다른 평가를 조회한다")
+    void 본인_평가_등록_후에는_같은_단계의_다른_평가를_조회한다() {
         RecruitingApplicationEvaluation own = evaluation(20L, RecruitingEvaluatorStage.DOCUMENT);
-        own.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출");
         RecruitingApplicationEvaluation peer = evaluation(21L, RecruitingEvaluatorStage.DOCUMENT);
         given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
@@ -155,7 +153,13 @@ class RecruitingApplicationEvaluationQueryServiceTest {
     }
 
     private RecruitingApplicationEvaluation evaluation(Long evaluatorMemberId, RecruitingEvaluatorStage stage) {
-        return RecruitingApplicationEvaluation.createDraft(application, evaluatorMemberId, stage);
+        return RecruitingApplicationEvaluation.create(
+            application,
+            evaluatorMemberId,
+            stage,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "확정"
+        );
     }
 
     private RecruitingApplication application() {

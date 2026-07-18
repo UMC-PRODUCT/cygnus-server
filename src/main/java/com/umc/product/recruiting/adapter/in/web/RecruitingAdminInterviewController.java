@@ -34,8 +34,8 @@ public class RecruitingAdminInterviewController {
     @PostMapping("/applications/{applicationId}/interview-schedule/request")
     @Operation(
         operationId = "RECRUITING-ADMIN-SCHEDULE-001",
-        summary = "면접 가능 일정 요청 생성",
-        description = "CurrentMember 운영 권한으로 지원서의 면접 가능 일정 제출 상태를 생성합니다. 이메일은 발송하지 않습니다."
+        summary = "면접 가능 일정 요청 재시도",
+        description = "자동 일정 요청이 없으면 생성하고, 메일 발송 실패 상태이면 Outbox 재시도를 요청합니다. 이미 처리 중이거나 발송된 요청은 기존 일정 ID를 반환합니다."
     )
     public RecruitingIdResponse requestAvailability(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,

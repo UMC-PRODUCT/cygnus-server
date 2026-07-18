@@ -29,6 +29,7 @@ import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
@@ -48,14 +49,17 @@ class RecruitingDecisionCommandServiceTest {
     GetChallengerRoleUseCase getChallengerRoleUseCase;
     @Mock
     RecruitingConcurrencyLockService concurrencyLockService;
+    @Mock
+    RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
     @InjectMocks
     RecruitingDecisionCommandService sut;
 
     @Test
-    @DisplayName("서류 합격 결정은 SUBMITTED 지원서를 DOCUMENT_PASSED로 변경한다")
-    void passDocumentChangesStatus() {
+    @DisplayName("면접 없는 차수의 서류 합격은 즉시 INTERVIEW_SKIPPED로 전환한다")
+    void passDocumentSkipsInterviewWhenRoundDoesNotRequireInterview() {
         RecruitingApplication application = submittedApplication();
         given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        allowDocumentDecision();
 
         sut.decideDocument(DecideRecruitingDocumentCommand.builder()
             .applicationId(900L)
@@ -64,8 +68,52 @@ class RecruitingDecisionCommandServiceTest {
             .reason("서류 합격")
             .build());
 
-        assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.DOCUMENT_PASSED);
+        assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.INTERVIEW_SKIPPED);
         then(saveApplicationPort).should().save(application);
+        then(availabilityRequestCoordinator).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("면접 차수의 서류 합격은 배정 상태와 가능 일정 요청을 함께 생성한다")
+    void passDocumentAssignsInterviewAndRequestsAvailability() {
+        RecruitingApplication application = submittedInterviewApplication();
+        RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
+            application,
+            "문의: recruit@example.org"
+        );
+        given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        given(availabilityRequestCoordinator.request(application, "문의: recruit@example.org"))
+            .willReturn(schedule);
+        allowDocumentDecision();
+
+        sut.decideDocument(DecideRecruitingDocumentCommand.builder()
+            .applicationId(900L)
+            .decision(RecruitingDecisionStatus.PASS)
+            .decidedByMemberId(1L)
+            .reason("서류 합격")
+            .build());
+
+        assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.INTERVIEW_ASSIGNED);
+        then(availabilityRequestCoordinator).should().request(application, "문의: recruit@example.org");
+        then(saveApplicationPort).should().save(application);
+    }
+
+    @Test
+    @DisplayName("서류 불합격은 면접 일정 요청을 생성하지 않는다")
+    void failDocumentDoesNotRequestAvailability() {
+        RecruitingApplication application = submittedInterviewApplication();
+        given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        allowDocumentDecision();
+
+        sut.decideDocument(DecideRecruitingDocumentCommand.builder()
+            .applicationId(900L)
+            .decision(RecruitingDecisionStatus.FAIL)
+            .decidedByMemberId(1L)
+            .reason("서류 불합격")
+            .build());
+
+        assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.DOCUMENT_FAILED);
+        then(availabilityRequestCoordinator).shouldHaveNoInteractions();
     }
 
     @Test
@@ -151,6 +199,10 @@ class RecruitingDecisionCommandServiceTest {
             .build();
     }
 
+    private void allowDocumentDecision() {
+        given(getChallengerRoleUseCase.isSuperAdmin(1L)).willReturn(true);
+    }
+
     private RecruitingApplication documentPassedApplication() {
         RecruitingApplication application = submittedApplication();
         application.passDocument(1L, "서류 합격");
@@ -158,7 +210,14 @@ class RecruitingDecisionCommandServiceTest {
     }
 
     private RecruitingApplication submittedApplication() {
-        RecruitingApplicationForm form = applicationForm();
+        return submittedApplication(applicationForm(false));
+    }
+
+    private RecruitingApplication submittedInterviewApplication() {
+        return submittedApplication(applicationForm(true));
+    }
+
+    private RecruitingApplication submittedApplication(RecruitingApplicationForm form) {
         RecruitingApplication application = RecruitingApplication.createMemberDraft(
             form,
             700L,
@@ -177,7 +236,7 @@ class RecruitingDecisionCommandServiceTest {
         return application;
     }
 
-    private RecruitingApplicationForm applicationForm() {
+    private RecruitingApplicationForm applicationForm(boolean interviewRequired) {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
         ReflectionTestUtils.setField(season, "id", 1L);
         RecruitingRound round = RecruitingRound.createRegular(
@@ -188,13 +247,13 @@ class RecruitingDecisionCommandServiceTest {
                 Instant.parse("2026-08-01T00:00:00Z"),
                 Instant.parse("2026-08-08T00:00:00Z"),
                 Instant.parse("2026-08-10T00:00:00Z"),
-                false,
-                null,
-                null,
+                interviewRequired,
+                interviewRequired ? Instant.parse("2026-08-11T00:00:00Z") : null,
+                interviewRequired ? Instant.parse("2026-08-15T00:00:00Z") : null,
                 Instant.parse("2026-08-16T00:00:00Z"),
+                interviewRequired ? 600L : null,
                 null,
-                null,
-                null
+                interviewRequired ? "문의: recruit@example.org" : null
             )
         );
         ReflectionTestUtils.setField(round, "id", 10L);

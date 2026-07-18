@@ -154,6 +154,15 @@ public class RecruitingInterviewSchedule extends BaseEntity {
         requestMailSentAt = null;
     }
 
+    public void retryRequestMail() {
+        if (requestMailStatus != RecruitingMailDeliveryStatus.FAILED) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+        }
+        requestMailStatus = RecruitingMailDeliveryStatus.PENDING;
+        requestMailError = null;
+        requestMailSentAt = null;
+    }
+
     public void markConfirmationMailSent(Instant sentAt) {
         requireStatus(RecruitingInterviewScheduleStatus.CONFIRMED);
         validateSentAt(sentAt);

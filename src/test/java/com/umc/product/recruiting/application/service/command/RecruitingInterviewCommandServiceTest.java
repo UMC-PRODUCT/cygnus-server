@@ -14,10 +14,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.FindRecruitingInterviewScheduleCandidatesCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.out.FindRecruitingScheduleOverlapPort;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
 import com.umc.product.recruiting.domain.RecruitingApplication;
@@ -26,22 +26,26 @@ import com.umc.product.recruiting.domain.RecruitingApplication;
 class RecruitingInterviewCommandServiceTest {
 
     @Mock
-    LoadRecruitingApplicationPort loadApplicationPort;
-
-    @Mock
     SaveRecruitingApplicationPort saveApplicationPort;
 
     @Mock
     FindRecruitingScheduleOverlapPort findScheduleOverlapPort;
+
+    @Mock
+    AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
+
+    @Mock
+    RecruitingConcurrencyLockService concurrencyLockService;
 
     RecruitingInterviewCommandService sut;
 
     @BeforeEach
     void setUp() {
         sut = new RecruitingInterviewCommandService(
-            loadApplicationPort,
             saveApplicationPort,
-            findScheduleOverlapPort
+            findScheduleOverlapPort,
+            authorizeManagementUseCase,
+            concurrencyLockService
         );
     }
 
@@ -71,7 +75,14 @@ class RecruitingInterviewCommandServiceTest {
     @DisplayName("면접 생략은 지원서 도메인 전이를 저장한다")
     void 면접_생략은_지원서_도메인_전이를_저장한다() {
         RecruitingApplication application = org.mockito.Mockito.mock(RecruitingApplication.class);
-        given(loadApplicationPort.getByIdWithDetails(900L)).willReturn(application);
+        com.umc.product.recruiting.domain.RecruitingRound round =
+            org.mockito.Mockito.mock(com.umc.product.recruiting.domain.RecruitingRound.class);
+        com.umc.product.recruiting.domain.RecruitingSeason season =
+            org.mockito.Mockito.mock(com.umc.product.recruiting.domain.RecruitingSeason.class);
+        given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        given(application.getRound()).willReturn(round);
+        given(round.getSeason()).willReturn(season);
+        given(season.getId()).willReturn(700L);
 
         sut.skip(SkipRecruitingInterviewCommand.builder()
             .applicationId(900L)
@@ -81,5 +92,6 @@ class RecruitingInterviewCommandServiceTest {
 
         verify(application).skipInterview(20L, "면접 없음");
         verify(saveApplicationPort).save(application);
+        verify(authorizeManagementUseCase).authorizeSeasonManagement(20L, 700L);
     }
 }

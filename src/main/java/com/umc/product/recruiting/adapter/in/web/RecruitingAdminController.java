@@ -24,15 +24,19 @@ import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.web.dto.request.LinkRecruitingApplicationFormRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDecisionRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingIdResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingStatusSummaryResponse;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
+import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
 import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingRegistrationCommand;
@@ -58,7 +62,9 @@ public class RecruitingAdminController {
     private final LinkRecruitingApplicationFormUseCase linkFormUseCase;
     private final PublishRecruitingApplicationFormUseCase publishFormUseCase;
     private final CloseRecruitingApplicationFormUseCase closeFormUseCase;
+    private final DecideRecruitingDocumentUseCase decideDocumentUseCase;
     private final DecideRecruitingFinalUseCase decideFinalUseCase;
+    private final SkipRecruitingInterviewUseCase skipInterviewUseCase;
     private final PrepareRecruitingRegistrationUseCase prepareRegistrationUseCase;
     private final CancelRecruitingRegistrationUseCase cancelRegistrationUseCase;
     private final ConfirmRecruitingRegistrationUseCase confirmRegistrationUseCase;
@@ -115,6 +121,36 @@ public class RecruitingAdminController {
             .seasonId(seasonId)
             .applicationFormId(applicationFormId)
             .build());
+    }
+
+    @PatchMapping("/applications/{applicationId}/document-decision")
+    @Operation(
+        operationId = "RECRUITING-ADMIN-008",
+        summary = "서류 합불 결정",
+        description = "학교 회장단 또는 중앙 운영진 CurrentMember 권한으로 서류 합불을 결정합니다. 합격 시 면접 차수는 일정 요청을 자동 생성하고, 면접 미진행 차수는 면접 생략 상태로 전환합니다."
+    )
+    public void decideDocument(
+        @Parameter(hidden = true)
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @PathVariable @Positive Long applicationId,
+        @Valid @RequestBody RecruitingDocumentDecisionRequest request
+    ) {
+        decideDocumentUseCase.decideDocument(request.toCommand(applicationId, memberId(memberPrincipal)));
+    }
+
+    @PostMapping("/applications/{applicationId}/interview/skip")
+    @Operation(
+        operationId = "RECRUITING-ADMIN-008A",
+        summary = "면접 생략",
+        description = "CurrentMember 운영 권한으로 서류 합격 지원서를 면접 생략 상태로 전환합니다. 권한은 use case가 실제 지원서 소속으로 검증합니다."
+    )
+    public void skipInterview(
+        @Parameter(hidden = true)
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @PathVariable @Positive Long applicationId,
+        @Valid @RequestBody SkipRecruitingInterviewRequest request
+    ) {
+        skipInterviewUseCase.skip(request.toCommand(applicationId, memberId(memberPrincipal)));
     }
 
     @PatchMapping("/applications/{applicationId}/final-decision")

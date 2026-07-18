@@ -6,7 +6,6 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.umc.product.recruiting.domain.RecruitingApplicationEvaluation;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 public interface RecruitingApplicationEvaluationJpaRepository
@@ -23,15 +22,13 @@ public interface RecruitingApplicationEvaluationJpaRepository
         RecruitingEvaluatorStage stage
     );
 
-    boolean existsByApplication_Round_IdAndStageAndStatus(
+    boolean existsByApplication_Round_IdAndStage(
         Long roundId,
-        RecruitingEvaluatorStage stage,
-        RecruitingApplicationEvaluationStatus status
+        RecruitingEvaluatorStage stage
     );
 
-    boolean existsByApplication_IdAndStageAndStatus(
+    boolean existsByApplication_IdAndStage(
         Long applicationId,
-        RecruitingEvaluatorStage stage,
-        RecruitingApplicationEvaluationStatus status
+        RecruitingEvaluatorStage stage
     );
 }

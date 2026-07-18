@@ -1,17 +1,8 @@
+-- Challenger가 기존 part와 신규 track 목록을 함께 운용할 수 있도록 최종 호환 스키마를 구성한다.
+-- 기존 part는 backfill하지 않으며, tracks가 비어 있으면 애플리케이션이 part를 변환해 사용한다.
 ALTER TABLE public.challenger
-    ADD COLUMN tracks TEXT[];
-
-UPDATE public.challenger
-SET tracks = CASE
-    WHEN track IS NULL THEN ARRAY[]::TEXT[]
-    ELSE ARRAY[track]::TEXT[]
-END;
-
-ALTER TABLE public.challenger
-    ALTER COLUMN tracks SET NOT NULL;
-
--- Legacy part fallback을 위해 빈 배열은 허용하되, 배열 원소의 null과 미지원 값은 거부한다.
-ALTER TABLE public.challenger
+    ALTER COLUMN part DROP NOT NULL,
+    ADD COLUMN tracks TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
     ADD CONSTRAINT challenger_tracks_values_check
         CHECK (
             tracks <@ ARRAY[
@@ -32,7 +23,3 @@ ALTER TABLE public.challenger
             AND cardinality(array_positions(tracks, 'MOBILE_PRODUCT_ENGINEER')) <= 1
             AND cardinality(array_positions(tracks, 'INFRA_PLUS')) <= 1
         );
-
-ALTER TABLE public.challenger
-    DROP CONSTRAINT IF EXISTS challenger_track_check,
-    DROP COLUMN track;

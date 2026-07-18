@@ -4,7 +4,6 @@ import java.time.Instant;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationDecision;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -22,7 +21,6 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -57,63 +55,40 @@ public class RecruitingApplicationEvaluation extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private RecruitingApplicationEvaluationStatus status;
-
-    @Enumerated(EnumType.STRING)
     private RecruitingApplicationEvaluationDecision decision;
 
     @Column(length = MAX_COMMENT_LENGTH)
     private String comment;
 
-    @Column(name = "submitted_at")
+    @Column(name = "submitted_at", nullable = false)
     private Instant submittedAt;
 
-    @Builder(access = AccessLevel.PRIVATE)
     private RecruitingApplicationEvaluation(
         RecruitingApplication application,
         Long evaluatorMemberId,
-        RecruitingEvaluatorStage stage
+        RecruitingEvaluatorStage stage,
+        RecruitingApplicationEvaluationDecision decision,
+        String comment
     ) {
         validateIdentity(application, evaluatorMemberId, stage);
+        validateDecision(decision);
+        validateComment(comment);
         this.application = application;
         this.evaluatorMemberId = evaluatorMemberId;
         this.stage = stage;
-        this.status = RecruitingApplicationEvaluationStatus.DRAFT;
-    }
-
-    public static RecruitingApplicationEvaluation createDraft(
-        RecruitingApplication application,
-        Long evaluatorMemberId,
-        RecruitingEvaluatorStage stage
-    ) {
-        return RecruitingApplicationEvaluation.builder()
-            .application(application)
-            .evaluatorMemberId(evaluatorMemberId)
-            .stage(stage)
-            .build();
-    }
-
-    public void updateDraft(RecruitingApplicationEvaluationDecision decision, String comment) {
-        requireDraft();
-        validateComment(comment);
         this.decision = decision;
         this.comment = comment;
-    }
-
-    public void submit(RecruitingApplicationEvaluationDecision decision, String comment) {
-        requireDraft();
-        if (decision == null) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_DECISION_REQUIRED);
-        }
-        validateComment(comment);
-        this.decision = decision;
-        this.comment = comment;
-        this.status = RecruitingApplicationEvaluationStatus.SUBMITTED;
         this.submittedAt = Instant.now();
     }
 
-    public boolean isSubmitted() {
-        return status == RecruitingApplicationEvaluationStatus.SUBMITTED;
+    public static RecruitingApplicationEvaluation create(
+        RecruitingApplication application,
+        Long evaluatorMemberId,
+        RecruitingEvaluatorStage stage,
+        RecruitingApplicationEvaluationDecision decision,
+        String comment
+    ) {
+        return new RecruitingApplicationEvaluation(application, evaluatorMemberId, stage, decision, comment);
     }
 
     private static void validateIdentity(
@@ -132,9 +107,9 @@ public class RecruitingApplicationEvaluation extends BaseEntity {
         }
     }
 
-    private void requireDraft() {
-        if (status != RecruitingApplicationEvaluationStatus.DRAFT) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);
+    private static void validateDecision(RecruitingApplicationEvaluationDecision decision) {
+        if (decision == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_DECISION_REQUIRED);
         }
     }
 }

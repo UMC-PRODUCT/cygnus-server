@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>UMC 면접 가능 일정 제출 안내</title>
+</head>
+<body style="font-family: Pretendard, Arial, sans-serif; margin: 0; background-color: #f6f7f7; color: #161919;">
+<div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+    <div style="background-color: #ffffff; border: 1px solid #eceeee; padding: 36px;">
+        <h1 style="font-size: 22px; margin: 0 0 24px;">면접 가능 일정을 제출해 주세요</h1>
+        <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
+            <strong th:text="${applicantName}">지원자</strong>님, 서류 전형에 합격하셨습니다.
+        </p>
+        <p style="font-size: 15px; line-height: 1.7; margin: 0 0 16px;">
+            지원 페이지에서 면접 가능 일정을 제출해 주세요.
+            일정 입력 Form ID는 <strong th:text="${availabilityFormId}">0</strong>입니다.
+        </p>
+        <p style="font-size: 14px; line-height: 1.7; margin: 24px 0 0; color: #5f6767;"
+           th:text="${contactText}">문의처</p>
+    </div>
+</div>
+</body>
+</html>

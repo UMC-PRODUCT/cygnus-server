@@ -1,7 +1,6 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -26,13 +25,11 @@ import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.recruiting.application.port.in.command.SaveRecruitingApplicationEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationEvaluationUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.SaveRecruitingApplicationEvaluationCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationEvaluationInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationDecision;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 @GraphQlTest(RecruitingEvaluationGraphQlController.class)
@@ -50,9 +47,6 @@ class RecruitingEvaluationGraphQlControllerTest {
 
     @MockitoBean
     GetRecruitingApplicationEvaluationUseCase getApplicationEvaluationUseCase;
-
-    @MockitoBean
-    SaveRecruitingApplicationEvaluationUseCase saveApplicationEvaluationUseCase;
 
     @MockitoBean
     SubmitRecruitingApplicationEvaluationUseCase submitApplicationEvaluationUseCase;
@@ -76,28 +70,27 @@ class RecruitingEvaluationGraphQlControllerTest {
     }
 
     @Test
-    @DisplayName("평가 임시 저장 Mutation은 stage와 CurrentMember를 public UseCase에 전달한다")
-    void 평가_임시_저장_Mutation은_stage와_CurrentMember를_public_UseCase에_전달한다() {
-        given(saveApplicationEvaluationUseCase.saveDraft(any())).willReturn(70L);
-
+    @DisplayName("평가 확정 Mutation은 stage와 CurrentMember를 public UseCase에 전달한다")
+    void 평가_확정_Mutation은_stage와_CurrentMember를_public_UseCase에_전달한다() {
         graphQlTester.document("""
                 mutation {
-                  saveRecruitingApplicationEvaluation(
+                  submitRecruitingApplicationEvaluation(
                     applicationId: 20,
                     input: {stage: INTERVIEW, decision: REJECTED, comment: "불합격 의견"}
-                  ) { id }
+                  )
                 }
                 """)
             .execute()
-            .path("saveRecruitingApplicationEvaluation.id")
-            .entity(String.class)
-            .isEqualTo("70");
+            .path("submitRecruitingApplicationEvaluation")
+            .entity(Boolean.class)
+            .isEqualTo(true);
 
-        ArgumentCaptor<SaveRecruitingApplicationEvaluationCommand> captor =
-            ArgumentCaptor.forClass(SaveRecruitingApplicationEvaluationCommand.class);
-        then(saveApplicationEvaluationUseCase).should().saveDraft(captor.capture());
+        ArgumentCaptor<SubmitRecruitingApplicationEvaluationCommand> captor =
+            ArgumentCaptor.forClass(SubmitRecruitingApplicationEvaluationCommand.class);
+        then(submitApplicationEvaluationUseCase).should().submit(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
         assertThat(captor.getValue().stage()).isEqualTo(RecruitingEvaluatorStage.INTERVIEW);
+        assertThat(captor.getValue().decision()).isEqualTo(RecruitingApplicationEvaluationDecision.REJECTED);
     }
 
     @Test
@@ -113,7 +106,6 @@ class RecruitingEvaluationGraphQlControllerTest {
             20L,
             REQUESTER_ID,
             RecruitingEvaluatorStage.DOCUMENT,
-            RecruitingApplicationEvaluationStatus.SUBMITTED,
             RecruitingApplicationEvaluationDecision.APPROVED,
             "통과",
             submittedAt
@@ -123,7 +115,6 @@ class RecruitingEvaluationGraphQlControllerTest {
                 query {
                   recruitingApplicationEvaluations(applicationId: 20, stage: DOCUMENT) {
                     id
-                    status
                     decision
                     submittedAt
                   }

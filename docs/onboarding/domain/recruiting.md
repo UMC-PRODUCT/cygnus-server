@@ -92,8 +92,8 @@ erDiagram
         bigint recruiting_application_id FK
         bigint evaluator_member_id "Member ID"
         string stage
-        string status
         string decision
+        instant submitted_at
     }
     RECRUITING_INTERVIEW_SCHEDULE {
         bigint id PK
@@ -103,6 +103,8 @@ erDiagram
         instant starts_at
         instant ends_at
         string contact_snapshot "PII"
+        string request_mail_status
+        int request_mail_attempts
     }
 ```
 
@@ -119,8 +121,8 @@ erDiagram
 | `RecruitingRoundEvaluator` | 차수 단위 평가자 whitelist를 관리한다. 등록된 평가자는 서류와 면접 평가에 모두 참여하지만 최종 합불 권한은 얻지 않는다. |
 | `RecruitingRoundInterviewQuestion` | 차수 공통 면접 문항과 노출 순서, active 상태, 생성자와 최종 변경자 회원 ID를 관리한다. |
 | `RecruitingApplicationInterviewQuestion` | 특정 지원자에게만 묻는 면접 문항을 관리한다. 해당 차수의 평가자만 수정할 수 있다. |
-| `RecruitingApplicationEvaluation` | 지원서/평가자/stage별 하나의 `APPROVED`/`REJECTED` 평가를 관리한다. 제출 후 변경할 수 없다. |
-| `RecruitingInterviewSchedule` | 가능 일정 요청, Form 응답 연결, 확정 시각·장소·연락처 snapshot과 메일 전달 상태를 보관한다. 실제 메일 발송과 일정 교집합 계산은 아직 연결하지 않는다. |
+| `RecruitingApplicationEvaluation` | 지원서/평가자/stage별 하나의 `APPROVED`/`REJECTED` 평가를 생성 즉시 확정한다. 결정과 확정 시각은 필수이며 생성 후 변경할 수 없다. |
+| `RecruitingInterviewSchedule` | 가능 일정 요청, Form 응답 연결, 확정 시각·장소·연락처 snapshot과 메일 전달 상태를 보관한다. 요청 메일은 Outbox로 발송하며 일정 교집합과 확정 메일은 아직 연결하지 않는다. |
 
 ## 모집과 지원 흐름
 
@@ -171,11 +173,11 @@ flowchart LR
 
 ### 평가 공개 범위
 
-- 평가자는 whitelist에 등록된 stage만 작성하고 제출할 수 있다.
-- `DRAFT -> SUBMITTED`만 허용하고 제출된 평가는 수정하지 않는다.
-- 평가자는 자신의 평가를 제출하기 전에는 본인 평가만 볼 수 있다.
-- 본인 평가를 제출하면 같은 지원서와 같은 stage의 동료 평가를 볼 수 있다.
-- 해당 시즌의 Recruiting `READ` 권한을 가진 운영자는 제출 여부와 무관하게 같은 stage의 평가 전체를 볼 수 있다.
+- Round evaluator whitelist에 등록된 평가자는 서류와 면접 평가를 모두 확정할 수 있다.
+- 평가 초안 상태와 수정 API는 없다. 평가는 `APPROVED` 또는 `REJECTED` 결정으로 한 번만 생성하며 이후 수정·철회할 수 없다.
+- 평가자는 자신의 평가를 확정하기 전에는 같은 지원서와 같은 stage의 평가를 볼 수 없다.
+- 본인 평가를 확정하면 같은 지원서와 같은 stage의 동료 평가를 볼 수 있다.
+- 해당 시즌의 Recruiting `READ` 권한을 가진 운영자는 본인 평가 유무와 무관하게 같은 stage의 평가 전체를 볼 수 있다.
 - evaluator whitelist는 평가 권한만 준다. 서류/최종 결과 결정이나 등록 확정 권한을 주지 않는다.
 
 ### 면접 일정 기본 상태
@@ -186,7 +188,7 @@ flowchart LR
 | `AVAILABILITY_SUBMITTED` | `availabilityFormResponseId` | 지원자가 Form 가능 일정 응답을 연결한 상태 |
 | `CONFIRMED` | 응답 ID, 시작/종료 시각, 장소, 연락처 snapshot | 운영진이 면접 시간을 확정한 상태 |
 
-요청·확정 메일 상태는 각각 `PENDING`, `SENT`, `FAILED`와 시도 횟수·오류·발송 시각을 저장할 수 있다. 현재 API는 기본 schedule 상태만 제공하며 실제 HTML 메일 dispatch는 #1147 이후 연결한다.
+서류 합격 결정은 면접 진행 Round에서 지원서를 `INTERVIEW_ASSIGNED`로 전환하고 `AVAILABILITY_REQUESTED` 일정과 Outbox 이벤트를 같은 트랜잭션에 저장한다. 커밋 후 이벤트 처리기가 Thymeleaf 요청 메일을 발송하고 `PENDING`, `SENT`, `FAILED`, 시도 횟수·오류·발송 시각을 기록한다. 면접 미진행 Round는 같은 결정 명령에서 `INTERVIEW_SKIPPED`로 전환한다. 확정 메일은 #1147의 후속 범위다.
 
 ## 재지원 규칙
 
@@ -202,7 +204,7 @@ flowchart LR
 
 ## Challenger tracks 호환성
 
-- Challenger 저장 컬럼은 기존 단일 `track`에서 `tracks text[]`로 변경됐다. 기존 non-null 값은 singleton array로 이동하고 단일 컬럼은 삭제한다.
+- Challenger에는 `tracks text[]`를 추가하고 기존 `part`는 호환을 위해 유지한다. `part -> tracks` 일괄 backfill은 수행하지 않는다.
 - 과거 `part`만 있고 `tracks`가 빈 row는 조회 시 `part -> ChallengerTrack` fallback을 사용한다. `ADMIN` part의 effective tracks는 빈 목록이다.
 - Recruiting에서 허용하는 트랙은 `PLAN`, `DESIGN`, `WEB_PRODUCT_ENGINEER`, `MOBILE_PRODUCT_ENGINEER`다. 공용 GraphQL enum과 Challenger 자체는 `INFRA_PLUS`를 알지만 Recruiting quota, round, 지원 선호, 합격 트랙에는 사용할 수 없다.
 - 이미 다른 트랙을 가진 Challenger를 등록해도 `(memberId, gisuId)` row를 새로 만들지 않고 accepted track을 기존 `tracks`에 멱등 추가한다.
@@ -215,8 +217,9 @@ flowchart LR
 | 익명 지원서 생성·조회·수정·제출 | 비로그인 지원자 | 생성 시 개인정보 동의 필수. 이후 정규화 email + application key와 내부 Form access key를 모두 검증 |
 | 지원서 생성·수정·제출·철회, 본인 면접 일정 | 로그인 지원자 | `CurrentMember`와 application/FormResponse 소유권 일치 필요 |
 | 시즌·차수·폼·quota·공통 문항 관리 | 학교 회장/부회장, 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | 학교 역할은 자기 학교 시즌만 가능 |
-| stage 평가 저장·제출 | 해당 차수의 evaluator whitelist | 같은 evaluator가 `DOCUMENT`와 `INTERVIEW` 평가에 모두 참여 가능 |
-| 지원자별 면접 문항 관리 | 해당 차수의 evaluator | 첫 제출 평가가 생기면 문항 수정·비활성화 금지 |
+| stage 평가 확정 | 해당 차수의 evaluator whitelist | 같은 evaluator가 `DOCUMENT`와 `INTERVIEW` 평가에 모두 참여 가능. 평가별 한 번만 등록 가능 |
+| 지원자별 면접 문항 관리 | 해당 차수의 evaluator | 첫 면접 평가가 확정되면 문항 수정·비활성화 금지 |
+| 서류 합불 결정·면접 생략 | 해당 학교 회장/부회장, 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | evaluator whitelist만으로는 불가. 서류 합격 시 Round 면접 정책을 자동 적용 |
 | 최종 합불 결정 | 해당 학교 회장/부회장, 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | evaluator whitelist만으로는 불가 |
 | READY 예약·취소, REGISTERED 확정 | 같은 기수 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | 학교 운영진과 evaluator는 불가 |
 | 전체 요약·CSV | 중앙운영사무국 총괄단 이상, `SUPER_ADMIN` | `RECRUITMENT/MANAGE`, CSV는 REST 전용 |
@@ -240,8 +243,7 @@ PUT    /api/v1/recruiting/applications/{applicationId}
 POST   /api/v1/recruiting/applications/{applicationId}/submit
 PATCH  /api/v1/recruiting/applications/{applicationId}/cancel
 
-PUT    /api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}
-POST   /api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}/submit
+POST   /api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}
 GET    /api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}
 
 PUT    /api/v1/recruiting/applications/{applicationId}/interview-schedule/availability
@@ -279,6 +281,8 @@ GET    /api/v1/recruiting/admin/applications/{applicationId}/questions
 
 POST   /api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/request
 PUT    /api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/confirmation
+PATCH  /api/v1/recruiting/admin/applications/{applicationId}/document-decision
+POST   /api/v1/recruiting/admin/applications/{applicationId}/interview/skip
 PATCH  /api/v1/recruiting/admin/applications/{applicationId}/final-decision
 POST   /api/v1/recruiting/admin/applications/{applicationId}/registration/ready
 DELETE /api/v1/recruiting/admin/applications/{applicationId}/registration/ready
@@ -290,7 +294,7 @@ GET    /api/v1/recruiting/admin/statistics.csv
 
 credential은 URL이나 access log에 포함하지 않고 request body로만 전달한다. 조회 결과는 서류·최종 발표 시각 전까지 `PENDING`으로 마스킹하고, 최종 발표 전에는 `acceptedTrack`을 제공하지 않는다. Form raw access key는 생성·조회·수정·제출 응답 어디에도 노출하지 않는다.
 
-REST에는 현재 서류 결과 결정과 면접 skip route가 없다. 두 동작은 아래 GraphQL mutation에는 존재한다. 익명 지원서를 로그인 회원에게 연결하는 claim, 일정 교집합과 메일 발송 route는 양쪽 모두 없다.
+일정 요청 API는 자동 요청 생성 실패 또는 메일 발송 실패를 운영자가 재시도하는 용도다. 기존 요청이 `PENDING` 또는 `SENT`이면 같은 일정 ID를 반환하고, `FAILED`이면 `PENDING`으로 되돌린 뒤 Outbox 이벤트를 다시 기록한다. 익명 지원서를 로그인 회원에게 연결하는 claim과 일정 교집합은 아직 제공하지 않는다.
 
 ### CSV 계약
 
@@ -359,7 +363,6 @@ skipRecruitingInterview
 requestRecruitingInterviewAvailability
 submitRecruitingInterviewAvailability
 confirmRecruitingInterviewSchedule
-saveRecruitingApplicationEvaluation
 submitRecruitingApplicationEvaluation
 ```
 
@@ -379,21 +382,19 @@ GraphQL actor는 input의 `memberId`가 아니라 공용 `@CurrentMember MemberP
 상세 범위와 완료 조건은 [Recruiting Deferred Integrations](../../backlog/recruiting-deferred-integrations.md)를 따른다.
 
 - [#1146](https://github.com/UMC-PRODUCT/umc-product-server/issues/1146): Form이 schedule question, 응답 소속 검증, 익명·로그인 FormResponse와 공통 가능 시간 계산을 소유한다. Recruiting은 `availabilityFormId`와 `availabilityFormResponseId`, 확정된 면접 상태만 소유한다.
-- [#1147](https://github.com/UMC-PRODUCT/umc-product-server/issues/1147): Notification이 허용된 Thymeleaf template, 변수 검증, commit 이후 outbox 발송과 재시도를 소유한다. Recruiting은 발송 상태만 추적한다.
+- [#1147](https://github.com/UMC-PRODUCT/umc-product-server/issues/1147): 요청 메일의 Thymeleaf·Outbox 발송은 연결했다. template type allowlist와 변수 계약 강화, idempotency key, 면접 확정 메일은 후속 범위다.
 - Form window: 별도 issue 없이 plain TODO다. Form의 published/start/end 공개 계약이 생기면 Round 일정 동기화와 실제 접수창 검증을 연결한다.
 - anonymous claim: application key 기반 조회·수정·제출은 제공하며, 로그인 후 FormResponse와 RecruitingApplication ownership 이전만 후속 범위다.
 
 ## Migration과 rollback 가정
 
-Recruiting migration은 기존 데이터에 대해 무손실 in-place upgrade가 아니다.
+Recruiting은 최초 배포 전이므로 중간 모델의 변경 이력을 migration으로 유지하지 않고 최종 스키마를 두 파일로 구성한다.
 
-- `V2026.07.12.00.01`은 기존 Challenger 단일 `track`을 `tracks` singleton array로 옮긴 뒤 기존 컬럼을 삭제한다.
-- `V2026.07.12.17.00`은 기존 recruiting application/form을 `TRUNCATE ... CASCADE`한 뒤 현재 schema로 바꾼다.
-- `V2026.07.13.10.00`은 assignment/template/criterion/score 평가 테이블을 삭제하고 새 평가·일정 테이블을 만든다.
-- `V2026.07.15.13.30`은 익명 지원서의 내부 Form access key 컬럼과 로그인/익명 identity mode check를 추가한다.
-- Flyway down migration은 제공하지 않는다. 운영 반영 전 DB snapshot과 백업을 확보하고 모집이 닫힌 maintenance window에서 적용한다.
-- rollback은 트래픽을 중단하고 pre-migration DB snapshot을 복원한 뒤 이전 application binary를 배포하는 방식이다. DB를 복원하지 않은 채 이전 binary만 재배포하면 안 된다.
-- 적용 후 문제가 발견됐지만 현재 Recruiting 데이터 보존이 필요하면 rollback SQL을 즉석 작성하지 않고 forward-fix migration을 추가한다.
+- `V2026.07.12.00.01__add_challenger_tracks.sql`은 기존 `part`를 유지하면서 `tracks text[]`와 허용 값·중복 방지 제약을 추가한다. 기존 row의 `tracks`는 빈 배열이며 일괄 backfill하지 않는다.
+- `V2026.07.15.13.30__create_recruiting_domain.sql`은 Season, Round, Form 정책, Application, 평가, 질문, 면접 일정의 최종 테이블·제약·인덱스를 한 번에 생성한다.
+- 두 파일은 이전 Recruiting migration이 적용되지 않은 DB를 전제로 한다. 개발 DB에 삭제된 중간 version 이력이 있다면 schema를 재생성해야 한다.
+- develop 또는 운영 환경에 한 번이라도 적용된 뒤에는 이 파일을 다시 수정하지 않고 새로운 forward migration을 추가한다.
+- Flyway down migration은 제공하지 않는다. 운영 반영 후 rollback이 필요하면 트래픽을 중단하고 pre-migration DB snapshot과 이전 application binary를 함께 복원한다.
 - migration version 중복, checksum, PostgreSQL constraint와 concurrent quota 동작은 [Recruiting 테스트 문서](../test/recruiting.md)의 검증 절차를 따른다.
 
 ## PII와 로그 정책

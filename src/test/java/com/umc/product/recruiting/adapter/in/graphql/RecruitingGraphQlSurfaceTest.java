@@ -32,6 +32,7 @@ class RecruitingGraphQlSurfaceTest {
         "assignments",
         "score",
         "scores",
+        "saveRecruitingApplicationEvaluation",
         "csv"
     );
 
@@ -77,7 +78,6 @@ class RecruitingGraphQlSurfaceTest {
                     "requestRecruitingInterviewAvailability",
                     "submitRecruitingInterviewAvailability",
                     "confirmRecruitingInterviewSchedule",
-                    "saveRecruitingApplicationEvaluation",
                     "submitRecruitingApplicationEvaluation"
                 );
             assertThat(allFieldNames(data)).doesNotContainAnyElementsOf(REMOVED_FIELDS);

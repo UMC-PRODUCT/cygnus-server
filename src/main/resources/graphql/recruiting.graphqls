@@ -119,10 +119,6 @@ type Mutation {
     applicationId: ID!
     input: ConfirmRecruitingInterviewScheduleInput!
   ): Boolean!
-  saveRecruitingApplicationEvaluation(
-    applicationId: ID!
-    input: RecruitingApplicationEvaluationInput!
-  ): RecruitingIdPayload!
   submitRecruitingApplicationEvaluation(
     applicationId: ID!
     input: RecruitingApplicationEvaluationInput!
@@ -461,10 +457,9 @@ type RecruitingApplicationEvaluation {
   applicationId: ID!
   evaluatorMemberId: ID!
   stage: RecruitingEvaluatorStage!
-  status: RecruitingApplicationEvaluationStatus!
   decision: RecruitingApplicationEvaluationDecision!
   comment: String
-  submittedAt: Instant
+  submittedAt: Instant!
 }
 
 type RecruitingInterviewSchedule {
@@ -549,11 +544,6 @@ enum RecruitingDecisionStatus {
 enum RecruitingEvaluatorStage {
   DOCUMENT
   INTERVIEW
-}
-
-enum RecruitingApplicationEvaluationStatus {
-  DRAFT
-  SUBMITTED
 }
 
 enum RecruitingApplicationEvaluationDecision {

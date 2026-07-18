@@ -106,11 +106,23 @@ operation::recruiting-admin-controller-test/publish-form-binds-season-and-reques
 === ready-uses-current-member-actor
 operation::recruiting-admin-controller-test/ready-uses-current-member-actor[snippets='http-request,http-response']
 
+=== 면접_생략_api는_-current-member와_사유를_전달한다
+operation::recruiting-admin-controller-test/면접_생략_api는_-current-member와_사유를_전달한다[snippets='http-request,http-response']
+
+=== 면접_생략_api는_긴_사유를_거부한다
+operation::recruiting-admin-controller-test/면접_생략_api는_긴_사유를_거부한다[snippets='http-request,http-response']
+
 === 모집_폼_연결_api는_차수와_-form_id를_전달한다
 operation::recruiting-admin-controller-test/모집_폼_연결_api는_차수와_-form_id를_전달한다[snippets='http-request,http-response']
 
 === 상태_요약_api는_status별_count를_반환한다
 operation::recruiting-admin-controller-test/상태_요약_api는_status별_count를_반환한다[snippets='http-request,http-response']
+
+=== 서류_결정_api는_결정자와_합불을_전달한다
+operation::recruiting-admin-controller-test/서류_결정_api는_결정자와_합불을_전달한다[snippets='http-request,http-response']
+
+=== 서류_결정_api는_긴_사유를_거부한다
+operation::recruiting-admin-controller-test/서류_결정_api는_긴_사유를_거부한다[snippets='http-request,http-response']
 
 === 최종_결정_api는_결정자_member-id를_command로_전달한다
 operation::recruiting-admin-controller-test/최종_결정_api는_결정자_member-id를_command로_전달한다[snippets='http-request,http-response']

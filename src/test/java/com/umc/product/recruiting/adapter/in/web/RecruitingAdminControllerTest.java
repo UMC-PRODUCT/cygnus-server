@@ -36,16 +36,20 @@ import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
+import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
 import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingDocumentCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -79,6 +83,10 @@ class RecruitingAdminControllerTest {
     CloseRecruitingApplicationFormUseCase closeFormUseCase;
     @MockitoBean
     DecideRecruitingFinalUseCase decideFinalUseCase;
+    @MockitoBean
+    DecideRecruitingDocumentUseCase decideDocumentUseCase;
+    @MockitoBean
+    SkipRecruitingInterviewUseCase skipInterviewUseCase;
     @MockitoBean
     PrepareRecruitingRegistrationUseCase prepareRegistrationUseCase;
     @MockitoBean
@@ -168,6 +176,67 @@ class RecruitingAdminControllerTest {
         assertThat(captor.getValue().decision()).isEqualTo(com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus.PASS);
         assertThat(captor.getValue().acceptedTrack()).isEqualTo(com.umc.product.common.domain.enums.ChallengerTrack.PLAN);
         assertThat(captor.getValue().decidedByMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("서류 결정 API는 acceptedTrack 없이 결정자와 합불을 전달한다")
+    void 서류_결정_API는_결정자와_합불을_전달한다() throws Exception {
+        mockMvc.perform(patch(
+                    "/api/v1/recruiting/admin/applications/{applicationId}/document-decision",
+                    APPLICATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\":\"PASS\",\"reason\":\"적합\"}"))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<DecideRecruitingDocumentCommand> captor =
+            ArgumentCaptor.forClass(DecideRecruitingDocumentCommand.class);
+        then(decideDocumentUseCase).should().decideDocument(captor.capture());
+        assertThat(captor.getValue().decision())
+            .isEqualTo(com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus.PASS);
+        assertThat(captor.getValue().decidedByMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("서류 결정 API는 DB 제한을 넘는 사유를 거부한다")
+    void 서류_결정_API는_긴_사유를_거부한다() throws Exception {
+        mockMvc.perform(patch(
+                    "/api/v1/recruiting/admin/applications/{applicationId}/document-decision",
+                    APPLICATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"decision\":\"PASS\",\"reason\":\"%s\"}".formatted("a".repeat(256))))
+            .andExpect(status().isBadRequest());
+
+        then(decideDocumentUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("면접 생략 API는 CurrentMember와 사유를 전달한다")
+    void 면접_생략_API는_CurrentMember와_사유를_전달한다() throws Exception {
+        mockMvc.perform(post(
+                    "/api/v1/recruiting/admin/applications/{applicationId}/interview/skip",
+                    APPLICATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"학교 정책상 면접 없음\"}"))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<SkipRecruitingInterviewCommand> captor =
+            ArgumentCaptor.forClass(SkipRecruitingInterviewCommand.class);
+        then(skipInterviewUseCase).should().skip(captor.capture());
+        assertThat(captor.getValue().skippedByMemberId()).isEqualTo(MEMBER_ID);
+        assertThat(captor.getValue().reason()).isEqualTo("학교 정책상 면접 없음");
+    }
+
+    @Test
+    @DisplayName("면접 생략 API는 DB 제한을 넘는 사유를 거부한다")
+    void 면접_생략_API는_긴_사유를_거부한다() throws Exception {
+        mockMvc.perform(post(
+                    "/api/v1/recruiting/admin/applications/{applicationId}/interview/skip",
+                    APPLICATION_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"%s\"}".formatted("a".repeat(256))))
+            .andExpect(status().isBadRequest());
+
+        then(skipInterviewUseCase).shouldHaveNoInteractions();
     }
 
     @Test

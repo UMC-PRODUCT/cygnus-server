@@ -102,8 +102,8 @@ erDiagram
         bigint recruiting_application_id FK
         bigint evaluator_member_id "Member ID"
         enum stage "DOCUMENT INTERVIEW"
-        enum status "DRAFT SUBMITTED"
         enum decision "APPROVED REJECTED"
+        instant submitted_at
     }
     RECRUITING_INTERVIEW_SCHEDULE {
         bigint id PK
@@ -269,10 +269,10 @@ stateDiagram-v2
     DRAFT --> SUBMITTED: 지원자 제출
     DRAFT --> CANCELLED: 지원자 철회
     SUBMITTED --> CANCELLED: 지원자 철회
-    SUBMITTED --> DOCUMENT_PASSED: 서류 합격 결정
+    SUBMITTED --> DOCUMENT_PASSED: 서류 합격 결정 transaction
     SUBMITTED --> DOCUMENT_FAILED: 서류 불합격 결정
-    DOCUMENT_PASSED --> INTERVIEW_ASSIGNED: 면접 진행 대상으로 전환
-    DOCUMENT_PASSED --> INTERVIEW_SKIPPED: 면접 생략
+    DOCUMENT_PASSED --> INTERVIEW_ASSIGNED: 면접 Round 자동 전환
+    DOCUMENT_PASSED --> INTERVIEW_SKIPPED: 면접 미진행 Round 자동 전환
     DOCUMENT_PASSED --> FINAL_PASSED: 면접 없이 최종 합격
     DOCUMENT_PASSED --> FINAL_FAILED: 면접 없이 최종 불합격
     INTERVIEW_ASSIGNED --> FINAL_PASSED: 최종 합격
@@ -287,7 +287,7 @@ stateDiagram-v2
 
 `DOCUMENT_FAILED`, `FINAL_FAILED`, `CANCELLED`만 이후 Round 재지원을 허용한다. 동일 기수에서 이미 `FINAL_PASSED`인 지원자는 다른 Round나 학교에 다시 합격할 수 없다.
 
-현재 `RecruitingApplication.assignInterview()` domain method는 존재하지만 이를 호출하는 inbound UseCase와 REST/GraphQL mutation은 연결되어 있지 않다. 따라서 실제 API만으로 `INTERVIEW_ASSIGNED`에 진입하는 경로는 후속 구현이 필요하다.
+`PATCH /api/v1/recruiting/admin/applications/{applicationId}/document-decision`과 GraphQL `decideRecruitingDocument`는 같은 UseCase를 호출한다. PASS 결정은 Round의 `interviewRequired` 설정에 따라 `INTERVIEW_ASSIGNED` 또는 `INTERVIEW_SKIPPED`까지 한 트랜잭션에서 전환한다.
 
 ## 평가 작성과 공개 범위
 
@@ -300,7 +300,7 @@ flowchart TD
     Evaluator --> Whitelist["RoundEvaluator<br/>round + member unique"]
     ManageAuth -->|"허용"| Common["Round 공통 면접 질문<br/>생성·수정·비활성화"]
     Whitelist --> Individual["지원자별 면접 질문<br/>생성·수정·비활성화"]
-    Common --> Freeze{"해당 Round에 제출된<br/>INTERVIEW 평가가 있는가"}
+    Common --> Freeze{"해당 Round에 확정된<br/>INTERVIEW 평가가 있는가"}
     Individual --> Freeze
     Freeze -->|"없음"| Mutable["질문 변경 허용"]
     Freeze -->|"있음"| Frozen["질문 변경 거부"]
@@ -317,8 +317,9 @@ flowchart TD
     Scope -->|"아니오"| Reject["요청 거부"]
     Scope -->|"예"| Stage{"지원서 상태가 stage 평가 가능 상태인가"}
     Stage -->|"아니오"| Reject
-    Stage -->|"예"| Draft["평가 DRAFT 저장<br/>APPROVED / REJECTED"]
-    Draft --> Submit["SUBMITTED 제출<br/>이후 수정 불가"]
+    Stage -->|"예"| Decision{"APPROVED / REJECTED<br/>결정이 있는가"}
+    Decision -->|"아니오"| Reject
+    Decision -->|"예"| Finalize["평가 생성 즉시 확정<br/>이후 수정·철회 불가"]
 
     Action -->|"조회"| Operator{"시즌 RECRUITMENT READ 운영자인가"}
     Operator -->|"예"| All["해당 stage 전체 평가 조회"]
@@ -326,11 +327,10 @@ flowchart TD
     ReadScope -->|"아니오"| Reject
     ReadScope -->|"예"| Own{"본인 평가가 있는가"}
     Own -->|"없음"| Empty["빈 목록"]
-    Own -->|"DRAFT"| OwnOnly["본인 평가만 조회"]
-    Own -->|"SUBMITTED"| All
+    Own -->|"있음"| All
 ```
 
-평가자 whitelist는 평가와 관련 조회만 허용한다. 서류·최종 합불 결정, quota 변경, Challenger 등록 권한은 부여하지 않는다. 질문은 최초 INTERVIEW 평가가 제출된 뒤 수정·비활성화할 수 없다.
+평가자 whitelist는 평가와 관련 조회만 허용한다. 서류·최종 합불 결정, quota 변경, Challenger 등록 권한은 부여하지 않는다. 평가는 초안 없이 한 번만 확정할 수 있고, 질문은 최초 INTERVIEW 평가가 확정된 뒤 수정·비활성화할 수 없다.
 
 ## 면접 일정 흐름
 
@@ -342,13 +342,51 @@ stateDiagram-v2
     state "CONFIRMED" as Confirmed
 
     [*] --> Assigned
-    Assigned --> Requested: 운영진이 가능 일정 요청
+    Assigned --> Requested: 서류 합격 transaction에서 자동 생성
     Requested --> Submitted: 지원자가 availability FormResponse 연결
     Submitted --> Confirmed: 운영진이 시각·장소·연락처 확정
     Confirmed --> [*]
 ```
 
-`contactSnapshot`은 요청·확정 당시 학교 연락처를 보존한다. #1146의 Form 일정 교집합과 FormResponse 소유권 계약, #1147의 Thymeleaf HTML 메일 발송은 아직 연결하지 않았으므로 현재 상태 변경만 수행한다.
+`contactSnapshot`은 요청·확정 당시 학교 연락처를 보존한다. 자동 요청이 실패했거나 요청 메일 상태가 `FAILED`이면 운영진이 기존 REST 요청 API로 멱등 재시도할 수 있다. #1146의 Form 일정 교집합과 FormResponse 소유권 계약, #1147의 확정 메일은 아직 연결하지 않는다.
+
+### 서류 합격과 일정 요청 자동화
+
+```mermaid
+sequenceDiagram
+    participant Operator as 학교 / 중앙 운영진
+    participant Decision as RecruitingDecisionCommandService
+    participant Schedule as AvailabilityRequestCoordinator
+    participant DB as Recruiting DB
+    participant Outbox as Event Outbox
+    participant Relay as Outbox Relay
+    participant Notification as SendEmailUseCase
+
+    Operator->>Decision: 서류 PASS 결정
+    Decision->>DB: application row lock + 실제 소속 권한 검증
+    Decision->>DB: status DOCUMENT_PASSED
+    alt 면접 미진행 Round
+        Decision->>DB: status INTERVIEW_SKIPPED
+    else 면접 진행 Round
+        Decision->>DB: status INTERVIEW_ASSIGNED
+        Decision->>Schedule: 가능 일정 요청 생성
+        Schedule->>DB: schedule AVAILABILITY_REQUESTED + mail PENDING
+        Schedule->>Outbox: InterviewAvailabilityRequestedEvent 기록
+    end
+    Decision-->>Operator: transaction commit
+
+    Outbox->>Relay: commit 이후 이벤트 전달
+    Relay->>Notification: Thymeleaf 요청 메일 발송
+    alt 발송 성공
+        Relay->>DB: request mail SENT + sentAt
+        Relay->>Outbox: PUBLISHED
+    else 발송 실패
+        Relay->>DB: request mail FAILED + attempts + sanitized error
+        Relay->>Outbox: backoff 후 재시도 예약
+    end
+```
+
+Outbox payload에는 `applicationId`만 저장한다. 수신 이메일과 이름은 처리 시 Recruiting Query UseCase로 조회하므로 Outbox에 지원자 개인정보 복제본을 남기지 않는다.
 
 ## 최종 판정과 Challenger 등록
 
@@ -398,14 +436,14 @@ flowchart LR
     Existing["지원 수정·제출·철회"] --> ExistingApplicantLock["gisu + member/email advisory lock"]
     ExistingApplicantLock --> ApplicationLock["application row lock"]
     RoundQuestion["Round 공통 질문 변경"] --> RoundOnlyLock["round row lock"]
-    ApplicationMutation["지원자별 질문·평가 변경"] --> RoundApplicationLock["round row lock"]
+    ApplicationMutation["지원자별 질문 변경·평가 확정"] --> RoundApplicationLock["round row lock"]
     RoundApplicationLock --> ApplicationLock
     FormPolicy["Form 게시·section 정책"] --> FormLock["applicationForm root row lock"]
     Registration["READY 예약"] --> ApplicationLock
     Registration --> QuotaLock["season + acceptedTrack quota row lock"]
 ```
 
-잠금 순서는 같은 경쟁 경로에서 고정한다. 지원자 중복 생성, 평가 제출과 질문 변경, Form 게시와 정책 추가, 마지막 TO 예약이 동시에 실행되어도 하나의 트랜잭션만 불변식을 통과하도록 PostgreSQL 통합 테스트로 검증한다.
+잠금 순서는 같은 경쟁 경로에서 고정한다. 지원자 중복 생성, 평가 확정과 질문 변경, Form 게시와 정책 추가, 마지막 TO 예약이 동시에 실행되어도 하나의 트랜잭션만 불변식을 통과하도록 PostgreSQL 통합 테스트로 검증한다.
 
 ## 현재 보류된 흐름
 
@@ -415,5 +453,6 @@ flowchart LR
 | Form 자체 응답 기간 동기화 | Round의 local 기간만 검증 | Form 기간 공개 UseCase 이후 동기화 |
 | 다른 Form question ID 차단 | Form이 question 소속, required subset, 실제 조건부 방문 경로를 검증 | 구현 완료 |
 | 면접 가능 시간 교집합 | `FindRecruitingScheduleOverlapPort`는 unavailable | #1146 |
-| 요청·확정 HTML 메일 | delivery 상태만 저장 | #1147 |
-| `INTERVIEW_ASSIGNED` API 전이 | domain method만 존재 | 별도 inbound UseCase와 권한 정책 필요 |
+| 면접 요청 HTML 메일 | 서류 합격 시 Outbox 발송·상태·재시도 연결 완료 | #1147의 allowlist/idempotency 강화는 후속 |
+| 면접 확정 HTML 메일 | delivery 상태만 저장 | #1147 |
+| `INTERVIEW_ASSIGNED` 전이 | 서류 PASS UseCase에서 Round 정책에 따라 자동 전환 | 구현 완료 |

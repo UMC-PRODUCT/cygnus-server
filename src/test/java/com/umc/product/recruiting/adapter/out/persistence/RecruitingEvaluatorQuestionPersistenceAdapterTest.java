@@ -194,12 +194,13 @@ class RecruitingEvaluatorQuestionPersistenceAdapterTest {
         RecruitingApplicationInterviewQuestion applicationQuestion = em.persist(
             RecruitingApplicationInterviewQuestion.create(application, "개별 질문", 0)
         );
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
+        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.create(
             application,
             10L,
-            RecruitingEvaluatorStage.INTERVIEW
+            RecruitingEvaluatorStage.INTERVIEW,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "제출 완료"
         );
-        evaluation.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출 완료");
         em.persist(evaluation);
         em.flush();
         em.clear();

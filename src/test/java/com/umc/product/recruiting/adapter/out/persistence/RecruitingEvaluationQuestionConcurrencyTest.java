@@ -25,7 +25,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.SaveRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationInterviewQuestionCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundInterviewQuestionCommand;
@@ -47,7 +46,6 @@ import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingRoundInterviewQuestion;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationDecision;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -109,8 +107,8 @@ class RecruitingEvaluationQuestionConcurrencyTest {
     LoadRecruitingRoundEvaluatorPort loadRoundEvaluatorPort;
 
     @Test
-    @DisplayName("평가 제출이 round lock을 먼저 잡으면 동시 평가 초안 저장은 제출 상태를 덮지 못한다")
-    void submittedEvaluationCannotBeOverwrittenByConcurrentDraft() throws Exception {
+    @DisplayName("평가 확정이 round lock을 먼저 잡으면 동시 중복 평가 확정을 거부한다")
+    void finalizedEvaluationRejectsConcurrentDuplicate() throws Exception {
         Fixture fixture = persistFixture();
         given(getRoundEvaluatorUseCase.canEvaluate(
             fixture.roundId(),
@@ -119,13 +117,13 @@ class RecruitingEvaluationQuestionConcurrencyTest {
 
         RacingResult result = raceAfterSubmitLocksRound(
             fixture,
-            () -> saveEvaluationDraft(fixture.applicationId())
+            () -> submitCompetingEvaluation(fixture.applicationId())
         );
 
         assertThat(result.submitSucceeded()).isTrue();
-        assertThat(result.competingError()).isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);
-        assertThat(evaluationStatus(fixture.applicationId()))
-            .isEqualTo(RecruitingApplicationEvaluationStatus.SUBMITTED);
+        assertThat(result.competingError()).isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_ALREADY_SUBMITTED);
+        assertThat(evaluationDecision(fixture.applicationId()))
+            .isEqualTo(RecruitingApplicationEvaluationDecision.APPROVED);
     }
 
     @Test
@@ -219,13 +217,13 @@ class RecruitingEvaluationQuestionConcurrencyTest {
         ));
     }
 
-    private void saveEvaluationDraft(Long applicationId) {
-        evaluationCommandService.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
+    private void submitCompetingEvaluation(Long applicationId) {
+        evaluationCommandService.submit(SubmitRecruitingApplicationEvaluationCommand.of(
             applicationId,
             EVALUATOR_MEMBER_ID,
             RecruitingEvaluatorStage.INTERVIEW,
             RecruitingApplicationEvaluationDecision.REJECTED,
-            "늦은 초안"
+            "늦은 평가"
         ));
     }
 
@@ -307,7 +305,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
         );
     }
 
-    private RecruitingApplicationEvaluationStatus evaluationStatus(Long applicationId) {
+    private RecruitingApplicationEvaluationDecision evaluationDecision(Long applicationId) {
         TransactionTemplate transaction = new TransactionTemplate(transactionManager);
         return transaction.execute(status -> evaluationAdapter
             .findByApplicationIdAndEvaluatorMemberIdAndStage(
@@ -315,7 +313,7 @@ class RecruitingEvaluationQuestionConcurrencyTest {
                 EVALUATOR_MEMBER_ID,
                 RecruitingEvaluatorStage.INTERVIEW
             )
-            .map(RecruitingApplicationEvaluation::getStatus)
+            .map(RecruitingApplicationEvaluation::getDecision)
             .orElseThrow());
     }
 

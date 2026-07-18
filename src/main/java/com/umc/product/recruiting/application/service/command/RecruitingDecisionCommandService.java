@@ -30,12 +30,15 @@ public class RecruitingDecisionCommandService implements
     private final SaveRecruitingApplicationPort saveApplicationPort;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final RecruitingConcurrencyLockService concurrencyLockService;
+    private final RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
 
     @Override
     public void decideDocument(DecideRecruitingDocumentCommand command) {
         RecruitingApplication application = concurrencyLockService.lockApplication(command.applicationId());
+        validateDecisionPermission(command.decidedByMemberId(), application);
         if (command.decision() == RecruitingDecisionStatus.PASS) {
             application.passDocument(command.decidedByMemberId(), command.reason());
+            prepareInterview(application, command.decidedByMemberId());
         } else if (command.decision() == RecruitingDecisionStatus.FAIL) {
             application.failDocument(command.decidedByMemberId(), command.reason());
         } else {
@@ -50,7 +53,7 @@ public class RecruitingDecisionCommandService implements
             command.applicationId(),
             List.of()
         );
-        validateFinalDecisionPermission(command.decidedByMemberId(), application);
+        validateDecisionPermission(command.decidedByMemberId(), application);
         if (command.decision() == RecruitingDecisionStatus.PASS) {
             validateNoFinalPassDuplicate(application);
             application.passFinal(command.decidedByMemberId(), command.reason(), command.acceptedTrack());
@@ -74,7 +77,16 @@ public class RecruitingDecisionCommandService implements
         }
     }
 
-    private void validateFinalDecisionPermission(Long memberId, RecruitingApplication application) {
+    private void prepareInterview(RecruitingApplication application, Long decidedByMemberId) {
+        if (!application.getRound().isInterviewRequired()) {
+            application.skipInterview(decidedByMemberId, "면접 미진행 차수");
+            return;
+        }
+        application.assignInterview(decidedByMemberId, "서류 합격에 따른 면접 자동 배정");
+        availabilityRequestCoordinator.request(application, application.getRound().getContactText());
+    }
+
+    private void validateDecisionPermission(Long memberId, RecruitingApplication application) {
         Long gisuId = application.getRound().getSeason().getGisuId();
         Long schoolId = application.getRound().getSeason().getSchoolId();
         if (getChallengerRoleUseCase.isCentralCoreInGisu(memberId, gisuId)) {

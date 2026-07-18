@@ -52,18 +52,21 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             "evaluation:schedule",
             RecruitingApplicationStatus.DOCUMENT_PASSED
         );
-        RecruitingApplicationEvaluation document = RecruitingApplicationEvaluation.createDraft(
+        RecruitingApplicationEvaluation document = RecruitingApplicationEvaluation.create(
             graph.application(),
             901L,
-            RecruitingEvaluatorStage.DOCUMENT
+            RecruitingEvaluatorStage.DOCUMENT,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "서류 통과"
         );
         evaluationAdapter.saveEvaluation(document);
-        RecruitingApplicationEvaluation interview = RecruitingApplicationEvaluation.createDraft(
+        RecruitingApplicationEvaluation interview = RecruitingApplicationEvaluation.create(
             graph.application(),
             901L,
-            RecruitingEvaluatorStage.INTERVIEW
+            RecruitingEvaluatorStage.INTERVIEW,
+            RecruitingApplicationEvaluationDecision.REJECTED,
+            "추가 논의"
         );
-        interview.submit(RecruitingApplicationEvaluationDecision.REJECTED, "추가 논의");
         evaluationAdapter.saveEvaluation(interview);
         RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
             graph.application(),
@@ -106,26 +109,30 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             "evaluation:unique",
             RecruitingApplicationStatus.SUBMITTED
         );
-        evaluationAdapter.saveEvaluation(RecruitingApplicationEvaluation.createDraft(
+        evaluationAdapter.saveEvaluation(RecruitingApplicationEvaluation.create(
             graph.application(),
             901L,
-            RecruitingEvaluatorStage.DOCUMENT
+            RecruitingEvaluatorStage.DOCUMENT,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            null
         ));
         em.flush();
 
         assertThatThrownBy(() -> {
-            evaluationAdapter.saveEvaluation(RecruitingApplicationEvaluation.createDraft(
+            evaluationAdapter.saveEvaluation(RecruitingApplicationEvaluation.create(
                 graph.application(),
                 901L,
-                RecruitingEvaluatorStage.DOCUMENT
+                RecruitingEvaluatorStage.DOCUMENT,
+                RecruitingApplicationEvaluationDecision.REJECTED,
+                null
             ));
             em.flush();
         }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test
-    @DisplayName("서류 평가 제출만으로는 Task6 면접 질문을 동결하지 않는다")
-    void 서류_평가_제출만으로는_Task6_면접_질문을_동결하지_않는다() {
+    @DisplayName("서류 평가 확정만으로는 면접 질문을 동결하지 않는다")
+    void 서류_평가_확정만으로는_면접_질문을_동결하지_않는다() {
         RecruitingGraph graph = persistApplicationGraph(
             8L,
             80L,
@@ -133,12 +140,13 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             "evaluation:document-only",
             RecruitingApplicationStatus.SUBMITTED
         );
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
+        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.create(
             graph.application(),
             901L,
-            RecruitingEvaluatorStage.DOCUMENT
+            RecruitingEvaluatorStage.DOCUMENT,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "서류 평가"
         );
-        evaluation.submit(RecruitingApplicationEvaluationDecision.APPROVED, "서류 평가");
         evaluationAdapter.saveEvaluation(evaluation);
         em.flush();
         em.clear();
@@ -148,8 +156,8 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
     }
 
     @Test
-    @DisplayName("제출 상태에서 decision이 없는 평가는 데이터베이스가 거부한다")
-    void 제출_상태에서_decision이_없는_평가는_데이터베이스가_거부한다() {
+    @DisplayName("decision이 없는 평가는 데이터베이스가 거부한다")
+    void decision이_없는_평가는_데이터베이스가_거부한다() {
         RecruitingGraph graph = persistApplicationGraph(
             5L,
             50L,
@@ -162,10 +170,10 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
         assertThatThrownBy(() -> em.getEntityManager().createNativeQuery("""
             INSERT INTO recruiting_application_evaluation (
                 created_at, updated_at, recruiting_application_id, evaluator_member_id,
-                stage, status, decision, submitted_at
+                stage, decision, submitted_at
             ) VALUES (
                 CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :applicationId, 901,
-                'DOCUMENT', 'SUBMITTED', NULL, CURRENT_TIMESTAMP
+                'DOCUMENT', NULL, CURRENT_TIMESTAMP
             )
             """)
             .setParameter("applicationId", graph.application().getId())

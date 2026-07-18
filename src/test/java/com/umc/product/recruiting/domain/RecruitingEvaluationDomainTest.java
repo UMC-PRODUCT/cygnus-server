@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationDecision;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -20,39 +19,23 @@ import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 class RecruitingEvaluationDomainTest {
 
     @Test
-    @DisplayName("평가 초안은 결정 없이 저장할 수 있다")
-    void 평가_초안은_결정_없이_저장할_수_있다() {
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
+    @DisplayName("평가 확정에는 결정이 필요하다")
+    void 평가_확정에는_결정이_필요하다() {
+        assertThatThrownBy(() -> RecruitingApplicationEvaluation.create(
             application(),
             20L,
-            RecruitingEvaluatorStage.DOCUMENT
-        );
-
-        evaluation.updateDraft(null, "검토 중");
-
-        assertThat(evaluation.getStatus()).isEqualTo(RecruitingApplicationEvaluationStatus.DRAFT);
-        assertThat(evaluation.getDecision()).isNull();
-        assertThat(evaluation.getComment()).isEqualTo("검토 중");
-    }
-
-    @Test
-    @DisplayName("평가 제출에는 합격 결정이 필요하다")
-    void 평가_제출에는_합격_결정이_필요하다() {
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
-            application(),
-            20L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
-
-        assertThatThrownBy(() -> evaluation.submit(null, "결정 없음"))
+            RecruitingEvaluatorStage.INTERVIEW,
+            null,
+            "결정 없음"
+        ))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_DECISION_REQUIRED);
     }
 
     @Test
-    @DisplayName("평가는 APPROVED 또는 REJECTED 결정을 제출할 수 있다")
-    void 평가는_APPROVED_또는_REJECTED_결정을_제출할_수_있다() {
+    @DisplayName("평가는 APPROVED 또는 REJECTED 결정으로 즉시 확정된다")
+    void 평가는_APPROVED_또는_REJECTED_결정으로_즉시_확정된다() {
         assertThat(RecruitingApplicationEvaluationDecision.values())
             .containsExactly(
                 RecruitingApplicationEvaluationDecision.APPROVED,
@@ -60,46 +43,30 @@ class RecruitingEvaluationDomainTest {
             );
 
         for (RecruitingApplicationEvaluationDecision decision : RecruitingApplicationEvaluationDecision.values()) {
-            RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
+            RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.create(
                 application(),
                 20L,
-                RecruitingEvaluatorStage.INTERVIEW
+                RecruitingEvaluatorStage.INTERVIEW,
+                decision,
+                "확정 의견"
             );
 
-            evaluation.submit(decision, "제출 완료");
-
-            assertThat(evaluation.getStatus()).isEqualTo(RecruitingApplicationEvaluationStatus.SUBMITTED);
             assertThat(evaluation.getDecision()).isEqualTo(decision);
+            assertThat(evaluation.getComment()).isEqualTo("확정 의견");
             assertThat(evaluation.getSubmittedAt()).isNotNull();
         }
     }
 
     @Test
-    @DisplayName("제출한 평가는 수정할 수 없다")
-    void 제출한_평가는_수정할_수_없다() {
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
-            application(),
-            20L,
-            RecruitingEvaluatorStage.DOCUMENT
-        );
-        evaluation.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출 완료");
-
-        assertThatThrownBy(() -> evaluation.updateDraft(RecruitingApplicationEvaluationDecision.REJECTED, "변경"))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);
-    }
-
-    @Test
     @DisplayName("평가 의견은 2000자를 초과할 수 없다")
     void 평가_의견은_2000자를_초과할_수_없다() {
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
+        assertThatThrownBy(() -> RecruitingApplicationEvaluation.create(
             application(),
             20L,
-            RecruitingEvaluatorStage.DOCUMENT
-        );
-
-        assertThatThrownBy(() -> evaluation.updateDraft(null, "a".repeat(2001)))
+            RecruitingEvaluatorStage.DOCUMENT,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "a".repeat(2001)
+        ))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_COMMENT_TOO_LONG);
@@ -108,13 +75,13 @@ class RecruitingEvaluationDomainTest {
     @Test
     @DisplayName("평가 의견은 2000자까지 저장할 수 있다")
     void 평가_의견은_2000자까지_저장할_수_있다() {
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.createDraft(
+        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.create(
             application(),
             20L,
-            RecruitingEvaluatorStage.DOCUMENT
+            RecruitingEvaluatorStage.DOCUMENT,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "a".repeat(2000)
         );
-
-        evaluation.updateDraft(null, "a".repeat(2000));
 
         assertThat(evaluation.getComment()).hasSize(2000);
     }

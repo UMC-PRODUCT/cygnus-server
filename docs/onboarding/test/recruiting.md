@@ -40,7 +40,7 @@ DB 검증은 H2/in-memory 대체가 아니라 Testcontainers PostgreSQL을 사�
 |---|---|
 | `RecruitingSeasonRoundMigrationTest` | 시즌 quota와 Round 설정 migration, constraint |
 | `RecruitingRoundScheduleMigrationTest` | 서류·면접·결과 시각의 DB invariant |
-| `RecruitingFormApplicationMigrationTest` | 기존 form/application 제거와 현재 schema, unique/check constraint |
+| `RecruitingFormApplicationMigrationTest` | 빈 DB에서 최종 Recruiting schema 생성, unique/check constraint |
 | `RecruitingEvaluationScheduleMigrationTest` | legacy score/assignment 제거, 평가·일정 schema |
 | `RecruitingApplicationDatabaseInvariantTest` | 지원서 email/member/track/application key invariant |
 | `RecruitingRegistrationDatabaseInvariantTest` | `FINAL_PASSED`와 registration status/accepted track 정합성 |

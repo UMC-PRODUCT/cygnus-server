@@ -36,6 +36,7 @@ import com.umc.product.recruiting.application.service.command.RecruitingApplicat
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationValidationService;
 import com.umc.product.recruiting.application.service.command.RecruitingConcurrencyLockService;
 import com.umc.product.recruiting.application.service.command.RecruitingDecisionCommandService;
+import com.umc.product.recruiting.application.service.command.RecruitingInterviewAvailabilityRequestCoordinator;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
@@ -97,6 +98,8 @@ class RecruitingApplicantConcurrencyTest {
     RecruitingApplicationKeyIssuer applicationKeyIssuer;
     @MockitoBean
     GetChallengerRoleUseCase getChallengerRoleUseCase;
+    @MockitoBean
+    RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
     @MockitoBean
     GetTermUseCase getTermUseCase;
     @MockitoBean

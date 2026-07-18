@@ -1,7 +1,7 @@
 package com.umc.product.recruiting.application.service.command;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -19,7 +19,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
-import com.umc.product.recruiting.application.port.in.command.dto.SaveRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingApplicationEvaluationCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationEvaluationPort;
@@ -33,7 +32,6 @@ import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationDecision;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -70,8 +68,8 @@ class RecruitingApplicationEvaluationCommandServiceTest {
     }
 
     @Test
-    @DisplayName("평가자 whitelist에 등록된 회원은 평가 초안을 저장한다")
-    void 평가자_whitelist에_등록된_회원은_평가_초안을_저장한다() {
+    @DisplayName("평가자 whitelist에 등록된 회원은 평가를 즉시 확정한다")
+    void 평가자_whitelist에_등록된_회원은_평가를_즉시_확정한다() {
         moveApplicationTo(RecruitingEvaluatorStage.DOCUMENT);
         given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
@@ -80,22 +78,16 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             20L,
             RecruitingEvaluatorStage.DOCUMENT
         )).willReturn(Optional.empty());
-        given(saveEvaluationPort.saveEvaluation(org.mockito.ArgumentMatchers.any()))
-            .willAnswer(invocation -> {
-                RecruitingApplicationEvaluation evaluation = invocation.getArgument(0);
-                ReflectionTestUtils.setField(evaluation, "id", 1000L);
-                return evaluation;
-            });
 
-        Long evaluationId = sut.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
+        sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.DOCUMENT,
-            null,
-            "검토 중"
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "확정 의견"
         ));
 
-        assertThat(evaluationId).isEqualTo(1000L);
+        verify(saveEvaluationPort).saveEvaluation(any(RecruitingApplicationEvaluation.class));
     }
 
     @Test
@@ -104,7 +96,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
         given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(false);
 
-        assertThatThrownBy(() -> sut.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
+        assertThatThrownBy(() -> sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.DOCUMENT,
@@ -114,19 +106,20 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_ACCESS_DENIED);
-        verify(saveEvaluationPort, never()).saveEvaluation(org.mockito.ArgumentMatchers.any());
+        verify(saveEvaluationPort, never()).saveEvaluation(any());
     }
 
     @Test
-    @DisplayName("제출한 평가는 command service에서도 다시 저장할 수 없다")
-    void 제출한_평가는_command_service에서도_다시_저장할_수_없다() {
+    @DisplayName("이미 확정한 평가는 다시 등록할 수 없다")
+    void 이미_확정한_평가는_다시_등록할_수_없다() {
         moveApplicationTo(RecruitingEvaluatorStage.INTERVIEW);
-        RecruitingApplicationEvaluation submitted = RecruitingApplicationEvaluation.createDraft(
+        RecruitingApplicationEvaluation submitted = RecruitingApplicationEvaluation.create(
             application,
             20L,
-            RecruitingEvaluatorStage.INTERVIEW
+            RecruitingEvaluatorStage.INTERVIEW,
+            RecruitingApplicationEvaluationDecision.APPROVED,
+            "확정"
         );
-        submitted.submit(RecruitingApplicationEvaluationDecision.APPROVED, "제출");
         given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
         given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
@@ -135,7 +128,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             RecruitingEvaluatorStage.INTERVIEW
         )).willReturn(Optional.of(submitted));
 
-        assertThatThrownBy(() -> sut.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
+        assertThatThrownBy(() -> sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW,
@@ -144,47 +137,18 @@ class RecruitingApplicationEvaluationCommandServiceTest {
         )))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID_TRANSITION);
+            .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_ALREADY_SUBMITTED);
         verify(saveEvaluationPort, never()).saveEvaluation(submitted);
     }
 
     @Test
-    @DisplayName("평가자는 결정이 있는 초안을 제출한다")
-    void 평가자는_결정이_있는_초안을_제출한다() {
-        moveApplicationTo(RecruitingEvaluatorStage.INTERVIEW);
-        RecruitingApplicationEvaluation draft = RecruitingApplicationEvaluation.createDraft(
-            application,
-            20L,
-            RecruitingEvaluatorStage.INTERVIEW
-        );
-        given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
-            .willReturn(true);
-        given(loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
-            900L,
-            20L,
-            RecruitingEvaluatorStage.INTERVIEW
-        )).willReturn(Optional.of(draft));
-
-        sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
-            900L,
-            20L,
-            RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationDecision.APPROVED,
-            "추가 논의"
-        ));
-
-        assertThat(draft.getStatus()).isEqualTo(RecruitingApplicationEvaluationStatus.SUBMITTED);
-        verify(saveEvaluationPort).saveEvaluation(draft);
-    }
-
-    @Test
-    @DisplayName("INTERVIEW 배정 전에는 면접 평가를 저장할 수 없다")
-    void 면접_배정_전에는_면접_평가를_저장할_수_없다() {
+    @DisplayName("INTERVIEW 배정 전에는 면접 평가를 확정할 수 없다")
+    void 면접_배정_전에는_면접_평가를_확정할_수_없다() {
         application.submit(1L);
         given(getRoundEvaluatorUseCase.canEvaluate(800L, 20L))
             .willReturn(true);
 
-        assertThatThrownBy(() -> sut.saveDraft(SaveRecruitingApplicationEvaluationCommand.of(
+        assertThatThrownBy(() -> sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW,
@@ -194,7 +158,7 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_INVALID);
-        verify(saveEvaluationPort, never()).saveEvaluation(org.mockito.ArgumentMatchers.any());
+        verify(saveEvaluationPort, never()).saveEvaluation(any());
     }
 
     private void moveApplicationTo(RecruitingEvaluatorStage stage) {

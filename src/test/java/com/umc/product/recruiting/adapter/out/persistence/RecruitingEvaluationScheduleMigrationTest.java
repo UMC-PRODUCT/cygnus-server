@@ -25,8 +25,8 @@ import jakarta.persistence.PersistenceException;
 class RecruitingEvaluationScheduleMigrationTest extends RecruitingPersistenceAdapterTestSupport {
 
     @Test
-    @DisplayName("legacy 평가 배정 테이블을 제거하고 신규 평가 일정 테이블을 생성한다")
-    void legacy_평가_배정_테이블을_제거하고_신규_평가_일정_테이블을_생성한다() {
+    @DisplayName("최종 평가와 면접 일정 테이블만 생성한다")
+    void 최종_평가와_면접_일정_테이블만_생성한다() {
         @SuppressWarnings("unchecked")
         List<String> tableNames = em.getEntityManager().createNativeQuery("""
             SELECT table_name

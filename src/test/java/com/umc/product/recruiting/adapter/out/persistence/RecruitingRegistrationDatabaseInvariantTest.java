@@ -2,27 +2,21 @@ package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import java.nio.charset.StandardCharsets;
 import java.sql.Connection;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.core.io.ClassPathResource;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @DisplayName("Recruiting registration database invariants")
 class RecruitingRegistrationDatabaseInvariantTest extends RecruitingFormApplicationMigrationTestSupport {
 
-    private static final String TASK_9_MIGRATION_PATH =
-        "db/migration/V2026.07.13.18.00__enforce_recruiting_registration_lifecycle.sql";
-
     @Test
     @DisplayName("FINAL_PASSED는 acceptedTrack이 필수이고 READY는 최종 합격에만 허용한다")
     void enforceAcceptedTrackAndRegistrationLifecycle() throws Exception {
-        clearLegacyRecruitingData();
         executeMigration();
-        executeTask9Migration();
+        insertRoundFixtures();
 
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             statement.executeUpdate("""
@@ -50,10 +44,4 @@ class RecruitingRegistrationDatabaseInvariantTest extends RecruitingFormApplicat
         }
     }
 
-    private void executeTask9Migration() throws Exception {
-        String sql = new ClassPathResource(TASK_9_MIGRATION_PATH).getContentAsString(StandardCharsets.UTF_8);
-        try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
-            statement.execute(sql);
-        }
-    }
 }

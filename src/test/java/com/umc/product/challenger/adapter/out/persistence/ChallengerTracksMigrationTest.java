@@ -21,13 +21,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class ChallengerTracksMigrationTest {
 
     private static final String MIGRATION_PATH =
-        "db/migration/V2026.07.12.00.01__change_challenger_track_to_tracks.sql";
+        "db/migration/V2026.07.12.00.01__add_challenger_tracks.sql";
 
     @Container
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:18-alpine");
 
     @BeforeEach
-    void setUpLegacySchema() throws Exception {
+    void setUpChallengerSchema() throws Exception {
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             statement.execute("DROP TABLE IF EXISTS public.challenger");
             statement.execute("""
@@ -35,34 +35,23 @@ class ChallengerTracksMigrationTest {
                     id BIGSERIAL PRIMARY KEY,
                     member_id BIGINT NOT NULL,
                     gisu_id BIGINT NOT NULL,
-                    part VARCHAR(255),
+                    part VARCHAR(255) NOT NULL,
                     status VARCHAR(255) NOT NULL,
-                    track VARCHAR(255),
-                    CONSTRAINT challenger_track_check CHECK (
-                        track IS NULL OR track IN (
-                            'PLAN',
-                            'DESIGN',
-                            'WEB_PRODUCT_ENGINEER',
-                            'MOBILE_PRODUCT_ENGINEER',
-                            'INFRA_PLUS'
-                        )
-                    ),
                     CONSTRAINT uk_challenger_member_id_gisu_id UNIQUE (member_id, gisu_id)
                 )
                 """);
             statement.executeUpdate("""
-                INSERT INTO public.challenger (member_id, gisu_id, part, status, track)
+                INSERT INTO public.challenger (member_id, gisu_id, part, status)
                 VALUES
-                    (1, 9, NULL, 'ACTIVE', 'WEB_PRODUCT_ENGINEER'),
-                    (2, 9, 'SPRINGBOOT', 'ACTIVE', NULL),
-                    (3, 9, 'ADMIN', 'ACTIVE', NULL)
+                    (1, 9, 'SPRINGBOOT', 'ACTIVE'),
+                    (2, 9, 'ADMIN', 'ACTIVE')
                 """);
         }
     }
 
     @Test
-    @DisplayName("단일 track을 배열로 승격하고 part와 member-gisu 유일성을 보존한다")
-    void 단일_track을_배열로_승격하고_part와_member_gisu_유일성을_보존한다() throws Exception {
+    @DisplayName("tracks를 빈 배열로 추가하고 기존 part와 member-gisu 유일성을 보존한다")
+    void tracks를_빈_배열로_추가하고_기존_part와_member_gisu_유일성을_보존한다() throws Exception {
         executeMigration();
 
         try (Connection connection = POSTGRES.createConnection("")) {
@@ -89,11 +78,6 @@ class ChallengerTracksMigrationTest {
         ) {
             assertThat(rows.next()).isTrue();
             assertThat(rows.getLong("member_id")).isEqualTo(1L);
-            assertThat(rows.getString("part")).isNull();
-            assertThat((String[]) rows.getArray("tracks").getArray())
-                .containsExactly("WEB_PRODUCT_ENGINEER");
-
-            assertThat(rows.next()).isTrue();
             assertThat(rows.getString("part")).isEqualTo("SPRINGBOOT");
             assertThat((String[]) rows.getArray("tracks").getArray()).isEmpty();
 
@@ -128,9 +112,20 @@ class ChallengerTracksMigrationTest {
                 assertThat(legacyColumn.getInt(1)).isZero();
             }
 
+            try (ResultSet partColumn = statement.executeQuery("""
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'challenger'
+                  AND column_name = 'part'
+                """)) {
+                assertThat(partColumn.next()).isTrue();
+                assertThat(partColumn.getString("is_nullable")).isEqualTo("YES");
+            }
+
             assertThatThrownBy(() -> statement.executeUpdate("""
                 INSERT INTO public.challenger (member_id, gisu_id, part, status, tracks)
-                VALUES (1, 9, NULL, 'ACTIVE', ARRAY['PLAN']::TEXT[])
+                VALUES (1, 9, 'PLAN', 'ACTIVE', ARRAY['PLAN']::TEXT[])
                 """))
                 .isInstanceOf(SQLException.class);
 
@@ -143,7 +138,7 @@ class ChallengerTracksMigrationTest {
 
             assertThat(statement.executeUpdate("""
                 INSERT INTO public.challenger (member_id, gisu_id, part, status, tracks)
-                VALUES (4, 9, 'SPRINGBOOT', 'ACTIVE', ARRAY[]::TEXT[])
+                VALUES (4, 9, NULL, 'ACTIVE', ARRAY[]::TEXT[])
                 """))
                 .isEqualTo(1);
 

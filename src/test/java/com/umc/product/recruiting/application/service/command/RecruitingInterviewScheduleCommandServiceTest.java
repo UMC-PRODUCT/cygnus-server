@@ -7,13 +7,11 @@ import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -23,7 +21,6 @@ import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitin
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
@@ -42,9 +39,6 @@ import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 class RecruitingInterviewScheduleCommandServiceTest {
 
     @Mock
-    LoadRecruitingApplicationPort loadApplicationPort;
-
-    @Mock
     LoadRecruitingInterviewSchedulePort loadSchedulePort;
 
     @Mock
@@ -53,6 +47,12 @@ class RecruitingInterviewScheduleCommandServiceTest {
     @Mock
     AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
 
+    @Mock
+    RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
+
+    @Mock
+    RecruitingConcurrencyLockService concurrencyLockService;
+
     RecruitingInterviewScheduleCommandService sut;
 
     RecruitingApplication application;
@@ -60,51 +60,30 @@ class RecruitingInterviewScheduleCommandServiceTest {
     @BeforeEach
     void setUp() {
         sut = new RecruitingInterviewScheduleCommandService(
-            loadApplicationPort,
             loadSchedulePort,
             saveSchedulePort,
-            authorizeManagementUseCase
+            authorizeManagementUseCase,
+            availabilityRequestCoordinator,
+            concurrencyLockService
         );
         application = application();
     }
 
     @Test
-    @DisplayName("지원서별 면접 가능 시간 요청 일정을 생성한다")
-    void 지원서별_면접_가능_시간_요청_일정을_생성한다() {
-        given(loadApplicationPort.getById(900L)).willReturn(application);
-        given(loadSchedulePort.findByApplicationId(900L)).willReturn(Optional.empty());
-        given(saveSchedulePort.saveSchedule(org.mockito.ArgumentMatchers.any()))
-            .willAnswer(invocation -> {
-                RecruitingInterviewSchedule schedule = invocation.getArgument(0);
-                ReflectionTestUtils.setField(schedule, "id", 1000L);
-                return schedule;
-            });
+    @DisplayName("수동 면접 가능 시간 요청은 멱등 coordinator에 위임한다")
+    void 수동_면접_가능_시간_요청은_멱등_coordinator에_위임한다() {
+        given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        RecruitingInterviewSchedule schedule = schedule();
+        ReflectionTestUtils.setField(schedule, "id", 1000L);
+        given(availabilityRequestCoordinator.request(application, "카카오톡 @umc")).willReturn(schedule);
 
         Long scheduleId = sut.requestAvailability(
             RequestRecruitingInterviewScheduleCommand.of(900L, 99L, "카카오톡 @umc")
         );
 
         assertThat(scheduleId).isEqualTo(1000L);
-        ArgumentCaptor<RecruitingInterviewSchedule> captor =
-            ArgumentCaptor.forClass(RecruitingInterviewSchedule.class);
-        verify(saveSchedulePort).saveSchedule(captor.capture());
-        assertThat(captor.getValue().getContactSnapshot()).isEqualTo("카카오톡 @umc");
+        verify(availabilityRequestCoordinator).request(application, "카카오톡 @umc");
         verify(authorizeManagementUseCase).authorizeSeasonManagement(99L, 700L);
-    }
-
-    @Test
-    @DisplayName("지원서에 면접 일정이 이미 있으면 다시 요청할 수 없다")
-    void 지원서에_면접_일정이_이미_있으면_다시_요청할_수_없다() {
-        RecruitingInterviewSchedule schedule = schedule();
-        given(loadApplicationPort.getById(900L)).willReturn(application);
-        given(loadSchedulePort.findByApplicationId(900L)).willReturn(Optional.of(schedule));
-
-        assertThatThrownBy(() -> sut.requestAvailability(
-            RequestRecruitingInterviewScheduleCommand.of(900L, 99L, "카카오톡 @umc")
-        ))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ALREADY_EXISTS);
     }
 
     @Test

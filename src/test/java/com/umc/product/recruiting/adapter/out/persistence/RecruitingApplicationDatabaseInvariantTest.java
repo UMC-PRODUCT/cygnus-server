@@ -10,14 +10,14 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
-@DisplayName("Recruiting Application v2 database invariants")
+@DisplayName("Recruiting Application database invariants")
 class RecruitingApplicationDatabaseInvariantTest extends RecruitingFormApplicationMigrationTestSupport {
 
     @Test
     @DisplayName("다른 도메인 데이터는 보존하고 지원서 세 unique constraint를 강제한다")
     void preserveOtherDomainAndEnforceUniqueConstraints() throws Exception {
-        clearLegacyRecruitingData();
         executeMigration();
+        insertRoundFixtures();
 
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             assertThat(statement.executeQuery("SELECT id FROM unrelated_domain_sentinel").next()).isTrue();
@@ -45,8 +45,8 @@ class RecruitingApplicationDatabaseInvariantTest extends RecruitingFormApplicati
     @Test
     @DisplayName("지원서 key email name privacy choice accepted track CHECK를 강제한다")
     void enforceApplicationCheckConstraints() throws Exception {
-        clearLegacyRecruitingData();
         executeMigration();
+        insertRoundFixtures();
 
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             insertApplicationForms(statement);
@@ -93,8 +93,8 @@ class RecruitingApplicationDatabaseInvariantTest extends RecruitingFormApplicati
     @Test
     @DisplayName("익명 지원서는 회원 ID 없이 개인정보 증적과 Form access key를 모두 가져야 한다")
     void enforceAnonymousIdentityModeConstraint() throws Exception {
-        clearLegacyRecruitingData();
         executeMigration();
+        insertRoundFixtures();
 
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             insertApplicationForms(statement);

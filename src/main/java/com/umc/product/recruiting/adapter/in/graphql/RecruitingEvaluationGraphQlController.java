@@ -12,8 +12,6 @@ import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationEvaluationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationEvaluationGraphQlResponse;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
-import com.umc.product.recruiting.application.port.in.command.SaveRecruitingApplicationEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationEvaluationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationEvaluationUseCase;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
@@ -25,7 +23,6 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingEvaluationGraphQlController {
 
     private final GetRecruitingApplicationEvaluationUseCase getApplicationEvaluationUseCase;
-    private final SaveRecruitingApplicationEvaluationUseCase saveApplicationEvaluationUseCase;
     private final SubmitRecruitingApplicationEvaluationUseCase submitApplicationEvaluationUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
@@ -40,18 +37,6 @@ public class RecruitingEvaluationGraphQlController {
             .stream()
             .map(RecruitingApplicationEvaluationGraphQlResponse::from)
             .toList();
-    }
-
-    @MutationMapping
-    public RecruitingIdGraphQlResponse saveRecruitingApplicationEvaluation(
-        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long applicationId,
-        @Argument RecruitingApplicationEvaluationGraphQlRequest input
-    ) {
-        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        return RecruitingIdGraphQlResponse.from(
-            saveApplicationEvaluationUseCase.saveDraft(input.toSaveCommand(applicationId, requesterMemberId))
-        );
     }
 
     @MutationMapping

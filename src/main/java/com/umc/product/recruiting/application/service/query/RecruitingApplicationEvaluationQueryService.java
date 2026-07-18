@@ -44,9 +44,7 @@ public class RecruitingApplicationEvaluationQueryService implements GetRecruitin
         requireEvaluator(application, requesterMemberId, stage);
         return loadEvaluationPort
             .findByApplicationIdAndEvaluatorMemberIdAndStage(applicationId, requesterMemberId, stage)
-            .map(own -> own.isSubmitted()
-                ? listAll(applicationId, stage)
-                : List.of(RecruitingApplicationEvaluationInfo.from(own)))
+            .map(own -> listAll(applicationId, stage))
             .orElse(List.of());
     }
 

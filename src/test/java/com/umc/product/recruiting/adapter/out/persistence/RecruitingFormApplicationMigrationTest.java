@@ -13,13 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
-@DisplayName("Recruiting Form Application v2 schema migration")
+@DisplayName("Recruiting 최종 schema migration")
 class RecruitingFormApplicationMigrationTest extends RecruitingFormApplicationMigrationTestSupport {
 
     @Test
-    @DisplayName("legacy Recruiting 소스가 비어 있으면 v2 지원서 컬럼을 구성한다")
-    void migrateLegacyRecruitingTables() throws Exception {
-        clearLegacyRecruitingData();
+    @DisplayName("빈 schema에 최종 지원서 컬럼을 구성한다")
+    void createFinalRecruitingTables() throws Exception {
         executeMigration();
 
         try (Connection connection = POSTGRES.createConnection("");
@@ -51,8 +50,8 @@ class RecruitingFormApplicationMigrationTest extends RecruitingFormApplicationMi
     @Test
     @DisplayName("Form은 Round당 하나이고 section policy type과 track 조합을 강제한다")
     void enforceFormAndSectionPolicyConstraints() throws Exception {
-        clearLegacyRecruitingData();
         executeMigration();
+        insertRoundFixtures();
 
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             statement.executeUpdate("""
@@ -79,11 +78,4 @@ class RecruitingFormApplicationMigrationTest extends RecruitingFormApplicationMi
         }
     }
 
-    @Test
-    @DisplayName("legacy Recruiting 소스가 비어 있지 않으면 데이터 삭제 전에 중단한다")
-    void abortWhenLegacyRecruitingDataExists() {
-        assertThatThrownBy(this::executeMigration)
-            .hasMessageContaining("V2026.07.12.17.00 aborted")
-            .hasMessageContaining("must be empty");
-    }
 }

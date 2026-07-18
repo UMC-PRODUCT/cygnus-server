@@ -5,12 +5,12 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
 import com.umc.product.recruiting.application.port.in.command.FindRecruitingInterviewScheduleCandidatesUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.FindRecruitingInterviewScheduleCandidatesCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.out.FindRecruitingScheduleOverlapPort;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
 import com.umc.product.recruiting.domain.RecruitingApplication;
@@ -24,13 +24,18 @@ public class RecruitingInterviewCommandService implements
     SkipRecruitingInterviewUseCase,
     FindRecruitingInterviewScheduleCandidatesUseCase {
 
-    private final LoadRecruitingApplicationPort loadApplicationPort;
     private final SaveRecruitingApplicationPort saveApplicationPort;
     private final FindRecruitingScheduleOverlapPort findScheduleOverlapPort;
+    private final AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
+    private final RecruitingConcurrencyLockService concurrencyLockService;
 
     @Override
     public void skip(SkipRecruitingInterviewCommand command) {
-        RecruitingApplication application = loadApplicationPort.getByIdWithDetails(command.applicationId());
+        RecruitingApplication application = concurrencyLockService.lockApplication(command.applicationId());
+        authorizeManagementUseCase.authorizeSeasonManagement(
+            command.skippedByMemberId(),
+            application.getRound().getSeason().getId()
+        );
         application.skipInterview(command.skippedByMemberId(), command.reason());
         saveApplicationPort.save(application);
     }

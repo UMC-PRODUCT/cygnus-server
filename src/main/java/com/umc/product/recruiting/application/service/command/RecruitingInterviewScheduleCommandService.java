@@ -8,7 +8,6 @@ import com.umc.product.recruiting.application.port.in.command.ManageRecruitingIn
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
@@ -24,29 +23,21 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RecruitingInterviewScheduleCommandService implements ManageRecruitingInterviewScheduleUseCase {
 
-    private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingInterviewSchedulePort loadSchedulePort;
     private final SaveRecruitingInterviewSchedulePort saveSchedulePort;
     private final AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
+    private final RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
+    private final RecruitingConcurrencyLockService concurrencyLockService;
 
     @Override
     public Long requestAvailability(RequestRecruitingInterviewScheduleCommand command) {
-        RecruitingApplication application = loadApplicationPort.getById(command.applicationId());
+        RecruitingApplication application = concurrencyLockService.lockApplication(command.applicationId());
         authorizeManagementUseCase.authorizeSeasonManagement(
             command.requesterMemberId(),
             application.getRound().getSeason().getId()
         );
         validateInterviewAssigned(application);
-        if (loadSchedulePort.findByApplicationId(command.applicationId()).isPresent()) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ALREADY_EXISTS);
-        }
-        RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
-            application,
-            command.contactSnapshot()
-        );
-        Long scheduleId = saveSchedulePort.saveSchedule(schedule).getId();
-        // TODO(#1147): HTML 메일 계약이 제공되면 요청 메일을 발송하고 delivery 상태를 기록한다.
-        return scheduleId;
+        return availabilityRequestCoordinator.request(application, command.contactSnapshot()).getId();
     }
 
     @Override

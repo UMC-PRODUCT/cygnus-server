@@ -3,7 +3,6 @@ package com.umc.product.recruiting.adapter.out.persistence;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSubmittedInterviewEvaluationPort;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
 
 import lombok.RequiredArgsConstructor;
@@ -17,19 +16,17 @@ public class RecruitingSubmittedInterviewEvaluationPersistenceAdapter
 
     @Override
     public boolean existsSubmittedByRoundId(Long roundId) {
-        return repository.existsByApplication_Round_IdAndStageAndStatus(
+        return repository.existsByApplication_Round_IdAndStage(
             roundId,
-            RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationStatus.SUBMITTED
+            RecruitingEvaluatorStage.INTERVIEW
         );
     }
 
     @Override
     public boolean existsSubmittedByApplicationId(Long applicationId) {
-        return repository.existsByApplication_IdAndStageAndStatus(
+        return repository.existsByApplication_IdAndStage(
             applicationId,
-            RecruitingEvaluatorStage.INTERVIEW,
-            RecruitingApplicationEvaluationStatus.SUBMITTED
+            RecruitingEvaluatorStage.INTERVIEW
         );
     }
 }

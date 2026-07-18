@@ -16,9 +16,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.recruiting.adapter.in.web.dto.request.ConfirmRecruitingInterviewScheduleRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingFormSectionPolicyRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingInterviewQuestionRequest;
-import com.umc.product.recruiting.adapter.in.web.dto.request.SaveRecruitingEvaluationRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitRecruitingEvaluationRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingEvaluationResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingInterviewScheduleResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonConfigurationResponse;
@@ -76,8 +78,10 @@ class RecruitingRestContractTest {
     @DisplayName("Task10 request response OpenAPI schema는 설명과 actor 비노출 계약을 가진다")
     void task10SchemasAreDescribedAndDoNotExposeActor() {
         List<Class<?>> schemaTypes = List.of(
-            SaveRecruitingEvaluationRequest.class,
+            SubmitRecruitingEvaluationRequest.class,
             RecruitingInterviewQuestionRequest.class,
+            RecruitingDocumentDecisionRequest.class,
+            SkipRecruitingInterviewRequest.class,
             RecruitingFormSectionPolicyRequest.class,
             ConfirmRecruitingInterviewScheduleRequest.class,
             RecruitingEvaluationResponse.class,

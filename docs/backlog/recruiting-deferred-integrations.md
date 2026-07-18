@@ -67,13 +67,14 @@ Recruiting은 로그인 및 익명 지원서 생성·조회·수정·제출을 �
 
 ### 현재 경계
 
-- Recruiting에는 면접 안내 메일을 발송하는 public UseCase, Notification outbound port 의존, inline HTML dispatch가 없다.
-- `RecruitingInterviewScheduleCommandService`는 면접 일정과 delivery 상태만 저장하며, 두 `TODO(#1147)`이 후속 Notification 공개 UseCase 연결 지점을 표시한다.
-- #1147 전까지 template, generic HTML command, outbox 또는 email dispatch를 구현하지 않는다.
+- 서류 PASS는 면접 진행 Round에서 일정 row와 `InterviewAvailabilityRequestedEvent`를 같은 트랜잭션에 기록한다.
+- Outbox relay 이후 Recruiting listener가 Notification의 공개 `SendEmailUseCase`로 Thymeleaf 요청 메일을 보내고 성공·실패 상태를 기록한다. Recruiting은 Notification outbound port를 직접 참조하지 않는다.
+- Outbox payload에는 `applicationId`만 저장하며 원문 이메일과 이름은 발송 시 Query UseCase로 조회한다.
+- 허용 template type과 변수별 검증, 명시적 idempotency key, 면접 확정 메일은 #1147의 잔여 범위다.
 
 ## 명시적 보류 범위
 
 - 익명 FormResponse를 로그인 회원에게 이전하는 ownership claim
 - Form published/window 조회, 기간 동기화와 접수 집행
 - schedule intersection 및 availability response
-- Thymeleaf HTML mail과 email dispatch 확장
+- 면접 확정 HTML mail과 요청 메일 template/idempotency 계약 강화
