@@ -55,14 +55,14 @@ public class CommunityThreadQueryController {
     public CommunityThreadListResponse listThreads(
         @RequestParam(defaultValue = "all")
         @Pattern(regexp = "all|unread|STUDY|QNA|PROJECT|FREE") String filter,
-        @RequestParam(required = false) @CodePointLength(max = 80) String q,
+        @RequestParam(name = "q", required = false) @CodePointLength(max = 80) String query,
         @RequestParam(defaultValue = "0") @Min(0) int offset,
         @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
         @CurrentMember MemberPrincipal principal
     ) {
         return CommunityThreadListResponse.from(listThreadsUseCase.listThreads(
             new ListThreadsQuery(
-                principal.getMemberId(), CommunityThreadFilterParser.parse(filter), q, offset, limit
+                principal.getMemberId(), CommunityThreadFilterParser.parse(filter), query, offset, limit
             )
         ));
     }
@@ -82,7 +82,7 @@ public class CommunityThreadQueryController {
     @Operation(operationId = "COMMUNITY-THREAD-103", summary = "Community thread member 조회")
     public CommunityThreadMemberPageResponse listMembers(
         @PathVariable @PositiveDecimalId String threadId,
-        @RequestParam(required = false) @CodePointLength(max = 80) String q,
+        @RequestParam(name = "q", required = false) @CodePointLength(max = 80) String memberQuery,
         @RequestParam(required = false) CommunityThreadMemberRole role,
         @RequestParam(required = false) ChallengerPart part,
         @RequestParam(required = false) @Positive Long generation,
@@ -92,7 +92,7 @@ public class CommunityThreadQueryController {
     ) {
         return CommunityThreadMemberPageResponse.from(listThreadMembersUseCase.listMembers(
             new ListThreadMembersQuery(
-                CommunityWebNumbers.id(threadId), principal.getMemberId(), q, role, part,
+                CommunityWebNumbers.id(threadId), principal.getMemberId(), memberQuery, role, part,
                 generation, offset, limit
             )
         ));
@@ -102,14 +102,14 @@ public class CommunityThreadQueryController {
     @Operation(operationId = "COMMUNITY-THREAD-104", summary = "초대 가능한 ACTIVE challenger 조회")
     public CommunityThreadInvitablePageResponse searchInvitable(
         @PathVariable @PositiveDecimalId String threadId,
-        @RequestParam(required = false) @CodePointLength(max = 80) String q,
+        @RequestParam(name = "q", required = false) @CodePointLength(max = 80) String invitableQuery,
         @RequestParam(defaultValue = "0") @Min(0) int offset,
         @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
         @CurrentMember MemberPrincipal principal
     ) {
         return CommunityThreadInvitablePageResponse.from(searchThreadInvitableUseCase.searchInvitable(
             new SearchThreadInvitableQuery(
-                CommunityWebNumbers.id(threadId), principal.getMemberId(), q, offset, limit
+                CommunityWebNumbers.id(threadId), principal.getMemberId(), invitableQuery, offset, limit
             )
         ));
     }

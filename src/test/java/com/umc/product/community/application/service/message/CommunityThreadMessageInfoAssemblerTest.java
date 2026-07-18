@@ -74,7 +74,7 @@ class CommunityThreadMessageInfoAssemblerTest {
             .containsExactly(
                 org.assertj.core.groups.Tuple.tuple(20L, "멘션이"),
                 org.assertj.core.groups.Tuple.tuple(30L, "답글이")
-            );
+        );
         assertThat(firstInfo.replyTo().senderName()).isEqualTo("답글이");
         assertThat(firstInfo.reactions()).extracting("emoji", "count", "reactedByMe")
             .containsExactly(org.assertj.core.groups.Tuple.tuple("👍", 2L, true));
