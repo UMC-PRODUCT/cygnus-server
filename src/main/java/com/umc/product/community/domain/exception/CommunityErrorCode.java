@@ -24,7 +24,7 @@ public enum CommunityErrorCode implements BaseCode {
     INVALID_COMMENT_CONTENT(HttpStatus.BAD_REQUEST, "COMMUNITY-0010", "댓글 내용이 올바르지 않아요. 내용을 확인해주세요."),
     COMMENT_NOT_OWNED(HttpStatus.FORBIDDEN, "COMMUNITY-0011", "내가 작성한 댓글만 삭제할 수 있어요."),
 
-    REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "COMMUNITY-0016", "이미 신고한 게시글 또는 댓글이에요. 신고 내역을 확인해주세요."),
+    REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "COMMUNITY-0016", "이미 신고한 게시글, 댓글 또는 스레드 메시지예요. 신고 내역을 확인해주세요."),
 
     // === Post 검증 ===
     INVALID_POST_AUTHOR(HttpStatus.BAD_REQUEST, "COMMUNITY-0017", "작성자 정보가 필요해요. 로그인 정보를 확인해주세요."),
@@ -50,7 +50,21 @@ public enum CommunityErrorCode implements BaseCode {
 
     // === Adapter 검증 ===
     POST_SAVE_REQUIRES_AUTHOR(HttpStatus.BAD_REQUEST, "COMMUNITY-0031", "새 게시글을 만들려면 작성자 정보가 필요해요. 로그인 정보를 확인해주세요."),
-    POST_UPDATE_INVALID_CALL(HttpStatus.BAD_REQUEST, "COMMUNITY-0032", "게시글 수정 요청이 올바르지 않아요. 요청 방식을 확인해주세요.");
+    POST_UPDATE_INVALID_CALL(HttpStatus.BAD_REQUEST, "COMMUNITY-0032", "게시글 수정 요청이 올바르지 않아요. 요청 방식을 확인해주세요."),
+
+    THREAD_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY-0033", "커뮤니티 스레드를 찾을 수 없어요."),
+    THREAD_ACCESS_DENIED(HttpStatus.FORBIDDEN, "COMMUNITY-0034", "커뮤니티 스레드에 접근할 권한이 없어요."),
+    THREAD_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY-0035", "커뮤니티 스레드 멤버를 찾을 수 없어요."),
+    THREAD_CAPACITY_EXCEEDED(HttpStatus.CONFLICT, "COMMUNITY-0036", "커뮤니티 스레드의 최대 인원을 초과했어요."),
+    THREAD_DELETED(HttpStatus.GONE, "COMMUNITY-0037", "삭제된 커뮤니티 스레드예요."),
+    THREAD_MEMBER_ALREADY_ACTIVE(HttpStatus.CONFLICT, "COMMUNITY-0038", "이미 커뮤니티 스레드에 참여 중인 멤버예요."),
+    THREAD_MEMBER_KICKED(HttpStatus.FORBIDDEN, "COMMUNITY-0039", "강퇴된 멤버는 커뮤니티 스레드에 다시 초대할 수 없어요."),
+    THREAD_OWNER_REQUIRED(HttpStatus.FORBIDDEN, "COMMUNITY-0040", "커뮤니티 스레드 소유자만 수행할 수 있어요."),
+    THREAD_OWNER_CANNOT_LEAVE(HttpStatus.CONFLICT, "COMMUNITY-0041", "소유권을 이전하기 전에는 커뮤니티 스레드를 나갈 수 없어요."),
+    THREAD_OWNER_CANNOT_BE_KICKED(HttpStatus.CONFLICT, "COMMUNITY-0042", "커뮤니티 스레드 소유자는 강퇴할 수 없어요."),
+    THREAD_INVALID_ROLE_CHANGE(HttpStatus.BAD_REQUEST, "COMMUNITY-0043", "커뮤니티 스레드 역할 변경 요청이 올바르지 않아요."),
+    THREAD_INVITEE_NOT_ELIGIBLE(HttpStatus.BAD_REQUEST, "COMMUNITY-0044", "현재 활성 기수의 챌린저만 초대할 수 있어요."),
+    THREAD_INVALID_COMMAND(HttpStatus.BAD_REQUEST, "COMMUNITY-0045", "커뮤니티 스레드 요청이 올바르지 않아요.");
 
     private final HttpStatus httpStatus;
     private final String code;
