@@ -4,6 +4,8 @@
 
 Recruiting 테스트는 도메인 불변식부터 실제 PostgreSQL migration, REST·GraphQL schema와 실제 HTTP 흐름까지 계층별로 검증한다. 테스트 클래스와 실행 건수는 구현과 함께 증가하므로 이 문서에 고정하지 않고 Gradle 및 JUnit XML 결과를 기준으로 판단한다.
 
+현재 소스에 존재하는 클래스별 개별 케이스는 [Recruiting 테스트 케이스 카탈로그](../recruiting/test-cases.md)에서 확인한다.
+
 | 계층 | 주요 검증 |
 |---|---|
 | Domain | 지원서·시즌·차수·평가·일정 상태와 불변식 |

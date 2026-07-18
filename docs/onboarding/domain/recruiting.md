@@ -253,6 +253,8 @@ GET    /api/v1/recruiting/applications/{applicationId}/interview-schedule
 ### 운영진 `/api/v1/recruiting/admin`
 
 ```text
+GET    /api/v1/recruiting/admin/seasons?gisuId={gisuId}&chapterId={chapterId}&schoolId={schoolId}
+GET    /api/v1/recruiting/admin/rounds?gisuId={gisuId}&chapterId={chapterId}&schoolId={schoolId}&seasonId={seasonId}
 GET    /api/v1/recruiting/admin/seasons/{seasonId}
 POST   /api/v1/recruiting/admin/seasons
 PATCH  /api/v1/recruiting/admin/seasons/{seasonId}/status
@@ -317,6 +319,8 @@ recruitingApplicationForms
 recruitingApplicationFormStructure
 recruitingApplicationByCredential
 recruitingApplication
+recruitingSeasons
+recruitingRounds
 recruitingSeasonConfiguration
 recruitingRoundEvaluators
 recruitingRoundInterviewQuestions
