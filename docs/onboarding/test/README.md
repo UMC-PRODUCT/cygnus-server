@@ -21,14 +21,16 @@
 | Organization | 32 | 168 | [organization.md](organization.md) |
 | Project | 37 | 526 | [project.md](project.md) |
 | Schedule | 2 | 16 | [schedule.md](schedule.md) |
-| Storage | 5 | 40 | [storage.md](storage.md) |
+| Storage | registry/cleanup 테스트 포함 | — | [storage.md](storage.md) |
 | Support | 1 | 1 | [support.md](support.md) |
-| Survey | 3 | 13 | [survey.md](survey.md) |
+| Form (기존 문서 파일명: Survey) | Form package 기준 | — | [survey.md](survey.md) |
 | Term | 8 | 23 | [term.md](term.md) |
 | Test Seed | 11 | 58 | [test.md](test.md) |
 
 - 총 실행 테스트 파일: 211개
 - 총 테스트 케이스: 1388개
+
+Chat ownership 및 message attachment 테스트는 `src/test/java/com/umc/product/chat` 아래에 있으며, Chat 도메인 문서의 직접 링크를 사용한다. 총계는 각 Wave에서 추가되는 테스트를 포함하지 않은 기존 inventory이므로 신규 registry 검증의 실행 기준으로 사용하지 않는다.
 
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
 

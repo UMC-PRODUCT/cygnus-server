@@ -1,5 +1,6 @@
 package com.umc.product.form.application.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.umc.product.form.application.port.in.FormActorContext;
@@ -9,20 +10,37 @@ import com.umc.product.form.application.port.out.LoadFormOwnershipPort;
 import com.umc.product.form.application.port.out.SaveFormOwnershipPort;
 import com.umc.product.form.domain.FormOperation;
 import com.umc.product.form.domain.FormOwnerReference;
-import com.umc.product.form.domain.FormOwnership;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
-
-import lombok.RequiredArgsConstructor;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.registry.application.port.in.query.GetRegistryReadinessUseCase;
+import com.umc.product.registry.domain.OwnershipEnforcementMode;
+import com.umc.product.registry.domain.RegistryName;
 
 /** Form root ownership assertion과 namespace policy dispatch를 한 순서로 강제한다. */
 @Service
-@RequiredArgsConstructor
 public class FormOwnershipAccessService {
 
     private final LoadFormOwnershipPort loadFormOwnershipPort;
     private final SaveFormOwnershipPort saveFormOwnershipPort;
     private final FormOwnerPolicyRegistry policyRegistry;
+    private final GetRegistryReadinessUseCase registryReadiness;
+    private final OperationalMetrics operationalMetrics;
+
+    @Autowired
+    public FormOwnershipAccessService(
+        LoadFormOwnershipPort loadFormOwnershipPort,
+        SaveFormOwnershipPort saveFormOwnershipPort,
+        FormOwnerPolicyRegistry policyRegistry,
+        GetRegistryReadinessUseCase registryReadiness,
+        OperationalMetrics operationalMetrics
+    ) {
+        this.loadFormOwnershipPort = loadFormOwnershipPort;
+        this.saveFormOwnershipPort = saveFormOwnershipPort;
+        this.policyRegistry = policyRegistry;
+        this.registryReadiness = registryReadiness;
+        this.operationalMetrics = operationalMetrics;
+    }
 
     public void requireMutation(
         Long resolvedFormId,
@@ -70,18 +88,42 @@ public class FormOwnershipAccessService {
         if (resolvedFormId == null || expectedOwner == null || actorContext == null || operation == null) {
             throw denied();
         }
+        if (!resolvedFormId.equals(expectedOwner.formId())) {
+            throw denied();
+        }
 
-        FormOwnership ownership = (lock
+        var ownership = (lock
             ? loadFormOwnershipPort.findByFormIdForUpdate(resolvedFormId)
-            : loadFormOwnershipPort.findByFormId(resolvedFormId))
-            .orElseThrow(FormOwnershipAccessService::denied);
-        FormOwnerReference actualOwner = ownership.toReference();
+            : loadFormOwnershipPort.findByFormId(resolvedFormId));
+        if (ownership.isEmpty()) {
+            allowAuditedMissingBinding(expectedOwner, actorContext, operation);
+            return;
+        }
+        FormOwnerReference actualOwner = ownership.orElseThrow().toReference();
         if (!actualOwner.sameBinding(expectedOwner)) {
             throw denied();
         }
 
         requireActor(operation, actorContext);
         requirePolicyAllows(actualOwner, operation, actorContext);
+    }
+
+    private void allowAuditedMissingBinding(
+        FormOwnerReference expectedOwner,
+        FormActorContext actorContext,
+        FormOperation operation
+    ) {
+        if (registryReadiness.ownershipMode(RegistryName.FORM_OWNERSHIP)
+                != OwnershipEnforcementMode.AUDIT) {
+            throw denied();
+        }
+        requireActor(operation, actorContext);
+        requirePolicyAllows(expectedOwner, operation, actorContext);
+        operationalMetrics.recordSecurityEvent(
+            "form",
+            "ownership_missing_binding",
+            "audit_allowed"
+        );
     }
 
     private void requirePolicyAllows(

@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 
 import java.lang.reflect.Method;
@@ -56,15 +57,26 @@ class FileCleanupServiceTest {
     @Mock
     private FileUsageRegistryReadinessPort readinessPort;
 
+    @Mock
+    private FileCleanupProperties cleanupProperties;
+
     private FileCleanupService sut;
 
     @BeforeEach
     void setUp() {
-        sut = new FileCleanupService(claimService, storagePort);
+        sut = new FileCleanupService(
+            claimService,
+            storagePort,
+            readinessPort,
+            cleanupProperties
+        );
+        lenient().when(readinessPort.getStatus()).thenReturn(FileUsageRegistryStatus.READY);
+        lenient().when(cleanupProperties.enabled()).thenReturn(true);
+        lenient().when(claimService.validateDeletionFence(any())).thenReturn(true);
     }
 
     @Test
-    @DisplayName("claim transaction이 끝난 뒤 S3 삭제와 CAS finalize를 파일별 순서대로 수행한다")
+    @DisplayName("claim과 S3 직전 fence transaction이 끝난 뒤 delete와 CAS finalize를 순서대로 수행한다")
     void claim_밖에서_S3를_삭제하고_CAS_finalize한다() {
         // given
         FileCleanupClaim first = claim("file-a", 1);
@@ -80,9 +92,11 @@ class FileCleanupServiceTest {
         assertThat(result).isEqualTo(new FileCleanupBatchResult(2, 2, 0));
         InOrder ordered = inOrder(claimService, storagePort);
         ordered.verify(claimService).claimBatch();
-        ordered.verify(storagePort).delete("cleanup-test/file-a");
+        ordered.verify(claimService).validateDeletionFence(first);
+        ordered.verify(storagePort).delete(first.storageKey());
         ordered.verify(claimService).finalizeDeletion(first);
-        ordered.verify(storagePort).delete("cleanup-test/file-b");
+        ordered.verify(claimService).validateDeletionFence(second);
+        ordered.verify(storagePort).delete(second.storageKey());
         ordered.verify(claimService).finalizeDeletion(second);
     }
 
@@ -144,6 +158,24 @@ class FileCleanupServiceTest {
     }
 
     @Test
+    @DisplayName("S3 직전 fence가 stale token을 거부하면 delete와 finalize를 수행하지 않는다")
+    void stale_token은_S3_delete와_finalize를_수행하지_않는다() {
+        // given
+        FileCleanupClaim stale = claim("file-a", 1);
+        given(claimService.claimBatch()).willReturn(List.of(stale));
+        given(claimService.validateDeletionFence(stale)).willReturn(false);
+
+        // when
+        FileCleanupBatchResult result = sut.cleanupOrphans();
+
+        // then
+        assertThat(result).isEqualTo(new FileCleanupBatchResult(1, 0, 0));
+        then(storagePort).should(never()).delete(stale.storageKey());
+        then(claimService).should(never()).finalizeDeletion(stale);
+        then(claimService).should(never()).recordFailure(stale);
+    }
+
+    @Test
     @DisplayName("cleanup orchestrator는 transaction을 중단해 S3 호출 중 DB lock을 유지하지 않는다")
     void cleanup_orchestrator는_NOT_SUPPORTED_transaction이다() throws NoSuchMethodException {
         // when
@@ -152,6 +184,50 @@ class FileCleanupServiceTest {
         // then
         assertThat(cleanup.getAnnotation(Transactional.class).propagation())
             .isEqualTo(Propagation.NOT_SUPPORTED);
+    }
+
+    @Test
+    @DisplayName("S3 직전 fence 검증은 독립 DB transaction에서 commit한다")
+    void deletion_fence는_REQUIRES_NEW_transaction이다() throws NoSuchMethodException {
+        // when
+        Method validateFence = FileCleanupClaimService.class.getMethod(
+            "validateDeletionFence",
+            FileCleanupClaim.class
+        );
+
+        // then
+        assertThat(validateFence.getAnnotation(Transactional.class).propagation())
+            .isEqualTo(Propagation.REQUIRES_NEW);
+    }
+
+    @Test
+    @DisplayName("claim 뒤 registry가 DISABLED가 되면 S3 호출 직전 cleanup을 중단한다")
+    void claim_뒤_registry_disabled면_S3_delete를_호출하지_않는다() {
+        FileCleanupClaim claim = claim("file-a", 1);
+        given(claimService.claimBatch()).willReturn(List.of(claim));
+        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.DISABLED);
+
+        FileCleanupBatchResult result = sut.cleanupOrphans();
+
+        assertThat(result.deleted()).isZero();
+        then(claimService).should(never()).validateDeletionFence(any());
+        then(storagePort).should(never()).delete(org.mockito.ArgumentMatchers.anyString());
+        then(claimService).should(never()).finalizeDeletion(any());
+    }
+
+    @Test
+    @DisplayName("claim 뒤 cleanup property가 false면 S3 호출 직전 cleanup을 중단한다")
+    void claim_뒤_cleanup_property_false면_S3_delete를_호출하지_않는다() {
+        FileCleanupClaim claim = claim("file-a", 1);
+        given(claimService.claimBatch()).willReturn(List.of(claim));
+        given(cleanupProperties.enabled()).willReturn(false);
+
+        FileCleanupBatchResult result = sut.cleanupOrphans();
+
+        assertThat(result.deleted()).isZero();
+        then(claimService).should(never()).validateDeletionFence(any());
+        then(storagePort).should(never()).delete(org.mockito.ArgumentMatchers.anyString());
+        then(claimService).should(never()).finalizeDeletion(any());
     }
 
     @Test

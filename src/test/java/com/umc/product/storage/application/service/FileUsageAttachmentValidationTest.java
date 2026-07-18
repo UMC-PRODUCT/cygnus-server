@@ -144,27 +144,31 @@ class FileUsageAttachmentValidationTest {
     @DisplayName("failed cleanup 파일은 신규 attach를 거부한다")
     void failed_cleanup_파일은_신규_attach를_거부한다() {
         FileMetadata failed = confirmedFile("file-a", 7L);
-        ReflectionTestUtils.setField(failed, "cleanupFailedAt", NOW);
+        UUID token = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        failed.claimCleanup(token, NOW.minusSeconds(60));
+        failed.recordCleanupFailure(token, NOW, null, 1);
         assertAttachRejected(failed, 7L, StorageErrorCode.FILE_CLEANUP_FAILED);
     }
 
     @Test
-    @DisplayName("backoff 중 reattach는 retry lifecycle을 취소한다")
-    void backoff_중_reattach는_retry_lifecycle을_취소한다() {
+    @DisplayName("backoff 중인 cleanup claim은 retry lifecycle을 유지하고 reattach를 거부한다")
+    void backoff_중_cleanup_claim은_reattach를_거부한다() {
         // given
         UUID token = UUID.fromString("00000000-0000-0000-0000-000000000001");
         FileMetadata retrying = confirmedFile("file-a", 7L);
         retrying.claimCleanup(token, NOW.minusSeconds(60));
         retrying.recordCleanupFailure(token, NOW, NOW.plusSeconds(60), 10);
-        stubNewAttachment(retrying);
-        given(readinessPort.getStatus()).willReturn(FileUsageRegistryStatus.READY);
 
-        // when
-        sut.replaceUsages(replace("file-a", 7L));
+        // when & then
+        assertAttachRejected(
+            retrying,
+            7L,
+            StorageErrorCode.FILE_CLEANUP_IN_PROGRESS
+        );
 
-        // then
-        assertThat(retrying.getCleanupAttempts()).isZero();
-        assertThat(retrying.getCleanupNextAttemptAt()).isNull();
+        assertThat(retrying.getCleanupClaimToken()).isEqualTo(token);
+        assertThat(retrying.getCleanupAttempts()).isOne();
+        assertThat(retrying.getCleanupNextAttemptAt()).isEqualTo(NOW.plusSeconds(60));
         assertThat(retrying.getUnreferencedAt()).isNull();
     }
 

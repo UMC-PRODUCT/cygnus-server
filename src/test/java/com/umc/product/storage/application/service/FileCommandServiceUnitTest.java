@@ -81,6 +81,7 @@ class FileCommandServiceUnitTest {
 
     @BeforeEach
     void setUp() {
+        lenient().when(fileDeletionService.isReadyForPhysicalDelete()).thenReturn(true);
         lenient().when(storagePort.generateStorageKey(
             org.mockito.ArgumentMatchers.any(FileCategory.class),
             anyString(),
@@ -410,6 +411,27 @@ class FileCommandServiceUnitTest {
         order.verify(storagePort).delete(claim.storageKey());
         order.verify(fileDeletionService).finalizeDeletion(claim);
         then(saveFileMetadataPort).should(never()).deleteByFileId(anyString());
+    }
+
+    @Test
+    @DisplayName("manual delete claim 뒤 readiness가 닫히면 S3 delete를 호출하지 않는다")
+    void deleteFile_rechecksReadinessImmediatelyBeforeStorageDelete() {
+        DeleteFileCommand command = deleteCommand("file-id", 1L);
+        FileDeletionService.DeletionClaim claim = new FileDeletionService.DeletionClaim(
+            "file-id",
+            "test/file-id.pdf",
+            UUID.fromString("00000000-0000-0000-0000-000000000001")
+        );
+        given(fileDeletionService.claim(command)).willReturn(claim);
+        given(fileDeletionService.isReadyForPhysicalDelete()).willReturn(false);
+
+        assertThatThrownBy(() -> sut.deleteFile(command))
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.FILE_USAGE_REGISTRY_NOT_READY);
+        then(storagePort).should(never()).delete(anyString());
+        then(fileDeletionService).should(never()).finalizeDeletion(
+            org.mockito.ArgumentMatchers.any());
     }
 
     @Test

@@ -52,6 +52,10 @@ public class FileDeletionService {
         return new DeletionClaim(metadata.getId(), metadata.getStorageKey(), token);
     }
 
+    public boolean isReadyForPhysicalDelete() {
+        return readinessPort.getStatus() == FileUsageRegistryStatus.READY;
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean finalizeDeletion(DeletionClaim claim) {
         List<FileMetadata> locked = lockFileMetadataPort.lockAllByFileIds(List.of(claim.fileId()));

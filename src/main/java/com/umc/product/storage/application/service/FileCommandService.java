@@ -183,6 +183,9 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     @Override
     public void deleteFile(DeleteFileCommand command) {
         FileDeletionService.DeletionClaim claim = fileDeletionService.claim(command);
+        if (!fileDeletionService.isReadyForPhysicalDelete()) {
+            throw new StorageException(StorageErrorCode.FILE_USAGE_REGISTRY_NOT_READY);
+        }
         storagePort.delete(claim.storageKey());
         fileDeletionService.finalizeDeletion(claim);
 

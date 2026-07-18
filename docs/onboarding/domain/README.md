@@ -16,6 +16,7 @@
 - [Certificate PDF Template](certificate-pdf-template.md)
 - [Community Trophy 제거 릴리스 프리플라이트](community-trophy-removal-release-preflight.md)
 - [Challenger](challenger.md)
+- [Chat](chat.md)
 - [Community](community.md)
 - [Curriculum](curriculum.md)
 - [Feedback](feedback.md)
@@ -28,7 +29,7 @@
 - [Project](project.md)
 - [Schedule](schedule.md)
 - [Storage](storage.md)
-- [Survey](survey.md)
+- [Form (기존 파일명: Survey)](survey.md)
 - [Term](term.md)
 
 ## 작성 원칙

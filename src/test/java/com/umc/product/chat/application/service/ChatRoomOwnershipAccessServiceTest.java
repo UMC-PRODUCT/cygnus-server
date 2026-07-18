@@ -29,6 +29,10 @@ import com.umc.product.chat.domain.ChatRoomOperation;
 import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.registry.application.port.in.query.GetRegistryReadinessUseCase;
+import com.umc.product.registry.domain.OwnershipEnforcementMode;
+import com.umc.product.registry.domain.RegistryName;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChatRoomOwnershipAccessService")
@@ -43,6 +47,10 @@ class ChatRoomOwnershipAccessServiceTest {
     LoadChatMemberPort loadChatMemberPort;
     @Mock
     ChatRoomOwnerPolicy ownerPolicy;
+    @Mock
+    GetRegistryReadinessUseCase registryReadiness;
+    @Mock
+    OperationalMetrics operationalMetrics;
 
     ChatRoomOwnerReference expectedOwner;
     ChatRoomActorContext actorContext;
@@ -54,7 +62,13 @@ class ChatRoomOwnershipAccessServiceTest {
         actorContext = ChatRoomActorContext.actor(ACTOR_ID);
         given(ownerPolicy.namespace()).willReturn(ChatRoomOwnerReference.STANDALONE_NAMESPACE);
         ChatRoomOwnerPolicyRegistry registry = new ChatRoomOwnerPolicyRegistry(List.of(ownerPolicy));
-        sut = new ChatRoomOwnershipAccessService(registry, loadOwnershipPort, loadChatMemberPort);
+        sut = new ChatRoomOwnershipAccessService(
+            registry,
+            loadOwnershipPort,
+            loadChatMemberPort,
+            registryReadiness,
+            operationalMetrics
+        );
         Mockito.clearInvocations(ownerPolicy);
     }
 
@@ -95,6 +109,30 @@ class ChatRoomOwnershipAccessServiceTest {
 
         then(ownerPolicy).shouldHaveNoInteractions();
         then(loadChatMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("audit은 policy와 membership을 통과한 missing legacy binding만 허용한다")
+    void audit_missingBinding_requiresPolicyAndMembership() {
+        GetRegistryReadinessUseCase readiness = Mockito.mock(GetRegistryReadinessUseCase.class);
+        OperationalMetrics metrics = Mockito.mock(OperationalMetrics.class);
+        ChatRoomOwnershipAccessService auditSut = new ChatRoomOwnershipAccessService(
+            new ChatRoomOwnerPolicyRegistry(List.of(ownerPolicy)),
+            loadOwnershipPort,
+            loadChatMemberPort,
+            readiness,
+            metrics
+        );
+        given(readiness.ownershipMode(RegistryName.CHAT_OWNERSHIP))
+            .willReturn(OwnershipEnforcementMode.AUDIT);
+        given(loadOwnershipPort.findByRoomId(ROOM_ID)).willReturn(Optional.empty());
+        given(ownerPolicy.allows(expectedOwner, ChatRoomOperation.READ, actorContext)).willReturn(true);
+        given(loadChatMemberPort.existsByRoomIdAndMemberId(ROOM_ID, ACTOR_ID)).willReturn(true);
+
+        auditSut.verify(expectedOwner, ChatRoomOperation.READ, actorContext);
+
+        then(metrics).should().recordSecurityEvent(
+            "chat", "ownership_missing_binding", "audit_allowed");
     }
 
     @Test
@@ -148,7 +186,13 @@ class ChatRoomOwnershipAccessServiceTest {
         ChatRoomOwnerPolicy futurePolicy = Mockito.mock(ChatRoomOwnerPolicy.class);
         given(futurePolicy.namespace()).willReturn("chat.future");
         ChatRoomOwnerPolicyRegistry registry = new ChatRoomOwnerPolicyRegistry(List.of(ownerPolicy, futurePolicy));
-        sut = new ChatRoomOwnershipAccessService(registry, loadOwnershipPort, loadChatMemberPort);
+        sut = new ChatRoomOwnershipAccessService(
+            registry,
+            loadOwnershipPort,
+            loadChatMemberPort,
+            registryReadiness,
+            operationalMetrics
+        );
         Mockito.clearInvocations(ownerPolicy, futurePolicy);
         ChatRoomOwnerReference forged = expectedOwner.withNamespace("chat.future");
         given(loadOwnershipPort.findByRoomId(ROOM_ID)).willReturn(Optional.of(expectedOwner));
@@ -175,7 +219,13 @@ class ChatRoomOwnershipAccessServiceTest {
     void standaloneMember_readAndSend_allowed(ChatRoomOperation operation) {
         ChatRoomOwnerPolicyRegistry registry = new ChatRoomOwnerPolicyRegistry(
             List.of(new ChatStandaloneRoomOwnerPolicy()));
-        sut = new ChatRoomOwnershipAccessService(registry, loadOwnershipPort, loadChatMemberPort);
+        sut = new ChatRoomOwnershipAccessService(
+            registry,
+            loadOwnershipPort,
+            loadChatMemberPort,
+            registryReadiness,
+            operationalMetrics
+        );
         given(loadOwnershipPort.findByRoomId(ROOM_ID)).willReturn(Optional.of(expectedOwner));
         given(loadChatMemberPort.existsByRoomIdAndMemberId(ROOM_ID, ACTOR_ID)).willReturn(true);
 
@@ -190,7 +240,13 @@ class ChatRoomOwnershipAccessServiceTest {
     void standaloneNonmember_readAndSend_denied(ChatRoomOperation operation) {
         ChatRoomOwnerPolicyRegistry registry = new ChatRoomOwnerPolicyRegistry(
             List.of(new ChatStandaloneRoomOwnerPolicy()));
-        sut = new ChatRoomOwnershipAccessService(registry, loadOwnershipPort, loadChatMemberPort);
+        sut = new ChatRoomOwnershipAccessService(
+            registry,
+            loadOwnershipPort,
+            loadChatMemberPort,
+            registryReadiness,
+            operationalMetrics
+        );
         given(loadOwnershipPort.findByRoomId(ROOM_ID)).willReturn(Optional.of(expectedOwner));
         given(loadChatMemberPort.existsByRoomIdAndMemberId(ROOM_ID, ACTOR_ID)).willReturn(false);
 

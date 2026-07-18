@@ -25,6 +25,10 @@ import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.FormOwnership;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.registry.application.port.in.query.GetRegistryReadinessUseCase;
+import com.umc.product.registry.domain.OwnershipEnforcementMode;
+import com.umc.product.registry.domain.RegistryName;
 
 @DisplayName("FormOwnershipAccessService")
 class FormOwnershipAccessServiceTest {
@@ -42,7 +46,7 @@ class FormOwnershipAccessServiceTest {
         FormOwnerPolicy policy = mock(FormOwnerPolicy.class);
         given(policy.namespace()).willReturn(EXPECTED.namespace());
         FormOwnerPolicyRegistry registry = new FormOwnerPolicyRegistry(List.of(policy));
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(loadPort, savePort, registry);
+        FormOwnershipAccessService sut = strictService(loadPort, savePort, registry);
         given(loadPort.findByFormIdForUpdate(EXPECTED.formId()))
             .willReturn(Optional.of(FormOwnership.from(EXPECTED)));
         given(policy.allows(EXPECTED, FormOperation.MANAGE_STRUCTURE, ACTOR)).willReturn(true);
@@ -60,7 +64,7 @@ class FormOwnershipAccessServiceTest {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of(policy))
@@ -80,7 +84,7 @@ class FormOwnershipAccessServiceTest {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of(policy))
@@ -96,12 +100,38 @@ class FormOwnershipAccessServiceTest {
     }
 
     @Test
+    @DisplayName("audit은 기존 actor와 policy가 모두 허용한 missing legacy binding만 허용한다")
+    void audit은_인가를_통과한_missing_legacy_binding만_허용한다() {
+        LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
+        SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
+        FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
+        GetRegistryReadinessUseCase readiness = mock(GetRegistryReadinessUseCase.class);
+        OperationalMetrics metrics = mock(OperationalMetrics.class);
+        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+            loadPort,
+            savePort,
+            new FormOwnerPolicyRegistry(List.of(policy)),
+            readiness,
+            metrics
+        );
+        given(readiness.ownershipMode(RegistryName.FORM_OWNERSHIP))
+            .willReturn(OwnershipEnforcementMode.AUDIT);
+        given(loadPort.findByFormIdForUpdate(EXPECTED.formId())).willReturn(Optional.empty());
+
+        sut.requireMutation(EXPECTED.formId(), EXPECTED, ACTOR, FormOperation.DELETE);
+
+        verify(policy).allows(EXPECTED, FormOperation.DELETE, ACTOR);
+        verify(metrics).recordSecurityEvent("form", "ownership_missing_binding", "audit_allowed");
+        verifyNoInteractions(savePort);
+    }
+
+    @Test
     @DisplayName("actual root와 expected owner의 namespace 또는 owner tuple이 다르면 policy 전에 거부한다")
     void actual_root와_expected_owner가_다르면_policy_전에_거부한다() {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of(policy))
@@ -125,7 +155,7 @@ class FormOwnershipAccessServiceTest {
     void 등록되지_않은_namespace_evaluator는_fail_closed한다() {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of())
@@ -154,7 +184,7 @@ class FormOwnershipAccessServiceTest {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of(policy))
@@ -173,7 +203,7 @@ class FormOwnershipAccessServiceTest {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of(policy))
@@ -199,7 +229,7 @@ class FormOwnershipAccessServiceTest {
         LoadFormOwnershipPort loadPort = mock(LoadFormOwnershipPort.class);
         SaveFormOwnershipPort savePort = mock(SaveFormOwnershipPort.class);
         FormOwnerPolicy policy = policy(EXPECTED.namespace(), true);
-        FormOwnershipAccessService sut = new FormOwnershipAccessService(
+        FormOwnershipAccessService sut = strictService(
             loadPort,
             savePort,
             new FormOwnerPolicyRegistry(List.of(policy))
@@ -228,6 +258,23 @@ class FormOwnershipAccessServiceTest {
             org.mockito.ArgumentMatchers.any()
         )).willReturn(allowed);
         return policy;
+    }
+
+    private static FormOwnershipAccessService strictService(
+        LoadFormOwnershipPort loadPort,
+        SaveFormOwnershipPort savePort,
+        FormOwnerPolicyRegistry policyRegistry
+    ) {
+        GetRegistryReadinessUseCase readiness = mock(GetRegistryReadinessUseCase.class);
+        given(readiness.ownershipMode(RegistryName.FORM_OWNERSHIP))
+            .willReturn(OwnershipEnforcementMode.BLOCKED);
+        return new FormOwnershipAccessService(
+            loadPort,
+            savePort,
+            policyRegistry,
+            readiness,
+            mock(OperationalMetrics.class)
+        );
     }
 
     private static void assertOwnershipDenied(org.assertj.core.api.ThrowableAssert.ThrowingCallable callable) {

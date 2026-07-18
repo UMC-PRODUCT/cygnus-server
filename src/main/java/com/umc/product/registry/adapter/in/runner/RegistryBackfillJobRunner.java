@@ -33,7 +33,7 @@ public class RegistryBackfillJobRunner implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         coordinator.execute(action).forEach(result ->
-            log.info("Registry rollout 완료: action={}, {}", action, result.summary()));
+            log.info("Registry rollout을 수행했습니다: action={}, {}", action, result.summary()));
         processTerminator.terminate();
     }
 

@@ -23,7 +23,9 @@ import com.umc.product.form.domain.FormOperation;
 import com.umc.product.form.domain.FormOwnerReference;
 import com.umc.product.form.domain.FormOwnership;
 import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.project.application.port.in.query.GetProjectPermissionsUseCase;
+import com.umc.product.registry.application.port.in.query.GetRegistryReadinessUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Project 지원 폼 ownership contract")
@@ -35,6 +37,10 @@ class ProjectApplicationFormOwnershipContractTest {
     SaveFormOwnershipPort saveFormOwnershipPort;
     @Mock
     GetProjectPermissionsUseCase getProjectPermissionsUseCase;
+    @Mock
+    GetRegistryReadinessUseCase registryReadiness;
+    @Mock
+    OperationalMetrics operationalMetrics;
 
     FormOwnershipAccessService sut;
 
@@ -46,7 +52,9 @@ class ProjectApplicationFormOwnershipContractTest {
         sut = new FormOwnershipAccessService(
             loadFormOwnershipPort,
             saveFormOwnershipPort,
-            new FormOwnerPolicyRegistry(List.of(policy))
+            new FormOwnerPolicyRegistry(List.of(policy)),
+            registryReadiness,
+            operationalMetrics
         );
     }
 
@@ -71,10 +79,7 @@ class ProjectApplicationFormOwnershipContractTest {
     @Test
     @DisplayName("child에서 resolve한 Form ID가 expected owner Form ID와 다르면 거부한다")
     void 다른_Form으로_resolve된_child를_거부한다() {
-        FormOwnerReference actual = ProjectApplicationFormOwnerReferenceFactory.forProject(42L).create(100L);
         FormOwnerReference otherForm = ProjectApplicationFormOwnerReferenceFactory.forProject(42L).create(200L);
-        given(loadFormOwnershipPort.findByFormId(100L))
-            .willReturn(Optional.of(FormOwnership.from(actual)));
 
         assertThatThrownBy(() -> sut.requireRead(
             100L,
@@ -83,6 +88,6 @@ class ProjectApplicationFormOwnershipContractTest {
             FormOperation.READ
         )).isInstanceOf(FormDomainException.class);
 
-        verifyNoInteractions(getProjectPermissionsUseCase);
+        verifyNoInteractions(loadFormOwnershipPort, getProjectPermissionsUseCase);
     }
 }

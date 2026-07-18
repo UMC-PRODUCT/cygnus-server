@@ -1,87 +1,63 @@
-# Storage 테스트 케이스
+# Storage 테스트
 
-- 테스트 파일: 5개
-- 테스트 케이스: 40개
-- 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
+현재 테스트는 `src/test/java/com/umc/product/storage`에 있다. Storage 사용 registry, cleanup claim, lifecycle contract와 S3 경계를 함께 검증한다. 전체 운영 절차는 [Replica backfill 및 registry cutover runbook](../database-backfill-with-replicas.md), 도메인 설명은 [Storage 도메인](../domain/storage.md)에서 확인한다.
 
-| 카테고리 | 케이스 수 |
-|---|---:|
-| UseCase / Application Service | 22 |
-| Domain | 14 |
-| External Adapter | 4 |
+## 실행 명령
 
-## UseCase / Application Service
+```bash
+./gradlew test --tests 'com.umc.product.storage.domain.FileUsageCoordinateTest' \
+  --tests 'com.umc.product.storage.adapter.out.persistence.FileUsagePersistenceAdapterTest' \
+  --tests 'com.umc.product.storage.adapter.out.persistence.FileCleanupClaimPersistenceAdapterTest' \
+  --tests 'com.umc.product.storage.application.service.FileUsageCommandServiceTest' \
+  --tests 'com.umc.product.storage.application.service.FileDeletionServiceTest' \
+  --tests 'com.umc.product.storage.application.service.FileCleanupServiceTest' \
+  --tests 'com.umc.product.storage.RegistryEndToEndIntegrationTest'
+```
 
-### FileCommandServiceTest
-- 위치: `src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java`
+S3 adapter만 확인할 때는 다음을 실행한다.
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [42](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L42) | 파일 업로드 URL을 생성한다 | PrepareFileUploadCommand("profile.jpg", "image/jpeg", 1024L, FileCategory.PROFILE_IMAGE, 1L); 호출 getFileUploadUrl(command) | 성공: 검증 assertThat(result).isNotNull(); assertThat(result.uploadUrl()).contains("signed-upload-url"); assertThat(result.uploadMethod()).isEqualTo("PUT"); assertThat(savedMetadata.getOriginalFileName()).isEqualTo("profile.jpg"... |
-| [86](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L86) | 허용되지 않는 확장자면 예외가 발생한다 | PrepareFileUploadCommand("profile.gif", // GIF는 허용 안됨 "image/gif", 1024L, FileCategory.PROFILE_IMAGE, 1L); 호출 getFileUploadUrl(command)) | 실패: 예외 StorageException |
-| [101](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L101) | 파일 크기가 초과하면 예외가 발생한다 | PrepareFileUploadCommand("large-profile.jpg", "image/jpeg", fileSize, FileCategory.PROFILE_IMAGE, 1L); 호출 getFileUploadUrl(command)) | 실패: 예외 StorageException |
-| [118](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L118) | 확장자가 없으면 예외가 발생한다 | PrepareFileUploadCommand("profile", // 확장자 없음 "image/jpeg", 1024L, FileCategory.PROFILE_IMAGE, 1L); 호출 getFileUploadUrl(command)) | 실패: 예외 StorageException |
-| [138](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L138) | 업로드를 완료 처리한다 | 호출 confirmUpload(metadata.getId()) | 성공: 검증 assertThat(updated.isUploaded()).isTrue(); |
-| [159](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L159) | 스토리지에 파일이 없으면 업로드 완료 처리에 실패한다 | 호출 confirmUpload(metadata.getId())) | 실패: 예외 StorageException |
-| [173](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L173) | 이미 업로드된 파일은 재확인할 수 없다 | 호출 confirmUpload(metadata.getId())) | 실패: 예외 StorageException |
-| [187](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L187) | 파일을 삭제한다 | 호출 deleteFile(deleteCommand(fileId, 1L)) | 성공: 검증 assertThat(loadFileMetadataPort.findByFileId(fileId)).isEmpty(); |
-| [202](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceTest.java#L202) | 존재하지 않는 파일을 삭제하면 예외가 발생한다 | 호출 deleteFile(deleteCommand(nonExistentFileId, 1L))) | 실패: 예외 StorageException |
+```bash
+./gradlew test --tests 'com.umc.product.storage.adapter.out.s3.S3StorageAdapterTest'
+```
 
-### FileCommandServiceUnitTest
-- 위치: `src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java`
+## Schema·coordinate·persistence
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [70](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L70) | 파일 삭제는 클래스 공통 트랜잭션으로 외부 스토리지 I/O를 감싸지 않는다 | 조건 파일 삭제는 클래스 공통 트랜잭션으로 외부 스토리지 I/O를 감싸지 않는다 | 성공: 검증 assertThat(FileCommandService.class.getAnnotation(Transactional.class)).isNull(); assertThat(getFileUploadUrl.getAnnotation(Transactional.class)).isNotNull(); assertThat(confirmUpload.getAnnotation(Transactional.class)... |
-| [88](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L88) | 업로드 URL 생성은 요청 파일 크기를 스토리지 서명에 포함한다 | PrepareFileUploadCommand("portfolio.pdf", "application/pdf", 1024L, FileCategory.PORTFOLIO, 1L); 호출 getFileUploadUrl(command) | 성공: 업로드 URL 생성은 요청 파일 크기를 스토리지 서명에 포함한다 |
-| [124](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L124) | 업로드 완료 확인 시 S3 객체가 없으면 완료 처리하지 않는다 | 호출 confirmUpload("file-id")) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_UPLOAD_NOT_COMPLETED; 검증 .isEqualTo(StorageErrorCode.FILE_UPLOAD_NOT_COMPLETED); |
-| [142](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L142) | 실제 S3 객체 크기가 카테고리 제한을 초과하면 업로드 완료 처리하지 않고 객체를 삭제한다 | 호출 confirmUpload("file-id")) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_SIZE_EXCEEDED; 검증 .isEqualTo(StorageErrorCode.FILE_SIZE_EXCEEDED); |
-| [162](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L162) | 실제 S3 객체 크기가 요청 크기와 다르면 업로드 완료 처리하지 않고 객체를 삭제한다 | 호출 confirmUpload("file-id")) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_SIZE_MISMATCH; 검증 .isEqualTo(StorageErrorCode.FILE_SIZE_MISMATCH); |
-| [181](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L181) | 실제 S3 객체 Content-Type이 요청값과 다르면 업로드 완료 처리하지 않고 객체를 삭제한다 | 호출 confirmUpload("file-id")) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.INVALID_CONTENT_TYPE; 검증 .isEqualTo(StorageErrorCode.INVALID_CONTENT_TYPE); |
-| [200](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L200) | 실제 S3 객체 정보가 요청값과 일치하면 업로드 완료 처리한다 | 호출 confirmUpload("file-id") | 성공: 검증 assertThat(captor.getValue().isUploaded()).isTrue(); |
-| [219](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L219) | 작성자가 아니어도 SUPER_ADMIN이면 파일을 삭제한다 | 호출 deleteFile(deleteCommand("file-id", 2L)) | 성공: 작성자가 아니어도 SUPER_ADMIN이면 파일을 삭제한다 |
-| [235](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L235) | 작성자도 SUPER_ADMIN도 아니면 파일을 삭제할 수 없다 | 호출 deleteFile(deleteCommand("file-id", 2L))) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_DELETE_FORBIDDEN; 검증 .isEqualTo(StorageErrorCode.FILE_DELETE_FORBIDDEN); |
-| [253](../../../src/test/java/com/umc/product/storage/application/service/FileCommandServiceUnitTest.java#L253) | S3 삭제가 실패하면 파일 메타데이터를 삭제하지 않는다 | 호출 deleteFile(deleteCommand("file-id", 1L))) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.STORAGE_DELETE_FAILED; 검증 .isEqualTo(StorageErrorCode.STORAGE_DELETE_FAILED); |
+| 테스트 | 검증하는 observable |
+| --- | --- |
+| [`FileUsageCoordinateTest`](../../../src/test/java/com/umc/product/storage/domain/FileUsageCoordinateTest.java) | namespace 100자·소문자 dot segment, resource key, slot grammar와 필수값을 domain에서 거부한다. |
+| [`FileUsagePersistenceAdapterTest`](../../../src/test/java/com/umc/product/storage/adapter/out/persistence/FileUsagePersistenceAdapterTest.java) | 두 owner가 한 file을 공유하는 exact snapshot/count, owner/file unique, owner lock와 metadata lock 순서, grammar CHECK, usage가 남은 metadata delete의 FK RESTRICT, owner cascade를 PostgreSQL에서 확인한다. |
+| [`FileUsagePersistenceAdapterTest`](../../../src/test/java/com/umc/product/storage/adapter/out/persistence/FileUsagePersistenceAdapterTest.java) | expand schema가 legacy `is_uploaded=true, confirmed_at=NULL` row를 읽고 cleanup partial index와 nullable lifecycle column을 보존하는지 확인한다. |
 
-### FileQueryServiceTest
-- 위치: `src/test/java/com/umc/product/storage/application/service/FileQueryServiceTest.java`
+## Runtime dual-write·transaction
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [35](../../../src/test/java/com/umc/product/storage/application/service/FileQueryServiceTest.java#L35) | 파일 ID로 파일 정보를 조회한다 | 조건 파일 ID로 파일 정보를 조회한다 | 성공: 검증 assertThat(result).isNotNull(); assertThat(result.fileId()).isEqualTo(savedMetadata.getId()); assertThat(result.originalFileName()).isEqualTo("profile.jpg"); assertThat(result.category()).isEqualTo(FileCategory.PROFIL... |
-| [60](../../../src/test/java/com/umc/product/storage/application/service/FileQueryServiceTest.java#L60) | 존재하지 않는 파일 ID로 조회하면 예외가 발생한다 | 조건 존재하지 않는 파일 ID로 조회하면 예외가 발생한다 | 실패: 예외 StorageException |
-| [69](../../../src/test/java/com/umc/product/storage/application/service/FileQueryServiceTest.java#L69) | 파일 존재 여부를 확인한다 | 조건 파일 존재 여부를 확인한다 | 성공: 검증 assertThat(exists).isTrue(); assertThat(notExists).isFalse(); |
+| 테스트 | 검증하는 observable |
+| --- | --- |
+| [`FileUsageCommandServiceTest`](../../../src/test/java/com/umc/product/storage/application/service/FileUsageCommandServiceTest.java) | owner를 먼저 직렬화하고 기존·신규 file ID 합집합을 정렬 lock한다. replace/remove snapshot의 exact diff, 공유 file detach 시 마지막 usage 전까지 `unreferenced_at`을 건드리지 않는 동작, 빈 snapshot anchor를 확인한다. |
+| [`FileUsageConcurrencyIntegrationTest`](../../../src/test/java/com/umc/product/storage/application/service/FileUsageConcurrencyIntegrationTest.java) | attach/detach와 cleanup claim race에서 usage와 active claim을 동시에 만들지 않고 최종 DB 상태가 불변식을 만족하는지 확인한다. |
+| [`FormAnswerUsageTransactionIntegrationTest`](../../../src/test/java/com/umc/product/form/application/service/command/FormAnswerUsageTransactionIntegrationTest.java) | Form Answer 저장 후 usage 등록 실패 시 Answer 변경까지 rollback한다. |
+| [`ChatMessageUsageTransactionIntegrationTest`](../../../src/test/java/com/umc/product/chat/application/service/command/ChatMessageUsageTransactionIntegrationTest.java) | Chat message 저장 후 usage 실패 시 message와 watermark/event 경계를 rollback한다. |
+| [`RegistryEndToEndIntegrationTest`](../../../src/test/java/com/umc/product/storage/RegistryEndToEndIntegrationTest.java) | upload confirm → Form/Chat 공유 attach → 마지막 detach → S3 delete/CAS finalize의 end-to-end 상태와 잘못된 uploader 거부를 확인한다. |
 
-## Domain
+## Cleanup claim·retention·rollback 안전성
 
-### FileMetadataTest
-- 위치: `src/test/java/com/umc/product/storage/domain/FileMetadataTest.java`
+| 테스트 | 검증하는 observable |
+| --- | --- |
+| [`FileCleanupClaimPersistenceAdapterTest`](../../../src/test/java/com/umc/product/storage/adapter/out/persistence/FileCleanupClaimPersistenceAdapterTest.java) | pending 24시간과 confirmed-unreferenced 7일, usage 0 후보만 claim하고 `FOR UPDATE SKIP LOCKED` worker가 겹치지 않는지 확인한다. claim timeout은 새 token으로 reclaim하고 stale token finalize는 no-op이다. |
+| 같은 테스트 | matching token·usage 0일 때만 metadata를 삭제한다. attach와 cleanup claim race에서는 한쪽만 성공한다. retry due 전에는 재claim하지 않고 max attempt는 `cleanup_failed_at`으로 격리한다. |
+| [`FileCleanupServiceTest`](../../../src/test/java/com/umc/product/storage/application/service/FileCleanupServiceTest.java) | claim transaction 종료 후 S3 delete와 CAS finalize를 분리하고, S3/DB transient 실패를 같은 token failure와 backoff로 기록한다. registry가 `DISABLED`이거나 property가 false가 되면 S3 호출 직전에 중단한다. |
+| [`FileDeletionServiceTest`](../../../src/test/java/com/umc/product/storage/application/service/FileDeletionServiceTest.java) | READY gate, requester/uploader/SUPER_ADMIN 권한, usage 0, active claim 및 failed 상태 거부, stale token no-op을 확인한다. |
+| [`OrphanFileCleanupSchedulerTest`](../../../src/test/java/com/umc/product/storage/adapter/in/scheduler/OrphanFileCleanupSchedulerTest.java) | cleanup disabled/비-READY이면 use case를 호출하지 않고, READY batch의 success/retry/failure metric 및 예외 재전파를 확인한다. |
+| [`FileCleanupPropertiesTest`](../../../src/test/java/com/umc/product/storage/application/service/FileCleanupPropertiesTest.java) | `app.storage.cleanup.enabled=false` fail-safe 기본 binding과 capped exponential backoff를 확인한다. |
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [22](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L22) | 업로드 완료 처리를 한다 | 조건 업로드 완료 처리를 한다 | 성공: 검증 assertThat(metadata.isUploaded()).isTrue(); |
-| [42](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L42) | 실제 파일 정보가 일치하면 업로드 완료 처리를 한다 | 조건 실제 파일 정보가 일치하면 업로드 완료 처리를 한다 | 성공: 검증 assertThat(metadata.isUploaded()).isTrue(); |
-| [54](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L54) | 실제 파일 크기가 카테고리 제한을 초과하면 예외가 발생한다 | 조건 실제 파일 크기가 카테고리 제한을 초과하면 예외가 발생한다 | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_SIZE_EXCEEDED; 검증 .isEqualTo(StorageErrorCode.FILE_SIZE_EXCEEDED); |
-| [66](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L66) | 실제 파일 크기가 요청 크기와 다르면 예외가 발생한다 | 조건 실제 파일 크기가 요청 크기와 다르면 예외가 발생한다 | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_SIZE_MISMATCH; 검증 .isEqualTo(StorageErrorCode.FILE_SIZE_MISMATCH); |
-| [78](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L78) | 요청 파일 크기가 null이면 예외가 발생한다 | 조건 요청 파일 크기가 null이면 예외가 발생한다 | 실패: 예외 StorageException; 에러코드 StorageErrorCode.FILE_SIZE_MISMATCH; 검증 .isEqualTo(StorageErrorCode.FILE_SIZE_MISMATCH); |
-| [90](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L90) | 실제 Content Type이 요청값과 다르면 예외가 발생한다 | 조건 실제 Content Type이 요청값과 다르면 예외가 발생한다 | 실패: 예외 StorageException; 에러코드 StorageErrorCode.INVALID_CONTENT_TYPE; 검증 .isEqualTo(StorageErrorCode.INVALID_CONTENT_TYPE); |
-| [102](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L102) | 실제 Content Type에 파라미터가 있어도 미디어 타입이 같으면 업로드 완료 처리를 한다 | 조건 실제 Content Type에 파라미터가 있어도 미디어 타입이 같으면 업로드 완료 처리를 한다 | 성공: 검증 assertThat(metadata.isUploaded()).isTrue(); |
-| [114](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L114) | 요청 Content Type에 파라미터가 있어도 미디어 타입이 같으면 업로드 완료 처리를 한다 | 조건 요청 Content Type에 파라미터가 있어도 미디어 타입이 같으면 업로드 완료 처리를 한다 | 성공: 검증 assertThat(metadata.isUploaded()).isTrue(); |
-| [135](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L135) | 파일 확장자를 추출한다 | 조건 파일 확장자를 추출한다 | 성공: 검증 assertThat(extension).isEqualTo("pdf"); |
-| [146](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L146) | 확장자가 대문자면 소문자로 변환한다 | 조건 확장자가 대문자면 소문자로 변환한다 | 성공: 검증 assertThat(extension).isEqualTo("png"); |
-| [162](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L162) | 확장자가 없으면 빈 문자열을 반환한다 | 조건 확장자가 없으면 빈 문자열을 반환한다 | 성공: 검증 assertThat(extension).isEmpty(); |
-| [173](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L173) | 파일명이 점으로 시작하면 빈 문자열을 반환한다 | 조건 파일명이 점으로 시작하면 빈 문자열을 반환한다 | 성공: 검증 assertThat(extension).isEmpty(); |
-| [185](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L185) | 파일명이 점으로 끝나면 빈 문자열을 반환한다 | 조건 파일명이 점으로 끝나면 빈 문자열을 반환한다 | 성공: 검증 assertThat(extension).isEmpty(); |
-| [197](../../../src/test/java/com/umc/product/storage/domain/FileMetadataTest.java#L197) | 여러 개의 점이 있으면 마지막 확장자를 추출한다 | 조건 여러 개의 점이 있으면 마지막 확장자를 추출한다 | 성공: 검증 assertThat(extension).isEqualTo("gz"); |
+failed cleanup을 수동 reset하는 운영 절차는 [Storage 도메인 cleanup section](../domain/storage.md#lifecycle과-cleanup)의 guarded transaction을 그대로 따른다. 테스트나 문서에 실제 file ID·member ID·token·secret을 넣지 않는다. S3 `NoSuchKey`/404 delete는 [`S3StorageAdapterTest`](../../../src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java)의 idempotent success 시나리오로 고정한다.
 
-## External Adapter
+## Backfill·reconcile·readiness
 
-### S3StorageAdapterTest
-- 위치: `src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java`
+registry 전용 통합 테스트는 [`FileUsageBackfillIntegrationTest`](../../../src/test/java/com/umc/product/registry/backfill/FileUsageBackfillIntegrationTest.java), [`RegistryBackfillCoordinatorTest`](../../../src/test/java/com/umc/product/registry/backfill/RegistryBackfillCoordinatorTest.java), [`RegistryCutoverIntegrationTest`](../../../src/test/java/com/umc/product/registry/RegistryCutoverIntegrationTest.java), [`RegistryReadinessServiceTest`](../../../src/test/java/com/umc/product/registry/application/service/RegistryReadinessServiceTest.java)에 있다. 이 묶음은 다음을 확인한다.
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [42](../../../src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java#L42) | Presigned PUT 생성 시 요청 파일 크기를 Content-Length로 서명한다 | 호출 generateUploadUrl("private/portfolio/file.pdf", "application/pdf", 1024L, 15L) | 성공: 검증 assertThat(result.uploadUrl()).isEqualTo("https://storage.example.com/upload"); assertThat(result.uploadMethod()).isEqualTo("PUT"); assertThat(result.headers()).containsEntry("Content-Type", "application/pdf"); assert... |
-| [64](../../../src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java#L64) | HeadObject 결과를 S3 객체 정보로 반환한다 | 호출 findObjectInfoByStorageKey("private/portfolio/file.pdf") | 성공: 검증 assertThat(result).hasValue(StorageObjectInfo.of("private/portfolio/file.pdf", 1024L, "application/pdf")); |
-| [82](../../../src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java#L82) | S3 객체가 없으면 빈 객체 정보를 반환하고 exists는 false를 반환한다 | 호출 findObjectInfoByStorageKey("private/portfolio/missing.pdf")).isEmpty(); 호출 exists("private/portfolio/missing.pdf")).isFalse() | 성공: 검증 assertThat(sut.findObjectInfoByStorageKey("private/portfolio/missing.pdf")).isEmpty(); assertThat(sut.exists("private/portfolio/missing.pdf")).isFalse(); |
-| [95](../../../src/test/java/com/umc/product/storage/adapter/out/s3/S3StorageAdapterTest.java#L95) | HeadObject 조회 중 404가 아닌 S3Exception은 StorageException으로 변환한다 | 호출 findObjectInfoByStorageKey("private/portfolio/file.pdf")) | 실패: 예외 StorageException; 에러코드 StorageErrorCode.STORAGE_METADATA_READ_FAILED; 검증 .isEqualTo(StorageErrorCode.STORAGE_METADATA_READ_FAILED); |
+- 9개 canonical source를 keyset으로 재시작하고 checkpoint가 단조 증가한다.
+- source-only missing, registry-only stale, broken reference, ownership conflict와 lifecycle/duplicate/invalid drift를 0이 아니면 차단한다.
+- primary/replica mismatch, exact-one namespace coverage 누락/중복, old-writer drift가 `READY`와 property enable을 막는다.
+- rollback은 `STORAGE` maintenance 시작 → 세 registry `DISABLED` → cleanup/enforcement false → traffic 전환 순서를 지킨다.
+
+정확한 `registry-backfill` one-shot invocation과 exit code 해석은 [운영 runbook](../database-backfill-with-replicas.md#registry-backfill-one-shot)을 사용한다.

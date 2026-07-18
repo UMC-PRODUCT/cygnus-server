@@ -10,6 +10,8 @@ public interface FileCleanupClaimPort {
 
     List<FileCleanupClaim> claimBatch(FileCleanupClaimCriteria criteria);
 
+    boolean validateDeletionFence(FileCleanupClaim claim);
+
     boolean finalizeDeletion(FileCleanupClaim claim);
 
     boolean recordFailure(FileCleanupFailure failure);

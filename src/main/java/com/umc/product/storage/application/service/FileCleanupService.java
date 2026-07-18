@@ -10,18 +10,32 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.storage.application.port.in.command.RunFileCleanupUseCase;
 import com.umc.product.storage.application.port.in.command.dto.FileCleanupBatchResult;
+import com.umc.product.storage.application.port.out.FileUsageRegistryReadinessPort;
 import com.umc.product.storage.application.port.out.StoragePort;
 import com.umc.product.storage.application.port.out.dto.FileCleanupClaim;
+import com.umc.product.storage.domain.enums.FileUsageRegistryStatus;
 import com.umc.product.storage.domain.exception.StorageException;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
 public class FileCleanupService implements RunFileCleanupUseCase {
 
     private final FileCleanupClaimService claimService;
     private final StoragePort storagePort;
+    private final FileUsageRegistryReadinessPort readinessPort;
+    private final FileCleanupProperties properties;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public FileCleanupService(
+        FileCleanupClaimService claimService,
+        StoragePort storagePort,
+        FileUsageRegistryReadinessPort readinessPort,
+        FileCleanupProperties properties
+    ) {
+        this.claimService = claimService;
+        this.storagePort = storagePort;
+        this.readinessPort = readinessPort;
+        this.properties = properties;
+    }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -31,9 +45,16 @@ public class FileCleanupService implements RunFileCleanupUseCase {
         int retryScheduled = 0;
 
         for (FileCleanupClaim claim : claims) {
+            if (!properties.enabled()
+                || readinessPort.getStatus() != FileUsageRegistryStatus.READY) {
+                continue;
+            }
             try {
+                if (!claimService.validateDeletionFence(claim)) {
+                    continue;
+                }
                 storagePort.delete(claim.storageKey());
-            } catch (StorageException exception) {
+            } catch (StorageException | DataAccessException | TransactionException exception) {
                 if (claimService.recordFailure(claim)) {
                     retryScheduled++;
                 }

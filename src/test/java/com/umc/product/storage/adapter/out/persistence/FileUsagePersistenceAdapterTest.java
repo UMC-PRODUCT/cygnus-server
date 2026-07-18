@@ -8,8 +8,10 @@ import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.umc.product.storage.domain.FileMetadata;
 import com.umc.product.storage.domain.FileUsageCoordinate;
@@ -26,6 +28,8 @@ import jakarta.persistence.PersistenceException;
 @Import({FileUsagePersistenceAdapter.class, FileMetadataPersistenceAdapter.class})
 class FileUsagePersistenceAdapterTest {
 
+    private static final String LIFECYCLE_CONSTRAINT = "ck_file_metadata_upload_lifecycle";
+
     @Autowired
     private FileUsagePersistenceAdapter fileUsagePersistenceAdapter;
 
@@ -34,6 +38,9 @@ class FileUsagePersistenceAdapterTest {
 
     @Autowired
     private EntityManager entityManager;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     @Test
     @DisplayName("두 owner가 같은 파일을 참조하면 exact snapshot과 전체 count를 조회한다")
@@ -202,28 +209,39 @@ class FileUsagePersistenceAdapterTest {
 
     @Test
     @DisplayName("legacy uploaded true confirmed null row를 expand schema에서 읽는다")
+    @ResourceLock("file-upload-lifecycle-contract")
     void legacy_uploaded_true_confirmed_null_row를_expand_schema에서_읽는다() {
         // given
-        entityManager.createNativeQuery("""
-            INSERT INTO file_metadata (
-                id, original_file_name, category, content_type, file_size,
-                storage_provider, storage_key, uploaded_member_id, is_uploaded,
-                created_at, updated_at
-            ) VALUES (
-                'legacy-file', 'legacy.pdf', 'ETC', 'application/pdf', 1024,
-                'AWS_S3', 'test/legacy-file.pdf', 1, true, NOW(), NOW()
-            )
-            """).executeUpdate();
-        entityManager.flush();
-        entityManager.clear();
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            DROP CONSTRAINT IF EXISTS ck_file_metadata_upload_lifecycle
+            """);
+        try {
+            entityManager.createNativeQuery("""
+                INSERT INTO file_metadata (
+                    id, original_file_name, category, content_type, file_size,
+                    storage_provider, storage_key, uploaded_member_id, is_uploaded,
+                    created_at, updated_at
+                ) VALUES (
+                    'legacy-file', 'legacy.pdf', 'ETC', 'application/pdf', 1024,
+                    'AWS_S3', 'test/legacy-file.pdf', 1, true, NOW(), NOW()
+                )
+                """).executeUpdate();
+            entityManager.flush();
+            entityManager.clear();
 
-        // when
-        FileMetadata legacy = fileMetadataPersistenceAdapter.findByFileId("legacy-file").orElseThrow();
+            // when
+            FileMetadata legacy = fileMetadataPersistenceAdapter.findByFileId("legacy-file").orElseThrow();
 
-        // then
-        assertThat(legacy.isUploaded()).isTrue();
-        assertThat(legacy.getConfirmedAt()).isNull();
-        assertThat(legacy.isConfirmedForAudit()).isTrue();
+            // then
+            assertThat(legacy.isUploaded()).isTrue();
+            assertThat(legacy.getConfirmedAt()).isNull();
+            assertThat(legacy.isConfirmedForAudit()).isTrue();
+        } finally {
+            entityManager.createNativeQuery("DELETE FROM file_metadata WHERE id = 'legacy-file'")
+                .executeUpdate();
+            restoreContractConstraint();
+        }
     }
 
     @Test
@@ -274,5 +292,29 @@ class FileUsagePersistenceAdapterTest {
             .setParameter("resourceKey", resourceKey)
             .setParameter("slot", slot)
             .executeUpdate();
+    }
+
+    private void restoreContractConstraint() {
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            ADD CONSTRAINT ck_file_metadata_upload_lifecycle
+            CHECK (is_uploaded = (confirmed_at IS NOT NULL)) NOT VALID
+            """);
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            VALIDATE CONSTRAINT ck_file_metadata_upload_lifecycle
+            """);
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT COUNT(*)
+            FROM pg_constraint
+            WHERE conrelid = 'file_metadata'::regclass
+              AND conname = ?
+            """, Integer.class, LIFECYCLE_CONSTRAINT)).isOne();
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT convalidated
+            FROM pg_constraint
+            WHERE conrelid = 'file_metadata'::regclass
+              AND conname = ?
+            """, Boolean.class, LIFECYCLE_CONSTRAINT)).isTrue();
     }
 }

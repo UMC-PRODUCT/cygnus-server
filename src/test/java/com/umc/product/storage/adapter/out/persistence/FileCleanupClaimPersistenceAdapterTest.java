@@ -18,8 +18,10 @@ import java.util.concurrent.Future;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +38,7 @@ import com.umc.product.support.PersistenceAdapterTest;
 @PersistenceAdapterTest
 @Import(FileCleanupClaimPersistenceAdapter.class)
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
+@ResourceLock("file-upload-lifecycle-contract")
 class FileCleanupClaimPersistenceAdapterTest {
 
     private static final Instant NOW = Instant.parse("2026-07-18T00:00:00Z");
@@ -49,11 +52,28 @@ class FileCleanupClaimPersistenceAdapterTest {
     @Autowired
     private PlatformTransactionManager transactionManager;
 
+    @BeforeEach
+    void useExpandOnlyLifecycleSchema() {
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            DROP CONSTRAINT IF EXISTS ck_file_metadata_upload_lifecycle
+            """);
+    }
+
     @AfterEach
     void cleanUp() {
         jdbcTemplate.update("DELETE FROM file_usage WHERE file_id LIKE 'cleanup-test-%'");
         jdbcTemplate.update("DELETE FROM file_usage_owner WHERE usage_namespace = 'cleanup-test'");
         jdbcTemplate.update("DELETE FROM file_metadata WHERE id LIKE 'cleanup-test-%'");
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            ADD CONSTRAINT ck_file_metadata_upload_lifecycle
+            CHECK (is_uploaded = (confirmed_at IS NOT NULL)) NOT VALID
+            """);
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            VALIDATE CONSTRAINT ck_file_metadata_upload_lifecycle
+            """);
     }
 
     @Test
@@ -167,8 +187,8 @@ class FileCleanupClaimPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("failure backoff가 due가 된 뒤에만 새 token으로 retry하고 max attempts면 FAILED로 격리한다")
-    void due_retry와_max_attempts를_적용한다() {
+    @DisplayName("failure token을 유지하고 due 시점에만 새 token으로 retry한 뒤 FAILED로 격리한다")
+    void due_retry는_기존_token을_새_token으로_reclaim한다() {
         // given
         insertPending("cleanup-test-retry", NOW.minus(Duration.ofDays(2)), false);
         FileCleanupClaim first = inTransaction(() -> sut.claimBatch(criteria(NOW, 1))).getFirst();
@@ -178,6 +198,10 @@ class FileCleanupClaimPersistenceAdapterTest {
         boolean recorded = inTransaction(() -> sut.recordFailure(
             new FileCleanupFailure(first, NOW, retryAt, 10)
         ));
+        UUID retainedToken = cleanupToken("cleanup-test-retry");
+        Instant retainedClaimedAt = cleanupClaimedAt("cleanup-test-retry");
+        Instant scheduledAt = cleanupNextAttemptAt("cleanup-test-retry");
+        boolean backoffDeletionAllowed = inTransaction(() -> sut.validateDeletionFence(first));
         List<FileCleanupClaim> early = inTransaction(() -> sut.claimBatch(criteria(retryAt.minusMillis(1), 1)));
         FileCleanupClaim retry = inTransaction(() -> sut.claimBatch(criteria(retryAt, 1))).getFirst();
         boolean failed = inTransaction(() -> sut.recordFailure(
@@ -186,13 +210,43 @@ class FileCleanupClaimPersistenceAdapterTest {
 
         // then
         assertThat(recorded).isTrue();
+        assertThat(retainedToken).isEqualTo(first.token());
+        assertThat(retainedClaimedAt).isEqualTo(NOW);
+        assertThat(scheduledAt).isEqualTo(retryAt);
+        assertThat(backoffDeletionAllowed).isFalse();
         assertThat(early).isEmpty();
         assertThat(retry.token()).isNotEqualTo(first.token());
         assertThat(retry.attempt()).isEqualTo(2);
         assertThat(failed).isTrue();
         assertThat(cleanupFailedAt("cleanup-test-retry")).isEqualTo(retryAt);
-        assertThat(cleanupToken("cleanup-test-retry")).isNull();
+        assertThat(cleanupToken("cleanup-test-retry")).isEqualTo(retry.token());
         assertThat(inTransaction(() -> sut.claimBatch(criteria(retryAt.plus(Duration.ofDays(1)), 1)))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("S3 직전 fence는 current token과 usage 0인 active claim만 허용한다")
+    void deletion_fence는_current_active_unused_claim만_허용한다() {
+        // given
+        String fileId = "cleanup-test-delete-fence";
+        insertPending(fileId, NOW.minus(Duration.ofDays(2)), false);
+        FileCleanupClaim current = inTransaction(() -> sut.claimBatch(criteria(NOW, 1))).getFirst();
+        FileCleanupClaim stale = new FileCleanupClaim(
+            current.fileId(),
+            current.storageKey(),
+            UUID.fromString("00000000-0000-0000-0000-000000000002"),
+            current.attempt()
+        );
+
+        // when
+        boolean currentAllowed = inTransaction(() -> sut.validateDeletionFence(current));
+        boolean staleAllowed = inTransaction(() -> sut.validateDeletionFence(stale));
+        attachUsage(fileId);
+        boolean usedAllowed = inTransaction(() -> sut.validateDeletionFence(current));
+
+        // then
+        assertThat(currentAllowed).isTrue();
+        assertThat(staleAllowed).isFalse();
+        assertThat(usedAllowed).isFalse();
     }
 
     @Test
@@ -216,7 +270,8 @@ class FileCleanupClaimPersistenceAdapterTest {
 
         // then
         assertThat(claims).isEmpty();
-        assertThat(cleanupToken(fileId)).isNull();
+        assertThat(cleanupToken(fileId))
+            .isEqualTo(UUID.fromString("00000000-0000-0000-0000-000000000001"));
         assertThat(cleanupFailedAt(fileId)).isEqualTo(NOW);
     }
 
@@ -384,6 +439,23 @@ class FileCleanupClaimPersistenceAdapterTest {
             fileId
         );
         return failedAt == null ? null : failedAt.toInstant();
+    }
+
+    private Instant cleanupClaimedAt(String fileId) {
+        return cleanupInstant(fileId, "cleanup_claimed_at");
+    }
+
+    private Instant cleanupNextAttemptAt(String fileId) {
+        return cleanupInstant(fileId, "cleanup_next_attempt_at");
+    }
+
+    private Instant cleanupInstant(String fileId, String column) {
+        OffsetDateTime value = jdbcTemplate.queryForObject(
+            "SELECT " + column + " FROM file_metadata WHERE id = ?",
+            OffsetDateTime.class,
+            fileId
+        );
+        return value == null ? null : value.toInstant();
     }
 
     private long usageCount(String fileId) {

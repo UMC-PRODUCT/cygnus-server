@@ -220,8 +220,6 @@ public class FileMetadata extends BaseEntity {
             throw new IllegalArgumentException("retry 대상 cleanup의 다음 시각은 필수입니다.");
         }
 
-        this.cleanupClaimToken = null;
-        this.cleanupClaimedAt = null;
         if (cleanupAttempts >= maxAttempts) {
             this.cleanupNextAttemptAt = null;
             this.cleanupFailedAt = failedAt;
@@ -235,8 +233,6 @@ public class FileMetadata extends BaseEntity {
         if (failedAt == null) {
             throw new IllegalArgumentException("cleanup 격리 시각은 필수입니다.");
         }
-        this.cleanupClaimToken = null;
-        this.cleanupClaimedAt = null;
         this.cleanupNextAttemptAt = null;
         this.cleanupFailedAt = failedAt;
     }
@@ -258,6 +254,12 @@ public class FileMetadata extends BaseEntity {
 
     public boolean matchesCleanupClaim(UUID token) {
         return token != null && token.equals(cleanupClaimToken);
+    }
+
+    public boolean canDeleteWithCleanupClaim(UUID token) {
+        return matchesCleanupClaim(token)
+            && cleanupNextAttemptAt == null
+            && cleanupFailedAt == null;
     }
 
     /**

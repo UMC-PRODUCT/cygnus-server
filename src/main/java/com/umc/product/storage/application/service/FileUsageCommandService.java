@@ -158,11 +158,11 @@ public class FileUsageCommandService implements ManageFileUsageUseCase {
     }
 
     private void validateCleanupState(FileMetadata metadata) {
-        if (metadata.hasCleanupClaim()) {
-            throw new StorageException(StorageErrorCode.FILE_CLEANUP_IN_PROGRESS);
-        }
         if (metadata.hasCleanupFailure()) {
             throw new StorageException(StorageErrorCode.FILE_CLEANUP_FAILED);
+        }
+        if (metadata.hasCleanupClaim()) {
+            throw new StorageException(StorageErrorCode.FILE_CLEANUP_IN_PROGRESS);
         }
     }
 

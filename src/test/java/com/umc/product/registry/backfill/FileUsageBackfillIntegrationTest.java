@@ -10,9 +10,11 @@ import java.util.List;
 
 import javax.sql.DataSource;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -26,6 +28,7 @@ import com.umc.product.storage.adapter.out.backfill.StorageFileUsageRolloutAdapt
 import com.umc.product.support.IntegrationTestSupport;
 
 @DisplayName("File usage registry restartable backfill PostgreSQL 통합")
+@ResourceLock("file-upload-lifecycle-contract")
 class FileUsageBackfillIntegrationTest extends IntegrationTestSupport {
 
     private static final Instant CUTOVER_AT = Instant.parse("2026-07-18T01:00:00Z");
@@ -38,8 +41,25 @@ class FileUsageBackfillIntegrationTest extends IntegrationTestSupport {
 
     @BeforeEach
     void resetControlRows() {
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            DROP CONSTRAINT IF EXISTS ck_file_metadata_upload_lifecycle
+            """);
         jdbcTemplate.update("DELETE FROM registry_backfill_checkpoint");
         jdbcTemplate.update("DELETE FROM registry_cutover_state");
+    }
+
+    @AfterEach
+    void restoreContractConstraint() {
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            ADD CONSTRAINT ck_file_metadata_upload_lifecycle
+            CHECK (is_uploaded = (confirmed_at IS NOT NULL)) NOT VALID
+            """);
+        jdbcTemplate.execute("""
+            ALTER TABLE file_metadata
+            VALIDATE CONSTRAINT ck_file_metadata_upload_lifecycle
+            """);
     }
 
     @Test

@@ -49,6 +49,11 @@ public class FileCleanupClaimService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public boolean validateDeletionFence(FileCleanupClaim claim) {
+        return claimPort.validateDeletionFence(claim);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public boolean recordFailure(FileCleanupClaim claim) {
         Instant failedAt = clock.instant();
         Instant nextAttemptAt = claim.attempt() >= properties.maxAttempts()

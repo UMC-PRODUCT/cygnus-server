@@ -150,11 +150,11 @@ class AuditCoveragePolicyTest {
             spec("notice.application.service.command.NoticeService", "remindNotice", "NOTICE", "REMIND", "Notice", type("notice.application.port.in.command.dto.SendNoticeReminderCommand")),
             spec("notice.application.service.command.NoticeVoteResponseCommandService", "submit", "NOTICE", "SUBMIT", "NoticeVoteResponse", type("notice.application.port.in.command.dto.SubmitNoticeVoteResponseCommand")),
 
-            spec("form.application.service.command.FormCommandService", "createDraft", "FORM", "CREATE", "Form", type("form.application.port.in.command.dto.CreateDraftFormCommand")),
-            spec("form.application.service.command.FormCommandService", "publishForm", "FORM", "PUBLISH", "Form", type("form.application.port.in.command.dto.PublishFormCommand")),
-            spec("form.application.service.command.QuestionCommandService", "reorderQuestions", "FORM", "REORDER", "Question", type("form.application.port.in.command.dto.ReorderQuestionsCommand")),
-            spec("form.application.service.command.FormResponseCommandService", "submitImmediately", "FORM", "SUBMIT", "FormResponse", type("form.application.port.in.command.dto.SubmitFormResponseCommand")),
-            spec("form.application.service.VoteService", "createVote", "FORM", "CREATE", "Vote", type("form.application.port.in.command.dto.CreateVoteCommand")),
+            spec("form.application.service.command.FormCommandService", "createDraft", "FORM", "CREATE", "Form", type("form.application.port.in.FormOwnerReferenceFactory"), type("form.application.port.in.FormActorContext"), type("form.application.port.in.command.dto.CreateDraftFormCommand")),
+            spec("form.application.service.command.FormCommandService", "publishForm", "FORM", "PUBLISH", "Form", type("form.domain.FormOwnerReference"), type("form.application.port.in.FormActorContext"), type("form.application.port.in.command.dto.PublishFormCommand")),
+            spec("form.application.service.command.QuestionCommandService", "reorderQuestions", "FORM", "REORDER", "Question", type("form.domain.FormOwnerReference"), type("form.application.port.in.FormActorContext"), type("form.application.port.in.command.dto.ReorderQuestionsCommand")),
+            spec("form.application.service.command.FormResponseCommandService", "submitImmediately", "FORM", "SUBMIT", "FormResponse", type("form.domain.FormOwnerReference"), type("form.application.port.in.FormActorContext"), type("form.application.port.in.command.dto.SubmitFormResponseCommand")),
+            spec("form.application.service.VoteService", "createVote", "FORM", "CREATE", "Vote", type("form.application.port.in.FormOwnerReferenceFactory"), type("form.application.port.in.FormActorContext"), type("form.application.port.in.command.dto.CreateVoteCommand")),
 
             spec("feedback.application.service.command.UserFeedbackResponseCommandService", "submit", "FEEDBACK", "SUBMIT", "UserFeedbackResponse", type("form.application.port.in.FormActorContext"), type("feedback.application.port.in.command.dto.SubmitUserFeedbackResponseCommand")),
 

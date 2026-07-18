@@ -1,42 +1,60 @@
-# Survey 테스트 케이스
+# Form 테스트 (기존 문서 파일명: `survey.md`)
 
-- 테스트 파일: 3개
-- 테스트 케이스: 13개
-- 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
+실제 테스트 package는 `com.umc.product.form`이다. `src/test/java/com/umc/product/survey` 경로는 현재 구현에 없으며, 이 문서의 링크와 실행 명령은 모두 Form 경로를 가리킨다. 도메인 규칙은 [Form 도메인](../domain/survey.md), ownership/cutover 운영은 [runbook](../database-backfill-with-replicas.md)을 함께 읽는다.
 
-| 카테고리 | 케이스 수 |
-|---|---:|
-| UseCase / Application Service | 13 |
+## 실행 명령
 
-## UseCase / Application Service
+```bash
+./gradlew test --tests 'com.umc.product.form.domain.FormOwnerReferenceTest' \
+  --tests 'com.umc.product.form.adapter.out.persistence.FormOwnershipPersistenceAdapterTest' \
+  --tests 'com.umc.product.form.application.service.FormOwnershipAccessServiceTest' \
+  --tests 'com.umc.product.form.application.service.StandaloneFormOwnerPolicyTest' \
+  --tests 'com.umc.product.form.application.service.FormPortInOwnershipContractTest' \
+  --tests 'com.umc.product.form.application.service.command.FormAnswerUsageTransactionIntegrationTest' \
+  --tests 'com.umc.product.form.application.service.command.FormAnswerUsageCascadeIntegrationTest'
+```
 
-### FormCommandServiceTest
-- 위치: `src/test/java/com/umc/product/survey/application/service/command/FormCommandServiceTest.java`
+Project/Notice/Feedback consumer policy와 backfill source는 다음 targeted test로 확인한다.
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [46](../../../src/test/java/com/umc/product/survey/application/service/command/FormCommandServiceTest.java#L46) | createDraft는 요청 description을 신규 폼에 저장한다 | CreateDraftFormCommand {createdMemberId=10L, title="지원서", description="지원 폼 설명", allowDuplicateResponses=true}; 호출 createDraft(CreateDraftFormCommand.builder() | 성공: 검증 assertThat(result).isEqualTo(1L); assertThat(captor.getValue().getDescription()).isEqualTo("지원 폼 설명"); |
+```bash
+./gradlew test --tests 'com.umc.product.project.application.form.ProjectApplicationFormOwnerReferenceFactoryTest' \
+  --tests 'com.umc.product.project.application.form.ProjectApplicationFormOwnerPolicyTest' \
+  --tests 'com.umc.product.project.application.form.ProjectApplicationFormOwnershipContractTest' \
+  --tests 'com.umc.product.registry.backfill.EngineOwnershipBackfillIntegrationTest'
+```
 
-### FormResponseCommandServiceTest
-- 위치: `src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java`
+## Ownership schema와 정책
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [71](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L71) | 기본 폼은 같은 form/member의 draft 생성을 차단한다 | CreateDraftFormResponseCommand {formId=FORM_ID, respondentMemberId=MEMBER_ID}; 호출 createDraft(CreateDraftFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.FORM_RESPONSE_ALREADY_EXISTS; 검증 .isEqualTo(SurveyErrorCode.FORM_RESPONSE_ALREADY_EXISTS); |
-| [88](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L88) | 기본 폼은 같은 form/member의 즉시 제출을 차단한다 | SubmitFormResponseCommand {formId=FORM_ID, respondentMemberId=MEMBER_ID, answers=List.of(}; 호출 submitImmediately(SubmitFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.FORM_RESPONSE_ALREADY_EXISTS; 검증 .isEqualTo(SurveyErrorCode.FORM_RESPONSE_ALREADY_EXISTS); |
-| [106](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L106) | 중복 허용 폼은 같은 form/member의 두 번째 draft도 새 응답으로 생성한다 | CreateDraftFormResponseCommand {formId=FORM_ID, respondentMemberId=MEMBER_ID}; 호출 createDraft(CreateDraftFormResponseCommand.builder() | 실패: 검증 assertThat(result).isEqualTo(FORM_RESPONSE_ID); |
-| [125](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L125) | 중복 허용 폼은 같은 form/member의 즉시 제출도 새 응답으로 생성한다 | SubmitFormResponseCommand {formId=FORM_ID, respondentMemberId=MEMBER_ID, answers=List.of(}; 호출 submitImmediately(SubmitFormResponseCommand.builder() | 실패: 검증 assertThat(result).isEqualTo(FORM_RESPONSE_ID); |
-| [146](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L146) | 중복 허용 폼은 formId/memberId 기반 제출 응답 수정을 막는다 | UpdateFormResponseCommand {formId=FORM_ID, respondentMemberId=MEMBER_ID, answers=List.of(}; 호출 updateResponse(UpdateFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.FORM_RESPONSE_LOOKUP_AMBIGUOUS; 검증 .isEqualTo(SurveyErrorCode.FORM_RESPONSE_LOOKUP_AMBIGUOUS); |
-| [164](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L164) | 중복 허용 폼은 formId/memberId 기반 제출 응답 삭제를 막는다 | DeleteFormResponseCommand {formId=FORM_ID, respondentMemberId=MEMBER_ID}; 호출 deleteResponse(DeleteFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.FORM_RESPONSE_LOOKUP_AMBIGUOUS; 검증 .isEqualTo(SurveyErrorCode.FORM_RESPONSE_LOOKUP_AMBIGUOUS); |
-| [182](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L182) | draft 제출 scope가 있으면 전달된 required question만 필수 응답 검증한다 | SubmitDraftFormResponseCommand {formResponseId=FORM_RESPONSE_ID, requesterMemberId=MEMBER_ID, requiredQuestionIds=Set.of(commonRequiredQuestion.getId(, allowedQuestionIds=Set.of(commonRequiredQuestion.getId(}; 호출 submitDraft(SubmitDraftFormResponseCommand.builder() | 성공: draft 제출 scope가 있으면 전달된 required question만 필수 응답 검증한다 |
-| [202](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L202) | draft 제출 scope가 없으면 기존처럼 form 전체 required question을 검증한다 | SubmitDraftFormResponseCommand {formResponseId=FORM_RESPONSE_ID, requesterMemberId=MEMBER_ID}; 호출 submitDraft(SubmitDraftFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.REQUIRED_QUESTION_NOT_ANSWERED; 검증 .isEqualTo(SurveyErrorCode.REQUIRED_QUESTION_NOT_ANSWERED); |
-| [223](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L223) | draft 제출 scope의 allowed question 밖에 저장된 답변이 있으면 실패한다 | SubmitDraftFormResponseCommand {formResponseId=FORM_RESPONSE_ID, requesterMemberId=MEMBER_ID, requiredQuestionIds=Set.of(, allowedQuestionIds=Set.of(10L}; 호출 submitDraft(SubmitDraftFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM; 검증 .isEqualTo(SurveyErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM); |
-| [245](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L245) | SHORT_TEXT 답변이 빈 문자열이면 저장하지 않고 INVALID_ANSWER_FORMAT으로 거부한다 | UpdateDraftFormResponseCommand {formResponseId=FORM_RESPONSE_ID, requesterMemberId=MEMBER_ID, answers=List.of(AnswerCommand.builder(, questionId=question.getId(, textValue=""}; 호출 updateDraft(UpdateDraftFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.INVALID_ANSWER_FORMAT; 검증 .isEqualTo(SurveyErrorCode.INVALID_ANSWER_FORMAT); |
-| [268](../../../src/test/java/com/umc/product/survey/application/service/command/FormResponseCommandServiceTest.java#L268) | LONG_TEXT 답변이 공백 문자열이면 저장하지 않고 INVALID_ANSWER_FORMAT으로 거부한다 | UpdateDraftFormResponseCommand {formResponseId=FORM_RESPONSE_ID, requesterMemberId=MEMBER_ID, answers=List.of(AnswerCommand.builder(, questionId=question.getId(, textValue=" "}; 호출 updateDraft(UpdateDraftFormResponseCommand.builder() | 실패: 예외 SurveyDomainException; 에러코드 SurveyErrorCode.INVALID_ANSWER_FORMAT; 검증 .isEqualTo(SurveyErrorCode.INVALID_ANSWER_FORMAT); |
+| 테스트 | 검증하는 observable |
+| --- | --- |
+| [`FormOwnerReferenceTest`](../../../src/test/java/com/umc/product/form/domain/FormOwnerReferenceTest.java) | namespace/resource key/slot grammar, immutable tuple, 동일 Form owner transfer 거부를 확인한다. |
+| [`FormOwnershipPersistenceAdapterTest`](../../../src/test/java/com/umc/product/form/adapter/out/persistence/FormOwnershipPersistenceAdapterTest.java) | binding 저장/lock 조회, 동일 binding idempotency, 동일 Form transfer 거부, 동일 owner tuple 중복 거부, form 삭제 시 cascade, DB CHECK를 확인한다. |
+| [`FormOwnershipAccessServiceTest`](../../../src/test/java/com/umc/product/form/application/service/FormOwnershipAccessServiceTest.java) | mutation은 binding lock 후 expected owner와 policy를 순서대로 검사하고, query는 non-lock 조회를 사용한다. missing/mismatch/미등록·중복 evaluator는 policy 전에 fail-closed한다. |
+| [`StandaloneFormOwnerPolicyTest`](../../../src/test/java/com/umc/product/form/application/service/StandaloneFormOwnerPolicyTest.java) | `form.standalone/{formId}/default`에서 creator의 관리·게시·삭제·응답 결과 조회, published 공개 READ/RESPOND, draft anonymous 거부를 확인한다. |
+| [`FormPortInOwnershipContractTest`](../../../src/test/java/com/umc/product/form/application/service/FormPortInOwnershipContractTest.java) | 모든 public operation이 expected owner와 actor context를 명시적으로 요구하는지 확인한다. |
 
-### QuestionCommandServiceTest
-- 위치: `src/test/java/com/umc/product/survey/application/service/command/QuestionCommandServiceTest.java`
+## Consumer mapping과 exact-one coverage
 
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [46](../../../src/test/java/com/umc/product/survey/application/service/command/QuestionCommandServiceTest.java#L46) | createQuestion은 요청 description을 신규 질문에 저장한다 | CreateQuestionCommand {sectionId=20L, requesterMemberId=99L, type=QuestionType.SHORT_TEXT, title="자기소개", description="자기소개를 입력해주세요", isRequired=true}; 호출 createQuestion(CreateQuestionCommand.builder() | 성공: 검증 assertThat(result).isEqualTo(30L); assertThat(captor.getValue().getDescription()).isEqualTo("자기소개를 입력해주세요"); |
+| 테스트 | 검증하는 observable |
+| --- | --- |
+| [`ProjectApplicationFormOwnerReferenceFactoryTest`](../../../src/test/java/com/umc/product/project/application/form/ProjectApplicationFormOwnerReferenceFactoryTest.java) | 서버가 `project.application-form/{projectId}/default`를 생성하고 요청 namespace를 신뢰하지 않는다. |
+| [`ProjectApplicationFormOwnerPolicyTest`](../../../src/test/java/com/umc/product/project/application/form/ProjectApplicationFormOwnerPolicyTest.java) | Project permission capability와 Form operation의 일대일 매핑, malformed key/unauthenticated actor fail-closed를 확인한다. |
+| [`ProjectApplicationFormOwnershipContractTest`](../../../src/test/java/com/umc/product/project/application/form/ProjectApplicationFormOwnershipContractTest.java) | 다른 Project owner key 또는 child에서 resolve한 Form ID mismatch가 policy 전에 거부된다. |
+| [`FeedbackTemplateOwnerPolicyTest`](../../../src/test/java/com/umc/product/feedback/application/policy/FeedbackTemplateOwnerPolicyTest.java) | `feedback.template` owner lookup, actor/business permission, missing ownership와 policy 예외의 false 수렴을 확인한다. |
+| [`EngineOwnershipBackfillIntegrationTest`](../../../src/test/java/com/umc/product/registry/backfill/EngineOwnershipBackfillIntegrationTest.java) | Project/Notice/Feedback와 standalone Form mapping을 PostgreSQL에 keyset backfill하고 duplicate/broken/stale/conflict drift를 보존·보고한다. |
+
+Form readiness는 persisted namespace와 declared namespace의 합집합에 대해 evaluator가 정확히 하나인지 확인한다. `form.standalone`, `project.application-form`, `notice.vote`, `feedback.template` 중 하나라도 누락/중복/오염되면 `app.engine-ownership.enforcement-enabled=true`여도 STRICT가 되지 않는다.
+
+## 응답·첨부 경계
+
+| 테스트 | 검증하는 observable |
+| --- | --- |
+| [`FormResponseCommandServiceTest`](../../../src/test/java/com/umc/product/form/application/service/command/FormResponseCommandServiceTest.java) | draft/submit 중복 정책, parent chain, required question scope, answer format, named respondent ownership, anonymous raw key hash 경계를 확인한다. |
+| [`FormResponseAnonymousAttachmentUsageTest`](../../../src/test/java/com/umc/product/form/application/service/command/FormResponseAnonymousAttachmentUsageTest.java) | 익명 attachment null은 snapshot 유지, empty는 clear, subset은 부분 제거만 허용한다. |
+| [`FormAnswerAttachmentUsageServiceTest`](../../../src/test/java/com/umc/product/form/application/service/FormAnswerAttachmentUsageServiceTest.java) | FILE Answer ID exact snapshot 등록과 response 삭제 전 batch detach를 확인한다. |
+| [`FormAnswerUsageCascadeIntegrationTest`](../../../src/test/java/com/umc/product/form/application/service/command/FormAnswerUsageCascadeIntegrationTest.java) | 공유 file은 첫 response 삭제에서 유지하고 마지막 Form 삭제에서 detach한다. |
+| [`FormAnswerUsageTransactionIntegrationTest`](../../../src/test/java/com/umc/product/form/application/service/command/FormAnswerUsageTransactionIntegrationTest.java) | usage 실패 시 Answer 저장을 rollback한다. |
+| [`FormChildOptionalQueryOwnershipTest`](../../../src/test/java/com/umc/product/form/application/service/query/FormChildOptionalQueryOwnershipTest.java) | missing/existing section·question·option도 실제 root parent chain ownership을 먼저 검증하고 foreign child는 fail-closed한다. |
+| [`FormCollectionQueryOwnershipTest`](../../../src/test/java/com/umc/product/form/application/service/query/FormCollectionQueryOwnershipTest.java) | collection/batch adapter가 expected owner scope 밖 root·child·response·answer를 반환하면 거부한다. |
+
+새 API/FE 필드나 raw engine ID를 추가하지 않는다. anonymous 응답 계약과 attachment legacy snapshot 보존 규칙은 기존 테스트가 회귀 보호한다.

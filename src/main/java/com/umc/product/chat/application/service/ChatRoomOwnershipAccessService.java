@@ -2,6 +2,7 @@ package com.umc.product.chat.application.service;
 
 import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,17 +16,35 @@ import com.umc.product.chat.domain.ChatRoomOperation;
 import com.umc.product.chat.domain.ChatRoomOwnerReference;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
-
-import lombok.RequiredArgsConstructor;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.registry.application.port.in.query.GetRegistryReadinessUseCase;
+import com.umc.product.registry.domain.OwnershipEnforcementMode;
+import com.umc.product.registry.domain.RegistryName;
 
 /** Ownership binding, namespace policy, Chat membership을 순서대로 평가하는 단일 인가 진입점이다. */
 @Service
-@RequiredArgsConstructor
 public class ChatRoomOwnershipAccessService {
 
     private final ChatRoomOwnerPolicyRegistry policyRegistry;
     private final LoadChatRoomOwnershipPort loadOwnershipPort;
     private final LoadChatMemberPort loadChatMemberPort;
+    private final GetRegistryReadinessUseCase registryReadiness;
+    private final OperationalMetrics operationalMetrics;
+
+    @Autowired
+    public ChatRoomOwnershipAccessService(
+        ChatRoomOwnerPolicyRegistry policyRegistry,
+        LoadChatRoomOwnershipPort loadOwnershipPort,
+        LoadChatMemberPort loadChatMemberPort,
+        GetRegistryReadinessUseCase registryReadiness,
+        OperationalMetrics operationalMetrics
+    ) {
+        this.policyRegistry = policyRegistry;
+        this.loadOwnershipPort = loadOwnershipPort;
+        this.loadChatMemberPort = loadChatMemberPort;
+        this.registryReadiness = registryReadiness;
+        this.operationalMetrics = operationalMetrics;
+    }
 
     public void verify(
         ChatRoomOwnerReference expectedOwner,
@@ -77,6 +96,10 @@ public class ChatRoomOwnershipAccessService {
         ChatRoomOwnerPolicy policy,
         Optional<ChatRoomOwnerReference> persisted
     ) {
+        if (persisted.isEmpty()) {
+            allowAuditedMissingBinding(expectedOwner, operation, actorContext, policy);
+            return;
+        }
         ChatRoomOwnerReference actualOwner = persisted.orElseThrow(this::accessDenied);
         if (!actualOwner.sameBinding(expectedOwner)
             || operation == null
@@ -87,6 +110,30 @@ public class ChatRoomOwnershipAccessService {
             && !loadChatMemberPort.existsByRoomIdAndMemberId(actualOwner.roomId(), actorContext.actorMemberId())) {
             throw accessDenied();
         }
+    }
+
+    private void allowAuditedMissingBinding(
+        ChatRoomOwnerReference expectedOwner,
+        ChatRoomOperation operation,
+        ChatRoomActorContext actorContext,
+        ChatRoomOwnerPolicy policy
+    ) {
+        if (registryReadiness.ownershipMode(RegistryName.CHAT_OWNERSHIP)
+                != OwnershipEnforcementMode.AUDIT
+            || operation == null
+            || !policy.allows(expectedOwner, operation, actorContext)) {
+            throw accessDenied();
+        }
+        if (requiresMembership(operation)
+            && !loadChatMemberPort.existsByRoomIdAndMemberId(
+                expectedOwner.roomId(), actorContext.actorMemberId())) {
+            throw accessDenied();
+        }
+        operationalMetrics.recordSecurityEvent(
+            "chat",
+            "ownership_missing_binding",
+            "audit_allowed"
+        );
     }
 
     private String expectedNamespace(ChatRoomOwnerReference expectedOwner) {

@@ -34,10 +34,6 @@ public class FileCleanupClaimPersistenceAdapter implements FileCleanupClaimPort 
           AND (
               (
                   metadata.cleanup_claim_token IS NOT NULL
-                  AND metadata.cleanup_claimed_at <= :claimExpiredBefore
-              )
-              OR (
-                  metadata.cleanup_claim_token IS NULL
                   AND (
                       (
                           metadata.cleanup_next_attempt_at IS NOT NULL
@@ -45,18 +41,23 @@ public class FileCleanupClaimPersistenceAdapter implements FileCleanupClaimPort 
                       )
                       OR (
                           metadata.cleanup_next_attempt_at IS NULL
-                          AND (
-                              (
-                                  metadata.confirmed_at IS NULL
-                                  AND metadata.is_uploaded = false
-                                  AND metadata.created_at <= :pendingCreatedBefore
-                              )
-                              OR (
-                                  metadata.confirmed_at IS NOT NULL
-                                  AND metadata.unreferenced_at IS NOT NULL
-                                  AND metadata.unreferenced_at <= :unreferencedBefore
-                              )
-                          )
+                          AND metadata.cleanup_claimed_at <= :claimExpiredBefore
+                      )
+                  )
+              )
+              OR (
+                  metadata.cleanup_claim_token IS NULL
+                  AND metadata.cleanup_next_attempt_at IS NULL
+                  AND (
+                      (
+                          metadata.confirmed_at IS NULL
+                          AND metadata.is_uploaded = false
+                          AND metadata.created_at <= :pendingCreatedBefore
+                      )
+                      OR (
+                          metadata.confirmed_at IS NOT NULL
+                          AND metadata.unreferenced_at IS NOT NULL
+                          AND metadata.unreferenced_at <= :unreferencedBefore
                       )
                   )
               )
@@ -116,6 +117,21 @@ public class FileCleanupClaimPersistenceAdapter implements FileCleanupClaimPort 
 
     @Override
     @Transactional(propagation = Propagation.MANDATORY)
+    public boolean validateDeletionFence(FileCleanupClaim claim) {
+        List<FileMetadata> locked = fileMetadataRepository.findAllByIdInOrderByIdForUpdate(
+            List.of(claim.fileId())
+        );
+        if (locked.isEmpty()) {
+            return false;
+        }
+
+        FileMetadata metadata = locked.getFirst();
+        return metadata.canDeleteWithCleanupClaim(claim.token())
+            && fileUsageRepository.countByFileId(claim.fileId()) == 0L;
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.MANDATORY)
     public boolean finalizeDeletion(FileCleanupClaim claim) {
         List<FileMetadata> locked = fileMetadataRepository.findAllByIdInOrderByIdForUpdate(List.of(claim.fileId()));
         if (locked.isEmpty()) {
@@ -123,7 +139,7 @@ public class FileCleanupClaimPersistenceAdapter implements FileCleanupClaimPort 
         }
 
         FileMetadata metadata = locked.getFirst();
-        if (!metadata.matchesCleanupClaim(claim.token())) {
+        if (!metadata.canDeleteWithCleanupClaim(claim.token())) {
             return false;
         }
         if (fileUsageRepository.countByFileId(claim.fileId()) != 0L) {
