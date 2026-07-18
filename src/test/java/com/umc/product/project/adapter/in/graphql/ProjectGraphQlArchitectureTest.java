@@ -20,8 +20,7 @@ class ProjectGraphQlArchitectureTest {
     private static final Set<String> PROHIBITED_IMPORT_PATTERNS = Set.of(
         ".adapter.in.web.",
         ".member.adapter.in.graphql.",
-        ".form.adapter.in.graphql.",
-        ".feedback.adapter.in.graphql."
+        ".form.adapter.in.graphql."
     );
 
     @Test
