@@ -4,9 +4,12 @@ import com.umc.product.common.BaseEntity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -26,25 +29,31 @@ public class Scrap extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "post_id", nullable = false)
-    private Long postId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "post_id", nullable = false, updatable = false)
+    @Getter(AccessLevel.NONE)
+    private Post post;
 
     @Column(name = "challenger_id", nullable = false)
     private Long challengerId;
 
-    private Scrap(Long postId, Long challengerId) {
-        this.postId = postId;
+    private Scrap(Post post, Long challengerId) {
+        this.post = post;
         this.challengerId = challengerId;
     }
 
-    public static Scrap create(Long postId, Long challengerId) {
-        validatePostId(postId);
+    public static Scrap create(Post post, Long challengerId) {
+        validatePost(post);
         validateChallengerId(challengerId);
-        return new Scrap(postId, challengerId);
+        return new Scrap(post, challengerId);
     }
 
-    private static void validatePostId(Long postId) {
-        if (postId == null || postId <= 0) {
+    public Long getPostId() {
+        return post.getId();
+    }
+
+    private static void validatePost(Post post) {
+        if (post == null || post.getId() == null || post.getId() <= 0) {
             throw new IllegalArgumentException("게시글 ID는 필수이며 양수여야 합니다.");
         }
     }

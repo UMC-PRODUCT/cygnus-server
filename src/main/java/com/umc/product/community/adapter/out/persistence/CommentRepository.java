@@ -12,10 +12,12 @@ import com.umc.product.community.domain.Comment;
 
 public interface CommentRepository extends JpaRepository<Comment, Long> {
 
-    Page<Comment> findByPostIdOrderByCreatedAtDesc(Long postId, Pageable pageable);
+    Page<Comment> findByPost_IdOrderByCreatedAtDesc(Long postId, Pageable pageable);
 
-    int countByPostId(Long postId);
+    int countByPost_Id(Long postId);
 
-    @Query("SELECT c.postId, COUNT(c) FROM Comment c WHERE c.postId IN :postIds GROUP BY c.postId")
+    @Query("SELECT c.post.id, COUNT(c) FROM Comment c WHERE c.post.id IN :postIds GROUP BY c.post.id")
     List<Object[]> countByPostIdIn(@Param("postIds") List<Long> postIds);
+
+    void deleteAllByPost_Id(Long postId);
 }

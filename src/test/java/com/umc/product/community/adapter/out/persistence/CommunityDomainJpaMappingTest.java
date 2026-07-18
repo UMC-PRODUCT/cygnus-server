@@ -21,7 +21,10 @@ import com.umc.product.community.domain.enums.Category;
 import com.umc.product.support.PersistenceAdapterTest;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @PersistenceAdapterTest
@@ -39,6 +42,13 @@ class CommunityDomainJpaMappingTest {
         assertDirectEntity(Post.class, "post");
         assertDirectEntity(Comment.class, "comment");
         assertDirectEntity(Scrap.class, "scrap");
+    }
+
+    @Test
+    @DisplayName("Comment와 Scrap은 Post를 단방향 LAZY ManyToOne으로 참조한다")
+    void commentAndScrapReferencePostWithLazyManyToOne() throws NoSuchFieldException {
+        assertPostRelation(Comment.class);
+        assertPostRelation(Scrap.class);
     }
 
     @Test
@@ -98,8 +108,8 @@ class CommunityDomainJpaMappingTest {
     void 대댓글_parent_id와_좋아요가_flush_clear_후_보존된다() {
         // given
         Post post = em.persist(Post.createPost("글", "본문", Category.FREE, 31L));
-        Comment parent = em.persist(Comment.create(post.getId(), 32L, "부모 댓글", null));
-        Comment child = Comment.create(post.getId(), 33L, "대댓글", parent.getId());
+        Comment parent = em.persist(Comment.create(post, 32L, "부모 댓글", null));
+        Comment child = Comment.create(post, 33L, "대댓글", parent.getId());
         child.toggleLike(34L);
 
         // when
@@ -111,6 +121,7 @@ class CommunityDomainJpaMappingTest {
         Comment reloaded = em.find(Comment.class, childId);
 
         // then
+        assertThat(reloaded.getPostId()).isEqualTo(post.getId());
         assertThat(reloaded.getParentId()).isEqualTo(parent.getId());
         assertThat(reloaded.getCreatedAt()).isEqualTo(createdAt);
         assertThat(updatedAt).isNotNull();
@@ -120,11 +131,11 @@ class CommunityDomainJpaMappingTest {
     }
 
     @Test
-    @DisplayName("스크랩 ID 감사 및 scalar ID 매핑이 flush-clear 후 보존된다")
-    void 스크랩_id_감사_및_scalar_id_매핑이_flush_clear_후_보존된다() {
+    @DisplayName("스크랩 ID 감사 및 Post 관계가 flush-clear 후 보존된다")
+    void 스크랩_id_감사_및_post_관계가_flush_clear_후_보존된다() {
         // given
         Post post = em.persist(Post.createPost("스크랩 글", "본문", Category.FREE, 41L));
-        Scrap scrap = Scrap.create(post.getId(), 42L);
+        Scrap scrap = Scrap.create(post, 42L);
 
         // when
         em.persistAndFlush(scrap);
@@ -153,5 +164,20 @@ class CommunityDomainJpaMappingTest {
             .findFirst()
             .orElseThrow();
         assertThat(idField.getType()).isEqualTo(Long.class);
+    }
+
+    private void assertPostRelation(Class<?> entityType) throws NoSuchFieldException {
+        Field postField = entityType.getDeclaredField("post");
+        ManyToOne manyToOne = postField.getAnnotation(ManyToOne.class);
+        JoinColumn joinColumn = postField.getAnnotation(JoinColumn.class);
+
+        assertThat(postField.getType()).isEqualTo(Post.class);
+        assertThat(manyToOne).isNotNull();
+        assertThat(manyToOne.fetch()).isEqualTo(FetchType.LAZY);
+        assertThat(manyToOne.optional()).isFalse();
+        assertThat(joinColumn).isNotNull();
+        assertThat(joinColumn.name()).isEqualTo("post_id");
+        assertThat(joinColumn.nullable()).isFalse();
+        assertThat(joinColumn.updatable()).isFalse();
     }
 }

@@ -173,7 +173,7 @@ public class PostQueryRepository {
         List<Post> results = queryFactory
             .selectFrom(post)
             .innerJoin(comment)
-            .on(post.id.eq(comment.postId))
+            .on(post.id.eq(comment.post.id))
             .where(comment.challengerId.eq(challengerId))
             .groupBy(post.id)
             .orderBy(comment.createdAt.max().desc())
@@ -186,7 +186,7 @@ public class PostQueryRepository {
         }
 
         Long totalCount = queryFactory
-            .select(comment.postId.countDistinct())
+            .select(comment.post.id.countDistinct())
             .from(comment)
             .where(comment.challengerId.eq(challengerId))
             .fetchOne();
@@ -201,7 +201,7 @@ public class PostQueryRepository {
         List<Post> results = queryFactory
             .selectFrom(post)
             .innerJoin(scrap)
-            .on(post.id.eq(scrap.postId))
+            .on(post.id.eq(scrap.post.id))
             .where(scrap.challengerId.eq(challengerId))
             .orderBy(scrap.createdAt.desc())
             .offset(pageable.getOffset())

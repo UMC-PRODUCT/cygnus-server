@@ -29,7 +29,7 @@ class ScrapPersistenceAdapterTest {
     void scrap_도메인을_별도_매퍼_없이_저장_조회_삭제한다() {
         // given
         Post post = em.persist(Post.createPost("스크랩", "본문", Category.FREE, 301L));
-        Scrap saved = sut.save(Scrap.create(post.getId(), 302L));
+        Scrap saved = sut.save(Scrap.create(post, 302L));
         em.flush();
         Long scrapId = saved.getId();
         em.clear();

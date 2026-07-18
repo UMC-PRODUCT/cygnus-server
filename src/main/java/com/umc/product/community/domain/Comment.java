@@ -13,10 +13,12 @@ import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
 import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -32,8 +34,10 @@ public class Comment extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "post_id", nullable = false)
-    private Long postId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "post_id", nullable = false, updatable = false)
+    @Getter(AccessLevel.NONE)
+    private Post post;
 
     @Column(name = "challenger_id", nullable = false)
     private Long challengerId;
@@ -51,16 +55,20 @@ public class Comment extends BaseEntity {
     @Getter(AccessLevel.NONE)
     private Set<Long> likedChallengerIds = new HashSet<>();
 
-    private Comment(Long postId, Long challengerId, String content, Long parentId) {
-        this.postId = postId;
+    private Comment(Post post, Long challengerId, String content, Long parentId) {
+        this.post = post;
         this.challengerId = challengerId;
         this.content = content;
         this.parentId = parentId;
     }
 
-    public static Comment create(Long postId, Long challengerId, String content, Long parentId) {
-        validateRequired(postId, challengerId, content);
-        return new Comment(postId, challengerId, content, parentId);
+    public static Comment create(Post post, Long challengerId, String content, Long parentId) {
+        validateRequired(post, challengerId, content);
+        return new Comment(post, challengerId, content, parentId);
+    }
+
+    public Long getPostId() {
+        return post.getId();
     }
 
     public void updateContent(String content) {
@@ -86,8 +94,8 @@ public class Comment extends BaseEntity {
         return likedChallengerIds.contains(challengerId);
     }
 
-    private static void validateRequired(Long postId, Long challengerId, String content) {
-        if (postId == null || postId <= 0) {
+    private static void validateRequired(Post post, Long challengerId, String content) {
+        if (post == null || post.getId() == null || post.getId() <= 0) {
             throw new CommunityDomainException(CommunityErrorCode.INVALID_COMMENT_POST_ID);
         }
         if (challengerId == null || challengerId <= 0) {

@@ -16,6 +16,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import org.hibernate.SessionFactory;
+import org.hibernate.TransientObjectException;
 import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -44,7 +45,12 @@ import jakarta.persistence.EntityManagerFactory;
 
 @PersistenceAdapterTest
 @TestPropertySource(properties = "spring.jpa.properties.hibernate.generate_statistics=true")
-@Import({PostPersistenceAdapter.class, PostQueryRepository.class, ScrapPersistenceAdapter.class})
+@Import({
+    CommentPersistenceAdapter.class,
+    PostPersistenceAdapter.class,
+    PostQueryRepository.class,
+    ScrapPersistenceAdapter.class
+})
 @DisplayName("커뮤니티 JPA 경계")
 class CommunityJpaBoundaryTest {
 
@@ -58,6 +64,9 @@ class CommunityJpaBoundaryTest {
 
     @Autowired
     ScrapPersistenceAdapter scrapAdapter;
+
+    @Autowired
+    CommentPersistenceAdapter commentAdapter;
 
     @Autowired
     PostQueryRepository postQueryRepository;
@@ -92,8 +101,8 @@ class CommunityJpaBoundaryTest {
             new Post.LightningInfo(MEET_AT, "역삼역", 5, "https://example.com/chat"),
             401L
         ));
-        Comment parent = em.persist(Comment.create(post.getId(), 402L, "부모", null));
-        Comment child = em.persist(Comment.create(post.getId(), 403L, "자식", parent.getId()));
+        Comment parent = em.persist(Comment.create(post, 402L, "부모", null));
+        Comment child = em.persist(Comment.create(post, 403L, "자식", parent.getId()));
 
         // when
         em.flush();
@@ -139,12 +148,84 @@ class CommunityJpaBoundaryTest {
     void 동일_post_challenger_스크랩_중복은_db_unique_제약으로_거절된다() {
         // given
         Post post = em.persist(Post.createPost("중복", "본문", Category.FREE, 421L));
-        scrapRepository.saveAndFlush(Scrap.create(post.getId(), 422L));
+        scrapRepository.saveAndFlush(Scrap.create(post, 422L));
         em.clear();
 
         // when & then
-        assertThatThrownBy(() -> scrapRepository.saveAndFlush(Scrap.create(post.getId(), 422L)))
+        assertThatThrownBy(() -> scrapRepository.saveAndFlush(Scrap.create(post, 422L)))
             .isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    @DisplayName("자식이 있는 Post 직접 삭제는 JPA 관계가 거절한다")
+    void directPostDeleteWithChildrenIsRejectedByJpaRelation() {
+        // given
+        Post post = em.persist(Post.createPost("삭제 제한", "본문", Category.FREE, 425L));
+        em.persist(Comment.create(post, 426L, "댓글", null));
+        em.flush();
+
+        // when / then
+        assertThatThrownBy(() -> {
+            postRepository.delete(post);
+            em.flush();
+        })
+            .isInstanceOf(IllegalStateException.class)
+            .hasRootCauseInstanceOf(TransientObjectException.class);
+    }
+
+    @Test
+    @DisplayName("Comment와 Scrap의 Post 외래 키는 RESTRICT이며 댓글 조회 인덱스가 존재한다")
+    void postForeignKeysAndCommentIndexAreAppliedByFlyway() {
+        // given
+        String foreignKeyQuery = """
+            SELECT conname || ':' || confdeltype::text
+            FROM pg_constraint
+            WHERE conname IN ('fk_comment_post_id', 'fk_scrap_post_id')
+            """;
+        String indexQuery = """
+            SELECT indexname
+            FROM pg_indexes
+            WHERE schemaname = 'public' AND indexname = 'idx_comment_post_id'
+            """;
+
+        // when
+        List<?> rawForeignKeys = em.getEntityManager().createNativeQuery(foreignKeyQuery).getResultList();
+        List<?> rawIndexes = em.getEntityManager().createNativeQuery(indexQuery).getResultList();
+        List<String> foreignKeys = rawForeignKeys.stream()
+            .map(Object::toString)
+            .toList();
+        List<String> indexes = rawIndexes.stream()
+            .map(Object::toString)
+            .toList();
+
+        // then
+        assertThat(foreignKeys).containsExactlyInAnyOrder("fk_comment_post_id:r", "fk_scrap_post_id:r");
+        assertThat(indexes).containsExactly("idx_comment_post_id");
+    }
+
+    @Test
+    @DisplayName("댓글과 스크랩을 먼저 정리하면 좋아요가 있는 Post도 삭제된다")
+    void deletePostAfterRemovingChildren() {
+        // given
+        Post post = em.persist(Post.createPost("명시적 삭제", "본문", Category.FREE, 427L));
+        post.toggleLike(428L);
+        Comment comment = em.persist(Comment.create(post, 429L, "댓글", null));
+        comment.toggleLike(430L);
+        em.persist(Scrap.create(post, 431L));
+        em.flush();
+        Long postId = post.getId();
+
+        // when
+        commentAdapter.deleteByPostId(postId);
+        scrapAdapter.deleteByPostId(postId);
+        postAdapter.delete(post);
+        em.flush();
+        em.clear();
+
+        // then
+        assertThat(postRepository.findById(postId)).isEmpty();
+        assertThat(commentAdapter.countByPostId(postId)).isZero();
+        assertThat(scrapAdapter.countByPostId(postId)).isZero();
     }
 
     @Test
@@ -174,12 +255,12 @@ class CommunityJpaBoundaryTest {
 
             // then
             assertThat(results).containsExactlyInAnyOrder(true, false);
-            assertThat(scrapRepository.countByPostId(postId)).isZero();
+            assertThat(scrapRepository.countByPost_Id(postId)).isZero();
         } finally {
             start.countDown();
             executor.shutdownNow();
             transactionTemplate.executeWithoutResult(status -> {
-                scrapRepository.deleteByPostIdAndChallengerId(postId, 432L);
+                scrapRepository.deleteByPost_IdAndChallengerId(postId, 432L);
                 postRepository.deleteById(postId);
             });
         }

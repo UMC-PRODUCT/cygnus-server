@@ -30,8 +30,8 @@ class CommentPersistenceAdapterTest {
     void 대댓글_parent_id와_좋아요를_직접_jpa_도메인으로_저장한다() {
         // given
         Post post = em.persist(Post.createPost("글", "본문", Category.FREE, 201L));
-        Comment parent = em.persist(Comment.create(post.getId(), 202L, "부모", null));
-        Comment child = sut.save(Comment.create(post.getId(), 203L, "자식", parent.getId()));
+        Comment parent = em.persist(Comment.create(post, 202L, "부모", null));
+        Comment child = sut.save(Comment.create(post, 203L, "자식", parent.getId()));
 
         // when
         LikeResult result = sut.toggleLike(child.getId(), 204L);
@@ -41,6 +41,7 @@ class CommentPersistenceAdapterTest {
         Comment reloaded = sut.findById(childId).orElseThrow();
 
         // then
+        assertThat(reloaded.getPostId()).isEqualTo(post.getId());
         assertThat(reloaded.getParentId()).isEqualTo(parent.getId());
         assertThat(reloaded.getContent()).isEqualTo("자식");
         assertThat(reloaded.getCreatedAt()).isNotNull();

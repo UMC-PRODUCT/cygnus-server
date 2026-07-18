@@ -1,5 +1,8 @@
 package com.umc.product.community.application.service.command;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.community.application.port.in.command.comment.CreateCommentUseCase;
 import com.umc.product.community.application.port.in.command.comment.DeleteCommentUseCase;
 import com.umc.product.community.application.port.in.command.comment.ToggleCommentLikeUseCase;
@@ -10,11 +13,11 @@ import com.umc.product.community.application.port.out.comment.SaveCommentPort;
 import com.umc.product.community.application.port.out.post.LoadPostPort;
 import com.umc.product.community.application.service.AuthorInfoProvider;
 import com.umc.product.community.domain.Comment;
+import com.umc.product.community.domain.Post;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -28,11 +31,11 @@ public class CommentCommandService implements CreateCommentUseCase, DeleteCommen
 
     @Override
     public CommentInfo create(CreateCommentCommand command) {
-        loadPostPort.findById(command.postId())
+        Post post = loadPostPort.findById(command.postId())
             .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.POST_NOT_FOUND));
 
         Comment comment = Comment.create(
-            command.postId(),
+            post,
             command.challengerId(),
             command.content(),
             command.parentId()

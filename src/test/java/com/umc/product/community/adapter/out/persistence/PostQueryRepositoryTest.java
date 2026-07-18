@@ -108,10 +108,10 @@ class PostQueryRepositoryTest {
         // given
         Post first = persistPost("첫 글", "첫 본문", Category.FREE, 201L);
         Post second = persistPost("둘째 글", "둘째 본문", Category.FREE, 202L);
-        persistComment(first.getId(), 301L, "첫 댓글");
-        persistComment(first.getId(), 301L, "두 번째 댓글");
-        persistComment(first.getId(), 999L, "다른 사용자 댓글");
-        persistComment(second.getId(), 301L, "셋째 댓글");
+        persistComment(first, 301L, "첫 댓글");
+        persistComment(first, 301L, "두 번째 댓글");
+        persistComment(first, 999L, "다른 사용자 댓글");
+        persistComment(second, 301L, "셋째 댓글");
         flushAndClear();
         statistics.clear();
 
@@ -132,8 +132,8 @@ class PostQueryRepositoryTest {
         // given
         Post first = persistPost("첫 스크랩", "첫 본문", Category.FREE, 401L);
         Post second = persistPost("둘째 스크랩", "둘째 본문", Category.FREE, 402L);
-        persistScrap(first.getId(), 501L);
-        persistScrap(second.getId(), 501L);
+        persistScrap(first, 501L);
+        persistScrap(second, 501L);
         flushAndClear();
         statistics.clear();
 
@@ -173,12 +173,12 @@ class PostQueryRepositoryTest {
         return em.persist(Post.createPost(title, content, category, challengerId));
     }
 
-    private void persistComment(Long postId, Long challengerId, String content) {
-        em.persist(Comment.create(postId, challengerId, content, null));
+    private void persistComment(Post post, Long challengerId, String content) {
+        em.persist(Comment.create(post, challengerId, content, null));
     }
 
-    private void persistScrap(Long postId, Long challengerId) {
-        em.persist(Scrap.create(postId, challengerId));
+    private void persistScrap(Post post, Long challengerId) {
+        em.persist(Scrap.create(post, challengerId));
     }
 
     private void flushAndClear() {

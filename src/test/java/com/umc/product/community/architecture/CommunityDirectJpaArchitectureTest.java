@@ -25,7 +25,9 @@ import com.umc.product.community.domain.Post;
 import com.umc.product.community.domain.Scrap;
 
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -118,11 +120,7 @@ class CommunityDirectJpaArchitectureTest {
             .orElseThrow(() -> new AssertionError(domainType.getSimpleName() + "에 @Id 필드가 없습니다."));
         assertThat(idField.getType()).isEqualTo(Long.class);
 
-        assertThat(Arrays.stream(domainType.getDeclaredFields())
-            .filter(this::hasAggregateRelation)
-            .toList())
-            .as("%s는 다른 aggregate를 JPA relation으로 직접 보유하면 안 된다", domainType.getSimpleName())
-            .isEmpty();
+        assertAllowedAggregateRelations(domainType);
 
         assertThat(Arrays.stream(domainType.getMethods())
             .filter(method -> Modifier.isPublic(method.getModifiers()))
@@ -146,6 +144,36 @@ class CommunityDirectJpaArchitectureTest {
             || field.isAnnotationPresent(ManyToOne.class)
             || field.isAnnotationPresent(OneToMany.class)
             || field.isAnnotationPresent(OneToOne.class);
+    }
+
+    private void assertAllowedAggregateRelations(Class<?> domainType) {
+        List<Field> relations = Arrays.stream(domainType.getDeclaredFields())
+            .filter(this::hasAggregateRelation)
+            .toList();
+
+        if (domainType == Post.class) {
+            assertThat(relations)
+                .as("Post는 aggregate relation을 직접 보유하면 안 된다")
+                .isEmpty();
+            return;
+        }
+
+        assertThat(relations)
+            .extracting(Field::getName)
+            .containsExactly("post");
+
+        Field postField = relations.getFirst();
+        ManyToOne manyToOne = postField.getAnnotation(ManyToOne.class);
+        JoinColumn joinColumn = postField.getAnnotation(JoinColumn.class);
+        assertThat(postField.getType()).isEqualTo(Post.class);
+        assertThat(manyToOne).isNotNull();
+        assertThat(manyToOne.fetch()).isEqualTo(FetchType.LAZY);
+        assertThat(manyToOne.optional()).isFalse();
+        assertThat(manyToOne.cascade()).isEmpty();
+        assertThat(joinColumn).isNotNull();
+        assertThat(joinColumn.name()).isEqualTo("post_id");
+        assertThat(joinColumn.nullable()).isFalse();
+        assertThat(joinColumn.updatable()).isFalse();
     }
 
     private void assertNoLegacyClassResource(Class<?> domainType) {

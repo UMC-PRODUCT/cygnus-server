@@ -30,12 +30,12 @@ public class CommentPersistenceAdapter implements LoadCommentPort, SaveCommentPo
 
     @Override
     public Page<Comment> findByPostId(Long postId, Pageable pageable) {
-        return commentRepository.findByPostIdOrderByCreatedAtDesc(postId, pageable);
+        return commentRepository.findByPost_IdOrderByCreatedAtDesc(postId, pageable);
     }
 
     @Override
     public int countByPostId(Long postId) {
-        return commentRepository.countByPostId(postId);
+        return commentRepository.countByPost_Id(postId);
     }
 
     @Override
@@ -62,6 +62,11 @@ public class CommentPersistenceAdapter implements LoadCommentPort, SaveCommentPo
         if (comment.getId() != null) {
             commentRepository.deleteById(comment.getId());
         }
+    }
+
+    @Override
+    public void deleteByPostId(Long postId) {
+        commentRepository.deleteAllByPost_Id(postId);
     }
 
     @Override

@@ -12,14 +12,16 @@ import com.umc.product.community.domain.Scrap;
 
 public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
-    Optional<Scrap> findByPostIdAndChallengerId(Long postId, Long challengerId);
+    Optional<Scrap> findByPost_IdAndChallengerId(Long postId, Long challengerId);
 
-    boolean existsByPostIdAndChallengerId(Long postId, Long challengerId);
+    boolean existsByPost_IdAndChallengerId(Long postId, Long challengerId);
 
-    int countByPostId(Long postId);
+    int countByPost_Id(Long postId);
 
-    void deleteByPostIdAndChallengerId(Long postId, Long challengerId);
+    void deleteByPost_IdAndChallengerId(Long postId, Long challengerId);
 
-    @Query("SELECT s.postId FROM Scrap s WHERE s.challengerId = :challengerId ORDER BY s.createdAt DESC")
+    void deleteAllByPost_Id(Long postId);
+
+    @Query("SELECT s.post.id FROM Scrap s WHERE s.challengerId = :challengerId ORDER BY s.createdAt DESC")
     Page<Long> findPostIdsByChallengerId(@Param("challengerId") Long challengerId, Pageable pageable);
 }
