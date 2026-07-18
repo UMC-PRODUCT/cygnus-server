@@ -117,6 +117,10 @@ class CommunityThreadRealtimeDelivery {
         return properties.maxMembers();
     }
 
+    void recordSkippedFanOut(Operation operation) {
+        metrics.recordFanOut(operation, Outcome.SKIPPED, 0);
+    }
+
     <P extends CommunityThreadRealtimePayload> CommunityThreadRealtimeEvent<P> envelope(
         UUID eventId,
         CommunityThreadRealtimeEventType type,

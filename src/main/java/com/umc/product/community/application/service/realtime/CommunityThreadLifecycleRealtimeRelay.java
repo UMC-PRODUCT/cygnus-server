@@ -3,10 +3,12 @@ package com.umc.product.community.application.service.realtime;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimeEvent;
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimeEventType;
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimePayload;
+import com.umc.product.community.application.port.out.thread.LoadCommunityThreadMemberPort;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics.Operation;
 import com.umc.product.community.domain.event.CommunityThreadDeletedEvent;
 import com.umc.product.community.domain.event.CommunityThreadInvitedEvent;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 class CommunityThreadLifecycleRealtimeRelay {
 
     private final CommunityThreadRealtimeDelivery delivery;
+    private final LoadCommunityThreadMemberPort loadMemberPort;
 
     void relay(CommunityThreadInvitedEvent event) {
         delivery.activeThread(event.threadId()).ifPresent(thread -> delivery.fanOutPersonalMembers(
@@ -111,7 +114,18 @@ class CommunityThreadLifecycleRealtimeRelay {
         );
     }
 
+    @Transactional
     void relay(CommunityThreadMemberLeftEvent event) {
+        boolean currentMembershipEpoch = loadMemberPort.findByThreadIdAndMemberIdForUpdate(
+            event.threadId(),
+            event.memberId()
+        )
+            .map(member -> member.getJoinedAt().isBefore(event.occurredAt()))
+            .orElse(false);
+        if (!currentMembershipEpoch) {
+            delivery.recordSkippedFanOut(Operation.MEMBER_LEFT);
+            return;
+        }
         List<Long> recipients = delivery.terminalAudience(event.activeMemberIds(), event.memberId());
         CommunityThreadRealtimeEvent<CommunityThreadRealtimePayload.MemberLeft> envelope =
             delivery.envelope(

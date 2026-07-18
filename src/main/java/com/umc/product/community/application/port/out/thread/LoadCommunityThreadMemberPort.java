@@ -10,6 +10,8 @@ public interface LoadCommunityThreadMemberPort {
 
     Optional<CommunityThreadMember> findByThreadIdAndMemberId(Long threadId, Long memberId);
 
+    Optional<CommunityThreadMember> findByThreadIdAndMemberIdForUpdate(Long threadId, Long memberId);
+
     List<CommunityThreadMember> listByThreadIdAndMemberIds(Long threadId, Set<Long> memberIds);
 
     List<CommunityThreadMember> listByThreadId(Long threadId);

@@ -29,15 +29,18 @@ import com.umc.product.community.application.port.in.realtime.dto.CommunityThrea
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimePayload;
 import com.umc.product.community.application.port.out.realtime.CommunityThreadRealtimeBroadcastPort;
 import com.umc.product.community.application.port.out.thread.CommunityThreadQueryPort;
+import com.umc.product.community.application.port.out.thread.LoadCommunityThreadMemberPort;
 import com.umc.product.community.application.port.out.thread.LoadCommunityThreadPort;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics.Operation;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics.Outcome;
 import com.umc.product.community.domain.CommunityThread;
+import com.umc.product.community.domain.CommunityThreadMember;
 import com.umc.product.community.domain.CommunityThreadProperties;
 import com.umc.product.community.domain.enums.CommunityThreadCategory;
 import com.umc.product.community.domain.enums.CommunityThreadMemberRole;
 import com.umc.product.community.domain.event.CommunityThreadInvitedEvent;
 import com.umc.product.community.domain.event.CommunityThreadMemberKickedEvent;
+import com.umc.product.community.domain.event.CommunityThreadMemberLeftEvent;
 import com.umc.product.community.domain.event.CommunityThreadUpdatedEvent;
 
 @ExtendWith(MockitoExtension.class)
@@ -48,6 +51,8 @@ class CommunityThreadLifecycleRealtimeRelayTest {
 
     @Mock
     LoadCommunityThreadPort loadThreadPort;
+    @Mock
+    LoadCommunityThreadMemberPort loadMemberPort;
     @Mock
     CommunityThreadQueryPort threadQueryPort;
     @Mock
@@ -75,7 +80,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
             new CommunityThreadProperties(100),
             metrics
         );
-        sut = new CommunityThreadLifecycleRealtimeRelay(delivery);
+        sut = new CommunityThreadLifecycleRealtimeRelay(delivery, loadMemberPort);
     }
 
     @Test
@@ -141,6 +146,53 @@ class CommunityThreadLifecycleRealtimeRelayTest {
     }
 
     @Test
+    @DisplayName("재가입한 epoch가 다시 LEFT여도 지연된 과거 member.left 전체를 건너뛴다")
+    void delayedMemberLeftAfterRejoinAndSecondLeaveIsSkipped() {
+        CommunityThreadMember currentMembership =
+            CommunityThreadMember.createMember(11L, 20L, NOW.minusSeconds(60));
+        currentMembership.leave(NOW);
+        currentMembership.rejoin(NOW);
+        currentMembership.leave(NOW.plusSeconds(60));
+        given(loadMemberPort.findByThreadIdAndMemberIdForUpdate(11L, 20L))
+            .willReturn(Optional.of(currentMembership));
+        CommunityThreadMemberLeftEvent delayedEvent = memberLeftEvent(currentMembership.getJoinedAt());
+
+        sut.relay(delayedEvent);
+
+        then(broadcastPort).shouldHaveNoInteractions();
+        then(metrics).should().recordFanOut(Operation.MEMBER_LEFT, Outcome.SKIPPED, 0);
+    }
+
+    @Test
+    @DisplayName("현재 membership을 확인할 수 없으면 member.left를 fail-safe로 건너뛴다")
+    void memberLeftWithoutCurrentMembershipIsSkipped() {
+        given(loadMemberPort.findByThreadIdAndMemberIdForUpdate(11L, 20L)).willReturn(Optional.empty());
+
+        sut.relay(memberLeftEvent(NOW));
+
+        then(broadcastPort).shouldHaveNoInteractions();
+        then(metrics).should().recordFanOut(Operation.MEMBER_LEFT, Outcome.SKIPPED, 0);
+    }
+
+    @Test
+    @DisplayName("현재 epoch의 member.left는 membership을 잠근 뒤 전환 전 snapshot 전체에 전달한다")
+    void currentEpochMemberLeftLocksMembershipAndUsesPreTransitionAudience() {
+        CommunityThreadMember currentMembership =
+            CommunityThreadMember.createMember(11L, 20L, NOW.minusSeconds(60));
+        currentMembership.leave(NOW);
+        given(loadMemberPort.findByThreadIdAndMemberIdForUpdate(11L, 20L))
+            .willReturn(Optional.of(currentMembership));
+
+        sut.relay(memberLeftEvent(NOW));
+
+        then(loadMemberPort).should().findByThreadIdAndMemberIdForUpdate(11L, 20L);
+        then(loadMemberPort).shouldHaveNoMoreInteractions();
+        then(broadcastPort).should(times(3))
+            .broadcastToThreadMember(eq(11L), any(Long.class), any());
+        then(metrics).should().recordFanOut(Operation.MEMBER_LEFT, Outcome.SUCCESS, 3);
+    }
+
+    @Test
     @DisplayName("thread.invited는 초대 대상마다 personal destination과 viewer별 summary를 사용한다")
     void threadInvitedUsesPersonalDestinations() {
         CommunityThread thread = thread();
@@ -200,6 +252,10 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         ReflectionTestUtils.setField(thread, "createdAt", NOW);
         ReflectionTestUtils.setField(thread, "updatedAt", NOW);
         return thread;
+    }
+
+    private CommunityThreadMemberLeftEvent memberLeftEvent(Instant occurredAt) {
+        return CommunityThreadMemberLeftEvent.of(11L, 20L, List.of(10L, 20L, 30L), occurredAt);
     }
 
     private ThreadDetailInfo threadDetail() {

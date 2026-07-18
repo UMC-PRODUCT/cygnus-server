@@ -75,6 +75,14 @@ public class CommunityThreadPersistenceAdapter implements
     }
 
     @Override
+    public Optional<CommunityThreadMember> findByThreadIdAndMemberIdForUpdate(
+        Long threadId,
+        Long memberId
+    ) {
+        return memberRepository.findByThreadIdAndMemberIdForUpdate(threadId, memberId);
+    }
+
+    @Override
     public List<CommunityThreadMember> listByThreadIdAndMemberIds(
         Long threadId,
         Set<Long> memberIds
