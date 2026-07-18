@@ -102,6 +102,10 @@ app:
       sender:
         no-reply-address: noreply@test.umc.local
         no-reply-display-name: UMC Test
+      template:
+        allowed-action-origins:
+          - https://university.neordinary.com
+          - http://localhost
 
 
   oauth2:
