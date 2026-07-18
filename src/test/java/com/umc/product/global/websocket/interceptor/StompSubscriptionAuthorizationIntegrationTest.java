@@ -49,6 +49,8 @@ import com.umc.product.global.websocket.application.port.out.BroadcastPort;
 import com.umc.product.global.websocket.application.service.StompSubscriptionAuthorizerRegistry;
 import com.umc.product.global.websocket.handler.ApiResponseStompErrorHandler;
 import com.umc.product.global.websocket.handler.WebSocketErrorPublisher;
+import com.umc.product.global.websocket.relay.RelayDestinationChannelInterceptors;
+import com.umc.product.global.websocket.relay.RelayDestinationCodec;
 
 import io.micrometer.context.ContextSnapshotFactory;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -172,7 +174,9 @@ class StompSubscriptionAuthorizationIntegrationTest {
         WebSocketRateLimitInterceptor.class,
         WebSocketInboundMetricInterceptor.class,
         WebSocketOutboundMetricInterceptor.class,
-        ShutdownAwareHandshakeInterceptor.class
+        ShutdownAwareHandshakeInterceptor.class,
+        RelayDestinationChannelInterceptors.class,
+        RelayDestinationCodec.class
     })
     static class TestApplication {
 
