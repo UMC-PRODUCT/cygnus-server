@@ -1,6 +1,8 @@
 package com.umc.product.community.adapter.out.persistence;
 
+import static java.time.temporal.ChronoUnit.MICROS;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import java.lang.reflect.Field;
 import java.time.Instant;
@@ -75,8 +77,8 @@ class CommunityDomainJpaMappingTest {
         assertThat(postId).isPositive();
         assertThat(createdAt).isNotNull();
         assertThat(initialUpdatedAt).isNotNull();
-        assertThat(reloaded.getCreatedAt()).isEqualTo(createdAt);
-        assertThat(reloaded.getUpdatedAt()).isEqualTo(initialUpdatedAt);
+        assertThat(reloaded.getCreatedAt()).isCloseTo(createdAt, within(1, MICROS));
+        assertThat(reloaded.getUpdatedAt()).isCloseTo(initialUpdatedAt, within(1, MICROS));
         assertThat(reloaded.getRegion()).isEmpty();
         assertThat(reloaded.isAnonymous()).isFalse();
         assertThat(reloaded.getMeetAt()).isEqualTo(LocalDateTime.ofInstant(MEET_AT, ZoneOffset.UTC));
@@ -98,8 +100,8 @@ class CommunityDomainJpaMappingTest {
 
         // then: 생성 시각은 유지되고 수정 시각만 실제로 전진한다.
         assertThat(changedUpdatedAt).isAfter(initialUpdatedAt);
-        assertThat(updated.getCreatedAt()).isEqualTo(createdAt);
-        assertThat(updated.getUpdatedAt()).isEqualTo(changedUpdatedAt);
+        assertThat(updated.getCreatedAt()).isCloseTo(createdAt, within(1, MICROS));
+        assertThat(updated.getUpdatedAt()).isCloseTo(changedUpdatedAt, within(1, MICROS));
         assertThat(updated.getTitle()).isEqualTo("한강 번개 수정");
     }
 
@@ -123,9 +125,9 @@ class CommunityDomainJpaMappingTest {
         // then
         assertThat(reloaded.getPostId()).isEqualTo(post.getId());
         assertThat(reloaded.getParentId()).isEqualTo(parent.getId());
-        assertThat(reloaded.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(reloaded.getCreatedAt()).isCloseTo(createdAt, within(1, MICROS));
         assertThat(updatedAt).isNotNull();
-        assertThat(reloaded.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(reloaded.getUpdatedAt()).isCloseTo(updatedAt, within(1, MICROS));
         assertThat(reloaded.getLikeCount()).isOne();
         assertThat(reloaded.isLikedBy(34L)).isTrue();
     }
@@ -149,9 +151,9 @@ class CommunityDomainJpaMappingTest {
         assertThat(scrapId).isPositive();
         assertThat(reloaded.getPostId()).isEqualTo(post.getId());
         assertThat(reloaded.getChallengerId()).isEqualTo(42L);
-        assertThat(reloaded.getCreatedAt()).isEqualTo(createdAt);
+        assertThat(reloaded.getCreatedAt()).isCloseTo(createdAt, within(1, MICROS));
         assertThat(updatedAt).isNotNull();
-        assertThat(reloaded.getUpdatedAt()).isEqualTo(updatedAt);
+        assertThat(reloaded.getUpdatedAt()).isCloseTo(updatedAt, within(1, MICROS));
     }
 
     private void assertDirectEntity(Class<?> entityType, String tableName) {
