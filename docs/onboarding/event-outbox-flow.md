@@ -38,12 +38,13 @@ sequenceDiagram
 
         rect rgb(245, 245, 245)
             Note over Relay,DB: claim transaction
-            Relay->>DB: PENDING 또는 lease 만료 PROCESSING 조회
-            Note right of DB: FOR UPDATE SKIP LOCKED
-            DB-->>Relay: 처리할 Outbox 목록
+            Relay->>DB: PENDING 또는 lease 만료 PROCESSING 중 1건 조회
+            Note right of DB: FOR UPDATE SKIP LOCKED, next_attempt_at·id 순서
+            DB-->>Relay: 처리할 Outbox 1건
             Relay->>DB: PROCESSING, nextAttemptAt=leaseUntil
             Relay->>DB: claim commit
         end
+        Note over Relay: 이전 listener가 끝난 뒤 다음 1건을 claim한다
 
         Relay->>Relay: payload를 DomainEvent로 역직렬화
 
@@ -129,3 +130,64 @@ Firebase API를 호출하는 batch 발송 이벤트는 `NON_TRANSACTIONAL`이 �
 `EVENT_OUTBOX_RELAY_ENABLED=false`는 poller만 중지한다. `DomainEventPublisher`는 계속 신규 이벤트를
 `PENDING`으로 저장하며, relay를 다시 활성화하면 적체된 이벤트를 처리한다. Spring local publisher로
 우회하지 않으므로 환경에 따라 이벤트 내구성이 달라지지 않는다.
+
+## `publishOnce` 멱등 발행
+
+`DomainEventPublisher.publishOnce(event, availableAt)`는 `event_id`를 조회 키로 사용하는
+멱등 발행 계약이다. 후보 이벤트의 비교 identity는 다음 네 값을 함께 사용한다.
+
+```text
+(eventClass, eventType, payloadFingerprint, availableAt.truncatedTo(MICROS))
+```
+
+`payloadFingerprint`는 serializer가 event metadata를 제외하고 business payload object key를
+재귀적으로 정렬한 UTF-8 JSON의 SHA-256(소문자 64자리)이다. 배열 순서, null, 숫자 표현과 Unicode는
+보존한다. 따라서 `occurredAt`이나 map 삽입 순서만 달라진 재요청은 같은 fingerprint로 취급한다.
+
+| 요청 | 결과 |
+| --- | --- |
+| 새 `event_id` | `event_outbox` 한 행을 `PENDING`으로 atomic insert하고 `deduplicated=false` 반환 |
+| 같은 `event_id` + class/type/fingerprint/마이크로초 `availableAt` 모두 동일 | 기존 행을 그대로 반환하고 `deduplicated=true` |
+| class, type, fingerprint 또는 마이크로초 `availableAt` 중 하나라도 다름 | `EVENT-OUTBOX-0001` idempotency conflict, 기존 행은 변경하지 않음 |
+
+저장은 PostgreSQL `INSERT ... ON CONFLICT (event_id) DO NOTHING`으로 수행한다. 단순한
+`find → save` 순서를 사용하지 않으므로 동시 동일 요청에서도 행은 하나만 생긴다. 기존 배포 전
+행처럼 `payload_fingerprint` 또는 `available_at`이 `NULL`인 legacy row는 저장 payload를 추론해
+dedupe하지 않고 항상 conflict로 처리한다.
+
+## 예약 시각·재시도·lease·상태 조회 의미
+
+- `availableAt`: 최초 발송 가능 시각이다. 신규 row에서 불변이며 PostgreSQL `timestamp(6)`에 맞춰
+  microsecond로 절삭한다. 재시도 시각이 바뀌어도 이 값은 바뀌지 않는다.
+- `nextAttemptAt`: `PENDING`의 다음 실행 시각이다. 최초에는 `availableAt`, 실패 후에는 5초부터
+  최대 5분까지의 bounded backoff 시각이다.
+- `leaseUntil`: `PROCESSING` worker가 소유한 처리 임대 만료 시각이다. 저장 모델에서는 해당 상태의
+  `nextAttemptAt` 값이 lease를 뜻하며, `EventOutboxStatusInfo`가 이를 `leaseUntil`로 노출한다.
+
+상태 조회는 event ID, status, attempts, immutable `availableAt`, 상태에 맞는 시간 하나, 안전한
+failure code, `publishedAt`만 반환한다. `PENDING`은 `nextAttemptAt`만, `PROCESSING`은 `leaseUntil`만
+채우며 `PUBLISHED`와 `FAILED`는 둘 다 `null`이다. `OutboxPublishResult`도 `PENDING`일 때만
+`nextAttemptAt`을 반환한다. payload·수신자·template variables·원문 오류는 응답에 포함하지 않는다.
+
+## claim-one relay와 실패 기록
+
+relay는 한 번에 최대 `batchSize`건을 처리하되 매 반복마다 publishable row **한 건만**
+`FOR UPDATE SKIP LOCKED`로 claim한다. claim 직후 `PROCESSING`과 5분 lease를 커밋하고 listener를
+호출하며, 현재 listener가 끝난 뒤에야 다음 row를 claim한다. 이 순서로 긴 외부 호출 때문에
+batch 뒤쪽 row의 lease가 먼저 만료되는 것을 막는다. `NON_TRANSACTIONAL` listener는 외부 호출
+동안 JDBC transaction/connection을 점유하지 않고, 성공·실패 상태 저장만 짧은 별도 transaction에서
+수행한다.
+
+실패 저장값은 PII-safe하고 안정적인 식별자만 사용한다. `BusinessException`은
+`baseCode.code`(예: `EMAIL-0005`)를, 그 밖의 예외는 fully-qualified exception class name을
+`lastError`에 기록한다. raw exception message, 이메일 주소, template 변수와 payload는 DB나 로그에
+남기지 않는다.
+
+## 보장 범위와 한계
+
+outbox는 commit 이후 listener를 최소 한 번 실행하는 **at-least-once** 전달을 보장한다. listener가
+정상 반환하고 상태 저장까지 끝나면 `PUBLISHED`가 되며, 이메일의 경우 이는 SES API가 요청을
+수락했다는 뜻이지 수신함 도착·bounce·complaint를 뜻하지 않는다. 외부 side effect 뒤 프로세스가
+종료되어 `PUBLISHED` 저장을 못 한 lease 만료 구간에서는 같은 이벤트가 다시 실행될 수 있으므로
+provider-level exactly-once는 보장하지 않는다. 이메일 전용 delivery entity나 별도 poller를
+추가하지 않고 공용 outbox의 claim/lease/backoff를 재사용한다.

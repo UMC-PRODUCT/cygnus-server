@@ -1,11 +1,33 @@
 # Global 테스트 케이스
 
-- 테스트 파일: 47개
-- 테스트 케이스: 163개
+- 테스트 파일: 72개
+- 테스트 케이스: 306개 (`@Test` 303 + `@ParameterizedTest` 2 + `@RepeatedTest` 1)
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 - 문서 범위: 아래 목록은 architecture와 운영에 영향이 큰 대표 계약을 추적한다. 전체 테스트 목록의
   source of truth는 `src/test/java/com/umc/product/global`이며, 파일/케이스 개수는 각각 `rg --files`와
   `@Test` 계열 annotation 기준이다.
+
+## Issue #1147 outbox 신규·회귀 계약 map
+
+아래 클래스는 이번 공용 outbox 일반화에서 추가되거나 계약을 확장한 실제 테스트다. 각 클래스명과
+경로는 `src/test/java/com/umc/product/global`의 현재 파일을 기준으로 하며, 테스트 목적을 요약한다.
+
+| 테스트 클래스 | 위치 | 검증 목적 |
+|---|---|---|
+| `EventOutboxTest` | [`event/domain/EventOutboxTest.java`](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java) | fingerprint/`availableAt` microsecond 절삭, immutable 예약 시각, 상태 전이·재시도·안전한 상태 DTO, 입력·conflict code를 검증한다. |
+| `EventPayloadSerializerTest` | [`event/adapter/out/EventPayloadSerializerTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/EventPayloadSerializerTest.java) | metadata 제외 canonical fingerprint가 map 순서에 독립적이고 nested object는 정렬하며, 배열·null·숫자·Unicode 차이는 구분하고 full payload를 보존하는지 검증한다. |
+| `EventPayloadDeserializerTest` | [`event/adapter/out/EventPayloadDeserializerTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/EventPayloadDeserializerTest.java) | 저장된 event class/payload 복원 성공과 잘못된 class·payload의 실패 경계를 검증한다. |
+| `OutboxDomainEventPublisherTest` | [`event/adapter/out/OutboxDomainEventPublisherTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java) | 기존 `publish`/`publishAll`이 직발행 없이 fingerprint·예약 시각과 traceparent를 outbox에 저장하는지 검증한다. |
+| `OutboxDomainEventPublisherPublishOnceTest` | [`event/adapter/out/OutboxDomainEventPublisherPublishOnceTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherPublishOnceTest.java) | 신규·동일 identity dedupe, class/type/payload/`availableAt` mismatch conflict, legacy null conflict와 null 입력 거부를 검증한다. |
+| `EventOutboxPublisherConfigurationTest` | [`event/adapter/out/EventOutboxPublisherConfigurationTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java) | legacy enable property가 publisher를 끄지 않고 relay-only disable이 poller만 끄는지 검증한다. |
+| `EventOutboxAtomicInsertJpaRepositoryTest` | [`event/adapter/out/persistence/EventOutboxAtomicInsertJpaRepositoryTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxAtomicInsertJpaRepositoryTest.java) | native atomic insert가 원본 payload·metadata·fingerprint·예약 시각·audit/version을 보존하고 duplicate를 무시하는지 검증한다. |
+| `EventOutboxJpaRepositoryTest` | [`event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java) | due query 순서와 partial index, microsecond round-trip, `availableAt` 불변성, legacy null load, future 제외, schema constraint, lease fencing을 검증한다. |
+| `EventOutboxPersistenceAdapterTest` | [`event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java`](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java) | save/saveAll, atomic insert 결과 매핑, event ID 조회와 publishable 조회 포트 위임을 검증한다. |
+| `EventOutboxPublishOnceIntegrationTest` | [`event/application/service/EventOutboxPublishOnceIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxPublishOnceIntegrationTest.java) | PostgreSQL 동시 동일 요청에서 row 1개·writer 1개·나머지 deduplicated를 검증하고 class/type/nested payload/예약 시각/legacy 불일치 conflict가 원본을 보존하는지 검증한다. |
+| `EventOutboxRelayServiceTest` | [`event/application/service/EventOutboxRelayServiceTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java) | claim-one relay, transactional/non-transactional 경계, 성공·retry·max attempts·backoff, trace link, lease 소유권 fencing과 stable failure code를 검증한다. |
+| `EventOutboxRelayJdbcIntegrationTest` | [`event/application/service/EventOutboxRelayJdbcIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java) | 실제 Spring/PostgreSQL에서 publisher 단일 bean, NON_TRANSACTIONAL listener 중 JDBC connection 0, retry/PII-safe failure 기록을 검증한다. |
+| `EventOutboxStatusQueryServiceTest` | [`event/application/service/EventOutboxStatusQueryServiceTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxStatusQueryServiceTest.java) | event ID 상태 조회가 payload를 노출하지 않고 not-found stable code와 `readOnly` transaction을 유지하는지 검증한다. |
+| `EventOutboxStatusIntegrationTest` | [`event/application/service/EventOutboxStatusIntegrationTest.java`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxStatusIntegrationTest.java) | PENDING/PROCESSING/PUBLISHED/FAILED별 `nextAttemptAt`·`leaseUntil`·`publishedAt` 의미와 JSON payload/PII 비노출을 검증한다. |
 
 ## UseCase / Application Service
 
