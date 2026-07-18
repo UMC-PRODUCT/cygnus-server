@@ -14,6 +14,7 @@
 - [Authorization](authorization.md)
 - [Authorization 운영 안전 가이드](authorization-operational-safety.md)
 - [Certificate PDF Template](certificate-pdf-template.md)
+- [Community Trophy 제거 릴리스 프리플라이트](community-trophy-removal-release-preflight.md)
 - [Challenger](challenger.md)
 - [Community](community.md)
 - [Curriculum](curriculum.md)
