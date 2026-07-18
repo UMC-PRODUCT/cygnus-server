@@ -69,6 +69,13 @@ public interface GetChallengerUseCase {
     List<ChallengerBasicInfo> listBasicByMemberIdsAndGisuId(Set<Long> memberIds, Long gisuId);
 
     /**
+     * 특정 기수의 챌린저 기본 정보를 상벌점 없이 조회합니다.
+     * <p>
+     * 활성 대상 검색처럼 챌린저 식별자·회원·파트·상태만 필요한 경우 사용합니다.
+     */
+    List<ChallengerBasicInfo> listBasicByGisuId(Long gisuId);
+
+    /**
      * 여러 challengerId로 챌린저 정보 배치 조회
      *
      * @param challengerIds 챌린저 ID 목록
