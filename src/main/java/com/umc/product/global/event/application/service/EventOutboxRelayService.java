@@ -20,6 +20,7 @@ import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
+import com.umc.product.global.exception.BusinessException;
 import com.umc.product.global.observability.ObservabilityErrorSanitizer;
 import com.umc.product.global.observability.W3CTraceparent;
 
@@ -92,22 +93,27 @@ public class EventOutboxRelayService {
     }
 
     public void relay() {
-        List<EventOutbox> outboxes = claimPublishable();
-        for (EventOutbox outbox : outboxes) {
+        for (int processed = 0; processed < batchSize; processed++) {
+            EventOutbox outbox = claimPublishable();
+            if (outbox == null) {
+                return;
+            }
             relayOne(outbox);
         }
     }
 
-    private List<EventOutbox> claimPublishable() {
-        List<EventOutbox> outboxes = transactionTemplate.execute(status -> {
+    private EventOutbox claimPublishable() {
+        return transactionTemplate.execute(status -> {
             Instant now = Instant.now();
-            List<EventOutbox> publishableOutboxes = loadEventOutboxPort.listPublishable(batchSize, now);
-            Instant leaseUntil = now.plus(PROCESSING_LEASE);
-            publishableOutboxes.forEach(outbox -> outbox.markProcessing(leaseUntil));
-            saveEventOutboxPort.saveAll(publishableOutboxes);
-            return publishableOutboxes;
+            List<EventOutbox> publishableOutboxes = loadEventOutboxPort.listPublishable(1, now);
+            if (publishableOutboxes.isEmpty()) {
+                return null;
+            }
+            EventOutbox outbox = publishableOutboxes.getFirst();
+            outbox.markProcessing(now.plus(PROCESSING_LEASE));
+            saveEventOutboxPort.save(outbox);
+            return outbox;
         });
-        return outboxes == null ? List.of() : outboxes;
     }
 
     private void relayOne(EventOutbox outbox) {
@@ -178,7 +184,7 @@ public class EventOutboxRelayService {
 
     private void recordFailure(EventOutbox outbox, RuntimeException exception) {
         transactionTemplate.executeWithoutResult(status -> {
-            outbox.recordFailure(errorMessage(exception), nextAttemptAt(outbox), maxAttempts);
+            outbox.recordFailure(failureCode(exception), nextAttemptAt(outbox), maxAttempts);
             saveEventOutboxPort.save(outbox);
         });
     }
@@ -192,10 +198,10 @@ public class EventOutboxRelayService {
         return Instant.now().plus(backoff);
     }
 
-    private String errorMessage(RuntimeException exception) {
-        if (exception.getMessage() == null || exception.getMessage().isBlank()) {
-            return exception.getClass().getName();
+    private String failureCode(RuntimeException exception) {
+        if (exception instanceof BusinessException businessException) {
+            return businessException.getBaseCode().getCode();
         }
-        return exception.getMessage();
+        return exception.getClass().getName();
     }
 }

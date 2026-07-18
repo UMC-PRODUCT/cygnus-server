@@ -6,8 +6,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -67,6 +69,41 @@ class EventOutboxRelayServiceTest {
     }
 
     @Test
+    @DisplayName("각 listener 완료 후 다음 outbox 한 건만 claim한다")
+    void relay_claims_one_row_immediately_before_dispatch() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        NonTransactionalTestEvent firstEvent = NonTransactionalTestEvent.create("test.external.created", "first");
+        NonTransactionalTestEvent secondEvent = NonTransactionalTestEvent.create("test.external.created", "second");
+        EventOutbox first = EventOutbox.record(firstEvent, serializer.serialize(firstEvent));
+        EventOutbox second = EventOutbox.record(secondEvent, serializer.serialize(secondEvent));
+        FakeLoadEventOutboxPort loadPort = new FakeLoadEventOutboxPort(List.of(first, second));
+        List<List<EventOutboxStatus>> statusAtDispatch = new ArrayList<>();
+        ApplicationEventPublisher publisher = ignored ->
+            statusAtDispatch.add(List.of(first.getStatus(), second.getStatus()));
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            loadPort,
+            new FakeSaveEventOutboxPort(),
+            new EventPayloadDeserializer(objectMapper),
+            publisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            2,
+            3
+        );
+
+        relayService.relay();
+
+        assertThat(loadPort.requestedLimits).containsExactly(1, 1);
+        assertThat(statusAtDispatch).containsExactly(
+            List.of(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING),
+            List.of(EventOutboxStatus.PUBLISHED, EventOutboxStatus.PROCESSING)
+        );
+        assertThat(first.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
+        assertThat(second.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
+    }
+
+    @Test
     @DisplayName("이벤트 복원 또는 발행 실패 시 별도 상태 저장 트랜잭션에서 attempts를 증가시키고 pending으로 남긴다")
     void relay_실패_재시도() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
@@ -89,11 +126,15 @@ class EventOutboxRelayServiceTest {
             3
         );
 
+        Instant beforeRelay = Instant.now();
         relayService.relay();
+        Instant afterRelay = Instant.now();
 
         assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
         assertThat(outbox.getAttempts()).isEqualTo(1);
-        assertThat(outbox.getLastError()).contains("publish failed");
+        assertThat(outbox.getLastError()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(outbox.getNextAttemptAt())
+            .isBetween(beforeRelay.plusSeconds(5), afterRelay.plusSeconds(5));
         assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING);
     }
 
@@ -279,8 +320,44 @@ class EventOutboxRelayServiceTest {
 
         assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
         assertThat(outbox.getAttempts()).isEqualTo(1);
-        assertThat(outbox.getLastError()).contains("external call failed");
+        assertThat(outbox.getLastError()).isEqualTo(IllegalStateException.class.getName());
         assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("listener 실패 후 lease가 다시 due가 되면 다음 relay에서 재시도해 published 처리한다")
+    void relay_retries_failed_listener_on_next_due_run() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        NonTransactionalTestEvent event = NonTransactionalTestEvent.create("test.external.created", "hello");
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        AtomicInteger publishAttempts = new AtomicInteger();
+        ApplicationEventPublisher publisher = ignored -> {
+            if (publishAttempts.getAndIncrement() == 0) {
+                throw new IllegalStateException("first listener interrupted");
+            }
+        };
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            new FakeSaveEventOutboxPort(),
+            new EventPayloadDeserializer(objectMapper),
+            publisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            1,
+            3
+        );
+
+        relayService.relay();
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
+        assertThat(outbox.getAttempts()).isEqualTo(1);
+
+        outbox.markProcessing(Instant.EPOCH);
+        relayService.relay();
+
+        assertThat(publishAttempts).hasValue(2);
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
+        assertThat(outbox.getAttempts()).isEqualTo(1);
     }
 
     @Test
@@ -323,6 +400,12 @@ class EventOutboxRelayServiceTest {
         }
 
         @Override
+        public boolean saveIfAbsent(EventOutbox eventOutbox) {
+            save(eventOutbox);
+            return true;
+        }
+
+        @Override
         public void saveAll(Collection<EventOutbox> eventOutboxes) {
             eventOutboxes.forEach(eventOutbox -> savedStatuses.add(eventOutbox.getStatus()));
         }
@@ -341,6 +424,12 @@ class EventOutboxRelayServiceTest {
         }
 
         @Override
+        public boolean saveIfAbsent(EventOutbox eventOutbox) {
+            save(eventOutbox);
+            return true;
+        }
+
+        @Override
         public void saveAll(Collection<EventOutbox> eventOutboxes) {
             eventOutboxes.forEach(eventOutbox -> savedStatuses.add(eventOutbox.getStatus()));
         }
@@ -349,6 +438,7 @@ class EventOutboxRelayServiceTest {
     private static class FakeLoadEventOutboxPort implements LoadEventOutboxPort {
 
         private final List<EventOutbox> outboxes;
+        private final List<Integer> requestedLimits = new ArrayList<>();
 
         private FakeLoadEventOutboxPort(List<EventOutbox> outboxes) {
             this.outboxes = outboxes;
@@ -356,7 +446,20 @@ class EventOutboxRelayServiceTest {
 
         @Override
         public List<EventOutbox> listPublishable(int limit, Instant now) {
-            return outboxes;
+            requestedLimits.add(limit);
+            return outboxes.stream()
+                .filter(outbox -> outbox.getStatus() == EventOutboxStatus.PENDING
+                    || outbox.getStatus() == EventOutboxStatus.PROCESSING)
+                .filter(outbox -> !outbox.getNextAttemptAt().isAfter(now))
+                .limit(limit)
+                .toList();
+        }
+
+        @Override
+        public Optional<EventOutbox> findByEventId(UUID eventId) {
+            return outboxes.stream()
+                .filter(outbox -> outbox.getEventId().equals(eventId))
+                .findFirst();
         }
     }
 
@@ -367,6 +470,12 @@ class EventOutboxRelayServiceTest {
         @Override
         public void save(EventOutbox eventOutbox) {
             savedStatuses.add(eventOutbox.getStatus());
+        }
+
+        @Override
+        public boolean saveIfAbsent(EventOutbox eventOutbox) {
+            save(eventOutbox);
+            return true;
         }
 
         @Override
