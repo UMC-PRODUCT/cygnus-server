@@ -18,6 +18,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -39,6 +40,7 @@ import com.umc.product.community.domain.CommunityThreadMember;
 import com.umc.product.community.domain.enums.CommunityThreadMemberRole;
 import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.event.CommunityThreadMemberKickedEvent;
+import com.umc.product.community.domain.event.CommunityThreadMemberLeftEvent;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
@@ -220,6 +222,35 @@ class CommunityThreadMembershipCommandServiceTest {
             .isEqualTo(CommunityErrorCode.THREAD_OWNER_CANNOT_LEAVE);
         then(leaveChatRoomUseCase).shouldHaveNoInteractions();
         then(saveMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("탈퇴 이벤트는 상태 전환 전 membership joinedAt을 epoch snapshot으로 발행한다")
+    void leave_publishesMembershipEpochBeforeTransition() {
+        // given
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        CommunityThreadMember member = CommunityThreadLifecycleTestFixtures.activeMember(
+            20L,
+            CommunityThreadMemberRole.MEMBER
+        );
+        CommunityThreadMember owner = CommunityThreadLifecycleTestFixtures.activeMember(
+            OWNER_ID,
+            CommunityThreadMemberRole.OWNER
+        );
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, 20L)).willReturn(Optional.of(member));
+        given(loadMemberPort.listByThreadId(THREAD_ID)).willReturn(List.of(owner, member));
+        given(saveMemberPort.save(member)).willReturn(member);
+        ArgumentCaptor<CommunityThreadMemberLeftEvent> eventCaptor =
+            ArgumentCaptor.forClass(CommunityThreadMemberLeftEvent.class);
+
+        // when
+        sut.leave(new ThreadActorCommand(THREAD_ID, 20L));
+
+        // then
+        then(eventPublisher).should().publish(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().membershipJoinedAt()).isEqualTo(NOW);
+        assertThat(eventCaptor.getValue().occurredAt()).isEqualTo(NOW);
     }
 
     @Test

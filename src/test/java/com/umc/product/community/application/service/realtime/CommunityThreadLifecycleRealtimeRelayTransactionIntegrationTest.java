@@ -147,6 +147,12 @@ class CommunityThreadLifecycleRealtimeRelayTransactionIntegrationTest extends In
     }
 
     private CommunityThreadMemberLeftEvent memberLeftEvent(Long threadId) {
-        return CommunityThreadMemberLeftEvent.of(threadId, 20L, List.of(20L), NOW);
+        return CommunityThreadMemberLeftEvent.of(
+            threadId,
+            20L,
+            List.of(20L),
+            NOW.minusSeconds(60),
+            NOW
+        );
     }
 }

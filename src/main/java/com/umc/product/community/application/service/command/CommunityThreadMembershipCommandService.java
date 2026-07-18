@@ -117,6 +117,7 @@ public class CommunityThreadMembershipCommandService implements
             thread.getChatRoomId(),
             actor.getMemberId()
         ));
+        Instant membershipJoinedAt = actor.getJoinedAt();
         Instant leftAt = clock.instant();
         actor.leave(leftAt);
         saveMemberPort.save(actor);
@@ -124,6 +125,7 @@ public class CommunityThreadMembershipCommandService implements
             thread.getId(),
             actor.getMemberId(),
             activeMemberIds,
+            membershipJoinedAt,
             leftAt
         ));
         return CommunityThreadMemberLifecycleInfo.from(actor, activeMemberIds.size() - 1L);

@@ -150,12 +150,16 @@ class CommunityThreadLifecycleRealtimeRelayTest {
     void delayedMemberLeftAfterRejoinAndSecondLeaveIsSkipped() {
         CommunityThreadMember currentMembership =
             CommunityThreadMember.createMember(11L, 20L, NOW.minusSeconds(60));
+        Instant previousMembershipJoinedAt = currentMembership.getJoinedAt();
         currentMembership.leave(NOW);
         currentMembership.rejoin(NOW);
         currentMembership.leave(NOW.plusSeconds(60));
         given(loadMemberPort.findByThreadIdAndMemberIdForUpdate(11L, 20L))
             .willReturn(Optional.of(currentMembership));
-        CommunityThreadMemberLeftEvent delayedEvent = memberLeftEvent(currentMembership.getJoinedAt());
+        CommunityThreadMemberLeftEvent delayedEvent = memberLeftEvent(
+            previousMembershipJoinedAt,
+            NOW
+        );
 
         sut.relay(delayedEvent);
 
@@ -168,22 +172,22 @@ class CommunityThreadLifecycleRealtimeRelayTest {
     void memberLeftWithoutCurrentMembershipIsSkipped() {
         given(loadMemberPort.findByThreadIdAndMemberIdForUpdate(11L, 20L)).willReturn(Optional.empty());
 
-        sut.relay(memberLeftEvent(NOW));
+        sut.relay(memberLeftEvent(NOW.minusSeconds(60), NOW));
 
         then(broadcastPort).shouldHaveNoInteractions();
         then(metrics).should().recordFanOut(Operation.MEMBER_LEFT, Outcome.SKIPPED, 0);
     }
 
     @Test
-    @DisplayName("현재 epoch의 member.left는 membership을 잠근 뒤 전환 전 snapshot 전체에 전달한다")
-    void currentEpochMemberLeftLocksMembershipAndUsesPreTransitionAudience() {
+    @DisplayName("가입과 탈퇴 시각이 같아도 현재 epoch의 member.left를 전환 전 snapshot 전체에 전달한다")
+    void currentEpochMemberLeftWithEqualTimestampsUsesPreTransitionAudience() {
         CommunityThreadMember currentMembership =
-            CommunityThreadMember.createMember(11L, 20L, NOW.minusSeconds(60));
+            CommunityThreadMember.createMember(11L, 20L, NOW);
         currentMembership.leave(NOW);
         given(loadMemberPort.findByThreadIdAndMemberIdForUpdate(11L, 20L))
             .willReturn(Optional.of(currentMembership));
 
-        sut.relay(memberLeftEvent(NOW));
+        sut.relay(memberLeftEvent(NOW, NOW));
 
         then(loadMemberPort).should().findByThreadIdAndMemberIdForUpdate(11L, 20L);
         then(loadMemberPort).shouldHaveNoMoreInteractions();
@@ -254,8 +258,17 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         return thread;
     }
 
-    private CommunityThreadMemberLeftEvent memberLeftEvent(Instant occurredAt) {
-        return CommunityThreadMemberLeftEvent.of(11L, 20L, List.of(10L, 20L, 30L), occurredAt);
+    private CommunityThreadMemberLeftEvent memberLeftEvent(
+        Instant membershipJoinedAt,
+        Instant occurredAt
+    ) {
+        return CommunityThreadMemberLeftEvent.of(
+            11L,
+            20L,
+            List.of(10L, 20L, 30L),
+            membershipJoinedAt,
+            occurredAt
+        );
     }
 
     private ThreadDetailInfo threadDetail() {

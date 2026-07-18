@@ -120,7 +120,7 @@ class CommunityThreadLifecycleRealtimeRelay {
             event.threadId(),
             event.memberId()
         )
-            .map(member -> member.getJoinedAt().isBefore(event.occurredAt()))
+            .map(member -> member.getJoinedAt().equals(event.membershipJoinedAt()))
             .orElse(false);
         if (!currentMembershipEpoch) {
             delivery.recordSkippedFanOut(Operation.MEMBER_LEFT);
