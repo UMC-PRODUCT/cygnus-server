@@ -1,16 +1,21 @@
 package com.umc.product.notification.application.port.in.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.umc.product.notification.application.service.EmailTemplateCatalog;
 import com.umc.product.notification.domain.EmailTemplateType;
+import com.umc.product.notification.domain.exception.EmailDomainException;
+import com.umc.product.notification.domain.exception.EmailErrorCode;
 
 class SendTemplateEmailCommandTest {
 
@@ -36,15 +41,25 @@ class SendTemplateEmailCommandTest {
     }
 
     @Test
-    @DisplayName("command는 subject·template path·HTML을 호출자 입력으로 노출하지 않는다")
-    void raw_rendering_input을_노출하지_않는다() {
-        assertThat(SendTemplateEmailCommand.class.getRecordComponents())
-            .extracting(component -> component.getName())
-            .containsExactly("eventId", "recipient", "templateType", "variables", "availableAt");
-        assertThat(SendTemplateEmailCommand.class.getDeclaredFields())
-            .noneMatch(field -> field.getName().equals("subject"))
-            .noneMatch(field -> field.getName().equals("templateResourcePath"))
-            .noneMatch(field -> field.getName().equals("htmlContent"));
+    @DisplayName("rendering control 변수는 stable EMAIL code로 거부한다")
+    void rendering_control_변수를_거부한다() {
+        EmailTemplateCatalog catalog = new EmailTemplateCatalog(List.of("https://university.neordinary.com"));
+
+        for (String renderingControlKey : List.of("subject", "templateResourcePath", "htmlContent")) {
+            SendTemplateEmailCommand command = new SendTemplateEmailCommand(
+                UUID.randomUUID(),
+                "recipient@test.umc.local",
+                EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+                Map.of("applicantName", "지원자", renderingControlKey, "caller-controlled"),
+                Instant.parse("2026-07-18T00:00:00Z")
+            );
+
+            assertThatThrownBy(() -> catalog.validate(command))
+                .isInstanceOfSatisfying(EmailDomainException.class, exception -> {
+                    assertThat(exception.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_TEMPLATE_VARIABLES_INVALID);
+                    assertThat(exception.getBaseCode().getCode()).isEqualTo("EMAIL-0008");
+                });
+        }
     }
 
     @Test

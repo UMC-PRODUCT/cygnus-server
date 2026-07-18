@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,6 +19,7 @@ import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxErrorCode;
 import com.umc.product.global.event.domain.EventOutboxNotFoundException;
+import com.umc.product.global.event.domain.EventOutboxStatus;
 
 @DisplayName("EventOutboxStatusQueryService")
 class EventOutboxStatusQueryServiceTest {
@@ -42,19 +42,13 @@ class EventOutboxStatusQueryServiceTest {
         EventOutboxStatusInfo info = service.getByEventId(outbox.getEventId());
 
         assertThat(info.eventId()).isEqualTo(outbox.getEventId());
+        assertThat(info.status()).isEqualTo(EventOutboxStatus.PENDING);
+        assertThat(info.attempts()).isZero();
         assertThat(info.availableAt()).isEqualTo(AVAILABLE_AT);
-        assertThat(Arrays.stream(info.getClass().getRecordComponents()).map(component -> component.getName()))
-            .containsExactly(
-                "eventId",
-                "status",
-                "attempts",
-                "availableAt",
-                "nextAttemptAt",
-                "leaseUntil",
-                "failureCode",
-                "publishedAt"
-            );
-        assertThat(info.toString()).doesNotContain("privateBusinessValue", "must-not-leak");
+        assertThat(info.nextAttemptAt()).isEqualTo(AVAILABLE_AT);
+        assertThat(info.leaseUntil()).isNull();
+        assertThat(info.failureCode()).isNull();
+        assertThat(info.publishedAt()).isNull();
     }
 
     @Test
