@@ -16,7 +16,6 @@ import com.querydsl.core.types.Order;
 import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.core.types.dsl.PathBuilder;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.challenger.application.port.in.query.dto.ListChallengerRecordsQuery;
@@ -74,8 +73,7 @@ public class ChallengerRecordQueryRepository {
     /**
      * 기수×학교 단위로 미사용(isUsed=false) 챌린저 기록 코드 개수를 그룹 집계합니다.
      * <p>
-     * 미사용 코드가 0개인 (기수, 학교) 조합은 결과에 포함되지 않으며,
-     * 기수 내림차순(최신 우선) · 학교 오름차순으로 정렬합니다.
+     * 미사용 코드가 0개인 (기수, 학교) 조합은 결과에 포함되지 않으며, 기수 내림차순(최신 우선) · 학교 오름차순으로 정렬합니다.
      */
     public List<UnusedChallengerRecordCountRow> aggregateUnusedCountByGisuAndSchool() {
         return queryFactory
@@ -118,19 +116,40 @@ public class ChallengerRecordQueryRepository {
 
     /**
      * Pageable의 Sort를 QueryDSL OrderSpecifier 배열로 변환합니다.
-     * 정렬 조건이 없으면 createdAt 내림차순, id 내림차순을 기본으로 사용합니다.
+     * <p>
+     * 허용된 정렬 필드(createdAt, id)만 사용하며, whitelist에 없는 필드는 무시합니다. PathBuilder로 임의 필드명을 바인딩하지 않아 존재하지 않는 컬럼 요청으로 인한 런타임 오류를
+     * 방지합니다. 정렬 안정성을 위해 항상 id를 마지막 보조 정렬 (tie-breaker)로 추가하여, createdAt이 동일한 행의 페이지 이동 시 중복·누락을 방지합니다.
      */
     private OrderSpecifier<?>[] toOrderSpecifiers(Sort sort) {
-        if (sort == null || sort.isUnsorted()) {
-            return new OrderSpecifier<?>[]{challengerRecord.createdAt.desc(), challengerRecord.id.desc()};
-        }
-        PathBuilder<ChallengerRecord> path =
-            new PathBuilder<>(ChallengerRecord.class, challengerRecord.getMetadata());
         List<OrderSpecifier<?>> specifiers = new ArrayList<>();
-        for (Sort.Order order : sort) {
-            Order direction = order.isAscending() ? Order.ASC : Order.DESC;
-            specifiers.add(new OrderSpecifier<>(direction, path.getComparable(order.getProperty(), Comparable.class)));
+        boolean idIncluded = false;
+
+        if (sort != null && sort.isSorted()) {
+            for (Sort.Order order : sort) {
+                Order direction = order.isAscending() ? Order.ASC : Order.DESC;
+                switch (order.getProperty()) {
+                    case "createdAt" -> specifiers.add(new OrderSpecifier<>(direction, challengerRecord.createdAt));
+                    case "id" -> {
+                        specifiers.add(new OrderSpecifier<>(direction, challengerRecord.id));
+                        idIncluded = true;
+                    }
+                    default -> {
+                        // whitelist(createdAt, id)에 없는 필드는 무시한다.
+                    }
+                }
+            }
         }
+
+        // 허용된 정렬 필드가 하나도 없으면 기본 정렬(createdAt DESC)을 적용한다.
+        if (specifiers.isEmpty()) {
+            specifiers.add(new OrderSpecifier<>(Order.DESC, challengerRecord.createdAt));
+        }
+
+        // 정렬 안정성을 위해 항상 id 보조 정렬을 추가한다(이미 id로 정렬 중이면 생략).
+        if (!idIncluded) {
+            specifiers.add(new OrderSpecifier<>(Order.DESC, challengerRecord.id));
+        }
+
         return specifiers.toArray(new OrderSpecifier<?>[0]);
     }
 }
