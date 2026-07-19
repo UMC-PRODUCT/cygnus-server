@@ -98,7 +98,9 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     )
     @Override
     public void delete(Long id) {
-        saveChallengerRecordPort.delete(loadChallengerRecordPort.getById(id));
+        ChallengerRecord record = loadChallengerRecordPort.getById(id);
+        record.validateDeletable();
+        saveChallengerRecordPort.delete(record);
     }
 
     @Audited(

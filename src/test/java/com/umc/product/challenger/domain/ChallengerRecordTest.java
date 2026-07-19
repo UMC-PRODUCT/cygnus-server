@@ -79,4 +79,27 @@ class ChallengerRecordTest {
             .extracting("baseCode")
             .isEqualTo(ChallengerErrorCode.INVALID_SCHOOL_FOR_RECORD);
     }
+
+    @Test
+    @DisplayName("미사용 코드는 삭제 가능하다")
+    void 미사용_코드는_삭제_가능하다() {
+        ChallengerRecord record = ChallengerRecord.create(1L, 9L, 2L, 3L, ChallengerPart.WEB, "홍길동");
+
+        // 예외 없이 정상 통과해야 한다
+        record.validateDeletable();
+
+        assertThat(record.isUsed()).isFalse();
+    }
+
+    @Test
+    @DisplayName("사용된 코드는 삭제할 수 없다")
+    void 사용된_코드는_삭제할_수_없다() {
+        ChallengerRecord record = ChallengerRecord.create(1L, 9L, 2L, 3L, ChallengerPart.WEB, "홍길동");
+        record.markAsUsed(100L);
+
+        assertThatThrownBy(record::validateDeletable)
+            .isInstanceOf(ChallengerDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(ChallengerErrorCode.CHALLENGER_RECORD_ALREADY_USED);
+    }
 }

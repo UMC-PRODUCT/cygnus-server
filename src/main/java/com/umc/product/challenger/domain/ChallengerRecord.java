@@ -1,10 +1,15 @@
 package com.umc.product.challenger.domain;
 
+import java.time.Instant;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
+
 import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.BaseEntity;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,9 +18,6 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.Instant;
-import java.util.concurrent.ThreadLocalRandom;
-import java.util.stream.IntStream;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -124,6 +126,19 @@ public class ChallengerRecord extends BaseEntity {
     public void validateNotUsed() {
         if (this.isUsed) {
             throw new ChallengerDomainException(ChallengerErrorCode.USED_CHALLENGER_RECORD_CODE);
+        }
+    }
+
+    /**
+     * 삭제 가능 여부를 검증합니다.
+     * <p>
+     * 이미 사용된 코드는 삭제할 수 없습니다. 사용된 코드를 삭제하면 코드로 생성된
+     * Challenger/ChallengerRole은 남고 발급·사용 이력만 사라져 권한 추적이 불가능해집니다.
+     * 사용된 코드의 회수는 별도의 역할 회수 트랜잭션으로 처리해야 합니다.
+     */
+    public void validateDeletable() {
+        if (this.isUsed) {
+            throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_RECORD_ALREADY_USED);
         }
     }
 

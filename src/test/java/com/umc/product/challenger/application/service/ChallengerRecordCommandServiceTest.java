@@ -221,6 +221,32 @@ class ChallengerRecordCommandServiceTest {
         then(manageChallengerRoleUseCase).should(never()).createChallengerRole(any());
     }
 
+    @Test
+    @DisplayName("미사용 코드는 정상적으로 삭제된다")
+    void 미사용_코드는_정상적으로_삭제된다() {
+        ChallengerRecord record = normalRecord();
+        given(loadChallengerRecordPort.getById(1L)).willReturn(record);
+
+        sut.delete(1L);
+
+        then(saveChallengerRecordPort).should().delete(record);
+    }
+
+    @Test
+    @DisplayName("사용된 코드를 삭제하면 예외가 발생하고 삭제되지 않는다")
+    void 사용된_코드를_삭제하면_예외가_발생하고_삭제되지_않는다() {
+        ChallengerRecord record = normalRecord();
+        record.markAsUsed(100L);
+        given(loadChallengerRecordPort.getById(1L)).willReturn(record);
+
+        assertThatThrownBy(() -> sut.delete(1L))
+            .isInstanceOf(ChallengerDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(ChallengerErrorCode.CHALLENGER_RECORD_ALREADY_USED);
+
+        then(saveChallengerRecordPort).should(never()).delete(any());
+    }
+
     private CreateChallengerRecordCommand recordCommand() {
         return CreateChallengerRecordCommand.builder()
             .creatorMemberId(1L)
