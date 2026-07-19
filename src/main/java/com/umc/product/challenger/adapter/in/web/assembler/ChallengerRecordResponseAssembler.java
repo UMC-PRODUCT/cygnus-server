@@ -53,6 +53,8 @@ public class ChallengerRecordResponseAssembler {
      * <p>
      * 기수/학교 이름 보강은 페이지 내 항목의 gisuId를 일괄 조회({@code getByIds},
      * {@code getSchoolListByGisuIds})하여 N+1 없이 매핑합니다.
+     * schoolMap은 기수 차원을 유지하는 중첩 맵 {@code Map<gisuId, Map<schoolId, SchoolDetailInfo>>}으로
+     * 구성하여, 같은 학교가 기수별로 다른 지부(chapter)에 속하더라도 올바른 chapter 정보를 반환합니다.
      */
     public PageResponse<ChallengerRecordSummaryResponse> search(ListChallengerRecordsQuery query) {
         Page<ChallengerRecordInfo> page = getChallengerRecordUseCase.search(query);
@@ -68,12 +70,20 @@ public class ChallengerRecordResponseAssembler {
         Map<Long, GisuInfo> gisuMap = getGisuUseCase.getByIds(gisuIds).stream()
             .collect(Collectors.toMap(GisuInfo::gisuId, Function.identity()));
 
-        Map<Long, SchoolDetailInfo> schoolMap = getSchoolUseCase.getSchoolListByGisuIds(gisuIds).values().stream()
-            .flatMap(List::stream)
-            .collect(Collectors.toMap(SchoolDetailInfo::schoolId, Function.identity(), (a, b) -> a));
+        // 기수 차원 유지: Map<gisuId, Map<schoolId, SchoolDetailInfo>>
+        // 같은 schoolId라도 기수별로 다른 chapterId/chapterName을 가질 수 있으므로
+        // (gisuId, schoolId) 복합 키 조회를 위해 중첩 맵 구조를 사용한다.
+        Map<Long, Map<Long, SchoolDetailInfo>> schoolMap = getSchoolUseCase.getSchoolListByGisuIds(gisuIds)
+            .entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().stream()
+                    .collect(Collectors.toMap(SchoolDetailInfo::schoolId, Function.identity()))
+            ));
 
         return PageResponse.of(page,
-            info -> toSummary(info, gisuMap.get(info.gisuId()), schoolMap.get(info.schoolId())));
+            info -> toSummary(info, gisuMap.get(info.gisuId()),
+                schoolMap.getOrDefault(info.gisuId(), Map.of()).get(info.schoolId())));
     }
 
     /**
@@ -81,6 +91,8 @@ public class ChallengerRecordResponseAssembler {
      * <p>
      * 기수 세대/학교명 보강은 결과에 등장하는 gisuId 집합을 일괄 조회({@code getByIds},
      * {@code getSchoolListByGisuIds})하여 N+1 없이 매핑합니다. 전체 합계는 각 행의 합으로 계산합니다.
+     * schoolMap은 기수 차원을 유지하는 중첩 맵 {@code Map<gisuId, Map<schoolId, SchoolDetailInfo>>}으로
+     * 구성하여, 같은 학교가 기수별로 다른 지부(chapter)에 속하더라도 올바른 schoolName을 반환합니다.
      */
     public UnusedChallengerRecordStatisticsResponse unusedStatistics() {
         List<UnusedChallengerRecordCountInfo> counts =
@@ -101,12 +113,20 @@ public class ChallengerRecordResponseAssembler {
         Map<Long, GisuInfo> gisuMap = getGisuUseCase.getByIds(gisuIds).stream()
             .collect(Collectors.toMap(GisuInfo::gisuId, Function.identity()));
 
-        Map<Long, SchoolDetailInfo> schoolMap = getSchoolUseCase.getSchoolListByGisuIds(gisuIds).values().stream()
-            .flatMap(List::stream)
-            .collect(Collectors.toMap(SchoolDetailInfo::schoolId, Function.identity(), (a, b) -> a));
+        // 기수 차원 유지: Map<gisuId, Map<schoolId, SchoolDetailInfo>>
+        // 같은 schoolId라도 기수별로 다른 chapterId/chapterName을 가질 수 있으므로
+        // (gisuId, schoolId) 복합 키 조회를 위해 중첩 맵 구조를 사용한다.
+        Map<Long, Map<Long, SchoolDetailInfo>> schoolMap = getSchoolUseCase.getSchoolListByGisuIds(gisuIds)
+            .entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().stream()
+                    .collect(Collectors.toMap(SchoolDetailInfo::schoolId, Function.identity()))
+            ));
 
         List<UnusedChallengerRecordStatisticsResponse.Row> rows = counts.stream()
-            .map(count -> toStatisticsRow(count, gisuMap.get(count.gisuId()), schoolMap.get(count.schoolId())))
+            .map(count -> toStatisticsRow(count, gisuMap.get(count.gisuId()),
+                schoolMap.getOrDefault(count.gisuId(), Map.of()).get(count.schoolId())))
             .toList();
 
         return UnusedChallengerRecordStatisticsResponse.of(totalUnusedCount, rows);
