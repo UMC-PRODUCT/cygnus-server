@@ -159,6 +159,91 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
+    @DisplayName("운영진 코드의 memberName과 요청 회원 이름이 다르면 역할이 생성되지 않고 차단된다")
+    void 운영진_코드_memberName_불일치_시_차단된다() throws Exception {
+        // given
+        RecordContext context = recordContext(9204L, "운영진신원불일치이름");
+        // 코드에 등록된 이름: "이름일치인원", 실제 요청 회원 이름: "전혀다른이름"
+        Member member = member("전혀다른이름", "닉네임", "name-mismatch@test.com", context.school().getId());
+        Member creator = member("관리자", "관리", "name-mismatch-admin@test.com", context.school().getId());
+        Challenger challenger = saveChallengerPort.save(Challenger.builder()
+            .memberId(member.getId())
+            .part(ChallengerPart.WEB)
+            .gisuId(context.gisu().getId())
+            .build());
+        ChallengerRecord record = saveChallengerRecordPort.save(ChallengerRecord.createAdmin(
+            creator.getId(),
+            context.gisu().getId(),
+            context.chapter().getId(),
+            context.school().getId(),
+            ChallengerPart.WEB,
+            "이름일치인원", // 코드에 등록된 이름이 실제 회원과 다름
+            ChallengerRoleType.SCHOOL_PRESIDENT,
+            context.school().getId()
+        ));
+        authenticate(member.getId());
+
+        // when & then
+        mockMvc.perform(post("/api/v1/challenger-record/member")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(codeRequest(record.getCode())))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.success").value(false))
+            .andExpect(jsonPath("$.code").value("CHALLENGER-0013")); // INVALID_MEMBER_NAME_FOR_RECORD
+
+        // 코드는 사용 처리되지 않아야 한다
+        ChallengerRecord unusedRecord = challengerRecordJpaRepository.findByCode(record.getCode()).orElseThrow();
+        assertThat(unusedRecord.isUsed()).isFalse();
+
+        // 역할이 생성되지 않아야 한다
+        assertThat(challengerRoleJpaRepository.findByChallengerId(challenger.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("운영진 코드의 schoolId와 요청 회원의 소속 학교가 다르면 역할이 생성되지 않고 차단된다")
+    void 운영진_코드_schoolId_불일치_시_차단된다() throws Exception {
+        // given: 코드가 등록된 학교와 다른 학교 소속 회원
+        RecordContext codeContext = recordContext(9205L, "운영진신원불일치학교코드");
+        RecordContext memberContext = recordContext(9205L, "운영진신원불일치학교회원"); // 다른 학교
+        Member member = member("홍길동", "길동",
+            "school-mismatch@test.com", memberContext.school().getId()); // 회원은 memberContext 학교 소속
+        Member creator = member("관리자", "관리",
+            "school-mismatch-admin@test.com", codeContext.school().getId());
+        Challenger challenger = saveChallengerPort.save(Challenger.builder()
+            .memberId(member.getId())
+            .part(ChallengerPart.WEB)
+            .gisuId(codeContext.gisu().getId())
+            .build());
+        // 코드는 codeContext 학교(=다른 학교)에 발급됨
+        ChallengerRecord record = saveChallengerRecordPort.save(ChallengerRecord.createAdmin(
+            creator.getId(),
+            codeContext.gisu().getId(),
+            codeContext.chapter().getId(),
+            codeContext.school().getId(),
+            ChallengerPart.WEB,
+            member.getName(),
+            ChallengerRoleType.SCHOOL_PRESIDENT,
+            codeContext.school().getId()
+        ));
+        authenticate(member.getId());
+
+        // when & then
+        mockMvc.perform(post("/api/v1/challenger-record/member")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(codeRequest(record.getCode())))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.success").value(false))
+            .andExpect(jsonPath("$.code").value("CHALLENGER-0014")); // INVALID_SCHOOL_FOR_RECORD
+
+        // 코드는 사용 처리되지 않아야 한다
+        ChallengerRecord unusedRecord = challengerRecordJpaRepository.findByCode(record.getCode()).orElseThrow();
+        assertThat(unusedRecord.isUsed()).isFalse();
+
+        // 역할이 생성되지 않아야 한다
+        assertThat(challengerRoleJpaRepository.findByChallengerId(challenger.getId())).isEmpty();
+    }
+
+    @Test
     @DisplayName("이미 사용된 챌린저 기록 코드는 재사용할 수 없다")
     void 이미_사용된_챌린저_기록_코드는_재사용할_수_없다() throws Exception {
         // given

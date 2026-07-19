@@ -26,10 +26,11 @@ class ChallengerRecordPermissionEvaluatorTest {
         assertThat(sut.supportedResourceType()).isEqualTo(ResourceType.CHALLENGER_RECORD);
     }
 
-    // === READ: 단건 조회 - 교내 회장단 이상 ===
+    // === READ: 단건 조회 - MANAGE로 격상됨(P1 보안 수정). READ 자체는 평가기에 여전히 정의되어 있으나,
+    //          단건 조회 엔드포인트는 MANAGE를 사용하도록 변경되었다. ===
 
     @Test
-    @DisplayName("학교 회장(SCHOOL_PRESIDENT)은 단건 조회(READ) 권한을 통과한다")
+    @DisplayName("학교 회장(SCHOOL_PRESIDENT)은 READ 권한을 통과한다")
     void 학교_회장_READ_허용() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.SCHOOL_PRESIDENT));
 
@@ -37,7 +38,7 @@ class ChallengerRecordPermissionEvaluatorTest {
     }
 
     @Test
-    @DisplayName("학교 부회장(SCHOOL_VICE_PRESIDENT)은 단건 조회(READ) 권한을 통과한다")
+    @DisplayName("학교 부회장(SCHOOL_VICE_PRESIDENT)은 READ 권한을 통과한다")
     void 학교_부회장_READ_허용() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.SCHOOL_VICE_PRESIDENT));
 
@@ -45,7 +46,7 @@ class ChallengerRecordPermissionEvaluatorTest {
     }
 
     @Test
-    @DisplayName("총괄(CENTRAL_PRESIDENT)은 단건 조회(READ) 권한을 거부한다 - isAtLeastSchoolCore는 교내 역할만 포함")
+    @DisplayName("총괄(CENTRAL_PRESIDENT)은 READ 권한을 거부한다 - isAtLeastSchoolCore는 교내 역할만 포함")
     void 총괄_READ_거부() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.CENTRAL_PRESIDENT));
 
@@ -53,17 +54,17 @@ class ChallengerRecordPermissionEvaluatorTest {
     }
 
     @Test
-    @DisplayName("교내 파트장(SCHOOL_PART_LEADER)은 단건 조회(READ) 권한을 거부한다")
+    @DisplayName("교내 파트장(SCHOOL_PART_LEADER)은 READ 권한을 거부한다")
     void 교내_파트장_READ_거부() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.SCHOOL_PART_LEADER));
 
         assertThat(sut.evaluate(subject, readPermission())).isFalse();
     }
 
-    // === MANAGE: 목록/통계 조회 - 총괄단 이상 ===
+    // === MANAGE: 단건 조회 포함 목록/통계 조회 - 총괄단 이상 (P1 보안 수정: 단건 조회 READ → MANAGE 격상) ===
 
     @Test
-    @DisplayName("총괄(CENTRAL_PRESIDENT)은 목록/통계 조회(MANAGE) 권한을 통과한다")
+    @DisplayName("총괄(CENTRAL_PRESIDENT)은 단건 조회·목록·통계(MANAGE) 권한을 통과한다")
     void 총괄_MANAGE_허용() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.CENTRAL_PRESIDENT));
 
@@ -71,7 +72,7 @@ class ChallengerRecordPermissionEvaluatorTest {
     }
 
     @Test
-    @DisplayName("부총괄(CENTRAL_VICE_PRESIDENT)은 목록/통계 조회(MANAGE) 권한을 통과한다")
+    @DisplayName("부총괄(CENTRAL_VICE_PRESIDENT)은 단건 조회·목록·통계(MANAGE) 권한을 통과한다")
     void 부총괄_MANAGE_허용() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.CENTRAL_VICE_PRESIDENT));
 
@@ -79,15 +80,25 @@ class ChallengerRecordPermissionEvaluatorTest {
     }
 
     @Test
-    @DisplayName("학교 회장(SCHOOL_PRESIDENT)은 목록/통계 조회(MANAGE) 권한을 거부한다")
-    void 학교_회장_MANAGE_거부() {
+    @DisplayName("학교 회장(SCHOOL_PRESIDENT)은 단건 조회(MANAGE) 권한을 거부한다 - P1 열거 공격 차단")
+    void 학교_회장_단건_조회_MANAGE_거부() {
+        // 단건 조회가 MANAGE로 격상된 이후, 학교 회장단은 타 학교 코드 열거 불가
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.SCHOOL_PRESIDENT));
 
         assertThat(sut.evaluate(subject, managePermission())).isFalse();
     }
 
     @Test
-    @DisplayName("중앙운영사무국 운영국원(CENTRAL_OPERATING_TEAM_MEMBER)은 목록/통계 조회(MANAGE) 권한을 거부한다")
+    @DisplayName("학교 부회장(SCHOOL_VICE_PRESIDENT)은 단건 조회(MANAGE) 권한을 거부한다 - P1 열거 공격 차단")
+    void 학교_부회장_단건_조회_MANAGE_거부() {
+        // 단건 조회가 MANAGE로 격상된 이후, 학교 회장단은 타 학교 코드 열거 불가
+        SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.SCHOOL_VICE_PRESIDENT));
+
+        assertThat(sut.evaluate(subject, managePermission())).isFalse();
+    }
+
+    @Test
+    @DisplayName("중앙운영사무국 운영국원(CENTRAL_OPERATING_TEAM_MEMBER)은 단건 조회·목록·통계(MANAGE) 권한을 거부한다")
     void 중앙_운영국원_MANAGE_거부() {
         SubjectAttributes subject = subjectWithRoles(roleOf(ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER));
 

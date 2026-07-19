@@ -124,6 +124,10 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
 
             MemberInfo memberInfo = getMemberUseCase.getById(memberId);
 
+            // 운영진 분기에서도 이름·학교 신원 검증: 코드에 등록된 memberName/schoolId와
+            // 요청 회원의 실제 정보가 일치하지 않으면 역할 생성 없이 즉시 차단한다.
+            record.validateMember(memberInfo.name(), memberInfo.schoolId());
+
             // 동일 역할 중복 등록 fail-fast 차단: 같은 챌린저가 같은 기수·조직에서
             // 동일 역할을 이미 보유하고 있으면 역할을 생성하지 않고 즉시 예외를 던진다.
             if (record.getChallengerRoleType() != null && getChallengerRoleUseCase.hasRoleInOrganization(
