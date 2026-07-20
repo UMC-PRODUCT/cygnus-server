@@ -37,11 +37,17 @@ class MemberProfileTest {
         ));
 
         profile.updateLinks(List.of(
+            new LinkTypeAndLink(MemberProfileLinkType.LINKEDIN, "https://linkedin.com/new"),
+            new LinkTypeAndLink(MemberProfileLinkType.INSTAGRAM, "https://instagram.com/new"),
+            new LinkTypeAndLink(MemberProfileLinkType.GITHUB, "https://github.com/new"),
+            new LinkTypeAndLink(MemberProfileLinkType.BLOG, "https://blog.example.com/new"),
             new LinkTypeAndLink(MemberProfileLinkType.PERSONAL, "https://new.example.com")
         ));
 
-        assertThat(profile.getGithub()).isNull();
-        assertThat(profile.getBlog()).isNull();
+        assertThat(profile.getLinkedIn()).isEqualTo("https://linkedin.com/new");
+        assertThat(profile.getInstagram()).isEqualTo("https://instagram.com/new");
+        assertThat(profile.getGithub()).isEqualTo("https://github.com/new");
+        assertThat(profile.getBlog()).isEqualTo("https://blog.example.com/new");
         assertThat(profile.getPersonal()).isEqualTo("https://new.example.com");
     }
 }

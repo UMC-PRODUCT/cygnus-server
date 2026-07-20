@@ -242,4 +242,36 @@ class MemberSummaryV2QueryServiceTest {
 
         assertThat(info.hasLocalCredential()).isFalse();
     }
+
+    @Test
+    void 학교가_없고_일부_기수_정보가_누락되어도_이력을_안전하게_정렬한다() {
+        MemberInfo schoolless = MemberInfo.builder()
+            .id(100L)
+            .name("홍길동")
+            .nickname("hong")
+            .email("member@example.com")
+            .schoolId(null)
+            .status(MemberStatus.ACTIVE)
+            .roles(List.of())
+            .build();
+        ChallengerInfo known = challenger(11L, 7L, ChallengerStatus.GRADUATED);
+        ChallengerInfo unknown = challenger(12L, 999L, ChallengerStatus.GRADUATED);
+        GisuInfo knownGisu = gisu(7L, 8L);
+        given(getMemberUseCase.getById(100L)).willReturn(schoolless);
+        given(getMemberCredentialUseCase.findCredentialByMemberId(100L)).willReturn(Optional.empty());
+        given(getMemberProfileUseCase.getMemberProfileById(100L)).willReturn(profile());
+        given(getChallengerUseCase.getAllByMemberId(100L)).willReturn(List.of(unknown, known));
+        given(getGisuUseCase.findActiveGisu()).willReturn(Optional.empty());
+        given(getGisuUseCase.getByIds(anySet())).willReturn(List.of(knownGisu));
+        given(getChallengerRoleUseCase.getAllRoleTypesByChallengerIds(anySet())).willReturn(Map.of());
+        given(getChallengerActivityPeriodUseCase.calculateActivityPeriod(any(), any()))
+            .willReturn(new ActivityPeriodSummary(0L, List.of()));
+
+        MemberSummaryV2Info result = service.getSummaryByMemberId(100L);
+
+        assertThat(result.challengerHistory()).extracting(MemberSummaryV2Info.ChallengerHistoryItem::challengerId)
+            .containsExactly(11L, 12L);
+        assertThat(result.challengerHistory().get(1).generation()).isNull();
+        assertThat(result.challengerHistory().get(1).chapterId()).isNull();
+    }
 }

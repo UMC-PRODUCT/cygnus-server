@@ -65,6 +65,7 @@ class MemberTest {
             Member member = Member.create("홍길동", "길동", "gildong@example.com", 1L, "old-file-id");
 
             member.updateProfile("하늘", null);
+            member.updateProfile(null, "two-arg-file-id");
             member.updateProfile("new-file-id");
 
             assertThat(member.getNickname()).isEqualTo("하늘");

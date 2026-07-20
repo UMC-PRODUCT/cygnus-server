@@ -126,4 +126,50 @@ class EmailMemberRegisterServiceTest {
         then(manageTermAgreementUseCase).should(never()).createTermConsent(any());
         then(eventPublisher).should(never()).publish(any());
     }
+
+    @Test
+    @DisplayName("빈 batch 회원가입 요청은 아무 작업 없이 빈 ID 목록을 반환한다")
+    void 빈_batch_회원가입을_처리한다() {
+        assertThat(sut.batchRegister(List.of())).isEmpty();
+        then(saveMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("batch 회원가입은 입력 순서대로 각 회원을 등록하고 ID 목록을 반환한다")
+    void batch_회원가입을_순서대로_처리한다() {
+        EmailRegisterMemberCommand first = command("first@example.com");
+        EmailRegisterMemberCommand second = command("second@example.com");
+        given(saveMemberPort.save(any(Member.class))).willAnswer(invocation -> {
+            Member member = invocation.getArgument(0);
+            long id = member.getEmail().startsWith("first") ? 1L : 2L;
+            ReflectionTestUtils.setField(member, "id", id);
+            return member;
+        });
+        given(getSchoolUseCase.getSchoolDetail(1L)).willReturn(new SchoolDetailInfo(
+            10L,
+            "중앙",
+            "테스트대학교",
+            1L,
+            null,
+            null,
+            List.of(),
+            true,
+            null,
+            null
+        ));
+
+        assertThat(sut.batchRegister(List.of(first, second))).containsExactly(1L, 2L);
+        then(credentialAuthenticationUseCase).should(times(2)).registerCredentialByEmail(any());
+    }
+
+    private EmailRegisterMemberCommand command(String email) {
+        return EmailRegisterMemberCommand.builder()
+            .rawPassword("Password123!")
+            .name("홍길동")
+            .nickname(email)
+            .email(email)
+            .schoolId(1L)
+            .termConsents(List.of())
+            .build();
+    }
 }

@@ -2,6 +2,7 @@ package com.umc.product.member.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -19,6 +20,9 @@ import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.out.dto.SearchMemberInvitationCondition;
 import com.umc.product.member.domain.Member;
+import com.umc.product.organization.domain.Chapter;
+import com.umc.product.organization.domain.ChapterSchool;
+import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.PersistenceAdapterTest;
 
@@ -34,6 +38,54 @@ class MemberQueryRepositoryTest {
 
     @Autowired
     MemberQueryRepository sut;
+
+    @Test
+    @DisplayName("전체 회원 수와 ID lock·닉네임 단건 조회를 수행한다")
+    void 기본_단건_조회와_집계를_수행한다() {
+        School school = persistSchool("단건대학교");
+        Member first = persistMember("가회원", "find-one", "find-one@test.com", school.getId());
+        persistMember("나회원", "find-two", "find-two@test.com", school.getId());
+        em.flush();
+        em.clear();
+
+        assertThat(sut.countAll()).isEqualTo(2L);
+        assertThat(sut.findByIdWithPessimisticLock(first.getId()))
+            .get().extracting(Member::getNickname).isEqualTo("find-one");
+        assertThat(sut.findByNickname("find-one"))
+            .get().extracting(Member::getId).isEqualTo(first.getId());
+        assertThat(sut.findByNickname("missing")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("지부 filter는 해당 지부에 연결된 학교 회원만 검색한다")
+    void 지부_학교_회원만_검색한다() {
+        School allowedSchool = persistSchool("지부허용대학교");
+        School deniedSchool = persistSchool("지부제한대학교");
+        Gisu gisu = em.persist(Gisu.create(
+            20L,
+            Instant.parse("2026-01-01T00:00:00Z"),
+            Instant.parse("2026-12-31T00:00:00Z"),
+            false
+        ));
+        Chapter chapter = em.persist(Chapter.create(gisu, "서울"));
+        em.persist(ChapterSchool.create(chapter, allowedSchool));
+        Member allowed = persistMember(
+            "가허용", "chapter-allowed", "chapter-allowed@test.com", allowedSchool.getId());
+        Member denied = persistMember(
+            "나제한", "chapter-denied", "chapter-denied@test.com", deniedSchool.getId());
+        persistChallenger(allowed.getId(), ChallengerPart.PLAN, gisu.getId());
+        persistChallenger(denied.getId(), ChallengerPart.PLAN, gisu.getId());
+        em.flush();
+        em.clear();
+
+        SearchMemberQuery query = new SearchMemberQuery(null, null, null, chapter.getId(), null);
+        var challengers = sut.searchBy(query, PageRequest.of(0, 10));
+        var members = sut.searchMemberIdsBy(query, PageRequest.of(0, 10));
+
+        assertThat(challengers.getContent()).extracting(Challenger::getMemberId)
+            .containsExactly(allowed.getId());
+        assertThat(members.getContent()).containsExactly(allowed.getId());
+    }
 
     @Test
     @DisplayName("기존 회원 검색은 중복 챌린저를 제거한 안정 순서와 전체 개수로 페이지한다")

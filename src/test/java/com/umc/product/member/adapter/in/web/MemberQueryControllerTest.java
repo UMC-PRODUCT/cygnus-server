@@ -81,6 +81,22 @@ class MemberQueryControllerTest {
     }
 
     @Test
+    @DisplayName("회원 ID로 공개 프로필을 조회한다")
+    void 공개_프로필을_조회한다() throws Exception {
+        given(assembler.fromMemberIdToPublic(2L)).willReturn(MemberInfoResponse.builder()
+            .id(2L)
+            .name("김회원")
+            .build());
+
+        mockMvc.perform(get("/api/v1/member/profile/2"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.id").value(2L))
+            .andExpect(jsonPath("$.result.name").value("김회원"));
+
+        then(assembler).should().fromMemberIdToPublic(2L);
+    }
+
+    @Test
     @DisplayName("회원 검색 응답은 이메일을 마스킹한다")
     void 회원_검색_응답은_이메일을_마스킹한다() throws Exception {
         given(searchMemberUseCase.searchBy(any(), any(), any())).willReturn(new SearchMemberResult(

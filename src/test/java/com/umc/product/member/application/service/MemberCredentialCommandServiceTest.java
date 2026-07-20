@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.member.application.port.in.command.dto.ChangeMemberPasswordCommand;
 import com.umc.product.member.application.port.in.command.dto.MemberCredentialStatusInfo;
 import com.umc.product.member.application.port.out.LoadMemberPort;
 import com.umc.product.member.domain.Member;
@@ -67,6 +68,37 @@ class MemberCredentialCommandServiceTest {
             .isInstanceOf(MemberDomainException.class)
             .extracting("baseCode")
             .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("비밀번호 변경은 회원을 조회해 encoding된 비밀번호로 교체한다")
+    void 비밀번호를_변경한다() {
+        Member member = member(1L);
+        member.registerCredential("{noop}old");
+        given(loadMemberPort.findById(1L)).willReturn(Optional.of(member));
+
+        sut.changePassword(ChangeMemberPasswordCommand.of(1L, "{noop}changed"));
+
+        assertThat(member.getPasswordHash()).isEqualTo("{noop}changed");
+    }
+
+    @Test
+    @DisplayName("비밀번호를 변경할 회원이 없으면 MEMBER_NOT_FOUND를 던진다")
+    void 비밀번호_변경_회원_누락을_거부한다() {
+        given(loadMemberPort.findById(1L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.changePassword(ChangeMemberPasswordCommand.of(1L, "{noop}changed")))
+            .isInstanceOf(MemberDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(MemberErrorCode.MEMBER_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("lock 상태 조회의 회원 ID가 null이면 저장소 조회 전에 거부한다")
+    void null_회원_ID의_lock_조회를_거부한다() {
+        assertThatThrownBy(() -> sut.getCredentialStatusForUpdate(null))
+            .isInstanceOf(MemberDomainException.class);
+        then(loadMemberPort).shouldHaveNoInteractions();
     }
 
     private Member member(Long id) {

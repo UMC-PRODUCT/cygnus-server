@@ -44,6 +44,10 @@ import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.member.adapter.in.graphql.dto.MemberChallengerGraphQlResponse;
+import com.umc.product.member.adapter.in.graphql.dto.MemberGraphQlResponse;
+import com.umc.product.member.adapter.in.graphql.dto.MemberSearchChallengerGraphQlResponse;
+import com.umc.product.member.adapter.in.graphql.dto.MemberSearchResultGraphQlResponse;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
@@ -71,6 +75,9 @@ class MemberGraphQlControllerTest {
 
     @Autowired
     GraphQlTester graphQlTester;
+
+    @Autowired
+    MemberGraphQlController controller;
 
     @MockitoBean
     GetMemberUseCase getMemberUseCase;
@@ -952,6 +959,44 @@ class MemberGraphQlControllerTest {
         then(getSchoolUseCase).shouldHaveNoInteractions();
         then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getGisuUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("빈 batch 입력은 외부 조회 없이 빈 결과를 반환한다")
+    void 빈_batch_입력을_처리한다() {
+        assertThat(controller.members(null, List.of())).isEmpty();
+        assertThat(controller.schoolByMember(List.of())).isEmpty();
+        assertThat(controller.challengersByMember(List.of())).isEmpty();
+        assertThat(controller.gisuByMemberChallenger(List.of())).isEmpty();
+
+        then(getMemberUseCase).shouldHaveNoInteractions();
+        then(getSchoolUseCase).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
+        then(getGisuUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("batch 조회 결과의 중복 key는 최초 값을 안정적으로 유지한다")
+    void batch_조회_중복_key를_처리한다() {
+        MemberGraphQlResponse member = MemberGraphQlResponse.publicFrom(memberInfo(REQUESTER_ID));
+        MemberChallengerGraphQlResponse challenger = new MemberChallengerGraphQlResponse(
+            100L, REQUESTER_ID, 20L, ChallengerPart.SPRINGBOOT, ChallengerStatus.ACTIVE);
+        MemberSearchResultGraphQlResponse searchMember = new MemberSearchResultGraphQlResponse(
+            2L, "검색회원", "검색", null, 10L, null, null, false, List.of());
+        MemberSearchChallengerGraphQlResponse searchChallenger = new MemberSearchChallengerGraphQlResponse(
+            200L, 20L, 12L, ChallengerPart.SPRINGBOOT, ChallengerStatus.ACTIVE);
+        SchoolDetailInfo school = school(10L, "중앙대학교");
+        GisuInfo gisu = gisu(20L, 12L);
+        given(getSchoolUseCase.listDetailsByIds(Set.of(10L))).willReturn(List.of(school, school));
+        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(REQUESTER_ID))).willReturn(Map.of());
+        given(getGisuUseCase.getByIds(Set.of(20L))).willReturn(List.of(gisu, gisu));
+
+        assertThat(controller.schoolByMember(List.of(member))).containsKey(member);
+        assertThat(controller.challengersByMember(List.of(member, member))).containsKey(member);
+        assertThat(controller.gisuByMemberChallenger(List.of(challenger))).containsKey(challenger);
+        assertThat(controller.schoolByMemberSearchResult(List.of(searchMember))).containsKey(searchMember);
+        assertThat(controller.gisuByMemberSearchChallenger(List.of(searchChallenger)))
+            .containsKey(searchChallenger);
     }
 
     private void assertCommonError(
