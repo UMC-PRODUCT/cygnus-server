@@ -4,6 +4,16 @@ import org.gradle.api.tasks.testing.Test
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
 val snippetsDir = layout.buildDirectory.dir("generated-snippets")
+val generatedQuerydslDir = layout.buildDirectory.dir("generated/querydsl")
+val generatedQuerydslClassPaths = providers.provider {
+    val generatedSourceRoot = generatedQuerydslDir.get().asFile
+    fileTree(generatedSourceRoot) {
+        include("**/*.java")
+    }.files.map { generatedSource ->
+        generatedSource.relativeTo(generatedSourceRoot).invariantSeparatorsPath
+            .removeSuffix(".java") + ".class"
+    }.toSet()
+}
 
 val checkDuplicateFlywayMigrationVersions by tasks.registering {
     group = "verification"
@@ -86,6 +96,13 @@ tasks.named<Test>("test") {
 
 tasks.named<JacocoReport>("jacocoTestReport") {
     dependsOn(tasks.named("test"))
+    classDirectories.setFrom(
+        classDirectories.files.map { classesDirectory ->
+            fileTree(classesDirectory) {
+                exclude { details -> details.relativePath.pathString in generatedQuerydslClassPaths.get() }
+            }
+        }
+    )
     reports {
         xml.required.set(true)
         html.required.set(true)
