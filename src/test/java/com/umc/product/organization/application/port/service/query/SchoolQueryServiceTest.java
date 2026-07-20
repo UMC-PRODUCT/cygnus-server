@@ -116,6 +116,23 @@ class SchoolQueryServiceTest {
         then(getFileUseCase).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("학교가 있지만 로고 ID가 모두 null이면 파일 링크 조회를 생략한다")
+    void 로고가_없는_학교_목록은_파일_조회를_생략한다() {
+        given(loadSchoolPort.findSchoolDetailsByIds(Set.of(100L))).willReturn(List.of(
+            school(10L, "A 지부", 100L, "A 대학교", null)
+        ));
+        given(loadSchoolPort.findSchoolDetailsByGisuIds(Set.of(1L))).willReturn(List.of(
+            school(1L, 10L, "A 지부", 100L, "A 대학교", null)
+        ));
+        given(loadSchoolPort.findLinksBySchoolIds(List.of(100L))).willReturn(Map.of());
+
+        assertThat(schoolQueryService.listDetailsByIds(Set.of(100L)).getFirst().logoImageUrl()).isNull();
+        assertThat(schoolQueryService.getSchoolListByGisuIds(Set.of(1L)).get(1L).getFirst().logoImageUrl())
+            .isNull();
+        then(getFileUseCase).shouldHaveNoInteractions();
+    }
+
     private SchoolChapterInfo school(
         Long chapterId,
         String chapterName,

@@ -18,6 +18,7 @@ import com.umc.product.organization.application.port.in.query.dto.OrganizationRo
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope.AsPartLeader;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope.AsSchoolCore;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
 import com.umc.product.organization.domain.StudyGroup;
 import com.umc.product.organization.domain.StudyGroupMember;
 import com.umc.product.organization.domain.StudyGroupMentor;
@@ -362,6 +363,46 @@ class StudyGroupQueryRepositoryTest {
 
         // then
         assertThat(result).containsExactly(activeGroup.getId()).doesNotContain(otherGroup.getId());
+    }
+
+    @Test
+    void findStudyGroupNames_scope에_해당하는_이름만_정렬해_반환하고_null_scope는_빈_목록() {
+        Long gisuId = 1L;
+        Long mentorId = 100L;
+        StudyGroup beta = persistGroup("Beta", gisuId, ChallengerPart.SPRINGBOOT,
+            Set.of(mentorId), Set.of(200L));
+        StudyGroup alpha = persistGroup("Alpha", gisuId, ChallengerPart.SPRINGBOOT,
+            Set.of(mentorId), Set.of(201L));
+        persistGroup("Other", gisuId, ChallengerPart.SPRINGBOOT, Set.of(999L), Set.of(202L));
+        em.flush();
+        em.clear();
+
+        var result = sut.findStudyGroupNames(List.of(new AsPartLeader(mentorId)), gisuId);
+
+        assertThat(result).extracting(StudyGroupNameInfo::groupId)
+            .containsExactly(alpha.getId(), beta.getId());
+        assertThat(sut.findStudyGroupNames(List.of(new AsPartLeader(null)), gisuId)).isEmpty();
+        assertThat(sut.findStudyGroupIds(List.of(new AsPartLeader(null)), gisuId)).isEmpty();
+    }
+
+    @Test
+    void findConflictedMemberIds는_동일_기수와_파트를_찾고_수정_대상은_제외한다() {
+        Long gisuId = 1L;
+        StudyGroup excluded = persistGroup("excluded", gisuId, ChallengerPart.SPRINGBOOT,
+            Set.of(10L), Set.of(100L));
+        persistGroup("conflict", gisuId, ChallengerPart.SPRINGBOOT,
+            Set.of(11L), Set.of(101L));
+        persistGroup("different-part", gisuId, ChallengerPart.WEB,
+            Set.of(12L), Set.of(102L));
+        em.flush();
+        em.clear();
+
+        assertThat(sut.findConflictedMemberIds(
+            gisuId, ChallengerPart.SPRINGBOOT, Set.of(100L, 101L, 102L), null
+        )).containsExactlyInAnyOrder(100L, 101L);
+        assertThat(sut.findConflictedMemberIds(
+            gisuId, ChallengerPart.SPRINGBOOT, Set.of(100L, 101L), excluded.getId()
+        )).containsExactly(101L);
     }
 
     // ========== Helper Methods ==========
