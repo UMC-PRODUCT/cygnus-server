@@ -2,7 +2,10 @@ package com.umc.product.authorization.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -18,6 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -216,6 +221,29 @@ class AuthorizationServiceCacheTest {
         assertThat(result.memberId()).isEqualTo(MEMBER_ID);
         assertThat(cacheUseCase.latestEvictedKey()).isEqualTo(CacheKey.from("member:" + MEMBER_ID));
         verify(getMemberUseCase).getById(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("snapshot 직렬화가 실패해도 최신 subject 조회는 성공하고 캐시 저장만 건너뛴다")
+    void skips_cache_write_when_serialization_fails() {
+        CacheUseCase cacheUseCase = mock(CacheUseCase.class);
+        AuthoritySnapshotCacheSerializer serializer = mock(AuthoritySnapshotCacheSerializer.class);
+        given(cacheUseCase.get(any(), any())).willReturn(new CacheLookup.Miss<>());
+        given(getMemberUseCase.getById(MEMBER_ID))
+            .willReturn(MemberInfo.builder().id(MEMBER_ID).schoolId(SCHOOL_ID).build());
+        given(getChallengerUseCase.getAllByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(serializer.serialize(any())).willThrow(new AuthorizationDomainException(
+            AuthorizationErrorCode.POLICY_EVALUATION_FAILED));
+        AuthorizationService sut = new AuthorizationService(
+            loadChallengerRolePort, List.of(), getMemberUseCase, listMemberSystemRoleUseCase,
+            getChapterUseCase, getChallengerUseCase, operationalMetrics, cacheUseCase, serializer);
+
+        SubjectAttributes result = sut.loadSubject(MEMBER_ID);
+
+        assertThat(result.memberId()).isEqualTo(MEMBER_ID);
+        verify(cacheUseCase, never()).put(any(), any(), any());
     }
 
     private static class InMemoryCacheUseCase implements CacheUseCase {

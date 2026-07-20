@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
@@ -220,6 +221,52 @@ class ChallengerRoleQueryServiceTest {
 
         assertThat(result).isFalse();
         verifyNoInteractions(loadChallengerRolePort, listMemberSystemRoleUseCase);
+    }
+
+    @Test
+    @DisplayName("호환 조회 UseCase의 default 메서드는 분리된 list 계약에 위임한다")
+    @SuppressWarnings("deprecation")
+    void compatibility_default_methods_delegate() {
+        ChallengerRoleQueryService service = sut();
+        GetChallengerRoleUseCase useCase = service;
+        ChallengerRole role = ChallengerRole.create(
+            10L, ChallengerRoleType.SCHOOL_PART_LEADER, SCHOOL_ID,
+            com.umc.product.common.domain.enums.ChallengerPart.SPRINGBOOT, GISU_ID);
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
+        given(getGisuUseCase.getById(GISU_ID)).willReturn(new GisuInfo(GISU_ID, 10L, null, null, true));
+        given(loadChallengerRolePort.findByChallengerIdIn(Set.of(10L))).willReturn(List.of(role));
+        given(loadChallengerRolePort.findRolesByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(List.of(role));
+
+        assertThat(useCase.findAllByMemberId(MEMBER_ID)).hasSize(1);
+        assertThat(useCase.findAllBasicByMemberId(MEMBER_ID)).hasSize(1);
+        assertThat(useCase.getAllRoleTypesByChallengerIds(Set.of(10L)))
+            .containsEntry(10L, List.of(ChallengerRoleType.SCHOOL_PART_LEADER));
+        assertThat(useCase.getAllResponsiblePartByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .containsExactly(com.umc.product.common.domain.enums.ChallengerPart.SPRINGBOOT);
+    }
+
+    @Test
+    @DisplayName("지원하지 않는 system role 값은 조용히 SUPER_ADMIN으로 승격하지 않고 거부한다")
+    void unsupported_system_role_is_rejected() {
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID))
+            .willReturn(List.of(new MemberSystemRoleInfo(MEMBER_ID, "MEMBER")));
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> sut().isSuperAdmin(MEMBER_ID))
+            .isInstanceOf(com.umc.product.authorization.domain.exception.AuthorizationDomainException.class);
+    }
+
+    @Test
+    @DisplayName("지부장은 기수 무관 및 기수 범위 지부장 정책을 통과한다")
+    void chapter_president_matches_both_scopes() {
+        ChallengerRole role = ChallengerRole.create(
+            10L, ChallengerRoleType.CHAPTER_PRESIDENT, 20L, null, GISU_ID);
+        given(loadChallengerRolePort.findByMemberId(MEMBER_ID)).willReturn(List.of(role));
+        given(loadChallengerRolePort.findRolesByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(List.of(role));
+
+        assertThat(sut().isChapterPresidentInAnyGisu(MEMBER_ID, 20L)).isTrue();
+        assertThat(sut().isChapterPresidentInGisu(MEMBER_ID, GISU_ID, 20L)).isTrue();
     }
 
     private ChallengerRoleQueryService sut() {

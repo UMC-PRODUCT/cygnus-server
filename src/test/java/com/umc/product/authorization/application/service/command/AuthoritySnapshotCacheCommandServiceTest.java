@@ -90,4 +90,15 @@ class AuthoritySnapshotCacheCommandServiceTest {
 
         verifyNoInteractions(cacheUseCase);
     }
+
+    @Test
+    @DisplayName("회원 ID 목록이 null이거나 비어 있으면 캐시를 제거하지 않는다")
+    void does_not_evict_without_member_ids() {
+        AuthoritySnapshotCacheCommandService sut = new AuthoritySnapshotCacheCommandService(cacheUseCase);
+
+        sut.evictByMemberIds(null);
+        sut.evictByMemberIds(List.of());
+
+        verifyNoInteractions(cacheUseCase);
+    }
 }
