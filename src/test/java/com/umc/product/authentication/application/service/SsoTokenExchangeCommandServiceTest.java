@@ -24,6 +24,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authentication.application.event.SsoAuthorizationCodeExchangedEvent;
 import com.umc.product.authentication.application.event.SsoTokenIssuedEvent;
@@ -264,6 +265,36 @@ class SsoTokenExchangeCommandServiceTest {
 
         assertThat(authorizationCode.getUsedAt()).isNull();
         then(authenticationTokenIssuer).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("authorization code와 일치해도 client 화이트리스트에 없는 redirect URI는 거부한다")
+    void client_redirect_uri_화이트리스트_불일치를_거부한다() {
+        SsoTokenExchangeCommandService service = service();
+        String unregisteredRedirectUri = "https://another.example.com/callback";
+        SsoAuthorizationCode authorizationCode = authorizationCode(
+            CLIENT_ID, unregisteredRedirectUri, Instant.now().plusSeconds(300));
+        given(loadSsoAuthorizationCodePort.findByCodeHashForUpdate(sha256Hex(RAW_CODE)))
+            .willReturn(Optional.of(authorizationCode));
+        given(loadSsoClientPort.getByClientId(CLIENT_ID)).willReturn(ssoClient(REDIRECT_URI));
+
+        assertThatThrownBy(() -> service.exchange(command(
+            "authorization_code", unregisteredRedirectUri, CODE_VERIFIER)))
+            .isInstanceOf(AuthenticationDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(AuthenticationErrorCode.INVALID_SSO_AUTHORIZATION_CODE);
+
+        assertThat(authorizationCode.getUsedAt()).isNull();
+        then(authenticationTokenIssuer).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Android SSO service type은 ClientType.ANDROID로 변환한다")
+    void android_client_type을_변환한다() {
+        ClientType result = ReflectionTestUtils.invokeMethod(
+            service(), "toClientType", ClientServiceType.ANDROID_APP);
+
+        assertThat(result).isEqualTo(ClientType.ANDROID);
     }
 
     @Test

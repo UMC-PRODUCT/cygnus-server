@@ -1,9 +1,11 @@
 package com.umc.product.authentication.adapter.in.scheduler;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -57,5 +59,33 @@ class EmailVerificationRetentionSchedulerTest {
             before.minus(Duration.ofDays(7)).minusSeconds(1),
             after.minus(Duration.ofDays(7)).plusSeconds(1)
         );
+    }
+
+    @Test
+    @DisplayName("삭제 대상이 없어도 success metric을 기록한다")
+    void 삭제_대상이_없는_성공을_기록한다() {
+        given(deleteEmailVerificationPort.deleteExpiredBefore(any(Instant.class))).willReturn(0);
+
+        scheduler.purge();
+
+        then(operationalMetrics).should().recordBatchJob(
+            org.mockito.ArgumentMatchers.eq("email_verification_retention"),
+            org.mockito.ArgumentMatchers.eq("success"),
+            any(Duration.class),
+            org.mockito.ArgumentMatchers.eq(0L));
+    }
+
+    @Test
+    @DisplayName("삭제 실패는 failure metric을 기록하고 원래 예외를 다시 던진다")
+    void 삭제_실패를_기록하고_전파한다() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        willThrow(failure).given(deleteEmailVerificationPort).deleteExpiredBefore(any(Instant.class));
+
+        assertThatThrownBy(scheduler::purge).isSameAs(failure);
+        then(operationalMetrics).should().recordBatchJob(
+            org.mockito.ArgumentMatchers.eq("email_verification_retention"),
+            org.mockito.ArgumentMatchers.eq("failure"),
+            any(Duration.class),
+            org.mockito.ArgumentMatchers.eq(0L));
     }
 }

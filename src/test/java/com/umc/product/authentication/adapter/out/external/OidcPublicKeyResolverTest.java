@@ -4,17 +4,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.ExpectedCount.once;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
+import java.lang.reflect.Constructor;
 import java.security.KeyPair;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPublicKey;
 import java.time.Duration;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
@@ -129,6 +133,78 @@ class OidcPublicKeyResolverTest {
             .isInstanceOf(AuthenticationDomainException.class)
             .extracting("baseCode")
             .isEqualTo(AuthenticationErrorCode.INVALID_OAUTH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("JWT header에 kid가 없으면 INVALID_OAUTH_TOKEN을 그대로 보존한다")
+    void header에_kid가_없으면_거부한다() {
+        OidcPublicKeyResolver resolver = newResolver(RestClient.builder());
+        String header = Base64.getUrlEncoder().withoutPadding()
+            .encodeToString("{}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        assertThatThrownBy(() -> resolver.extractKid(header + ".payload.signature"))
+            .isInstanceOf(AuthenticationDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(AuthenticationErrorCode.INVALID_OAUTH_TOKEN);
+    }
+
+    @Test
+    @DisplayName("동기화 진입 직후 다른 요청이 채운 cache를 재사용한다")
+    @SuppressWarnings("unchecked")
+    void synchronized_재확인에서_cache_hit를_사용한다() throws Exception {
+        KeyPair keyPair = OidcTokenTestSupport.rsaKeyPair();
+        Class<?> keysType = Class.forName(
+            "com.umc.product.authentication.adapter.out.external.OidcPublicKeyResolver$OidcPublicKeys");
+        Constructor<?> constructor = keysType.getDeclaredConstructor(Map.class);
+        constructor.setAccessible(true);
+        Object cachedKeys = constructor.newInstance(Map.of("kid", keyPair.getPublic()));
+        CacheUseCase cache = new CacheUseCase() {
+            private int lookups;
+
+            @Override
+            public <T> CacheLookup<T> get(CacheSpec<T> cacheSpec, CacheKey key) {
+                lookups++;
+                return lookups == 1
+                    ? new CacheLookup.Miss<>()
+                    : new CacheLookup.Hit<>((T) cachedKeys);
+            }
+
+            @Override
+            public <T> void put(CacheSpec<T> cacheSpec, CacheKey key, T value) {
+            }
+
+            @Override
+            public void evict(CacheNamespace namespace, CacheKey key) {
+            }
+        };
+        OidcPublicKeyResolver resolver = new OidcPublicKeyResolver(
+            RestClient.create(), new ObjectMapper(), cache);
+
+        assertThat(resolver.getPublicKey(spec(), "kid")).isEqualTo(keyPair.getPublic());
+    }
+
+    @Test
+    @DisplayName("JWKS HTTP 오류와 빈 응답을 공통 token 검증 실패로 변환한다")
+    void jwks_실패를_정규화한다() {
+        RestClient.Builder errorBuilder = RestClient.builder();
+        MockRestServiceServer errorServer = MockRestServiceServer.bindTo(errorBuilder).build();
+        errorServer.expect(once(), requestTo(JWKS_URI))
+            .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        assertThatThrownBy(() -> newResolver(errorBuilder).getPublicKey(spec(), "kid"))
+            .isInstanceOf(AuthenticationDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(AuthenticationErrorCode.OAUTH_TOKEN_VERIFICATION_FAILED);
+
+        RestClient.Builder emptyBuilder = RestClient.builder();
+        MockRestServiceServer emptyServer = MockRestServiceServer.bindTo(emptyBuilder).build();
+        emptyServer.expect(once(), requestTo(JWKS_URI))
+            .andRespond(withSuccess("{}", MediaType.APPLICATION_JSON));
+
+        assertThatThrownBy(() -> newResolver(emptyBuilder).getPublicKey(spec(), "kid"))
+            .isInstanceOf(AuthenticationDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(AuthenticationErrorCode.OAUTH_TOKEN_VERIFICATION_FAILED);
     }
 
     private OidcPublicKeyResolver newResolver(RestClient.Builder builder) {
