@@ -4,6 +4,10 @@
 각 도메인 문서는 Controller, UseCase, Repository, E2E 등 큰 카테고리로 먼저 나누고, 각 케이스가 어떤 입력/조건에서 성공 또는 실패를 검증하는지 표로 기록합니다.
 표의 수치는 각 도메인 문서가 다루는 범위이며 저장소 전체 JUnit 실행 합계를 뜻하지 않습니다.
 
+## PR별 검증 문서
+
+- [PR #1171 도메인 테스트 검증 목록](pr-1171-domain-test-coverage.md): `member`, `challenger`, `authentication`, `authorization`, `organization` 커버리지 보강
+
 | 도메인 | 테스트 파일 수 | 테스트 케이스 수 | 문서 |
 |---|---:|---:|---|
 | Analytics | 8 | 26 | [analytics.md](analytics.md) |
