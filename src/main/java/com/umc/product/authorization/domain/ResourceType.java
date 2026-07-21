@@ -94,7 +94,7 @@ public enum ResourceType {
 
     // Notification
     FCM("fcm", "FCM 알람 관련",
-        Set.of(PermissionType.DELETE)),
+        Set.of(PermissionType.WRITE, PermissionType.DELETE)),
 
     // UPMS, 프로젝트 관련
 
