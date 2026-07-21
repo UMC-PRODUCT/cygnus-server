@@ -95,7 +95,6 @@ abstract class CommunityThreadConcurrencyIntegrationSupport extends IntegrationT
             CommunityThreadCategory.FREE,
             "💬",
             OWNER_ID,
-            1L,
             NOW
         ));
         saveThreadMemberPort.saveAll(List.of(

@@ -119,7 +119,6 @@ class CommunityThreadMessageRecipientQueryServiceTest {
             CommunityThreadCategory.FREE,
             "💬",
             10L,
-            501L,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", 11L);

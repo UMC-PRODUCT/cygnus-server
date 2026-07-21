@@ -28,7 +28,7 @@ import lombok.NoArgsConstructor;
     ),
     indexes = @Index(
         name = "idx_community_thread_active_list",
-        columnList = "active_gisu_id, deleted_at, last_activity_at, id"
+        columnList = "deleted_at, last_activity_at, id"
     )
 )
 @Getter
@@ -63,9 +63,6 @@ public class CommunityThread extends BaseEntity {
     @Column(name = "creator_member_id", nullable = false)
     private Long creatorMemberId;
 
-    @Column(name = "active_gisu_id", nullable = false)
-    private Long activeGisuId;
-
     @Column(name = "last_message_id")
     private Long lastMessageId;
 
@@ -91,7 +88,6 @@ public class CommunityThread extends BaseEntity {
         CommunityThreadCategory category,
         String icon,
         Long creatorMemberId,
-        Long activeGisuId,
         Instant createdAt
     ) {
         this.chatRoomId = requirePositive(chatRoomId, "chatRoomId");
@@ -100,7 +96,6 @@ public class CommunityThread extends BaseEntity {
         this.category = requireCategory(category);
         this.icon = normalizeRequired(icon, MAX_ICON_CODE_POINTS, "icon");
         this.creatorMemberId = requirePositive(creatorMemberId, "creatorMemberId");
-        this.activeGisuId = requirePositive(activeGisuId, "activeGisuId");
         this.lastActivityAt = requireInstant(createdAt, "createdAt");
     }
 
@@ -111,7 +106,6 @@ public class CommunityThread extends BaseEntity {
         CommunityThreadCategory category,
         String icon,
         Long creatorMemberId,
-        Long activeGisuId,
         Instant createdAt
     ) {
         return new CommunityThread(
@@ -121,7 +115,6 @@ public class CommunityThread extends BaseEntity {
             category,
             icon,
             creatorMemberId,
-            activeGisuId,
             createdAt
         );
     }

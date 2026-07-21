@@ -20,6 +20,7 @@ import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.SearchActiveChallengerInvitationUseCase;
 import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvitationInfo;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,6 +29,7 @@ import lombok.RequiredArgsConstructor;
 public class CommunityThreadInviteManager {
 
     private final SearchActiveChallengerInvitationUseCase searchInvitationUseCase;
+    private final GetGisuUseCase getGisuUseCase;
     private final LoadCommunityThreadMemberPort loadMemberPort;
     private final SaveCommunityThreadMemberPort saveMemberPort;
     private final JoinChatRoomUseCase joinChatRoomUseCase;
@@ -50,8 +52,9 @@ public class CommunityThreadInviteManager {
         }
 
         Set<Long> selectedMemberIds = Set.copyOf(sortedMemberIds);
+        Long activeGisuId = getGisuUseCase.getActiveGisuId();
         Map<Long, ActiveChallengerInvitationInfo> eligibleMembers = searchInvitationUseCase
-            .batchGetEligibleActiveChallengers(thread.getActiveGisuId(), selectedMemberIds);
+            .batchGetEligibleActiveChallengers(activeGisuId, selectedMemberIds);
         if (!eligibleMembers.keySet().containsAll(selectedMemberIds)) {
             throw new CommunityDomainException(CommunityErrorCode.THREAD_INVITEE_NOT_ELIGIBLE);
         }

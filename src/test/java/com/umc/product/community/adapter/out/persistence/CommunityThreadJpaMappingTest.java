@@ -40,6 +40,17 @@ class CommunityThreadJpaMappingTest {
             .allMatch(this::isScalarOrCommunityEnum);
     }
 
+    @Test
+    @DisplayName("Thread 엔티티와 인덱스에는 기수 저장 필드가 없다")
+    void threadDoesNotPersistGisuId() {
+        assertThat(Arrays.stream(CommunityThread.class.getDeclaredFields())
+            .map(Field::getName))
+            .noneMatch(name -> name.toLowerCase(java.util.Locale.ROOT).contains("gisu"));
+        assertThat(Arrays.stream(CommunityThread.class.getAnnotation(Table.class).indexes())
+            .map(index -> index.columnList().toLowerCase(java.util.Locale.ROOT)))
+            .noneMatch(columns -> columns.contains("gisu"));
+    }
+
     private void assertDirectEntity(Class<?> entityType, String tableName) {
         assertThat(entityType.isAnnotationPresent(Entity.class)).isTrue();
         assertThat(entityType.getSuperclass()).isEqualTo(BaseEntity.class);

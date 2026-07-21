@@ -1,7 +1,6 @@
 package com.umc.product.community.application.service.command;
 
 import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.CHAT_ROOM_ID;
-import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.GISU_ID;
 import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.NOW;
 import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.OWNER_ID;
 import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.THREAD_ID;
@@ -51,7 +50,6 @@ import com.umc.product.community.domain.event.CommunityThreadUpdatedEvent;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CommunityThreadLifecycleCommandService")
@@ -65,8 +63,6 @@ class CommunityThreadLifecycleCommandServiceTest {
     LoadCommunityThreadMemberPort loadMemberPort;
     @Mock
     SaveCommunityThreadMemberPort saveMemberPort;
-    @Mock
-    GetGisuUseCase getGisuUseCase;
     @Mock
     CreateChatRoomUseCase createChatRoomUseCase;
     @Mock
@@ -83,7 +79,6 @@ class CommunityThreadLifecycleCommandServiceTest {
             saveThreadPort,
             loadMemberPort,
             saveMemberPort,
-            getGisuUseCase,
             createChatRoomUseCase,
             inviteManager,
             eventPublisher,
@@ -112,7 +107,6 @@ class CommunityThreadLifecycleCommandServiceTest {
             30L,
             CommunityThreadMemberRole.MEMBER
         );
-        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
         given(createChatRoomUseCase.create(any())).willReturn(
             new ChatRoomInfo(100L, NOW, null, List.of(OWNER_ID))
         );
@@ -131,14 +125,12 @@ class CommunityThreadLifecycleCommandServiceTest {
         assertThat(result.threadId()).isEqualTo(THREAD_ID);
         assertThat(result.memberCount()).isEqualTo(3L);
         InOrder order = Mockito.inOrder(
-            getGisuUseCase,
             createChatRoomUseCase,
             saveThreadPort,
             saveMemberPort,
             inviteManager,
             eventPublisher
         );
-        order.verify(getGisuUseCase).getActiveGisuId();
         order.verify(createChatRoomUseCase).create(any());
         order.verify(saveThreadPort).save(any());
         order.verify(saveMemberPort).save(any());
@@ -155,7 +147,6 @@ class CommunityThreadLifecycleCommandServiceTest {
             saveThreadPort,
             loadMemberPort,
             saveMemberPort,
-            getGisuUseCase,
             createChatRoomUseCase,
             inviteManager,
             eventPublisher,
@@ -230,7 +221,6 @@ class CommunityThreadLifecycleCommandServiceTest {
             CommunityThreadCategory.FREE,
             "💬",
             OWNER_ID,
-            GISU_ID,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", THREAD_ID);
@@ -270,7 +260,6 @@ class CommunityThreadLifecycleCommandServiceTest {
             CommunityThreadCategory.FREE,
             "💬",
             OWNER_ID,
-            GISU_ID,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", THREAD_ID);

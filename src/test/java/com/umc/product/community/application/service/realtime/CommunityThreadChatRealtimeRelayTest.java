@@ -195,7 +195,6 @@ class CommunityThreadChatRealtimeRelayTest {
             CommunityThreadCategory.FREE,
             "chat",
             10L,
-            1L,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", 11L);

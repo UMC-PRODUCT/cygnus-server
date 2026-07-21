@@ -23,6 +23,7 @@ import com.umc.product.community.domain.CommunityThreadMember;
 import com.umc.product.community.domain.Report;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,6 +35,7 @@ public class CommunityThreadMessageReportCommandService implements ReportCommuni
     private final LoadCommunityThreadPort loadThreadPort;
     private final LoadCommunityThreadMemberPort loadThreadMemberPort;
     private final GetChallengerUseCase getChallengerUseCase;
+    private final GetGisuUseCase getGisuUseCase;
     private final GetChatMessageRoomUseCase getChatMessageRoomUseCase;
     private final GetChatMessageUseCase getChatMessageUseCase;
     private final LoadReportPort loadReportPort;
@@ -57,7 +59,10 @@ public class CommunityThreadMessageReportCommandService implements ReportCommuni
         }
 
         ChallengerInfo requesterChallenger = getChallengerUseCase
-            .findByMemberIdAndGisuId(command.requesterMemberId(), thread.getActiveGisuId())
+            .findByMemberIdAndGisuId(
+                command.requesterMemberId(),
+                getGisuUseCase.getActiveGisuId()
+            )
             .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED));
         Long reporterChallengerId = requesterChallenger.challengerId();
         if (reporterChallengerId == null) {

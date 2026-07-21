@@ -76,7 +76,6 @@ class CommunityThreadQueryRepositoryTest {
             CommunityThreadCategory.STUDY,
             "📚",
             10L,
-            20L,
             NOW
         );
     }

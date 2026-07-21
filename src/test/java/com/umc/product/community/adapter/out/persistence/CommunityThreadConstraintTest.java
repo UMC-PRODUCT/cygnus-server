@@ -117,7 +117,7 @@ class CommunityThreadConstraintTest {
     }
 
     @Test
-    @DisplayName("목록 멤버 초대 unread 인덱스 정의와 도메인 내부 FK만 생성한다")
+    @DisplayName("기수 컬럼 없이 목록 멤버 초대 unread 인덱스와 도메인 내부 FK만 생성한다")
     void indexesAndForeignKeys_요구_경로만_지원한다() {
         // given & when
         Map<String, String> indexDefinitions = jdbcTemplate.query(
@@ -140,6 +140,11 @@ class CommunityThreadConstraintTest {
                 + "AND source.relname IN ('community_thread', 'community_thread_member', 'report')",
             String.class
         );
+        List<String> threadColumns = jdbcTemplate.queryForList(
+            "SELECT column_name FROM information_schema.columns "
+                + "WHERE table_schema = 'public' AND table_name = 'community_thread'",
+            String.class
+        );
 
         // then
         assertThat(indexDefinitions).containsKeys(
@@ -150,7 +155,8 @@ class CommunityThreadConstraintTest {
             "uq_community_thread_member_active_owner"
         );
         assertThat(indexDefinitions.get("idx_community_thread_active_list"))
-            .contains("(active_gisu_id, deleted_at, last_activity_at DESC, id DESC)");
+            .contains("(deleted_at, last_activity_at DESC, id DESC)");
+        assertThat(threadColumns).doesNotContain("active_gisu_id");
         assertThat(indexDefinitions.get("idx_community_thread_member_thread_state"))
             .contains("(thread_id, state, role, member_id)");
         assertThat(indexDefinitions.get("idx_community_thread_member_member_state"))
@@ -181,7 +187,6 @@ class CommunityThreadConstraintTest {
             CommunityThreadCategory.FREE,
             "💬",
             40L,
-            50L,
             NOW
         );
     }

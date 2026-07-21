@@ -168,7 +168,6 @@ class ReportPersistenceAdapterTest {
             CommunityThreadCategory.FREE,
             "🚨",
             10L,
-            20L,
             NOW
         );
     }

@@ -50,6 +50,7 @@ import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvi
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.member.application.port.in.query.dto.SearchActiveChallengerInvitationQuery;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -144,7 +145,7 @@ public class CommunityThreadQueryService implements
         List<CommunityThreadMemberRow> orderedRows = query.memberIds().stream()
             .map(rowsByMemberId::get)
             .toList();
-        return assembleMemberInfos(orderedRows, thread.activeGisuId());
+        return assembleMemberInfos(orderedRows);
     }
 
     @Override
@@ -155,7 +156,7 @@ public class CommunityThreadQueryService implements
             return new ThreadMemberPageInfo(List.of(), null, 0L);
         }
 
-        List<ThreadMemberInfo> memberInfos = assembleMemberInfos(rows, thread.activeGisuId());
+        List<ThreadMemberInfo> memberInfos = assembleMemberInfos(rows);
         String keyword = query.q() == null ? null : query.q().toLowerCase(Locale.ROOT);
         List<ThreadMemberInfo> filtered = memberInfos.stream()
             .filter(info -> keyword == null || info.name().toLowerCase(Locale.ROOT).contains(keyword))
@@ -184,7 +185,7 @@ public class CommunityThreadQueryService implements
         );
         ActiveChallengerInvitationSearchResult result = searchInvitationUseCase.search(
             new SearchActiveChallengerInvitationQuery(
-                thread.activeGisuId(),
+                getGisuUseCase.getActiveGisuId(),
                 query.q(),
                 blockedMemberIds,
                 query.offset(),
@@ -235,22 +236,19 @@ public class CommunityThreadQueryService implements
         return senderIds.isEmpty() ? Map.of() : getMemberUseCase.findAllByIds(senderIds);
     }
 
-    private List<ThreadMemberInfo> assembleMemberInfos(
-        List<CommunityThreadMemberRow> rows,
-        Long activeGisuId
-    ) {
+    private List<ThreadMemberInfo> assembleMemberInfos(List<CommunityThreadMemberRow> rows) {
         if (rows.isEmpty()) {
             return List.of();
         }
         Set<Long> memberIds = rows.stream()
             .map(CommunityThreadMemberRow::memberId)
             .collect(Collectors.toSet());
+        GisuInfo activeGisu = getGisuUseCase.getActiveGisu();
         Map<Long, MemberInfo> members = getMemberUseCase.findAllByIds(memberIds);
         Map<Long, ChallengerInfo> challengers = getChallengerUseCase.batchGetByMemberIdsAndGisuId(
             memberIds,
-            activeGisuId
+            activeGisu.gisuId()
         );
-        Long generation = getGisuUseCase.getById(activeGisuId).generation();
         return rows.stream()
             .map(row -> {
                 MemberInfo member = members.get(row.memberId());
@@ -259,7 +257,7 @@ public class CommunityThreadQueryService implements
                     throw new CommunityDomainException(CommunityErrorCode.THREAD_MEMBER_NOT_FOUND);
                 }
                 return new ThreadMemberInfo(
-                    row.memberId(), member.name(), challenger.part(), generation,
+                    row.memberId(), member.name(), challenger.part(), activeGisu.generation(),
                     row.role(), row.joinedAt(), row.state()
                 );
             })

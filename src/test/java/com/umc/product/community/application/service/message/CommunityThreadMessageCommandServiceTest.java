@@ -480,7 +480,6 @@ class CommunityThreadMessageCommandServiceTest {
             CommunityThreadCategory.FREE,
             "💬",
             OWNER_ID,
-            501L,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", THREAD_ID);

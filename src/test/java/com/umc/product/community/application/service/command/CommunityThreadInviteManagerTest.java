@@ -36,6 +36,7 @@ import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.SearchActiveChallengerInvitationUseCase;
 import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvitationInfo;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CommunityThreadInviteManager")
@@ -43,6 +44,8 @@ class CommunityThreadInviteManagerTest {
 
     @Mock
     SearchActiveChallengerInvitationUseCase searchInvitationUseCase;
+    @Mock
+    GetGisuUseCase getGisuUseCase;
     @Mock
     LoadCommunityThreadMemberPort loadMemberPort;
     @Mock
@@ -56,6 +59,7 @@ class CommunityThreadInviteManagerTest {
     void setUp() {
         sut = new CommunityThreadInviteManager(
             searchInvitationUseCase,
+            getGisuUseCase,
             loadMemberPort,
             saveMemberPort,
             joinChatRoomUseCase,
@@ -74,6 +78,7 @@ class CommunityThreadInviteManagerTest {
             THREAD_ID,
             Set.of(20L, 30L)
         )).willReturn(List.of());
+        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
         given(searchInvitationUseCase.batchGetEligibleActiveChallengers(
             GISU_ID,
             Set.of(20L, 30L)
@@ -99,7 +104,13 @@ class CommunityThreadInviteManagerTest {
             new JoinChatRoomCommand(100L, 20L, 900L),
             new JoinChatRoomCommand(100L, 30L, 900L)
         );
-        InOrder order = Mockito.inOrder(searchInvitationUseCase, joinChatRoomUseCase, saveMemberPort);
+        InOrder order = Mockito.inOrder(
+            getGisuUseCase,
+            searchInvitationUseCase,
+            joinChatRoomUseCase,
+            saveMemberPort
+        );
+        order.verify(getGisuUseCase).getActiveGisuId();
         order.verify(searchInvitationUseCase).batchGetEligibleActiveChallengers(
             GISU_ID,
             Set.of(20L, 30L)
@@ -125,6 +136,7 @@ class CommunityThreadInviteManagerTest {
             THREAD_ID,
             Set.of(20L)
         )).willReturn(List.of(leftMember));
+        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
         given(searchInvitationUseCase.batchGetEligibleActiveChallengers(
             GISU_ID,
             Set.of(20L)
@@ -182,6 +194,7 @@ class CommunityThreadInviteManagerTest {
         // given
         sut = new CommunityThreadInviteManager(
             searchInvitationUseCase,
+            getGisuUseCase,
             loadMemberPort,
             saveMemberPort,
             joinChatRoomUseCase,

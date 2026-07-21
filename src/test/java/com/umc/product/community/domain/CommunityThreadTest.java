@@ -26,7 +26,6 @@ class CommunityThreadTest {
             CommunityThreadCategory.STUDY,
             " 📚 ",
             20L,
-            30L,
             CREATED_AT
         );
 
@@ -37,7 +36,6 @@ class CommunityThreadTest {
         assertThat(thread.getCategory()).isEqualTo(CommunityThreadCategory.STUDY);
         assertThat(thread.getIcon()).isEqualTo("📚");
         assertThat(thread.getCreatorMemberId()).isEqualTo(20L);
-        assertThat(thread.getActiveGisuId()).isEqualTo(30L);
         assertThat(thread.getLastActivityAt()).isEqualTo(CREATED_AT);
         assertThat(thread.isDeleted()).isFalse();
     }
@@ -74,7 +72,6 @@ class CommunityThreadTest {
             CommunityThreadCategory.FREE,
             "💬",
             20L,
-            30L,
             CREATED_AT
         )).isInstanceOf(IllegalArgumentException.class);
 
@@ -85,7 +82,6 @@ class CommunityThreadTest {
             CommunityThreadCategory.FREE,
             "💬",
             20L,
-            30L,
             CREATED_AT
         )).isInstanceOf(IllegalArgumentException.class);
     }
@@ -161,7 +157,6 @@ class CommunityThreadTest {
             CommunityThreadCategory.FREE,
             "💬",
             20L,
-            30L,
             CREATED_AT
         );
     }

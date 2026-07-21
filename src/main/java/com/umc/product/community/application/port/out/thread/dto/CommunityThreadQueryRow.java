@@ -22,7 +22,6 @@ public record CommunityThreadQueryRow(
     Long lastMessageSenderMemberId,
     Instant lastMessageCreatedAt,
     Long creatorMemberId,
-    Long activeGisuId,
     Instant lastActivityAt,
     Instant deletedAt,
     Instant createdAt,

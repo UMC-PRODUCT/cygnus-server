@@ -29,7 +29,6 @@ final class CommunityThreadLifecycleTestFixtures {
             CommunityThreadCategory.FREE,
             "💬",
             OWNER_ID,
-            GISU_ID,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", THREAD_ID);

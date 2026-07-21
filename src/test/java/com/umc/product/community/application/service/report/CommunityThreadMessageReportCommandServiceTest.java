@@ -46,6 +46,7 @@ import com.umc.product.community.domain.enums.ReportReason;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.global.exception.BusinessException;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("스레드 메시지 신고 명령 서비스")
@@ -70,6 +71,9 @@ class CommunityThreadMessageReportCommandServiceTest {
     GetChallengerUseCase getChallengerUseCase;
 
     @Mock
+    GetGisuUseCase getGisuUseCase;
+
+    @Mock
     GetChatMessageRoomUseCase getChatMessageRoomUseCase;
 
     @Mock
@@ -89,7 +93,7 @@ class CommunityThreadMessageReportCommandServiceTest {
     void report_활성_회원은_스레드_chatRoomId로_메시지를_확인하고_Challenger_신고를_저장한다() {
         // given
         CommunityThread thread = thread();
-        given(thread.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
+        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         Report persisted = mock(Report.class);
         given(persisted.getId()).willReturn(901L);
@@ -283,7 +287,7 @@ class CommunityThreadMessageReportCommandServiceTest {
     void report_신고자_Challenger는_요청자_멤버의_기수_Challenger로_결정된다() {
         // given
         CommunityThread thread = thread();
-        given(thread.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
+        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         Report persisted = mock(Report.class);
         given(persisted.getId()).willReturn(902L);
@@ -316,11 +320,11 @@ class CommunityThreadMessageReportCommandServiceTest {
     }
 
     @Test
-    @DisplayName("요청자 멤버의 스레드 기수 Challenger가 없으면 Chat 조회 전에 THREAD_ACCESS_DENIED로 차단한다")
+    @DisplayName("요청자 멤버의 활성 기수 Challenger가 없으면 Chat 조회 전에 THREAD_ACCESS_DENIED로 차단한다")
     void report_요청자_Challenger가_없으면_접근이_거부된다() {
         // given
         CommunityThread thread = thread();
-        given(thread.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
+        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         given(getChatMessageRoomUseCase.getRoomId(new GetChatMessageRoomQuery(MESSAGE_ID)))
             .willReturn(CHAT_ROOM_ID);
@@ -349,7 +353,7 @@ class CommunityThreadMessageReportCommandServiceTest {
     void report_같은_Challenger_메시지_중복_신고를_거부한다() {
         // given
         CommunityThread thread = thread();
-        given(thread.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
+        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         given(getChatMessageRoomUseCase.getRoomId(new GetChatMessageRoomQuery(MESSAGE_ID)))
             .willReturn(CHAT_ROOM_ID);
@@ -397,7 +401,7 @@ class CommunityThreadMessageReportCommandServiceTest {
     void report_저장_시점_동시_중복_충돌을_그대로_전달한다() {
         // given
         CommunityThread thread = thread();
-        given(thread.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
+        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         CommunityDomainException duplicate = new CommunityDomainException(
             CommunityErrorCode.REPORT_ALREADY_EXISTS

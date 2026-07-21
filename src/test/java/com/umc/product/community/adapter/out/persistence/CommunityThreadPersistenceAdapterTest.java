@@ -129,7 +129,6 @@ class CommunityThreadPersistenceAdapterTest {
             CommunityThreadCategory.FREE,
             "💬",
             200L,
-            300L,
             NOW
         );
     }

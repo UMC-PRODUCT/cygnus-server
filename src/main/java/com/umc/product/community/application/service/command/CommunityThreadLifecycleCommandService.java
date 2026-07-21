@@ -31,7 +31,6 @@ import com.umc.product.community.domain.event.CommunityThreadUpdatedEvent;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -47,7 +46,6 @@ public class CommunityThreadLifecycleCommandService implements
     private final SaveCommunityThreadPort saveThreadPort;
     private final LoadCommunityThreadMemberPort loadMemberPort;
     private final SaveCommunityThreadMemberPort saveMemberPort;
-    private final GetGisuUseCase getGisuUseCase;
     private final CreateChatRoomUseCase createChatRoomUseCase;
     private final CommunityThreadInviteManager inviteManager;
     private final DomainEventPublisher eventPublisher;
@@ -60,7 +58,6 @@ public class CommunityThreadLifecycleCommandService implements
             throw new CommunityDomainException(CommunityErrorCode.THREAD_CAPACITY_EXCEEDED);
         }
 
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
         ChatRoomInfo chatRoom = createChatRoomUseCase.create(
             CreateChatRoomCommand.from(command.actorMemberId())
         );
@@ -72,7 +69,6 @@ public class CommunityThreadLifecycleCommandService implements
             command.category(),
             command.icon(),
             command.actorMemberId(),
-            activeGisuId,
             chatRoom.createdAt()
         ));
         CommunityThreadMember owner = saveMemberPort.save(

@@ -224,7 +224,6 @@ class CommunityThreadMessageQueryServiceTest {
             CommunityThreadCategory.FREE,
             "💬",
             10L,
-            501L,
             NOW
         );
         ReflectionTestUtils.setField(thread, "id", THREAD_ID);

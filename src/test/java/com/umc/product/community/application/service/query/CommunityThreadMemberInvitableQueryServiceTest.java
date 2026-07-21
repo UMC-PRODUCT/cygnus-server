@@ -106,7 +106,8 @@ class CommunityThreadMemberInvitableQueryServiceTest {
             20L, challenger(20L, ChallengerPart.DESIGN),
             30L, challenger(30L, ChallengerPart.SPRINGBOOT)
         ));
-        given(getGisuUseCase.getById(20L)).willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
+        given(getGisuUseCase.getActiveGisu())
+            .willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
 
         // when
         ThreadMemberPageInfo result = sut.listMembers(new ListThreadMembersQuery(
@@ -119,7 +120,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         assertThat(result.total()).isEqualTo(2L);
         verify(getMemberUseCase).findAllByIds(memberIds);
         verify(getChallengerUseCase).batchGetByMemberIdsAndGisuId(memberIds, 20L);
-        verify(getGisuUseCase).getById(20L);
+        verify(getGisuUseCase).getActiveGisu();
     }
 
     @Test
@@ -143,7 +144,8 @@ class CommunityThreadMemberInvitableQueryServiceTest {
             20L, challenger(20L, ChallengerPart.DESIGN),
             30L, challenger(30L, ChallengerPart.SPRINGBOOT)
         ));
-        given(getGisuUseCase.getById(20L)).willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
+        given(getGisuUseCase.getActiveGisu())
+            .willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
 
         // when
         List<ThreadMemberInfo> result = sut.getMembersByIds(
@@ -155,7 +157,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         assertThat(result).extracting(ThreadMemberInfo::name).containsExactly("보라", "조이", "아리");
         verify(getMemberUseCase).findAllByIds(memberIds);
         verify(getChallengerUseCase).batchGetByMemberIdsAndGisuId(memberIds, 20L);
-        verify(getGisuUseCase).getById(20L);
+        verify(getGisuUseCase).getActiveGisu();
     }
 
     @Test
@@ -192,7 +194,8 @@ class CommunityThreadMemberInvitableQueryServiceTest {
             10L, challenger(10L, ChallengerPart.DESIGN),
             20L, challenger(20L, ChallengerPart.DESIGN)
         ));
-        given(getGisuUseCase.getById(20L)).willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
+        given(getGisuUseCase.getActiveGisu())
+            .willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
 
         // when & then
         assertThatThrownBy(() -> sut.getMembersByIds(
@@ -246,6 +249,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         // given
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
         given(threadQueryPort.listInvitationBlockedMemberIds(1L)).willReturn(List.of(10L, 20L));
+        given(getGisuUseCase.getActiveGisuId()).willReturn(20L);
         given(searchInvitationUseCase.search(org.mockito.ArgumentMatchers.any())).willReturn(
             new ActiveChallengerInvitationSearchResult(
                 List.of(new ActiveChallengerInvitationInfo(
@@ -273,7 +277,8 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         assertThat(captor.getValue().excludedMemberIds()).containsExactlyInAnyOrder(10L, 20L);
         assertThat(captor.getValue().offset()).isEqualTo(2);
         assertThat(captor.getValue().limit()).isEqualTo(1);
-        verifyNoInteractions(getMemberUseCase, getChallengerUseCase, getGisuUseCase);
+        verify(getGisuUseCase).getActiveGisuId();
+        verifyNoInteractions(getMemberUseCase, getChallengerUseCase);
     }
 
     @Test
@@ -294,7 +299,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         return new CommunityThreadQueryRow(
             1L, "스레드", null, CommunityThreadCategory.STUDY, "📚",
             3L, 0L, false, false, role, CommunityThreadMemberState.ACTIVE,
-            null, null, null, 10L, 20L, NOW, null, NOW, NOW
+            null, null, null, 10L, NOW, null, NOW, NOW
         );
     }
 

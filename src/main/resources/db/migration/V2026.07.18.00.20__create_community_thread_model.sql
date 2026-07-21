@@ -7,7 +7,6 @@ CREATE TABLE community_thread
     category                      VARCHAR(20)                             NOT NULL,
     icon                          VARCHAR(128)                            NOT NULL,
     creator_member_id             BIGINT                                  NOT NULL,
-    active_gisu_id                BIGINT                                  NOT NULL,
     last_message_id               BIGINT,
     last_message_preview          VARCHAR(2000),
     last_message_sender_member_id BIGINT,
@@ -21,7 +20,7 @@ CREATE TABLE community_thread
     CONSTRAINT ck_community_thread_category
         CHECK (category IN ('STUDY', 'QNA', 'PROJECT', 'FREE')),
     CONSTRAINT ck_community_thread_positive_ids
-        CHECK (chat_room_id > 0 AND creator_member_id > 0 AND active_gisu_id > 0),
+        CHECK (chat_room_id > 0 AND creator_member_id > 0),
     CONSTRAINT ck_community_thread_title
         CHECK (char_length(btrim(title)) BETWEEN 1 AND 80),
     CONSTRAINT ck_community_thread_description
@@ -45,7 +44,7 @@ CREATE TABLE community_thread
 );
 
 CREATE INDEX idx_community_thread_active_list
-    ON community_thread (active_gisu_id, deleted_at, last_activity_at DESC, id DESC);
+    ON community_thread (deleted_at, last_activity_at DESC, id DESC);
 
 CREATE TABLE community_thread_member
 (

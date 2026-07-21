@@ -123,7 +123,6 @@ class CommunityThreadLifecycleRealtimeRelayTransactionIntegrationTest extends In
                 CommunityThreadCategory.FREE,
                 "chat",
                 10L,
-                1L,
                 NOW.minusSeconds(60)
             ));
             CommunityThreadMember member = CommunityThreadMember.createMember(

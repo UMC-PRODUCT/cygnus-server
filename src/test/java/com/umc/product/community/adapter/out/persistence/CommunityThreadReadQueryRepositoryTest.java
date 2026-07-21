@@ -163,7 +163,6 @@ class CommunityThreadReadQueryRepositoryTest {
             category,
             "💬",
             REQUESTER_ID,
-            20L,
             NOW
         ));
     }

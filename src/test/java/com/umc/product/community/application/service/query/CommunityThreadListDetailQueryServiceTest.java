@@ -170,7 +170,6 @@ class CommunityThreadListDetailQueryServiceTest {
             501L,
             NOW.minusSeconds(20),
             10L,
-            20L,
             NOW.minusSeconds(5),
             deletedAt,
             createdAt,
@@ -242,7 +241,6 @@ class CommunityThreadListDetailQueryServiceTest {
             senderId,
             senderId == null ? null : NOW,
             10L,
-            20L,
             NOW,
             null,
             NOW,
@@ -254,7 +252,7 @@ class CommunityThreadListDetailQueryServiceTest {
         return new CommunityThreadQueryRow(
             1L, "스레드 1", "설명", CommunityThreadCategory.STUDY, "📚",
             3L, 2L, false, false, CommunityThreadMemberRole.MEMBER, state,
-            null, null, null, 10L, 20L, NOW, deletedAt, NOW, NOW
+            null, null, null, 10L, NOW, deletedAt, NOW, NOW
         );
     }
 

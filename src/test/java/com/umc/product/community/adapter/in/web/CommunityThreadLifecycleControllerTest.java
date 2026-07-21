@@ -96,7 +96,7 @@ class CommunityThreadLifecycleControllerTest {
     void createThread_mapsRequestAndReturnsFullDetail() throws Exception {
         given(createThreadUseCase.create(any())).willReturn(new CommunityThreadLifecycleInfo(
             42L, "서버 스터디", "함께 공부해요", CommunityThreadCategory.STUDY, "📚",
-            REQUESTER_ID, 8L, 3L, 100, REQUESTER_ID, CommunityThreadMemberRole.OWNER,
+            REQUESTER_ID, 3L, 100, REQUESTER_ID, CommunityThreadMemberRole.OWNER,
             false, false, null
         ));
         given(getThreadDetailUseCase.getThread(any())).willReturn(detail(null));

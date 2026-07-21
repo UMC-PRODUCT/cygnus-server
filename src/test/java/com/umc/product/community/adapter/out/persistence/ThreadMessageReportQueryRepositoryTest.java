@@ -172,7 +172,6 @@ class ThreadMessageReportQueryRepositoryTest {
             CommunityThreadCategory.FREE,
             "🚨",
             10L,
-            20L,
             NOW
         );
     }
