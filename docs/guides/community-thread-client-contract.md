@@ -6,6 +6,9 @@
 delivery는 이 범위에 포함하지 않으며, REST는 control/query/recovery/moderation, WebSocket은
 interactive message/reaction/read mutation을 담당한다.
 
+브라우저용 AsyncAPI 문서는 `/docs/asyncapi`, machine-readable 원본은 `/docs/asyncapi.yaml`, 실제
+frame을 전송하는 테스트 콘솔은 `/docs/community-thread.html`에서 제공한다.
+
 ## 1. 식별자와 공통 규칙
 
 - 외부 API는 `threadId`, `messageId`, `memberId`만 사용한다. Chat engine의 `chatRoomId`/`roomId`는
@@ -35,7 +38,7 @@ Base URI: `/api/v1/community`
 | POST, DELETE | `/threads/{threadId}/pin` | pin/unpin |
 | POST, DELETE | `/threads/{threadId}/mute` | mute/unmute |
 | GET | `/threads/{threadId}/members` | member query |
-| GET | `/threads/{threadId}/invitable` | ACTIVE challenger search |
+| GET | `/threads/{threadId}/invitable` | Challenger 이력과 무관한 ACTIVE 회원 검색 |
 | POST | `/threads/{threadId}/invite` | invite/LEFT re-entry |
 | DELETE | `/threads/{threadId}/members/{memberId}` | kick |
 | POST | `/threads/{threadId}/leave` | leave |
@@ -58,7 +61,8 @@ Admin surface의 완전한 경로는 `/api/v1/community/admin/thread-message-rep
 
 ## 3. WebSocket 연결
 
-SockJS/STOMP endpoint는 `/ws`다. native CONNECT에 다음 header를 전송한다.
+SockJS/STOMP endpoint는 `/ws`, native WebSocket transport endpoint는 `/ws/websocket`이다. 두
+endpoint 모두 application protocol로 STOMP 1.2를 사용한다. CONNECT에 다음 header를 전송한다.
 
 ```text
 Authorization: Bearer <access-token>

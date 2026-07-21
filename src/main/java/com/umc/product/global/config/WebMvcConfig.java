@@ -40,6 +40,14 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addViewControllers(ViewControllerRegistry registry) {
         registry.addRedirectViewController(SecurityPathConfig.SCALAR_ENTRY_PATH, "/docs/scalar.html");
         registry.addRedirectViewController(SecurityPathConfig.SCALAR_ENTRY_SLASH_PATH, "/docs/scalar.html");
+        registry.addRedirectViewController(
+            SecurityPathConfig.ASYNCAPI_ENTRY_PATH,
+            SecurityPathConfig.ASYNCAPI_HTML_PATH
+        );
+        registry.addRedirectViewController(
+            SecurityPathConfig.ASYNCAPI_ENTRY_SLASH_PATH,
+            SecurityPathConfig.ASYNCAPI_HTML_PATH
+        );
         registry.addRedirectViewController("/docs/catalog/error", "/docs/catalog/error/index.html");
         registry.addRedirectViewController("/docs/catalog/error/", "/docs/catalog/error/index.html");
     }

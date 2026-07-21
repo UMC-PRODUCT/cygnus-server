@@ -12,7 +12,7 @@ import org.springframework.core.io.ClassPathResource;
 class CommunityThreadWebSocketConsoleTest {
 
     private static final String RESOURCE_PATH =
-        "static/docs/community-thread-websocket.html";
+        "static/docs/community-thread.html";
 
     @Test
     @DisplayName("native WebSocket 연결과 전체 STOMP destination 계약을 제공한다")
@@ -20,6 +20,7 @@ class CommunityThreadWebSocketConsoleTest {
         String html = html();
 
         assertThat(html).contains(
+            "/docs/asyncapi",
             "/ws/websocket",
             "/app/community/threads/${threadId}/messages",
             "/app/community/threads/${threadId}/messages/${messageId}/edit",

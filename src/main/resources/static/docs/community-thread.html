@@ -85,6 +85,25 @@
             font-size: 13px;
         }
 
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .docs-link {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--accent);
+            background: var(--surface);
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
         .status::before {
             width: 8px;
             height: 8px;
@@ -281,7 +300,10 @@
         <h1>Community Thread WebSocket Console</h1>
         <p>native WebSocket transport 위에서 STOMP 1.2 연결, 구독, command, ACK와 error를 직접 확인합니다.</p>
     </div>
-    <div class="status" id="connection-status">연결 안 됨</div>
+    <div class="header-actions">
+        <a class="docs-link" href="/docs/asyncapi">AsyncAPI 명세</a>
+        <div class="status" id="connection-status">연결 안 됨</div>
+    </div>
 </header>
 
 <main>

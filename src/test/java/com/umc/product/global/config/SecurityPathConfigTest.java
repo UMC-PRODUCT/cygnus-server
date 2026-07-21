@@ -17,8 +17,12 @@ class SecurityPathConfigTest {
         .withInitializer(new ConfigDataApplicationContextInitializer());
 
     @Test
-    @DisplayName("문서 공개 경로는 Scalar와 문서 카탈로그에 필요한 경로만 포함한다")
+    @DisplayName("문서 공개 경로는 Scalar와 AsyncAPI 및 문서 카탈로그에 필요한 경로만 포함한다")
     void documentationPathsExposeScalarAndCatalogOnly() {
+        assertThat(SecurityPathConfig.ASYNCAPI_ENTRY_PATH).isEqualTo("/docs/asyncapi");
+        assertThat(SecurityPathConfig.ASYNCAPI_ENTRY_SLASH_PATH).isEqualTo("/docs/asyncapi/");
+        assertThat(SecurityPathConfig.ASYNCAPI_HTML_PATH).isEqualTo("/docs/asyncapi.html");
+        assertThat(SecurityPathConfig.ASYNCAPI_DOCUMENT_PATH).isEqualTo("/docs/asyncapi.yaml");
         assertThat(SecurityPathConfig.DOCUMENTATION_PATHS)
             .contains(
                 "/docs",
