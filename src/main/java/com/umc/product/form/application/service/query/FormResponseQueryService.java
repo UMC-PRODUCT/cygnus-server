@@ -35,6 +35,11 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
     private final SecureTokenGenerator secureTokenGenerator;
 
     @Override
+    public boolean existsByFormId(Long formId) {
+        return loadFormResponsePort.existsByFormId(formId);
+    }
+
+    @Override
     public Optional<FormResponseInfo> findById(Long formResponseId) {
         return loadFormResponsePort.findById(formResponseId)
             .map(FormResponseInfo::from);

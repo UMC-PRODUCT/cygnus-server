@@ -224,6 +224,7 @@ public class FormQueryService implements GetFormUseCase {
                 .content(option.getContent())
                 .orderNo(option.getOrderNo())
                 .isOther(option.isOther())
+                .nextSectionId(option.getNextSectionId())
                 .build())
             .toList();
     }

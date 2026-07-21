@@ -22,6 +22,10 @@ public final class ObservabilityErrorSanitizer {
     private static final Pattern APPLICATION_KEY_VALUE = Pattern.compile(
         "(?i)(\\bapplication[_ ]?key\\b\\s*[=:]\\s*)[A-Z0-9]{6}"
     );
+    private static final Pattern FORM_RESPONSE_ACCESS_KEY_VALUE = Pattern.compile(
+        "(?i)(\\b(?:responseAccessKey|formResponseAccessKey|response_access_key|form_response_access_key)"
+            + "\\b\\s*[=:]\\s*)[^\\s,}\\]]+"
+    );
     private static final Pattern EMAIL = Pattern.compile(
         "(?i)(?<![A-Z0-9._%+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}(?![A-Z0-9._%+-])"
     );
@@ -69,6 +73,7 @@ public final class ObservabilityErrorSanitizer {
         String sanitized = POSTGRES_KEY_DETAIL.matcher(message).replaceAll("$1(" + REDACTED + ")");
         sanitized = BIND_DETAIL.matcher(sanitized).replaceAll("$1[" + REDACTED + "]");
         sanitized = APPLICATION_KEY_VALUE.matcher(sanitized).replaceAll("$1" + REDACTED);
+        sanitized = FORM_RESPONSE_ACCESS_KEY_VALUE.matcher(sanitized).replaceAll("$1" + REDACTED);
         sanitized = EMAIL.matcher(sanitized).replaceAll(REDACTED);
         sanitized = BEARER_TOKEN.matcher(sanitized).replaceAll("$1" + REDACTED);
         sanitized = JWT.matcher(sanitized).replaceAll(REDACTED);

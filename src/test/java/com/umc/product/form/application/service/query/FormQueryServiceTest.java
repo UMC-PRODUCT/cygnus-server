@@ -22,6 +22,7 @@ import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormSection;
 import com.umc.product.form.domain.Question;
+import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
 
 @ExtendWith(MockitoExtension.class)
@@ -154,6 +155,28 @@ class FormQueryServiceTest {
         assertThat(result.sections().get(0).questions())
             .extracting(FormWithStructureInfo.QuestionWithOptions::questionId)
             .containsExactly(20L);
+    }
+
+    @Test
+    @DisplayName("Form 구조는 선택지의 조건부 이동 section ID를 반환한다")
+    void getFormWithStructure_조건부_이동_section_ID_반환() {
+        Form form = createForm(7L);
+        FormSection section = createSection(1L, 7L, 1L);
+        Question question = createQuestion(20L, section, 1L);
+        ReflectionTestUtils.setField(question, "type", QuestionType.RADIO);
+        QuestionOption option = QuestionOption.create("다음 단계", 1L, false, 2L);
+        ReflectionTestUtils.setField(option, "id", 30L);
+        ReflectionTestUtils.setField(option, "question", question);
+
+        given(loadFormPort.findById(7L)).willReturn(java.util.Optional.of(form));
+        given(loadFormSectionPort.listByFormId(7L)).willReturn(List.of(section));
+        given(loadQuestionPort.listBySectionIdIn(Set.of(1L))).willReturn(List.of(question));
+        given(loadQuestionOptionPort.listByQuestionIdIn(Set.of(20L))).willReturn(List.of(option));
+
+        FormWithStructureInfo result = sut.getFormWithStructure(7L);
+
+        assertThat(result.sections().getFirst().questions().getFirst().options().getFirst().nextSectionId())
+            .isEqualTo(2L);
     }
 
     // ============================================================

@@ -26,6 +26,8 @@
 - [Notification](notification.md)
 - [Organization](organization.md)
 - [Project](project.md)
+- [Recruiting](recruiting.md)
+- [Recruiting Entity and Flow Diagrams](recruiting-diagrams.md)
 - [Schedule](schedule.md)
 - [Storage](storage.md)
 - [Survey](survey.md)

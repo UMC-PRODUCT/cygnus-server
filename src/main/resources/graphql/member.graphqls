@@ -73,7 +73,8 @@ type MemberChallenger {
   memberId: ID!
   gisuId: ID!
   gisu: Gisu
-  part: ChallengerPart!
+  part: ChallengerPart
+  tracks: [ChallengerTrack!]!
   status: ChallengerStatus!
 }
 

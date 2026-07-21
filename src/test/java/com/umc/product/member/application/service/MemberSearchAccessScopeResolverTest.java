@@ -283,6 +283,6 @@ class MemberSearchAccessScopeResolverTest {
     }
 
     private ChallengerBasicInfo challenger(Long challengerId, Long gisuId) {
-        return new ChallengerBasicInfo(challengerId, MEMBER_ID, gisuId, null, null);
+        return new ChallengerBasicInfo(challengerId, MEMBER_ID, gisuId, null, List.of(), null);
     }
 }
