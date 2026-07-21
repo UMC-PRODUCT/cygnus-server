@@ -36,7 +36,7 @@ public class RecruitingAdminEvaluatorController {
 
     @PostMapping("/{memberId}")
     @Operation(
-        operationId = "RECRUITING-ADMIN-EVALUATOR-001",
+        operationId = "RECRUITING-ADMIN-031",
         summary = "평가자 추가",
         description = "CurrentMember 운영 권한으로 path의 회원을 서류·면접 공통 평가자 whitelist에 추가합니다."
     )
@@ -52,7 +52,7 @@ public class RecruitingAdminEvaluatorController {
 
     @DeleteMapping("/{memberId}")
     @Operation(
-        operationId = "RECRUITING-ADMIN-EVALUATOR-002",
+        operationId = "RECRUITING-ADMIN-032",
         summary = "평가자 제거",
         description = "CurrentMember 운영 권한으로 서류·면접 공통 평가자 whitelist 등록을 제거합니다."
     )
@@ -68,7 +68,7 @@ public class RecruitingAdminEvaluatorController {
 
     @GetMapping
     @Operation(
-        operationId = "RECRUITING-ADMIN-EVALUATOR-003",
+        operationId = "RECRUITING-ADMIN-033",
         summary = "평가자 목록 조회",
         description = "모집 차수의 서류·면접 공통 평가자 whitelist를 조회합니다."
     )

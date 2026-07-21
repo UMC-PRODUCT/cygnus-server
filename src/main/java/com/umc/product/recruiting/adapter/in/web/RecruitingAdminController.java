@@ -69,7 +69,7 @@ public class RecruitingAdminController {
     @PutMapping("/seasons/{seasonId}/rounds/{roundId}/form")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)
     @Operation(
-        operationId = "RECRUITING-ADMIN-005",
+        operationId = "RECRUITING-ADMIN-021",
         summary = "지원 Form 전체 구조 Upsert",
         description = "Round가 DRAFT일 때 section, question, option과 COMMON/TRACK 정책을 하나의 요청으로 동기화합니다."
     )
@@ -86,7 +86,7 @@ public class RecruitingAdminController {
 
     @PatchMapping("/applications/{applicationId}/document-decision")
     @Operation(
-        operationId = "RECRUITING-ADMIN-008",
+        operationId = "RECRUITING-ADMIN-061",
         summary = "서류 합불 결정",
         description = "학교 회장단 또는 중앙 운영진 CurrentMember 권한으로 서류 합불을 결정합니다. 합격 시 면접 차수는 일정 요청을 자동 생성하고, 면접 미진행 차수는 면접 생략 상태로 전환합니다."
     )
@@ -101,7 +101,7 @@ public class RecruitingAdminController {
 
     @PostMapping("/applications/{applicationId}/interview/skip")
     @Operation(
-        operationId = "RECRUITING-ADMIN-008A",
+        operationId = "RECRUITING-ADMIN-062",
         summary = "면접 생략",
         description = "CurrentMember 운영 권한으로 서류 합격 지원서를 면접 생략 상태로 전환합니다. 권한은 use case가 실제 지원서 소속으로 검증합니다."
     )
@@ -116,7 +116,7 @@ public class RecruitingAdminController {
 
     @PatchMapping("/applications/{applicationId}/final-decision")
     @Operation(
-        operationId = "RECRUITING-ADMIN-009",
+        operationId = "RECRUITING-ADMIN-063",
         summary = "최종 합불 결정",
         description = "학교 회장단 또는 중앙 운영진 CurrentMember 권한으로 최종 합불을 결정합니다. 권한은 use case가 실제 지원서 소속으로 검증합니다."
     )
@@ -131,7 +131,7 @@ public class RecruitingAdminController {
 
     @PostMapping("/applications/{applicationId}/registration/ready")
     @Operation(
-        operationId = "RECRUITING-ADMIN-010",
+        operationId = "RECRUITING-ADMIN-071",
         summary = "등록 준비",
         description = "중앙 운영진 CurrentMember 권한으로 최종 합격자의 트랙 쿼터를 예약해 READY로 전환합니다."
     )
@@ -146,7 +146,7 @@ public class RecruitingAdminController {
 
     @DeleteMapping("/applications/{applicationId}/registration/ready")
     @Operation(
-        operationId = "RECRUITING-ADMIN-010A",
+        operationId = "RECRUITING-ADMIN-072",
         summary = "등록 준비 취소",
         description = "중앙 운영진 CurrentMember 권한으로 READY 예약을 취소하고 쿼터를 반환합니다."
     )
@@ -161,7 +161,7 @@ public class RecruitingAdminController {
 
     @PostMapping("/applications/{applicationId}/registration/registered")
     @Operation(
-        operationId = "RECRUITING-ADMIN-010B",
+        operationId = "RECRUITING-ADMIN-073",
         summary = "챌린저 등록 확정",
         description = "중앙 운영진 CurrentMember 권한으로 READY 지원자를 REGISTERED로 전환하고 Challenger 등록 use case에 위임합니다."
     )
@@ -178,7 +178,7 @@ public class RecruitingAdminController {
 
     @GetMapping("/summary")
     @Operation(
-        operationId = "RECRUITING-ADMIN-011",
+        operationId = "RECRUITING-ADMIN-081",
         summary = "지원 현황 요약 조회",
         description = "기수와 학교 기준으로 지원서 상태별 집계와 Round별 집계를 조회하며 특정 Round로 필터링할 수 있습니다."
     )
@@ -195,7 +195,7 @@ public class RecruitingAdminController {
 
     @GetMapping("/statistics.csv")
     @Operation(
-        operationId = "RECRUITING-ADMIN-012",
+        operationId = "RECRUITING-ADMIN-082",
         summary = "지원 현황 CSV 다운로드",
         description = "지원서 본문과 원본 이메일을 제외한 학교별 지원 현황 CSV를 다운로드합니다."
     )

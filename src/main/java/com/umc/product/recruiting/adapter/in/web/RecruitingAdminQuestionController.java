@@ -42,7 +42,7 @@ public class RecruitingAdminQuestionController {
     private final GetRecruitingInterviewQuestionUseCase getQuestionUseCase;
 
     @PostMapping("/rounds/{roundId}/questions")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-001", summary = "공통 면접 질문 생성", description = "차수 공통 면접 질문을 생성합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-041", summary = "공통 면접 질문 생성", description = "차수 공통 면접 질문을 생성합니다.")
     public RecruitingIdResponse createRoundQuestion(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long roundId,
@@ -54,7 +54,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @PutMapping("/rounds/{roundId}/questions/{questionId}")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-002", summary = "공통 면접 질문 수정", description = "첫 면접 평가 제출 전 공통 질문을 수정합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-042", summary = "공통 면접 질문 수정", description = "첫 면접 평가 제출 전 공통 질문을 수정합니다.")
     public void updateRoundQuestion(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long roundId,
@@ -67,7 +67,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @DeleteMapping("/rounds/{roundId}/questions/{questionId}")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-003", summary = "공통 면접 질문 비활성화", description = "첫 면접 평가 제출 전 공통 질문을 비활성화합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-043", summary = "공통 면접 질문 비활성화", description = "첫 면접 평가 제출 전 공통 질문을 비활성화합니다.")
     public void deactivateRoundQuestion(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long roundId,
@@ -79,7 +79,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @GetMapping("/rounds/{roundId}/questions")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-004", summary = "공통 면접 질문 조회", description = "차수의 활성 공통 면접 질문을 순서대로 조회합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-044", summary = "공통 면접 질문 조회", description = "차수의 활성 공통 면접 질문을 순서대로 조회합니다.")
     public List<RecruitingInterviewQuestionResponse> listRoundQuestions(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long roundId
@@ -91,7 +91,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @PostMapping("/applications/{applicationId}/questions")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-005", summary = "지원서별 면접 질문 생성", description = "INTERVIEW 평가자가 지원서별 면접 질문을 생성합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-045", summary = "지원서별 면접 질문 생성", description = "INTERVIEW 평가자가 지원서별 면접 질문을 생성합니다.")
     public RecruitingIdResponse createApplicationQuestion(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long applicationId,
@@ -103,7 +103,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @PutMapping("/applications/{applicationId}/questions/{questionId}")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-006", summary = "지원서별 면접 질문 수정", description = "첫 면접 평가 제출 전 지원서별 질문을 수정합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-046", summary = "지원서별 면접 질문 수정", description = "첫 면접 평가 제출 전 지원서별 질문을 수정합니다.")
     public void updateApplicationQuestion(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long applicationId,
@@ -116,7 +116,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @DeleteMapping("/applications/{applicationId}/questions/{questionId}")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-007", summary = "지원서별 면접 질문 비활성화", description = "첫 면접 평가 제출 전 지원서별 질문을 비활성화합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-047", summary = "지원서별 면접 질문 비활성화", description = "첫 면접 평가 제출 전 지원서별 질문을 비활성화합니다.")
     public void deactivateApplicationQuestion(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long applicationId,
@@ -132,7 +132,7 @@ public class RecruitingAdminQuestionController {
     }
 
     @GetMapping("/applications/{applicationId}/questions")
-    @Operation(operationId = "RECRUITING-ADMIN-QUESTION-008", summary = "지원서별 면접 질문 조회", description = "지원서의 활성 개별 면접 질문을 순서대로 조회합니다.")
+    @Operation(operationId = "RECRUITING-ADMIN-048", summary = "지원서별 면접 질문 조회", description = "지원서의 활성 개별 면접 질문을 순서대로 조회합니다.")
     public List<RecruitingInterviewQuestionResponse> listApplicationQuestions(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal actor,
         @PathVariable @Positive Long applicationId

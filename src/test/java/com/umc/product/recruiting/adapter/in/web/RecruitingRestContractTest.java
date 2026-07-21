@@ -53,6 +53,58 @@ class RecruitingRestContractTest {
     }
 
     @Test
+    @DisplayName("Operation ID는 suffix 없이 카테고리별 숫자 대역을 사용한다")
+    void operationIdsUseNumericCategoryRanges() {
+        List<String> operationIds = restControllers().stream()
+            .flatMap(this::mappedMethods)
+            .map(method -> method.getAnnotation(Operation.class).operationId())
+            .toList();
+
+        assertThat(operationIds)
+            .doesNotHaveDuplicates()
+            .allMatch(operationId -> operationId.matches(
+                "RECRUITING-(PUBLIC|APPLICATION|SCHEDULE|EVALUATION|ADMIN)-\\d{3}"
+            ));
+        assertThat(operationIds)
+            .filteredOn(operationId -> operationId.startsWith("RECRUITING-ADMIN-"))
+            .containsExactlyInAnyOrder(
+                "RECRUITING-ADMIN-001",
+                "RECRUITING-ADMIN-002",
+                "RECRUITING-ADMIN-003",
+                "RECRUITING-ADMIN-004",
+                "RECRUITING-ADMIN-011",
+                "RECRUITING-ADMIN-012",
+                "RECRUITING-ADMIN-013",
+                "RECRUITING-ADMIN-014",
+                "RECRUITING-ADMIN-015",
+                "RECRUITING-ADMIN-016",
+                "RECRUITING-ADMIN-017",
+                "RECRUITING-ADMIN-021",
+                "RECRUITING-ADMIN-031",
+                "RECRUITING-ADMIN-032",
+                "RECRUITING-ADMIN-033",
+                "RECRUITING-ADMIN-041",
+                "RECRUITING-ADMIN-042",
+                "RECRUITING-ADMIN-043",
+                "RECRUITING-ADMIN-044",
+                "RECRUITING-ADMIN-045",
+                "RECRUITING-ADMIN-046",
+                "RECRUITING-ADMIN-047",
+                "RECRUITING-ADMIN-048",
+                "RECRUITING-ADMIN-051",
+                "RECRUITING-ADMIN-052",
+                "RECRUITING-ADMIN-061",
+                "RECRUITING-ADMIN-062",
+                "RECRUITING-ADMIN-063",
+                "RECRUITING-ADMIN-071",
+                "RECRUITING-ADMIN-072",
+                "RECRUITING-ADMIN-073",
+                "RECRUITING-ADMIN-081",
+                "RECRUITING-ADMIN-082"
+            );
+    }
+
+    @Test
     @DisplayName("REST path에는 금지된 legacy credential overlap email endpoint가 없다")
     void pathsExcludeDeferredAndLegacyEndpoints() {
         List<String> paths = restControllers().stream()

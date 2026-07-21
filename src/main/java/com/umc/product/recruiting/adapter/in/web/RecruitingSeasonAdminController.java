@@ -75,7 +75,7 @@ public class RecruitingSeasonAdminController {
     @GetMapping("/rounds")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.READ)
     @Operation(
-        operationId = "RECRUITING-ADMIN-000B",
+        operationId = "RECRUITING-ADMIN-011",
         summary = "모집 차수 목록 조회",
         description = "기수를 기준으로 지부, 학교 또는 시즌 조건에 맞는 모집 차수를 조회합니다."
     )
@@ -109,7 +109,7 @@ public class RecruitingSeasonAdminController {
     @GetMapping("/seasons/{seasonId}/rounds/title-availability")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
     @Operation(
-        operationId = "RECRUITING-ADMIN-000C",
+        operationId = "RECRUITING-ADMIN-012",
         summary = "모집 제목 사용 가능 여부 조회",
         description = "같은 시즌에서 대소문자를 무시한 모집 제목 중복 여부를 확인합니다."
     )
@@ -126,7 +126,7 @@ public class RecruitingSeasonAdminController {
     @GetMapping("/seasons/{seasonId}")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
     @Operation(
-        operationId = "RECRUITING-ADMIN-000",
+        operationId = "RECRUITING-ADMIN-001",
         summary = "모집 시즌 설정 조회",
         description = "시즌의 트랙별 목표 인원과 차수별 모집 설정을 조회합니다."
     )
@@ -139,7 +139,7 @@ public class RecruitingSeasonAdminController {
     @PostMapping("/seasons")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.WRITE)
     @Operation(
-        operationId = "RECRUITING-ADMIN-001",
+        operationId = "RECRUITING-ADMIN-002",
         summary = "모집 시즌 생성",
         description = "기수와 학교에 대한 모집 시즌과 초기 트랙별 목표 인원을 생성합니다."
     )
@@ -155,7 +155,7 @@ public class RecruitingSeasonAdminController {
     @PatchMapping("/seasons/{seasonId}")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
-        operationId = "RECRUITING-ADMIN-002",
+        operationId = "RECRUITING-ADMIN-003",
         summary = "모집 시즌 수정",
         description = "시즌에 속한 운영진이 공유할 메모를 수정합니다."
     )
@@ -169,7 +169,7 @@ public class RecruitingSeasonAdminController {
     @PutMapping("/seasons/{seasonId}/quotas")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
-        operationId = "RECRUITING-ADMIN-002A",
+        operationId = "RECRUITING-ADMIN-004",
         summary = "모집 시즌 트랙별 목표 인원 교체",
         description = "현재 READY 및 REGISTERED 인원을 보호하면서 트랙별 목표 인원을 교체합니다."
     )
@@ -183,7 +183,7 @@ public class RecruitingSeasonAdminController {
     @PostMapping("/seasons/{seasonId}/rounds")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)
     @Operation(
-        operationId = "RECRUITING-ADMIN-003",
+        operationId = "RECRUITING-ADMIN-013",
         summary = "모집 차수 생성",
         description = "모집 기간, 트랙, 2지망 정책과 면접 설정을 포함한 차수를 생성합니다."
     )
@@ -197,7 +197,7 @@ public class RecruitingSeasonAdminController {
     @PatchMapping("/seasons/{seasonId}/rounds/{roundId}/status")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
-        operationId = "RECRUITING-ADMIN-004",
+        operationId = "RECRUITING-ADMIN-015",
         summary = "모집 차수 상태 변경",
         description = "모집 차수의 운영 상태를 변경합니다."
     )
@@ -215,7 +215,7 @@ public class RecruitingSeasonAdminController {
     @PutMapping("/seasons/{seasonId}/rounds/{roundId}")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
-        operationId = "RECRUITING-ADMIN-004A",
+        operationId = "RECRUITING-ADMIN-014",
         summary = "모집 차수 설정 변경",
         description = "모집 기간, 트랙, 2지망 정책과 면접 설정을 변경합니다."
     )
@@ -233,7 +233,7 @@ public class RecruitingSeasonAdminController {
     @PostMapping("/seasons/{seasonId}/rounds/{roundId}/clone")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
     @Operation(
-        operationId = "RECRUITING-ADMIN-004B",
+        operationId = "RECRUITING-ADMIN-016",
         summary = "모집 Round 복제",
         description = "Round 설정, 지원 Form 전체 구조와 활성 공통 질문을 대상 Season의 새 DRAFT Round로 복제합니다."
     )
@@ -251,7 +251,7 @@ public class RecruitingSeasonAdminController {
     @DeleteMapping("/seasons/{seasonId}/rounds/{roundId}")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
-        operationId = "RECRUITING-ADMIN-004C",
+        operationId = "RECRUITING-ADMIN-017",
         summary = "모집 Round 삭제",
         description = "지원서와 Form 응답이 없는 DRAFT Round와 소유한 Form 구조를 완전히 삭제합니다."
     )

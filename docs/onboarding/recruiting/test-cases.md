@@ -106,7 +106,7 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 | `RecruitingApplicationReviewControllerTest` | Round 지원서 목록 필터·페이지와 CurrentMember 전달 |
 | `RecruitingEvaluationControllerTest` | 평가 `PUT`, stage/path scope, CurrentMember, 평가 조회 |
 | `RecruitingCredentialRestRateLimitInterceptorTest` | lookup/update/submit/cancel의 IP bucket 공유, 생성 제외, 429 header |
-| `RecruitingRestContractTest` | 모든 admin prefix, 모든 handler의 OpenAPI description, actor 필드 비노출, legacy route 제거 |
+| `RecruitingRestContractTest` | 모든 admin prefix, OpenAPI description, 숫자형 operation ID의 중복·카테고리 대역, actor 필드 비노출, legacy route 제거 |
 | `RecruitingApplicationRandomPortIntegrationTest` | 실제 REST/GraphQL socket, JWT/익명 보안, malformed email, credential 조회, CSV actor, P6Spy 민감정보 비노출 |
 
 `RecruitingApplicationControllerTestSupport`와 `RecruitingHttpTestPayloads`는 web 테스트 공통 fixture다.

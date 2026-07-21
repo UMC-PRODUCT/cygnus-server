@@ -33,7 +33,7 @@ public class RecruitingAdminInterviewController {
 
     @PostMapping("/applications/{applicationId}/interview-schedule/request")
     @Operation(
-        operationId = "RECRUITING-ADMIN-SCHEDULE-001",
+        operationId = "RECRUITING-ADMIN-051",
         summary = "면접 가능 일정 요청 재시도",
         description = "자동 일정 요청이 없으면 생성하고, 메일 발송 실패 상태이면 Outbox 재시도를 요청합니다. 이미 처리 중이거나 발송된 요청은 기존 일정 ID를 반환합니다."
     )
@@ -49,7 +49,7 @@ public class RecruitingAdminInterviewController {
 
     @PutMapping("/applications/{applicationId}/interview-schedule/confirmation")
     @Operation(
-        operationId = "RECRUITING-ADMIN-SCHEDULE-002",
+        operationId = "RECRUITING-ADMIN-052",
         summary = "면접 일정 확정",
         description = "CurrentMember 운영 권한으로 저장된 가능 일정 응답에 대한 면접 시간을 확정합니다. overlap 조회와 이메일 발송은 수행하지 않습니다."
     )

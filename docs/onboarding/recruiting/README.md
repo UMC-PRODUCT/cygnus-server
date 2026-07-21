@@ -54,7 +54,7 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 
 ## Form 구조 관리
 
-`RECRUITING-ADMIN-005`는 기존 Form ID 연결 API가 아니라 Form 전체 구조 Upsert다.
+`RECRUITING-ADMIN-021`은 기존 Form ID 연결 API가 아니라 Form 전체 구조 Upsert다.
 
 1. Round가 DRAFT인지 확인한다.
 2. 요청의 section client key 중복과 모든 기존 section/question/option ID의 Form 소속을 검증한다.
@@ -92,6 +92,10 @@ Round evaluator는 지원서 목록, 상세와 Form 답변을 조회하고 서�
 ## REST API
 
 `admin`은 역할 이름이 아니라 Recruiting 관리 surface를 나타낸다. 실제 허용 역할은 각 UseCase가 자원 소속과 함께 판정한다.
+
+Swagger `operationId`는 suffix 없이 숫자 3자리를 사용한다. 관리자 API는 Season `001~004`, Round `011~017`,
+Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061~063`, 등록 `071~073`,
+통계 `081~082` 대역으로 구분한다.
 
 ### 공개 및 지원자
 
