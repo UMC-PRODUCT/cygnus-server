@@ -380,6 +380,19 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
         }
 
         @Test
+        void system_role_super_admin은_challenger_role_없이_차수를_확정한다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);
+            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
+            given(getChallengerRoleUseCase.isSuperAdmin(EXECUTOR_MEMBER_ID)).willReturn(true);
+
+            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+
+            assertThat(round.getAutoDecisionExecutedMemberId()).isEqualTo(EXECUTOR_MEMBER_ID);
+            then(getChallengerRoleUseCase).should(never()).findAllByMemberId(EXECUTOR_MEMBER_ID);
+        }
+
+        @Test
         void 운영진이_아닌_사용자가_호출하면_PROJECT_MATCHING_ROUND_ACCESS_DENIED() {
             Long unauthorizedMemberId = 555L;
             ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DESIGN);

@@ -20,6 +20,7 @@ import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
+import com.umc.product.global.observability.ObservabilityErrorSanitizer;
 import com.umc.product.global.observability.W3CTraceparent;
 
 import io.micrometer.tracing.Link;
@@ -138,7 +139,7 @@ public class EventOutboxRelayService {
         try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {
             doPublish(outbox);
         } catch (RuntimeException e) {
-            span.error(e);
+            ObservabilityErrorSanitizer.record(span, e);
             throw e;
         } finally {
             span.end();

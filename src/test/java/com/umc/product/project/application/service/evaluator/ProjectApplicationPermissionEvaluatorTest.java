@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,6 +20,7 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
@@ -137,8 +139,7 @@ class ProjectApplicationPermissionEvaluatorTest {
     @Test
     void READ는_DRAFT_지원서를_플래그_OFF면_SUPER_ADMIN도_거부() {
         givenApplication(ProjectApplicationStatus.DRAFT);
-        SubjectAttributes subject = subjectWith(30L, List.of(),
-            List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(30L);
 
         assertThat(sut.evaluate(subject, readPermission())).isFalse();
     }
@@ -147,8 +148,7 @@ class ProjectApplicationPermissionEvaluatorTest {
     void READ는_DRAFT_지원서를_플래그_ON이면_SUPER_ADMIN_허용() {
         sut = newSut(true);
         givenApplication(ProjectApplicationStatus.DRAFT);
-        SubjectAttributes subject = subjectWith(30L, List.of(),
-            List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(30L);
 
         assertThat(sut.evaluate(subject, readPermission())).isTrue();
     }
@@ -235,8 +235,7 @@ class ProjectApplicationPermissionEvaluatorTest {
         givenApplication(ProjectApplicationStatus.SUBMITTED);
         Long outsiderId = 30L;
         given(loadProjectMemberPort.isActivePlanMember(PROJECT_ID, outsiderId)).willReturn(false);
-        SubjectAttributes subject = subjectWith(outsiderId, List.of(),
-            List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(outsiderId);
 
         assertThat(sut.evaluate(subject, readPermission())).isTrue();
     }
@@ -418,8 +417,7 @@ class ProjectApplicationPermissionEvaluatorTest {
     @Test
     void APPROVE는_SUPER_ADMIN_허용_기수_무관() {
         givenApplication(ProjectApplicationStatus.SUBMITTED);
-        SubjectAttributes subject = subjectWith(30L, List.of(),
-            List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(30L);
 
         assertThat(sut.evaluate(subject, approvePermission())).isTrue();
     }
@@ -469,6 +467,16 @@ class ProjectApplicationPermissionEvaluatorTest {
             .build();
     }
 
+    private SubjectAttributes superAdminSubject(Long memberId) {
+        return SubjectAttributes.builder()
+            .memberId(memberId)
+            .schoolId(1L)
+            .gisuChallengerInfos(List.of())
+            .roleAttributes(List.of())
+            .systemRoles(Set.of(SystemRoleType.SUPER_ADMIN))
+            .build();
+    }
+
     private GisuChallengerInfo gisuInfo(Long gisuId, Long chapterId,
                                         ChallengerPart part, Long challengerId) {
         return GisuChallengerInfo.builder()
@@ -482,14 +490,6 @@ class ProjectApplicationPermissionEvaluatorTest {
     private RoleAttribute centralCoreRoleInGisu(Long gisuId) {
         return new RoleAttribute(
             ChallengerRoleType.CENTRAL_PRESIDENT,
-            OrganizationType.CENTRAL,
-            null, null, gisuId
-        );
-    }
-
-    private RoleAttribute superAdminRoleInGisu(Long gisuId) {
-        return new RoleAttribute(
-            ChallengerRoleType.SUPER_ADMIN,
             OrganizationType.CENTRAL,
             null, null, gisuId
         );

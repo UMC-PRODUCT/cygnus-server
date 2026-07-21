@@ -1,5 +1,15 @@
 package com.umc.product.schedule.application.service.query;
 
+import java.time.Instant;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
@@ -15,15 +25,8 @@ import com.umc.product.schedule.domain.Schedule;
 import com.umc.product.schedule.domain.enums.AttendanceStatus;
 import com.umc.product.schedule.domain.exception.ScheduleDomainException;
 import com.umc.product.schedule.domain.exception.ScheduleErrorCode;
-import java.time.Instant;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -187,6 +190,10 @@ public class ScheduleQueryService implements GetScheduleUseCase {
     // 여러 역할을 가진 경우 합집합으로 처리
     private Set<Long> collectTargetScheduleIds(Long memberId) {
         Set<Long> targetScheduleIds = new HashSet<>();
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            targetScheduleIds.addAll(loadScheduleParticipantPort.findScheduleIdsByMemberId(memberId));
+            return targetScheduleIds;
+        }
 
         // 현재 활성 기수 조회
         Long activeGisuId = getGisuUseCase.getActiveGisu().gisuId();

@@ -1,0 +1,62 @@
+package com.umc.product.authorization.application.service;
+
+import org.springframework.stereotype.Component;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.authorization.application.service.dto.AuthoritySnapshotCacheDto;
+import com.umc.product.authorization.domain.AuthoritySnapshot;
+import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
+import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
+public class AuthoritySnapshotCacheSerializer {
+
+    private final ObjectMapper objectMapper;
+
+    public String serialize(AuthoritySnapshot snapshot) {
+        try {
+            return objectMapper.writeValueAsString(AuthoritySnapshotCacheDto.from(snapshot));
+        } catch (JsonProcessingException e) {
+            throw new AuthorizationDomainException(
+                AuthorizationErrorCode.POLICY_EVALUATION_FAILED,
+                "권한 snapshot 캐시 직렬화에 실패했습니다."
+            );
+        }
+    }
+
+    public AuthoritySnapshot deserialize(String payload) {
+        if (payload == null || payload.isBlank()) {
+            throw new AuthorizationDomainException(
+                AuthorizationErrorCode.POLICY_EVALUATION_FAILED,
+                "권한 snapshot 캐시 값이 비어 있습니다."
+            );
+        }
+
+        try {
+            JsonNode root = objectMapper.readTree(payload);
+            validateSchemaVersion(root);
+            return objectMapper.treeToValue(root, AuthoritySnapshotCacheDto.class).toDomain();
+        } catch (JsonProcessingException e) {
+            throw new AuthorizationDomainException(
+                AuthorizationErrorCode.POLICY_EVALUATION_FAILED,
+                "권한 snapshot 캐시 역직렬화에 실패했습니다."
+            );
+        }
+    }
+
+    private void validateSchemaVersion(JsonNode root) {
+        JsonNode schemaVersion = root == null ? null : root.get("schemaVersion");
+        if (schemaVersion == null
+            || !String.valueOf(AuthoritySnapshotCacheDto.CURRENT_SCHEMA_VERSION).equals(schemaVersion.asText())) {
+            throw new AuthorizationDomainException(
+                AuthorizationErrorCode.POLICY_EVALUATION_FAILED,
+                "지원하지 않는 권한 snapshot 캐시 schema version입니다."
+            );
+        }
+    }
+}

@@ -1,5 +1,7 @@
 package com.umc.product.curriculum.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
@@ -7,7 +9,6 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
-import org.springframework.stereotype.Component;
 
 /**
  * WorkbookSubmission(워크북 제출 현황) 리소스에 대한 권한 평가
@@ -25,7 +26,8 @@ public class WorkbookSubmissionPermissionEvaluator implements ResourcePermission
                             ResourcePermission resourcePermission) {
         if (resourcePermission.permission() == PermissionType.READ) {
             // 학교 운영진(회장, 부회장, 파트장, 기타 운영진)만 READ 권한
-            return subjectAttributes.roleAttributes().stream()
+            return subjectAttributes.toAuthoritySnapshot().isSuperAdmin()
+                || subjectAttributes.roleAttributes().stream()
                 .anyMatch(role -> role.roleType().isAtLeastSchoolAdmin());
         }
 

@@ -13,7 +13,6 @@ public enum CommunityErrorCode implements BaseCode {
 
     POST_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY-0001", "게시글을 찾을 수 없어요. 목록을 새로고침해주세요."),
     COMMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY-0002", "댓글을 찾을 수 없어요. 목록을 새로고침해주세요."),
-    TROPHY_NOT_FOUND(HttpStatus.NOT_FOUND, "COMMUNITY-0003", "상장을 찾을 수 없어요. 선택한 상장을 확인해주세요."),
 
     INVALID_POST_TITLE(HttpStatus.BAD_REQUEST, "COMMUNITY-0004", "게시글 제목이 올바르지 않아요. 제목을 확인해주세요."),
     INVALID_POST_CONTENT(HttpStatus.BAD_REQUEST, "COMMUNITY-0005", "게시글 내용이 올바르지 않아요. 내용을 확인해주세요."),
@@ -24,11 +23,6 @@ public enum CommunityErrorCode implements BaseCode {
 
     INVALID_COMMENT_CONTENT(HttpStatus.BAD_REQUEST, "COMMUNITY-0010", "댓글 내용이 올바르지 않아요. 내용을 확인해주세요."),
     COMMENT_NOT_OWNED(HttpStatus.FORBIDDEN, "COMMUNITY-0011", "내가 작성한 댓글만 삭제할 수 있어요."),
-
-    INVALID_TROPHY_WEEK(HttpStatus.BAD_REQUEST, "COMMUNITY-0012", "상장 주차가 올바르지 않아요. 1 이상의 숫자로 입력해주세요."),
-    INVALID_TROPHY_TITLE(HttpStatus.BAD_REQUEST, "COMMUNITY-0013", "상장 제목이 올바르지 않아요. 제목을 확인해주세요."),
-    INVALID_TROPHY_CONTENT(HttpStatus.BAD_REQUEST, "COMMUNITY-0014", "상장 내용이 올바르지 않아요. 내용을 확인해주세요."),
-    INVALID_TROPHY_URL(HttpStatus.BAD_REQUEST, "COMMUNITY-0015", "상장 링크가 올바르지 않아요. 링크를 확인해주세요."),
 
     REPORT_ALREADY_EXISTS(HttpStatus.CONFLICT, "COMMUNITY-0016", "이미 신고한 게시글 또는 댓글이에요. 신고 내역을 확인해주세요."),
 

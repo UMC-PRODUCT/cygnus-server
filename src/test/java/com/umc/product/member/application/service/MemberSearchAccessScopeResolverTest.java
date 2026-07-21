@@ -17,13 +17,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleBasicInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.member.application.dto.MemberSearchAccessScope;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberSystemRoleInfo;
 
 @ExtendWith(MockitoExtension.class)
 class MemberSearchAccessScopeResolverTest {
@@ -31,10 +33,13 @@ class MemberSearchAccessScopeResolverTest {
     private static final Long MEMBER_ID = 1L;
 
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    ListChallengerRoleUseCase listChallengerRoleUseCase;
 
     @Mock
     GetChallengerUseCase getChallengerUseCase;
+
+    @Mock
+    ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
 
     @InjectMocks
     MemberSearchAccessScopeResolver resolver;
@@ -43,7 +48,7 @@ class MemberSearchAccessScopeResolverTest {
     @DisplayName("역할과 챌린저 이력이 없으면 검색 범위가 거부된다")
     void 역할과_챌린저_이력이_없으면_거부된다() {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of());
         given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(MEMBER_ID))).willReturn(Map.of());
 
         // when
@@ -54,9 +59,9 @@ class MemberSearchAccessScopeResolverTest {
         assertThat(scope.unrestricted()).isFalse();
         assertThat(scope.allowedSchoolIds()).isEmpty();
         assertThat(scope.allowedGisuIds()).isEmpty();
-        then(getChallengerRoleUseCase).should().findAllBasicByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).should().listBasicByMemberId(MEMBER_ID);
         then(getChallengerUseCase).should().getAllBasicByMemberIds(Set.of(MEMBER_ID));
-        then(getChallengerRoleUseCase).shouldHaveNoMoreInteractions();
+        then(listChallengerRoleUseCase).shouldHaveNoMoreInteractions();
         then(getChallengerUseCase).shouldHaveNoMoreInteractions();
     }
 
@@ -64,7 +69,7 @@ class MemberSearchAccessScopeResolverTest {
     @DisplayName("챌린저 이력은 참여한 모든 기수만 허용한다")
     void 챌린저_이력은_참여한_모든_기수만_허용한다() {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of());
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of());
         given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(MEMBER_ID))).willReturn(Map.of(
             MEMBER_ID, List.of(challenger(10L, 3L), challenger(11L, 4L), challenger(12L, 3L))
         ));
@@ -77,9 +82,9 @@ class MemberSearchAccessScopeResolverTest {
         assertThat(scope.unrestricted()).isFalse();
         assertThat(scope.allowedSchoolIds()).isEmpty();
         assertThat(scope.allowedGisuIds()).containsExactlyInAnyOrder(3L, 4L);
-        then(getChallengerRoleUseCase).should().findAllBasicByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).should().listBasicByMemberId(MEMBER_ID);
         then(getChallengerUseCase).should().getAllBasicByMemberIds(Set.of(MEMBER_ID));
-        then(getChallengerRoleUseCase).shouldHaveNoMoreInteractions();
+        then(listChallengerRoleUseCase).shouldHaveNoMoreInteractions();
         then(getChallengerUseCase).shouldHaveNoMoreInteractions();
     }
 
@@ -110,14 +115,29 @@ class MemberSearchAccessScopeResolverTest {
     @Test
     @DisplayName("SUPER_ADMIN 역할은 챌린저 이력 없이도 무제한 범위를 허용한다")
     void superAdmin_역할은_무제한_범위를_허용한다() {
-        assertCentralRoleGrantsUnrestricted(ChallengerRoleType.SUPER_ADMIN);
+        // given
+        given(listMemberSystemRoleUseCase.listByMemberId(MEMBER_ID)).willReturn(List.of(
+            new MemberSystemRoleInfo(MEMBER_ID, "SUPER_ADMIN")
+        ));
+
+        // when
+        MemberSearchAccessScope scope = resolver.resolve(MEMBER_ID);
+
+        // then
+        assertThat(scope.denied()).isFalse();
+        assertThat(scope.unrestricted()).isTrue();
+        assertThat(scope.allowedSchoolIds()).isEmpty();
+        assertThat(scope.allowedGisuIds()).isEmpty();
+        then(listMemberSystemRoleUseCase).should().listByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).shouldHaveNoInteractions();
+        then(getChallengerUseCase).shouldHaveNoInteractions();
     }
 
     @Test
     @DisplayName("학교 범위와 챌린저 기수 범위 두 집합이 함께 보존된다")
     void 학교와_기수_범위_두_집합이_함께_보존된다() {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of(
             role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 7L)
         ));
         given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(MEMBER_ID))).willReturn(Map.of(
@@ -132,9 +152,9 @@ class MemberSearchAccessScopeResolverTest {
         assertThat(scope.unrestricted()).isFalse();
         assertThat(scope.allowedSchoolIds()).containsExactly(7L);
         assertThat(scope.allowedGisuIds()).containsExactlyInAnyOrder(3L, 4L);
-        then(getChallengerRoleUseCase).should().findAllBasicByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).should().listBasicByMemberId(MEMBER_ID);
         then(getChallengerUseCase).should().getAllBasicByMemberIds(Set.of(MEMBER_ID));
-        then(getChallengerRoleUseCase).shouldHaveNoMoreInteractions();
+        then(listChallengerRoleUseCase).shouldHaveNoMoreInteractions();
         then(getChallengerUseCase).shouldHaveNoMoreInteractions();
     }
 
@@ -142,7 +162,7 @@ class MemberSearchAccessScopeResolverTest {
     @DisplayName("유효하지 않은 학교와 기수 ID는 권한 범위에서 제외한다")
     void 유효하지_않은_학교와_기수_ID는_권한_범위에서_제외한다() {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of(
             role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, null),
             role(ChallengerRoleType.SCHOOL_VICE_PRESIDENT, OrganizationType.SCHOOL, 0L),
             role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 7L)
@@ -164,7 +184,7 @@ class MemberSearchAccessScopeResolverTest {
     @DisplayName("학교와 기수 ID가 모두 유효하지 않으면 검색 범위가 거부된다")
     void 학교와_기수_ID가_모두_유효하지_않으면_거부된다() {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of(
             role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, null),
             role(ChallengerRoleType.SCHOOL_VICE_PRESIDENT, OrganizationType.SCHOOL, 0L)
         ));
@@ -216,7 +236,7 @@ class MemberSearchAccessScopeResolverTest {
 
     private void assertSchoolRoleGrantsSchool(ChallengerRoleType roleType) {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of(
             role(roleType, OrganizationType.SCHOOL, 7L)
         ));
         given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(MEMBER_ID))).willReturn(Map.of());
@@ -229,15 +249,15 @@ class MemberSearchAccessScopeResolverTest {
         assertThat(scope.unrestricted()).isFalse();
         assertThat(scope.allowedSchoolIds()).containsExactly(7L);
         assertThat(scope.allowedGisuIds()).isEmpty();
-        then(getChallengerRoleUseCase).should().findAllBasicByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).should().listBasicByMemberId(MEMBER_ID);
         then(getChallengerUseCase).should().getAllBasicByMemberIds(Set.of(MEMBER_ID));
-        then(getChallengerRoleUseCase).shouldHaveNoMoreInteractions();
+        then(listChallengerRoleUseCase).shouldHaveNoMoreInteractions();
         then(getChallengerUseCase).shouldHaveNoMoreInteractions();
     }
 
     private void assertCentralRoleGrantsUnrestricted(ChallengerRoleType roleType) {
         // given
-        given(getChallengerRoleUseCase.findAllBasicByMemberId(MEMBER_ID)).willReturn(List.of(
+        given(listChallengerRoleUseCase.listBasicByMemberId(MEMBER_ID)).willReturn(List.of(
             role(roleType, OrganizationType.CENTRAL, null)
         ));
 
@@ -249,8 +269,8 @@ class MemberSearchAccessScopeResolverTest {
         assertThat(scope.unrestricted()).isTrue();
         assertThat(scope.allowedSchoolIds()).isEmpty();
         assertThat(scope.allowedGisuIds()).isEmpty();
-        then(getChallengerRoleUseCase).should().findAllBasicByMemberId(MEMBER_ID);
-        then(getChallengerRoleUseCase).shouldHaveNoMoreInteractions();
+        then(listChallengerRoleUseCase).should().listBasicByMemberId(MEMBER_ID);
+        then(listChallengerRoleUseCase).shouldHaveNoMoreInteractions();
         then(getChallengerUseCase).shouldHaveNoInteractions();
     }
 

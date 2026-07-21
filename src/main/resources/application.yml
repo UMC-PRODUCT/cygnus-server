@@ -183,6 +183,8 @@ decorator:
   datasource:
     p6spy:
       enable-logging: ${P6SPY_ENABLE_LOGGING:false}
+      tracing:
+        include-parameter-values: false
 
 logging:
   level:

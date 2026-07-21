@@ -9,7 +9,7 @@ public record AdminAnalyticsScope(
     Long chapterId,
     Long schoolId,
     ChallengerPart responsiblePart,
-    ChallengerRoleType roleType
+    AdminAnalyticsRoleType roleType
 ) {
 
     public static AdminAnalyticsScope of(
@@ -20,7 +20,30 @@ public record AdminAnalyticsScope(
         ChallengerPart responsiblePart,
         ChallengerRoleType roleType
     ) {
-        return new AdminAnalyticsScope(type, gisuId, chapterId, schoolId, responsiblePart, roleType);
+        return new AdminAnalyticsScope(
+            type,
+            gisuId,
+            chapterId,
+            schoolId,
+            responsiblePart,
+            AdminAnalyticsRoleType.from(roleType)
+        );
+    }
+
+    public static AdminAnalyticsScope superAdmin(
+        Long gisuId,
+        Long chapterId,
+        Long schoolId,
+        ChallengerPart responsiblePart
+    ) {
+        return new AdminAnalyticsScope(
+            AdminAnalyticsScopeType.CENTRAL,
+            gisuId,
+            chapterId,
+            schoolId,
+            responsiblePart,
+            AdminAnalyticsRoleType.SUPER_ADMIN
+        );
     }
 
     public boolean isCentralScope() {

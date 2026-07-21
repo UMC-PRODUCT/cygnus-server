@@ -78,6 +78,9 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
      * PO target 이 호출자와 다른 경우의 scope 검증은 Service 레벨에서 수행한다.
      */
     private boolean canWrite(SubjectAttributes subject) {
+        if (isSuperAdmin(subject)) {
+            return true;
+        }
         boolean isPlanChallenger = subject.gisuChallengerInfos().stream()
             .anyMatch(info -> info.part() == ChallengerPart.PLAN);
         if (isPlanChallenger) {
@@ -165,14 +168,11 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
     }
 
     private boolean isSuperAdmin(SubjectAttributes subject) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin());
+        return subject.toAuthoritySnapshot().isSuperAdmin();
     }
 
     private boolean isCentralCoreInGisu(SubjectAttributes subject, Long gisuId) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin()
-                || (role.roleType().isAtLeastCentralCore() && Objects.equals(role.gisuId(), gisuId)));
+        return subject.toAuthoritySnapshot().isCentralCoreInGisu(gisuId);
     }
 
     private boolean isOwner(SubjectAttributes subject, Project project) {

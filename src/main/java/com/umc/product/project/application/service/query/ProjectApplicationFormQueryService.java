@@ -157,6 +157,9 @@ public class ProjectApplicationFormQueryService implements GetProjectApplication
         if (Objects.equals(requesterMemberId, project.getProductOwnerMemberId())) {
             return true;
         }
+        if (getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
+            return true;
+        }
         if (getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, project.getGisuId())) {
             return true;
         }
@@ -174,9 +177,7 @@ public class ProjectApplicationFormQueryService implements GetProjectApplication
         List<ChallengerRoleInfo> roles = needsRoleLookup
             ? getChallengerRoleUseCase.findAllByMemberId(requesterMemberId)
             : List.of();
-        boolean superAdmin = roles.stream()
-            .map(ChallengerRoleInfo::roleType)
-            .anyMatch(ChallengerRoleType::isSuperAdmin);
+        boolean superAdmin = needsRoleLookup && getChallengerRoleUseCase.isSuperAdmin(requesterMemberId);
         Map<Long, List<ChallengerRoleInfo>> rolesByGisuId = roles.stream()
             .filter(role -> role.gisuId() != null)
             .collect(Collectors.groupingBy(ChallengerRoleInfo::gisuId));

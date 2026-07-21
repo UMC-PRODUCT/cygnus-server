@@ -11,7 +11,6 @@ import static org.mockito.Mockito.never;
 
 import java.lang.reflect.Method;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -26,9 +25,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
@@ -224,7 +220,7 @@ class FileCommandServiceUnitTest {
         // given
         FileMetadata metadata = uploadedFile("file-id", 1L);
         given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
-        given(getChallengerRoleUseCase.findAllByMemberId(2L)).willReturn(List.of(role(ChallengerRoleType.SUPER_ADMIN)));
+        given(getChallengerRoleUseCase.isSuperAdmin(2L)).willReturn(true);
 
         // when
         sut.deleteFile(deleteCommand("file-id", 2L));
@@ -240,7 +236,7 @@ class FileCommandServiceUnitTest {
         // given
         FileMetadata metadata = uploadedFile("file-id", 1L);
         given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
-        given(getChallengerRoleUseCase.findAllByMemberId(2L)).willReturn(List.of(role(ChallengerRoleType.SCHOOL_PRESIDENT)));
+        given(getChallengerRoleUseCase.isSuperAdmin(2L)).willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> sut.deleteFile(deleteCommand("file-id", 2L)))
@@ -275,16 +271,6 @@ class FileCommandServiceUnitTest {
         return DeleteFileCommand.builder()
             .fileId(fileId)
             .requesterMemberId(requesterMemberId)
-            .build();
-    }
-
-    private ChallengerRoleInfo role(ChallengerRoleType roleType) {
-        return ChallengerRoleInfo.builder()
-            .id(1L)
-            .challengerId(1L)
-            .roleType(roleType)
-            .organizationType(OrganizationType.CENTRAL)
-            .gisuId(1L)
             .build();
     }
 

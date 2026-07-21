@@ -125,10 +125,7 @@ class ProjectApplicationAccessScopeResolverTest {
     void projectApplicantList_SUPER_ADMIN_통과() {
         Project project = project(OWNER_ID, GISU_ID, CHAPTER_ID, SCHOOL_ID);
         given(loadProjectMemberPort.isActivePlanMember(PROJECT_ID, MEMBER_ID)).willReturn(false);
-        // 역할 레코드의 gisuId 가 프로젝트 기수와 다르더라도 통과해야 함
-        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID)).willReturn(List.of(
-            roleInfo(ChallengerRoleType.SUPER_ADMIN, OrganizationType.CENTRAL, null, OTHER_GISU_ID)
-        ));
+        given(getChallengerRoleUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
 
         ProjectApplicationAccessScope scope =
             sut.resolveForProjectApplicantList(MEMBER_ID, project);

@@ -36,7 +36,7 @@ class UmcProductAccessPolicyTest {
 
     @Test
     void 중앙_총괄단은_Leadership_조회_없이_조직을_관리할_수_있다() {
-        given(getChallengerRoleUseCase.isCentralCore(1L)).willReturn(true);
+        given(getChallengerRoleUseCase.isCentralCoreInAnyGisu(1L)).willReturn(true);
 
         assertThat(sut.canManageUmcProduct(1L)).isTrue();
 
@@ -51,7 +51,7 @@ class UmcProductAccessPolicyTest {
             UmcProductLeadershipRole.UMC_PRODUCT_LEAD,
             UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD
         );
-        given(getChallengerRoleUseCase.isCentralCore(1L)).willReturn(false);
+        given(getChallengerRoleUseCase.isCentralCoreInAnyGisu(1L)).willReturn(false);
         given(umcProductDateProvider.today()).willReturn(today);
         given(loadUmcProductLeadershipPort.existsByMemberIdAndRolesOnDate(
             1L,
@@ -69,7 +69,7 @@ class UmcProductAccessPolicyTest {
             UmcProductLeadershipRole.UMC_PRODUCT_LEAD,
             UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD
         );
-        given(getChallengerRoleUseCase.isCentralCore(1L)).willReturn(false);
+        given(getChallengerRoleUseCase.isCentralCoreInAnyGisu(1L)).willReturn(false);
         given(umcProductDateProvider.today()).willReturn(today);
         given(loadUmcProductLeadershipPort.existsByMemberIdAndRolesOnDate(
             1L,

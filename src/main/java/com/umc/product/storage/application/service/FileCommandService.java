@@ -9,7 +9,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
 import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
@@ -217,10 +216,7 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return getChallengerRoleUseCase.findAllByMemberId(memberId).stream()
-            .map(ChallengerRoleInfo::roleType)
-            .filter(Objects::nonNull)
-            .anyMatch(roleType -> roleType.isSuperAdmin());
+        return getChallengerRoleUseCase.isSuperAdmin(memberId);
     }
 
     private void validateFile(PrepareFileUploadCommand command) {

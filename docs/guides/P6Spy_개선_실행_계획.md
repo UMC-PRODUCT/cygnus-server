@@ -536,7 +536,7 @@ CLAUDE.md §6 의 PR 제목 규약에 따라 다음 형식 사용:
 
 - [P6Spy 활용 현황 및 개선 보고서](P6Spy_활용_현황_및_개선_보고서.md) — 본 계획의 입력 문서
 - [ADR-016 §커밋 단위 실행 계획](../adr/016-structured-json-logging-with-mdc.md) — 본 계획의 커밋 단위 분리 방식의 레퍼런스
-- [build.gradle.kts §111](../../build.gradle.kts#L111)
+- [dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)
 - [LoggingInterceptor.java](../../src/main/java/com/umc/product/global/config/LoggingInterceptor.java)
 - [QueryStatsJdbcEventListener.java](../../src/main/java/com/umc/product/global/config/QueryStatsJdbcEventListener.java)
 - [QueryStatsHolder.java](../../src/main/java/com/umc/product/global/config/QueryStatsHolder.java)

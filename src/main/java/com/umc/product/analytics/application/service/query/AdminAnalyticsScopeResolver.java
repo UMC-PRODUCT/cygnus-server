@@ -1,5 +1,11 @@
 package com.umc.product.analytics.application.service.query;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+
+import org.springframework.stereotype.Component;
+
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
 import com.umc.product.analytics.domain.AnalyticsDomainException;
@@ -9,11 +15,8 @@ import com.umc.product.authorization.application.port.in.query.dto.ChallengerRol
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
@@ -30,10 +33,19 @@ public class AdminAnalyticsScopeResolver {
         ChallengerPart requestedPart
     ) {
         Long gisuId = requestedGisuId != null ? requestedGisuId : getGisuUseCase.getActiveGisuId();
+        if (getGisuChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            return AdminAnalyticsScope.superAdmin(
+                gisuId,
+                requestedChapterId,
+                requestedSchoolId,
+                requestedPart
+            );
+        }
+
         ChallengerRoleInfo role = highestRole(memberId, gisuId);
 
         ChallengerRoleType roleType = role.roleType();
-        if (roleType.isSuperAdmin() || roleType.isAtLeastCentralMember()) {
+        if (roleType.isAtLeastCentralMember()) {
             return AdminAnalyticsScope.of(
                 AdminAnalyticsScopeType.CENTRAL,
                 gisuId,
@@ -119,9 +131,6 @@ public class AdminAnalyticsScopeResolver {
     }
 
     private int priority(ChallengerRoleType roleType) {
-        if (roleType.isSuperAdmin()) {
-            return 0;
-        }
         if (roleType.isAtLeastCentralMember()) {
             return 1;
         }

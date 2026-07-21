@@ -1,5 +1,10 @@
 package com.umc.product.schedule.application.service.query;
 
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
@@ -7,10 +12,8 @@ import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.schedule.application.port.in.query.GetScheduleCapabilitiesUseCase;
 import com.umc.product.schedule.application.port.in.query.dto.ScheduleCapabilitiesInfo;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +26,9 @@ public class ScheduleCapabilitiesService implements GetScheduleCapabilitiesUseCa
 
     @Override
     public ScheduleCapabilitiesInfo getCapabilities(Long memberId) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            return ScheduleCapabilitiesInfo.forCentralCore();
+        }
 
         // 챌린저 활동 기록이 없으면 일정 생성 불가
         if (getChallengerUseCase.getAllByMemberId(memberId).isEmpty()) {

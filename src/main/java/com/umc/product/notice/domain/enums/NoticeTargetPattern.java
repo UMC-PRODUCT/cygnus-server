@@ -14,14 +14,14 @@ public enum NoticeTargetPattern {
     ALL_GISU_ALL_TARGET(false, false, false, false) {
         @Override
         public boolean validatePermission(NoticeTargetInfo info, Long memberId, GetChallengerRoleUseCase useCase) {
-            return useCase.isCentralCore(memberId);
+            return useCase.isCentralCoreInAnyGisu(memberId);
         }
     },
 
     ALL_GISU_SPECIFIC_SCHOOL(false, false, true, false) {
         @Override
         public boolean validatePermission(NoticeTargetInfo info, Long memberId, GetChallengerRoleUseCase useCase) {
-            return useCase.isSchoolCore(memberId, info.targetSchoolId());
+            return useCase.isSchoolCoreInAnyGisu(memberId, info.targetSchoolId());
         }
     },
 

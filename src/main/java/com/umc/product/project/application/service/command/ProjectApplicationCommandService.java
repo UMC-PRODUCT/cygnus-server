@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -76,7 +76,7 @@ public class ProjectApplicationCommandService implements
     private final LoadProjectMatchingRoundPort loadProjectMatchingRoundPort;
     private final ManageFormResponseUseCase manageFormResponseUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     private final List<MatchingDecisionPolicy> matchingDecisionPolicies;
     private final GetFormUseCase getFormUseCase;
 
@@ -274,7 +274,7 @@ public class ProjectApplicationCommandService implements
         Long decidedByMemberId
     ) {
         boolean superAdmin = decidedByMemberId != null
-            && getChallengerRoleUseCase.isSuperAdmin(decidedByMemberId);
+            && checkChallengerAuthorityUseCase.isSuperAdmin(decidedByMemberId);
 
         switch (targetStatus) {
             case APPROVED -> {

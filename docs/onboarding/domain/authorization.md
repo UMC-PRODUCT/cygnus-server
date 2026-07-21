@@ -15,6 +15,10 @@
 
 권한 도메인은 접근 가능 여부를 판단할 뿐, 대상 리소스의 상태 변경은 각 도메인의 Command UseCase가 책임진다. `adapter/in`은 `@CheckAccess`로 권한을 선언하고, 세부 규칙은 evaluator에 둔다.
 
+`SUPER_ADMIN` 같은 회원 전역 system role의 저장 책임은 `member` 도메인에 있다. `authorization` 도메인은 공개 Query UseCase로 system role을 읽고, 기수별 ChallengerRole과 함께 `AuthoritySnapshot`으로 구성하여 권한만 평가한다.
+
+권한 저장소 migration, cache schema 변경, 서버 다중화 또는 rolling deployment를 검토할 때는 [Authorization 운영 안전 가이드](authorization-operational-safety.md)를 따른다.
+
 ## UX Writing Notes
 
 권한 오류는 사용자가 조심해야 하는 상황이다. `권한이 없어요`에서 끝내지 말고 `필요한 권한이 있다면 운영진에게 문의해주세요`를 함께 제공한다.
