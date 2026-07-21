@@ -91,6 +91,17 @@ public class RecruitingApplicationEvaluation extends BaseEntity {
         return new RecruitingApplicationEvaluation(application, evaluatorMemberId, stage, decision, comment);
     }
 
+    public void revise(
+        RecruitingApplicationEvaluationDecision decision,
+        String comment
+    ) {
+        validateDecision(decision);
+        validateComment(comment);
+        this.decision = decision;
+        this.comment = comment;
+        this.submittedAt = Instant.now();
+    }
+
     private static void validateIdentity(
         RecruitingApplication application,
         Long evaluatorMemberId,

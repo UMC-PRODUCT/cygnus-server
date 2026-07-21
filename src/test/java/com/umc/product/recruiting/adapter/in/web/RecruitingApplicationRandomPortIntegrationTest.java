@@ -49,7 +49,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplic
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationCommandService;
 import com.umc.product.recruiting.application.service.query.RecruitingPublicApplicationQueryService;
-import com.umc.product.recruiting.application.service.query.RecruitingQueryService;
+import com.umc.product.recruiting.application.service.query.RecruitingSeasonQueryService;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 import com.umc.product.storage.application.port.out.StoragePort;
@@ -102,7 +102,7 @@ class RecruitingApplicationRandomPortIntegrationTest {
     RecruitingApplicationCommandService applicationCommandService;
 
     @MockitoBean
-    RecruitingQueryService recruitingQueryService;
+    RecruitingSeasonQueryService recruitingSeasonQueryService;
 
     @MockitoBean
     RecruitingPublicApplicationQueryService recruitingPublicApplicationQueryService;
@@ -169,7 +169,7 @@ class RecruitingApplicationRandomPortIntegrationTest {
     @Test
     @DisplayName("실제 GraphQL HTTP에서 query와 인증 mutation 결과를 관측한다")
     void 실제_GraphQL_HTTP_query와_인증_mutation_결과() throws JsonProcessingException {
-        given(recruitingQueryService.listPublicForms(1L, 2L)).willReturn(List.of());
+        given(recruitingSeasonQueryService.searchPublicRounds(any())).willReturn(List.of());
         given(applicationCommandService.createDraft(argThat(command -> MEMBER_ID.equals(command.applicantMemberId()))))
             .willReturn(createdInfo());
 
@@ -186,7 +186,7 @@ class RecruitingApplicationRandomPortIntegrationTest {
 
         assertThat(queryResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(objectMapper.readTree(queryResponse.getBody()).path("data")
-            .path("recruitingApplicationForms").isArray()).isTrue();
+            .path("publicRecruitingRounds").isArray()).isTrue();
         JsonNode created = objectMapper.readTree(mutationResponse.getBody()).path("data")
             .path("createRecruitingApplicationDraft");
         assertThat(created.path("applicationId").asLong()).isEqualTo(900L);
@@ -214,12 +214,12 @@ class RecruitingApplicationRandomPortIntegrationTest {
     }
 
     @Test
-    @DisplayName("실제 Security chain에서 공개 Form 목록은 익명 요청을 허용한다")
-    void 실제_Security_chain은_공개_Form_익명_요청을_허용한다() {
-        given(recruitingQueryService.listPublicForms(11L, 22L)).willReturn(List.of());
+    @DisplayName("실제 Security chain에서 공개 Round 목록은 익명 요청을 허용한다")
+    void 실제_Security_chain은_공개_Round_익명_요청을_허용한다() {
+        given(recruitingSeasonQueryService.searchPublicRounds(any())).willReturn(List.of());
 
         ResponseEntity<String> response = restTemplate.exchange(
-            "/api/v1/recruiting/public/forms?gisuId=11&schoolId=22",
+            "/api/v1/recruiting/public/rounds?gisuId=11&schoolId=22",
             HttpMethod.GET,
             new HttpEntity<>(jsonHeaders()),
             String.class

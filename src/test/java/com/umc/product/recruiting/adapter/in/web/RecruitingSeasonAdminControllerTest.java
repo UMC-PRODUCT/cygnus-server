@@ -32,25 +32,26 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
+import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSummaryInfo;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 
 @WebMvcTest(RecruitingSeasonAdminController.class)
 @Import(JacksonConfig.class)
@@ -66,7 +67,7 @@ class RecruitingSeasonAdminControllerTest {
     @MockitoBean
     CreateRecruitingSeasonUseCase createSeasonUseCase;
     @MockitoBean
-    UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
+    UpdateRecruitingSeasonUseCase updateSeasonUseCase;
     @MockitoBean
     ReplaceRecruitingSeasonTrackQuotasUseCase replaceQuotasUseCase;
     @MockitoBean
@@ -81,6 +82,14 @@ class RecruitingSeasonAdminControllerTest {
     SearchRecruitingSeasonUseCase searchSeasonUseCase;
     @MockitoBean
     SearchRecruitingRoundUseCase searchRoundUseCase;
+    @MockitoBean
+    SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
+    @MockitoBean
+    CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
+    @MockitoBean
+    CloneRecruitingRoundUseCase cloneRoundUseCase;
+    @MockitoBean
+    DeleteRecruitingRoundUseCase deleteRoundUseCase;
 
     @BeforeEach
     void authenticate() {
@@ -158,9 +167,9 @@ class RecruitingSeasonAdminControllerTest {
     }
 
     @Test
-    @DisplayName("시즌 목록 조회는 기수와 지부 필터를 CurrentMember와 함께 전달한다")
-    void searchSeasons() throws Exception {
-        given(searchSeasonUseCase.searchSeasons(any())).willReturn(List.of(
+    @DisplayName("모집 목록 조회는 시즌별 그룹과 필터를 CurrentMember와 함께 전달한다")
+    void searchRoundGroups() throws Exception {
+        given(searchRoundGroupUseCase.searchRoundGroups(any())).willReturn(List.of(
             new RecruitingSeasonSummaryInfo(
                 10L,
                 11L,
@@ -168,71 +177,43 @@ class RecruitingSeasonAdminControllerTest {
                 "A 지부",
                 22L,
                 "A 학교",
-                RecruitingSeasonStatus.ACTIVE,
+                "운영진 메모",
                 List.of(roundConfiguration())
-            )
-        ));
-
-        mockMvc.perform(get("/api/v1/recruiting/admin/seasons")
-                .param("gisuId", "11")
-                .param("chapterId", "33"))
-            .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result[0].seasonId").value(10L))
-            .andExpect(jsonPath("$.result[0].chapterName").value("A 지부"))
-            .andExpect(jsonPath("$.result[0].rounds[0].id").value(20L));
-
-        ArgumentCaptor<RecruitingSeasonSearchQuery> captor =
-            ArgumentCaptor.forClass(RecruitingSeasonSearchQuery.class);
-        then(searchSeasonUseCase).should().searchSeasons(captor.capture());
-        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
-        assertThat(captor.getValue().chapterId()).isEqualTo(33L);
-        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
-    }
-
-    @Test
-    @DisplayName("차수 목록 조회는 학교와 시즌 필터를 CurrentMember와 함께 전달한다")
-    void searchRounds() throws Exception {
-        given(searchRoundUseCase.searchRounds(any())).willReturn(List.of(
-            new RecruitingRoundSummaryInfo(
-                10L,
-                11L,
-                33L,
-                "A 지부",
-                22L,
-                "A 학교",
-                roundConfiguration()
             )
         ));
 
         mockMvc.perform(get("/api/v1/recruiting/admin/rounds")
                 .param("gisuId", "11")
                 .param("schoolId", "22")
-                .param("seasonId", "10"))
+                .param("seasonId", "10")
+                .param("track", "PLAN"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result[0].seasonId").value(10L))
             .andExpect(jsonPath("$.result[0].schoolName").value("A 학교"))
-            .andExpect(jsonPath("$.result[0].id").value(20L));
+            .andExpect(jsonPath("$.result[0].rounds[0].id").value(20L));
 
-        ArgumentCaptor<RecruitingRoundSearchQuery> captor =
-            ArgumentCaptor.forClass(RecruitingRoundSearchQuery.class);
-        then(searchRoundUseCase).should().searchRounds(captor.capture());
+        ArgumentCaptor<RecruitingRoundGroupSearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingRoundGroupSearchQuery.class);
+        then(searchRoundGroupUseCase).should().searchRoundGroups(captor.capture());
         assertThat(captor.getValue().schoolId()).isEqualTo(22L);
         assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.PLAN);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
     }
 
     @Test
-    @DisplayName("시즌 목록 조회에서 기수 ID가 없으면 400을 반환한다")
-    void searchSeasonsRequiresGisuId() throws Exception {
-        mockMvc.perform(get("/api/v1/recruiting/admin/seasons"))
+    @DisplayName("모집 목록 조회에서 기수 ID가 없으면 400을 반환한다")
+    void searchRoundGroupsRequiresGisuId() throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/rounds"))
             .andExpect(status().isBadRequest());
 
-        then(searchSeasonUseCase).should(never()).searchSeasons(any());
+        then(searchRoundGroupUseCase).should(never()).searchRoundGroups(any());
     }
 
     private RecruitingRoundConfigurationInfo roundConfiguration() {
         return new RecruitingRoundConfigurationInfo(
             20L,
+            "15기 본모집",
             RecruitingRoundType.REGULAR,
             1,
             RecruitingRoundStatus.OPEN,

@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -30,5 +31,10 @@ public interface RecruitingApplicationEvaluationJpaRepository
     boolean existsByApplication_IdAndStage(
         Long applicationId,
         RecruitingEvaluatorStage stage
+    );
+
+    List<RecruitingApplicationEvaluation> findAllByApplication_IdInAndEvaluatorMemberId(
+        Collection<Long> applicationIds,
+        Long evaluatorMemberId
     );
 }

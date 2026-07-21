@@ -143,7 +143,7 @@ class RecruitingApplicantConcurrencyTest {
         assertThat(outcomes).containsExactlyInAnyOrder(true, false);
         assertThat(applicationStatuses(fixture)).containsExactlyInAnyOrder(
             RecruitingApplicationStatus.FINAL_PASSED,
-            RecruitingApplicationStatus.DOCUMENT_PASSED
+            RecruitingApplicationStatus.INTERVIEW_SKIPPED
         );
     }
 
@@ -228,7 +228,6 @@ class RecruitingApplicantConcurrencyTest {
 
     private RecruitingApplicationForm persistOpenForm(Long gisuId, Long schoolId) {
         RecruitingSeason season = RecruitingSeason.create(gisuId, schoolId);
-        season.activate();
         seasonAdapter.save(season);
         RecruitingRound round = RecruitingRound.createRegular(season, openConfiguration());
         round.open();
@@ -258,7 +257,7 @@ class RecruitingApplicantConcurrencyTest {
             applicationKey
         );
         application.submit(APPLICANT_MEMBER_ID);
-        application.passDocument(DECIDER_MEMBER_ID, "서류 합격");
+        application.skipInterview(DECIDER_MEMBER_ID, "면접 미진행");
         return applicationAdapter.save(application);
     }
 

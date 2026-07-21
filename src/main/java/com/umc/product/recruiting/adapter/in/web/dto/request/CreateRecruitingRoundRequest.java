@@ -10,11 +10,15 @@ import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "모집 차수 생성 요청")
 public record CreateRecruitingRoundRequest(
+    @Schema(description = "모집 제목", example = "15기 본모집")
+    @NotBlank @Size(max = 100) String title,
     @Schema(description = "모집 차수 유형", example = "REGULAR")
     @NotNull RecruitingRoundType type,
     @Schema(description = "추가모집 차수 번호. 본모집이면 비워둘 수 있습니다.", example = "1")
@@ -38,6 +42,7 @@ public record CreateRecruitingRoundRequest(
             .seasonId(seasonId)
             .type(type)
             .roundNo(roundNo)
+            .title(title)
             .configuration(toConfigurationCommand())
             .build();
     }

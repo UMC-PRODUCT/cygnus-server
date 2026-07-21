@@ -11,7 +11,9 @@ import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInte
 import com.umc.product.recruiting.application.port.in.command.dto.FindRecruitingInterviewScheduleCandidatesCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.out.FindRecruitingScheduleOverlapPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 
@@ -25,6 +27,8 @@ public class RecruitingInterviewCommandService implements
     FindRecruitingInterviewScheduleCandidatesUseCase {
 
     private final SaveRecruitingApplicationPort saveApplicationPort;
+    private final LoadRecruitingInterviewSchedulePort loadSchedulePort;
+    private final SaveRecruitingInterviewSchedulePort saveSchedulePort;
     private final FindRecruitingScheduleOverlapPort findScheduleOverlapPort;
     private final AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
     private final RecruitingConcurrencyLockService concurrencyLockService;
@@ -37,6 +41,10 @@ public class RecruitingInterviewCommandService implements
             application.getRound().getSeason().getId()
         );
         application.skipInterview(command.skippedByMemberId(), command.reason());
+        loadSchedulePort.findByApplicationId(application.getId()).ifPresent(schedule -> {
+            schedule.cancel();
+            saveSchedulePort.saveSchedule(schedule);
+        });
         saveApplicationPort.save(application);
     }
 

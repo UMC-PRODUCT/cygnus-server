@@ -21,20 +21,13 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
-import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
-import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
-import com.umc.product.recruiting.application.port.in.command.ManageRecruitingFormSectionPolicyUseCase;
-import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.AddRecruitingFormSectionPolicyCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
-import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
-import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 
 @GraphQlTest(RecruitingFormAdminGraphQlController.class)
 @Import({
@@ -46,28 +39,12 @@ class RecruitingFormAdminGraphQlControllerTest {
 
     @Autowired
     GraphQlTester graphQlTester;
-
     @MockitoBean
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
-
     @MockitoBean
-    GetRecruitingFormQueryUseCase getFormQueryUseCase;
-
-    @MockitoBean
-    LinkRecruitingApplicationFormUseCase linkFormUseCase;
-
-    @MockitoBean
-    ManageRecruitingFormSectionPolicyUseCase manageFormSectionPolicyUseCase;
-
-    @MockitoBean
-    PublishRecruitingApplicationFormUseCase publishFormUseCase;
-
-    @MockitoBean
-    CloseRecruitingApplicationFormUseCase closeFormUseCase;
-
+    UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
-
     @MockitoBean
     CurrentMemberProvider currentMemberProvider;
 
@@ -76,7 +53,7 @@ class RecruitingFormAdminGraphQlControllerTest {
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(new MemberPrincipal(40L), null, List.of())
         );
-        given(getFormQueryUseCase.isApplicationFormBelongsToSeason(30L, 10L)).willReturn(true);
+        given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(true);
     }
 
     @AfterEach
@@ -85,55 +62,49 @@ class RecruitingFormAdminGraphQlControllerTest {
     }
 
     @Test
-    @DisplayName("트랙 폼 정책 Mutation은 track list 모델의 단일 섹션 정책을 전달한다")
-    void 트랙_폼_정책_Mutation은_track_list_모델의_단일_섹션_정책을_전달한다() {
-        given(manageFormSectionPolicyUseCase.addPolicy(any())).willReturn(80L);
+    @DisplayName("지원 Form upsert Mutation은 section 정책과 조건부 이동 키를 함께 전달한다")
+    void upsertFormStructure() {
+        given(upsertFormUseCase.upsert(any())).willReturn(30L);
 
         graphQlTester.document("""
                 mutation {
-                  addRecruitingFormSectionPolicy(
-                    seasonId: 10,
-                    applicationFormId: 30,
-                    input: {formSectionId: 90, type: TRACK, track: WEB_PRODUCT_ENGINEER}
-                  ) { id }
-                }
-                """)
-            .execute()
-            .path("addRecruitingFormSectionPolicy.id")
-            .entity(String.class)
-            .isEqualTo("80");
-
-        ArgumentCaptor<AddRecruitingFormSectionPolicyCommand> captor =
-            ArgumentCaptor.forClass(AddRecruitingFormSectionPolicyCommand.class);
-        then(manageFormSectionPolicyUseCase).should().addPolicy(captor.capture());
-        assertThat(captor.getValue().type()).isEqualTo(RecruitingFormSectionType.TRACK);
-        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
-    }
-
-    @Test
-    @DisplayName("지원 Form 연결 Mutation은 검증한 시즌 ID를 command로 전달한다")
-    void linkFormBindsValidatedSeason() {
-        given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(true);
-        given(linkFormUseCase.link(any())).willReturn(30L);
-
-        graphQlTester.document("""
-                mutation {
-                  linkRecruitingApplicationForm(
+                  upsertRecruitingApplicationForm(
                     seasonId: 10,
                     roundId: 20,
-                    input: {formId: 300}
+                    input: {
+                      description: "지원서",
+                      sections: [{
+                        clientKey: "common",
+                        title: "공통",
+                        type: COMMON,
+                        questions: [{
+                          type: RADIO,
+                          title: "다음 단계",
+                          required: true,
+                          options: [{content: "계속", other: false, nextSectionKey: "track"}]
+                        }]
+                      }, {
+                        clientKey: "track",
+                        title: "트랙",
+                        type: TRACK,
+                        track: WEB_PRODUCT_ENGINEER,
+                        questions: []
+                      }]
+                    }
                   ) { id }
                 }
                 """)
             .execute()
-            .path("linkRecruitingApplicationForm.id")
+            .path("upsertRecruitingApplicationForm.id")
             .entity(String.class)
             .isEqualTo("30");
 
-        ArgumentCaptor<LinkRecruitingApplicationFormCommand> captor =
-            ArgumentCaptor.forClass(LinkRecruitingApplicationFormCommand.class);
-        then(linkFormUseCase).should().link(captor.capture());
-        assertThat(captor.getValue().seasonId()).isEqualTo(10L);
-        assertThat(captor.getValue().roundId()).isEqualTo(20L);
+        ArgumentCaptor<UpsertRecruitingApplicationFormCommand> captor =
+            ArgumentCaptor.forClass(UpsertRecruitingApplicationFormCommand.class);
+        then(upsertFormUseCase).should().upsert(captor.capture());
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
+        assertThat(captor.getValue().sections()).hasSize(2);
+        assertThat(captor.getValue().sections().getFirst().questions().getFirst().options().getFirst()
+            .nextSectionKey()).isEqualTo("track");
     }
 }

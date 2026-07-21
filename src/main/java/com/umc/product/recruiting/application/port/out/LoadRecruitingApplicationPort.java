@@ -4,6 +4,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicantLockTarget;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
@@ -69,6 +72,13 @@ public interface LoadRecruitingApplicationPort {
 
     List<RecruitingApplication> listByRoundId(Long roundId);
 
+    Page<RecruitingApplication> searchByRoundId(
+        Long roundId,
+        RecruitingApplicationStatus status,
+        ChallengerTrack track,
+        Pageable pageable
+    );
+
     List<RecruitingApplication> listByRoundIdAndStatusIn(
         Long roundId,
         Collection<RecruitingApplicationStatus> statuses
@@ -77,6 +87,13 @@ public interface LoadRecruitingApplicationPort {
     List<RecruitingApplicationSummaryRow> searchSummaryRows(
         Long gisuId,
         Long schoolId,
+        Collection<RecruitingApplicationStatus> statuses
+    );
+
+    List<RecruitingApplicationSummaryRow> searchSummaryRows(
+        Long gisuId,
+        Long schoolId,
+        Long roundId,
         Collection<RecruitingApplicationStatus> statuses
     );
 }

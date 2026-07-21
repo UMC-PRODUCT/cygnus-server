@@ -4,6 +4,8 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -200,6 +202,16 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
+    public Page<RecruitingApplication> searchByRoundId(
+        Long roundId,
+        RecruitingApplicationStatus status,
+        ChallengerTrack track,
+        Pageable pageable
+    ) {
+        return recruitingApplicationQueryRepository.searchByRoundId(roundId, status, track, pageable);
+    }
+
+    @Override
     public List<RecruitingApplication> listByRoundIdAndStatusIn(
         Long roundId,
         Collection<RecruitingApplicationStatus> statuses
@@ -217,6 +229,16 @@ public class RecruitingApplicationPersistenceAdapter
         Collection<RecruitingApplicationStatus> statuses
     ) {
         return recruitingApplicationQueryRepository.searchSummaryRows(gisuId, schoolId, statuses);
+    }
+
+    @Override
+    public List<RecruitingApplicationSummaryRow> searchSummaryRows(
+        Long gisuId,
+        Long schoolId,
+        Long roundId,
+        Collection<RecruitingApplicationStatus> statuses
+    ) {
+        return recruitingApplicationQueryRepository.searchSummaryRows(gisuId, schoolId, roundId, statuses);
     }
 
     @Override

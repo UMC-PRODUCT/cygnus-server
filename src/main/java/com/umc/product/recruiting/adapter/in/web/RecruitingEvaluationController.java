@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -37,11 +37,11 @@ public class RecruitingEvaluationController {
     private final GetRecruitingApplicationEvaluationUseCase getEvaluationUseCase;
     private final ValidateRecruitingApplicationScopeUseCase validateApplicationScopeUseCase;
 
-    @PostMapping
+    @PutMapping
     @Operation(
         operationId = "RECRUITING-EVALUATION-001",
-        summary = "평가 확정",
-        description = "CurrentMember 평가자의 단계별 평가를 생성 즉시 수정 불가 상태로 확정합니다."
+        summary = "내 평가 등록 및 수정",
+        description = "CurrentMember 평가자의 단계별 평가를 등록하거나 해당 전형의 최종 판정 전까지 수정합니다."
     )
     public void submit(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,

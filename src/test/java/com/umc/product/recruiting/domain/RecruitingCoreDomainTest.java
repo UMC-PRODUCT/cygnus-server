@@ -83,7 +83,7 @@ class RecruitingCoreDomainTest {
     void 제출된_지원서는_서류_합격_후_최종_합격과_등록_대기_상태가_분리된다() {
         RecruitingApplication application = submittedApplication();
 
-        application.passDocument(2L, "서류 합격");
+        application.skipInterview(2L, "면접 미진행");
         application.passFinal(3L, "최종 합격", application.getFirstChoice());
         application.markRegistrationReady(4L);
 
@@ -96,7 +96,6 @@ class RecruitingCoreDomainTest {
     void 면접을_진행하지_않는_학교는_서류_합격_후_바로_최종_결정을_할_수_있다() {
         RecruitingApplication application = submittedApplication();
 
-        application.passDocument(2L, "서류 합격");
         application.skipInterview(2L, "면접 미진행");
         application.failFinal(3L, "정원 초과");
 

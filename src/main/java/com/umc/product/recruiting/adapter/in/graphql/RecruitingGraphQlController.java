@@ -1,7 +1,5 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
-import java.util.List;
-
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -15,16 +13,17 @@ import com.umc.product.recruiting.adapter.in.graphql.dto.CreateAnonymousRecruiti
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationCreatedGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationCredentialGraphQlRequest;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormGraphQlResponse;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormSearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormStructureGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormStructureGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingPublicApplicationGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingPublicRoundGroupGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingPublicRoundSearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.SubmitAnonymousRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.SubmitRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateAnonymousRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateRecruitingApplicationDraftGraphQlRequest;
+import com.umc.product.recruiting.application.port.in.command.CancelAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
@@ -32,9 +31,11 @@ import com.umc.product.recruiting.application.port.in.command.SubmitAnonymousRec
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.CancelAnonymousRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.query.GetAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchPublicRecruitingRoundUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -52,14 +53,16 @@ public class RecruitingGraphQlController {
     private final CreateAnonymousRecruitingApplicationDraftUseCase createAnonymousDraftUseCase;
     private final UpdateAnonymousRecruitingApplicationUseCase updateAnonymousApplicationUseCase;
     private final SubmitAnonymousRecruitingApplicationUseCase submitAnonymousApplicationUseCase;
+    private final CancelAnonymousRecruitingApplicationUseCase cancelAnonymousApplicationUseCase;
+    private final SearchPublicRecruitingRoundUseCase searchPublicRoundUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
     @QueryMapping
-    public List<RecruitingApplicationFormGraphQlResponse> recruitingApplicationForms(
-        @Argument RecruitingApplicationFormSearchGraphQlRequest input
+    public java.util.List<RecruitingPublicRoundGroupGraphQlResponse> publicRecruitingRounds(
+        @Argument RecruitingPublicRoundSearchGraphQlRequest input
     ) {
-        return getFormQueryUseCase.listPublicForms(input.gisuId(), input.schoolId()).stream()
-            .map(RecruitingApplicationFormGraphQlResponse::from)
+        return searchPublicRoundUseCase.searchPublicRounds(input.toQuery()).stream()
+            .map(RecruitingPublicRoundGroupGraphQlResponse::from)
             .toList();
     }
 
@@ -174,6 +177,18 @@ public class RecruitingGraphQlController {
         Long resolvedMemberId = permissionSupport.currentMemberId(memberPrincipal);
         return RecruitingApplicationGraphQlResponse.from(
             cancelApplicationUseCase.cancel(actualInput.toCommand(applicationId, resolvedMemberId))
+        );
+    }
+
+    @MutationMapping
+    public RecruitingApplicationGraphQlResponse cancelAnonymousRecruitingApplication(
+        @Argument RecruitingApplicationCredentialGraphQlRequest input
+    ) {
+        return RecruitingApplicationGraphQlResponse.from(
+            cancelAnonymousApplicationUseCase.cancelAnonymous(CancelAnonymousRecruitingApplicationCommand.builder()
+                .credentialEmail(input.email())
+                .applicationKey(input.applicationKey())
+                .build())
         );
     }
 }

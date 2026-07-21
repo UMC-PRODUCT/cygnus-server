@@ -9,7 +9,6 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonTrackQuotaInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -18,7 +17,7 @@ public record RecruitingSeasonConfigurationResponse(
     @Schema(description = "모집 시즌 ID", example = "10") Long id,
     @Schema(description = "기수 ID", example = "15") Long gisuId,
     @Schema(description = "학교 ID", example = "3") Long schoolId,
-    @Schema(description = "시즌 상태", example = "OPEN") RecruitingSeasonStatus status,
+    @Schema(description = "시즌 운영진 공유 메모") String memo,
     @Schema(description = "트랙별 목표 인원") List<QuotaResponse> quotas,
     @Schema(description = "모집 차수 설정") List<RoundResponse> rounds
 ) {
@@ -28,7 +27,7 @@ public record RecruitingSeasonConfigurationResponse(
             info.id(),
             info.gisuId(),
             info.schoolId(),
-            info.status(),
+            info.memo(),
             info.quotas().stream().map(QuotaResponse::from).toList(),
             info.rounds().stream().map(RoundResponse::from).toList()
         );
@@ -48,6 +47,7 @@ public record RecruitingSeasonConfigurationResponse(
     @Schema(description = "모집 차수 설정")
     public record RoundResponse(
         @Schema(description = "모집 차수 ID", example = "20") Long id,
+        @Schema(description = "모집 제목", example = "15기 본모집") String title,
         @Schema(description = "모집 차수 유형", example = "REGULAR") RecruitingRoundType type,
         @Schema(description = "추가모집 차수 번호", example = "1") Integer roundNo,
         @Schema(description = "모집 차수 상태", example = "OPEN") RecruitingRoundStatus status,
@@ -68,6 +68,7 @@ public record RecruitingSeasonConfigurationResponse(
         public static RoundResponse from(RecruitingRoundConfigurationInfo info) {
             return new RoundResponse(
                 info.id(),
+                info.title(),
                 info.type(),
                 info.roundNo(),
                 info.status(),

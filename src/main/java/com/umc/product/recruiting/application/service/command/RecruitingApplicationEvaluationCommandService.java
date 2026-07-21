@@ -34,21 +34,23 @@ public class RecruitingApplicationEvaluationCommandService implements SubmitRecr
             command.requesterMemberId(),
             command.stage()
         );
-        if (loadEvaluationPort.findByApplicationIdAndEvaluatorMemberIdAndStage(
+        RecruitingApplicationEvaluation evaluation = loadEvaluationPort
+            .findByApplicationIdAndEvaluatorMemberIdAndStage(
                 command.applicationId(),
                 command.requesterMemberId(),
                 command.stage()
             )
-            .isPresent()) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_ALREADY_SUBMITTED);
-        }
-        RecruitingApplicationEvaluation evaluation = RecruitingApplicationEvaluation.create(
-            application,
-            command.requesterMemberId(),
-            command.stage(),
-            command.decision(),
-            command.comment()
-        );
+            .map(existing -> {
+                existing.revise(command.decision(), command.comment());
+                return existing;
+            })
+            .orElseGet(() -> RecruitingApplicationEvaluation.create(
+                application,
+                command.requesterMemberId(),
+                command.stage(),
+                command.decision(),
+                command.comment()
+            ));
         saveEvaluationPort.saveEvaluation(evaluation);
     }
 

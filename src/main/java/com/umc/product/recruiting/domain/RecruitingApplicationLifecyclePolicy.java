@@ -17,11 +17,11 @@ final class RecruitingApplicationLifecyclePolicy {
             case SUBMITTED -> currentStatus == RecruitingApplicationStatus.DRAFT;
             case CANCELLED -> currentStatus == RecruitingApplicationStatus.DRAFT
                 || currentStatus == RecruitingApplicationStatus.SUBMITTED;
-            case DOCUMENT_PASSED, DOCUMENT_FAILED -> currentStatus == RecruitingApplicationStatus.SUBMITTED;
-            case INTERVIEW_ASSIGNED, INTERVIEW_SKIPPED ->
-                currentStatus == RecruitingApplicationStatus.DOCUMENT_PASSED;
-            case FINAL_PASSED, FINAL_FAILED -> currentStatus == RecruitingApplicationStatus.DOCUMENT_PASSED
-                || currentStatus == RecruitingApplicationStatus.INTERVIEW_SKIPPED
+            case DOCUMENT_FAILED -> currentStatus == RecruitingApplicationStatus.SUBMITTED;
+            case INTERVIEW_ASSIGNED -> currentStatus == RecruitingApplicationStatus.SUBMITTED;
+            case INTERVIEW_SKIPPED -> currentStatus == RecruitingApplicationStatus.SUBMITTED
+                || currentStatus == RecruitingApplicationStatus.INTERVIEW_ASSIGNED;
+            case FINAL_PASSED, FINAL_FAILED -> currentStatus == RecruitingApplicationStatus.INTERVIEW_SKIPPED
                 || currentStatus == RecruitingApplicationStatus.INTERVIEW_ASSIGNED;
             default -> false;
         };

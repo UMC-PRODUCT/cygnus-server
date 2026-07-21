@@ -11,6 +11,8 @@ public interface LoadRecruitingSeasonPort {
 
     RecruitingSeason getById(Long id);
 
+    RecruitingSeason getByIdForUpdate(Long id);
+
     Optional<RecruitingSeason> findByGisuIdAndSchoolId(Long gisuId, Long schoolId);
 
     boolean existsByGisuIdAndSchoolId(Long gisuId, Long schoolId);

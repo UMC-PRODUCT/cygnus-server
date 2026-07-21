@@ -19,15 +19,20 @@ import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingApplicati
 import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitAnonymousRecruitingApplicationRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateAnonymousRecruitingApplicationRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationCreatedResponse;
-import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationFormResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationFormStructureResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingPublicApplicationResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingPublicRoundGroupResponse;
+import com.umc.product.recruiting.application.port.in.command.CancelAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchPublicRecruitingRoundUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundPhase;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundSort;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -44,25 +49,39 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingPublicController {
 
     private final GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
+    private final SearchPublicRecruitingRoundUseCase searchPublicRoundUseCase;
     private final GetAnonymousRecruitingApplicationUseCase getAnonymousApplicationUseCase;
     private final CreateAnonymousRecruitingApplicationDraftUseCase createAnonymousDraftUseCase;
     private final UpdateAnonymousRecruitingApplicationUseCase updateAnonymousApplicationUseCase;
     private final SubmitAnonymousRecruitingApplicationUseCase submitAnonymousApplicationUseCase;
+    private final CancelAnonymousRecruitingApplicationUseCase cancelAnonymousApplicationUseCase;
 
-    @GetMapping("/forms")
+    @GetMapping("/rounds")
     @Public
     @Operation(
         operationId = "RECRUITING-PUBLIC-001",
-        summary = "공개 지원 폼 목록 조회",
-        description = "기수와 학교 기준으로 현재 공개된 리크루팅 지원 폼 목록을 조회합니다."
+        summary = "공개 모집 목록 조회",
+        description = "지원 가능한 모집 또는 종료된 모집을 학교의 현재 지부 정보와 시즌별로 묶어 조회합니다."
     )
-    public List<RecruitingApplicationFormResponse> listPublicForms(
+    public List<RecruitingPublicRoundGroupResponse> listPublicRounds(
         @RequestParam @Positive Long gisuId,
-        @RequestParam @Positive Long schoolId
+        @RequestParam(required = false) @Positive Long chapterId,
+        @RequestParam(required = false) @Positive Long schoolId,
+        @RequestParam(required = false) @Positive Long seasonId,
+        @RequestParam(required = false) ChallengerTrack track,
+        @RequestParam(required = false) RecruitingRoundPhase phase,
+        @RequestParam(required = false) RecruitingRoundSort sort
     ) {
-        return getRecruitingFormQueryUseCase.listPublicForms(gisuId, schoolId)
-            .stream()
-            .map(RecruitingApplicationFormResponse::from)
+        return searchPublicRoundUseCase.searchPublicRounds(RecruitingPublicRoundSearchQuery.builder()
+                .gisuId(gisuId)
+                .chapterId(chapterId)
+                .schoolId(schoolId)
+                .seasonId(seasonId)
+                .track(track)
+                .phase(phase)
+                .sort(sort)
+                .build()).stream()
+            .map(RecruitingPublicRoundGroupResponse::from)
             .toList();
     }
 
@@ -137,6 +156,21 @@ public class RecruitingPublicController {
     ) {
         return RecruitingApplicationResponse.from(
             submitAnonymousApplicationUseCase.submitAnonymous(request.toCommand(servletRequest.getRemoteAddr()))
+        );
+    }
+
+    @PostMapping("/applications/cancel")
+    @Public
+    @Operation(
+        operationId = "RECRUITING-PUBLIC-007",
+        summary = "익명 지원서 철회",
+        description = "지원 이메일과 지원 키를 검증하고 초안 또는 제출 완료 지원서를 철회합니다."
+    )
+    public RecruitingApplicationResponse cancelAnonymousApplication(
+        @Valid @RequestBody RecruitingApplicationCredentialRequest request
+    ) {
+        return RecruitingApplicationResponse.from(
+            cancelAnonymousApplicationUseCase.cancelAnonymous(request.toCancelCommand())
         );
     }
 

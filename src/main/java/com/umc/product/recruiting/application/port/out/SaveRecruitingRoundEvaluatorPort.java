@@ -7,4 +7,6 @@ public interface SaveRecruitingRoundEvaluatorPort {
     RecruitingRoundEvaluator save(RecruitingRoundEvaluator evaluator);
 
     void delete(RecruitingRoundEvaluator evaluator);
+
+    void deleteByRoundId(Long roundId);
 }

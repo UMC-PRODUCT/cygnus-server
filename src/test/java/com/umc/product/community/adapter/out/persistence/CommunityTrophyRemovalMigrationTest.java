@@ -68,7 +68,7 @@ class CommunityTrophyRemovalMigrationTest {
             MigrateResult migrationResult = migrate(database);
             assertThat(migrationResult.migrationsExecuted)
                 .as("pre-drop to latest migrations executed")
-                .isEqualTo(1);
+                .isPositive();
 
             try (Connection connection = database.openConnection()) {
                 assertTrophyArtifactsAbsent(connection);

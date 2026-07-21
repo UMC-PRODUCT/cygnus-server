@@ -11,6 +11,7 @@ public record CreateRecruitingRoundCommand(
     Long seasonId,
     RecruitingRoundType type,
     Integer roundNo,
+    String title,
     RecruitingRoundConfigurationCommand configuration
 ) {
 

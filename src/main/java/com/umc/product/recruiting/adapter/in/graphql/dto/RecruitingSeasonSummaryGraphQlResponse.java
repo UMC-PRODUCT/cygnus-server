@@ -3,7 +3,6 @@ package com.umc.product.recruiting.adapter.in.graphql.dto;
 import java.util.List;
 
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 
 public record RecruitingSeasonSummaryGraphQlResponse(
     Long seasonId,
@@ -12,7 +11,7 @@ public record RecruitingSeasonSummaryGraphQlResponse(
     String chapterName,
     Long schoolId,
     String schoolName,
-    RecruitingSeasonStatus status,
+    String memo,
     List<RecruitingSeasonConfigurationGraphQlResponse.Round> rounds
 ) {
 
@@ -24,7 +23,7 @@ public record RecruitingSeasonSummaryGraphQlResponse(
             info.chapterName(),
             info.schoolId(),
             info.schoolName(),
-            info.status(),
+            info.memo(),
             info.rounds().stream()
                 .map(RecruitingSeasonConfigurationGraphQlResponse.Round::from)
                 .toList()

@@ -5,4 +5,8 @@ import com.umc.product.recruiting.domain.RecruitingFormSectionPolicy;
 public interface SaveRecruitingFormSectionPolicyPort {
 
     RecruitingFormSectionPolicy save(RecruitingFormSectionPolicy policy);
+
+    void deleteByFormSectionId(Long formSectionId);
+
+    void deleteByApplicationFormId(Long applicationFormId);
 }

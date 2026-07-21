@@ -42,4 +42,14 @@ public interface RecruitingApplicationFormJpaRepository extends JpaRepository<Re
         @Param("roundIds") List<Long> roundIds,
         @Param("status") RecruitingApplicationFormStatus status
     );
+
+    @Query("""
+        select applicationForm
+        from RecruitingApplicationForm applicationForm
+        join fetch applicationForm.round round
+        join fetch round.season
+        where round.id in :roundIds
+        order by round.roundNo asc, applicationForm.id asc
+        """)
+    List<RecruitingApplicationForm> findAllByRoundIds(@Param("roundIds") List<Long> roundIds);
 }

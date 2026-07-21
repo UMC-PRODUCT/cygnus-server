@@ -17,10 +17,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.recruiting.adapter.in.web.dto.request.ConfirmRecruitingInterviewScheduleRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
-import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingFormSectionPolicyRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingInterviewQuestionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitRecruitingEvaluationRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.UpsertRecruitingApplicationFormRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingEvaluationResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingInterviewScheduleResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonConfigurationResponse;
@@ -82,7 +82,7 @@ class RecruitingRestContractTest {
             RecruitingInterviewQuestionRequest.class,
             RecruitingDocumentDecisionRequest.class,
             SkipRecruitingInterviewRequest.class,
-            RecruitingFormSectionPolicyRequest.class,
+            UpsertRecruitingApplicationFormRequest.class,
             ConfirmRecruitingInterviewScheduleRequest.class,
             RecruitingEvaluationResponse.class,
             RecruitingInterviewScheduleResponse.class,

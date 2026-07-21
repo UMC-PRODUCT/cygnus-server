@@ -31,6 +31,14 @@ public class RecruitingSeasonPersistenceAdapter implements LoadRecruitingSeasonP
     }
 
     @Override
+    public RecruitingSeason getByIdForUpdate(Long id) {
+        return RecruitingLockExceptionTranslator.translate(() ->
+            recruitingSeasonJpaRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SEASON_NOT_FOUND))
+        );
+    }
+
+    @Override
     public Optional<RecruitingSeason> findByGisuIdAndSchoolId(Long gisuId, Long schoolId) {
         return recruitingSeasonJpaRepository.findByGisuIdAndSchoolId(gisuId, schoolId);
     }

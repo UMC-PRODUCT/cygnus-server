@@ -65,7 +65,20 @@ public class RecruitingApplicationFormPersistenceAdapter
     }
 
     @Override
+    public List<RecruitingApplicationForm> listByRoundIds(List<Long> roundIds) {
+        if (roundIds.isEmpty()) {
+            return List.of();
+        }
+        return recruitingApplicationFormJpaRepository.findAllByRoundIds(roundIds);
+    }
+
+    @Override
     public RecruitingApplicationForm save(RecruitingApplicationForm applicationForm) {
         return recruitingApplicationFormJpaRepository.save(applicationForm);
+    }
+
+    @Override
+    public void delete(RecruitingApplicationForm applicationForm) {
+        recruitingApplicationFormJpaRepository.delete(applicationForm);
     }
 }

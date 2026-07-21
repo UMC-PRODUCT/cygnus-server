@@ -19,4 +19,10 @@ public interface LoadRecruitingRoundPort {
     List<RecruitingRound> listBySeasonIds(List<Long> seasonIds);
 
     boolean existsBySeasonIdAndTypeAndRoundNo(Long seasonId, RecruitingRoundType type, Integer roundNo);
+
+    boolean existsBySeasonIdAndTitleIgnoreCase(Long seasonId, String title);
+
+    boolean existsBySeasonIdAndTitleIgnoreCaseAndIdNot(Long seasonId, String title, Long id);
+
+    int getMaxAdditionalRoundNo(Long seasonId);
 }

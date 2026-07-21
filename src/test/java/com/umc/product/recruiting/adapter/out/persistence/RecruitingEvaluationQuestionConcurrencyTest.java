@@ -107,8 +107,8 @@ class RecruitingEvaluationQuestionConcurrencyTest {
     LoadRecruitingRoundEvaluatorPort loadRoundEvaluatorPort;
 
     @Test
-    @DisplayName("평가 확정이 round lock을 먼저 잡으면 동시 중복 평가 확정을 거부한다")
-    void finalizedEvaluationRejectsConcurrentDuplicate() throws Exception {
+    @DisplayName("평가 Upsert가 round lock을 먼저 잡으면 동시 재평가를 직렬화한다")
+    void evaluationUpsertSerializesConcurrentRevision() throws Exception {
         Fixture fixture = persistFixture();
         given(getRoundEvaluatorUseCase.canEvaluate(
             fixture.roundId(),
@@ -121,9 +121,9 @@ class RecruitingEvaluationQuestionConcurrencyTest {
         );
 
         assertThat(result.submitSucceeded()).isTrue();
-        assertThat(result.competingError()).isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_ALREADY_SUBMITTED);
+        assertThat(result.competingError()).isNull();
         assertThat(evaluationDecision(fixture.applicationId()))
-            .isEqualTo(RecruitingApplicationEvaluationDecision.APPROVED);
+            .isEqualTo(RecruitingApplicationEvaluationDecision.REJECTED);
     }
 
     @Test
@@ -270,7 +270,6 @@ class RecruitingEvaluationQuestionConcurrencyTest {
                 String.format("%06d", seed)
             );
             application.submit(seed);
-            application.passDocument(MANAGER_MEMBER_ID, "서류 합격");
             application.assignInterview(MANAGER_MEMBER_ID, "면접 배정");
             applicationAdapter.save(application);
             RecruitingRoundInterviewQuestion roundQuestion = roundQuestionAdapter.save(

@@ -1,7 +1,7 @@
 scalar Instant
 
 extend type Query {
-  recruitingApplicationForms(input: RecruitingApplicationFormSearchInput!): [RecruitingApplicationForm!]!
+  publicRecruitingRounds(input: RecruitingPublicRoundSearchInput!): [RecruitingPublicRoundGroup!]!
   recruitingApplicationFormStructure(
     applicationFormId: ID!
     input: RecruitingApplicationFormStructureInput!
@@ -10,8 +10,8 @@ extend type Query {
     input: RecruitingApplicationCredentialInput!
   ): RecruitingPublicApplication!
   recruitingApplication(applicationId: ID!): RecruitingApplication!
-  recruitingSeasons(input: RecruitingSeasonSearchInput!): [RecruitingSeasonSummary!]!
-  recruitingRounds(input: RecruitingRoundSearchInput!): [RecruitingRoundSummary!]!
+  recruitingRoundGroups(input: RecruitingRoundSearchInput!): [RecruitingSeasonSummary!]!
+  recruitingRoundTitleAvailable(seasonId: ID!, title: String!, excludedRoundId: ID): Boolean!
   recruitingSeasonConfiguration(seasonId: ID!): RecruitingSeasonConfiguration!
   recruitingRoundEvaluators(
     seasonId: ID!
@@ -28,27 +28,31 @@ extend type Query {
   ): [RecruitingApplicationEvaluation!]!
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
+  recruitingRoundApplications(
+    roundId: ID!
+    input: RecruitingApplicationSearchInput
+  ): RecruitingApplicationReviewPage!
+  recruitingRoundApplication(roundId: ID!, applicationId: ID!): RecruitingApplicationReviewDetail!
 }
 
 type Mutation {
   createRecruitingSeason(input: CreateRecruitingSeasonInput!): RecruitingIdPayload!
-  updateRecruitingSeasonStatus(seasonId: ID!, input: UpdateRecruitingSeasonStatusInput!): Boolean!
+  updateRecruitingSeason(seasonId: ID!, input: UpdateRecruitingSeasonInput!): Boolean!
   replaceRecruitingSeasonTrackQuotas(seasonId: ID!, input: ReplaceRecruitingSeasonTrackQuotasInput!): Boolean!
   createRecruitingRound(seasonId: ID!, input: CreateRecruitingRoundInput!): RecruitingIdPayload!
   updateRecruitingRoundStatus(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundStatusInput!): Boolean!
   updateRecruitingRound(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundInput!): Boolean!
-  linkRecruitingApplicationForm(
+  upsertRecruitingApplicationForm(
     seasonId: ID!
     roundId: ID!
-    input: LinkRecruitingApplicationFormInput!
+    input: UpsertRecruitingApplicationFormInput!
   ): RecruitingIdPayload!
-  addRecruitingFormSectionPolicy(
+  cloneRecruitingRound(
     seasonId: ID!
-    applicationFormId: ID!
-    input: AddRecruitingFormSectionPolicyInput!
+    roundId: ID!
+    input: CloneRecruitingRoundInput!
   ): RecruitingIdPayload!
-  publishRecruitingApplicationForm(seasonId: ID!, applicationFormId: ID!): Boolean!
-  closeRecruitingApplicationForm(seasonId: ID!, applicationFormId: ID!): Boolean!
+  deleteRecruitingRound(seasonId: ID!, roundId: ID!): Boolean!
   addRecruitingRoundEvaluator(
     seasonId: ID!
     roundId: ID!
@@ -95,6 +99,9 @@ type Mutation {
     input: SubmitAnonymousRecruitingApplicationInput!
   ): RecruitingApplication!
   cancelRecruitingApplication(applicationId: ID!, input: CancelRecruitingApplicationInput): RecruitingApplication!
+  cancelAnonymousRecruitingApplication(
+    input: RecruitingApplicationCredentialInput!
+  ): RecruitingApplication!
   decideRecruitingDocument(
     seasonId: ID!
     applicationId: ID!
@@ -127,11 +134,6 @@ type Mutation {
   ): Boolean!
 }
 
-input RecruitingApplicationFormSearchInput {
-  gisuId: ID!
-  schoolId: ID!
-}
-
 input RecruitingApplicationFormStructureInput {
   firstChoice: ChallengerTrack!
   secondChoice: ChallengerTrack
@@ -145,12 +147,17 @@ input RecruitingApplicationCredentialInput {
 input RecruitingStatusSummaryInput {
   gisuId: ID!
   schoolId: ID!
+  roundId: ID
 }
 
-input RecruitingSeasonSearchInput {
+input RecruitingPublicRoundSearchInput {
   gisuId: ID!
   chapterId: ID
   schoolId: ID
+  seasonId: ID
+  track: ChallengerTrack
+  phase: RecruitingRoundPhase
+  sort: RecruitingRoundSort
 }
 
 input RecruitingRoundSearchInput {
@@ -158,6 +165,8 @@ input RecruitingRoundSearchInput {
   chapterId: ID
   schoolId: ID
   seasonId: ID
+  track: ChallengerTrack
+  sort: RecruitingRoundSort
 }
 
 input CreateRecruitingSeasonInput {
@@ -175,11 +184,12 @@ input ReplaceRecruitingSeasonTrackQuotasInput {
   quotas: [RecruitingSeasonTrackQuotaInput!]!
 }
 
-input UpdateRecruitingSeasonStatusInput {
-  status: RecruitingSeasonStatus!
+input UpdateRecruitingSeasonInput {
+  memo: String
 }
 
 input CreateRecruitingRoundInput {
+  title: String!
   type: RecruitingRoundType!
   roundNo: Int
   recruitableTracks: [ChallengerTrack!]!
@@ -197,6 +207,7 @@ input CreateRecruitingRoundInput {
 }
 
 input UpdateRecruitingRoundInput {
+  title: String!
   recruitableTracks: [ChallengerTrack!]!
   secondChoiceEnabled: Boolean!
   documentStartAt: Instant!
@@ -215,14 +226,49 @@ input UpdateRecruitingRoundStatusInput {
   status: RecruitingRoundStatus!
 }
 
-input LinkRecruitingApplicationFormInput {
-  formId: ID!
+input CloneRecruitingRoundInput {
+  targetSeasonId: ID!
+  title: String!
+  type: RecruitingRoundType!
+  roundNo: Int
 }
 
-input AddRecruitingFormSectionPolicyInput {
-  formSectionId: ID!
+input UpsertRecruitingApplicationFormInput {
+  description: String
+  sections: [UpsertRecruitingFormSectionInput!]!
+}
+
+input UpsertRecruitingFormSectionInput {
+  sectionId: ID
+  clientKey: String!
+  title: String!
+  description: String
   type: RecruitingFormSectionType!
   track: ChallengerTrack
+  questions: [UpsertRecruitingFormQuestionInput!]!
+}
+
+input UpsertRecruitingFormQuestionInput {
+  questionId: ID
+  type: QuestionType!
+  title: String!
+  description: String
+  required: Boolean!
+  options: [UpsertRecruitingFormOptionInput!]!
+}
+
+input UpsertRecruitingFormOptionInput {
+  optionId: ID
+  content: String!
+  other: Boolean!
+  nextSectionKey: String
+}
+
+input RecruitingApplicationSearchInput {
+  status: RecruitingApplicationStatus
+  track: ChallengerTrack
+  page: Int
+  size: Int
 }
 
 input RecruitingRoundEvaluatorInput {
@@ -416,7 +462,7 @@ type RecruitingSeasonConfiguration {
   id: ID!
   gisuId: ID!
   schoolId: ID!
-  status: RecruitingSeasonStatus!
+  memo: String
   quotas: [RecruitingSeasonTrackQuota!]!
   rounds: [RecruitingRoundConfiguration!]!
 }
@@ -428,7 +474,7 @@ type RecruitingSeasonSummary {
   chapterName: String!
   schoolId: ID!
   schoolName: String!
-  status: RecruitingSeasonStatus!
+  memo: String
   rounds: [RecruitingRoundConfiguration!]!
 }
 
@@ -464,6 +510,7 @@ type RecruitingSeasonTrackQuota {
 
 type RecruitingRoundConfiguration {
   id: ID!
+  title: String!
   type: RecruitingRoundType!
   roundNo: Int
   status: RecruitingRoundStatus!
@@ -527,11 +574,94 @@ type RecruitingInterviewSchedule {
 type RecruitingStatusSummary {
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  rounds: [RecruitingRoundStatusSummary!]!
+}
+
+type RecruitingRoundStatusSummary {
+  roundId: ID!
+  roundType: RecruitingRoundType!
+  roundNo: Int!
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
 }
 
 type RecruitingStatusCount {
   status: RecruitingApplicationStatus!
   count: Long!
+}
+
+type RecruitingPublicRoundGroup {
+  seasonId: ID!
+  gisuId: ID!
+  chapterId: ID!
+  chapterName: String!
+  schoolId: ID!
+  schoolName: String!
+  rounds: [RecruitingPublicRound!]!
+}
+
+type RecruitingPublicRound {
+  roundId: ID!
+  title: String!
+  type: RecruitingRoundType!
+  roundNo: Int!
+  recruitableTracks: [ChallengerTrack!]!
+  secondChoiceEnabled: Boolean!
+  documentStartAt: Instant!
+  documentEndAt: Instant!
+  documentResultPublishedAt: Instant!
+  interviewRequired: Boolean!
+  interviewStartAt: Instant
+  interviewEndAt: Instant
+  finalResultPublishedAt: Instant!
+  announcement: String
+  applicationFormId: ID!
+  formId: ID!
+  applicationOpen: Boolean!
+}
+
+type RecruitingApplicationReviewPage {
+  content: [RecruitingApplicationReview!]!
+  page: Int!
+  size: Int!
+  totalElements: Long!
+  totalPages: Int!
+  hasNext: Boolean!
+}
+
+type RecruitingApplicationReview {
+  applicationId: ID!
+  applicantName: String!
+  email: String!
+  applicantMemberId: ID
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  acceptedTrack: ChallengerTrack
+  status: RecruitingApplicationStatus!
+  registrationStatus: RecruitingApplicationRegistrationStatus!
+  submittedAt: Instant!
+  documentEvaluatedByMe: Boolean!
+  interviewEvaluatedByMe: Boolean!
+}
+
+type RecruitingApplicationReviewDetail {
+  application: RecruitingApplicationReview!
+  formResponseId: ID!
+  answers: [RecruitingApplicationReviewAnswer!]!
+}
+
+type RecruitingApplicationReviewAnswer {
+  questionId: ID!
+  type: QuestionType!
+  textValue: String
+  selectedOptions: [RecruitingApplicationReviewSelectedOption!]!
+  fileIds: [String!]!
+  times: [Instant!]!
+}
+
+type RecruitingApplicationReviewSelectedOption {
+  questionOptionId: ID
+  answeredAsContent: String!
 }
 
 type RecruitingIdPayload {
@@ -557,12 +687,6 @@ enum RecruitingRoundStatus {
   CLOSED
 }
 
-enum RecruitingSeasonStatus {
-  DRAFT
-  ACTIVE
-  CLOSED
-}
-
 enum RecruitingApplicationFormStatus {
   DRAFT
   PUBLISHED
@@ -572,7 +696,6 @@ enum RecruitingApplicationFormStatus {
 enum RecruitingApplicationStatus {
   DRAFT
   SUBMITTED
-  DOCUMENT_PASSED
   DOCUMENT_FAILED
   INTERVIEW_ASSIGNED
   INTERVIEW_SKIPPED
@@ -611,6 +734,18 @@ enum RecruitingInterviewScheduleStatus {
   AVAILABILITY_REQUESTED
   AVAILABILITY_SUBMITTED
   CONFIRMED
+  CANCELLED
+}
+
+enum RecruitingRoundPhase {
+  OPEN
+  PAST
+}
+
+enum RecruitingRoundSort {
+  NEWEST
+  REGISTERED
+  RECRUITMENT
 }
 
 enum FormStatus {

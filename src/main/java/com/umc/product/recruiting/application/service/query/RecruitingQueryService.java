@@ -1,9 +1,11 @@
 package com.umc.product.recruiting.application.service.query;
 
 import java.util.EnumMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,19 +19,16 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplica
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
-import com.umc.product.recruiting.domain.RecruitingRound;
-import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
@@ -47,7 +46,6 @@ public class RecruitingQueryService implements
     ValidateRecruitingFormScopeUseCase {
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
-    private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
@@ -59,13 +57,6 @@ public class RecruitingQueryService implements
         RecruitingApplication application = loadApplicationPort.getById(applicationId);
         application.validateApplicant(requesterMemberId);
         return RecruitingApplicationInfo.from(application);
-    }
-
-    @Override
-    public List<RecruitingApplicationFormInfo> listPublicForms(Long gisuId, Long schoolId) {
-        return loadSeasonPort.findByGisuIdAndSchoolId(gisuId, schoolId)
-            .map(this::listPublishedForms)
-            .orElseGet(List::of);
     }
 
     @Override
@@ -84,6 +75,12 @@ public class RecruitingQueryService implements
             applicationForm.getFormId(),
             scope.allowedQuestionIds()
         );
+        List<FormWithStructureInfo.SectionWithQuestions> visibleSections = structure.sections().stream()
+            .filter(section -> !section.questions().isEmpty())
+            .toList();
+        Set<Long> visibleSectionIds = visibleSections.stream()
+            .map(FormWithStructureInfo.SectionWithQuestions::sectionId)
+            .collect(java.util.stream.Collectors.toSet());
         return FormWithStructureInfo.builder()
             .formId(structure.formId())
             .createdMemberId(structure.createdMemberId())
@@ -94,21 +91,84 @@ public class RecruitingQueryService implements
             .allowDuplicateResponses(structure.allowDuplicateResponses())
             .createdAt(structure.createdAt())
             .updatedAt(structure.updatedAt())
-            .sections(structure.sections().stream()
-                .filter(section -> !section.questions().isEmpty())
+            .sections(visibleSections.stream()
+                .map(section -> filterConditionalDestinations(section, visibleSectionIds))
+                .toList())
+            .build();
+    }
+
+    private FormWithStructureInfo.SectionWithQuestions filterConditionalDestinations(
+        FormWithStructureInfo.SectionWithQuestions section,
+        Set<Long> visibleSectionIds
+    ) {
+        return FormWithStructureInfo.SectionWithQuestions.builder()
+            .sectionId(section.sectionId())
+            .title(section.title())
+            .description(section.description())
+            .orderNo(section.orderNo())
+            .questions(section.questions().stream()
+                .map(question -> FormWithStructureInfo.QuestionWithOptions.builder()
+                    .questionId(question.questionId())
+                    .title(question.title())
+                    .description(question.description())
+                    .type(question.type())
+                    .isRequired(question.isRequired())
+                    .orderNo(question.orderNo())
+                    .options(question.options().stream()
+                        .filter(option -> option.nextSectionId() == null
+                            || visibleSectionIds.contains(option.nextSectionId()))
+                        .toList())
+                    .build())
                 .toList())
             .build();
     }
 
     @Override
     public RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId, Long requesterMemberId) {
+        return getStatusSummary(gisuId, schoolId, null, requesterMemberId);
+    }
+
+    @Override
+    public RecruitingStatusSummaryInfo getStatusSummary(
+        Long gisuId,
+        Long schoolId,
+        Long roundId,
+        Long requesterMemberId
+    ) {
         validateCentralGisuAccess(requesterMemberId, gisuId);
-        List<RecruitingApplicationSummaryRow> rows = loadApplicationPort.searchSummaryRows(gisuId, schoolId, null);
+        List<RecruitingApplicationSummaryRow> rows = loadApplicationPort.searchSummaryRows(
+            gisuId,
+            schoolId,
+            roundId,
+            null
+        );
         Map<RecruitingApplicationStatus, Long> countByStatus = new EnumMap<>(RecruitingApplicationStatus.class);
         for (RecruitingApplicationSummaryRow row : rows) {
             countByStatus.merge(row.applicationStatus(), 1L, Long::sum);
         }
-        return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus);
+        Map<Long, List<RecruitingApplicationSummaryRow>> rowsByRound = rows.stream()
+            .collect(java.util.stream.Collectors.groupingBy(
+                RecruitingApplicationSummaryRow::roundId,
+                LinkedHashMap::new,
+                java.util.stream.Collectors.toList()
+            ));
+        List<RecruitingRoundStatusSummaryInfo> rounds = rowsByRound.values().stream()
+            .map(roundRows -> {
+                RecruitingApplicationSummaryRow first = roundRows.getFirst();
+                Map<RecruitingApplicationStatus, Long> roundCountByStatus = new EnumMap<>(
+                    RecruitingApplicationStatus.class
+                );
+                roundRows.forEach(row -> roundCountByStatus.merge(row.applicationStatus(), 1L, Long::sum));
+                return new RecruitingRoundStatusSummaryInfo(
+                    first.roundId(),
+                    first.roundType(),
+                    first.roundNo(),
+                    (long) roundRows.size(),
+                    roundCountByStatus
+                );
+            })
+            .toList();
+        return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus, rounds);
     }
 
     private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {
@@ -170,14 +230,4 @@ public class RecruitingQueryService implements
         return loadApplicationFormPort.existsByFormIdAndSeasonId(formId, seasonId);
     }
 
-    private List<RecruitingApplicationFormInfo> listPublishedForms(RecruitingSeason season) {
-        List<Long> roundIds = loadRoundPort.listBySeasonId(season.getId())
-            .stream()
-            .map(RecruitingRound::getId)
-            .toList();
-        return loadApplicationFormPort.listByRoundIdsAndStatus(roundIds, RecruitingApplicationFormStatus.PUBLISHED)
-            .stream()
-            .map(RecruitingApplicationFormInfo::from)
-            .toList();
-    }
 }

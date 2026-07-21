@@ -23,7 +23,8 @@ public class RecruitingCredentialRestRateLimitInterceptor implements HandlerInte
     private static final String APPLICATIONS_PATH = "/api/v1/recruiting/public/applications";
     private static final Set<String> POST_CREDENTIAL_PATHS = Set.of(
         APPLICATIONS_PATH + "/lookup",
-        APPLICATIONS_PATH + "/submit"
+        APPLICATIONS_PATH + "/submit",
+        APPLICATIONS_PATH + "/cancel"
     );
     private static final String POLICY_NAME = "recruiting-rest-credential";
     private static final RateLimitPolicy POLICY = new RateLimitPolicy(POLICY_NAME, 1, 5);

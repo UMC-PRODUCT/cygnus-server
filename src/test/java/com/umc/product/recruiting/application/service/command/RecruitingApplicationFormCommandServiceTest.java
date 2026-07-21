@@ -6,16 +6,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 
-import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -25,10 +22,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ValidateRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
-import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
@@ -38,9 +33,6 @@ import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingApplicationFormCommandServiceTest {
-
-    @Mock
-    LoadRecruitingRoundPort loadRoundPort;
 
     @Mock
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
@@ -56,49 +48,6 @@ class RecruitingApplicationFormCommandServiceTest {
 
     @InjectMocks
     RecruitingApplicationFormCommandService sut;
-
-    @Test
-    @DisplayName("모집 차수에는 트랙 없이 하나의 지원 Form만 연결한다")
-    void linkSingleFormToRound() {
-        RecruitingRound round = round(10L);
-        given(loadApplicationFormPort.findByRoundId(10L)).willReturn(Optional.empty());
-        given(loadRoundPort.getById(10L)).willReturn(round);
-        given(saveApplicationFormPort.save(any())).willAnswer(invocation -> {
-            RecruitingApplicationForm form = invocation.getArgument(0);
-            ReflectionTestUtils.setField(form, "id", 100L);
-            return form;
-        });
-
-        Long result = sut.link(LinkRecruitingApplicationFormCommand.builder()
-            .seasonId(1L)
-            .roundId(10L)
-            .formId(500L)
-            .build());
-
-        assertThat(result).isEqualTo(100L);
-        ArgumentCaptor<RecruitingApplicationForm> captor =
-            ArgumentCaptor.forClass(RecruitingApplicationForm.class);
-        then(saveApplicationFormPort).should().save(captor.capture());
-        assertThat(captor.getValue().getFormId()).isEqualTo(500L);
-    }
-
-    @Test
-    @DisplayName("같은 모집 차수에 두 번째 지원 Form을 연결할 수 없다")
-    void rejectSecondFormForRound() {
-        given(loadRoundPort.getById(10L)).willReturn(round(10L));
-        given(loadApplicationFormPort.findByRoundId(10L))
-            .willReturn(Optional.of(RecruitingApplicationForm.create(round(10L), 400L)));
-
-        assertThatThrownBy(() -> sut.link(LinkRecruitingApplicationFormCommand.builder()
-            .seasonId(1L)
-            .roundId(10L)
-            .formId(500L)
-            .build()))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_ALREADY_EXISTS);
-        then(saveApplicationFormPort).should(never()).save(any());
-    }
 
     @Test
     @DisplayName("지원 Form 게시 전 섹션 정책 검증 seam을 호출한다")
@@ -140,24 +89,6 @@ class RecruitingApplicationFormCommandServiceTest {
         then(loadApplicationFormPort).should(lockBeforeStateCheck).getByIdForUpdate(100L);
         then(form).should(lockBeforeStateCheck).close();
         assertThat(form.getStatus().name()).isEqualTo("CLOSED");
-    }
-
-    @Test
-    @DisplayName("다른 시즌의 차수에는 지원 Form을 연결하지 않는다")
-    void rejectLinkForRoundInDifferentSeasonBeforeSave() {
-        given(loadRoundPort.getById(10L)).willReturn(round(10L, 2L));
-
-        assertThatThrownBy(() -> sut.link(LinkRecruitingApplicationFormCommand.builder()
-            .seasonId(1L)
-            .roundId(10L)
-            .formId(500L)
-            .build()))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND);
-
-        then(loadApplicationFormPort).shouldHaveNoInteractions();
-        then(saveApplicationFormPort).shouldHaveNoInteractions();
     }
 
     @Test

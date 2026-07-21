@@ -56,7 +56,7 @@ class RecruitingEvaluationScheduleMigrationTest extends RecruitingPersistenceAda
             90L,
             1,
             "schedule:mail-check",
-            RecruitingApplicationStatus.DOCUMENT_PASSED
+            RecruitingApplicationStatus.INTERVIEW_ASSIGNED
         );
         em.flush();
 

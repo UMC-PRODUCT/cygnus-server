@@ -17,24 +17,10 @@ class RecruitingRoundApplicationWindowTest {
     private static final Instant DOCUMENT_END = Instant.parse("2026-08-08T00:00:00Z");
 
     @Test
-    @DisplayName("DRAFT 시즌은 접수할 수 없다")
-    void draftSeasonIsNotApplicationOpen() {
-        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
-        RecruitingRound round = configuredRound(season);
-        round.open();
-
-        boolean open = round.isLocalApplicationPeriodOpenAt(DOCUMENT_START, RecruitingApplicationFormStatus.PUBLISHED);
-
-        assertThat(open).isFalse();
-    }
-
-    @Test
     @DisplayName("DRAFT 차수는 접수할 수 없다")
     void draftRoundIsNotApplicationOpen() {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
         RecruitingRound round = configuredRound(season);
-        season.activate();
-
         boolean open = round.isLocalApplicationPeriodOpenAt(DOCUMENT_START, RecruitingApplicationFormStatus.PUBLISHED);
 
         assertThat(open).isFalse();
@@ -51,13 +37,13 @@ class RecruitingRoundApplicationWindowTest {
     }
 
     @Test
-    @DisplayName("접수 종료 시각은 접수 가능하다")
-    void documentEndIsInclusive() {
+    @DisplayName("접수 종료 시각은 exclusive이므로 접수할 수 없다")
+    void documentEndIsExclusive() {
         RecruitingRound round = activeOpenRound();
 
         boolean open = round.isLocalApplicationPeriodOpenAt(DOCUMENT_END, RecruitingApplicationFormStatus.PUBLISHED);
 
-        assertThat(open).isTrue();
+        assertThat(open).isFalse();
     }
 
     @Test
@@ -107,24 +93,9 @@ class RecruitingRoundApplicationWindowTest {
         assertThat(open).isFalse();
     }
 
-    @Test
-    @DisplayName("CLOSED 시즌은 접수할 수 없다")
-    void closedSeasonIsNotApplicationOpen() {
-        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
-        RecruitingRound round = configuredRound(season);
-        season.activate();
-        round.open();
-        season.close();
-
-        boolean open = round.isLocalApplicationPeriodOpenAt(DOCUMENT_START, RecruitingApplicationFormStatus.PUBLISHED);
-
-        assertThat(open).isFalse();
-    }
-
     private RecruitingRound activeOpenRound() {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
         RecruitingRound round = configuredRound(season);
-        season.activate();
         round.open();
         return round;
     }

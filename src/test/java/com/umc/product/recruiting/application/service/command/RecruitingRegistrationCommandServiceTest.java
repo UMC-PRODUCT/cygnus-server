@@ -195,7 +195,7 @@ class RecruitingRegistrationCommandServiceTest {
         );
         ReflectionTestUtils.setField(application, "id", 900L);
         application.submit(200L);
-        application.passDocument(1L, "서류 합격");
+        application.skipInterview(1L, "면접 미진행");
         application.passFinal(1L, "최종 합격", ChallengerTrack.DESIGN);
         return application;
     }

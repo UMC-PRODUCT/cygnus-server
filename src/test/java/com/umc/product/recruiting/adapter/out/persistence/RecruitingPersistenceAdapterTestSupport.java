@@ -98,8 +98,8 @@ abstract class RecruitingPersistenceAdapterTestSupport {
             application.failDocument(1L, "서류 불합격");
             return;
         }
-        application.passDocument(1L, "서류 합격");
-        if (status == RecruitingApplicationStatus.DOCUMENT_PASSED) {
+        if (status == RecruitingApplicationStatus.INTERVIEW_ASSIGNED) {
+            application.assignInterview(1L, "면접 배정");
             return;
         }
         if (status == RecruitingApplicationStatus.INTERVIEW_SKIPPED) {
@@ -107,10 +107,12 @@ abstract class RecruitingPersistenceAdapterTestSupport {
             return;
         }
         if (status == RecruitingApplicationStatus.FINAL_PASSED) {
+            application.skipInterview(1L, "면접 생략");
             application.passFinal(1L, "최종 합격", application.getFirstChoice());
             return;
         }
         if (status == RecruitingApplicationStatus.FINAL_FAILED) {
+            application.skipInterview(1L, "면접 생략");
             application.failFinal(1L, "최종 불합격");
             return;
         }

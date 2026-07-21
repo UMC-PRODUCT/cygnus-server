@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +49,17 @@ public class RecruitingApplicationEvaluationPersistenceAdapter
         RecruitingEvaluatorStage stage
     ) {
         return repository.findAllByApplication_IdAndStageOrderByEvaluatorMemberIdAscIdAsc(applicationId, stage);
+    }
+
+    @Override
+    public List<RecruitingApplicationEvaluation> listByApplicationIdsAndEvaluatorMemberId(
+        Collection<Long> applicationIds,
+        Long evaluatorMemberId
+    ) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return List.of();
+        }
+        return repository.findAllByApplication_IdInAndEvaluatorMemberId(applicationIds, evaluatorMemberId);
     }
 
     @Override

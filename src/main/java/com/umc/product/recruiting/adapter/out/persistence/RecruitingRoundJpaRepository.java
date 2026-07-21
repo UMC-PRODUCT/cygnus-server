@@ -29,4 +29,16 @@ public interface RecruitingRoundJpaRepository extends JpaRepository<RecruitingRo
 
     boolean existsBySeason_IdAndTypeAndRoundNo(Long seasonId, RecruitingRoundType type, Integer roundNo);
 
+    boolean existsBySeason_IdAndTitleIgnoreCase(Long seasonId, String title);
+
+    boolean existsBySeason_IdAndTitleIgnoreCaseAndIdNot(Long seasonId, String title, Long id);
+
+    @Query("""
+        SELECT COALESCE(MAX(round.roundNo), 0)
+        FROM RecruitingRound round
+        WHERE round.season.id = :seasonId
+          AND round.type = com.umc.product.recruiting.domain.enums.RecruitingRoundType.ADDITIONAL
+        """)
+    int findMaxAdditionalRoundNo(@Param("seasonId") Long seasonId);
+
 }

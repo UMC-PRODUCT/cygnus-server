@@ -14,11 +14,11 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingSeasonTrackQuotaCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingSeasonStatusCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
@@ -28,7 +28,6 @@ import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonTrack
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -39,7 +38,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RecruitingSeasonCommandService implements
     CreateRecruitingSeasonUseCase,
-    UpdateRecruitingSeasonStatusUseCase,
+    UpdateRecruitingSeasonUseCase,
     ReplaceRecruitingSeasonTrackQuotasUseCase {
 
     private final LoadRecruitingSeasonPort loadSeasonPort;
@@ -81,15 +80,9 @@ public class RecruitingSeasonCommandService implements
     }
 
     @Override
-    public void updateSeasonStatus(UpdateRecruitingSeasonStatusCommand command) {
+    public void updateSeason(UpdateRecruitingSeasonCommand command) {
         RecruitingSeason season = loadSeasonPort.getById(command.seasonId());
-        if (command.status() == RecruitingSeasonStatus.ACTIVE) {
-            season.activate();
-        } else if (command.status() == RecruitingSeasonStatus.CLOSED) {
-            season.close();
-        } else {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SEASON_INVALID_TRANSITION);
-        }
+        season.updateMemo(command.memo());
         saveSeasonPort.save(season);
     }
 

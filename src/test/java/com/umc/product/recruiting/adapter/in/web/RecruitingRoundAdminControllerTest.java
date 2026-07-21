@@ -25,16 +25,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
+import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 
@@ -45,6 +49,7 @@ class RecruitingRoundAdminControllerTest {
 
     private static final String INTERVIEW_ROUND_JSON = """
         {
+          "title": "15기 본모집",
           "type": "REGULAR",
           "recruitableTracks": ["PLAN", "DESIGN"],
           "secondChoiceEnabled": true,
@@ -68,7 +73,7 @@ class RecruitingRoundAdminControllerTest {
     @MockitoBean
     CreateRecruitingSeasonUseCase createSeasonUseCase;
     @MockitoBean
-    UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
+    UpdateRecruitingSeasonUseCase updateSeasonUseCase;
     @MockitoBean
     ReplaceRecruitingSeasonTrackQuotasUseCase replaceQuotasUseCase;
     @MockitoBean
@@ -83,6 +88,14 @@ class RecruitingRoundAdminControllerTest {
     SearchRecruitingSeasonUseCase searchSeasonUseCase;
     @MockitoBean
     SearchRecruitingRoundUseCase searchRoundUseCase;
+    @MockitoBean
+    SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
+    @MockitoBean
+    CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
+    @MockitoBean
+    CloneRecruitingRoundUseCase cloneRoundUseCase;
+    @MockitoBean
+    DeleteRecruitingRoundUseCase deleteRoundUseCase;
 
     @Test
     @DisplayName("면접 차수 생성 요청의 전체 설정을 command로 전달한다")

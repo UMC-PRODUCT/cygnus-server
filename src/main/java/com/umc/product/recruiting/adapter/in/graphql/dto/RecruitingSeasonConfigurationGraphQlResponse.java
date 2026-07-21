@@ -9,13 +9,12 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonTrackQuotaInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 
 public record RecruitingSeasonConfigurationGraphQlResponse(
     Long id,
     Long gisuId,
     Long schoolId,
-    RecruitingSeasonStatus status,
+    String memo,
     List<TrackQuota> quotas,
     List<Round> rounds
 ) {
@@ -25,7 +24,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
             info.id(),
             info.gisuId(),
             info.schoolId(),
-            info.status(),
+            info.memo(),
             info.quotas().stream().map(TrackQuota::from).toList(),
             info.rounds().stream().map(Round::from).toList()
         );
@@ -40,6 +39,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
 
     public record Round(
         Long id,
+        String title,
         RecruitingRoundType type,
         Integer roundNo,
         RecruitingRoundStatus status,
@@ -60,6 +60,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
         public static Round from(RecruitingRoundConfigurationInfo info) {
             return new Round(
                 info.id(),
+                info.title(),
                 info.type(),
                 info.roundNo(),
                 info.status(),

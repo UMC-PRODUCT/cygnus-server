@@ -10,6 +10,7 @@ import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 public record RecruitingRoundConfigurationInfo(
     Long id,
+    String title,
     RecruitingRoundType type,
     Integer roundNo,
     RecruitingRoundStatus status,
@@ -30,6 +31,7 @@ public record RecruitingRoundConfigurationInfo(
     public static RecruitingRoundConfigurationInfo from(RecruitingRound round) {
         return new RecruitingRoundConfigurationInfo(
             round.getId(),
+            round.getTitle(),
             round.getType(),
             round.getRoundNo(),
             round.getStatus(),

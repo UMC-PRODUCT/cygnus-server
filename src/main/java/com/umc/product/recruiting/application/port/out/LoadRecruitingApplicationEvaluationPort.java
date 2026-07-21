@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.port.out;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -19,5 +20,10 @@ public interface LoadRecruitingApplicationEvaluationPort {
     List<RecruitingApplicationEvaluation> listByApplicationIdAndStage(
         Long applicationId,
         RecruitingEvaluatorStage stage
+    );
+
+    List<RecruitingApplicationEvaluation> listByApplicationIdsAndEvaluatorMemberId(
+        Collection<Long> applicationIds,
+        Long evaluatorMemberId
     );
 }

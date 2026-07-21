@@ -11,30 +11,32 @@ import org.springframework.stereotype.Controller;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.recruiting.adapter.in.graphql.dto.CloneRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSearchGraphQlRequest;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonConfigurationGraphQlResponse;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonSearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingStatusSummaryGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingStatusSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.ReplaceRecruitingSeasonTrackQuotasGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateRecruitingRoundStatusGraphQlRequest;
-import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateRecruitingSeasonStatusGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.UpdateRecruitingSeasonGraphQlRequest;
+import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
-import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,38 +46,39 @@ public class RecruitingAdminGraphQlController {
 
     private final GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     private final GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
-    private final SearchRecruitingSeasonUseCase searchSeasonUseCase;
-    private final SearchRecruitingRoundUseCase searchRoundUseCase;
+    private final SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
+    private final CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
     private final CreateRecruitingSeasonUseCase createSeasonUseCase;
-    private final UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
+    private final UpdateRecruitingSeasonUseCase updateSeasonUseCase;
     private final ReplaceRecruitingSeasonTrackQuotasUseCase replaceSeasonTrackQuotasUseCase;
     private final CreateRecruitingRoundUseCase createRoundUseCase;
     private final UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
     private final UpdateRecruitingRoundUseCase updateRoundUseCase;
+    private final CloneRecruitingRoundUseCase cloneRoundUseCase;
+    private final DeleteRecruitingRoundUseCase deleteRoundUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
     @QueryMapping
-    public List<RecruitingSeasonSummaryGraphQlResponse> recruitingSeasons(
+    public List<RecruitingSeasonSummaryGraphQlResponse> recruitingRoundGroups(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument RecruitingSeasonSearchGraphQlRequest input
+        @Argument RecruitingRoundSearchGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentTypePermission(requesterMemberId, PermissionType.READ);
-        return searchSeasonUseCase.searchSeasons(input.toQuery(requesterMemberId)).stream()
+        return searchRoundGroupUseCase.searchRoundGroups(input.toQuery(requesterMemberId)).stream()
             .map(RecruitingSeasonSummaryGraphQlResponse::from)
             .toList();
     }
 
     @QueryMapping
-    public List<RecruitingRoundSummaryGraphQlResponse> recruitingRounds(
+    public Boolean recruitingRoundTitleAvailable(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument RecruitingRoundSearchGraphQlRequest input
+        @Argument Long seasonId,
+        @Argument String title,
+        @Argument Long excludedRoundId
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentTypePermission(requesterMemberId, PermissionType.READ);
-        return searchRoundUseCase.searchRounds(input.toQuery(requesterMemberId)).stream()
-            .map(RecruitingRoundSummaryGraphQlResponse::from)
-            .toList();
+        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
+        return checkRoundTitleUseCase.isTitleAvailable(seasonId, title, excludedRoundId);
     }
 
     @QueryMapping
@@ -97,7 +100,12 @@ public class RecruitingAdminGraphQlController {
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         return RecruitingStatusSummaryGraphQlResponse.from(
-            getApplicationQueryUseCase.getStatusSummary(input.gisuId(), input.schoolId(), requesterMemberId)
+            getApplicationQueryUseCase.getStatusSummary(
+                input.gisuId(),
+                input.schoolId(),
+                input.roundId(),
+                requesterMemberId
+            )
         );
     }
 
@@ -114,14 +122,14 @@ public class RecruitingAdminGraphQlController {
     }
 
     @MutationMapping
-    public Boolean updateRecruitingSeasonStatus(
+    public Boolean updateRecruitingSeason(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
-        @Argument UpdateRecruitingSeasonStatusGraphQlRequest input
+        @Argument UpdateRecruitingSeasonGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
-        updateSeasonStatusUseCase.updateSeasonStatus(input.toCommand(seasonId));
+        updateSeasonUseCase.updateSeason(input.toCommand(seasonId));
         return true;
     }
 
@@ -157,7 +165,7 @@ public class RecruitingAdminGraphQlController {
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         requireRoundPermission(requesterMemberId, seasonId, roundId);
-        updateRoundStatusUseCase.updateRoundStatus(input.toCommand(seasonId, roundId));
+        updateRoundStatusUseCase.updateRoundStatus(input.toCommand(seasonId, roundId, requesterMemberId));
         return true;
     }
 
@@ -170,7 +178,35 @@ public class RecruitingAdminGraphQlController {
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         requireRoundPermission(requesterMemberId, seasonId, roundId);
-        updateRoundUseCase.updateRound(input.toCommand(seasonId, roundId));
+        updateRoundUseCase.updateRound(input.toCommand(seasonId, roundId, requesterMemberId));
+        return true;
+    }
+
+    @MutationMapping
+    public RecruitingIdGraphQlResponse cloneRecruitingRound(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long seasonId,
+        @Argument Long roundId,
+        @Argument CloneRecruitingRoundGraphQlRequest input
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        return RecruitingIdGraphQlResponse.from(
+            cloneRoundUseCase.cloneRound(input.toCommand(seasonId, roundId, requesterMemberId))
+        );
+    }
+
+    @MutationMapping
+    public Boolean deleteRecruitingRound(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long seasonId,
+        @Argument Long roundId
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        deleteRoundUseCase.deleteRound(DeleteRecruitingRoundCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .requesterMemberId(requesterMemberId)
+            .build());
         return true;
     }
 

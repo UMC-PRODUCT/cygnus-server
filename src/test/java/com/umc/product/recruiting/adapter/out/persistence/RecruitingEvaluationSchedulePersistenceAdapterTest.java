@@ -50,7 +50,7 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             30L,
             1,
             "evaluation:schedule",
-            RecruitingApplicationStatus.DOCUMENT_PASSED
+            RecruitingApplicationStatus.INTERVIEW_ASSIGNED
         );
         RecruitingApplicationEvaluation document = RecruitingApplicationEvaluation.create(
             graph.application(),
@@ -189,7 +189,7 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             60L,
             1,
             "schedule:unique",
-            RecruitingApplicationStatus.DOCUMENT_PASSED
+            RecruitingApplicationStatus.INTERVIEW_ASSIGNED
         );
         scheduleAdapter.saveSchedule(RecruitingInterviewSchedule.requestAvailability(
             graph.application(),
@@ -214,7 +214,7 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             70L,
             1,
             "schedule:check",
-            RecruitingApplicationStatus.DOCUMENT_PASSED
+            RecruitingApplicationStatus.INTERVIEW_ASSIGNED
         );
         em.flush();
 

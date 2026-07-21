@@ -3,13 +3,12 @@ package com.umc.product.recruiting.application.port.in.query.dto;
 import java.util.List;
 
 import com.umc.product.recruiting.domain.RecruitingSeason;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 
 public record RecruitingSeasonConfigurationInfo(
     Long id,
     Long gisuId,
     Long schoolId,
-    RecruitingSeasonStatus status,
+    String memo,
     List<RecruitingSeasonTrackQuotaInfo> quotas,
     List<RecruitingRoundConfigurationInfo> rounds
 ) {
@@ -23,7 +22,7 @@ public record RecruitingSeasonConfigurationInfo(
             season.getId(),
             season.getGisuId(),
             season.getSchoolId(),
-            season.getStatus(),
+            season.getMemo(),
             List.copyOf(quotas),
             List.copyOf(rounds)
         );

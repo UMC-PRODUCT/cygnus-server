@@ -27,28 +27,29 @@ import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
+import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSummaryInfo;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 
 @GraphQlTest(RecruitingAdminGraphQlController.class)
 @Import({
@@ -69,9 +70,17 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     @MockitoBean
     SearchRecruitingRoundUseCase searchRoundUseCase;
     @MockitoBean
+    SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
+    @MockitoBean
+    CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
+    @MockitoBean
+    CloneRecruitingRoundUseCase cloneRoundUseCase;
+    @MockitoBean
+    DeleteRecruitingRoundUseCase deleteRoundUseCase;
+    @MockitoBean
     CreateRecruitingSeasonUseCase createSeasonUseCase;
     @MockitoBean
-    UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
+    UpdateRecruitingSeasonUseCase updateSeasonUseCase;
     @MockitoBean
     ReplaceRecruitingSeasonTrackQuotasUseCase replaceQuotasUseCase;
     @MockitoBean
@@ -154,7 +163,7 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     @Test
     @DisplayName("GraphQL 상태 요약은 CurrentMember와 요청 기수를 public UseCase에 전달한다")
     void statusSummaryBindsCurrentMemberAndRequestedGisu() {
-        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, 40L))
+        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, null, 40L))
             .willReturn(new RecruitingStatusSummaryInfo(
                 3L,
                 Map.of(RecruitingApplicationStatus.SUBMITTED, 3L)
@@ -173,13 +182,13 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             .entity(Long.class)
             .isEqualTo(3L);
 
-        then(getApplicationQueryUseCase).should().getStatusSummary(11L, 22L, 40L);
+        then(getApplicationQueryUseCase).should().getStatusSummary(11L, 22L, null, 40L);
     }
 
     @Test
-    @DisplayName("GraphQL 시즌 목록은 현재 회원과 지부 필터를 query로 전달한다")
-    void searchSeasons() {
-        given(searchSeasonUseCase.searchSeasons(any())).willReturn(List.of(
+    @DisplayName("GraphQL 모집 목록은 시즌별 그룹과 필터를 반환한다")
+    void searchRoundGroups() {
+        given(searchRoundGroupUseCase.searchRoundGroups(any())).willReturn(List.of(
             new RecruitingSeasonSummaryInfo(
                 10L,
                 11L,
@@ -187,14 +196,14 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                 "A 지부",
                 22L,
                 "A 학교",
-                RecruitingSeasonStatus.ACTIVE,
+                "운영진 메모",
                 List.of(roundConfiguration())
             )
         ));
 
         graphQlTester.document("""
                 query {
-                  recruitingSeasons(input: {gisuId: 11, chapterId: 33}) {
+                  recruitingRoundGroups(input: {gisuId: 11, chapterId: 33, track: PLAN}) {
                     seasonId
                     chapterName
                     rounds { id }
@@ -202,80 +211,41 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("recruitingSeasons[0].chapterName")
+            .path("recruitingRoundGroups[0].chapterName")
             .entity(String.class)
             .isEqualTo("A 지부")
-            .path("recruitingSeasons[0].rounds[0].id")
+            .path("recruitingRoundGroups[0].rounds[0].id")
             .entity(String.class)
             .isEqualTo("20");
 
-        ArgumentCaptor<RecruitingSeasonSearchQuery> captor =
-            ArgumentCaptor.forClass(RecruitingSeasonSearchQuery.class);
-        then(searchSeasonUseCase).should().searchSeasons(captor.capture());
+        ArgumentCaptor<RecruitingRoundGroupSearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingRoundGroupSearchQuery.class);
+        then(searchRoundGroupUseCase).should().searchRoundGroups(captor.capture());
         assertThat(captor.getValue().gisuId()).isEqualTo(11L);
         assertThat(captor.getValue().chapterId()).isEqualTo(33L);
+        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.PLAN);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
     }
 
     @Test
-    @DisplayName("GraphQL 차수 목록은 현재 회원과 학교 및 시즌 필터를 query로 전달한다")
-    void searchRounds() {
-        given(searchRoundUseCase.searchRounds(any())).willReturn(List.of(
-            new RecruitingRoundSummaryInfo(
-                10L,
-                11L,
-                33L,
-                "A 지부",
-                22L,
-                "A 학교",
-                roundConfiguration()
-            )
-        ));
-
+    @DisplayName("GraphQL 모집 목록은 양수가 아닌 기수 ID를 거부한다")
+    void searchRoundGroupsRejectsNonPositiveGisuId() {
         graphQlTester.document("""
                 query {
-                  recruitingRounds(input: {gisuId: 11, schoolId: 22, seasonId: 10}) {
-                    seasonId
-                    schoolName
-                    id
-                  }
-                }
-                """)
-            .execute()
-            .path("recruitingRounds[0].schoolName")
-            .entity(String.class)
-            .isEqualTo("A 학교")
-            .path("recruitingRounds[0].id")
-            .entity(String.class)
-            .isEqualTo("20");
-
-        ArgumentCaptor<RecruitingRoundSearchQuery> captor =
-            ArgumentCaptor.forClass(RecruitingRoundSearchQuery.class);
-        then(searchRoundUseCase).should().searchRounds(captor.capture());
-        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
-        assertThat(captor.getValue().schoolId()).isEqualTo(22L);
-        assertThat(captor.getValue().seasonId()).isEqualTo(10L);
-        assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
-    }
-
-    @Test
-    @DisplayName("GraphQL 시즌 목록은 양수가 아닌 기수 ID를 거부한다")
-    void searchSeasonsRejectsNonPositiveGisuId() {
-        graphQlTester.document("""
-                query {
-                  recruitingSeasons(input: {gisuId: 0}) { seasonId }
+                  recruitingRoundGroups(input: {gisuId: 0}) { seasonId }
                 }
                 """)
             .execute()
             .errors()
             .satisfy(errors -> assertThat(errors).hasSize(1));
 
-        then(searchSeasonUseCase).shouldHaveNoInteractions();
+        then(searchRoundGroupUseCase).shouldHaveNoInteractions();
     }
 
     private RecruitingRoundConfigurationInfo roundConfiguration() {
         return new RecruitingRoundConfigurationInfo(
             20L,
+            "15기 본모집",
             RecruitingRoundType.REGULAR,
             1,
             RecruitingRoundStatus.OPEN,

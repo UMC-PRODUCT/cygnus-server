@@ -1,14 +1,9 @@
 package com.umc.product.recruiting.domain;
 
 import com.umc.product.common.BaseEntity;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
-import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
-import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -41,37 +36,36 @@ public class RecruitingSeason extends BaseEntity {
     @Column(nullable = false, name = "school_id")
     private Long schoolId;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private RecruitingSeasonStatus status;
+    @Column(columnDefinition = "TEXT")
+    private String memo;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private RecruitingSeason(Long gisuId, Long schoolId) {
+    private RecruitingSeason(Long gisuId, Long schoolId, String memo) {
         this.gisuId = gisuId;
         this.schoolId = schoolId;
-        this.status = RecruitingSeasonStatus.DRAFT;
+        this.memo = normalizeMemo(memo);
     }
 
     public static RecruitingSeason create(Long gisuId, Long schoolId) {
+        return create(gisuId, schoolId, null);
+    }
+
+    public static RecruitingSeason create(Long gisuId, Long schoolId, String memo) {
         return RecruitingSeason.builder()
             .gisuId(gisuId)
             .schoolId(schoolId)
+            .memo(memo)
             .build();
     }
 
-    public void activate() {
-        validateStatus(RecruitingSeasonStatus.DRAFT);
-        this.status = RecruitingSeasonStatus.ACTIVE;
+    public void updateMemo(String memo) {
+        this.memo = normalizeMemo(memo);
     }
 
-    public void close() {
-        validateStatus(RecruitingSeasonStatus.ACTIVE);
-        this.status = RecruitingSeasonStatus.CLOSED;
-    }
-
-    private void validateStatus(RecruitingSeasonStatus expectedStatus) {
-        if (this.status != expectedStatus) {
-            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SEASON_INVALID_TRANSITION);
+    private static String normalizeMemo(String memo) {
+        if (memo == null || memo.isBlank()) {
+            return null;
         }
+        return memo.trim();
     }
 }

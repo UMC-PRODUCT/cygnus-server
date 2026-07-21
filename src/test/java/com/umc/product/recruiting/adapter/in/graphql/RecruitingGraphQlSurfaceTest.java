@@ -52,10 +52,10 @@ class RecruitingGraphQlSurfaceTest {
             Map<String, Object> data = result.getData();
             assertThat(fieldNames(data, "Query"))
                 .contains(
-                    "recruitingApplicationForms",
+                    "publicRecruitingRounds",
                     "recruitingApplication",
-                    "recruitingSeasons",
-                    "recruitingRounds",
+                    "recruitingRoundGroups",
+                    "recruitingRoundTitleAvailable",
                     "recruitingSeasonConfiguration",
                     "recruitingRoundEvaluators",
                     "recruitingRoundInterviewQuestions",
@@ -63,12 +63,16 @@ class RecruitingGraphQlSurfaceTest {
                     "recruitingApplicationEvaluations",
                     "recruitingInterviewSchedule",
                     "recruitingStatusSummary"
+                    , "recruitingRoundApplications"
+                    , "recruitingRoundApplication"
                 );
             assertThat(fieldNames(data, "Mutation"))
                 .contains(
                     "replaceRecruitingSeasonTrackQuotas",
                     "updateRecruitingRound",
-                    "addRecruitingFormSectionPolicy",
+                    "upsertRecruitingApplicationForm",
+                    "cloneRecruitingRound",
+                    "deleteRecruitingRound",
                     "addRecruitingRoundEvaluator",
                     "removeRecruitingRoundEvaluator",
                     "createRecruitingRoundInterviewQuestion",

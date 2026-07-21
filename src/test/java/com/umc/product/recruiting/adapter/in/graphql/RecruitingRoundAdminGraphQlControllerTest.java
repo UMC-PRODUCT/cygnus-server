@@ -26,16 +26,20 @@ import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 
@@ -58,9 +62,17 @@ class RecruitingRoundAdminGraphQlControllerTest {
     @MockitoBean
     SearchRecruitingRoundUseCase searchRoundUseCase;
     @MockitoBean
+    SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
+    @MockitoBean
+    CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
+    @MockitoBean
+    CloneRecruitingRoundUseCase cloneRoundUseCase;
+    @MockitoBean
+    DeleteRecruitingRoundUseCase deleteRoundUseCase;
+    @MockitoBean
     CreateRecruitingSeasonUseCase createSeasonUseCase;
     @MockitoBean
-    UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
+    UpdateRecruitingSeasonUseCase updateSeasonUseCase;
     @MockitoBean
     ReplaceRecruitingSeasonTrackQuotasUseCase replaceQuotasUseCase;
     @MockitoBean
@@ -116,6 +128,7 @@ class RecruitingRoundAdminGraphQlControllerTest {
                     seasonId: 10,
                     roundId: 20,
                     input: {
+                      title: "15기 본모집",
                       recruitableTracks: [PLAN],
                       secondChoiceEnabled: false,
                       documentStartAt: "2026-08-01T00:00:00Z",
@@ -155,6 +168,7 @@ class RecruitingRoundAdminGraphQlControllerTest {
               createRecruitingRound(
                 seasonId: 10,
                 input: {
+                  title: "15기 본모집",
                   type: REGULAR,
                   recruitableTracks: [PLAN, DESIGN],
                   secondChoiceEnabled: true,

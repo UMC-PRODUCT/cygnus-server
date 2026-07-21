@@ -72,7 +72,7 @@ class RecruitingEvaluationControllerTest {
     @Test
     @DisplayName("평가 확정은 path stage와 CurrentMember actor를 command로 전달한다")
     void submitUsesPathStageAndCurrentMember() throws Exception {
-        mockMvc.perform(post(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
+        mockMvc.perform(put(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"memberId\":1234,\"decision\":\"APPROVED\",\"comment\":\"확정 의견\"}"))
             .andExpect(status().isOk());
@@ -97,9 +97,9 @@ class RecruitingEvaluationControllerTest {
     }
 
     @Test
-    @DisplayName("기존 평가 초안 PUT 경로는 제거한다")
-    void removeDraftPutPath() throws Exception {
-        mockMvc.perform(put(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
+    @DisplayName("기존 평가 POST 경로는 제거한다")
+    void removeLegacyPostPath() throws Exception {
+        mockMvc.perform(post(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"decision\":\"APPROVED\",\"comment\":\"검토 중\"}"))
             .andExpect(status().isMethodNotAllowed());
@@ -133,7 +133,7 @@ class RecruitingEvaluationControllerTest {
     @Test
     @DisplayName("평가 요청의 comment가 2000자를 초과하면 거부한다")
     void rejectTooLongComment() throws Exception {
-        mockMvc.perform(post(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
+        mockMvc.perform(put(PATH, ROUND_ID, APPLICATION_ID, "DOCUMENT")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"decision\":\"APPROVED\",\"comment\":\"%s\"}".formatted("a".repeat(2001))))
             .andExpect(status().isBadRequest());

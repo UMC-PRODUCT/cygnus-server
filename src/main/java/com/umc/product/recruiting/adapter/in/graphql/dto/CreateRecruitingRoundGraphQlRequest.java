@@ -9,6 +9,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoun
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 public record CreateRecruitingRoundGraphQlRequest(
+    String title,
     RecruitingRoundType type,
     Integer roundNo,
     List<ChallengerTrack> recruitableTracks,
@@ -30,6 +31,7 @@ public record CreateRecruitingRoundGraphQlRequest(
             .seasonId(seasonId)
             .type(type)
             .roundNo(roundNo)
+            .title(title)
             .configuration(RecruitingRoundConfigurationCommand.of(
                 recruitableTracks,
                 secondChoiceEnabled,

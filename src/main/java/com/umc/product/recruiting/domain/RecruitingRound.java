@@ -13,7 +13,6 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -46,6 +45,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RecruitingRound extends BaseEntity {
 
+    private static final int MAX_TITLE_LENGTH = 100;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -60,6 +61,9 @@ public class RecruitingRound extends BaseEntity {
 
     @Column(nullable = false, name = "round_no")
     private Integer roundNo;
+
+    @Column(nullable = false, length = MAX_TITLE_LENGTH)
+    private String title;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -104,19 +108,25 @@ public class RecruitingRound extends BaseEntity {
     private String contactText;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private RecruitingRound(RecruitingSeason season, RecruitingRoundType type, Integer roundNo) {
+    private RecruitingRound(RecruitingSeason season, RecruitingRoundType type, Integer roundNo, String title) {
         validateRoundNo(roundNo);
         this.season = season;
         this.type = type;
         this.roundNo = roundNo;
+        this.title = normalizeTitle(title);
         this.status = RecruitingRoundStatus.DRAFT;
     }
 
     public static RecruitingRound createRegular(RecruitingSeason season) {
+        return createRegular(season, "본모집");
+    }
+
+    public static RecruitingRound createRegular(RecruitingSeason season, String title) {
         return RecruitingRound.builder()
             .season(season)
             .type(RecruitingRoundType.REGULAR)
             .roundNo(1)
+            .title(title)
             .build();
     }
 
@@ -124,16 +134,29 @@ public class RecruitingRound extends BaseEntity {
         RecruitingSeason season,
         RecruitingRoundConfiguration configuration
     ) {
-        RecruitingRound round = createRegular(season);
+        return createRegular(season, "본모집", configuration);
+    }
+
+    public static RecruitingRound createRegular(
+        RecruitingSeason season,
+        String title,
+        RecruitingRoundConfiguration configuration
+    ) {
+        RecruitingRound round = createRegular(season, title);
         round.applyConfiguration(configuration);
         return round;
     }
 
     public static RecruitingRound createAdditional(RecruitingSeason season, Integer roundNo) {
+        return createAdditional(season, roundNo, "추가모집 " + roundNo + "차");
+    }
+
+    public static RecruitingRound createAdditional(RecruitingSeason season, Integer roundNo, String title) {
         return RecruitingRound.builder()
             .season(season)
             .type(RecruitingRoundType.ADDITIONAL)
             .roundNo(roundNo)
+            .title(title)
             .build();
     }
 
@@ -142,9 +165,27 @@ public class RecruitingRound extends BaseEntity {
         Integer roundNo,
         RecruitingRoundConfiguration configuration
     ) {
-        RecruitingRound round = createAdditional(season, roundNo);
+        return createAdditional(season, roundNo, "추가모집 " + roundNo + "차", configuration);
+    }
+
+    public static RecruitingRound createAdditional(
+        RecruitingSeason season,
+        Integer roundNo,
+        String title,
+        RecruitingRoundConfiguration configuration
+    ) {
+        RecruitingRound round = createAdditional(season, roundNo, title);
         round.applyConfiguration(configuration);
         return round;
+    }
+
+    public void update(
+        String title,
+        RecruitingRoundConfiguration configuration,
+        boolean applicationExists
+    ) {
+        this.title = normalizeTitle(title);
+        updateConfiguration(configuration, applicationExists);
     }
 
     public void updateConfiguration(RecruitingRoundConfiguration configuration, boolean applicationExists) {
@@ -188,11 +229,10 @@ public class RecruitingRound extends BaseEntity {
         if (currentTime == null || documentStartAt == null || documentEndAt == null) {
             return false;
         }
-        return season.getStatus() == RecruitingSeasonStatus.ACTIVE
-            && status == RecruitingRoundStatus.OPEN
+        return status == RecruitingRoundStatus.OPEN
             && localApplicationFormStatus == RecruitingApplicationFormStatus.PUBLISHED
             && !currentTime.isBefore(documentStartAt)
-            && !currentTime.isAfter(documentEndAt);
+            && currentTime.isBefore(documentEndAt);
     }
 
     public boolean isRecruitableTrack(ChallengerTrack track) {
@@ -215,6 +255,13 @@ public class RecruitingRound extends BaseEntity {
         if (roundNo == null || roundNo < 1) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_ROUND_NO);
         }
+    }
+
+    public static String normalizeTitle(String title) {
+        if (title == null || title.trim().isEmpty() || title.trim().length() > MAX_TITLE_LENGTH) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TITLE);
+        }
+        return title.trim();
     }
 
     private void validateStatus(RecruitingRoundStatus expectedStatus) {

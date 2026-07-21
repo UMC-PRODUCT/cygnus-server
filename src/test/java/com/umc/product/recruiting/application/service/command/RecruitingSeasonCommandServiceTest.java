@@ -23,7 +23,7 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingSeasonTrackQuotaCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingSeasonStatusCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
@@ -34,7 +34,6 @@ import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -256,17 +255,17 @@ class RecruitingSeasonCommandServiceTest {
     }
 
     @Test
-    @DisplayName("모집 시즌 상태를 DRAFT에서 ACTIVE로 변경한다")
-    void updateSeasonStatus() {
+    @DisplayName("모집 시즌 공유 메모를 변경한다")
+    void updateSeason() {
         RecruitingSeason season = season(10L);
         given(loadSeasonPort.getById(10L)).willReturn(season);
 
-        sut.updateSeasonStatus(UpdateRecruitingSeasonStatusCommand.builder()
+        sut.updateSeason(UpdateRecruitingSeasonCommand.builder()
             .seasonId(10L)
-            .status(RecruitingSeasonStatus.ACTIVE)
+            .memo("운영진 메모")
             .build());
 
-        assertThat(season.getStatus()).isEqualTo(RecruitingSeasonStatus.ACTIVE);
+        assertThat(season.getMemo()).isEqualTo("운영진 메모");
         then(saveSeasonPort).should().save(season);
     }
 

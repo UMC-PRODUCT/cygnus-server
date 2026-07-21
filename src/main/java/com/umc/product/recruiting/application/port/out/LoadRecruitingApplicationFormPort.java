@@ -24,4 +24,6 @@ public interface LoadRecruitingApplicationFormPort {
         List<Long> roundIds,
         RecruitingApplicationFormStatus status
     );
+
+    List<RecruitingApplicationForm> listByRoundIds(List<Long> roundIds);
 }

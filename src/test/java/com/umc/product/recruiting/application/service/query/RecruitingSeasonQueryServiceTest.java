@@ -3,6 +3,7 @@ package com.umc.product.recruiting.application.service.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 
@@ -21,16 +22,20 @@ import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
+import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundPhase;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingSeasonQueryServiceTest {
@@ -45,10 +50,16 @@ class RecruitingSeasonQueryServiceTest {
     LoadRecruitingRoundPort loadRoundPort;
 
     @Mock
+    LoadRecruitingApplicationFormPort loadApplicationFormPort;
+
+    @Mock
     GetSchoolUseCase getSchoolUseCase;
 
     @Mock
     CheckPermissionUseCase checkPermissionUseCase;
+
+    @Mock
+    Clock clock;
 
     @InjectMocks
     RecruitingSeasonQueryService sut;
@@ -180,6 +191,40 @@ class RecruitingSeasonQueryServiceTest {
         assertThat(result)
             .extracting(found -> found.round().id())
             .containsExactly(200L);
+    }
+
+    @Test
+    @DisplayName("공개 모집은 접수 종료 시각부터 OPEN에서 제외하고 PAST에 포함한다")
+    void publicRoundEndBoundaryIsPast() {
+        Instant endAt = Instant.parse("2026-08-08T00:00:00Z");
+        RecruitingSeason season = season(100L, 1L, 10L);
+        RecruitingRound round = regularRound(season, 200L);
+        round.open();
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 500L);
+        ReflectionTestUtils.setField(form, "id", 300L);
+        form.publish(round.getRecruitableTracks());
+        given(clock.instant()).willReturn(endAt);
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(
+            school(7L, "A 지부", 10L, "A 학교")
+        ));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(loadRoundPort.listBySeasonIds(List.of(100L))).willReturn(List.of(round));
+        given(loadApplicationFormPort.listByRoundIds(List.of(200L))).willReturn(List.of(form));
+
+        var openResult = sut.searchPublicRounds(RecruitingPublicRoundSearchQuery.builder()
+            .gisuId(1L)
+            .phase(RecruitingRoundPhase.OPEN)
+            .build());
+        var pastResult = sut.searchPublicRounds(RecruitingPublicRoundSearchQuery.builder()
+            .gisuId(1L)
+            .phase(RecruitingRoundPhase.PAST)
+            .build());
+
+        assertThat(openResult).isEmpty();
+        assertThat(pastResult).singleElement().satisfies(group ->
+            assertThat(group.rounds()).singleElement()
+                .satisfies(found -> assertThat(found.roundId()).isEqualTo(200L))
+        );
     }
 
     private RecruitingSeason season(Long id, Long gisuId, Long schoolId) {

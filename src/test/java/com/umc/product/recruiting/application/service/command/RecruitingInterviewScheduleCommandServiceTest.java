@@ -161,7 +161,6 @@ class RecruitingInterviewScheduleCommandServiceTest {
         );
         ReflectionTestUtils.setField(result, "id", 900L);
         result.submit(1L);
-        result.passDocument(99L, null);
         result.assignInterview(99L, null);
         return result;
     }

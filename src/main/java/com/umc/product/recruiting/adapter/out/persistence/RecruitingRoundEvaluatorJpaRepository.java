@@ -13,4 +13,6 @@ public interface RecruitingRoundEvaluatorJpaRepository extends JpaRepository<Rec
     List<RecruitingRoundEvaluator> findAllByRound_IdOrderByMemberIdAscIdAsc(Long roundId);
 
     boolean existsByRound_IdAndMemberId(Long roundId, Long memberId);
+
+    void deleteAllByRound_Id(Long roundId);
 }

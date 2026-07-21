@@ -12,11 +12,12 @@ public record UpdateRecruitingRoundStatusRequest(
     @NotNull RecruitingRoundStatus status
 ) {
 
-    public UpdateRecruitingRoundStatusCommand toCommand(Long seasonId, Long roundId) {
+    public UpdateRecruitingRoundStatusCommand toCommand(Long seasonId, Long roundId, Long requesterMemberId) {
         return UpdateRecruitingRoundStatusCommand.builder()
             .seasonId(seasonId)
             .roundId(roundId)
             .status(status)
+            .requesterMemberId(requesterMemberId)
             .build();
     }
 }

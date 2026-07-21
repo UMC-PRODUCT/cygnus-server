@@ -24,6 +24,7 @@ import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.recruiting.application.port.in.command.CancelAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
@@ -34,6 +35,7 @@ import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingAp
 import com.umc.product.recruiting.application.port.in.query.GetAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchPublicRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
@@ -84,6 +86,12 @@ class RecruitingGraphQlSecurityTest {
 
     @MockitoBean
     SubmitAnonymousRecruitingApplicationUseCase submitAnonymousApplicationUseCase;
+
+    @MockitoBean
+    CancelAnonymousRecruitingApplicationUseCase cancelAnonymousApplicationUseCase;
+
+    @MockitoBean
+    SearchPublicRecruitingRoundUseCase searchPublicRoundUseCase;
 
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;

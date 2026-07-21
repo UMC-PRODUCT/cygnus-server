@@ -98,6 +98,12 @@ public class RecruitingFormSectionPolicy extends BaseEntity {
             || track == secondChoice;
     }
 
+    public void updatePolicy(RecruitingFormSectionType type, ChallengerTrack track) {
+        validatePolicy(applicationForm, type, track);
+        this.type = type;
+        this.track = track;
+    }
+
     private static void validateRequired(RecruitingApplicationForm applicationForm, Long formSectionId) {
         if (applicationForm == null || formSectionId == null || formSectionId <= 0) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);

@@ -47,7 +47,8 @@ public class RecruitingCredentialGraphQlRateLimitInterceptor implements WebGraph
     private static final Set<String> CREDENTIAL_FIELDS = Set.of(
         "recruitingApplicationByCredential",
         "updateAnonymousRecruitingApplication",
-        "submitAnonymousRecruitingApplication"
+        "submitAnonymousRecruitingApplication",
+        "cancelAnonymousRecruitingApplication"
     );
     private static final String POLICY_NAME = "recruiting-graphql-credential";
     private static final String ROUTE_NAME = "recruitingCredentialGraphQl";

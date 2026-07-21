@@ -3,6 +3,7 @@ package com.umc.product.recruiting.adapter.in.web;
 import java.util.List;
 
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -16,29 +17,34 @@ import org.springframework.web.bind.annotation.RestController;
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.recruiting.adapter.in.web.dto.request.CloneRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.CreateRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.CreateRecruitingSeasonRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.ReplaceRecruitingSeasonTrackQuotasRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingRoundStatusRequest;
-import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingSeasonStatusRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingSeasonRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingIdResponse;
-import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingRoundSummaryResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingRoundTitleAvailabilityResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonConfigurationResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonSummaryResponse;
+import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
-import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
-import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundSort;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -55,41 +61,16 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingSeasonAdminController {
 
     private final CreateRecruitingSeasonUseCase createSeasonUseCase;
-    private final UpdateRecruitingSeasonStatusUseCase updateSeasonStatusUseCase;
+    private final UpdateRecruitingSeasonUseCase updateSeasonUseCase;
     private final ReplaceRecruitingSeasonTrackQuotasUseCase replaceSeasonTrackQuotasUseCase;
     private final CreateRecruitingRoundUseCase createRoundUseCase;
     private final UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
     private final UpdateRecruitingRoundUseCase updateRoundUseCase;
     private final GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
-    private final SearchRecruitingSeasonUseCase searchSeasonUseCase;
-    private final SearchRecruitingRoundUseCase searchRoundUseCase;
-
-    @GetMapping("/seasons")
-    @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.READ)
-    @Operation(
-        operationId = "RECRUITING-ADMIN-000A",
-        summary = "모집 시즌 목록 조회",
-        description = "기수를 기준으로 현재 학교의 지부 소속을 반영한 모집 시즌과 차수를 조회합니다."
-    )
-    public List<RecruitingSeasonSummaryResponse> searchSeasons(
-        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
-        @Parameter(description = "조회할 기수 ID", example = "15")
-        @RequestParam @Positive Long gisuId,
-        @Parameter(description = "현재 학교 소속 기준 지부 ID", example = "2")
-        @RequestParam(required = false) @Positive Long chapterId,
-        @Parameter(description = "학교 ID", example = "3")
-        @RequestParam(required = false) @Positive Long schoolId
-    ) {
-        return searchSeasonUseCase.searchSeasons(RecruitingSeasonSearchQuery.builder()
-                .gisuId(gisuId)
-                .chapterId(chapterId)
-                .schoolId(schoolId)
-                .requesterMemberId(memberPrincipal.getMemberId())
-                .build())
-            .stream()
-            .map(RecruitingSeasonSummaryResponse::from)
-            .toList();
-    }
+    private final SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
+    private final CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
+    private final CloneRecruitingRoundUseCase cloneRoundUseCase;
+    private final DeleteRecruitingRoundUseCase deleteRoundUseCase;
 
     @GetMapping("/rounds")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.READ)
@@ -98,7 +79,7 @@ public class RecruitingSeasonAdminController {
         summary = "모집 차수 목록 조회",
         description = "기수를 기준으로 지부, 학교 또는 시즌 조건에 맞는 모집 차수를 조회합니다."
     )
-    public List<RecruitingRoundSummaryResponse> searchRounds(
+    public List<RecruitingSeasonSummaryResponse> searchRounds(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @Parameter(description = "조회할 기수 ID", example = "15")
         @RequestParam @Positive Long gisuId,
@@ -107,18 +88,39 @@ public class RecruitingSeasonAdminController {
         @Parameter(description = "학교 ID", example = "3")
         @RequestParam(required = false) @Positive Long schoolId,
         @Parameter(description = "모집 시즌 ID", example = "10")
-        @RequestParam(required = false) @Positive Long seasonId
+        @RequestParam(required = false) @Positive Long seasonId,
+        @Parameter(description = "모집 트랙") @RequestParam(required = false) ChallengerTrack track,
+        @Parameter(description = "정렬 기준") @RequestParam(required = false) RecruitingRoundSort sort
     ) {
-        return searchRoundUseCase.searchRounds(RecruitingRoundSearchQuery.builder()
+        return searchRoundGroupUseCase.searchRoundGroups(RecruitingRoundGroupSearchQuery.builder()
                 .gisuId(gisuId)
                 .chapterId(chapterId)
                 .schoolId(schoolId)
                 .seasonId(seasonId)
+                .track(track)
+                .sort(sort)
                 .requesterMemberId(memberPrincipal.getMemberId())
                 .build())
             .stream()
-            .map(RecruitingRoundSummaryResponse::from)
+            .map(RecruitingSeasonSummaryResponse::from)
             .toList();
+    }
+
+    @GetMapping("/seasons/{seasonId}/rounds/title-availability")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-000C",
+        summary = "모집 제목 사용 가능 여부 조회",
+        description = "같은 시즌에서 대소문자를 무시한 모집 제목 중복 여부를 확인합니다."
+    )
+    public RecruitingRoundTitleAvailabilityResponse checkRoundTitle(
+        @PathVariable @Positive Long seasonId,
+        @RequestParam String title,
+        @RequestParam(required = false) @Positive Long excludedRoundId
+    ) {
+        return new RecruitingRoundTitleAvailabilityResponse(
+            checkRoundTitleUseCase.isTitleAvailable(seasonId, title, excludedRoundId)
+        );
     }
 
     @GetMapping("/seasons/{seasonId}")
@@ -150,18 +152,18 @@ public class RecruitingSeasonAdminController {
         );
     }
 
-    @PatchMapping("/seasons/{seasonId}/status")
+    @PatchMapping("/seasons/{seasonId}")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
         operationId = "RECRUITING-ADMIN-002",
-        summary = "모집 시즌 상태 변경",
-        description = "모집 시즌의 운영 상태를 변경합니다."
+        summary = "모집 시즌 수정",
+        description = "시즌에 속한 운영진이 공유할 메모를 수정합니다."
     )
-    public void updateSeasonStatus(
+    public void updateSeason(
         @PathVariable @Positive Long seasonId,
-        @Valid @RequestBody UpdateRecruitingSeasonStatusRequest request
+        @Valid @RequestBody UpdateRecruitingSeasonRequest request
     ) {
-        updateSeasonStatusUseCase.updateSeasonStatus(request.toCommand(seasonId));
+        updateSeasonUseCase.updateSeason(request.toCommand(seasonId));
     }
 
     @PutMapping("/seasons/{seasonId}/quotas")
@@ -200,11 +202,14 @@ public class RecruitingSeasonAdminController {
         description = "모집 차수의 운영 상태를 변경합니다."
     )
     public void updateRoundStatus(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable @Positive Long seasonId,
         @PathVariable @Positive Long roundId,
         @Valid @RequestBody UpdateRecruitingRoundStatusRequest request
     ) {
-        updateRoundStatusUseCase.updateRoundStatus(request.toCommand(seasonId, roundId));
+        updateRoundStatusUseCase.updateRoundStatus(
+            request.toCommand(seasonId, roundId, memberPrincipal.getMemberId())
+        );
     }
 
     @PutMapping("/seasons/{seasonId}/rounds/{roundId}")
@@ -215,10 +220,50 @@ public class RecruitingSeasonAdminController {
         description = "모집 기간, 트랙, 2지망 정책과 면접 설정을 변경합니다."
     )
     public void updateRound(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable @Positive Long seasonId,
         @PathVariable @Positive Long roundId,
         @Valid @RequestBody UpdateRecruitingRoundRequest request
     ) {
-        updateRoundUseCase.updateRound(request.toCommand(seasonId, roundId));
+        updateRoundUseCase.updateRound(
+            request.toCommand(seasonId, roundId, memberPrincipal.getMemberId())
+        );
+    }
+
+    @PostMapping("/seasons/{seasonId}/rounds/{roundId}/clone")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-004B",
+        summary = "모집 Round 복제",
+        description = "Round 설정, 지원 Form 전체 구조와 활성 공통 질문을 대상 Season의 새 DRAFT Round로 복제합니다."
+    )
+    public RecruitingIdResponse cloneRound(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @PathVariable @Positive Long seasonId,
+        @PathVariable @Positive Long roundId,
+        @Valid @RequestBody CloneRecruitingRoundRequest request
+    ) {
+        return RecruitingIdResponse.from(cloneRoundUseCase.cloneRound(
+            request.toCommand(seasonId, roundId, memberPrincipal.getMemberId())
+        ));
+    }
+
+    @DeleteMapping("/seasons/{seasonId}/rounds/{roundId}")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-004C",
+        summary = "모집 Round 삭제",
+        description = "지원서와 Form 응답이 없는 DRAFT Round와 소유한 Form 구조를 완전히 삭제합니다."
+    )
+    public void deleteRound(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @PathVariable @Positive Long seasonId,
+        @PathVariable @Positive Long roundId
+    ) {
+        deleteRoundUseCase.deleteRound(DeleteRecruitingRoundCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .requesterMemberId(memberPrincipal.getMemberId())
+            .build());
     }
 }

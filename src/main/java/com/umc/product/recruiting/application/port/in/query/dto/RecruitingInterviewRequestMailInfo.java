@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.application.port.in.query.dto;
 
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
+import com.umc.product.recruiting.domain.enums.RecruitingInterviewScheduleStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingMailDeliveryStatus;
 
 import lombok.Builder;
@@ -12,6 +13,7 @@ public record RecruitingInterviewRequestMailInfo(
     String applicantName,
     Long availabilityFormId,
     String contactText,
+    RecruitingInterviewScheduleStatus scheduleStatus,
     RecruitingMailDeliveryStatus deliveryStatus
 ) {
 
@@ -22,11 +24,16 @@ public record RecruitingInterviewRequestMailInfo(
             .applicantName(schedule.getApplication().getApplicantName())
             .availabilityFormId(schedule.getApplication().getRound().getAvailabilityFormId())
             .contactText(schedule.getContactSnapshot())
+            .scheduleStatus(schedule.getStatus())
             .deliveryStatus(schedule.getRequestMailStatus())
             .build();
     }
 
     public boolean isSent() {
         return deliveryStatus == RecruitingMailDeliveryStatus.SENT;
+    }
+
+    public boolean isCancelled() {
+        return scheduleStatus == RecruitingInterviewScheduleStatus.CANCELLED;
     }
 }

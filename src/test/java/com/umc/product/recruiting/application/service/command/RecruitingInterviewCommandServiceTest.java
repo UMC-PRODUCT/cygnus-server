@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,15 +19,24 @@ import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitin
 import com.umc.product.recruiting.application.port.in.command.dto.FindRecruitingInterviewScheduleCandidatesCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.out.FindRecruitingScheduleOverlapPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
 import com.umc.product.recruiting.domain.RecruitingApplication;
+import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingInterviewCommandServiceTest {
 
     @Mock
     SaveRecruitingApplicationPort saveApplicationPort;
+
+    @Mock
+    LoadRecruitingInterviewSchedulePort loadSchedulePort;
+
+    @Mock
+    SaveRecruitingInterviewSchedulePort saveSchedulePort;
 
     @Mock
     FindRecruitingScheduleOverlapPort findScheduleOverlapPort;
@@ -43,6 +53,8 @@ class RecruitingInterviewCommandServiceTest {
     void setUp() {
         sut = new RecruitingInterviewCommandService(
             saveApplicationPort,
+            loadSchedulePort,
+            saveSchedulePort,
             findScheduleOverlapPort,
             authorizeManagementUseCase,
             concurrencyLockService
@@ -93,5 +105,31 @@ class RecruitingInterviewCommandServiceTest {
         verify(application).skipInterview(20L, "면접 없음");
         verify(saveApplicationPort).save(application);
         verify(authorizeManagementUseCase).authorizeSeasonManagement(20L, 700L);
+    }
+
+    @Test
+    @DisplayName("면접 생략은 이미 생성된 일정 요청을 CANCELLED로 보존한다")
+    void 면접_생략은_기존_일정을_취소한다() {
+        RecruitingApplication application = org.mockito.Mockito.mock(RecruitingApplication.class);
+        com.umc.product.recruiting.domain.RecruitingRound round =
+            org.mockito.Mockito.mock(com.umc.product.recruiting.domain.RecruitingRound.class);
+        com.umc.product.recruiting.domain.RecruitingSeason season =
+            org.mockito.Mockito.mock(com.umc.product.recruiting.domain.RecruitingSeason.class);
+        RecruitingInterviewSchedule schedule = org.mockito.Mockito.mock(RecruitingInterviewSchedule.class);
+        given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        given(application.getId()).willReturn(900L);
+        given(application.getRound()).willReturn(round);
+        given(round.getSeason()).willReturn(season);
+        given(season.getId()).willReturn(700L);
+        given(loadSchedulePort.findByApplicationId(900L)).willReturn(Optional.of(schedule));
+
+        sut.skip(SkipRecruitingInterviewCommand.builder()
+            .applicationId(900L)
+            .skippedByMemberId(20L)
+            .reason("면접 없음")
+            .build());
+
+        verify(schedule).cancel();
+        verify(saveSchedulePort).saveSchedule(schedule);
     }
 }

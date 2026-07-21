@@ -30,7 +30,7 @@ final class RecruitingHttpTestPayloads {
 
     static String graphQlQuery(ObjectMapper objectMapper) throws JsonProcessingException {
         return objectMapper.writeValueAsString(new GraphQlRequest(
-            "query { recruitingApplicationForms(input: {gisuId: 1, schoolId: 2}) { applicationFormId } }",
+            "query { publicRecruitingRounds(input: {gisuId: 1, schoolId: 2}) { seasonId rounds { roundId } } }",
             objectMapper.createObjectNode()
         ));
     }

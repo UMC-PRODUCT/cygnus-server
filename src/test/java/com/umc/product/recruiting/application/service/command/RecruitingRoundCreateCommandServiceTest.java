@@ -54,7 +54,8 @@ class RecruitingRoundCreateCommandServiceTest {
     @DisplayName("양수 쿼터 트랙으로 추가 모집 차수를 생성한다")
     void createAdditionalRound() {
         RecruitingSeason season = season(10L);
-        given(loadSeasonPort.getById(10L)).willReturn(season);
+        given(loadSeasonPort.getByIdForUpdate(10L)).willReturn(season);
+        given(loadRoundPort.getMaxAdditionalRoundNo(10L)).willReturn(1);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(quota(season, ChallengerTrack.PLAN, 3)));
         given(saveRoundPort.save(any())).willAnswer(invocation -> {
             RecruitingRound round = invocation.getArgument(0);
@@ -88,7 +89,7 @@ class RecruitingRoundCreateCommandServiceTest {
     @DisplayName("시즌 쿼터에 없는 트랙으로 차수를 생성할 수 없다")
     void createRoundRejectsTrackOutsideSeasonQuota() {
         RecruitingSeason season = season(10L);
-        given(loadSeasonPort.getById(10L)).willReturn(season);
+        given(loadSeasonPort.getByIdForUpdate(10L)).willReturn(season);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(quota(season, ChallengerTrack.PLAN, 3)));
 
         assertThatThrownBy(() -> sut.createRound(command(
@@ -105,7 +106,7 @@ class RecruitingRoundCreateCommandServiceTest {
     @DisplayName("목표 인원이 0명인 트랙으로 차수를 생성할 수 없다")
     void createRoundRejectsZeroTargetQuotaTrack() {
         RecruitingSeason season = season(10L);
-        given(loadSeasonPort.getById(10L)).willReturn(season);
+        given(loadSeasonPort.getByIdForUpdate(10L)).willReturn(season);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(quota(season, ChallengerTrack.PLAN, 0)));
         lenient().when(saveRoundPort.save(any())).thenAnswer(invocation -> {
             RecruitingRound round = invocation.getArgument(0);
@@ -135,6 +136,7 @@ class RecruitingRoundCreateCommandServiceTest {
             .seasonId(10L)
             .type(type)
             .roundNo(roundNo)
+            .title(type == RecruitingRoundType.REGULAR ? "본모집" : "추가모집 " + roundNo + "차")
             .configuration(configuration(track))
             .build();
     }

@@ -26,7 +26,6 @@ import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingApplicationInterviewQuestionUseCase;
-import com.umc.product.recruiting.application.port.in.command.ManageRecruitingFormSectionPolicyUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingRoundInterviewQuestionUseCase;
@@ -36,11 +35,9 @@ import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruiti
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewQuestionUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
-import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
 
 @WebMvcTest(controllers = {
     RecruitingAdminEvaluatorController.class,
-    RecruitingAdminFormPolicyController.class,
     RecruitingAdminInterviewController.class,
     RecruitingAdminQuestionController.class,
     RecruitingInterviewScheduleController.class
@@ -61,10 +58,6 @@ class RecruitingManagementControllerTest {
     ManageRecruitingRoundEvaluatorUseCase manageEvaluatorUseCase;
     @MockitoBean
     GetRecruitingRoundEvaluatorUseCase getEvaluatorUseCase;
-    @MockitoBean
-    ManageRecruitingFormSectionPolicyUseCase manageFormPolicyUseCase;
-    @MockitoBean
-    ValidateRecruitingFormScopeUseCase validateFormScopeUseCase;
     @MockitoBean
     ManageRecruitingInterviewScheduleUseCase manageScheduleUseCase;
     @MockitoBean
@@ -141,16 +134,4 @@ class RecruitingManagementControllerTest {
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(ACTOR_ID);
     }
 
-    @Test
-    @DisplayName("COMMON form policy에 track이 포함되면 400으로 거부한다")
-    void rejectCommonPolicyWithTrack() throws Exception {
-        mockMvc.perform(post(
-                "/api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/section-policies",
-                10L, 30L)
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"formSectionId\":300,\"type\":\"COMMON\",\"track\":\"PLAN\"}"))
-            .andExpect(status().isBadRequest());
-
-        then(manageFormPolicyUseCase).shouldHaveNoInteractions();
-    }
 }

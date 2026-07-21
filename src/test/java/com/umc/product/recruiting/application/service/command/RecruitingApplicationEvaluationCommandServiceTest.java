@@ -110,8 +110,8 @@ class RecruitingApplicationEvaluationCommandServiceTest {
     }
 
     @Test
-    @DisplayName("이미 확정한 평가는 다시 등록할 수 없다")
-    void 이미_확정한_평가는_다시_등록할_수_없다() {
+    @DisplayName("전형 확정 전에는 기존 평가를 수정할 수 있다")
+    void 전형_확정_전에는_기존_평가를_수정할_수_있다() {
         moveApplicationTo(RecruitingEvaluatorStage.INTERVIEW);
         RecruitingApplicationEvaluation submitted = RecruitingApplicationEvaluation.create(
             application,
@@ -128,17 +128,18 @@ class RecruitingApplicationEvaluationCommandServiceTest {
             RecruitingEvaluatorStage.INTERVIEW
         )).willReturn(Optional.of(submitted));
 
-        assertThatThrownBy(() -> sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
+        sut.submit(SubmitRecruitingApplicationEvaluationCommand.of(
             900L,
             20L,
             RecruitingEvaluatorStage.INTERVIEW,
             RecruitingApplicationEvaluationDecision.REJECTED,
             "변경"
-        )))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_EVALUATION_ALREADY_SUBMITTED);
-        verify(saveEvaluationPort, never()).saveEvaluation(submitted);
+        ));
+
+        verify(saveEvaluationPort).saveEvaluation(submitted);
+        org.assertj.core.api.Assertions.assertThat(submitted.getDecision())
+            .isEqualTo(RecruitingApplicationEvaluationDecision.REJECTED);
+        org.assertj.core.api.Assertions.assertThat(submitted.getComment()).isEqualTo("변경");
     }
 
     @Test
@@ -164,7 +165,6 @@ class RecruitingApplicationEvaluationCommandServiceTest {
     private void moveApplicationTo(RecruitingEvaluatorStage stage) {
         application.submit(1L);
         if (stage == RecruitingEvaluatorStage.INTERVIEW) {
-            application.passDocument(2L, null);
             application.assignInterview(2L, null);
         }
     }

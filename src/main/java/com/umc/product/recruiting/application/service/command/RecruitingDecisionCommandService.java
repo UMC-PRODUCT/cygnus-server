@@ -37,7 +37,6 @@ public class RecruitingDecisionCommandService implements
         RecruitingApplication application = concurrencyLockService.lockApplication(command.applicationId());
         validateDecisionPermission(command.decidedByMemberId(), application);
         if (command.decision() == RecruitingDecisionStatus.PASS) {
-            application.passDocument(command.decidedByMemberId(), command.reason());
             prepareInterview(application, command.decidedByMemberId());
         } else if (command.decision() == RecruitingDecisionStatus.FAIL) {
             application.failDocument(command.decidedByMemberId(), command.reason());

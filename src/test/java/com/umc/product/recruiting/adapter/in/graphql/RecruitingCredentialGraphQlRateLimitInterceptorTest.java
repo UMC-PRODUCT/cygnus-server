@@ -53,7 +53,9 @@ class RecruitingCredentialGraphQlRateLimitInterceptorTest {
     @Test
     @DisplayName("credential이 아닌 GraphQL 요청은 전용 rate limit bucket을 사용하지 않는다")
     void passNonCredentialOperation() {
-        WebGraphQlRequest request = request("query { recruitingApplicationForms(input: {gisuId: 1, schoolId: 2}) { formId } }");
+        WebGraphQlRequest request = request(
+            "query { publicRecruitingRounds(input: {gisuId: 1}) { seasonId } }"
+        );
         given(chain.next(request)).willReturn(Mono.just(downstreamResponse));
 
         WebGraphQlResponse result = sut.intercept(request, chain).block();
@@ -76,6 +78,29 @@ class RecruitingCredentialGraphQlRateLimitInterceptorTest {
               second: recruitingApplicationByCredential(input: {email: "a@example.com", applicationKey: "A1B2C3"}) {
                 applicationId
               }
+            }
+            """);
+
+        WebGraphQlResponse result = sut.intercept(request, chain).block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.getErrors()).hasSize(1);
+        assertThat(result.getErrors().getFirst().getExtensions())
+            .containsEntry("code", CommonErrorCode.TOO_MANY_REQUESTS.getCode());
+        then(chain).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("익명 지원서 철회 mutation도 credential 요청으로 제한한다")
+    void limitAnonymousCancellationMutation() {
+        WebGraphQlRequest request = request("""
+            mutation {
+              first: cancelAnonymousRecruitingApplication(
+                input: {email: "a@example.com", applicationKey: "A1B2C3"}
+              ) { applicationId }
+              second: cancelAnonymousRecruitingApplication(
+                input: {email: "a@example.com", applicationKey: "A1B2C3"}
+              ) { applicationId }
             }
             """);
 

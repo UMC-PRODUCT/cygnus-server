@@ -43,7 +43,7 @@ class RecruitingCredentialRestRateLimitInterceptorTest {
             .andExpect(status().isOk())
             .andExpect(header().string("X-RateLimit-Limit", "5"));
 
-        mockMvc.perform(post("/api/v1/recruiting/public/applications/submit")
+        mockMvc.perform(post("/api/v1/recruiting/public/applications/cancel")
                 .with(request -> {
                     request.setRemoteAddr("10.0.0.1");
                     return request;
@@ -109,6 +109,11 @@ class RecruitingCredentialRestRateLimitInterceptorTest {
 
         @PostMapping("/submit")
         void submit() {
+            invocations.incrementAndGet();
+        }
+
+        @PostMapping("/cancel")
+        void cancel() {
             invocations.incrementAndGet();
         }
 

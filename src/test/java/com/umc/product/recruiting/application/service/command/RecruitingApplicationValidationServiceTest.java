@@ -148,7 +148,6 @@ class RecruitingApplicationValidationServiceTest {
 
     private RecruitingApplicationForm openApplicationForm() {
         RecruitingSeason season = RecruitingSeason.create(1L, 100L);
-        season.activate();
         RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfiguration.of(
             List.of(ChallengerTrack.PLAN),
             false,

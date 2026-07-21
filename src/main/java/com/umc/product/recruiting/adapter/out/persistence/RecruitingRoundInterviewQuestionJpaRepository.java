@@ -12,4 +12,6 @@ public interface RecruitingRoundInterviewQuestionJpaRepository
     List<RecruitingRoundInterviewQuestion> findAllByRound_IdOrderByOrderNoAscIdAsc(Long roundId);
 
     List<RecruitingRoundInterviewQuestion> findAllByRound_IdAndActiveTrueOrderByOrderNoAscIdAsc(Long roundId);
+
+    void deleteAllByRound_Id(Long roundId);
 }

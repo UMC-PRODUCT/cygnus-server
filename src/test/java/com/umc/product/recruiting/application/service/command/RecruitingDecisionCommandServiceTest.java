@@ -205,7 +205,7 @@ class RecruitingDecisionCommandServiceTest {
 
     private RecruitingApplication documentPassedApplication() {
         RecruitingApplication application = submittedApplication();
-        application.passDocument(1L, "서류 합격");
+        application.skipInterview(1L, "면접 미진행");
         return application;
     }
 

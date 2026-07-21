@@ -26,6 +26,7 @@ import com.umc.product.recruiting.application.event.InterviewAvailabilityRequest
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewMailDeliveryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewMailDeliveryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingInterviewRequestMailInfo;
+import com.umc.product.recruiting.domain.enums.RecruitingInterviewScheduleStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingMailDeliveryStatus;
 
 @ExtendWith(MockitoExtension.class)
@@ -94,17 +95,39 @@ class InterviewAvailabilityRequestedEventListenerTest {
         then(sendEmailUseCase).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("취소된 일정의 대기 중 Outbox 이벤트는 메일을 보내지 않는다")
+    void 취소된_일정의_이벤트는_무시한다() {
+        given(getMailDeliveryUseCase.getRequestMail(40L)).willReturn(mailInfo(
+            RecruitingMailDeliveryStatus.PENDING,
+            RecruitingInterviewScheduleStatus.CANCELLED
+        ));
+
+        sut.handle(event());
+
+        then(sendEmailUseCase).shouldHaveNoInteractions();
+        then(mailDeliveryUseCase).shouldHaveNoInteractions();
+    }
+
     private InterviewAvailabilityRequestedEvent event() {
         return InterviewAvailabilityRequestedEvent.of(40L);
     }
 
     private RecruitingInterviewRequestMailInfo mailInfo(RecruitingMailDeliveryStatus status) {
+        return mailInfo(status, RecruitingInterviewScheduleStatus.AVAILABILITY_REQUESTED);
+    }
+
+    private RecruitingInterviewRequestMailInfo mailInfo(
+        RecruitingMailDeliveryStatus status,
+        RecruitingInterviewScheduleStatus scheduleStatus
+    ) {
         return RecruitingInterviewRequestMailInfo.builder()
             .applicationId(40L)
             .recipientEmail("applicant@example.com")
             .applicantName("지원자")
             .availabilityFormId(300L)
             .contactText("문의 채널")
+            .scheduleStatus(scheduleStatus)
             .deliveryStatus(status)
             .build();
     }

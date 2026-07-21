@@ -2,7 +2,8 @@ package com.umc.product.recruiting.adapter.in.graphql.dto;
 
 public record RecruitingStatusSummaryGraphQlRequest(
     Long gisuId,
-    Long schoolId
+    Long schoolId,
+    Long roundId
 ) {
 
     public RecruitingStatusSummaryGraphQlRequest {

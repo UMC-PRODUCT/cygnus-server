@@ -8,6 +8,7 @@ import lombok.Builder;
 public record UpdateRecruitingRoundStatusCommand(
     Long seasonId,
     Long roundId,
-    RecruitingRoundStatus status
+    RecruitingRoundStatus status,
+    Long requesterMemberId
 ) {
 }

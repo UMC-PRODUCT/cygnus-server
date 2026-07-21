@@ -6,12 +6,9 @@ CREATE TABLE public.recruiting_season
     updated_at TIMESTAMP WITH TIME ZONE                NOT NULL,
     gisu_id    BIGINT                                  NOT NULL,
     school_id  BIGINT                                  NOT NULL,
-    status     VARCHAR(255)                            NOT NULL,
+    memo       TEXT,
     CONSTRAINT pk_recruiting_season PRIMARY KEY (id),
-    CONSTRAINT uk_recruiting_season_gisu_school UNIQUE (gisu_id, school_id),
-    CONSTRAINT recruiting_season_status_check CHECK (
-        status IN ('DRAFT', 'ACTIVE', 'CLOSED')
-    )
+    CONSTRAINT uk_recruiting_season_gisu_school UNIQUE (gisu_id, school_id)
 );
 
 -- Season이 모집할 수 있는 track별 목표 인원을 저장한다. INFRA_PLUS는 모집 대상에서 제외한다.
@@ -42,6 +39,7 @@ CREATE TABLE public.recruiting_round
     recruiting_season_id         BIGINT                                  NOT NULL,
     type                         VARCHAR(255)                            NOT NULL,
     round_no                     INTEGER                                 NOT NULL,
+    title                        VARCHAR(100)                            NOT NULL,
     status                       VARCHAR(255)                            NOT NULL,
     recruitable_tracks           TEXT[]                                  NOT NULL DEFAULT ARRAY[]::TEXT[],
     second_choice_enabled        BOOLEAN                                 NOT NULL DEFAULT FALSE,
@@ -238,7 +236,6 @@ CREATE TABLE public.recruiting_application
         status IN (
             'DRAFT',
             'SUBMITTED',
-            'DOCUMENT_PASSED',
             'DOCUMENT_FAILED',
             'INTERVIEW_ASSIGNED',
             'INTERVIEW_SKIPPED',
@@ -359,14 +356,15 @@ CREATE TABLE public.recruiting_interview_schedule
     CONSTRAINT fk_recruiting_interview_schedule_application
         FOREIGN KEY (recruiting_application_id) REFERENCES public.recruiting_application (id),
     CONSTRAINT recruiting_interview_schedule_status_check CHECK (
-        status IN ('AVAILABILITY_REQUESTED', 'AVAILABILITY_SUBMITTED', 'CONFIRMED')
+        status IN ('AVAILABILITY_REQUESTED', 'AVAILABILITY_SUBMITTED', 'CONFIRMED', 'CANCELLED')
     ),
     CONSTRAINT recruiting_interview_schedule_response_check CHECK (
         availability_form_response_id IS NULL OR availability_form_response_id > 0
     ),
     CONSTRAINT recruiting_interview_schedule_contact_check CHECK (BTRIM(contact_snapshot) <> ''),
     CONSTRAINT recruiting_interview_schedule_state_check CHECK (
-        (
+        status = 'CANCELLED'
+        OR (
             status = 'AVAILABILITY_REQUESTED'
             AND availability_form_response_id IS NULL
             AND starts_at IS NULL
@@ -428,6 +426,10 @@ CREATE TABLE public.recruiting_interview_schedule
         )
     )
 );
+
+-- 사용자가 구분하는 모집 제목은 같은 Season 안에서 대소문자와 무관하게 중복되지 않도록 한다.
+CREATE UNIQUE INDEX uk_recruiting_round_season_title_ci
+    ON public.recruiting_round (recruiting_season_id, LOWER(title));
 
 -- Form별 section 정책 조회가 전체 정책 테이블을 순회하지 않도록 연결 인덱스를 생성한다.
 CREATE INDEX ix_recruiting_form_section_policy_application_form

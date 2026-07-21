@@ -7,49 +7,37 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
-import com.umc.product.recruiting.domain.enums.RecruitingSeasonStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 class RecruitingSeasonLifecycleTest {
 
     @Test
-    @DisplayName("새 모집 시즌은 DRAFT 상태이다")
-    void createdSeasonIsDraft() {
+    @DisplayName("새 모집 시즌의 공유 메모는 비어 있다")
+    void createdSeasonHasNoMemo() {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
 
-        assertThat(season.getStatus()).isEqualTo(RecruitingSeasonStatus.DRAFT);
+        assertThat(season.getMemo()).isNull();
     }
 
     @Test
-    @DisplayName("모집 시즌은 DRAFT에서 ACTIVE로 전이한다")
-    void seasonActivatesFromDraft() {
+    @DisplayName("모집 시즌 공유 메모를 수정한다")
+    void seasonUpdatesMemo() {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
 
-        season.activate();
+        season.updateMemo("  운영진 공유 메모  ");
 
-        assertThat(season.getStatus()).isEqualTo(RecruitingSeasonStatus.ACTIVE);
+        assertThat(season.getMemo()).isEqualTo("운영진 공유 메모");
     }
 
     @Test
-    @DisplayName("모집 시즌은 ACTIVE에서 CLOSED로 전이한다")
-    void seasonClosesFromActive() {
-        RecruitingSeason season = activeSeason();
+    @DisplayName("빈 모집 시즌 공유 메모는 null로 정규화한다")
+    void seasonNormalizesBlankMemo() {
+        RecruitingSeason season = RecruitingSeason.create(1L, 10L, "메모");
 
-        season.close();
+        season.updateMemo("   ");
 
-        assertThat(season.getStatus()).isEqualTo(RecruitingSeasonStatus.CLOSED);
-    }
-
-    @Test
-    @DisplayName("모집 시즌은 상태 전이 순서를 건너뛸 수 없다")
-    void seasonRejectsInvalidTransition() {
-        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
-
-        assertThatThrownBy(season::close)
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_SEASON_INVALID_TRANSITION);
+        assertThat(season.getMemo()).isNull();
     }
 
     @Test
@@ -89,12 +77,6 @@ class RecruitingSeasonLifecycleTest {
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRANSITION);
-    }
-
-    private RecruitingSeason activeSeason() {
-        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
-        season.activate();
-        return season;
     }
 
     private RecruitingRound openRound() {

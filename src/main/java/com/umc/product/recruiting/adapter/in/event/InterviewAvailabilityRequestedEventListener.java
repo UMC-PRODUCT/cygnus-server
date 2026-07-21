@@ -33,7 +33,7 @@ public class InterviewAvailabilityRequestedEventListener {
     @EventListener
     public void handle(InterviewAvailabilityRequestedEvent event) {
         RecruitingInterviewRequestMailInfo mail = getMailDeliveryUseCase.getRequestMail(event.applicationId());
-        if (mail.isSent()) {
+        if (mail.isSent() || mail.isCancelled()) {
             return;
         }
         try {

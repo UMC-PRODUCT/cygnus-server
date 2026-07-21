@@ -32,4 +32,14 @@ public class RecruitingFormSectionPolicyPersistenceAdapter
     public RecruitingFormSectionPolicy save(RecruitingFormSectionPolicy policy) {
         return repository.save(policy);
     }
+
+    @Override
+    public void deleteByFormSectionId(Long formSectionId) {
+        repository.findByFormSectionId(formSectionId).ifPresent(repository::delete);
+    }
+
+    @Override
+    public void deleteByApplicationFormId(Long applicationFormId) {
+        repository.deleteAll(repository.findAllByApplicationForm_IdOrderByIdAsc(applicationFormId));
+    }
 }

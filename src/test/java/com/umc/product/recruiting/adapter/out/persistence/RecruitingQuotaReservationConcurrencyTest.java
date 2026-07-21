@@ -178,7 +178,7 @@ class RecruitingQuotaReservationConcurrencyTest {
             applicationKey
         );
         application.submit(memberId);
-        application.passDocument(EXECUTOR_MEMBER_ID, "서류 합격");
+        application.skipInterview(EXECUTOR_MEMBER_ID, "면접 미진행");
         application.passFinal(EXECUTOR_MEMBER_ID, "최종 합격", ChallengerTrack.DESIGN);
         return application;
     }

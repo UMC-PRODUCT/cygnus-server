@@ -138,7 +138,19 @@ public class RecruitingInterviewSchedule extends BaseEntity {
         this.confirmationMailSentAt = null;
     }
 
+    public void cancel() {
+        if (status == RecruitingInterviewScheduleStatus.CANCELLED) {
+            return;
+        }
+        this.status = RecruitingInterviewScheduleStatus.CANCELLED;
+    }
+
+    public boolean isCancelled() {
+        return status == RecruitingInterviewScheduleStatus.CANCELLED;
+    }
+
     public void markRequestMailSent(Instant sentAt) {
+        requireNotCancelled();
         validateSentAt(sentAt);
         requestMailAttempts++;
         requestMailStatus = RecruitingMailDeliveryStatus.SENT;
@@ -147,6 +159,7 @@ public class RecruitingInterviewSchedule extends BaseEntity {
     }
 
     public void markRequestMailFailed(String error) {
+        requireNotCancelled();
         validateError(error);
         requestMailAttempts++;
         requestMailStatus = RecruitingMailDeliveryStatus.FAILED;
@@ -155,6 +168,7 @@ public class RecruitingInterviewSchedule extends BaseEntity {
     }
 
     public void retryRequestMail() {
+        requireNotCancelled();
         if (requestMailStatus != RecruitingMailDeliveryStatus.FAILED) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
         }
@@ -221,6 +235,12 @@ public class RecruitingInterviewSchedule extends BaseEntity {
 
     private void requireStatus(RecruitingInterviewScheduleStatus expected) {
         if (status != expected) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+        }
+    }
+
+    private void requireNotCancelled() {
+        if (isCancelled()) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
         }
     }

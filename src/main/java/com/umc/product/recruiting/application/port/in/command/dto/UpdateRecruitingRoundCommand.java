@@ -9,7 +9,9 @@ import lombok.Builder;
 public record UpdateRecruitingRoundCommand(
     Long seasonId,
     Long roundId,
-    RecruitingRoundConfigurationCommand configuration
+    String title,
+    RecruitingRoundConfigurationCommand configuration,
+    Long requesterMemberId
 ) {
 
     public UpdateRecruitingRoundCommand {

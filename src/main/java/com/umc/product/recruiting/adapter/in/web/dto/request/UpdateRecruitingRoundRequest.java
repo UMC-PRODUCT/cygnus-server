@@ -9,11 +9,15 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruiti
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 @Schema(description = "모집 차수 설정 변경 요청")
 public record UpdateRecruitingRoundRequest(
+    @Schema(description = "모집 제목", example = "15기 본모집")
+    @NotBlank @Size(max = 100) String title,
     @Schema(description = "모집 대상 트랙 목록") @NotEmpty List<ChallengerTrack> recruitableTracks,
     @Schema(description = "2지망 지원 허용 여부", example = "true") boolean secondChoiceEnabled,
     @Schema(description = "서류 접수 시작 시각") @NotNull Instant documentStartAt,
@@ -28,10 +32,12 @@ public record UpdateRecruitingRoundRequest(
     @Schema(description = "문의 연락처") String contactText
 ) {
 
-    public UpdateRecruitingRoundCommand toCommand(Long seasonId, Long roundId) {
+    public UpdateRecruitingRoundCommand toCommand(Long seasonId, Long roundId, Long requesterMemberId) {
         return UpdateRecruitingRoundCommand.builder()
             .seasonId(seasonId)
             .roundId(roundId)
+            .title(title)
+            .requesterMemberId(requesterMemberId)
             .configuration(RecruitingRoundConfigurationCommand.of(
                 recruitableTracks,
                 secondChoiceEnabled,

@@ -42,4 +42,9 @@ public class RecruitingRoundInterviewQuestionPersistenceAdapter implements
     public RecruitingRoundInterviewQuestion save(RecruitingRoundInterviewQuestion question) {
         return repository.save(question);
     }
+
+    @Override
+    public void deleteByRoundId(Long roundId) {
+        repository.deleteAllByRound_Id(roundId);
+    }
 }

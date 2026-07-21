@@ -93,7 +93,7 @@ public class RecruitingPublicApplicationQueryService implements GetAnonymousRecr
             return RecruitingPublicResultStatus.REJECTED;
         }
         return switch (status) {
-            case DOCUMENT_PASSED, INTERVIEW_ASSIGNED, INTERVIEW_SKIPPED, FINAL_PASSED, FINAL_FAILED ->
+            case INTERVIEW_ASSIGNED, INTERVIEW_SKIPPED, FINAL_PASSED, FINAL_FAILED ->
                 RecruitingPublicResultStatus.APPROVED;
             default -> RecruitingPublicResultStatus.PENDING;
         };

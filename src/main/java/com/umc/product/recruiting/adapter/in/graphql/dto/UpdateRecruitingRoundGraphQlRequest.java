@@ -8,6 +8,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoun
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 
 public record UpdateRecruitingRoundGraphQlRequest(
+    String title,
     List<ChallengerTrack> recruitableTracks,
     boolean secondChoiceEnabled,
     Instant documentStartAt,
@@ -22,10 +23,12 @@ public record UpdateRecruitingRoundGraphQlRequest(
     String contactText
 ) {
 
-    public UpdateRecruitingRoundCommand toCommand(Long seasonId, Long roundId) {
+    public UpdateRecruitingRoundCommand toCommand(Long seasonId, Long roundId, Long requesterMemberId) {
         return UpdateRecruitingRoundCommand.builder()
             .seasonId(seasonId)
             .roundId(roundId)
+            .title(title)
+            .requesterMemberId(requesterMemberId)
             .configuration(RecruitingRoundConfigurationCommand.of(
                 recruitableTracks,
                 secondChoiceEnabled,

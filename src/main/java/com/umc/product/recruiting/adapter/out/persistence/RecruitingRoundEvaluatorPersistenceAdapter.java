@@ -47,4 +47,9 @@ public class RecruitingRoundEvaluatorPersistenceAdapter implements
     public void delete(RecruitingRoundEvaluator evaluator) {
         repository.delete(evaluator);
     }
+
+    @Override
+    public void deleteByRoundId(Long roundId) {
+        repository.deleteAllByRound_Id(roundId);
+    }
 }

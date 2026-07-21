@@ -94,14 +94,14 @@ operation::gisu-query-v2-controller-test/조회_기준이_없으면_400을_반�
 
 == Recruiting admin
 
-=== close-form-binds-season
-operation::recruiting-admin-controller-test/close-form-binds-season[snippets='http-request,http-response']
+=== close-form-endpoint-is-removed
+operation::recruiting-admin-controller-test/close-form-endpoint-is-removed[snippets='http-request,http-response']
 
 === csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다
 operation::recruiting-admin-controller-test/csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다[snippets='http-request,http-response']
 
-=== publish-form-binds-season-and-requester
-operation::recruiting-admin-controller-test/publish-form-binds-season-and-requester[snippets='http-request,http-response']
+=== publish-form-endpoint-is-removed
+operation::recruiting-admin-controller-test/publish-form-endpoint-is-removed[snippets='http-request,http-response']
 
 === ready-uses-current-member-actor
 operation::recruiting-admin-controller-test/ready-uses-current-member-actor[snippets='http-request,http-response']
@@ -112,8 +112,8 @@ operation::recruiting-admin-controller-test/면접_생략_api는_-current-member
 === 면접_생략_api는_긴_사유를_거부한다
 operation::recruiting-admin-controller-test/면접_생략_api는_긴_사유를_거부한다[snippets='http-request,http-response']
 
-=== 모집_폼_연결_api는_차수와_-form_id를_전달한다
-operation::recruiting-admin-controller-test/모집_폼_연결_api는_차수와_-form_id를_전달한다[snippets='http-request,http-response']
+=== 모집_폼_upsert_api는_전체_구조와_요청자를_전달한다
+operation::recruiting-admin-controller-test/모집_폼_upsert_api는_전체_구조와_요청자를_전달한다[snippets='http-request,http-response']
 
 === 상태_요약_api는_status별_count를_반환한다
 operation::recruiting-admin-controller-test/상태_요약_api는_status별_count를_반환한다[snippets='http-request,http-response']
@@ -163,14 +163,17 @@ operation::recruiting-application-mutation-controller-test/update-draft-uses-aut
 
 == Recruiting public
 
-=== public_forms_api는_학교별_게시된_모집_폼을_반환한다
-operation::recruiting-public-controller-test/public_forms_api는_학교별_게시된_모집_폼을_반환한다[snippets='http-request,http-response']
+=== public-round-list-binds-filters
+operation::recruiting-public-controller-test/public-round-list-binds-filters[snippets='http-request,http-response']
 
 === 익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다
 operation::recruiting-public-controller-test/익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다[snippets='http-request,http-response']
 
 === 익명_지원서_조회_api는_내부_key를_노출하지_않는다
 operation::recruiting-public-controller-test/익명_지원서_조회_api는_내부_key를_노출하지_않는다[snippets='http-request,http-response']
+
+=== 익명_지원서_철회_api는_정규화된_credential을_전달한다
+operation::recruiting-public-controller-test/익명_지원서_철회_api는_정규화된_credential을_전달한다[snippets='http-request,http-response']
 
 == School command
 

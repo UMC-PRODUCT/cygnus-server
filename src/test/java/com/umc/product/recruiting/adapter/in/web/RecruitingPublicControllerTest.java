@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.adapter.in.web;
 
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -10,6 +11,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -21,18 +23,19 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.recruiting.application.port.in.command.CancelAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchPublicRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
-import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = RecruitingPublicController.class)
@@ -63,25 +66,30 @@ class RecruitingPublicControllerTest {
     @MockitoBean
     SubmitAnonymousRecruitingApplicationUseCase submitAnonymousApplicationUseCase;
 
-    @Test
-    @DisplayName("public forms API는 학교별 게시된 모집 폼을 반환한다")
-    void public_forms_API는_학교별_게시된_모집_폼을_반환한다() throws Exception {
-        given(getRecruitingFormQueryUseCase.listPublicForms(11L, 22L))
-            .willReturn(List.of(new RecruitingApplicationFormInfo(
-                1L,
-                100L,
-                RecruitingRoundType.REGULAR,
-                1,
-                200L,
-                RecruitingApplicationFormStatus.PUBLISHED
-            )));
+    @MockitoBean
+    CancelAnonymousRecruitingApplicationUseCase cancelAnonymousApplicationUseCase;
 
-        mockMvc.perform(get("/api/v1/recruiting/public/forms")
+    @MockitoBean
+    SearchPublicRecruitingRoundUseCase searchPublicRoundUseCase;
+
+    @Test
+    @DisplayName("공개 모집 API는 학교와 모집 단계 필터를 전달한다")
+    void publicRoundListBindsFilters() throws Exception {
+        given(searchPublicRoundUseCase.searchPublicRounds(org.mockito.ArgumentMatchers.any()))
+            .willReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/recruiting/public/rounds")
                 .param("gisuId", "11")
-                .param("schoolId", "22"))
+                .param("schoolId", "22")
+                .param("phase", "OPEN"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result[0].applicationFormId").value(1L))
-            .andExpect(jsonPath("$.result[0].status").value("PUBLISHED"));
+            .andExpect(jsonPath("$.result").isEmpty());
+
+        ArgumentCaptor<RecruitingPublicRoundSearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingPublicRoundSearchQuery.class);
+        then(searchPublicRoundUseCase).should().searchPublicRounds(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().schoolId()).isEqualTo(22L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().effectivePhase().name()).isEqualTo("OPEN");
     }
 
     @Test
@@ -136,5 +144,32 @@ class RecruitingPublicControllerTest {
             .andExpect(jsonPath("$.result.documentResult").value("PENDING"))
             .andExpect(jsonPath("$.result.applicationKey").doesNotExist())
             .andExpect(jsonPath("$.result.formResponseAccessKey").doesNotExist());
+    }
+
+    @Test
+    @DisplayName("익명 지원서 철회 API는 정규화된 credential을 전달한다")
+    void 익명_지원서_철회_API는_정규화된_credential을_전달한다() throws Exception {
+        given(cancelAnonymousApplicationUseCase.cancelAnonymous(org.mockito.ArgumentMatchers.any()))
+            .willReturn(RecruitingApplicationInfo.of(100L, RecruitingApplicationStatus.CANCELLED));
+
+        mockMvc.perform(post("/api/v1/recruiting/public/applications/cancel")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "email": "Applicant@Example.COM",
+                      "applicationKey": "A1B2C3"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.applicationId").value(100L))
+            .andExpect(jsonPath("$.result.status").value("CANCELLED"));
+
+        ArgumentCaptor<com.umc.product.recruiting.application.port.in.command.dto.CancelAnonymousRecruitingApplicationCommand>
+            captor = ArgumentCaptor.forClass(
+                com.umc.product.recruiting.application.port.in.command.dto.CancelAnonymousRecruitingApplicationCommand.class
+            );
+        then(cancelAnonymousApplicationUseCase).should().cancelAnonymous(captor.capture());
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().credentialEmail())
+            .isEqualTo("applicant@example.com");
     }
 }

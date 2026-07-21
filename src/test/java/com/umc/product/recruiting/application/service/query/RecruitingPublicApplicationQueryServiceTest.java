@@ -110,7 +110,6 @@ class RecruitingPublicApplicationQueryServiceTest {
         );
         ReflectionTestUtils.setField(application, "id", 900L);
         application.submitAnonymous("applicant@example.com");
-        application.passDocument(10L, "서류 합격");
         application.skipInterview(10L, "면접 미진행");
         application.passFinal(10L, "최종 합격", ChallengerTrack.PLAN);
         return application;

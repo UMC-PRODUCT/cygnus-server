@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.in.web.dto.request;
 
+import com.umc.product.recruiting.application.port.in.command.dto.CancelAnonymousRecruitingApplicationCommand;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,5 +21,12 @@ public record RecruitingApplicationCredentialRequest(
         if (email != null && !email.isBlank()) {
             email = RecruitingApplicantEmail.from(email).value();
         }
+    }
+
+    public CancelAnonymousRecruitingApplicationCommand toCancelCommand() {
+        return CancelAnonymousRecruitingApplicationCommand.builder()
+            .credentialEmail(email)
+            .applicationKey(applicationKey)
+            .build();
     }
 }

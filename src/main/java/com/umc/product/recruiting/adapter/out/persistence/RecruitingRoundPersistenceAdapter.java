@@ -58,7 +58,27 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
     }
 
     @Override
+    public boolean existsBySeasonIdAndTitleIgnoreCase(Long seasonId, String title) {
+        return recruitingRoundJpaRepository.existsBySeason_IdAndTitleIgnoreCase(seasonId, title);
+    }
+
+    @Override
+    public boolean existsBySeasonIdAndTitleIgnoreCaseAndIdNot(Long seasonId, String title, Long id) {
+        return recruitingRoundJpaRepository.existsBySeason_IdAndTitleIgnoreCaseAndIdNot(seasonId, title, id);
+    }
+
+    @Override
+    public int getMaxAdditionalRoundNo(Long seasonId) {
+        return recruitingRoundJpaRepository.findMaxAdditionalRoundNo(seasonId);
+    }
+
+    @Override
     public RecruitingRound save(RecruitingRound round) {
         return recruitingRoundJpaRepository.save(round);
+    }
+
+    @Override
+    public void delete(RecruitingRound round) {
+        recruitingRoundJpaRepository.delete(round);
     }
 }

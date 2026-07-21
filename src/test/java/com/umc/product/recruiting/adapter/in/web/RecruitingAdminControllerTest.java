@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -38,18 +39,16 @@ import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApp
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
-import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingDocumentCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.LinkRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -76,8 +75,6 @@ class RecruitingAdminControllerTest {
     JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
-    LinkRecruitingApplicationFormUseCase linkFormUseCase;
-    @MockitoBean
     PublishRecruitingApplicationFormUseCase publishFormUseCase;
     @MockitoBean
     CloseRecruitingApplicationFormUseCase closeFormUseCase;
@@ -99,6 +96,8 @@ class RecruitingAdminControllerTest {
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     @MockitoBean
     ExportRecruitingCsvUseCase exportRecruitingCsvUseCase;
+    @MockitoBean
+    UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
 
     @BeforeEach
     void setUpSecurityContext() {
@@ -109,55 +108,56 @@ class RecruitingAdminControllerTest {
     }
 
     @Test
-    @DisplayName("모집 폼 연결 API는 차수와 Form ID command를 전달한다")
-    void 모집_폼_연결_API는_차수와_Form_ID를_전달한다() throws Exception {
-        given(linkFormUseCase.link(any())).willReturn(APPLICATION_FORM_ID);
+    @DisplayName("모집 폼 upsert API는 전체 구조와 요청자를 전달한다")
+    void 모집_폼_upsert_API는_전체_구조와_요청자를_전달한다() throws Exception {
+        given(upsertFormUseCase.upsert(any())).willReturn(APPLICATION_FORM_ID);
 
-        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/forms", SEASON_ID, ROUND_ID)
+        mockMvc.perform(put("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/form", SEASON_ID, ROUND_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"formId\":300}"))
+                .content("""
+                    {
+                      "description": "지원서",
+                      "sections": [{
+                        "clientKey": "common",
+                        "title": "공통",
+                        "type": "COMMON",
+                        "questions": []
+                      }]
+                    }
+                    """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.id").value(APPLICATION_FORM_ID));
 
-        ArgumentCaptor<LinkRecruitingApplicationFormCommand> captor =
-            ArgumentCaptor.forClass(LinkRecruitingApplicationFormCommand.class);
-        then(linkFormUseCase).should().link(captor.capture());
+        ArgumentCaptor<UpsertRecruitingApplicationFormCommand> captor =
+            ArgumentCaptor.forClass(UpsertRecruitingApplicationFormCommand.class);
+        then(upsertFormUseCase).should().upsert(captor.capture());
         assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
         assertThat(captor.getValue().roundId()).isEqualTo(ROUND_ID);
-        assertThat(captor.getValue().formId()).isEqualTo(300L);
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
     }
 
     @Test
-    @DisplayName("모집 폼 게시 API는 시즌과 요청자 ID를 command로 전달한다")
-    void publishFormBindsSeasonAndRequester() throws Exception {
+    @DisplayName("별도 모집 폼 게시 API는 제거한다")
+    void publishFormEndpointIsRemoved() throws Exception {
         mockMvc.perform(post(
                 "/api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/publish",
                 SEASON_ID,
                 APPLICATION_FORM_ID
             ))
-            .andExpect(status().isOk());
-
-        ArgumentCaptor<PublishRecruitingApplicationFormCommand> captor =
-            ArgumentCaptor.forClass(PublishRecruitingApplicationFormCommand.class);
-        then(publishFormUseCase).should().publish(captor.capture());
-        assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
-        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+            .andExpect(status().isNotFound());
+        then(publishFormUseCase).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("모집 폼 마감 API는 시즌 ID를 command로 전달한다")
-    void closeFormBindsSeason() throws Exception {
+    @DisplayName("별도 모집 폼 마감 API는 제거한다")
+    void closeFormEndpointIsRemoved() throws Exception {
         mockMvc.perform(post(
                 "/api/v1/recruiting/admin/seasons/{seasonId}/forms/{applicationFormId}/close",
                 SEASON_ID,
                 APPLICATION_FORM_ID
             ))
-            .andExpect(status().isOk());
-
-        ArgumentCaptor<CloseRecruitingApplicationFormCommand> captor =
-            ArgumentCaptor.forClass(CloseRecruitingApplicationFormCommand.class);
-        then(closeFormUseCase).should().close(captor.capture());
-        assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
+            .andExpect(status().isNotFound());
+        then(closeFormUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -283,7 +283,7 @@ class RecruitingAdminControllerTest {
     void 상태_요약_API는_status별_count를_반환한다() throws Exception {
         Map<RecruitingApplicationStatus, Long> counts = new EnumMap<>(RecruitingApplicationStatus.class);
         counts.put(RecruitingApplicationStatus.SUBMITTED, 3L);
-        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, MEMBER_ID))
+        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, null, MEMBER_ID))
             .willReturn(new RecruitingStatusSummaryInfo(3L, counts));
 
         mockMvc.perform(get("/api/v1/recruiting/admin/summary")

@@ -29,6 +29,7 @@ import com.umc.product.form.application.port.in.command.dto.CreateDraftFormRespo
 import com.umc.product.form.application.port.in.command.dto.SubmitAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.CancelAnonymousRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateAnonymousRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
@@ -385,6 +386,24 @@ class RecruitingApplicationCommandServiceTest {
             .build());
 
         assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.CANCELLED);
+        then(manageFormResponseUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("익명 지원서 철회는 정규화된 이메일과 지원 키를 검증하고 Form 응답을 보존한다")
+    void cancelAnonymousApplication() {
+        RecruitingApplication application = anonymousDraftApplication();
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(java.util.Optional.of(application));
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
+
+        RecruitingApplicationInfo result = sut.cancelAnonymous(CancelAnonymousRecruitingApplicationCommand.builder()
+            .credentialEmail(" Applicant@Example.COM ")
+            .applicationKey("A1B2C3")
+            .build());
+
+        assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.CANCELLED);
+        then(saveApplicationPort).should().save(application);
         then(manageFormResponseUseCase).shouldHaveNoInteractions();
     }
 

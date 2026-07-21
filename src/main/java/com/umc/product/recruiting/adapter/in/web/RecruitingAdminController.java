@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -22,26 +23,22 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
-import com.umc.product.recruiting.adapter.in.web.dto.request.LinkRecruitingApplicationFormRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.UpsertRecruitingApplicationFormRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingIdResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingStatusSummaryResponse;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
-import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
-import com.umc.product.recruiting.application.port.in.command.LinkRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
-import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruitingRegistrationCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 
@@ -59,9 +56,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RecruitingAdminController {
 
-    private final LinkRecruitingApplicationFormUseCase linkFormUseCase;
-    private final PublishRecruitingApplicationFormUseCase publishFormUseCase;
-    private final CloseRecruitingApplicationFormUseCase closeFormUseCase;
+    private final UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
     private final DecideRecruitingDocumentUseCase decideDocumentUseCase;
     private final DecideRecruitingFinalUseCase decideFinalUseCase;
     private final SkipRecruitingInterviewUseCase skipInterviewUseCase;
@@ -71,56 +66,22 @@ public class RecruitingAdminController {
     private final GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     private final ExportRecruitingCsvUseCase exportRecruitingCsvUseCase;
 
-    @PostMapping("/seasons/{seasonId}/rounds/{roundId}/forms")
+    @PutMapping("/seasons/{seasonId}/rounds/{roundId}/form")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)
     @Operation(
         operationId = "RECRUITING-ADMIN-005",
-        summary = "지원 폼 연결",
-        description = "모집 차수에 form 엔진의 지원 폼 하나를 연결합니다."
+        summary = "지원 Form 전체 구조 Upsert",
+        description = "Round가 DRAFT일 때 section, question, option과 COMMON/TRACK 정책을 하나의 요청으로 동기화합니다."
     )
-    public RecruitingIdResponse linkForm(
+    public RecruitingIdResponse upsertForm(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable @Positive Long seasonId,
         @PathVariable @Positive Long roundId,
-        @Valid @RequestBody LinkRecruitingApplicationFormRequest request
+        @Valid @RequestBody UpsertRecruitingApplicationFormRequest request
     ) {
-        return RecruitingIdResponse.from(linkFormUseCase.link(request.toCommand(seasonId, roundId)));
-    }
-
-    @PostMapping("/seasons/{seasonId}/forms/{applicationFormId}/publish")
-    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
-    @Operation(
-        operationId = "RECRUITING-ADMIN-006",
-        summary = "지원 폼 게시",
-        description = "연결된 지원 폼을 지원자에게 공개합니다."
-    )
-    public void publishForm(
-        @Parameter(hidden = true)
-        @CurrentMember MemberPrincipal memberPrincipal,
-        @PathVariable @Positive Long seasonId,
-        @PathVariable @Positive Long applicationFormId
-    ) {
-        publishFormUseCase.publish(PublishRecruitingApplicationFormCommand.builder()
-            .seasonId(seasonId)
-            .applicationFormId(applicationFormId)
-            .requesterMemberId(memberId(memberPrincipal))
-            .build());
-    }
-
-    @PostMapping("/seasons/{seasonId}/forms/{applicationFormId}/close")
-    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
-    @Operation(
-        operationId = "RECRUITING-ADMIN-007",
-        summary = "지원 폼 마감",
-        description = "공개된 지원 폼을 수동으로 마감합니다."
-    )
-    public void closeForm(
-        @PathVariable @Positive Long seasonId,
-        @PathVariable @Positive Long applicationFormId
-    ) {
-        closeFormUseCase.close(CloseRecruitingApplicationFormCommand.builder()
-            .seasonId(seasonId)
-            .applicationFormId(applicationFormId)
-            .build());
+        return RecruitingIdResponse.from(upsertFormUseCase.upsert(
+            request.toCommand(seasonId, roundId, memberId(memberPrincipal))
+        ));
     }
 
     @PatchMapping("/applications/{applicationId}/document-decision")
@@ -219,15 +180,16 @@ public class RecruitingAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-011",
         summary = "지원 현황 요약 조회",
-        description = "기수와 학교 기준으로 지원서 상태별 집계와 전체 건수를 조회합니다."
+        description = "기수와 학교 기준으로 지원서 상태별 집계와 Round별 집계를 조회하며 특정 Round로 필터링할 수 있습니다."
     )
     public RecruitingStatusSummaryResponse getSummary(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam @Positive Long gisuId,
-        @RequestParam @Positive Long schoolId
+        @RequestParam @Positive Long schoolId,
+        @RequestParam(required = false) @Positive Long roundId
     ) {
         return RecruitingStatusSummaryResponse.from(
-            getApplicationQueryUseCase.getStatusSummary(gisuId, schoolId, memberId(memberPrincipal))
+            getApplicationQueryUseCase.getStatusSummary(gisuId, schoolId, roundId, memberId(memberPrincipal))
         );
     }
 

@@ -39,13 +39,13 @@ abstract class RecruitingFormApplicationMigrationTestSupport {
         try (Connection connection = POSTGRES.createConnection(""); var statement = connection.createStatement()) {
             statement.execute("""
                 INSERT INTO recruiting_season (
-                    created_at, updated_at, gisu_id, school_id, status
-                ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 9, 90, 'DRAFT');
+                    created_at, updated_at, gisu_id, school_id
+                ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 9, 90);
                 INSERT INTO recruiting_round (
-                    created_at, updated_at, recruiting_season_id, type, round_no, status
+                    created_at, updated_at, recruiting_season_id, type, round_no, title, status
                 ) VALUES
-                    (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'REGULAR', 1, 'DRAFT'),
-                    (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'ADDITIONAL', 2, 'DRAFT');
+                    (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'REGULAR', 1, '본모집', 'DRAFT'),
+                    (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 'ADDITIONAL', 2, '추가모집 2차', 'DRAFT');
                 """);
         }
     }

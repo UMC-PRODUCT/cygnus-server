@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,14 +20,20 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
+import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
@@ -47,6 +54,16 @@ class RecruitingRoundUpdateCommandServiceTest {
     LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     @Mock
     LoadRecruitingApplicationPort loadApplicationPort;
+    @Mock
+    LoadRecruitingApplicationFormPort loadApplicationFormPort;
+    @Mock
+    PublishRecruitingApplicationFormUseCase publishApplicationFormUseCase;
+    @Mock
+    CloseRecruitingApplicationFormUseCase closeApplicationFormUseCase;
+    @Mock
+    ManageFormUseCase manageFormUseCase;
+    @Mock
+    GetFormUseCase getFormUseCase;
     @InjectMocks
     RecruitingRoundCommandService sut;
 
@@ -63,6 +80,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.DESIGN))
             .build());
 
@@ -84,6 +102,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.DESIGN))
             .build()))
             .isInstanceOf(RecruitingDomainException.class)
@@ -107,6 +126,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.PLAN, true, null, null))
             .build()))
             .isInstanceOf(RecruitingDomainException.class)
@@ -130,6 +150,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.DESIGN))
             .build()))
             .isInstanceOf(RecruitingDomainException.class)
@@ -154,6 +175,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.PLAN, "변경 공지", "010-0000-0000"))
             .build());
 
@@ -178,6 +200,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.PLAN, "마감 공지", "문의 채널"))
             .build());
 
@@ -195,6 +218,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(999L)
             .roundId(20L)
+            .title("본모집")
             .configuration(configuration(ChallengerTrack.PLAN))
             .build()))
             .isInstanceOf(RecruitingDomainException.class)
@@ -206,7 +230,10 @@ class RecruitingRoundUpdateCommandServiceTest {
     @DisplayName("같은 시즌의 차수 상태를 OPEN으로 변경한다")
     void updateRoundStatus() {
         RecruitingRound round = round(20L, season(10L));
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
         given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
 
         sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
             .seasonId(10L)
@@ -215,6 +242,7 @@ class RecruitingRoundUpdateCommandServiceTest {
             .build());
 
         assertThat(round.getStatus()).isEqualTo(RecruitingRoundStatus.OPEN);
+        then(publishApplicationFormUseCase).should().publish(any());
         then(saveRoundPort).should().save(round);
     }
 

@@ -229,8 +229,9 @@ public class RecruitingApplication extends BaseEntity {
         transitionTo(RecruitingApplicationStatus.CANCELLED, memberId, reason);
     }
 
-    public void passDocument(Long memberId, String reason) {
-        transitionTo(RecruitingApplicationStatus.DOCUMENT_PASSED, memberId, reason);
+    public void cancelAnonymous(String credentialEmail) {
+        validateAnonymousApplicant(credentialEmail);
+        transitionTo(RecruitingApplicationStatus.CANCELLED, null, null);
     }
 
     public void failDocument(Long memberId, String reason) {

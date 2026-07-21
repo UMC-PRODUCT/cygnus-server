@@ -18,6 +18,7 @@ import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousDraft
 import com.umc.product.form.application.port.in.command.dto.UpdateAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormResponseCommand;
+import com.umc.product.recruiting.application.port.in.command.CancelAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateAnonymousRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
@@ -25,6 +26,7 @@ import com.umc.product.recruiting.application.port.in.command.SubmitAnonymousRec
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateAnonymousRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.CancelAnonymousRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateAnonymousRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
@@ -63,7 +65,8 @@ public class RecruitingApplicationCommandService implements
     UpdateAnonymousRecruitingApplicationUseCase,
     SubmitRecruitingApplicationUseCase,
     SubmitAnonymousRecruitingApplicationUseCase,
-    CancelRecruitingApplicationUseCase {
+    CancelRecruitingApplicationUseCase,
+    CancelAnonymousRecruitingApplicationUseCase {
 
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final LoadRecruitingApplicationPort loadApplicationPort;
@@ -298,6 +301,16 @@ public class RecruitingApplicationCommandService implements
             List.of()
         );
         application.cancel(command.requesterMemberId(), command.reason());
+        saveApplicationPort.save(application);
+        return toInfo(application);
+    }
+
+    @Override
+    public RecruitingApplicationInfo cancelAnonymous(CancelAnonymousRecruitingApplicationCommand command) {
+        String credentialEmail = RecruitingApplicantEmail.from(command.credentialEmail()).value();
+        RecruitingApplication found = getAnonymousByCredential(credentialEmail, command.applicationKey());
+        RecruitingApplication application = concurrencyLockService.lockApplicantThenApplication(found.getId(), List.of());
+        application.cancelAnonymous(credentialEmail);
         saveApplicationPort.save(application);
         return toInfo(application);
     }
