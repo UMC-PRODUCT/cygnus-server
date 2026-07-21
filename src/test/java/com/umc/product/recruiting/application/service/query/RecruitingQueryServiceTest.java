@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -21,11 +22,16 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
@@ -48,6 +54,15 @@ class RecruitingQueryServiceTest {
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
 
     @Mock
+    LoadRecruitingRoundPort loadRoundPort;
+
+    @Mock
+    LoadRecruitingSeasonPort loadSeasonPort;
+
+    @Mock
+    GetSchoolUseCase getSchoolUseCase;
+
+    @Mock
     GetFormUseCase getFormUseCase;
 
     @Mock
@@ -61,22 +76,26 @@ class RecruitingQueryServiceTest {
     void summarizeApplicationStatuses() {
         // Given
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
-        given(loadApplicationPort.searchSummaryRows(1L, 10L, null, null)).willReturn(List.of(
+        givenSummaryScope();
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, null)).willReturn(List.of(
             row("지원자1", RecruitingApplicationStatus.SUBMITTED),
             row("지원자2", RecruitingApplicationStatus.SUBMITTED),
             row("지원자3", RecruitingApplicationStatus.FINAL_PASSED)
         ));
 
         // When
-        RecruitingStatusSummaryInfo result = sut.getStatusSummary(1L, 10L, 99L);
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
 
         // Then
         assertThat(result.totalCount()).isEqualTo(3);
         assertThat(result.countByStatus().get(RecruitingApplicationStatus.SUBMITTED)).isEqualTo(2L);
         assertThat(result.countByStatus().get(RecruitingApplicationStatus.FINAL_PASSED)).isEqualTo(1L);
-        assertThat(result.rounds()).singleElement().satisfies(round -> {
-            assertThat(round.roundId()).isEqualTo(20L);
-            assertThat(round.totalCount()).isEqualTo(3L);
+        assertThat(result.schools()).singleElement().satisfies(school -> {
+            assertThat(school.schoolName()).isEqualTo("테스트대학교");
+            assertThat(school.rounds()).singleElement().satisfies(round -> {
+                assertThat(round.roundId()).isEqualTo(20L);
+                assertThat(round.totalCount()).isEqualTo(3L);
+            });
         });
     }
 
@@ -86,7 +105,7 @@ class RecruitingQueryServiceTest {
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
         given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(false);
 
-        assertThatThrownBy(() -> sut.getStatusSummary(1L, 10L, 99L))
+        assertThatThrownBy(() -> sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of())))
             .isInstanceOf(com.umc.product.recruiting.domain.exception.RecruitingDomainException.class);
         then(loadApplicationPort).shouldHaveNoInteractions();
     }
@@ -96,9 +115,8 @@ class RecruitingQueryServiceTest {
     void superAdminReadsStatusSummaryAcrossGisu() {
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
         given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
-        given(loadApplicationPort.searchSummaryRows(1L, 10L, null, null)).willReturn(List.of());
 
-        RecruitingStatusSummaryInfo result = sut.getStatusSummary(1L, 10L, 99L);
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
 
         assertThat(result.totalCount()).isZero();
     }
@@ -107,13 +125,68 @@ class RecruitingQueryServiceTest {
     @DisplayName("상태 요약은 선택한 Round ID를 persistence 조회에 전달한다")
     void filterStatusSummaryByRound() {
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
-        given(loadApplicationPort.searchSummaryRows(1L, 10L, 20L, null))
+        givenSummaryScope();
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), Set.of(20L), null))
             .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
 
-        RecruitingStatusSummaryInfo result = sut.getStatusSummary(1L, 10L, 20L, 99L);
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of(20L)));
 
         assertThat(result.totalCount()).isEqualTo(1L);
-        then(loadApplicationPort).should().searchSummaryRows(1L, 10L, 20L, null);
+        then(loadApplicationPort).should().searchSummaryRows(1L, Set.of(10L), Set.of(20L), null);
+    }
+
+    @Test
+    @DisplayName("상태 요약은 학교명으로 검색하고 지원서가 없는 학교와 Round도 0건으로 반환한다")
+    void statusSummaryIncludesZeroCountGroupsAfterSchoolNameFilter() {
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
+        ReflectionTestUtils.setField(season, "id", 5L);
+        RecruitingRound firstRound = summaryRound(season, 20L, "15기 본모집");
+        RecruitingRound emptyRound = summaryRound(season, 21L, "15기 추가모집");
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(
+            school(10L, "Alpha 대학교"),
+            school(11L, "Beta 대학교")
+        ));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(loadRoundPort.listBySeasonIds(List.of(5L))).willReturn(List.of(firstRound, emptyRound));
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, null))
+            .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(RecruitingStatusSummaryQuery.builder()
+            .gisuId(1L)
+            .schoolName("  alpha  ")
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(result.schools()).singleElement().satisfies(foundSchool -> {
+            assertThat(foundSchool.schoolName()).isEqualTo("Alpha 대학교");
+            assertThat(foundSchool.rounds()).hasSize(2);
+            assertThat(foundSchool.rounds())
+                .filteredOn(round -> round.roundId().equals(21L))
+                .singleElement()
+                .satisfies(round -> {
+                    assertThat(round.totalCount()).isZero();
+                    assertThat(round.countByStatus()).isEmpty();
+                });
+        });
+    }
+
+    @Test
+    @DisplayName("상태 요약은 시즌이 없는 선택 학교도 0건 그룹으로 반환한다")
+    void statusSummaryIncludesSchoolWithoutSeason() {
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(school(10L, "빈 학교")));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of());
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
+
+        assertThat(result.totalCount()).isZero();
+        assertThat(result.schools()).singleElement().satisfies(foundSchool -> {
+            assertThat(foundSchool.schoolId()).isEqualTo(10L);
+            assertThat(foundSchool.totalCount()).isZero();
+            assertThat(foundSchool.rounds()).isEmpty();
+        });
+        then(loadApplicationPort).shouldHaveNoInteractions();
     }
 
     @Test
@@ -195,6 +268,7 @@ class RecruitingQueryServiceTest {
             1L,
             10L,
             20L,
+            "15기 본모집",
             RecruitingRoundType.REGULAR,
             1,
             100L,
@@ -209,5 +283,48 @@ class RecruitingQueryServiceTest {
             RecruitingApplicationRegistrationStatus.NOT_READY,
             Instant.parse("2026-07-02T01:00:00Z")
         );
+    }
+
+    private void givenSummaryScope() {
+        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
+        ReflectionTestUtils.setField(season, "id", 5L);
+        RecruitingRound round = summaryRound(season, 20L, "15기 본모집");
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(school(10L, "테스트대학교")));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(loadRoundPort.listBySeasonIds(List.of(5L))).willReturn(List.of(round));
+    }
+
+    private RecruitingRound summaryRound(RecruitingSeason season, Long roundId, String title) {
+        RecruitingRound round = RecruitingRound.createRegular(season, title, RecruitingRoundConfiguration.of(
+            List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
+            false,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-08T00:00:00Z"),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            false,
+            null,
+            null,
+            Instant.parse("2026-08-16T00:00:00Z"),
+            null,
+            null,
+            null
+        ));
+        ReflectionTestUtils.setField(round, "id", roundId);
+        return round;
+    }
+
+    private SchoolDetailInfo school(Long schoolId, String schoolName) {
+        return new SchoolDetailInfo(
+            3L, "중앙", schoolName, schoolId, null, null, List.of(), true, null, null
+        );
+    }
+
+    private RecruitingStatusSummaryQuery summaryQuery(Set<Long> schoolIds, Set<Long> roundIds) {
+        return RecruitingStatusSummaryQuery.builder()
+            .gisuId(1L)
+            .schoolIds(schoolIds)
+            .roundIds(roundIds)
+            .requesterMemberId(99L)
+            .build();
     }
 }

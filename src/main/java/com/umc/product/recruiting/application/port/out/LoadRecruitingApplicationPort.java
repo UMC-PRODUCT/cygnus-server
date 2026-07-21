@@ -74,8 +74,8 @@ public interface LoadRecruitingApplicationPort {
 
     Page<RecruitingApplication> searchByRoundId(
         Long roundId,
-        RecruitingApplicationStatus status,
-        ChallengerTrack track,
+        Collection<RecruitingApplicationStatus> statuses,
+        Collection<ChallengerTrack> tracks,
         Pageable pageable
     );
 
@@ -94,6 +94,13 @@ public interface LoadRecruitingApplicationPort {
         Long gisuId,
         Long schoolId,
         Long roundId,
+        Collection<RecruitingApplicationStatus> statuses
+    );
+
+    List<RecruitingApplicationSummaryRow> searchSummaryRows(
+        Long gisuId,
+        Collection<Long> schoolIds,
+        Collection<Long> roundIds,
         Collection<RecruitingApplicationStatus> statuses
     );
 }

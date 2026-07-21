@@ -5,7 +5,9 @@ import java.time.Instant;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -177,10 +179,12 @@ public class RecruitingSeasonQueryService implements
         List<VisibleSeason> seasons = listPublicSeasons(
             query.gisuId(),
             query.chapterId(),
-            query.schoolId(),
+            query.schoolIds(),
+            query.schoolName(),
             query.seasonId()
         );
         List<RecruitingRound> candidateRounds = filterRounds(listRounds(seasons), query.track()).stream()
+            .filter(round -> query.roundIds().isEmpty() || query.roundIds().contains(round.getId()))
             .filter(round -> round.getStatus() != RecruitingRoundStatus.DRAFT)
             .toList();
         Map<Long, RecruitingApplicationForm> formByRoundId = loadApplicationFormPort.listByRoundIds(
@@ -264,12 +268,16 @@ public class RecruitingSeasonQueryService implements
     private List<VisibleSeason> listPublicSeasons(
         Long gisuId,
         Long chapterId,
-        Long schoolId,
+        Set<Long> schoolIds,
+        String schoolName,
         Long seasonId
     ) {
+        String normalizedSchoolName = schoolName == null ? null : schoolName.toLowerCase(Locale.ROOT);
         Map<Long, SchoolDetailInfo> schoolsById = getSchoolUseCase.getSchoolListByGisuId(gisuId).stream()
             .filter(school -> chapterId == null || chapterId.equals(school.chapterId()))
-            .filter(school -> schoolId == null || schoolId.equals(school.schoolId()))
+            .filter(school -> schoolIds.isEmpty() || schoolIds.contains(school.schoolId()))
+            .filter(school -> normalizedSchoolName == null
+                || school.schoolName().toLowerCase(Locale.ROOT).contains(normalizedSchoolName))
             .collect(Collectors.toMap(SchoolDetailInfo::schoolId, Function.identity()));
         return loadSeasonPort.listByGisuId(gisuId).stream()
             .filter(season -> seasonId == null || seasonId.equals(season.getId()))

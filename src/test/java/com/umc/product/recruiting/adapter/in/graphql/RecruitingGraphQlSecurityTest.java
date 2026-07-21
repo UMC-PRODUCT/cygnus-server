@@ -7,8 +7,10 @@ import static org.mockito.BDDMockito.then;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
 import org.springframework.context.annotation.Import;
@@ -39,6 +41,7 @@ import com.umc.product.recruiting.application.port.in.query.SearchPublicRecruiti
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
@@ -101,6 +104,11 @@ class RecruitingGraphQlSecurityTest {
 
     @AfterEach
     void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @BeforeEach
+    void clearSecurityContextBeforeTest() {
         SecurityContextHolder.clearContext();
     }
 
@@ -234,6 +242,35 @@ class RecruitingGraphQlSecurityTest {
                   "finalResult": "PENDING"
                 }
                 """);
+    }
+
+    @Test
+    @DisplayName("공개 모집 Query는 복수 학교·Round와 학교명 필터를 전달한다")
+    void publicRoundQueryBindsMultipleFilters() {
+        given(searchPublicRoundUseCase.searchPublicRounds(org.mockito.ArgumentMatchers.any()))
+            .willReturn(List.of());
+
+        graphQlTester.document("""
+                query {
+                  publicRecruitingRounds(input: {
+                    gisuId: 11,
+                    schoolIds: [22, 23],
+                    roundIds: [31, 32],
+                    schoolName: "대학교"
+                  }) { seasonId }
+                }
+                """)
+            .execute()
+            .path("publicRecruitingRounds")
+            .entityList(Object.class)
+            .hasSize(0);
+
+        ArgumentCaptor<RecruitingPublicRoundSearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingPublicRoundSearchQuery.class);
+        then(searchPublicRoundUseCase).should().searchPublicRounds(captor.capture());
+        assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
+        assertThat(captor.getValue().roundIds()).containsExactlyInAnyOrder(31L, 32L);
+        assertThat(captor.getValue().schoolName()).isEqualTo("대학교");
     }
 
     private static void authenticate() {

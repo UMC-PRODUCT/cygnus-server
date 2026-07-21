@@ -38,6 +38,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_ROUND_TITLE_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0115", "같은 시즌에 동일한 모집 제목이 있어요."),
     RECRUITING_ROUND_NO_SEQUENCE_CONFLICT(HttpStatus.CONFLICT, "RECRUITING-0116", "추가모집 차수는 이전 차수 다음 번호여야 해요."),
     RECRUITING_ROUND_DELETE_CONFLICT(HttpStatus.CONFLICT, "RECRUITING-0117", "초안이며 지원서와 Form 응답이 없는 모집만 삭제할 수 있어요."),
+    RECRUITING_ROUND_UNPUBLISH_CONFLICT(HttpStatus.CONFLICT, "RECRUITING-0118", "지원서 또는 Form 응답이 있는 모집은 비공개할 수 없어요."),
     RECRUITING_APPLICATION_FORM_INVALID(HttpStatus.BAD_REQUEST, "RECRUITING-0200", "지원 폼 정보가 올바르지 않아요."),
     RECRUITING_APPLICATION_FORM_INVALID_TRANSITION(HttpStatus.BAD_REQUEST, "RECRUITING-0201", "현재 지원 폼 상태에서는 할 수 없는 작업이에요."),
     RECRUITING_APPLICATION_FORM_ALREADY_EXISTS(HttpStatus.CONFLICT, "RECRUITING-0202", "이미 해당 모집 차수에 연결된 지원 폼이에요."),

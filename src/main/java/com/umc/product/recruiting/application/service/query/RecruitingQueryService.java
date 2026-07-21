@@ -1,8 +1,9 @@
 package com.umc.product.recruiting.application.service.query;
 
+import java.util.Comparator;
 import java.util.EnumMap;
-import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -14,6 +15,8 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
@@ -21,14 +24,18 @@ import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingAp
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
@@ -47,7 +54,9 @@ public class RecruitingQueryService implements
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingRoundPort loadRoundPort;
+    private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
+    private final GetSchoolUseCase getSchoolUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetFormUseCase getFormUseCase;
     private final GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
@@ -124,51 +133,97 @@ public class RecruitingQueryService implements
     }
 
     @Override
-    public RecruitingStatusSummaryInfo getStatusSummary(Long gisuId, Long schoolId, Long requesterMemberId) {
-        return getStatusSummary(gisuId, schoolId, null, requesterMemberId);
+    public RecruitingStatusSummaryInfo getStatusSummary(RecruitingStatusSummaryQuery query) {
+        validateCentralGisuAccess(query.requesterMemberId(), query.gisuId());
+        List<SchoolDetailInfo> schools = listSummarySchools(query);
+        Set<Long> schoolIds = schools.stream().map(SchoolDetailInfo::schoolId).collect(java.util.stream.Collectors.toSet());
+        List<RecruitingRound> rounds = listSummaryRounds(query, schoolIds);
+        Set<Long> roundIds = rounds.stream().map(RecruitingRound::getId).collect(java.util.stream.Collectors.toSet());
+
+        List<RecruitingApplicationSummaryRow> rows = schoolIds.isEmpty()
+            || rounds.isEmpty()
+            ? List.of()
+            : loadApplicationPort.searchSummaryRows(
+                query.gisuId(),
+                schoolIds,
+                query.roundIds().isEmpty() ? null : roundIds,
+                null
+            );
+
+        Map<Long, List<RecruitingApplicationSummaryRow>> rowsBySchool = rows.stream()
+            .collect(java.util.stream.Collectors.groupingBy(RecruitingApplicationSummaryRow::schoolId));
+        Map<Long, List<RecruitingRound>> roundsBySchool = rounds.stream()
+            .collect(java.util.stream.Collectors.groupingBy(round -> round.getSeason().getSchoolId()));
+        List<RecruitingSchoolStatusSummaryInfo> schoolSummaries = schools.stream()
+            .map(school -> toSchoolSummary(
+                school,
+                rowsBySchool.getOrDefault(school.schoolId(), List.of()),
+                roundsBySchool.getOrDefault(school.schoolId(), List.of())
+            ))
+            .toList();
+        return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus(rows), schoolSummaries);
     }
 
-    @Override
-    public RecruitingStatusSummaryInfo getStatusSummary(
-        Long gisuId,
-        Long schoolId,
-        Long roundId,
-        Long requesterMemberId
-    ) {
-        validateCentralGisuAccess(requesterMemberId, gisuId);
-        List<RecruitingApplicationSummaryRow> rows = loadApplicationPort.searchSummaryRows(
-            gisuId,
-            schoolId,
-            roundId,
-            null
-        );
-        Map<RecruitingApplicationStatus, Long> countByStatus = new EnumMap<>(RecruitingApplicationStatus.class);
-        for (RecruitingApplicationSummaryRow row : rows) {
-            countByStatus.merge(row.applicationStatus(), 1L, Long::sum);
+    private List<SchoolDetailInfo> listSummarySchools(RecruitingStatusSummaryQuery query) {
+        String schoolName = query.schoolName() == null ? null : query.schoolName().toLowerCase(Locale.ROOT);
+        return getSchoolUseCase.getSchoolListByGisuId(query.gisuId()).stream()
+            .filter(school -> query.schoolIds().isEmpty() || query.schoolIds().contains(school.schoolId()))
+            .filter(school -> schoolName == null || school.schoolName().toLowerCase(Locale.ROOT).contains(schoolName))
+            .sorted(Comparator.comparing(SchoolDetailInfo::schoolId))
+            .toList();
+    }
+
+    private List<RecruitingRound> listSummaryRounds(RecruitingStatusSummaryQuery query, Set<Long> schoolIds) {
+        List<Long> seasonIds = loadSeasonPort.listByGisuId(query.gisuId()).stream()
+            .filter(season -> schoolIds.contains(season.getSchoolId()))
+            .map(season -> season.getId())
+            .toList();
+        if (seasonIds.isEmpty()) {
+            return List.of();
         }
+        return loadRoundPort.listBySeasonIds(seasonIds).stream()
+            .filter(round -> query.roundIds().isEmpty() || query.roundIds().contains(round.getId()))
+            .sorted(Comparator.comparing((RecruitingRound round) -> round.getSeason().getSchoolId())
+                .thenComparing(RecruitingRound::getRoundNo)
+                .thenComparing(RecruitingRound::getId))
+            .toList();
+    }
+
+    private RecruitingSchoolStatusSummaryInfo toSchoolSummary(
+        SchoolDetailInfo school,
+        List<RecruitingApplicationSummaryRow> rows,
+        List<RecruitingRound> rounds
+    ) {
         Map<Long, List<RecruitingApplicationSummaryRow>> rowsByRound = rows.stream()
-            .collect(java.util.stream.Collectors.groupingBy(
-                RecruitingApplicationSummaryRow::roundId,
-                LinkedHashMap::new,
-                java.util.stream.Collectors.toList()
-            ));
-        List<RecruitingRoundStatusSummaryInfo> rounds = rowsByRound.values().stream()
-            .map(roundRows -> {
-                RecruitingApplicationSummaryRow first = roundRows.getFirst();
-                Map<RecruitingApplicationStatus, Long> roundCountByStatus = new EnumMap<>(
-                    RecruitingApplicationStatus.class
-                );
-                roundRows.forEach(row -> roundCountByStatus.merge(row.applicationStatus(), 1L, Long::sum));
+            .collect(java.util.stream.Collectors.groupingBy(RecruitingApplicationSummaryRow::roundId));
+        List<RecruitingRoundStatusSummaryInfo> roundSummaries = rounds.stream()
+            .map(round -> {
+                List<RecruitingApplicationSummaryRow> roundRows = rowsByRound.getOrDefault(round.getId(), List.of());
                 return new RecruitingRoundStatusSummaryInfo(
-                    first.roundId(),
-                    first.roundType(),
-                    first.roundNo(),
+                    round.getId(),
+                    round.getTitle(),
+                    round.getType(),
+                    round.getRoundNo(),
                     (long) roundRows.size(),
-                    roundCountByStatus
+                    countByStatus(roundRows)
                 );
             })
             .toList();
-        return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus, rounds);
+        return new RecruitingSchoolStatusSummaryInfo(
+            school.schoolId(),
+            school.schoolName(),
+            school.chapterId(),
+            school.chapterName(),
+            (long) rows.size(),
+            countByStatus(rows),
+            roundSummaries
+        );
+    }
+
+    private Map<RecruitingApplicationStatus, Long> countByStatus(List<RecruitingApplicationSummaryRow> rows) {
+        Map<RecruitingApplicationStatus, Long> result = new EnumMap<>(RecruitingApplicationStatus.class);
+        rows.forEach(row -> result.merge(row.applicationStatus(), 1L, Long::sum));
+        return result;
     }
 
     private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {

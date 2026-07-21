@@ -16,10 +16,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.recruiting.adapter.in.web.dto.request.ConfirmRecruitingInterviewScheduleRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.CreateRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingInterviewQuestionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitRecruitingEvaluationRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpsertRecruitingApplicationFormRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingEvaluationResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingInterviewScheduleResponse;
@@ -131,6 +133,8 @@ class RecruitingRestContractTest {
     void task10SchemasAreDescribedAndDoNotExposeActor() {
         List<Class<?>> schemaTypes = List.of(
             SubmitRecruitingEvaluationRequest.class,
+            CreateRecruitingRoundRequest.class,
+            UpdateRecruitingRoundRequest.class,
             RecruitingInterviewQuestionRequest.class,
             RecruitingDocumentDecisionRequest.class,
             SkipRecruitingInterviewRequest.class,
@@ -146,7 +150,12 @@ class RecruitingRestContractTest {
             Schema<?> schema = schemas.get(schemaType.getSimpleName());
             assertThat(schema).as(schemaType.getSimpleName()).isNotNull();
             assertThat(schema.getDescription()).isNotBlank();
-            assertThat(schema.getProperties()).doesNotContainKeys("memberId", "requesterMemberId", "executorMemberId");
+            assertThat(schema.getProperties()).doesNotContainKeys(
+                "memberId",
+                "requesterMemberId",
+                "executorMemberId",
+                "interviewConfigurationValid"
+            );
         }
     }
 

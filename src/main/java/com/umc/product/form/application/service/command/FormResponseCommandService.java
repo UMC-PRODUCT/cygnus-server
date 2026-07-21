@@ -360,6 +360,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private FormResponse loadDraft(Long formResponseId) {
         FormResponse formResponse = loadFormResponsePort.findById(formResponseId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
+        requirePublished(formResponse.getForm());
         if (formResponse.getStatus() != FormResponseStatus.DRAFT) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
@@ -385,6 +386,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        requirePublished(draft.getForm());
         if (draft.getRespondentMemberId() != null) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
@@ -410,6 +412,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse response = loadFormResponsePort.findSubmittedByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        requirePublished(response.getForm());
         if (response.getRespondentMemberId() != null) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
@@ -447,10 +450,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private Form loadPublishedForm(Long formId) {
         Form form = loadFormPort.findById(formId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requirePublished(form);
+        return form;
+    }
+
+    private static void requirePublished(Form form) {
         if (!form.isPublished()) {
             throw new FormDomainException(FormErrorCode.FORM_NOT_PUBLISHED);
         }
-        return form;
     }
 
     private void validateDuplicateResponsePolicy(Form form, Long respondentMemberId) {

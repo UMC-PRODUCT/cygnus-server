@@ -106,8 +106,18 @@ public class Form extends BaseEntity {
         if (isPublished()) {
             throw new FormDomainException(FormErrorCode.FORM_ALREADY_PUBLISHED);
         }
-
+        validateStatus(FormStatus.DRAFT);
         this.status = FormStatus.PUBLISHED;
+    }
+
+    public void unpublish() {
+        validateStatus(FormStatus.PUBLISHED);
+        this.status = FormStatus.DRAFT;
+    }
+
+    public void close() {
+        validateStatus(FormStatus.PUBLISHED);
+        this.status = FormStatus.CLOSED;
     }
 
     /**
@@ -142,6 +152,12 @@ public class Form extends BaseEntity {
         }
         if (allowDuplicateResponses != null) {
             this.allowDuplicateResponses = allowDuplicateResponses;
+        }
+    }
+
+    private void validateStatus(FormStatus expectedStatus) {
+        if (status != expectedStatus) {
+            throw new FormDomainException(FormErrorCode.FORM_INVALID_TRANSITION);
         }
     }
 }

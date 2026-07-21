@@ -12,6 +12,7 @@ public record RecruitingApplicationSummaryRow(
     Long gisuId,
     Long schoolId,
     Long roundId,
+    String roundTitle,
     RecruitingRoundType roundType,
     Integer roundNo,
     Long applicationFormId,

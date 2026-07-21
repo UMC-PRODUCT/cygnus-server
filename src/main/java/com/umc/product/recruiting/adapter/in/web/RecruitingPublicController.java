@@ -61,12 +61,14 @@ public class RecruitingPublicController {
     @Operation(
         operationId = "RECRUITING-PUBLIC-001",
         summary = "공개 모집 목록 조회",
-        description = "지원 가능한 모집 또는 종료된 모집을 학교의 현재 지부 정보와 시즌별로 묶어 조회합니다."
+        description = "로그인 없이 지원 가능한 모집 또는 종료된 모집을 조회합니다. DRAFT와 운영진 내부 설정은 반환하지 않으며 학교의 현재 지부 정보와 시즌별로 묶어 제공합니다."
     )
     public List<RecruitingPublicRoundGroupResponse> listPublicRounds(
         @RequestParam @Positive Long gisuId,
         @RequestParam(required = false) @Positive Long chapterId,
-        @RequestParam(required = false) @Positive Long schoolId,
+        @RequestParam(required = false) List<@Positive Long> schoolIds,
+        @RequestParam(required = false) List<@Positive Long> roundIds,
+        @RequestParam(required = false) String schoolName,
         @RequestParam(required = false) @Positive Long seasonId,
         @RequestParam(required = false) ChallengerTrack track,
         @RequestParam(required = false) RecruitingRoundPhase phase,
@@ -75,7 +77,9 @@ public class RecruitingPublicController {
         return searchPublicRoundUseCase.searchPublicRounds(RecruitingPublicRoundSearchQuery.builder()
                 .gisuId(gisuId)
                 .chapterId(chapterId)
-                .schoolId(schoolId)
+                .schoolIds(schoolIds == null ? null : java.util.Set.copyOf(schoolIds))
+                .roundIds(roundIds == null ? null : java.util.Set.copyOf(roundIds))
+                .schoolName(schoolName)
                 .seasonId(seasonId)
                 .track(track)
                 .phase(phase)

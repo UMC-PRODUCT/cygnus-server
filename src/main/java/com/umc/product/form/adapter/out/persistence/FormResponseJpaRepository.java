@@ -53,6 +53,8 @@ public interface FormResponseJpaRepository extends JpaRepository<FormResponse, L
 
     boolean existsByForm_IdAndRespondentMemberId(Long formId, Long respondentMemberId);
 
+    boolean existsByForm_Id(Long formId);
+
     /**
      * 특정 폼의 특정 상태 응답 수 조회
      */

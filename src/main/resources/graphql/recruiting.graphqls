@@ -146,14 +146,17 @@ input RecruitingApplicationCredentialInput {
 
 input RecruitingStatusSummaryInput {
   gisuId: ID!
-  schoolId: ID!
-  roundId: ID
+  schoolIds: [ID!]
+  roundIds: [ID!]
+  schoolName: String
 }
 
 input RecruitingPublicRoundSearchInput {
   gisuId: ID!
   chapterId: ID
-  schoolId: ID
+  schoolIds: [ID!]
+  roundIds: [ID!]
+  schoolName: String
   seasonId: ID
   track: ChallengerTrack
   phase: RecruitingRoundPhase
@@ -265,8 +268,8 @@ input UpsertRecruitingFormOptionInput {
 }
 
 input RecruitingApplicationSearchInput {
-  status: RecruitingApplicationStatus
-  track: ChallengerTrack
+  statuses: [RecruitingApplicationStatus!]
+  tracks: [ChallengerTrack!]
   page: Int
   size: Int
 }
@@ -574,11 +577,22 @@ type RecruitingInterviewSchedule {
 type RecruitingStatusSummary {
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  schools: [RecruitingSchoolStatusSummary!]!
+}
+
+type RecruitingSchoolStatusSummary {
+  schoolId: ID!
+  schoolName: String!
+  chapterId: ID!
+  chapterName: String!
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
   rounds: [RecruitingRoundStatusSummary!]!
 }
 
 type RecruitingRoundStatusSummary {
   roundId: ID!
+  roundTitle: String!
   roundType: RecruitingRoundType!
   roundNo: Int!
   totalCount: Long!
@@ -751,6 +765,7 @@ enum RecruitingRoundSort {
 enum FormStatus {
   DRAFT
   PUBLISHED
+  CLOSED
 }
 
 enum RecruitingPublicResultStatus {

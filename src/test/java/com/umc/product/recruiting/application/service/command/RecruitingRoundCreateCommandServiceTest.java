@@ -127,6 +127,25 @@ class RecruitingRoundCreateCommandServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_TRACK_NOT_IN_SEASON);
     }
 
+    @Test
+    @DisplayName("REST와 GraphQL이 공유하는 생성 UseCase는 INFRA_PLUS 모집을 거부한다")
+    void createRoundRejectsInfraPlusBeforeQuotaValidation() {
+        RecruitingSeason season = season(10L);
+        given(loadSeasonPort.getByIdForUpdate(10L)).willReturn(season);
+
+        assertThatThrownBy(() -> sut.createRound(command(
+            RecruitingRoundType.REGULAR,
+            null,
+            ChallengerTrack.INFRA_PLUS
+        )))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRACKS);
+
+        then(loadQuotaPort).shouldHaveNoInteractions();
+        then(saveRoundPort).shouldHaveNoInteractions();
+    }
+
     private CreateRecruitingRoundCommand command(
         RecruitingRoundType type,
         Integer roundNo,

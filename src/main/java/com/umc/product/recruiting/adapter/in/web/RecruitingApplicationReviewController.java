@@ -1,5 +1,8 @@
 package com.umc.product.recruiting.adapter.in.web;
 
+import java.util.List;
+import java.util.Set;
+
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
@@ -42,15 +45,15 @@ public class RecruitingApplicationReviewController {
     public PageResponse<RecruitingApplicationSummaryResponse> search(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable @Positive Long roundId,
-        @RequestParam(required = false) RecruitingApplicationStatus status,
-        @RequestParam(required = false) ChallengerTrack track,
+        @RequestParam(required = false) List<RecruitingApplicationStatus> statuses,
+        @RequestParam(required = false) List<ChallengerTrack> tracks,
         @ParameterObject @PageableDefault(size = 20) Pageable pageable
     ) {
         return PageResponse.of(
             searchApplicationUseCase.search(RecruitingApplicationSearchQuery.builder()
                 .roundId(roundId)
-                .status(status)
-                .track(track)
+                .statuses(statuses == null ? Set.of() : Set.copyOf(statuses))
+                .tracks(tracks == null ? Set.of() : Set.copyOf(tracks))
                 .requesterMemberId(memberPrincipal.getMemberId())
                 .pageable(pageable)
                 .build()),

@@ -7,6 +7,7 @@ import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 public record RecruitingRoundStatusSummaryInfo(
     Long roundId,
+    String roundTitle,
     RecruitingRoundType roundType,
     Integer roundNo,
     Long totalCount,

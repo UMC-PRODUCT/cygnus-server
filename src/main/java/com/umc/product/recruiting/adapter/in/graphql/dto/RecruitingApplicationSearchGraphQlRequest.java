@@ -1,5 +1,8 @@
 package com.umc.product.recruiting.adapter.in.graphql.dto;
 
+import java.util.List;
+import java.util.Set;
+
 import org.springframework.data.domain.PageRequest;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -7,8 +10,8 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplic
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 
 public record RecruitingApplicationSearchGraphQlRequest(
-    RecruitingApplicationStatus status,
-    ChallengerTrack track,
+    List<RecruitingApplicationStatus> statuses,
+    List<ChallengerTrack> tracks,
     Integer page,
     Integer size
 ) {
@@ -21,8 +24,8 @@ public record RecruitingApplicationSearchGraphQlRequest(
         }
         return RecruitingApplicationSearchQuery.builder()
             .roundId(roundId)
-            .status(status)
-            .track(track)
+            .statuses(statuses == null ? Set.of() : Set.copyOf(statuses))
+            .tracks(tracks == null ? Set.of() : Set.copyOf(tracks))
             .requesterMemberId(requesterMemberId)
             .pageable(PageRequest.of(pageNumber, pageSize))
             .build();

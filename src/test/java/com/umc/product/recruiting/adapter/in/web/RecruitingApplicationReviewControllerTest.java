@@ -71,8 +71,8 @@ class RecruitingApplicationReviewControllerTest {
         ));
 
         mockMvc.perform(get("/api/v1/recruiting/rounds/{roundId}/applications", 20L)
-                .param("status", "SUBMITTED")
-                .param("track", "PLAN")
+                .param("statuses", "SUBMITTED", "INTERVIEW_ASSIGNED")
+                .param("tracks", "PLAN", "DESIGN")
                 .param("page", "1")
                 .param("size", "10"))
             .andExpect(status().isOk())
@@ -84,10 +84,39 @@ class RecruitingApplicationReviewControllerTest {
             ArgumentCaptor.forClass(RecruitingApplicationSearchQuery.class);
         then(searchApplicationUseCase).should().search(captor.capture());
         assertThat(captor.getValue().roundId()).isEqualTo(20L);
-        assertThat(captor.getValue().status()).isEqualTo(RecruitingApplicationStatus.SUBMITTED);
-        assertThat(captor.getValue().track()).isEqualTo(ChallengerTrack.PLAN);
+        assertThat(captor.getValue().statuses()).containsExactlyInAnyOrder(
+            RecruitingApplicationStatus.SUBMITTED,
+            RecruitingApplicationStatus.INTERVIEW_ASSIGNED
+        );
+        assertThat(captor.getValue().tracks()).containsExactlyInAnyOrder(
+            ChallengerTrack.PLAN,
+            ChallengerTrack.DESIGN
+        );
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
         assertThat(captor.getValue().pageable().getPageNumber()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("평가용 지원서 목록은 comma-separated 상태와 트랙 필터를 지원한다")
+    void searchApplicationsWithCommaSeparatedFilters() throws Exception {
+        given(searchApplicationUseCase.search(any())).willReturn(new PageImpl<>(List.of()));
+
+        mockMvc.perform(get("/api/v1/recruiting/rounds/{roundId}/applications", 20L)
+                .param("statuses", "SUBMITTED,FINAL_FAILED")
+                .param("tracks", "PLAN,DESIGN"))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<RecruitingApplicationSearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingApplicationSearchQuery.class);
+        then(searchApplicationUseCase).should().search(captor.capture());
+        assertThat(captor.getValue().statuses()).containsExactlyInAnyOrder(
+            RecruitingApplicationStatus.SUBMITTED,
+            RecruitingApplicationStatus.FINAL_FAILED
+        );
+        assertThat(captor.getValue().tracks()).containsExactlyInAnyOrder(
+            ChallengerTrack.PLAN,
+            ChallengerTrack.DESIGN
+        );
     }
 
     private RecruitingApplicationSummaryInfo summary() {

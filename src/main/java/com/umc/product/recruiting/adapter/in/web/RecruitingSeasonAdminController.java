@@ -77,7 +77,8 @@ public class RecruitingSeasonAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-011",
         summary = "모집 차수 목록 조회",
-        description = "기수를 기준으로 지부, 학교 또는 시즌 조건에 맞는 모집 차수를 조회합니다."
+        description = "권한이 있는 운영진이 편집·관리 화면에서 DRAFT, OPEN, CLOSED 모집을 Season별로 조회합니다. "
+            + "공개 모집 탐색과 달리 Season 메모, 연락처와 Form 설정을 포함합니다."
     )
     public List<RecruitingSeasonSummaryResponse> searchRounds(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
@@ -111,7 +112,8 @@ public class RecruitingSeasonAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-012",
         summary = "모집 제목 사용 가능 여부 조회",
-        description = "같은 시즌에서 대소문자를 무시한 모집 제목 중복 여부를 확인합니다."
+        description = "같은 시즌에서 대소문자를 무시한 모집 제목 중복 여부를 미리 확인합니다. "
+            + "실제 생성·수정에서도 같은 검증을 반복하고 DB unique index가 최종 중복을 방어합니다."
     )
     public RecruitingRoundTitleAvailabilityResponse checkRoundTitle(
         @PathVariable @Positive Long seasonId,
@@ -185,7 +187,8 @@ public class RecruitingSeasonAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-013",
         summary = "모집 차수 생성",
-        description = "모집 기간, 트랙, 2지망 정책과 면접 설정을 포함한 차수를 생성합니다."
+        description = "모집 기간, 트랙, 2지망 정책과 면접 설정을 포함한 차수를 생성합니다. "
+            + "INFRA_PLUS는 모집할 수 없으며 면접 Round의 availability Form은 OPEN 전까지 설정·게시해야 합니다."
     )
     public RecruitingIdResponse createRound(
         @PathVariable @Positive Long seasonId,
@@ -199,7 +202,8 @@ public class RecruitingSeasonAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-015",
         summary = "모집 차수 상태 변경",
-        description = "모집 차수의 운영 상태를 변경합니다."
+        description = "Round와 지원 Form 상태를 함께 변경합니다. 지원서와 Form 응답이 없는 OPEN Round만 DRAFT로 "
+            + "되돌릴 수 있고, CLOSED는 다시 열거나 DRAFT로 되돌릴 수 없습니다."
     )
     public void updateRoundStatus(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,

@@ -22,11 +22,11 @@
 | 테스트 | 검증 케이스 |
 |---|---|
 | `RecruitingSeasonCommandServiceTest` | Season 생성 권한, 중복 Season, quota 교체, 사용량 미만 감소 거부, Round 트랙 보존 |
-| `RecruitingRoundCreateCommandServiceTest` | 본/추가모집 차수, 양수 TO 부분집합, 중복 차수와 0 TO 거부 |
-| `RecruitingRoundUpdateCommandServiceTest` | 제목·설정 수정, 대소문자 제목 중복, 지원서 존재 후 모집 정책 잠금, Form 제목 동기화 |
+| `RecruitingRoundCreateCommandServiceTest` | 본/추가모집 차수, 양수 TO 부분집합, 중복 차수와 0 TO, REST·GraphQL 공용 UseCase의 `INFRA_PLUS` 거부 |
+| `RecruitingRoundUpdateCommandServiceTest` | 제목·설정 수정, 대소문자 제목 중복, 지원서 존재 후 모집 정책 잠금, Form 제목 동기화, 게시된 availability Form의 OPEN 조건, 지원서/FormResponse 없는 OPEN의 DRAFT 복귀와 데이터 존재 시 충돌 |
 | `RecruitingRoundLifecycleCommandServiceTest` | DRAFT hard delete 조건과 명시적 삭제 순서, 원본/대상 권한, 복제 설정·Form 조건부 이동 재매핑, availability Form 초기화 |
 | `RecruitingApplicationFormStructureCommandServiceTest` | 전체 Form 생성, section client key를 실제 ID로 변환, TRACK 간 잘못된 이동 및 다른 Form ID 거부 |
-| `RecruitingApplicationFormCommandServiceTest` | Round OPEN/CLOSED에 사용되는 Form 게시·마감 lock, Season scope, 게시 전 정책 검증 |
+| `RecruitingApplicationFormCommandServiceTest` | Round OPEN/DRAFT/CLOSED에 사용되는 Recruiting Form과 실제 Form 게시·취소·마감 lock 및 호출 순서, Season scope, 게시 전 정책 검증 |
 | `RecruitingApplicationFormValidationServiceTest` | 모든 section 정책, 모집 트랙별 TRACK section, 조건부 이동 대상 정책 검증 |
 | `RecruitingApplicationCommandServiceTest` | 로그인·익명 초안 생성, 수정, 제출, 제출 후 수정, 개인정보 동의, credential, 익명 철회 |
 | `RecruitingApplicationValidationServiceTest` | Round·기수 내 email/member 중복, 이전 실패 후 재지원, 이전 합격/진행 지원 차단, FormResponse 소유권 |
@@ -50,11 +50,11 @@
 
 | 테스트 | 검증 케이스 |
 |---|---|
-| `RecruitingSeasonQueryServiceTest` | 현재 학교 지부 결합, 관리자 Season/Round 필터, 권한 없는 Season 제외, 공개 종료 시각 OPEN/PAST 경계 |
-| `RecruitingQueryServiceTest` | 중앙 통계 권한, 전체·Round별 상태 집계, 선택 트랙 밖 조건부 이동 option 제외 |
+| `RecruitingSeasonQueryServiceTest` | 현재 학교 지부 결합, 관리자 Season/Round 필터, 권한 없는 Season 제외, 공개 종료 시각 OPEN/PAST 경계, 복수 학교·Round와 학교명 AND/OR 검색 |
+| `RecruitingQueryServiceTest` | 중앙 통계 권한, 복수 학교·Round와 학교명 집계, 지원서 없는 학교·Round 0건 그룹, 선택 트랙 밖 조건부 이동 option 제외 |
 | `RecruitingApplicationQuestionScopeQueryServiceTest` | COMMON + 1·2지망 TRACK의 allowed IDs와 Form required IDs 교집합 |
 | `RecruitingPublicApplicationQueryServiceTest` | credential 검증, email 정규화, 서류·최종 발표 직전/정시 결과 마스킹 |
-| `RecruitingApplicationReviewQueryServiceTest` | evaluator/운영진 목록·상세 권한, DRAFT 제외, 본인 평가 여부, 익명/회원 Form 답변 조회 |
+| `RecruitingApplicationReviewQueryServiceTest` | evaluator/운영진 목록·상세 권한, DRAFT 제외, 다중 상태·1·2지망 트랙 필터와 pagination count, 본인 평가 여부, 익명/회원 Form 답변 조회 |
 | `RecruitingApplicationEvaluationQueryServiceTest` | 본인 평가 제출 전 타 평가 비공개, 제출 후 공개, 관리자 bypass |
 | `RecruitingEvaluatorQuestionQueryServiceTest` | 공통·개별 질문 조회 scope와 active 정렬 |
 | `RecruitingInterviewScheduleQueryServiceTest` | 지원자와 운영진 일정 조회 권한 및 응답 변환 |
@@ -106,7 +106,7 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 | `RecruitingApplicationReviewControllerTest` | Round 지원서 목록 필터·페이지와 CurrentMember 전달 |
 | `RecruitingEvaluationControllerTest` | 평가 `PUT`, stage/path scope, CurrentMember, 평가 조회 |
 | `RecruitingCredentialRestRateLimitInterceptorTest` | lookup/update/submit/cancel의 IP bucket 공유, 생성 제외, 429 header |
-| `RecruitingRestContractTest` | 모든 admin prefix, OpenAPI description, 숫자형 operation ID의 중복·카테고리 대역, actor 필드 비노출, legacy route 제거 |
+| `RecruitingRestContractTest` | 모든 admin prefix, OpenAPI description, 숫자형 operation ID의 중복·카테고리 대역, actor 및 파생 validation 필드 비노출, legacy route 제거 |
 | `RecruitingApplicationRandomPortIntegrationTest` | 실제 REST/GraphQL socket, JWT/익명 보안, malformed email, credential 조회, CSV actor, P6Spy 민감정보 비노출 |
 
 `RecruitingApplicationControllerTestSupport`와 `RecruitingHttpTestPayloads`는 web 테스트 공통 fixture다.

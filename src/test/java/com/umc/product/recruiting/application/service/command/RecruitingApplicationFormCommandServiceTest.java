@@ -23,6 +23,7 @@ import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.ValidateRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.UnpublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
@@ -85,10 +86,33 @@ class RecruitingApplicationFormCommandServiceTest {
             .applicationFormId(100L)
             .build());
 
-        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form);
+        InOrder lockBeforeStateCheck = inOrder(loadApplicationFormPort, form, manageFormUseCase);
         then(loadApplicationFormPort).should(lockBeforeStateCheck).getByIdForUpdate(100L);
         then(form).should(lockBeforeStateCheck).close();
+        then(manageFormUseCase).should(lockBeforeStateCheck).closeForm(any());
         assertThat(form.getStatus().name()).isEqualTo("CLOSED");
+    }
+
+    @Test
+    @DisplayName("지원 Form 게시 취소는 실제 Form과 함께 DRAFT로 전환한다")
+    void unpublishRecruitingAndActualForm() {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round(10L), 500L);
+        form.publish(form.getRound().getRecruitableTracks());
+        form = spy(form);
+        ReflectionTestUtils.setField(form, "id", 100L);
+        given(loadApplicationFormPort.getByIdForUpdate(100L)).willReturn(form);
+
+        sut.unpublish(UnpublishRecruitingApplicationFormCommand.builder()
+            .seasonId(1L)
+            .applicationFormId(100L)
+            .requesterMemberId(200L)
+            .build());
+
+        InOrder transitionOrder = inOrder(loadApplicationFormPort, form, manageFormUseCase);
+        then(loadApplicationFormPort).should(transitionOrder).getByIdForUpdate(100L);
+        then(form).should(transitionOrder).unpublish();
+        then(manageFormUseCase).should(transitionOrder).unpublishForm(any());
+        assertThat(form.getStatus().name()).isEqualTo("DRAFT");
     }
 
     @Test

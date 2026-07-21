@@ -49,8 +49,8 @@ public class RecruitingApplicationReviewQueryService implements SearchRecruiting
         authorizeReview(round, query.requesterMemberId());
         Page<RecruitingApplication> applications = loadApplicationPort.searchByRoundId(
             query.roundId(),
-            query.status(),
-            query.track(),
+            query.statuses(),
+            query.tracks(),
             query.pageable()
         );
         Map<Long, Set<RecruitingEvaluatorStage>> stagesByApplication = stagesEvaluatedByRequester(

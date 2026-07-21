@@ -204,11 +204,11 @@ public class RecruitingApplicationPersistenceAdapter
     @Override
     public Page<RecruitingApplication> searchByRoundId(
         Long roundId,
-        RecruitingApplicationStatus status,
-        ChallengerTrack track,
+        Collection<RecruitingApplicationStatus> statuses,
+        Collection<ChallengerTrack> tracks,
         Pageable pageable
     ) {
-        return recruitingApplicationQueryRepository.searchByRoundId(roundId, status, track, pageable);
+        return recruitingApplicationQueryRepository.searchByRoundId(roundId, statuses, tracks, pageable);
     }
 
     @Override
@@ -239,6 +239,16 @@ public class RecruitingApplicationPersistenceAdapter
         Collection<RecruitingApplicationStatus> statuses
     ) {
         return recruitingApplicationQueryRepository.searchSummaryRows(gisuId, schoolId, roundId, statuses);
+    }
+
+    @Override
+    public List<RecruitingApplicationSummaryRow> searchSummaryRows(
+        Long gisuId,
+        Collection<Long> schoolIds,
+        Collection<Long> roundIds,
+        Collection<RecruitingApplicationStatus> statuses
+    ) {
+        return recruitingApplicationQueryRepository.searchSummaryRows(gisuId, schoolIds, roundIds, statuses);
     }
 
     @Override

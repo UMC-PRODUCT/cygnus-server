@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -227,6 +228,45 @@ class RecruitingSeasonQueryServiceTest {
         );
     }
 
+    @Test
+    @DisplayName("공개 모집은 복수 학교와 Round 내부는 OR, 학교명 조건과는 AND로 필터링한다")
+    void searchPublicRoundsWithMultipleSchoolsRoundsAndSchoolName() {
+        Instant now = Instant.parse("2026-08-04T00:00:00Z");
+        RecruitingSeason alphaSeason = season(100L, 1L, 10L);
+        RecruitingSeason betaSeason = season(101L, 1L, 20L);
+        RecruitingRound includedRound = regularRound(alphaSeason, 200L);
+        RecruitingRound excludedByRoundId = regularRound(alphaSeason, 201L);
+        RecruitingRound excludedBySchoolName = regularRound(betaSeason, 202L);
+        List<RecruitingRound> rounds = List.of(includedRound, excludedByRoundId, excludedBySchoolName);
+        rounds.forEach(RecruitingRound::open);
+        List<RecruitingApplicationForm> forms = rounds.stream()
+            .map(this::publishedApplicationForm)
+            .toList();
+        given(clock.instant()).willReturn(now);
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(
+            school(7L, "A 지부", 10L, "Alpha 대학교"),
+            school(8L, "B 지부", 20L, "Beta 대학교")
+        ));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(alphaSeason, betaSeason));
+        given(loadRoundPort.listBySeasonIds(List.of(100L))).willReturn(List.of(includedRound, excludedByRoundId));
+        given(loadApplicationFormPort.listByRoundIds(List.of(200L)))
+            .willReturn(forms.stream().filter(form -> form.getRound().getId().equals(200L)).toList());
+
+        var result = sut.searchPublicRounds(RecruitingPublicRoundSearchQuery.builder()
+            .gisuId(1L)
+            .schoolIds(Set.of(10L, 20L))
+            .roundIds(Set.of(200L, 202L))
+            .schoolName("  ALPHA  ")
+            .phase(RecruitingRoundPhase.OPEN)
+            .build());
+
+        assertThat(result).singleElement().satisfies(group -> {
+            assertThat(group.schoolId()).isEqualTo(10L);
+            assertThat(group.rounds()).singleElement()
+                .satisfies(round -> assertThat(round.roundId()).isEqualTo(200L));
+        });
+    }
+
     private RecruitingSeason season(Long id, Long gisuId, Long schoolId) {
         RecruitingSeason season = RecruitingSeason.create(gisuId, schoolId);
         ReflectionTestUtils.setField(season, "id", id);
@@ -250,6 +290,13 @@ class RecruitingSeasonQueryServiceTest {
         ));
         ReflectionTestUtils.setField(round, "id", id);
         return round;
+    }
+
+    private RecruitingApplicationForm publishedApplicationForm(RecruitingRound round) {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 500L + round.getId());
+        ReflectionTestUtils.setField(form, "id", 300L + round.getId());
+        form.publish(round.getRecruitableTracks());
+        return form;
     }
 
     private SchoolDetailInfo school(Long chapterId, String chapterName, Long schoolId, String schoolName) {

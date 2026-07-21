@@ -3,6 +3,7 @@ package com.umc.product.recruiting.adapter.in.web.dto.request;
 import java.time.Instant;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
@@ -47,7 +48,9 @@ public record CreateRecruitingRoundRequest(
             .build();
     }
 
-    @AssertTrue(message = "면접 여부에 맞는 면접 기간과 availability form이 필요합니다.") public boolean isInterviewConfigurationValid() {
+    @JsonIgnore
+    @Schema(hidden = true)
+    @AssertTrue(message = "면접 여부에 맞는 면접 기간이 필요합니다.") public boolean isInterviewConfigurationValid() {
         if (interviewRequired) {
             return interviewStartAt != null && interviewEndAt != null;
         }

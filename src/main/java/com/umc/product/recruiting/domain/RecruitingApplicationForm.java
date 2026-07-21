@@ -85,6 +85,11 @@ public class RecruitingApplicationForm extends BaseEntity {
         this.status = RecruitingApplicationFormStatus.CLOSED;
     }
 
+    public void unpublish() {
+        validateStatus(RecruitingApplicationFormStatus.PUBLISHED);
+        this.status = RecruitingApplicationFormStatus.DRAFT;
+    }
+
     private void validateStatus(RecruitingApplicationFormStatus expectedStatus) {
         if (status != expectedStatus) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_FORM_INVALID_TRANSITION);

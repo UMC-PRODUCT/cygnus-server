@@ -251,6 +251,11 @@ public class RecruitingRound extends BaseEntity {
         this.status = RecruitingRoundStatus.CLOSED;
     }
 
+    public void unpublish() {
+        validateStatus(RecruitingRoundStatus.OPEN);
+        this.status = RecruitingRoundStatus.DRAFT;
+    }
+
     private static void validateRoundNo(Integer roundNo) {
         if (roundNo == null || roundNo < 1) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_ROUND_NO);

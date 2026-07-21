@@ -5,9 +5,13 @@ import java.util.Map;
 
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 
-public record RecruitingStatusSummaryInfo(
+public record RecruitingSchoolStatusSummaryInfo(
+    Long schoolId,
+    String schoolName,
+    Long chapterId,
+    String chapterName,
     Long totalCount,
     Map<RecruitingApplicationStatus, Long> countByStatus,
-    List<RecruitingSchoolStatusSummaryInfo> schools
+    List<RecruitingRoundStatusSummaryInfo> rounds
 ) {
 }

@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -82,8 +83,8 @@ class RecruitingApplicationReviewQueryServiceTest {
         given(getRoundEvaluatorUseCase.canEvaluate(20L, 99L)).willReturn(true);
         given(loadApplicationPort.searchByRoundId(
             20L,
-            null,
-            ChallengerTrack.PLAN,
+            Set.of(),
+            Set.of(ChallengerTrack.PLAN),
             pageable
         )).willReturn(new PageImpl<>(List.of(application), pageable, 1));
         given(loadEvaluationPort.listByApplicationIdsAndEvaluatorMemberId(List.of(40L), 99L))
@@ -97,7 +98,7 @@ class RecruitingApplicationReviewQueryServiceTest {
 
         var result = sut.search(RecruitingApplicationSearchQuery.builder()
             .roundId(20L)
-            .track(ChallengerTrack.PLAN)
+            .tracks(Set.of(ChallengerTrack.PLAN))
             .requesterMemberId(99L)
             .pageable(pageable)
             .build());

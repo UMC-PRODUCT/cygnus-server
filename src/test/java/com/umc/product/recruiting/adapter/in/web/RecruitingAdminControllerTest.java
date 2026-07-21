@@ -13,7 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -51,7 +53,9 @@ import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruiting
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.support.RestDocsConfig;
 
@@ -283,14 +287,26 @@ class RecruitingAdminControllerTest {
     void 상태_요약_API는_status별_count를_반환한다() throws Exception {
         Map<RecruitingApplicationStatus, Long> counts = new EnumMap<>(RecruitingApplicationStatus.class);
         counts.put(RecruitingApplicationStatus.SUBMITTED, 3L);
-        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, null, MEMBER_ID))
-            .willReturn(new RecruitingStatusSummaryInfo(3L, counts));
+        given(getApplicationQueryUseCase.getStatusSummary(any()))
+            .willReturn(new RecruitingStatusSummaryInfo(3L, counts, List.of(
+                new RecruitingSchoolStatusSummaryInfo(22L, "테스트대학교", 7L, "중앙", 3L, counts, List.of())
+            )));
 
         mockMvc.perform(get("/api/v1/recruiting/admin/summary")
                 .param("gisuId", "11")
-                .param("schoolId", "22"))
+                .param("schoolIds", "22", "23")
+                .param("roundIds", "31", "32")
+                .param("schoolName", "테스트"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.totalCount").value(3L))
-            .andExpect(jsonPath("$.result.countByStatus.SUBMITTED").value(3L));
+            .andExpect(jsonPath("$.result.countByStatus.SUBMITTED").value(3L))
+            .andExpect(jsonPath("$.result.schools[0].schoolName").value("테스트대학교"));
+
+        ArgumentCaptor<RecruitingStatusSummaryQuery> captor =
+            ArgumentCaptor.forClass(RecruitingStatusSummaryQuery.class);
+        then(getApplicationQueryUseCase).should().getStatusSummary(captor.capture());
+        assertThat(captor.getValue().schoolIds()).isEqualTo(Set.of(22L, 23L));
+        assertThat(captor.getValue().roundIds()).isEqualTo(Set.of(31L, 32L));
+        assertThat(captor.getValue().schoolName()).isEqualTo("테스트");
     }
 }

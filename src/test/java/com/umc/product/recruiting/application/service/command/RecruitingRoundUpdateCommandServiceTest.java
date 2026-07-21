@@ -21,9 +21,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormInfo;
+import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.UnpublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
@@ -61,9 +65,13 @@ class RecruitingRoundUpdateCommandServiceTest {
     @Mock
     CloseRecruitingApplicationFormUseCase closeApplicationFormUseCase;
     @Mock
+    UnpublishRecruitingApplicationFormUseCase unpublishApplicationFormUseCase;
+    @Mock
     ManageFormUseCase manageFormUseCase;
     @Mock
     GetFormUseCase getFormUseCase;
+    @Mock
+    GetFormResponseUseCase getFormResponseUseCase;
     @InjectMocks
     RecruitingRoundCommandService sut;
 
@@ -232,7 +240,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingRound round = round(20L, season(10L));
         RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
         ReflectionTestUtils.setField(applicationForm, "id", 30L);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
 
         sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
@@ -247,10 +255,123 @@ class RecruitingRoundUpdateCommandServiceTest {
     }
 
     @Test
+    @DisplayName("면접 차수는 availability Form이 게시되어야 OPEN으로 전환한다")
+    void openInterviewRoundWithPublishedAvailabilityForm() {
+        RecruitingRound round = interviewRound(20L, season(10L), 500L);
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(getFormUseCase.getById(500L)).willReturn(FormInfo.builder()
+            .id(500L)
+            .status(FormStatus.PUBLISHED)
+            .build());
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+
+        sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.OPEN)
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(round.getStatus()).isEqualTo(RecruitingRoundStatus.OPEN);
+        then(publishApplicationFormUseCase).should().publish(any());
+    }
+
+    @Test
+    @DisplayName("게시되지 않은 availability Form으로는 면접 차수를 OPEN할 수 없다")
+    void rejectOpenInterviewRoundWithDraftAvailabilityForm() {
+        RecruitingRound round = interviewRound(20L, season(10L), 500L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(getFormUseCase.getById(500L)).willReturn(FormInfo.builder()
+            .id(500L)
+            .status(FormStatus.DRAFT)
+            .build());
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.OPEN)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(publishApplicationFormUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("지원서와 Form 응답이 없는 OPEN 차수는 DRAFT로 비공개할 수 있다")
+    void unpublishOpenRoundWithoutResponses() {
+        RecruitingRound round = round(20L, season(10L));
+        round.open();
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
+        applicationForm.publish(round.getRecruitableTracks());
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+
+        sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.DRAFT)
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(round.getStatus()).isEqualTo(RecruitingRoundStatus.DRAFT);
+        then(unpublishApplicationFormUseCase).should().unpublish(any());
+        then(saveRoundPort).should().save(round);
+    }
+
+    @Test
+    @DisplayName("지원서가 있는 OPEN 차수는 DRAFT로 비공개할 수 없다")
+    void rejectUnpublishWhenApplicationExists() {
+        RecruitingRound round = round(20L, season(10L));
+        round.open();
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+        given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.DRAFT)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_UNPUBLISH_CONFLICT);
+
+        then(unpublishApplicationFormUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("실제 Form 응답이 있는 OPEN 차수는 DRAFT로 비공개할 수 없다")
+    void rejectUnpublishWhenFormResponseExists() {
+        RecruitingRound round = round(20L, season(10L));
+        round.open();
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+        given(getFormResponseUseCase.existsByFormId(100L)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.DRAFT)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_UNPUBLISH_CONFLICT);
+    }
+
+    @Test
     @DisplayName("다른 시즌의 차수 상태를 변경할 수 없다")
     void updateRoundStatusRejectsDifferentSeason() {
         RecruitingRound round = round(20L, season(10L));
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
 
         assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
             .seasonId(999L)
@@ -261,6 +382,30 @@ class RecruitingRoundUpdateCommandServiceTest {
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND);
         then(saveRoundPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("CLOSED 차수는 DRAFT로 되돌릴 수 없고 Form 게시 취소를 호출하지 않는다")
+    void rejectUnpublishClosedRoundBeforeFormMutation() {
+        RecruitingRound round = round(20L, season(10L));
+        round.open();
+        round.close();
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.DRAFT)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRANSITION);
+
+        then(unpublishApplicationFormUseCase).shouldHaveNoInteractions();
+        then(saveRoundPort).shouldHaveNoInteractions();
     }
 
     private RecruitingRoundConfigurationCommand configuration(ChallengerTrack track) {
@@ -333,6 +478,25 @@ class RecruitingRoundUpdateCommandServiceTest {
                 command.contactText()
             ).toDomain()
         );
+        ReflectionTestUtils.setField(round, "id", id);
+        return round;
+    }
+
+    private RecruitingRound interviewRound(Long id, RecruitingSeason season, Long availabilityFormId) {
+        RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfigurationCommand.of(
+            List.of(ChallengerTrack.PLAN),
+            false,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-08T00:00:00Z"),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            true,
+            Instant.parse("2026-08-11T00:00:00Z"),
+            Instant.parse("2026-08-14T00:00:00Z"),
+            Instant.parse("2026-08-16T00:00:00Z"),
+            availabilityFormId,
+            null,
+            null
+        ).toDomain());
         ReflectionTestUtils.setField(round, "id", id);
         return round;
     }

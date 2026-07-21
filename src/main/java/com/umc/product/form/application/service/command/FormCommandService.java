@@ -6,11 +6,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.command.dto.CloseFormCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
+import com.umc.product.form.application.port.in.command.dto.UnpublishFormCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
 import com.umc.product.form.application.port.out.LoadFormPort;
+import com.umc.product.form.application.port.out.LoadFormResponsePort;
 import com.umc.product.form.application.port.out.SaveAnswerPort;
 import com.umc.product.form.application.port.out.SaveFormPort;
 import com.umc.product.form.application.port.out.SaveFormResponsePort;
@@ -30,6 +33,7 @@ import lombok.RequiredArgsConstructor;
 public class FormCommandService implements ManageFormUseCase {
 
     private final LoadFormPort loadFormPort;
+    private final LoadFormResponsePort loadFormResponsePort;
     private final SaveFormPort saveFormPort;
     private final SaveFormSectionPort saveFormSectionPort;
     private final SaveQuestionPort saveQuestionPort;
@@ -84,6 +88,25 @@ public class FormCommandService implements ManageFormUseCase {
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
 
         form.publish();
+        saveFormPort.save(form);
+    }
+
+    @Override
+    public void unpublishForm(UnpublishFormCommand command) {
+        Form form = loadFormPort.findById(command.formId())
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        if (loadFormResponsePort.existsByFormId(form.getId())) {
+            throw new FormDomainException(FormErrorCode.FORM_HAS_RESPONSES);
+        }
+        form.unpublish();
+        saveFormPort.save(form);
+    }
+
+    @Override
+    public void closeForm(CloseFormCommand command) {
+        Form form = loadFormPort.findById(command.formId())
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        form.close();
         saveFormPort.save(form);
     }
 

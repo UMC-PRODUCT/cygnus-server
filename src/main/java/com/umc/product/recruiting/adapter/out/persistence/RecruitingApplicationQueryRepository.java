@@ -177,6 +177,7 @@ public class RecruitingApplicationQueryRepository {
                 recruitingSeason.gisuId,
                 recruitingSeason.schoolId,
                 recruitingRound.id,
+                recruitingRound.title,
                 recruitingRound.type,
                 recruitingRound.roundNo,
                 recruitingApplicationForm.id,
@@ -205,16 +206,58 @@ public class RecruitingApplicationQueryRepository {
             .fetch();
     }
 
+    public List<RecruitingApplicationSummaryRow> searchSummaryRows(
+        Long gisuId,
+        Collection<Long> schoolIds,
+        Collection<Long> roundIds,
+        Collection<RecruitingApplicationStatus> statuses
+    ) {
+        return queryFactory
+            .select(Projections.constructor(
+                RecruitingApplicationSummaryRow.class,
+                recruitingSeason.id,
+                recruitingSeason.gisuId,
+                recruitingSeason.schoolId,
+                recruitingRound.id,
+                recruitingRound.title,
+                recruitingRound.type,
+                recruitingRound.roundNo,
+                recruitingApplicationForm.id,
+                recruitingApplicationForm.formId,
+                recruitingApplication.id,
+                recruitingApplication.applicantProfile.applicantName,
+                recruitingApplication.applicantProfile.applicantEmail,
+                recruitingApplication.applicantProfile.firstChoice,
+                recruitingApplication.applicantProfile.secondChoice,
+                recruitingApplication.acceptedTrack,
+                recruitingApplication.status,
+                recruitingApplication.registrationStatus,
+                recruitingApplication.submittedAt
+            ))
+            .from(recruitingApplication)
+            .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm)
+            .innerJoin(recruitingApplicationForm.round, recruitingRound)
+            .innerJoin(recruitingRound.season, recruitingSeason)
+            .where(
+                recruitingSeason.gisuId.eq(gisuId),
+                schoolIdIn(schoolIds),
+                roundIdIn(roundIds),
+                statusIn(statuses)
+            )
+            .orderBy(recruitingSeason.schoolId.asc(), recruitingRound.roundNo.asc(), recruitingApplication.id.asc())
+            .fetch();
+    }
+
     public Page<RecruitingApplication> searchByRoundId(
         Long roundId,
-        RecruitingApplicationStatus status,
-        ChallengerTrack track,
+        Collection<RecruitingApplicationStatus> statuses,
+        Collection<ChallengerTrack> tracks,
         Pageable pageable
     ) {
         BooleanExpression predicate = recruitingApplication.round.id.eq(roundId)
             .and(recruitingApplication.status.ne(RecruitingApplicationStatus.DRAFT))
-            .and(statusEq(status))
-            .and(trackEq(track));
+            .and(statusIn(statuses))
+            .and(trackIn(tracks));
         List<RecruitingApplication> content = queryFactory
             .selectFrom(recruitingApplication)
             .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm).fetchJoin()
@@ -244,17 +287,18 @@ public class RecruitingApplicationQueryRepository {
         return schoolId == null ? null : recruitingSeason.schoolId.eq(schoolId);
     }
 
+    private BooleanExpression schoolIdIn(Collection<Long> schoolIds) {
+        return schoolIds == null || schoolIds.isEmpty() ? null : recruitingSeason.schoolId.in(schoolIds);
+    }
+
     private BooleanExpression statusIn(Collection<RecruitingApplicationStatus> statuses) {
         return statuses == null || statuses.isEmpty() ? null : recruitingApplication.status.in(statuses);
     }
 
-    private BooleanExpression statusEq(RecruitingApplicationStatus status) {
-        return status == null ? null : recruitingApplication.status.eq(status);
-    }
-
-    private BooleanExpression trackEq(ChallengerTrack track) {
-        return track == null ? null : recruitingApplication.applicantProfile.firstChoice.eq(track)
-            .or(recruitingApplication.applicantProfile.secondChoice.eq(track));
+    private BooleanExpression trackIn(Collection<ChallengerTrack> tracks) {
+        return tracks == null || tracks.isEmpty() ? null
+            : recruitingApplication.applicantProfile.firstChoice.in(tracks)
+                .or(recruitingApplication.applicantProfile.secondChoice.in(tracks));
     }
 
     private BooleanExpression applicationIdNotEq(Long applicationId) {
@@ -263,5 +307,9 @@ public class RecruitingApplicationQueryRepository {
 
     private BooleanExpression roundIdEq(Long roundId) {
         return roundId == null ? null : recruitingRound.id.eq(roundId);
+    }
+
+    private BooleanExpression roundIdIn(Collection<Long> roundIds) {
+        return roundIds == null || roundIds.isEmpty() ? null : recruitingRound.id.in(roundIds);
     }
 }

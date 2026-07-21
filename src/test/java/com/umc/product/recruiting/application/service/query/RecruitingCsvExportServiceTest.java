@@ -107,6 +107,7 @@ class RecruitingCsvExportServiceTest {
             1L,
             10L,
             20L,
+            "15기 추가모집 2차",
             RecruitingRoundType.ADDITIONAL,
             2,
             100L,

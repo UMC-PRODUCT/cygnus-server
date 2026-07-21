@@ -265,6 +265,26 @@ class AnswerCommandServiceTest {
         org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ANSWER_ID);
     }
 
+    @Test
+    @DisplayName("createAnswer: 마감된 Form의 draft에는 답변을 생성할 수 없다")
+    void createAnswer_마감된_Form이면_NOT_PUBLISHED() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        draft.getForm().close();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .textValue("답")
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_NOT_PUBLISHED);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
     // ============================================================
     //          createAnonymousAnswer — 익명 access key 검증
     // ============================================================

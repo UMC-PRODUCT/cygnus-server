@@ -224,6 +224,24 @@ class FormResponseCommandServiceTest {
     }
 
     @Test
+    @DisplayName("마감된 Form의 기존 draft는 제출할 수 없다")
+    void 마감된_Form의_draft_제출을_거부한다() {
+        FormResponse draft = draftResponse();
+        draft.getForm().close();
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+
+        assertThatThrownBy(() -> sut.submitDraft(SubmitDraftFormResponseCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .requesterMemberId(MEMBER_ID)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.FORM_NOT_PUBLISHED);
+
+        then(saveFormResponsePort).should(never()).save(any());
+    }
+
+    @Test
     @DisplayName("draft 제출 scope가 없으면 방문한 섹션의 required question을 검증한다")
     void draft_제출_scope가_없으면_방문한_섹션의_required_question을_검증한다() {
         FormResponse draft = draftResponse();

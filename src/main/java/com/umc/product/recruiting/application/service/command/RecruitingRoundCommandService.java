@@ -11,15 +11,19 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.UnpublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloseRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PublishRecruitingApplicationFormCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.UnpublishRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
@@ -55,8 +59,10 @@ public class RecruitingRoundCommandService implements
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final PublishRecruitingApplicationFormUseCase publishApplicationFormUseCase;
     private final CloseRecruitingApplicationFormUseCase closeApplicationFormUseCase;
+    private final UnpublishRecruitingApplicationFormUseCase unpublishApplicationFormUseCase;
     private final ManageFormUseCase manageFormUseCase;
     private final GetFormUseCase getFormUseCase;
+    private final GetFormResponseUseCase getFormResponseUseCase;
 
     @Override
     public Long createRound(CreateRecruitingRoundCommand command) {
@@ -93,36 +99,61 @@ public class RecruitingRoundCommandService implements
 
     @Override
     public void updateRoundStatus(UpdateRecruitingRoundStatusCommand command) {
-        RecruitingRound round = getRoundInSeason(command.roundId(), command.seasonId());
+        RecruitingRound round = getRoundInSeasonForUpdate(command.roundId(), command.seasonId());
         RecruitingRoundStatus status = command.status();
         if (status == RecruitingRoundStatus.OPEN) {
-            if (round.isInterviewRequired() && round.getAvailabilityFormId() == null) {
-                throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
-            }
+            validateAvailabilityFormForOpen(round);
             var applicationForm = loadApplicationFormPort.findByRoundId(round.getId())
                 .orElseThrow(() -> new RecruitingDomainException(
                     RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND
                 ));
+            round.open();
             publishApplicationFormUseCase.publish(PublishRecruitingApplicationFormCommand.builder()
                 .seasonId(command.seasonId())
                 .applicationFormId(applicationForm.getId())
                 .requesterMemberId(command.requesterMemberId())
                 .build());
-            round.open();
         } else if (status == RecruitingRoundStatus.CLOSED) {
             var applicationForm = loadApplicationFormPort.findByRoundId(round.getId())
                 .orElseThrow(() -> new RecruitingDomainException(
                     RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND
                 ));
+            round.close();
             closeApplicationFormUseCase.close(CloseRecruitingApplicationFormCommand.builder()
                 .seasonId(command.seasonId())
                 .applicationFormId(applicationForm.getId())
                 .build());
-            round.close();
+        } else if (status == RecruitingRoundStatus.DRAFT) {
+            var applicationForm = loadApplicationFormPort.findByRoundId(round.getId())
+                .orElseThrow(() -> new RecruitingDomainException(
+                    RecruitingErrorCode.RECRUITING_APPLICATION_FORM_NOT_FOUND
+                ));
+            if (loadApplicationPort.existsByRoundId(round.getId())
+                || getFormResponseUseCase.existsByFormId(applicationForm.getFormId())) {
+                throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_UNPUBLISH_CONFLICT);
+            }
+            round.unpublish();
+            unpublishApplicationFormUseCase.unpublish(UnpublishRecruitingApplicationFormCommand.builder()
+                .seasonId(command.seasonId())
+                .applicationFormId(applicationForm.getId())
+                .requesterMemberId(command.requesterMemberId())
+                .build());
         } else {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRANSITION);
         }
         saveRoundPort.save(round);
+    }
+
+    private void validateAvailabilityFormForOpen(RecruitingRound round) {
+        if (!round.isInterviewRequired()) {
+            return;
+        }
+        if (round.getAvailabilityFormId() == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+        }
+        if (getFormUseCase.getById(round.getAvailabilityFormId()).status() != FormStatus.PUBLISHED) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+        }
     }
 
     private Integer resolveRoundNo(CreateRecruitingRoundCommand command) {
@@ -155,10 +186,20 @@ public class RecruitingRoundCommandService implements
 
     private RecruitingRound getRoundInSeason(Long roundId, Long seasonId) {
         RecruitingRound round = loadRoundPort.getById(roundId);
+        validateRoundInSeason(round, seasonId);
+        return round;
+    }
+
+    private RecruitingRound getRoundInSeasonForUpdate(Long roundId, Long seasonId) {
+        RecruitingRound round = loadRoundPort.getByIdForUpdate(roundId);
+        validateRoundInSeason(round, seasonId);
+        return round;
+    }
+
+    private void validateRoundInSeason(RecruitingRound round, Long seasonId) {
         if (!Objects.equals(round.getSeason().getId(), seasonId)) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND);
         }
-        return round;
     }
 
     private void validateRecruitableTrackSubset(Long seasonId, List<ChallengerTrack> recruitableTracks) {

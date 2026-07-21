@@ -1,6 +1,8 @@
 package com.umc.product.recruiting.adapter.in.web;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Set;
 
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -41,6 +43,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruit
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -180,16 +183,23 @@ public class RecruitingAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-081",
         summary = "지원 현황 요약 조회",
-        description = "기수와 학교 기준으로 지원서 상태별 집계와 Round별 집계를 조회하며 특정 Round로 필터링할 수 있습니다."
+        description = "운영진이 여러 학교와 Round의 지원서 상태별 집계를 조회합니다. 모집 목록이 아니라 현황 대시보드용 집계 API입니다."
     )
     public RecruitingStatusSummaryResponse getSummary(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam @Positive Long gisuId,
-        @RequestParam @Positive Long schoolId,
-        @RequestParam(required = false) @Positive Long roundId
+        @RequestParam(required = false) List<@Positive Long> schoolIds,
+        @RequestParam(required = false) List<@Positive Long> roundIds,
+        @RequestParam(required = false) String schoolName
     ) {
         return RecruitingStatusSummaryResponse.from(
-            getApplicationQueryUseCase.getStatusSummary(gisuId, schoolId, roundId, memberId(memberPrincipal))
+            getApplicationQueryUseCase.getStatusSummary(RecruitingStatusSummaryQuery.builder()
+                .gisuId(gisuId)
+                .schoolIds(schoolIds == null ? Set.of() : Set.copyOf(schoolIds))
+                .roundIds(roundIds == null ? Set.of() : Set.copyOf(roundIds))
+                .schoolName(schoolName)
+                .requesterMemberId(memberId(memberPrincipal))
+                .build())
         );
     }
 

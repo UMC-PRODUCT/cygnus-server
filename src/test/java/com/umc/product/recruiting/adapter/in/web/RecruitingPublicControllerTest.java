@@ -80,7 +80,9 @@ class RecruitingPublicControllerTest {
 
         mockMvc.perform(get("/api/v1/recruiting/public/rounds")
                 .param("gisuId", "11")
-                .param("schoolId", "22")
+                .param("schoolIds", "22", "23")
+                .param("roundIds", "31", "32")
+                .param("schoolName", "대학교")
                 .param("phase", "OPEN"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result").isEmpty());
@@ -88,7 +90,9 @@ class RecruitingPublicControllerTest {
         ArgumentCaptor<RecruitingPublicRoundSearchQuery> captor =
             ArgumentCaptor.forClass(RecruitingPublicRoundSearchQuery.class);
         then(searchPublicRoundUseCase).should().searchPublicRounds(captor.capture());
-        org.assertj.core.api.Assertions.assertThat(captor.getValue().schoolId()).isEqualTo(22L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().roundIds()).containsExactlyInAnyOrder(31L, 32L);
+        org.assertj.core.api.Assertions.assertThat(captor.getValue().schoolName()).isEqualTo("대학교");
         org.assertj.core.api.Assertions.assertThat(captor.getValue().effectivePhase().name()).isEqualTo("OPEN");
     }
 

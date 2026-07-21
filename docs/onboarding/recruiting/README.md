@@ -23,6 +23,7 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 | `RecruitingRound` 일정 | 시간은 `Instant`. 접수 시작 < 접수 종료 <= 서류 발표 <= 면접 시작 < 면접 종료 <= 최종 발표 순서다. 면접 미진행 시 면접 기간과 `availabilityFormId`는 null이다. |
 | `RecruitingRound` 트랙 | Round 트랙은 양수 TO를 가진 Season 트랙의 부분집합이며 중복과 `INFRA_PLUS`를 허용하지 않는다. 2지망 허용 여부를 소유한다. |
 | `RecruitingApplicationForm` | Round당 최대 하나. Round 제목을 Form 제목으로 사용한다. 구조는 Round가 DRAFT일 때만 Upsert할 수 있다. |
+| 실제 `Form` 생명주기 | Round와 함께 `DRAFT -> PUBLISHED -> CLOSED`로 전환한다. 지원서와 FormResponse가 모두 없으면 `OPEN -> DRAFT` 게시 취소가 가능하다. CLOSED Form은 응답 생성·수정·제출과 개별 답변 변경을 거부한다. 면접 일정 Form은 이 생명주기에 포함하지 않는다. |
 | `RecruitingFormSectionPolicy` | `formSectionId`당 하나. `COMMON`은 track이 null, `TRACK`은 Round 모집 트랙이어야 한다. TRACK section의 조건부 이동은 COMMON 또는 같은 TRACK만 허용한다. |
 | `RecruitingApplication` | Round별 동일 정규화 email 또는 동일 member 지원은 한 건만 허용한다. `applicationKey`는 `[A-Z0-9]{6}`이며 `(email, key)`가 유일하다. |
 | `RecruitingApplication` 선택 | 1지망은 필수. 2지망은 Round가 허용할 때만 가능하고 1지망과 달라야 한다. `acceptedTrack`은 최종 합격 시 1·2지망 중 하나다. |
@@ -43,14 +44,25 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 
 ## 조회 모델
 
-관리자 Round 목록은 `gisuId`를 필수로 받고 `chapterId`, `schoolId`, `seasonId`, `track`, `sort`를 선택적으로 받는다. 결과는 Season 단위로 묶이며 학교의 현재 지부 정보를 조회 시점에 결합한다.
+`RECRUITING-ADMIN-011` 관리자 Round 목록은 `gisuId`를 필수로 받고 `chapterId`, `schoolId`, `seasonId`, `track`, `sort`를 선택적으로 받는다. DRAFT를 포함한 관리 설정을 Season 단위로 묶으며 학교의 현재 지부 정보를 조회 시점에 결합한다.
 
-공개 Round 목록은 같은 조직 필터에 `phase`를 추가한다.
+`RECRUITING-PUBLIC-001` 공개 Round 목록은 지원자의 모집 탐색용이다. `gisuId`를 필수로 받고 `chapterId`, `schoolIds`, `roundIds`, `schoolName`, `seasonId`, `track`, `phase`, `sort`를 선택적으로 받는다. ID 목록 내부는 OR, 서로 다른 필터끼리는 AND이며 학교명은 trim 후 대소문자를 무시한 부분 일치다.
 
 - 기본 `phase=OPEN`: `Round OPEN + Form PUBLISHED + start <= now < end`인 지원 가능한 모집만 제공한다.
 - `phase=PAST`: CLOSED이거나 접수 종료 시각에 도달한 모집을 제공한다.
 - DRAFT Round와 DRAFT Form은 공개하지 않는다.
 - 정렬은 `NEWEST`, `REGISTERED`, `RECRUITMENT`만 허용한다.
+
+`RECRUITING-ADMIN-081`은 모집 목록이 아니라 운영 현황 집계다. `gisuId` 내에서 `schoolIds`, `roundIds`, `schoolName`으로 범위를 좁히며 전체 합계와 학교별·Round별 상태 합계를 함께 반환한다. 조건에 포함된 학교나 Round에 지원서가 없어도 0건 그룹을 반환한다.
+
+### Round와 Form 상태
+
+| 요청 | 허용 조건 | 결과 |
+|---|---|---|
+| `DRAFT -> OPEN` | 지원 Form 구조가 유효하고, 면접 Round면 게시된 availability Form이 존재 | Round OPEN, RecruitingApplicationForm/실제 Form PUBLISHED |
+| `OPEN -> DRAFT` | RecruitingApplication과 실제 FormResponse가 모두 0건 | Round/RecruitingApplicationForm/실제 Form DRAFT |
+| `OPEN -> CLOSED` | OPEN 상태 | Round/RecruitingApplicationForm/실제 Form CLOSED |
+| `CLOSED -> DRAFT/OPEN` | 허용하지 않음 | `409` |
 
 ## Form 구조 관리
 
@@ -116,14 +128,13 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | GET | `/api/v1/recruiting/rounds/{roundId}/applications/{applicationId}` | evaluator/운영진용 지원서 답변 상세 조회 |
 | PUT | `/api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}` | 본인 평가 Upsert |
 | GET | `/api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}` | 공개 정책을 적용한 stage 평가 조회 |
-| PUT | `/api/v1/recruiting/applications/{applicationId}/interview-schedule/availability` | 본인 가능 일정 FormResponse 연결 |
 | GET | `/api/v1/recruiting/applications/{applicationId}/interview-schedule` | 본인 면접 일정 조회 |
 
 ### 관리 surface
 
 | Method | URI | 역할 |
 |---|---|---|
-| GET | `/api/v1/recruiting/admin/rounds` | 조직·Season·트랙 필터와 정렬을 적용한 Season별 Round 조회 |
+| GET | `/api/v1/recruiting/admin/rounds` | 내부 설정과 모든 상태를 포함한 운영진용 Season별 Round 조회 (`ADMIN-011`) |
 | GET | `/api/v1/recruiting/admin/seasons/{seasonId}` | Season memo, TO와 Round 설정 조회 |
 | GET | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/title-availability` | 제목 중복 확인 |
 | POST | `/api/v1/recruiting/admin/seasons` | Season과 초기 TO 생성 |
@@ -131,7 +142,7 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | PUT | `/api/v1/recruiting/admin/seasons/{seasonId}/quotas` | 트랙별 TO 전체 교체 |
 | POST | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds` | Round 생성 |
 | PUT | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}` | Round 설정 수정 |
-| PATCH | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/status` | Round OPEN/CLOSED 및 Form 게시/접수 차단 |
+| PATCH | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/status` | Round/Form OPEN·CLOSED 동기화와 데이터 없는 OPEN의 DRAFT 게시 취소 |
 | POST | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/clone` | 다른 Season으로 Round 구조 복제 |
 | DELETE | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}` | 지원서·Form 응답 없는 DRAFT Round hard delete |
 | PUT | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/form` | Form 전체 구조와 section 정책 Upsert |
@@ -145,7 +156,7 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | PUT | `/api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/confirmation` | 면접 시각·장소 확정 |
 | POST/DELETE | `/api/v1/recruiting/admin/applications/{applicationId}/registration/ready` | TO 예약/반환 |
 | POST | `/api/v1/recruiting/admin/applications/{applicationId}/registration/registered` | Challenger 등록 확정 |
-| GET | `/api/v1/recruiting/admin/summary` | 학교 전체 또는 Round별 상태 집계 |
+| GET | `/api/v1/recruiting/admin/summary` | 복수 학교·Round 및 학교명 조건의 상태 집계 (`ADMIN-081`) |
 | GET | `/api/v1/recruiting/admin/statistics.csv` | 민감정보를 제외한 CSV 다운로드 |
 
 ## GraphQL API
@@ -158,7 +169,9 @@ GraphQL은 REST와 같은 UseCase를 사용한다. CSV만 REST 전용이다.
 
 ### Mutation
 
-`createRecruitingSeason`, `updateRecruitingSeason`, `replaceRecruitingSeasonTrackQuotas`, `createRecruitingRound`, `updateRecruitingRoundStatus`, `updateRecruitingRound`, `upsertRecruitingApplicationForm`, `cloneRecruitingRound`, `deleteRecruitingRound`, `addRecruitingRoundEvaluator`, `removeRecruitingRoundEvaluator`, `createRecruitingRoundInterviewQuestion`, `updateRecruitingRoundInterviewQuestion`, `deactivateRecruitingRoundInterviewQuestion`, `createRecruitingApplicationInterviewQuestion`, `updateRecruitingApplicationInterviewQuestion`, `deactivateRecruitingApplicationInterviewQuestion`, `createRecruitingApplicationDraft`, `createAnonymousRecruitingApplicationDraft`, `updateRecruitingApplicationDraft`, `updateAnonymousRecruitingApplication`, `submitRecruitingApplication`, `submitAnonymousRecruitingApplication`, `cancelRecruitingApplication`, `cancelAnonymousRecruitingApplication`, `decideRecruitingDocument`, `decideRecruitingFinal`, `prepareRecruitingRegistration`, `cancelRecruitingRegistration`, `confirmRecruitingRegistration`, `skipRecruitingInterview`, `requestRecruitingInterviewAvailability`, `submitRecruitingInterviewAvailability`, `confirmRecruitingInterviewSchedule`, `submitRecruitingApplicationEvaluation`
+`createRecruitingSeason`, `updateRecruitingSeason`, `replaceRecruitingSeasonTrackQuotas`, `createRecruitingRound`, `updateRecruitingRoundStatus`, `updateRecruitingRound`, `upsertRecruitingApplicationForm`, `cloneRecruitingRound`, `deleteRecruitingRound`, `addRecruitingRoundEvaluator`, `removeRecruitingRoundEvaluator`, `createRecruitingRoundInterviewQuestion`, `updateRecruitingRoundInterviewQuestion`, `deactivateRecruitingRoundInterviewQuestion`, `createRecruitingApplicationInterviewQuestion`, `updateRecruitingApplicationInterviewQuestion`, `deactivateRecruitingApplicationInterviewQuestion`, `createRecruitingApplicationDraft`, `createAnonymousRecruitingApplicationDraft`, `updateRecruitingApplicationDraft`, `updateAnonymousRecruitingApplication`, `submitRecruitingApplication`, `submitAnonymousRecruitingApplication`, `cancelRecruitingApplication`, `cancelAnonymousRecruitingApplication`, `decideRecruitingDocument`, `decideRecruitingFinal`, `prepareRecruitingRegistration`, `cancelRecruitingRegistration`, `confirmRecruitingRegistration`, `skipRecruitingInterview`, `requestRecruitingInterviewAvailability`, `confirmRecruitingInterviewSchedule`, `submitRecruitingApplicationEvaluation`
+
+`RECRUITING-SCHEDULE-001`과 GraphQL `submitRecruitingInterviewAvailability`의 외부 FormResponse ID 연결 계약은 완성된 공개 일정 제출 기능으로 보지 않는다. Form Issue #1146 병합 후 Recruiting이 회원·비회원 일정 draft 생성, 수정, 제출과 내부 access key 보관을 직접 중개하는 계약으로 교체한다.
 
 정확한 input/output 계약은 [`recruiting.graphqls`](../../../src/main/resources/graphql/recruiting.graphqls)를 기준으로 한다.
 

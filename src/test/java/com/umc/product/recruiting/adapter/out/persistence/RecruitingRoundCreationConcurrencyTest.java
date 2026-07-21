@@ -21,9 +21,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.UnpublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
@@ -67,9 +69,13 @@ class RecruitingRoundCreationConcurrencyTest {
     @MockitoBean
     CloseRecruitingApplicationFormUseCase closeApplicationFormUseCase;
     @MockitoBean
+    UnpublishRecruitingApplicationFormUseCase unpublishApplicationFormUseCase;
+    @MockitoBean
     ManageFormUseCase manageFormUseCase;
     @MockitoBean
     GetFormUseCase getFormUseCase;
+    @MockitoBean
+    GetFormResponseUseCase getFormResponseUseCase;
 
     @Test
     @DisplayName("동시 추가모집 생성은 Season lock으로 차수를 1부터 순차 배정한다")

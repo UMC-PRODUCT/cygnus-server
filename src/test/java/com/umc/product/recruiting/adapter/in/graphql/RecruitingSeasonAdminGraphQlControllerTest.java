@@ -45,8 +45,10 @@ import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoun
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
@@ -163,17 +165,27 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     @Test
     @DisplayName("GraphQL 상태 요약은 CurrentMember와 요청 기수를 public UseCase에 전달한다")
     void statusSummaryBindsCurrentMemberAndRequestedGisu() {
-        given(getApplicationQueryUseCase.getStatusSummary(11L, 22L, null, 40L))
+        given(getApplicationQueryUseCase.getStatusSummary(any()))
             .willReturn(new RecruitingStatusSummaryInfo(
                 3L,
-                Map.of(RecruitingApplicationStatus.SUBMITTED, 3L)
+                Map.of(RecruitingApplicationStatus.SUBMITTED, 3L),
+                List.of(new RecruitingSchoolStatusSummaryInfo(
+                    22L, "테스트대학교", 3L, "중앙", 3L,
+                    Map.of(RecruitingApplicationStatus.SUBMITTED, 3L), List.of()
+                ))
             ));
 
         graphQlTester.document("""
                 query {
-                  recruitingStatusSummary(input: {gisuId: 11, schoolId: 22}) {
+                  recruitingStatusSummary(input: {
+                    gisuId: 11,
+                    schoolIds: [22, 23],
+                    roundIds: [31],
+                    schoolName: "테스트"
+                  }) {
                     totalCount
                     countByStatus { status count }
+                    schools { schoolId schoolName totalCount }
                   }
                 }
                 """)
@@ -182,7 +194,14 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             .entity(Long.class)
             .isEqualTo(3L);
 
-        then(getApplicationQueryUseCase).should().getStatusSummary(11L, 22L, null, 40L);
+        ArgumentCaptor<RecruitingStatusSummaryQuery> captor =
+            ArgumentCaptor.forClass(RecruitingStatusSummaryQuery.class);
+        then(getApplicationQueryUseCase).should().getStatusSummary(captor.capture());
+        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
+        assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
+        assertThat(captor.getValue().roundIds()).containsExactly(31L);
+        assertThat(captor.getValue().schoolName()).isEqualTo("테스트");
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
     }
 
     @Test

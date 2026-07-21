@@ -76,7 +76,7 @@ class RecruitingApplicationReviewGraphQlControllerTest {
                 query {
                   recruitingRoundApplications(
                     roundId: 20,
-                    input: {status: SUBMITTED, track: PLAN, page: 1, size: 10}
+                    input: {statuses: [SUBMITTED, INTERVIEW_ASSIGNED], tracks: [PLAN, DESIGN], page: 1, size: 10}
                   ) {
                     content { applicationId documentEvaluatedByMe }
                     totalElements
@@ -95,6 +95,14 @@ class RecruitingApplicationReviewGraphQlControllerTest {
             ArgumentCaptor.forClass(RecruitingApplicationSearchQuery.class);
         then(searchApplicationUseCase).should().search(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
+        assertThat(captor.getValue().statuses()).containsExactlyInAnyOrder(
+            RecruitingApplicationStatus.SUBMITTED,
+            RecruitingApplicationStatus.INTERVIEW_ASSIGNED
+        );
+        assertThat(captor.getValue().tracks()).containsExactlyInAnyOrder(
+            ChallengerTrack.PLAN,
+            ChallengerTrack.DESIGN
+        );
         assertThat(captor.getValue().pageable().getPageNumber()).isEqualTo(1);
     }
 
