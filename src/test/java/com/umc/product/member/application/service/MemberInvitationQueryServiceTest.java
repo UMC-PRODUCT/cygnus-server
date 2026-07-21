@@ -216,7 +216,14 @@ class MemberInvitationQueryServiceTest {
         Long gisuId,
         ChallengerStatus status
     ) {
-        return new ChallengerBasicInfo(challengerId, memberId, gisuId, ChallengerPart.WEB, status);
+        return new ChallengerBasicInfo(
+            challengerId,
+            memberId,
+            gisuId,
+            ChallengerPart.WEB,
+            List.of(),
+            status
+        );
     }
 
 }

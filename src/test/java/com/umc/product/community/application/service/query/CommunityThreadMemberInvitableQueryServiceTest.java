@@ -312,6 +312,6 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     }
 
     private ChallengerBasicInfo challenger(Long memberId, ChallengerPart part) {
-        return new ChallengerBasicInfo(100L + memberId, memberId, 20L, part, null);
+        return new ChallengerBasicInfo(100L + memberId, memberId, 20L, part, List.of(), null);
     }
 }
