@@ -9,7 +9,6 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -33,15 +32,14 @@ import com.umc.product.community.domain.enums.CommunityThreadMemberRole;
 import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
-import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
-import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationInfo;
+import com.umc.product.member.application.port.in.query.SearchMemberInvitationUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CommunityThreadInviteManager")
 class CommunityThreadInviteManagerTest {
 
     @Mock
-    SearchChallengerInvitationUseCase searchInvitationUseCase;
+    SearchMemberInvitationUseCase searchInvitationUseCase;
     @Mock
     LoadCommunityThreadMemberPort loadMemberPort;
     @Mock
@@ -73,12 +71,9 @@ class CommunityThreadInviteManagerTest {
             THREAD_ID,
             Set.of(20L, 30L)
         )).willReturn(List.of());
-        given(searchInvitationUseCase.batchGetEligibleChallengers(
+        given(searchInvitationUseCase.batchGetInvitableMemberIds(
             Set.of(20L, 30L)
-        )).willReturn(Map.of(
-            20L, invitation(20L),
-            30L, invitation(30L)
-        ));
+        )).willReturn(Set.of(20L, 30L));
         given(saveMemberPort.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -102,7 +97,7 @@ class CommunityThreadInviteManagerTest {
             joinChatRoomUseCase,
             saveMemberPort
         );
-        order.verify(searchInvitationUseCase).batchGetEligibleChallengers(
+        order.verify(searchInvitationUseCase).batchGetInvitableMemberIds(
             Set.of(20L, 30L)
         );
         order.verify(joinChatRoomUseCase, Mockito.times(2)).joinChatRoom(any());
@@ -126,9 +121,9 @@ class CommunityThreadInviteManagerTest {
             THREAD_ID,
             Set.of(20L)
         )).willReturn(List.of(leftMember));
-        given(searchInvitationUseCase.batchGetEligibleChallengers(
+        given(searchInvitationUseCase.batchGetInvitableMemberIds(
             Set.of(20L)
-        )).willReturn(Map.of(20L, invitation(20L)));
+        )).willReturn(Set.of(20L));
         given(saveMemberPort.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
 
         // when
@@ -177,6 +172,31 @@ class CommunityThreadInviteManagerTest {
     }
 
     @Test
+    @DisplayName("존재하지 않거나 비활성인 회원이 포함되면 전체 초대를 거절한다")
+    void invite_rejectsWhenAnyMemberIsNotInvitable() {
+        // given
+        given(loadMemberPort.listByThreadIdAndMemberIds(
+            THREAD_ID,
+            Set.of(20L, 30L)
+        )).willReturn(List.of());
+        given(loadMemberPort.countActiveByThreadId(THREAD_ID)).willReturn(1L);
+        given(searchInvitationUseCase.batchGetInvitableMemberIds(Set.of(20L, 30L)))
+            .willReturn(Set.of(20L));
+
+        // when & then
+        assertThatThrownBy(() -> sut.invite(
+            CommunityThreadLifecycleTestFixtures.thread(),
+            List.of(20L, 30L),
+            NOW
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_INVITEE_NOT_ELIGIBLE);
+        then(joinChatRoomUseCase).shouldHaveNoInteractions();
+        then(saveMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("ACTIVE 멤버 수와 초대 수가 설정 용량을 넘으면 Chat 호출 전에 거절한다")
     void invite_capacityExceededBeforeChat() {
         // given
@@ -204,10 +224,6 @@ class CommunityThreadInviteManagerTest {
             .isEqualTo(CommunityErrorCode.THREAD_CAPACITY_EXCEEDED);
         then(searchInvitationUseCase).shouldHaveNoInteractions();
         then(joinChatRoomUseCase).shouldHaveNoInteractions();
-    }
-
-    private ChallengerInvitationInfo invitation(Long memberId) {
-        return new ChallengerInvitationInfo(memberId, memberId + 1_000L, "이름", null, 12L);
     }
 
 }

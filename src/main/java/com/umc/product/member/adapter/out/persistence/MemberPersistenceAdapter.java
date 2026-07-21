@@ -16,14 +16,21 @@ import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.out.LoadMemberPort;
 import com.umc.product.member.application.port.out.SaveMemberPort;
+import com.umc.product.member.application.port.out.SearchMemberInvitationPort;
 import com.umc.product.member.application.port.out.SearchMemberPort;
+import com.umc.product.member.application.port.out.dto.MemberInvitationCandidatePage;
+import com.umc.product.member.application.port.out.dto.SearchMemberInvitationCondition;
 import com.umc.product.member.domain.Member;
 
 import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class MemberPersistenceAdapter implements LoadMemberPort, SaveMemberPort, SearchMemberPort {
+public class MemberPersistenceAdapter implements
+    LoadMemberPort,
+    SaveMemberPort,
+    SearchMemberPort,
+    SearchMemberInvitationPort {
 
     private final MemberJpaRepository memberJpaRepository;
     private final MemberQueryRepository memberQueryRepository;
@@ -115,6 +122,16 @@ public class MemberPersistenceAdapter implements LoadMemberPort, SaveMemberPort,
     @Override
     public Page<Long> searchMemberIds(SearchMemberQuery query, MemberSearchAccessScope scope, Pageable pageable) {
         return memberQueryRepository.searchMemberIdsBy(query, scope, pageable);
+    }
+
+    @Override
+    public MemberInvitationCandidatePage search(SearchMemberInvitationCondition condition) {
+        return memberQueryRepository.searchInvitationCandidates(condition);
+    }
+
+    @Override
+    public Set<Long> findActiveMemberIds(Set<Long> memberIds) {
+        return memberQueryRepository.findActiveMemberIds(memberIds);
     }
 
     @Override

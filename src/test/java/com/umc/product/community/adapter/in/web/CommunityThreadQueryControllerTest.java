@@ -1,6 +1,7 @@
 package com.umc.product.community.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -193,6 +194,22 @@ class CommunityThreadQueryControllerTest {
             .andExpect(jsonPath("$.result.items[0].challengerId").value("88"))
             .andExpect(jsonPath("$.result.nextOffset").doesNotExist())
             .andExpect(jsonPath("$.result.total").value("1"));
+    }
+
+    @Test
+    @DisplayName("Challenger 이력이 없는 초대 후보는 관련 필드를 null로 반환한다")
+    void searchInvitable_serializesMissingChallengerAsNull() throws Exception {
+        given(searchThreadInvitableUseCase.searchInvitable(any())).willReturn(new ThreadInvitablePageInfo(
+            List.of(new ThreadInvitableInfo(8L, null, "구름", null, null)),
+            null, 1L
+        ));
+
+        mockMvc.perform(get("/api/v1/community/threads/42/invitable"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.items[0].memberId").value("8"))
+            .andExpect(jsonPath("$.result.items[0].challengerId").value(nullValue()))
+            .andExpect(jsonPath("$.result.items[0].part").value(nullValue()))
+            .andExpect(jsonPath("$.result.items[0].generation").value(nullValue()));
     }
 
     @Test

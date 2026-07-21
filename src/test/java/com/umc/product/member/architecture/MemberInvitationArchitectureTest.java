@@ -10,11 +10,11 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("Member 챌린저 초대 검색 아키텍처")
-class ChallengerInvitationArchitectureTest {
+@DisplayName("Member 초대 검색 아키텍처")
+class MemberInvitationArchitectureTest {
 
     private static final Path SERVICE_SOURCE = Path.of(
-        "src/main/java/com/umc/product/member/application/service/ChallengerInvitationQueryService.java"
+        "src/main/java/com/umc/product/member/application/service/MemberInvitationQueryService.java"
     );
     private static final Path MEMBER_ADAPTER_SOURCE = Path.of(
         "src/main/java/com/umc/product/member/adapter/out/persistence/MemberPersistenceAdapter.java"
@@ -27,7 +27,7 @@ class ChallengerInvitationArchitectureTest {
     );
 
     @Test
-    @DisplayName("초대 검색의 공개 Query UseCase 경계를 검증한다")
+    @DisplayName("초대 검색은 Member 출력 Port와 외부 도메인 Query UseCase 경계를 지킨다")
     void 초대_검색은_공개_query_usecase_경계를_지킨다() throws IOException {
         String serviceSource = Files.readString(SERVICE_SOURCE);
         String memberAdapterSource = Files.readString(MEMBER_ADAPTER_SOURCE);
@@ -43,9 +43,8 @@ class ChallengerInvitationArchitectureTest {
             .contains(
                 "GetGisuUseCase",
                 "GetChallengerUseCase",
-                "GetMemberUseCase",
+                "SearchMemberInvitationPort",
                 "ChallengerBasicInfo",
-                "listLatestBasicPerMember",
                 "getAllBasicByMemberIds"
             )
             .doesNotContain(
@@ -61,6 +60,7 @@ class ChallengerInvitationArchitectureTest {
             );
         assertThat(forbiddenImports).isEmpty();
         assertThat(memberAdapterSource)
+            .contains("SearchMemberInvitationPort")
             .doesNotContain("ActiveChallengerInvitation", "SearchActiveChallengerInvitationPort");
         assertThat(Files.exists(REMOVED_REPOSITORY_SOURCE)).isFalse();
         assertThat(Files.exists(REMOVED_PORT_SOURCE)).isFalse();

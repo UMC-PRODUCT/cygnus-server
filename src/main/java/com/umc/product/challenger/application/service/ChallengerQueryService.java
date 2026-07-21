@@ -134,13 +134,6 @@ public class ChallengerQueryService implements GetChallengerUseCase, CheckChalle
     }
 
     @Override
-    public List<ChallengerBasicInfo> listLatestBasicPerMember() {
-        return loadChallengerPort.findLatestPerMember().stream()
-            .map(ChallengerBasicInfo::from)
-            .toList();
-    }
-
-    @Override
     public ChallengerInfoWithStatus getLatestActiveChallengerByMemberId(Long memberId) {
         Challenger challenger = loadChallengerPort.findTopByMemberIdOrderByCreatedAtDesc(memberId);
         if (challenger.getStatus() == ChallengerStatus.WITHDRAWN

@@ -76,13 +76,6 @@ public interface GetChallengerUseCase {
     List<ChallengerBasicInfo> listBasicByGisuId(Long gisuId);
 
     /**
-     * 각 회원별 가장 최근 기수의 챌린저 기본 정보를 조회합니다.
-     * <p>
-     * 초대 대상 검색처럼 회원별 최신 소속과 상태만 필요한 경우 사용합니다.
-     */
-    List<ChallengerBasicInfo> listLatestBasicPerMember();
-
-    /**
      * 여러 challengerId로 챌린저 정보 배치 조회
      *
      * @param challengerIds 챌린저 ID 목록

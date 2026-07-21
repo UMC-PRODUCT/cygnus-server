@@ -18,8 +18,7 @@ import com.umc.product.community.domain.CommunityThreadProperties;
 import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
-import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
-import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationInfo;
+import com.umc.product.member.application.port.in.query.SearchMemberInvitationUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,7 +26,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CommunityThreadInviteManager {
 
-    private final SearchChallengerInvitationUseCase searchInvitationUseCase;
+    private final SearchMemberInvitationUseCase searchInvitationUseCase;
     private final LoadCommunityThreadMemberPort loadMemberPort;
     private final SaveCommunityThreadMemberPort saveMemberPort;
     private final JoinChatRoomUseCase joinChatRoomUseCase;
@@ -50,9 +49,9 @@ public class CommunityThreadInviteManager {
         }
 
         Set<Long> selectedMemberIds = Set.copyOf(sortedMemberIds);
-        Map<Long, ChallengerInvitationInfo> eligibleMembers = searchInvitationUseCase
-            .batchGetEligibleChallengers(selectedMemberIds);
-        if (!eligibleMembers.keySet().containsAll(selectedMemberIds)) {
+        Set<Long> eligibleMemberIds = searchInvitationUseCase
+            .batchGetInvitableMemberIds(selectedMemberIds);
+        if (!eligibleMemberIds.containsAll(selectedMemberIds)) {
             throw new CommunityDomainException(CommunityErrorCode.THREAD_INVITEE_NOT_ELIGIBLE);
         }
 

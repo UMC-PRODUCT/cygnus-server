@@ -8,14 +8,14 @@ import java.util.Set;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("SearchChallengerInvitationQuery")
-class SearchChallengerInvitationQueryTest {
+@DisplayName("SearchMemberInvitationQuery")
+class SearchMemberInvitationQueryTest {
 
     @Test
     @DisplayName("검색어 공백과 제외 목록을 정규화한다")
     void 검색어_공백과_제외_목록을_정규화한다() {
         // when
-        SearchChallengerInvitationQuery query = new SearchChallengerInvitationQuery(
+        SearchMemberInvitationQuery query = new SearchMemberInvitationQuery(
             "  Alice  ",
             Set.of(10L),
             2,
@@ -31,11 +31,11 @@ class SearchChallengerInvitationQueryTest {
     @DisplayName("페이지 입력 범위를 벗어나면 거부한다")
     void 페이지_입력_범위를_벗어나면_거부한다() {
         // when / then
-        assertThatThrownBy(() -> new SearchChallengerInvitationQuery(null, Set.of(), -1, 20))
+        assertThatThrownBy(() -> new SearchMemberInvitationQuery(null, Set.of(), -1, 20))
             .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new SearchChallengerInvitationQuery(null, Set.of(), 0, 0))
+        assertThatThrownBy(() -> new SearchMemberInvitationQuery(null, Set.of(), 0, 0))
             .isInstanceOf(IllegalArgumentException.class);
-        assertThatThrownBy(() -> new SearchChallengerInvitationQuery(null, Set.of(), 0, 101))
+        assertThatThrownBy(() -> new SearchMemberInvitationQuery(null, Set.of(), 0, 101))
             .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -46,7 +46,7 @@ class SearchChallengerInvitationQueryTest {
         String keyword = "가".repeat(81);
 
         // when / then
-        assertThatThrownBy(() -> new SearchChallengerInvitationQuery(keyword, Set.of(), 0, 20))
+        assertThatThrownBy(() -> new SearchMemberInvitationQuery(keyword, Set.of(), 0, 20))
             .isInstanceOf(IllegalArgumentException.class);
     }
 }

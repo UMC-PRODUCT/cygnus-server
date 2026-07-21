@@ -214,7 +214,7 @@
 | 169 | community | `COMMUNITY-0041` | `THREAD_OWNER_CANNOT_LEAVE` | 409 CONFLICT | 소유권을 이전하기 전에는 커뮤니티 스레드를 나갈 수 없어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/community/domain/exception/CommunityErrorCode.java:63` |
 | 170 | community | `COMMUNITY-0042` | `THREAD_OWNER_CANNOT_BE_KICKED` | 409 CONFLICT | 커뮤니티 스레드 소유자는 강퇴할 수 없어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/community/domain/exception/CommunityErrorCode.java:64` |
 | 171 | community | `COMMUNITY-0043` | `THREAD_INVALID_ROLE_CHANGE` | 400 BAD_REQUEST | 커뮤니티 스레드 역할 변경 요청이 올바르지 않아요. |  |  |  | false |  |  | `src/main/java/com/umc/product/community/domain/exception/CommunityErrorCode.java:65` |
-| 172 | community | `COMMUNITY-0044` | `THREAD_INVITEE_NOT_ELIGIBLE` | 400 BAD_REQUEST | 활동 중이거나 수료한 챌린저만 초대할 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/community/domain/exception/CommunityErrorCode.java:66` |
+| 172 | community | `COMMUNITY-0044` | `THREAD_INVITEE_NOT_ELIGIBLE` | 400 BAD_REQUEST | 존재하는 활성 회원만 초대할 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/community/domain/exception/CommunityErrorCode.java:66` |
 | 173 | community | `COMMUNITY-0045` | `THREAD_INVALID_COMMAND` | 400 BAD_REQUEST | 커뮤니티 스레드 요청이 올바르지 않아요. |  |  |  | false |  |  | `src/main/java/com/umc/product/community/domain/exception/CommunityErrorCode.java:67` |
 
 ## curriculum

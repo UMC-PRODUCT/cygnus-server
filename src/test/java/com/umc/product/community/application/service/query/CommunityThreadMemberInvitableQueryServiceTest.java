@@ -41,11 +41,11 @@ import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
-import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationInfo;
-import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationSearchResult;
+import com.umc.product.member.application.port.in.query.SearchMemberInvitationUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchChallengerInvitationQuery;
+import com.umc.product.member.application.port.in.query.dto.MemberInvitationInfo;
+import com.umc.product.member.application.port.in.query.dto.MemberInvitationSearchResult;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberInvitationQuery;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
@@ -68,7 +68,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     GetGisuUseCase getGisuUseCase;
 
     @Mock
-    SearchChallengerInvitationUseCase searchInvitationUseCase;
+    SearchMemberInvitationUseCase searchInvitationUseCase;
 
     CommunityThreadQueryService sut;
 
@@ -250,9 +250,9 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
         given(threadQueryPort.listInvitationBlockedMemberIds(1L)).willReturn(List.of(10L, 20L));
         given(searchInvitationUseCase.search(org.mockito.ArgumentMatchers.any())).willReturn(
-            new ChallengerInvitationSearchResult(
-                List.of(new ChallengerInvitationInfo(
-                    30L, 300L, "새 멤버", ChallengerPart.PLAN, 9L
+            new MemberInvitationSearchResult(
+                List.of(new MemberInvitationInfo(
+                    30L, null, "새 멤버", null, null
                 )),
                 3,
                 7L
@@ -266,10 +266,13 @@ class CommunityThreadMemberInvitableQueryServiceTest {
 
         // then
         assertThat(result.items()).extracting(info -> info.memberId()).containsExactly(30L);
+        assertThat(result.items().getFirst().challengerId()).isNull();
+        assertThat(result.items().getFirst().part()).isNull();
+        assertThat(result.items().getFirst().generation()).isNull();
         assertThat(result.nextOffset()).isEqualTo(3);
         assertThat(result.total()).isEqualTo(7L);
-        ArgumentCaptor<SearchChallengerInvitationQuery> captor =
-            ArgumentCaptor.forClass(SearchChallengerInvitationQuery.class);
+        ArgumentCaptor<SearchMemberInvitationQuery> captor =
+            ArgumentCaptor.forClass(SearchMemberInvitationQuery.class);
         verify(searchInvitationUseCase).search(captor.capture());
         assertThat(captor.getValue().keyword()).isEqualTo("새");
         assertThat(captor.getValue().excludedMemberIds()).containsExactlyInAnyOrder(10L, 20L);
