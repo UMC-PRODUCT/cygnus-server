@@ -8,5 +8,7 @@ public interface SaveCommentPort {
 
     void delete(Comment comment);
 
+    void deleteByPostId(Long postId);
+
     LikeResult toggleLike(Long commentId, Long challengerId);
 }

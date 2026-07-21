@@ -7,6 +7,10 @@ import com.umc.product.community.domain.Post;
  */
 public record PostWithAuthor(
     Post post,
-    Long authorChallengerId
+    Long authorChallengerId,
+    boolean liked
 ) {
+    public PostWithAuthor(Post post, Long authorChallengerId) {
+        this(post, authorChallengerId, false);
+    }
 }

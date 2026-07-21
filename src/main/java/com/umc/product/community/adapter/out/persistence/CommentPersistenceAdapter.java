@@ -1,19 +1,21 @@
 package com.umc.product.community.adapter.out.persistence;
 
-import com.umc.product.community.adapter.out.persistence.entity.CommentJpaEntity;
-import com.umc.product.community.application.port.in.command.comment.ToggleCommentLikeUseCase.LikeResult;
-import com.umc.product.community.application.port.out.comment.LoadCommentPort;
-import com.umc.product.community.application.port.out.comment.SaveCommentPort;
-import com.umc.product.community.domain.Comment;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
+
+import com.umc.product.community.application.port.in.command.comment.ToggleCommentLikeUseCase.LikeResult;
+import com.umc.product.community.application.port.out.comment.LoadCommentPort;
+import com.umc.product.community.application.port.out.comment.SaveCommentPort;
+import com.umc.product.community.domain.Comment;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
@@ -23,19 +25,17 @@ public class CommentPersistenceAdapter implements LoadCommentPort, SaveCommentPo
 
     @Override
     public Optional<Comment> findById(Long commentId) {
-        return commentRepository.findById(commentId)
-            .map(CommentJpaEntity::toDomain);
+        return commentRepository.findById(commentId);
     }
 
     @Override
     public Page<Comment> findByPostId(Long postId, Pageable pageable) {
-        return commentRepository.findByPostIdOrderByCreatedAtDesc(postId, pageable)
-            .map(CommentJpaEntity::toDomain);
+        return commentRepository.findByPost_IdOrderByCreatedAtDesc(postId, pageable);
     }
 
     @Override
     public int countByPostId(Long postId) {
-        return commentRepository.countByPostId(postId);
+        return commentRepository.countByPost_Id(postId);
     }
 
     @Override
@@ -54,21 +54,24 @@ public class CommentPersistenceAdapter implements LoadCommentPort, SaveCommentPo
 
     @Override
     public Comment save(Comment comment) {
-        CommentJpaEntity entity = CommentJpaEntity.from(comment);
-        CommentJpaEntity saved = commentRepository.save(entity);
-        return saved.toDomain();
+        return commentRepository.save(comment);
     }
 
     @Override
     public void delete(Comment comment) {
-        if (comment.getCommentId() != null) {
-            commentRepository.deleteById(comment.getCommentId().id());
+        if (comment.getId() != null) {
+            commentRepository.deleteById(comment.getId());
         }
     }
 
     @Override
+    public void deleteByPostId(Long postId) {
+        commentRepository.deleteAllByPost_Id(postId);
+    }
+
+    @Override
     public LikeResult toggleLike(Long commentId, Long challengerId) {
-        CommentJpaEntity entity = commentRepository.findById(commentId)
+        Comment entity = commentRepository.findById(commentId)
             .orElseThrow(() -> new IllegalArgumentException("댓글을 찾을 수 없습니다."));
         boolean liked = entity.toggleLike(challengerId);
         return new LikeResult(liked, entity.getLikeCount());

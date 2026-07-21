@@ -1,23 +1,27 @@
 package com.umc.product.community.adapter.out.persistence;
 
-import com.umc.product.community.adapter.out.persistence.entity.ScrapJpaEntity;
 import java.util.Optional;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface ScrapRepository extends JpaRepository<ScrapJpaEntity, Long> {
+import com.umc.product.community.domain.Scrap;
 
-    Optional<ScrapJpaEntity> findByPostIdAndChallengerId(Long postId, Long challengerId);
+public interface ScrapRepository extends JpaRepository<Scrap, Long> {
 
-    boolean existsByPostIdAndChallengerId(Long postId, Long challengerId);
+    Optional<Scrap> findByPost_IdAndChallengerId(Long postId, Long challengerId);
 
-    int countByPostId(Long postId);
+    boolean existsByPost_IdAndChallengerId(Long postId, Long challengerId);
 
-    void deleteByPostIdAndChallengerId(Long postId, Long challengerId);
+    int countByPost_Id(Long postId);
 
-    @Query("SELECT s.postId FROM ScrapJpaEntity s WHERE s.challengerId = :challengerId ORDER BY s.createdAt DESC")
+    void deleteByPost_IdAndChallengerId(Long postId, Long challengerId);
+
+    void deleteAllByPost_Id(Long postId);
+
+    @Query("SELECT s.post.id FROM Scrap s WHERE s.challengerId = :challengerId ORDER BY s.createdAt DESC")
     Page<Long> findPostIdsByChallengerId(@Param("challengerId") Long challengerId, Pageable pageable);
 }
