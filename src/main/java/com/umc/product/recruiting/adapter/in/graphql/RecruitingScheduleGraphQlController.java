@@ -12,11 +12,11 @@ import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingInterviewScheduleGraphQlRequest.Confirm;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingInterviewScheduleGraphQlRequest.RequestAvailability;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingInterviewScheduleGraphQlRequest.SubmitAvailability;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingInterviewScheduleGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.SkipRecruitingInterviewGraphQlRequest;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
 
@@ -77,11 +77,12 @@ public class RecruitingScheduleGraphQlController {
     @MutationMapping
     public Boolean submitRecruitingInterviewAvailability(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long applicationId,
-        @Argument SubmitAvailability input
+        @Argument Long applicationId
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        manageInterviewScheduleUseCase.submitAvailability(input.toCommand(applicationId, requesterMemberId));
+        manageInterviewScheduleUseCase.submitAvailability(
+            SubmitRecruitingInterviewAvailabilityCommand.of(applicationId, requesterMemberId)
+        );
         return true;
     }
 

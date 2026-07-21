@@ -122,7 +122,6 @@ type Mutation {
   ): RecruitingIdPayload!
   submitRecruitingInterviewAvailability(
     applicationId: ID!
-    input: SubmitRecruitingInterviewAvailabilityInput!
   ): Boolean!
   confirmRecruitingInterviewSchedule(
     applicationId: ID!
@@ -358,10 +357,6 @@ input RequestRecruitingInterviewAvailabilityInput {
   contactSnapshot: String!
 }
 
-input SubmitRecruitingInterviewAvailabilityInput {
-  availabilityFormResponseId: ID!
-}
-
 input ConfirmRecruitingInterviewScheduleInput {
   startsAt: Instant!
   endsAt: Instant!
@@ -566,7 +561,6 @@ type RecruitingApplicationEvaluation {
 type RecruitingInterviewSchedule {
   id: ID!
   applicationId: ID!
-  availabilityFormResponseId: ID
   status: RecruitingInterviewScheduleStatus!
   startsAt: Instant
   endsAt: Instant

@@ -8,7 +8,6 @@ import com.umc.product.recruiting.domain.enums.RecruitingInterviewScheduleStatus
 public record RecruitingInterviewScheduleGraphQlResponse(
     Long id,
     Long applicationId,
-    Long availabilityFormResponseId,
     RecruitingInterviewScheduleStatus status,
     Instant startsAt,
     Instant endsAt,
@@ -20,7 +19,6 @@ public record RecruitingInterviewScheduleGraphQlResponse(
         return new RecruitingInterviewScheduleGraphQlResponse(
             info.id(),
             info.applicationId(),
-            info.availabilityFormResponseId(),
             info.status(),
             info.startsAt(),
             info.endsAt(),

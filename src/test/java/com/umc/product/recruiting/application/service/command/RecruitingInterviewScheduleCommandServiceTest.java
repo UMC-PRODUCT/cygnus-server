@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Instant;
 import java.util.List;
@@ -87,12 +88,25 @@ class RecruitingInterviewScheduleCommandServiceTest {
     }
 
     @Test
-    @DisplayName("가능 시간 응답을 기록하고 일정을 확정한다")
-    void 가능_시간_응답을_기록하고_일정을_확정한다() {
+    @DisplayName("가능 시간 응답 제출은 Form 엔진 연동 전까지 501 오류로 거부한다")
+    void 가능_시간_응답_제출은_Form_엔진_연동_전까지_501_오류로_거부한다() {
+        assertThatThrownBy(() -> sut.submitAvailability(
+            SubmitRecruitingInterviewAvailabilityCommand.of(900L, 1L)
+        ))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_AVAILABILITY_NOT_IMPLEMENTED);
+
+        verifyNoInteractions(loadSchedulePort, saveSchedulePort);
+    }
+
+    @Test
+    @DisplayName("가능 시간 응답이 제출된 일정은 면접 기간 안에서 확정한다")
+    void 가능_시간_응답이_제출된_일정은_면접_기간_안에서_확정한다() {
         RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
         given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule);
 
-        sut.submitAvailability(SubmitRecruitingInterviewAvailabilityCommand.of(900L, 1L, 700L));
         sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
             900L,
             99L,
@@ -104,21 +118,7 @@ class RecruitingInterviewScheduleCommandServiceTest {
 
         assertThat(schedule.getStatus()).isEqualTo(RecruitingInterviewScheduleStatus.CONFIRMED);
         assertThat(schedule.getContactSnapshot()).isEqualTo("이메일 contact@example.com");
-        verify(saveSchedulePort, org.mockito.Mockito.times(2)).saveSchedule(schedule);
-    }
-
-    @Test
-    @DisplayName("다른 회원은 지원자의 가능 시간 응답 ID를 기록할 수 없다")
-    void 다른_회원은_가능_시간_응답을_기록할_수_없다() {
-        RecruitingInterviewSchedule schedule = schedule();
-        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule);
-
-        assertThatThrownBy(() -> sut.submitAvailability(
-            SubmitRecruitingInterviewAvailabilityCommand.of(900L, 2L, 700L)
-        ))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_APPLICANT_MISMATCH);
+        verify(saveSchedulePort).saveSchedule(schedule);
     }
 
     private RecruitingInterviewSchedule schedule() {

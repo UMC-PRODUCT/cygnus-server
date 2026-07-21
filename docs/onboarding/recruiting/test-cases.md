@@ -41,7 +41,7 @@
 | `RecruitingDecisionCommandServiceTest` | 서류 불합격, 면접 진행 시 일정 자동 생성, 면접 미진행 시 즉시 skip, 최종 판정 권한·acceptedTrack·중복 합격 |
 | `RecruitingInterviewAvailabilityRequestCoordinatorTest` | 일정 row와 Outbox의 같은 transaction 생성, 멱등 재요청과 실패 재시도 |
 | `RecruitingInterviewCommandServiceTest` | 면접 생략 시 Application 전이와 기존 일정 `CANCELLED`, 일정 후보 overlap 위임 |
-| `RecruitingInterviewScheduleCommandServiceTest` | 서류 합격자만 요청, availability 연결, 면접 기간 안 확정, 연락처 snapshot |
+| `RecruitingInterviewScheduleCommandServiceTest` | 서류 합격자만 요청, Form 엔진 연동 전 availability 제출 501 거부, 제출 완료 일정의 면접 기간 안 확정, 연락처 snapshot |
 | `RecruitingInterviewMailDeliveryCommandServiceTest` | 요청/확정 메일 상태 저장과 잘못된 상태 차단 |
 | `RecruitingRegistrationCommandServiceTest` | 중앙 권한, quota lock, READY 예약·취소, REGISTERED와 Challenger track 멱등 추가 |
 | `RecruitingManagementAuthorizationServiceTest` | 학교 회장단·중앙 총괄단·SUPER_ADMIN scope와 evaluator 권한 분리 |

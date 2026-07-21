@@ -154,6 +154,7 @@ class RecruitingRestContractTest {
                 "memberId",
                 "requesterMemberId",
                 "executorMemberId",
+                "availabilityFormResponseId",
                 "interviewConfigurationValid"
             );
         }

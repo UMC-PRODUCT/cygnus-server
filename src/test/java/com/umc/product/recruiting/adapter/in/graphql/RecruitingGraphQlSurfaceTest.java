@@ -33,6 +33,7 @@ class RecruitingGraphQlSurfaceTest {
         "score",
         "scores",
         "saveRecruitingApplicationEvaluation",
+        "availabilityFormResponseId",
         "csv"
     );
 
@@ -117,7 +118,7 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("RecruitingApplicationRegistrationStatus!");
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
-            assertThat(inputFieldNames(data)).doesNotContain("memberId");
+            assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
             assertThat(enumValues(data, "ChallengerTrack"))
                 .containsExactlyInAnyOrder(
                     "PLAN",

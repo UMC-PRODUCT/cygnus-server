@@ -42,12 +42,10 @@ public class RecruitingInterviewScheduleCommandService implements ManageRecruiti
 
     @Override
     public void submitAvailability(SubmitRecruitingInterviewAvailabilityCommand command) {
-        RecruitingInterviewSchedule schedule = loadSchedulePort.getByApplicationId(command.applicationId());
-        schedule.getApplication().validateApplicant(command.requesterMemberId());
-        validateInterviewAssigned(schedule.getApplication());
-        // TODO(#1146): availability FormResponse 소유권 검증 계약이 제공되면 응답 ID를 기록하기 전에 확인한다.
-        schedule.submitAvailability(command.availabilityFormResponseId());
-        saveSchedulePort.saveSchedule(schedule);
+        // TODO(#1146): Form SCHEDULE 응답을 직접 생성·수정·제출하는 계약으로 교체한다.
+        throw new RecruitingDomainException(
+            RecruitingErrorCode.RECRUITING_INTERVIEW_AVAILABILITY_NOT_IMPLEMENTED
+        );
     }
 
     @Override

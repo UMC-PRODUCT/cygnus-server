@@ -4,7 +4,6 @@ import java.time.Instant;
 
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
 
 public final class RecruitingInterviewScheduleGraphQlRequest {
 
@@ -15,20 +14,6 @@ public final class RecruitingInterviewScheduleGraphQlRequest {
 
         public RequestRecruitingInterviewScheduleCommand toCommand(Long applicationId, Long requesterMemberId) {
             return RequestRecruitingInterviewScheduleCommand.of(applicationId, requesterMemberId, contactSnapshot);
-        }
-    }
-
-    public record SubmitAvailability(Long availabilityFormResponseId) {
-
-        public SubmitRecruitingInterviewAvailabilityCommand toCommand(
-            Long applicationId,
-            Long requesterMemberId
-        ) {
-            return SubmitRecruitingInterviewAvailabilityCommand.of(
-                applicationId,
-                requesterMemberId,
-                availabilityFormResponseId
-            );
         }
     }
 
