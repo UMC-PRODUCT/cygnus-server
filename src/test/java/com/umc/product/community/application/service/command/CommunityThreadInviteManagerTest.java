@@ -1,6 +1,5 @@
 package com.umc.product.community.application.service.command;
 
-import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.GISU_ID;
 import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.NOW;
 import static com.umc.product.community.application.service.command.CommunityThreadLifecycleTestFixtures.THREAD_ID;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,18 +33,15 @@ import com.umc.product.community.domain.enums.CommunityThreadMemberRole;
 import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
-import com.umc.product.member.application.port.in.query.SearchActiveChallengerInvitationUseCase;
-import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvitationInfo;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
+import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationInfo;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CommunityThreadInviteManager")
 class CommunityThreadInviteManagerTest {
 
     @Mock
-    SearchActiveChallengerInvitationUseCase searchInvitationUseCase;
-    @Mock
-    GetGisuUseCase getGisuUseCase;
+    SearchChallengerInvitationUseCase searchInvitationUseCase;
     @Mock
     LoadCommunityThreadMemberPort loadMemberPort;
     @Mock
@@ -59,7 +55,6 @@ class CommunityThreadInviteManagerTest {
     void setUp() {
         sut = new CommunityThreadInviteManager(
             searchInvitationUseCase,
-            getGisuUseCase,
             loadMemberPort,
             saveMemberPort,
             joinChatRoomUseCase,
@@ -78,9 +73,7 @@ class CommunityThreadInviteManagerTest {
             THREAD_ID,
             Set.of(20L, 30L)
         )).willReturn(List.of());
-        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
-        given(searchInvitationUseCase.batchGetEligibleActiveChallengers(
-            GISU_ID,
+        given(searchInvitationUseCase.batchGetEligibleChallengers(
             Set.of(20L, 30L)
         )).willReturn(Map.of(
             20L, invitation(20L),
@@ -105,14 +98,11 @@ class CommunityThreadInviteManagerTest {
             new JoinChatRoomCommand(100L, 30L, 900L)
         );
         InOrder order = Mockito.inOrder(
-            getGisuUseCase,
             searchInvitationUseCase,
             joinChatRoomUseCase,
             saveMemberPort
         );
-        order.verify(getGisuUseCase).getActiveGisuId();
-        order.verify(searchInvitationUseCase).batchGetEligibleActiveChallengers(
-            GISU_ID,
+        order.verify(searchInvitationUseCase).batchGetEligibleChallengers(
             Set.of(20L, 30L)
         );
         order.verify(joinChatRoomUseCase, Mockito.times(2)).joinChatRoom(any());
@@ -136,9 +126,7 @@ class CommunityThreadInviteManagerTest {
             THREAD_ID,
             Set.of(20L)
         )).willReturn(List.of(leftMember));
-        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
-        given(searchInvitationUseCase.batchGetEligibleActiveChallengers(
-            GISU_ID,
+        given(searchInvitationUseCase.batchGetEligibleChallengers(
             Set.of(20L)
         )).willReturn(Map.of(20L, invitation(20L)));
         given(saveMemberPort.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
@@ -194,7 +182,6 @@ class CommunityThreadInviteManagerTest {
         // given
         sut = new CommunityThreadInviteManager(
             searchInvitationUseCase,
-            getGisuUseCase,
             loadMemberPort,
             saveMemberPort,
             joinChatRoomUseCase,
@@ -219,8 +206,8 @@ class CommunityThreadInviteManagerTest {
         then(joinChatRoomUseCase).shouldHaveNoInteractions();
     }
 
-    private ActiveChallengerInvitationInfo invitation(Long memberId) {
-        return new ActiveChallengerInvitationInfo(memberId, memberId + 1_000L, "이름", null, 12L);
+    private ChallengerInvitationInfo invitation(Long memberId) {
+        return new ChallengerInvitationInfo(memberId, memberId + 1_000L, "이름", null, 12L);
     }
 
 }

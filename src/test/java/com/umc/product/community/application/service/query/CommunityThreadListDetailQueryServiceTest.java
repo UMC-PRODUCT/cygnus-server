@@ -36,7 +36,7 @@ import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.SearchActiveChallengerInvitationUseCase;
+import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
@@ -59,7 +59,7 @@ class CommunityThreadListDetailQueryServiceTest {
     GetGisuUseCase getGisuUseCase;
 
     @Mock
-    SearchActiveChallengerInvitationUseCase searchInvitationUseCase;
+    SearchChallengerInvitationUseCase searchInvitationUseCase;
 
     CommunityThreadQueryService sut;
 

@@ -3773,7 +3773,7 @@
       "name": "THREAD_INVITEE_NOT_ELIGIBLE",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "현재 활성 기수의 챌린저만 초대할 수 있어요.",
+      "message": "활동 중이거나 수료한 챌린저만 초대할 수 있어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,

@@ -100,12 +100,12 @@ flowchart LR
 `CommunityThread`는 기수 ID를 저장하지 않는다. Thread 자체는 특정 기수에 귀속되지 않으며,
 기수 전환 뒤에도 같은 Thread와 Chat history를 유지한다.
 
-기수가 필요한 동작은 요청 시점의 현재 활성 기수를 조회한다.
+초대 자격은 현재 활성 기수와 무관하다. 회원별 최신 Challenger 이력을 기준으로 `ACTIVE` 또는
+`GRADUATED` 상태면 초대할 수 있고, 최신 상태가 `WITHDRAWN` 또는 `EXPELLED`면 이전 수료 이력이
+있어도 초대할 수 없다. 초대 응답의 part와 generation도 이 최신 이력에서 조립한다.
 
 | 동작 | 현재 활성 기수의 용도 |
 | --- | --- |
-| 초대 후보 검색 | 현재 ACTIVE Challenger만 검색 |
-| 실제 멤버 초대 | 직접 전달된 member ID가 현재 ACTIVE Challenger인지 재검증 |
 | 멤버 목록 조립 | 현재 활성 기수의 Challenger part와 generation 조회 |
 | 메시지 신고 | 현재 활성 기수의 `memberId → challengerId` 변환 |
 
@@ -133,7 +133,7 @@ REST는 안정적인 조회와 복구가 필요한 기능을 담당한다.
 | POST, DELETE | `/api/v1/community/threads/{threadId}/pin` | pin, unpin |
 | POST, DELETE | `/api/v1/community/threads/{threadId}/mute` | mute, unmute |
 | GET | `/api/v1/community/threads/{threadId}/members` | 멤버 조회 |
-| GET | `/api/v1/community/threads/{threadId}/invitable` | 초대 가능한 ACTIVE Challenger 조회 |
+| GET | `/api/v1/community/threads/{threadId}/invitable` | 초대 가능한 활동 중·수료 Challenger 조회 |
 | POST | `/api/v1/community/threads/{threadId}/invite` | 초대와 LEFT 재참여 |
 | DELETE | `/api/v1/community/threads/{threadId}/members/{memberId}` | 강퇴 |
 | POST | `/api/v1/community/threads/{threadId}/leave` | 나가기 |
@@ -235,7 +235,7 @@ sequenceDiagram
 
     opt 초대 멤버가 존재
         T->>I: invite(thread, memberIds)
-        I->>I: 현재 활성 기수의 ACTIVE Challenger 검증
+        I->>I: 최신 Challenger가 ACTIVE 또는 GRADUATED인지 검증
         I->>DB: 초대 대상의 chat_member 저장
         I->>DB: 초대 대상의 community_thread_member 저장
         I->>O: CommunityThreadInvitedEvent 저장

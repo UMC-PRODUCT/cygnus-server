@@ -41,11 +41,11 @@ import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.SearchActiveChallengerInvitationUseCase;
-import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvitationInfo;
-import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvitationSearchResult;
+import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
+import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationInfo;
+import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationSearchResult;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchActiveChallengerInvitationQuery;
+import com.umc.product.member.application.port.in.query.dto.SearchChallengerInvitationQuery;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
@@ -68,7 +68,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     GetGisuUseCase getGisuUseCase;
 
     @Mock
-    SearchActiveChallengerInvitationUseCase searchInvitationUseCase;
+    SearchChallengerInvitationUseCase searchInvitationUseCase;
 
     CommunityThreadQueryService sut;
 
@@ -244,15 +244,14 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     }
 
     @Test
-    @DisplayName("초대 가능 검색은 ACTIVE OWNER 접근을 확인하고 ACTIVE/KICKED 제외 ID를 페이지 전에 공개 UseCase로 전달한다")
+    @DisplayName("초대 가능 검색은 OWNER 접근을 확인하고 ACTIVE/KICKED 제외 ID를 페이지 전에 공개 UseCase로 전달한다")
     void searchInvitable_제외_ID를_페이지_전에_위임한다() {
         // given
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
         given(threadQueryPort.listInvitationBlockedMemberIds(1L)).willReturn(List.of(10L, 20L));
-        given(getGisuUseCase.getActiveGisuId()).willReturn(20L);
         given(searchInvitationUseCase.search(org.mockito.ArgumentMatchers.any())).willReturn(
-            new ActiveChallengerInvitationSearchResult(
-                List.of(new ActiveChallengerInvitationInfo(
+            new ChallengerInvitationSearchResult(
+                List.of(new ChallengerInvitationInfo(
                     30L, 300L, "새 멤버", ChallengerPart.PLAN, 9L
                 )),
                 3,
@@ -269,16 +268,14 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         assertThat(result.items()).extracting(info -> info.memberId()).containsExactly(30L);
         assertThat(result.nextOffset()).isEqualTo(3);
         assertThat(result.total()).isEqualTo(7L);
-        ArgumentCaptor<SearchActiveChallengerInvitationQuery> captor =
-            ArgumentCaptor.forClass(SearchActiveChallengerInvitationQuery.class);
+        ArgumentCaptor<SearchChallengerInvitationQuery> captor =
+            ArgumentCaptor.forClass(SearchChallengerInvitationQuery.class);
         verify(searchInvitationUseCase).search(captor.capture());
-        assertThat(captor.getValue().gisuId()).isEqualTo(20L);
         assertThat(captor.getValue().keyword()).isEqualTo("새");
         assertThat(captor.getValue().excludedMemberIds()).containsExactlyInAnyOrder(10L, 20L);
         assertThat(captor.getValue().offset()).isEqualTo(2);
         assertThat(captor.getValue().limit()).isEqualTo(1);
-        verify(getGisuUseCase).getActiveGisuId();
-        verifyNoInteractions(getMemberUseCase, getChallengerUseCase);
+        verifyNoInteractions(getMemberUseCase, getChallengerUseCase, getGisuUseCase);
     }
 
     @Test

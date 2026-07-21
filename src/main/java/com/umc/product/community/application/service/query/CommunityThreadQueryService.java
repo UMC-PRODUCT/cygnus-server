@@ -45,10 +45,10 @@ import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.SearchActiveChallengerInvitationUseCase;
-import com.umc.product.member.application.port.in.query.dto.ActiveChallengerInvitationSearchResult;
+import com.umc.product.member.application.port.in.query.SearchChallengerInvitationUseCase;
+import com.umc.product.member.application.port.in.query.dto.ChallengerInvitationSearchResult;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchActiveChallengerInvitationQuery;
+import com.umc.product.member.application.port.in.query.dto.SearchChallengerInvitationQuery;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
@@ -72,7 +72,7 @@ public class CommunityThreadQueryService implements
     private final GetMemberUseCase getMemberUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetGisuUseCase getGisuUseCase;
-    private final SearchActiveChallengerInvitationUseCase searchInvitationUseCase;
+    private final SearchChallengerInvitationUseCase searchInvitationUseCase;
     private final CommunityThreadProperties threadProperties;
 
     @Override
@@ -183,9 +183,8 @@ public class CommunityThreadQueryService implements
         Set<Long> blockedMemberIds = Set.copyOf(
             threadQueryPort.listInvitationBlockedMemberIds(query.threadId())
         );
-        ActiveChallengerInvitationSearchResult result = searchInvitationUseCase.search(
-            new SearchActiveChallengerInvitationQuery(
-                getGisuUseCase.getActiveGisuId(),
+        ChallengerInvitationSearchResult result = searchInvitationUseCase.search(
+            new SearchChallengerInvitationQuery(
                 query.q(),
                 blockedMemberIds,
                 query.offset(),

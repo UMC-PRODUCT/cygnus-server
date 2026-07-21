@@ -99,7 +99,10 @@ public class CommunityThreadQueryController {
     }
 
     @GetMapping("/threads/{threadId}/invitable")
-    @Operation(operationId = "COMMUNITY-THREAD-104", summary = "초대 가능한 ACTIVE challenger 조회")
+    @Operation(
+        operationId = "COMMUNITY-THREAD-104",
+        summary = "초대 가능한 활동 중·수료 challenger 조회"
+    )
     public CommunityThreadInvitablePageResponse searchInvitable(
         @PathVariable @PositiveDecimalId String threadId,
         @RequestParam(name = "q", required = false) @CodePointLength(max = 80) String invitableQuery,

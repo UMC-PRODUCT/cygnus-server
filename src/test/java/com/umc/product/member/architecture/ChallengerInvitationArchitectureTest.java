@@ -10,11 +10,11 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-@DisplayName("Member 활성 챌린저 초대 검색 아키텍처")
-class ActiveChallengerInvitationArchitectureTest {
+@DisplayName("Member 챌린저 초대 검색 아키텍처")
+class ChallengerInvitationArchitectureTest {
 
     private static final Path SERVICE_SOURCE = Path.of(
-        "src/main/java/com/umc/product/member/application/service/ActiveChallengerInvitationQueryService.java"
+        "src/main/java/com/umc/product/member/application/service/ChallengerInvitationQueryService.java"
     );
     private static final Path MEMBER_ADAPTER_SOURCE = Path.of(
         "src/main/java/com/umc/product/member/adapter/out/persistence/MemberPersistenceAdapter.java"
@@ -45,11 +45,15 @@ class ActiveChallengerInvitationArchitectureTest {
                 "GetChallengerUseCase",
                 "GetMemberUseCase",
                 "ChallengerBasicInfo",
-                "listBasicByGisuId"
+                "listLatestBasicPerMember",
+                "getAllBasicByMemberIds"
             )
             .doesNotContain(
                 "SearchActiveChallengerInvitationPort",
                 "getAllByGisuIdWithoutChallengerPoints",
+                "findActiveGisu",
+                "getActiveGisu",
+                "listBasicByGisuId",
                 "QChallenger",
                 "com.umc.product.challenger.domain.",
                 "com.umc.product.organization.domain.",
