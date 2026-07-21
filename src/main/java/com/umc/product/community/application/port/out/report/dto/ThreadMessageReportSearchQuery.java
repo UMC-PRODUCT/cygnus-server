@@ -22,11 +22,6 @@ public record ThreadMessageReportSearchQuery(
             throw new IllegalArgumentException("limit must be between 1 and 100");
         }
     }
-
-    public Long reporterChallengerId() {
-        return reporterId;
-    }
-
     private static Long requireOptionalPositive(Long value, String name) {
         if (value == null) {
             return null;

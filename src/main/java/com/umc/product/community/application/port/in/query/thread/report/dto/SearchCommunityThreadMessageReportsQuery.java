@@ -8,7 +8,7 @@ public record SearchCommunityThreadMessageReportsQuery(
     ReportStatus status,
     ReportReason reason,
     Long threadId,
-    Long reporterChallengerId,
+    Long reporterMemberId,
     int offset,
     int limit
 ) {
@@ -16,12 +16,12 @@ public record SearchCommunityThreadMessageReportsQuery(
     public SearchCommunityThreadMessageReportsQuery {
         requesterMemberId = requirePositive(requesterMemberId, "requesterMemberId");
         threadId = requireOptionalPositive(threadId, "threadId");
-        reporterChallengerId = requireOptionalPositive(reporterChallengerId, "reporterChallengerId");
+        reporterMemberId = requireOptionalPositive(reporterMemberId, "reporterMemberId");
         requirePage(offset, limit);
     }
 
     public Long reporterId() {
-        return reporterChallengerId;
+        return reporterMemberId;
     }
 
     private static void requirePage(int offset, int limit) {

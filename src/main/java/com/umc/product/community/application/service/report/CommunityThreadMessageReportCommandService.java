@@ -5,8 +5,6 @@ import java.util.Objects;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.chat.application.port.in.query.GetChatMessageRoomUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessageUseCase;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessageQuery;
@@ -23,7 +21,6 @@ import com.umc.product.community.domain.CommunityThreadMember;
 import com.umc.product.community.domain.Report;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,8 +31,6 @@ public class CommunityThreadMessageReportCommandService implements ReportCommuni
 
     private final LoadCommunityThreadPort loadThreadPort;
     private final LoadCommunityThreadMemberPort loadThreadMemberPort;
-    private final GetChallengerUseCase getChallengerUseCase;
-    private final GetGisuUseCase getGisuUseCase;
     private final GetChatMessageRoomUseCase getChatMessageRoomUseCase;
     private final GetChatMessageUseCase getChatMessageUseCase;
     private final LoadReportPort loadReportPort;
@@ -58,29 +53,18 @@ public class CommunityThreadMessageReportCommandService implements ReportCommuni
             throw new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED);
         }
 
-        ChallengerInfo requesterChallenger = getChallengerUseCase
-            .findByMemberIdAndGisuId(
-                command.requesterMemberId(),
-                getGisuUseCase.getActiveGisuId()
-            )
-            .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED));
-        Long reporterChallengerId = requesterChallenger.challengerId();
-        if (reporterChallengerId == null) {
-            throw new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED);
-        }
-
         getChatMessageUseCase.getMessage(new GetChatMessageQuery(
             chatRoomId,
             command.requesterMemberId(),
             command.messageId()
         ));
 
-        if (loadReportPort.existsThreadMessageReport(reporterChallengerId, command.messageId())) {
+        if (loadReportPort.existsThreadMessageReport(command.requesterMemberId(), command.messageId())) {
             throw new CommunityDomainException(CommunityErrorCode.REPORT_ALREADY_EXISTS);
         }
 
         Report savedReport = saveReportPort.save(Report.createThreadMessage(
-            reporterChallengerId,
+            command.requesterMemberId(),
             thread.getId(),
             command.messageId(),
             command.reason()

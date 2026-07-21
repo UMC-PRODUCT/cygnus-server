@@ -122,7 +122,7 @@ class ThreadMessageReportQueryRepositoryTest {
     }
 
     @Test
-    @DisplayName("상태와 사유와 Challenger reporterId를 함께 걸면 일치하는 신고만 반환한다")
+    @DisplayName("상태와 사유와 member reporterId를 함께 걸면 일치하는 신고만 반환한다")
     void search_상태_사유_Challenger_필터를_함께_적용한다() {
         // given
         CommunityThread thread = threadRepository.saveAndFlush(createThread(130L, "복합 필터 스레드"));

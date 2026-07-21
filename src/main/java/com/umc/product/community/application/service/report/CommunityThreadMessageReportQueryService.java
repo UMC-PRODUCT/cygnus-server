@@ -40,7 +40,7 @@ public class CommunityThreadMessageReportQueryService implements SearchCommunity
                 query.status() == null ? ReportStatus.PENDING : query.status(),
                 query.reason(),
                 query.threadId(),
-                query.reporterChallengerId(),
+                query.reporterMemberId(),
                 query.offset(),
                 query.limit()
             )

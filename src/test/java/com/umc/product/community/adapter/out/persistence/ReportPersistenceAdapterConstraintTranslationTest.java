@@ -25,7 +25,7 @@ import com.umc.product.community.domain.exception.CommunityErrorCode;
 @DisplayName("ReportPersistenceAdapter 신고 중복 무결성 예외 변환")
 class ReportPersistenceAdapterConstraintTranslationTest {
 
-    private static final String DUPLICATE_CONSTRAINT = "uq_report_thread_message_reporter_target";
+    private static final String DUPLICATE_CONSTRAINT = "uq_report_reporter_target";
 
     @Mock
     ReportRepository reportRepository;
@@ -38,8 +38,8 @@ class ReportPersistenceAdapterConstraintTranslationTest {
     }
 
     @Test
-    @DisplayName("스레드 메시지 중복 unique 위반만 REPORT_ALREADY_EXISTS로 변환한다")
-    void save_스레드_메시지_중복_unique만_도메인_충돌로_변환한다() {
+    @DisplayName("신고자와 대상의 중복 unique 위반을 REPORT_ALREADY_EXISTS로 변환한다")
+    void save_신고자_대상_중복_unique를_도메인_충돌로_변환한다() {
         DataIntegrityViolationException exception = duplicateViolation();
         given(reportRepository.saveAndFlush(any(Report.class))).willThrow(exception);
 

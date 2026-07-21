@@ -35,7 +35,7 @@ class CommunityThreadMessageReportQueryServiceTest {
 
     private static final Long ADMIN_MEMBER_ID = 101L;
     private static final Long THREAD_ID = 202L;
-    private static final Long REPORTER_CHALLENGER_ID = 303L;
+    private static final Long REPORTER_MEMBER_ID = 303L;
     private static final Instant CREATED_AT = Instant.parse("2026-07-18T00:00:00Z");
 
     @Mock
@@ -56,7 +56,7 @@ class CommunityThreadMessageReportQueryServiceTest {
             null,
             ReportReason.ABUSE,
             THREAD_ID,
-            REPORTER_CHALLENGER_ID,
+            REPORTER_MEMBER_ID,
             3,
             2
         );
@@ -64,13 +64,13 @@ class CommunityThreadMessageReportQueryServiceTest {
             ReportStatus.PENDING,
             ReportReason.ABUSE,
             THREAD_ID,
-            REPORTER_CHALLENGER_ID,
+            REPORTER_MEMBER_ID,
             3,
             2
         );
-        Report first = report(91L, THREAD_ID, 701L, REPORTER_CHALLENGER_ID, ReportReason.ABUSE,
+        Report first = report(91L, THREAD_ID, 701L, REPORTER_MEMBER_ID, ReportReason.ABUSE,
             ReportStatus.PENDING);
-        Report second = report(90L, THREAD_ID, 700L, REPORTER_CHALLENGER_ID, ReportReason.ABUSE,
+        Report second = report(90L, THREAD_ID, 700L, REPORTER_MEMBER_ID, ReportReason.ABUSE,
             ReportStatus.PENDING);
         given(checkChallengerAuthorityUseCase.isSuperAdmin(ADMIN_MEMBER_ID)).willReturn(true);
         given(searchThreadMessageReportPort.search(expectedPortQuery))
@@ -94,11 +94,11 @@ class CommunityThreadMessageReportQueryServiceTest {
             .containsExactly(
                 org.assertj.core.groups.Tuple.tuple(
                     91L, THREAD_ID, 701L, ReportReason.ABUSE, ReportStatus.PENDING,
-                    REPORTER_CHALLENGER_ID, CREATED_AT
+                    REPORTER_MEMBER_ID, CREATED_AT
                 ),
                 org.assertj.core.groups.Tuple.tuple(
                     90L, THREAD_ID, 700L, ReportReason.ABUSE, ReportStatus.PENDING,
-                    REPORTER_CHALLENGER_ID, CREATED_AT
+                    REPORTER_MEMBER_ID, CREATED_AT
                 )
             );
         then(checkChallengerAuthorityUseCase).should().isSuperAdmin(ADMIN_MEMBER_ID);

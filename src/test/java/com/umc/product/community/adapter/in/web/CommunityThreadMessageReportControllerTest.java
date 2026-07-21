@@ -125,7 +125,7 @@ class CommunityThreadMessageReportControllerTest {
         assertThat(captor.getValue().status()).isEqualTo(ReportStatus.PENDING);
         assertThat(captor.getValue().reason()).isEqualTo(ReportReason.SPAM);
         assertThat(captor.getValue().threadId()).isEqualTo(42L);
-        assertThat(captor.getValue().reporterChallengerId()).isEqualTo(88L);
+        assertThat(captor.getValue().reporterMemberId()).isEqualTo(88L);
         assertThat(captor.getValue().offset()).isZero();
         assertThat(captor.getValue().limit()).isEqualTo(20);
     }

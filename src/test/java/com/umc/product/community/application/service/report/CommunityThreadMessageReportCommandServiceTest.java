@@ -25,8 +25,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.chat.application.port.in.query.GetChatMessageRoomUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessageUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
@@ -46,7 +44,6 @@ import com.umc.product.community.domain.enums.ReportReason;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.global.exception.BusinessException;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("스레드 메시지 신고 명령 서비스")
@@ -54,11 +51,8 @@ class CommunityThreadMessageReportCommandServiceTest {
 
     private static final Long THREAD_ID = 11L;
     private static final Long CHAT_ROOM_ID = 22L;
-    private static final Long ACTIVE_GISU_ID = 77L;
     private static final Long MESSAGE_ID = 33L;
     private static final Long REQUESTER_MEMBER_ID = 44L;
-    private static final Long REPORTER_CHALLENGER_ID = 55L;
-    private static final Long OTHER_CHALLENGER_ID = 66L;
     private static final Instant CREATED_AT = Instant.parse("2026-07-18T00:00:00Z");
 
     @Mock
@@ -66,12 +60,6 @@ class CommunityThreadMessageReportCommandServiceTest {
 
     @Mock
     LoadCommunityThreadMemberPort loadCommunityThreadMemberPort;
-
-    @Mock
-    GetChallengerUseCase getChallengerUseCase;
-
-    @Mock
-    GetGisuUseCase getGisuUseCase;
 
     @Mock
     GetChatMessageRoomUseCase getChatMessageRoomUseCase;
@@ -89,11 +77,10 @@ class CommunityThreadMessageReportCommandServiceTest {
     CommunityThreadMessageReportCommandService sut;
 
     @Test
-    @DisplayName("메시지 room 역조회 후 ACTIVE 회원의 Chat 메시지를 확인하고 resolve된 Challenger 신고를 저장한다")
-    void report_활성_회원은_스레드_chatRoomId로_메시지를_확인하고_Challenger_신고를_저장한다() {
+    @DisplayName("Challenger 기록이 없어도 ACTIVE 회원은 자신의 member ID로 메시지를 신고한다")
+    void report_Challenger_기록이_없는_활성_회원도_member_ID로_신고한다() {
         // given
         CommunityThread thread = thread();
-        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         Report persisted = mock(Report.class);
         given(persisted.getId()).willReturn(901L);
@@ -104,12 +91,10 @@ class CommunityThreadMessageReportCommandServiceTest {
         given(loadCommunityThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
         given(loadCommunityThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID))
             .willReturn(Optional.of(member));
-        given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID))
-            .willReturn(Optional.of(challenger(REPORTER_CHALLENGER_ID)));
         given(getChatMessageUseCase.getMessage(
             new GetChatMessageQuery(CHAT_ROOM_ID, REQUESTER_MEMBER_ID, MESSAGE_ID)
         )).willReturn(chatMessage());
-        given(loadReportPort.existsThreadMessageReport(REPORTER_CHALLENGER_ID, MESSAGE_ID)).willReturn(false);
+        given(loadReportPort.existsThreadMessageReport(REQUESTER_MEMBER_ID, MESSAGE_ID)).willReturn(false);
         given(saveReportPort.save(any(Report.class))).willReturn(persisted);
 
         // when
@@ -123,12 +108,12 @@ class CommunityThreadMessageReportCommandServiceTest {
         assertThat(Arrays.stream(CommunityThreadMessageReportReceiptInfo.class.getRecordComponents())
             .map(RecordComponent::getName)
             .toList())
-            .doesNotContain("reporterId", "reporterChallengerId");
+            .doesNotContain("reporterId", "reporterMemberId");
 
         ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
         then(saveReportPort).should().save(reportCaptor.capture());
         Report report = reportCaptor.getValue();
-        assertThat(report.getReporterId()).isEqualTo(REPORTER_CHALLENGER_ID);
+        assertThat(report.getReporterId()).isEqualTo(REQUESTER_MEMBER_ID);
         assertThat(report.getThreadId()).isEqualTo(THREAD_ID);
         assertThat(report.getTargetId()).isEqualTo(MESSAGE_ID);
         assertThat(report.getReasonCode()).isEqualTo(ReportReason.ABUSE);
@@ -137,7 +122,6 @@ class CommunityThreadMessageReportCommandServiceTest {
             getChatMessageRoomUseCase,
             loadCommunityThreadPort,
             loadCommunityThreadMemberPort,
-            getChallengerUseCase,
             getChatMessageUseCase,
             loadReportPort,
             saveReportPort
@@ -148,11 +132,9 @@ class CommunityThreadMessageReportCommandServiceTest {
         order.verify(loadCommunityThreadPort).findByIdForUpdate(THREAD_ID);
         order.verify(loadCommunityThreadMemberPort)
             .findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID);
-        order.verify(getChallengerUseCase)
-            .findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID);
         order.verify(getChatMessageUseCase)
             .getMessage(new GetChatMessageQuery(CHAT_ROOM_ID, REQUESTER_MEMBER_ID, MESSAGE_ID));
-        order.verify(loadReportPort).existsThreadMessageReport(REPORTER_CHALLENGER_ID, MESSAGE_ID);
+        order.verify(loadReportPort).existsThreadMessageReport(REQUESTER_MEMBER_ID, MESSAGE_ID);
         order.verify(saveReportPort).save(any(Report.class));
     }
 
@@ -172,7 +154,6 @@ class CommunityThreadMessageReportCommandServiceTest {
 
         verifyNoInteractions(
             loadCommunityThreadMemberPort,
-            getChallengerUseCase,
             getChatMessageUseCase,
             loadReportPort,
             saveReportPort
@@ -199,7 +180,6 @@ class CommunityThreadMessageReportCommandServiceTest {
             .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
 
         then(loadCommunityThreadMemberPort).shouldHaveNoInteractions();
-        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChatMessageUseCase).shouldHaveNoInteractions();
         then(loadReportPort).shouldHaveNoInteractions();
         then(saveReportPort).shouldHaveNoInteractions();
@@ -226,7 +206,6 @@ class CommunityThreadMessageReportCommandServiceTest {
             .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
 
         then(loadCommunityThreadMemberPort).shouldHaveNoInteractions();
-        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChatMessageUseCase).shouldHaveNoInteractions();
         then(loadReportPort).shouldHaveNoInteractions();
         then(saveReportPort).shouldHaveNoInteractions();
@@ -250,7 +229,6 @@ class CommunityThreadMessageReportCommandServiceTest {
             .extracting(error -> ((BusinessException) error).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_MEMBER_NOT_FOUND);
 
-        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChatMessageUseCase).shouldHaveNoInteractions();
         then(loadReportPort).shouldHaveNoInteractions();
         then(saveReportPort).shouldHaveNoInteractions();
@@ -276,97 +254,27 @@ class CommunityThreadMessageReportCommandServiceTest {
             .extracting(error -> ((BusinessException) error).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
 
-        then(getChallengerUseCase).shouldHaveNoInteractions();
         then(getChatMessageUseCase).shouldHaveNoInteractions();
         then(loadReportPort).shouldHaveNoInteractions();
         then(saveReportPort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("신고 command는 reporter Challenger를 받지 않고 resolve된 Challenger ID로만 저장한다")
-    void report_신고자_Challenger는_요청자_멤버의_기수_Challenger로_결정된다() {
+    @DisplayName("같은 회원이 같은 메시지를 다시 신고하면 Chat 검증 뒤 중복 충돌로 저장하지 않는다")
+    void report_같은_회원의_메시지_중복_신고를_거부한다() {
         // given
         CommunityThread thread = thread();
-        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
-        Report persisted = mock(Report.class);
-        given(persisted.getId()).willReturn(902L);
-        given(persisted.getCreatedAt()).willReturn(CREATED_AT);
         given(getChatMessageRoomUseCase.getRoomId(new GetChatMessageRoomQuery(MESSAGE_ID)))
             .willReturn(CHAT_ROOM_ID);
         given(loadCommunityThreadPort.findByChatRoomId(CHAT_ROOM_ID)).willReturn(Optional.of(thread));
         given(loadCommunityThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
         given(loadCommunityThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID))
             .willReturn(Optional.of(member));
-        given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID))
-            .willReturn(Optional.of(challenger(OTHER_CHALLENGER_ID)));
         given(getChatMessageUseCase.getMessage(
             new GetChatMessageQuery(CHAT_ROOM_ID, REQUESTER_MEMBER_ID, MESSAGE_ID)
         )).willReturn(chatMessage());
-        given(loadReportPort.existsThreadMessageReport(OTHER_CHALLENGER_ID, MESSAGE_ID)).willReturn(false);
-        given(saveReportPort.save(any(Report.class))).willReturn(persisted);
-
-        // when
-        sut.report(command());
-
-        // then
-        assertThat(Arrays.stream(ReportCommunityThreadMessageCommand.class.getRecordComponents())
-            .map(RecordComponent::getName)
-            .toList())
-            .doesNotContain("threadId", "reporterChallengerId", "reporterId");
-        ArgumentCaptor<Report> reportCaptor = ArgumentCaptor.forClass(Report.class);
-        then(saveReportPort).should().save(reportCaptor.capture());
-        assertThat(reportCaptor.getValue().getReporterId()).isEqualTo(OTHER_CHALLENGER_ID);
-    }
-
-    @Test
-    @DisplayName("요청자 멤버의 활성 기수 Challenger가 없으면 Chat 조회 전에 THREAD_ACCESS_DENIED로 차단한다")
-    void report_요청자_Challenger가_없으면_접근이_거부된다() {
-        // given
-        CommunityThread thread = thread();
-        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
-        CommunityThreadMember member = activeMember();
-        given(getChatMessageRoomUseCase.getRoomId(new GetChatMessageRoomQuery(MESSAGE_ID)))
-            .willReturn(CHAT_ROOM_ID);
-        given(loadCommunityThreadPort.findByChatRoomId(CHAT_ROOM_ID)).willReturn(Optional.of(thread));
-        given(loadCommunityThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
-        given(loadCommunityThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID))
-            .willReturn(Optional.of(member));
-        given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID))
-            .willReturn(Optional.empty());
-
-        // when & then
-        assertThatThrownBy(() -> sut.report(command()))
-            .isInstanceOf(CommunityDomainException.class)
-            .extracting(error -> ((BusinessException) error).getBaseCode())
-            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
-
-        then(getChallengerUseCase).should()
-            .findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID);
-        then(getChatMessageUseCase).shouldHaveNoInteractions();
-        then(loadReportPort).shouldHaveNoInteractions();
-        then(saveReportPort).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("같은 Challenger가 같은 메시지를 다시 신고하면 Chat 검증 뒤 중복 충돌로 저장하지 않는다")
-    void report_같은_Challenger_메시지_중복_신고를_거부한다() {
-        // given
-        CommunityThread thread = thread();
-        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
-        CommunityThreadMember member = activeMember();
-        given(getChatMessageRoomUseCase.getRoomId(new GetChatMessageRoomQuery(MESSAGE_ID)))
-            .willReturn(CHAT_ROOM_ID);
-        given(loadCommunityThreadPort.findByChatRoomId(CHAT_ROOM_ID)).willReturn(Optional.of(thread));
-        given(loadCommunityThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
-        given(loadCommunityThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID))
-            .willReturn(Optional.of(member));
-        given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID))
-            .willReturn(Optional.of(challenger(REPORTER_CHALLENGER_ID)));
-        given(getChatMessageUseCase.getMessage(
-            new GetChatMessageQuery(CHAT_ROOM_ID, REQUESTER_MEMBER_ID, MESSAGE_ID)
-        )).willReturn(chatMessage());
-        given(loadReportPort.existsThreadMessageReport(REPORTER_CHALLENGER_ID, MESSAGE_ID)).willReturn(true);
+        given(loadReportPort.existsThreadMessageReport(REQUESTER_MEMBER_ID, MESSAGE_ID)).willReturn(true);
 
         // when & then
         assertThatThrownBy(() -> sut.report(command()))
@@ -379,7 +287,6 @@ class CommunityThreadMessageReportCommandServiceTest {
             getChatMessageRoomUseCase,
             loadCommunityThreadPort,
             loadCommunityThreadMemberPort,
-            getChallengerUseCase,
             getChatMessageUseCase,
             loadReportPort
         );
@@ -389,11 +296,9 @@ class CommunityThreadMessageReportCommandServiceTest {
         order.verify(loadCommunityThreadPort).findByIdForUpdate(THREAD_ID);
         order.verify(loadCommunityThreadMemberPort)
             .findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID);
-        order.verify(getChallengerUseCase)
-            .findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID);
         order.verify(getChatMessageUseCase)
             .getMessage(new GetChatMessageQuery(CHAT_ROOM_ID, REQUESTER_MEMBER_ID, MESSAGE_ID));
-        order.verify(loadReportPort).existsThreadMessageReport(REPORTER_CHALLENGER_ID, MESSAGE_ID);
+        order.verify(loadReportPort).existsThreadMessageReport(REQUESTER_MEMBER_ID, MESSAGE_ID);
     }
 
     @Test
@@ -401,7 +306,6 @@ class CommunityThreadMessageReportCommandServiceTest {
     void report_저장_시점_동시_중복_충돌을_그대로_전달한다() {
         // given
         CommunityThread thread = thread();
-        given(getGisuUseCase.getActiveGisuId()).willReturn(ACTIVE_GISU_ID);
         CommunityThreadMember member = activeMember();
         CommunityDomainException duplicate = new CommunityDomainException(
             CommunityErrorCode.REPORT_ALREADY_EXISTS
@@ -412,12 +316,10 @@ class CommunityThreadMessageReportCommandServiceTest {
         given(loadCommunityThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
         given(loadCommunityThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, REQUESTER_MEMBER_ID))
             .willReturn(Optional.of(member));
-        given(getChallengerUseCase.findByMemberIdAndGisuId(REQUESTER_MEMBER_ID, ACTIVE_GISU_ID))
-            .willReturn(Optional.of(challenger(REPORTER_CHALLENGER_ID)));
         given(getChatMessageUseCase.getMessage(
             new GetChatMessageQuery(CHAT_ROOM_ID, REQUESTER_MEMBER_ID, MESSAGE_ID)
         )).willReturn(chatMessage());
-        given(loadReportPort.existsThreadMessageReport(REPORTER_CHALLENGER_ID, MESSAGE_ID)).willReturn(false);
+        given(loadReportPort.existsThreadMessageReport(REQUESTER_MEMBER_ID, MESSAGE_ID)).willReturn(false);
         given(saveReportPort.save(any(Report.class))).willThrow(duplicate);
 
         // when & then
@@ -448,14 +350,6 @@ class CommunityThreadMessageReportCommandServiceTest {
         CommunityThreadMember member = mock(CommunityThreadMember.class);
         given(member.isActive()).willReturn(true);
         return member;
-    }
-
-    private ChallengerInfo challenger(Long challengerId) {
-        return ChallengerInfo.builder()
-            .challengerId(challengerId)
-            .memberId(REQUESTER_MEMBER_ID)
-            .gisuId(ACTIVE_GISU_ID)
-            .build();
     }
 
     private ChatMessageInfo chatMessage() {

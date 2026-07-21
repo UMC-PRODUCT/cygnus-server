@@ -28,6 +28,7 @@ public class Report extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** 신고를 생성한 회원의 {@code member.id}. */
     @Column(nullable = false)
     private Long reporterId;
 

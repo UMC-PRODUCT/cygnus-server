@@ -1,6 +1,7 @@
 package com.umc.product.community.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.List;
@@ -52,8 +53,8 @@ class ReportPersistenceAdapterTest {
     TestEntityManager entityManager;
 
     @Test
-    @DisplayName("legacy 신고와 스레드 메시지 신고를 같은 테이블에 보존한다")
-    void save_legacy와_스레드_메시지를_보존한다() {
+    @DisplayName("게시글 신고와 스레드 메시지 신고를 member ID 기준으로 같은 테이블에 보존한다")
+    void save_게시글과_스레드_메시지_신고를_보존한다() {
         // given
         Report legacy = Report.create(1L, ReportTargetType.COMMENT, 2L, "기존 사유");
         CommunityThread thread = threadRepository.save(createThread(130L));
@@ -78,26 +79,24 @@ class ReportPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("partial unique는 기존 POST COMMENT 중복 row를 제한하지 않는다")
-    void partialUnique_legacy_중복을_보존한다() {
+    @DisplayName("게시글 중복 신고도 공통 unique로 거절한다")
+    void commonUnique_게시글_중복을_거절한다() {
         // given
         Report first = Report.create(6L, ReportTargetType.POST, 7L, null);
         Report second = Report.create(6L, ReportTargetType.POST, 7L, null);
 
-        // when
-        reportRepository.saveAllAndFlush(List.of(first, second));
+        sut.save(first);
 
-        // then
-        assertThat(reportRepository.countByReporterIdAndTargetTypeAndTargetId(
-            6L,
-            ReportTargetType.POST,
-            7L
-        )).isEqualTo(2L);
+        // when & then
+        assertThatThrownBy(() -> sut.save(second))
+            .isInstanceOfSatisfying(CommunityDomainException.class, exception ->
+                assertThat(exception.getBaseCode()).isEqualTo(CommunityErrorCode.REPORT_ALREADY_EXISTS)
+            );
     }
 
     @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @DisplayName("동시 스레드 메시지 중복 신고는 DB partial unique로 하나만 저장한다")
+    @DisplayName("동시 스레드 메시지 중복 신고는 DB 공통 unique로 하나만 저장한다")
     void concurrentDuplicateReport_하나만_저장한다() throws Exception {
         // given
         TransactionTemplate transactionTemplate = new TransactionTemplate(transactionManager);

@@ -19,8 +19,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ReportPersistenceAdapter implements LoadReportPort, SaveReportPort {
 
-    private static final String THREAD_MESSAGE_DUPLICATE_CONSTRAINT =
-        "uq_report_thread_message_reporter_target";
+    private static final String REPORTER_TARGET_DUPLICATE_CONSTRAINT =
+        "uq_report_reporter_target";
 
     private final ReportRepository reportRepository;
 
@@ -49,22 +49,22 @@ public class ReportPersistenceAdapter implements LoadReportPort, SaveReportPort 
         try {
             return reportRepository.saveAndFlush(report);
         } catch (DataIntegrityViolationException exception) {
-            if (isThreadMessageDuplicate(exception)) {
+            if (isReporterTargetDuplicate(exception)) {
                 throw new CommunityDomainException(CommunityErrorCode.REPORT_ALREADY_EXISTS, exception);
             }
             throw exception;
         }
     }
 
-    private boolean isThreadMessageDuplicate(DataIntegrityViolationException exception) {
+    private boolean isReporterTargetDuplicate(DataIntegrityViolationException exception) {
         Throwable cause = exception;
         while (cause != null) {
             if (cause instanceof ConstraintViolationException constraintViolationException
-                && THREAD_MESSAGE_DUPLICATE_CONSTRAINT.equals(constraintViolationException.getConstraintName())) {
+                && REPORTER_TARGET_DUPLICATE_CONSTRAINT.equals(constraintViolationException.getConstraintName())) {
                 return true;
             }
             if (cause.getMessage() != null
-                && cause.getMessage().contains(THREAD_MESSAGE_DUPLICATE_CONSTRAINT)) {
+                && cause.getMessage().contains(REPORTER_TARGET_DUPLICATE_CONSTRAINT)) {
                 return true;
             }
             cause = cause.getCause();

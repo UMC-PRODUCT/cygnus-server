@@ -104,10 +104,10 @@ flowchart LR
 수 있다. 초대 후보 응답은 최신 Challenger 이력이 있으면 challengerId, part, generation을 함께
 내리고, 이력이 없으면 세 필드를 `null`로 반환한다.
 
-| 동작 | 현재 활성 기수의 용도 |
+| 동작 | Challenger/Gisu 사용 방식 |
 | --- | --- |
-| 멤버 목록 조립 | 현재 활성 기수의 Challenger part와 generation 조회 |
-| 메시지 신고 | 현재 활성 기수의 `memberId → challengerId` 변환 |
+| 멤버 목록 조립 | 최신 Challenger 이력의 part와 generation을 표시하고, 이력이 없으면 `null` 반환 |
+| 메시지 신고 | Challenger/Gisu를 조회하지 않고 로그인 회원의 `memberId`를 신고자 식별자로 저장 |
 
 다음 동작은 기수와 무관하다.
 
@@ -117,8 +117,8 @@ flowchart LR
 - STOMP destination 및 realtime fan-out
 - 기존 Community membership 접근 권한
 
-따라서 기수는 Thread의 persistence 속성이 아니라 일부 command/query에서 사용하는 현재 조직
-context다.
+따라서 기수는 Thread의 persistence 속성이나 접근 자격이 아니며, 존재하는 Challenger 이력을
+표시할 때만 사용하는 조직 정보다.
 
 ## 5. REST와 WebSocket 책임 구분
 

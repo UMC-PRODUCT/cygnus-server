@@ -27,8 +27,4 @@ public record CommunityThreadMessageAdminReportInfo(
             report.getCreatedAt()
         );
     }
-
-    public Long reporterChallengerId() {
-        return reporterId;
-    }
 }
