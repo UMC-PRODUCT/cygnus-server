@@ -23,7 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadMembersByIdsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ListThreadMembersQuery;
@@ -85,7 +85,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     }
 
     @Test
-    @DisplayName("멤버는 Member/Challenger를 각각 한 번 배치 조회한 뒤 필터와 안정 정렬 후 페이지한다")
+    @DisplayName("Challenger 이력이 없는 멤버를 포함해 배치 조회한 뒤 필터와 안정 정렬 후 페이지한다")
     void listMembers_배치_조회_후_필터_정렬_페이지한다() {
         // given
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
@@ -101,13 +101,12 @@ class CommunityThreadMemberInvitableQueryServiceTest {
             20L, member(20L, "아리"),
             30L, member(30L, "보라")
         ));
-        given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(memberIds, 20L)).willReturn(Map.of(
-            10L, challenger(10L, ChallengerPart.DESIGN),
-            20L, challenger(20L, ChallengerPart.DESIGN),
-            30L, challenger(30L, ChallengerPart.SPRINGBOOT)
+        given(getChallengerUseCase.getAllBasicByMemberIds(memberIds)).willReturn(Map.of(
+            10L, List.of(challenger(10L, ChallengerPart.DESIGN)),
+            20L, List.of(challenger(20L, ChallengerPart.DESIGN))
         ));
-        given(getGisuUseCase.getActiveGisu())
-            .willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
+        given(getGisuUseCase.getByIds(Set.of(20L)))
+            .willReturn(List.of(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true)));
 
         // when
         ThreadMemberPageInfo result = sut.listMembers(new ListThreadMembersQuery(
@@ -119,8 +118,8 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         assertThat(result.nextOffset()).isEqualTo(1);
         assertThat(result.total()).isEqualTo(2L);
         verify(getMemberUseCase).findAllByIds(memberIds);
-        verify(getChallengerUseCase).batchGetByMemberIdsAndGisuId(memberIds, 20L);
-        verify(getGisuUseCase).getActiveGisu();
+        verify(getChallengerUseCase).getAllBasicByMemberIds(memberIds);
+        verify(getGisuUseCase).getByIds(Set.of(20L));
     }
 
     @Test
@@ -139,13 +138,12 @@ class CommunityThreadMemberInvitableQueryServiceTest {
             20L, member(20L, "아리"),
             30L, member(30L, "보라")
         ));
-        given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(memberIds, 20L)).willReturn(Map.of(
-            10L, challenger(10L, ChallengerPart.DESIGN),
-            20L, challenger(20L, ChallengerPart.DESIGN),
-            30L, challenger(30L, ChallengerPart.SPRINGBOOT)
+        given(getChallengerUseCase.getAllBasicByMemberIds(memberIds)).willReturn(Map.of(
+            10L, List.of(challenger(10L, ChallengerPart.DESIGN)),
+            20L, List.of(challenger(20L, ChallengerPart.DESIGN))
         ));
-        given(getGisuUseCase.getActiveGisu())
-            .willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
+        given(getGisuUseCase.getByIds(Set.of(20L)))
+            .willReturn(List.of(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true)));
 
         // when
         List<ThreadMemberInfo> result = sut.getMembersByIds(
@@ -155,9 +153,11 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         // then
         assertThat(result).extracting(ThreadMemberInfo::memberId).containsExactly(30L, 10L, 20L);
         assertThat(result).extracting(ThreadMemberInfo::name).containsExactly("보라", "조이", "아리");
+        assertThat(result.getFirst().part()).isNull();
+        assertThat(result.getFirst().generation()).isNull();
         verify(getMemberUseCase).findAllByIds(memberIds);
-        verify(getChallengerUseCase).batchGetByMemberIdsAndGisuId(memberIds, 20L);
-        verify(getGisuUseCase).getActiveGisu();
+        verify(getChallengerUseCase).getAllBasicByMemberIds(memberIds);
+        verify(getGisuUseCase).getByIds(Set.of(20L));
     }
 
     @Test
@@ -180,8 +180,8 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     }
 
     @Test
-    @DisplayName("Member 또는 Challenger read model이 누락되면 THREAD_MEMBER_NOT_FOUND로 fail closed한다")
-    void getMembersByIds_public_read_model_누락을_거절한다() {
+    @DisplayName("Member read model이 누락되면 THREAD_MEMBER_NOT_FOUND로 fail closed한다")
+    void getMembersByIds_member_read_model_누락을_거절한다() {
         // given
         Set<Long> memberIds = Set.of(10L, 20L);
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
@@ -190,12 +190,12 @@ class CommunityThreadMemberInvitableQueryServiceTest {
             memberRow(20L, CommunityThreadMemberRole.MEMBER)
         ));
         given(getMemberUseCase.findAllByIds(memberIds)).willReturn(Map.of(10L, member(10L, "조이")));
-        given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(memberIds, 20L)).willReturn(Map.of(
-            10L, challenger(10L, ChallengerPart.DESIGN),
-            20L, challenger(20L, ChallengerPart.DESIGN)
+        given(getChallengerUseCase.getAllBasicByMemberIds(memberIds)).willReturn(Map.of(
+            10L, List.of(challenger(10L, ChallengerPart.DESIGN)),
+            20L, List.of(challenger(20L, ChallengerPart.DESIGN))
         ));
-        given(getGisuUseCase.getActiveGisu())
-            .willReturn(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true));
+        given(getGisuUseCase.getByIds(Set.of(20L)))
+            .willReturn(List.of(new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), true)));
 
         // when & then
         assertThatThrownBy(() -> sut.getMembersByIds(
@@ -311,7 +311,7 @@ class CommunityThreadMemberInvitableQueryServiceTest {
         return MemberInfo.builder().id(memberId).name(name).build();
     }
 
-    private ChallengerInfo challenger(Long memberId, ChallengerPart part) {
-        return ChallengerInfo.builder().memberId(memberId).gisuId(20L).part(part).build();
+    private ChallengerBasicInfo challenger(Long memberId, ChallengerPart part) {
+        return new ChallengerBasicInfo(100L + memberId, memberId, 20L, part, null);
     }
 }

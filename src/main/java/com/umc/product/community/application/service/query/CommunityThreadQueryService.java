@@ -4,7 +4,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -12,7 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMembersByIdsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
@@ -162,7 +164,7 @@ public class CommunityThreadQueryService implements
             .filter(info -> keyword == null || info.name().toLowerCase(Locale.ROOT).contains(keyword))
             .filter(info -> query.role() == null || info.role() == query.role())
             .filter(info -> query.part() == null || info.part() == query.part())
-            .filter(info -> query.generation() == null || info.generation().equals(query.generation()))
+            .filter(info -> query.generation() == null || query.generation().equals(info.generation()))
             .sorted(memberOrder())
             .toList();
 
@@ -242,25 +244,69 @@ public class CommunityThreadQueryService implements
         Set<Long> memberIds = rows.stream()
             .map(CommunityThreadMemberRow::memberId)
             .collect(Collectors.toSet());
-        GisuInfo activeGisu = getGisuUseCase.getActiveGisu();
         Map<Long, MemberInfo> members = getMemberUseCase.findAllByIds(memberIds);
-        Map<Long, ChallengerInfo> challengers = getChallengerUseCase.batchGetByMemberIdsAndGisuId(
-            memberIds,
-            activeGisu.gisuId()
-        );
+        Map<Long, LatestChallenger> latestChallengers = loadLatestChallengers(memberIds);
         return rows.stream()
             .map(row -> {
                 MemberInfo member = members.get(row.memberId());
-                ChallengerInfo challenger = challengers.get(row.memberId());
-                if (member == null || challenger == null) {
+                if (member == null) {
                     throw new CommunityDomainException(CommunityErrorCode.THREAD_MEMBER_NOT_FOUND);
                 }
+                LatestChallenger latest = latestChallengers.get(row.memberId());
                 return new ThreadMemberInfo(
-                    row.memberId(), member.name(), challenger.part(), activeGisu.generation(),
+                    row.memberId(),
+                    member.name(),
+                    latest == null ? null : latest.challenger().part(),
+                    latest == null ? null : latest.generation(),
                     row.role(), row.joinedAt(), row.state()
                 );
             })
             .toList();
+    }
+
+    private Map<Long, LatestChallenger> loadLatestChallengers(Set<Long> memberIds) {
+        Map<Long, List<ChallengerBasicInfo>> historiesByMemberId = getChallengerUseCase
+            .getAllBasicByMemberIds(memberIds);
+        List<ChallengerBasicInfo> allChallengers = historiesByMemberId.values().stream()
+            .flatMap(List::stream)
+            .toList();
+        if (allChallengers.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Long> generationByGisuId = loadGenerationByGisuId(allChallengers);
+        return historiesByMemberId.entrySet().stream()
+            .map(entry -> latestChallenger(entry.getValue(), generationByGisuId))
+            .flatMap(Optional::stream)
+            .collect(Collectors.toUnmodifiableMap(
+                latest -> latest.challenger().memberId(),
+                Function.identity()
+            ));
+    }
+
+    private Optional<LatestChallenger> latestChallenger(
+        List<ChallengerBasicInfo> challengers,
+        Map<Long, Long> generationByGisuId
+    ) {
+        return challengers.stream()
+            .filter(challenger -> generationByGisuId.containsKey(challenger.gisuId()))
+            .max(Comparator.comparing(
+                    (ChallengerBasicInfo challenger) -> generationByGisuId.get(challenger.gisuId())
+                )
+                .thenComparing(ChallengerBasicInfo::gisuId)
+                .thenComparing(ChallengerBasicInfo::challengerId))
+            .map(challenger -> new LatestChallenger(
+                challenger,
+                generationByGisuId.get(challenger.gisuId())
+            ));
+    }
+
+    private Map<Long, Long> loadGenerationByGisuId(List<ChallengerBasicInfo> challengers) {
+        Set<Long> gisuIds = challengers.stream()
+            .map(ChallengerBasicInfo::gisuId)
+            .collect(Collectors.toSet());
+        return getGisuUseCase.getByIds(gisuIds).stream()
+            .collect(Collectors.toUnmodifiableMap(GisuInfo::gisuId, GisuInfo::generation));
     }
 
     private ThreadSummaryInfo toSummary(CommunityThreadQueryRow row, Map<Long, MemberInfo> senders) {
@@ -296,5 +342,11 @@ public class CommunityThreadQueryService implements
             case PROJECT -> CommunityThreadCategory.PROJECT;
             case FREE -> CommunityThreadCategory.FREE;
         };
+    }
+
+    private record LatestChallenger(
+        ChallengerBasicInfo challenger,
+        Long generation
+    ) {
     }
 }
