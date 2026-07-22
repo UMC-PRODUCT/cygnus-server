@@ -31,6 +31,7 @@ class CommunityThreadLifecycleEventTest {
 
         // then
         assertThat(event.invitedMemberIds()).containsExactly(20L, 30L);
+        assertThat(event.eventType()).isEqualTo("community.thread.invited");
         assertThat(event.outboxDispatchMode()).isEqualTo(OutboxDispatchMode.NON_TRANSACTIONAL);
         assertThatThrownBy(() -> event.invitedMemberIds().add(40L))
             .isInstanceOf(UnsupportedOperationException.class);
@@ -62,5 +63,33 @@ class CommunityThreadLifecycleEventTest {
         assertThat(objectMapper.readTree(payload).hasNonNull("membershipJoinedAt")).isTrue();
         assertThat(restored.membershipJoinedAt()).isEqualTo(membershipJoinedAt);
         assertThat(restored).isEqualTo(event);
+    }
+
+    @Test
+    @DisplayName("delete·kick·update lifecycle event는 타입과 정렬된 recipient snapshot을 보존한다")
+    void exposesLifecycleEventTypes() {
+        Instant occurredAt = Instant.parse("2026-07-18T00:00:00Z");
+        CommunityThreadDeletedEvent deleted = CommunityThreadDeletedEvent.of(
+            1L, 2L, List.of(4L, 3L, 4L), occurredAt);
+        CommunityThreadMemberKickedEvent kicked = CommunityThreadMemberKickedEvent.of(
+            1L, 2L, 3L, List.of(4L), occurredAt);
+        CommunityThreadUpdatedEvent updated = CommunityThreadUpdatedEvent.of(1L, 2L, occurredAt);
+
+        assertThat(deleted.eventType()).isEqualTo("community.thread.deleted");
+        assertThat(deleted.activeMemberIds()).containsExactly(3L, 4L);
+        assertThat(kicked.eventType()).isEqualTo("community.thread.member.kicked");
+        assertThat(updated.eventType()).isEqualTo("community.thread.updated");
+    }
+
+    @Test
+    @DisplayName("lifecycle event는 null snapshot과 non-positive ID를 거부한다")
+    void rejectsInvalidLifecycleEventIdentity() {
+        Instant occurredAt = Instant.parse("2026-07-18T00:00:00Z");
+        assertThatThrownBy(() -> new CommunityThreadDeletedEvent(
+            java.util.UUID.randomUUID(), occurredAt, 0L, 2L, List.of()))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new CommunityThreadDeletedEvent(
+            java.util.UUID.randomUUID(), occurredAt, 1L, 2L, null))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 }

@@ -389,6 +389,7 @@ class EventOutboxRelayServiceTest {
             new CapturingApplicationEventPublisher(),
             new LocalTransactionManager(),
             tracerProvider,
+            EventOutboxRelayMetrics.noOp(),
             10,
             3
         );

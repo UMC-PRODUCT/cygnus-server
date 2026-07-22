@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.times;
 
 import java.time.Instant;
 import java.util.Collection;
@@ -457,6 +458,88 @@ class CommunityThreadMessageCommandServiceTest {
         assertThat(result.deduplicated()).isTrue();
         then(saveThreadMemberPort).shouldHaveNoInteractions();
         then(domainEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 thread는 잠금 조회 직후 THREAD_NOT_FOUND로 거절한다")
+    void create_missingThreadRejectedBeforeMembershipLookup() {
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.create(createCommand(OWNER_ID)))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
+        then(loadThreadMemberPort).shouldHaveNoInteractions();
+        then(createChatMessageUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("Chat unread summary가 누락되면 임의의 projection을 저장하지 않고 실패한다")
+    void read_missingRoomSummaryFailsClosed() {
+        CommunityThreadMember member = active(MEMBER_ID, CommunityThreadMemberRole.MEMBER);
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
+            .willReturn(Optional.of(member));
+        given(updateChatReadUseCase.update(any(UpdateChatReadCommand.class)))
+            .willReturn(new ChatReadMutationResult(ROOM_ID, MEMBER_ID, 900L, false));
+        given(listChatRoomSummariesUseCase.listRoomSummaries(MEMBER_ID, List.of(ROOM_ID)))
+            .willReturn(List.of());
+
+        assertThatThrownBy(() -> sut.update(
+            new UpdateCommunityThreadReadCommand(THREAD_ID, MEMBER_ID, 900L)
+        ))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("Chat room summary is missing");
+        then(saveThreadMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("IMAGE와 SYSTEM 생성 명령은 대응하는 Chat content type으로 변환한다")
+    void create_mapsEveryCommunityMessageType() {
+        CommunityThread firstThread = thread();
+        CommunityThread secondThread = thread();
+        CommunityThreadMember sender = active(OWNER_ID, CommunityThreadMemberRole.OWNER);
+        ChatMessageInfo image = chatInfo(901L, OWNER_ID, "이미지");
+        ChatMessageInfo system = chatInfo(902L, OWNER_ID, "시스템");
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID))
+            .willReturn(Optional.of(firstThread), Optional.of(secondThread));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, OWNER_ID))
+            .willReturn(Optional.of(sender));
+        given(createChatMessageUseCase.create(any(CreateChatMessageCommand.class)))
+            .willReturn(
+                new ChatMessageMutationResult(image, true),
+                new ChatMessageMutationResult(system, true)
+            );
+        given(infoAssembler.assemble(THREAD_ID, image)).willReturn(communityMessageInfo);
+        given(infoAssembler.assemble(THREAD_ID, system)).willReturn(communityMessageInfo);
+
+        sut.create(new CreateCommunityThreadMessageCommand(
+            THREAD_ID,
+            OWNER_ID,
+            UUID.fromString("00000000-0000-0000-0000-000000000003"),
+            CommunityThreadMessageType.IMAGE,
+            "이미지",
+            List.of("file-1"),
+            List.of(),
+            null
+        ));
+        sut.create(new CreateCommunityThreadMessageCommand(
+            THREAD_ID,
+            OWNER_ID,
+            UUID.fromString("00000000-0000-0000-0000-000000000004"),
+            CommunityThreadMessageType.SYSTEM,
+            "시스템",
+            List.of(),
+            List.of(),
+            null
+        ));
+
+        ArgumentCaptor<CreateChatMessageCommand> commandCaptor =
+            ArgumentCaptor.forClass(CreateChatMessageCommand.class);
+        then(createChatMessageUseCase).should(times(2)).create(commandCaptor.capture());
+        assertThat(commandCaptor.getAllValues())
+            .extracting(CreateChatMessageCommand::contentType)
+            .containsExactly(MessageContentType.IMAGE, MessageContentType.SYSTEM);
     }
 
     private CreateCommunityThreadMessageCommand createCommand(Long memberId) {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 import java.util.Optional;
 
@@ -119,5 +120,52 @@ class CommunityThreadSettingCommandServiceTest {
             .extracting(error -> ((CommunityDomainException) error).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
         then(saveMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("unpin·mute·unmute는 실제 상태 변경 때만 저장하고 lifecycle info를 반환한다")
+    void updatesRemainingSettings() {
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        CommunityThreadMember member = CommunityThreadLifecycleTestFixtures.activeMember(
+            20L,
+            CommunityThreadMemberRole.MEMBER
+        );
+        member.pin();
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, 20L)).willReturn(Optional.of(member));
+        given(loadMemberPort.countActiveByThreadId(THREAD_ID)).willReturn(2L);
+        given(saveMemberPort.save(member)).willReturn(member);
+        ThreadActorCommand command = new ThreadActorCommand(THREAD_ID, 20L);
+
+        CommunityThreadLifecycleInfo unpinned = sut.unpin(command);
+        CommunityThreadLifecycleInfo muted = sut.mute(command);
+        CommunityThreadLifecycleInfo unmuted = sut.unmute(command);
+        CommunityThreadLifecycleInfo idempotentUnmuted = sut.unmute(command);
+
+        assertThat(unpinned.pinned()).isFalse();
+        assertThat(muted.muted()).isTrue();
+        assertThat(unmuted.muted()).isFalse();
+        assertThat(idempotentUnmuted.muted()).isFalse();
+        then(saveMemberPort).should(times(3)).save(member);
+    }
+
+    @Test
+    @DisplayName("미존재 또는 삭제된 thread는 멤버 조회 전에 거부한다")
+    void rejectsMissingAndDeletedThread() {
+        CommunityThread deleted = CommunityThreadLifecycleTestFixtures.thread();
+        deleted.delete(CommunityThreadLifecycleTestFixtures.NOW);
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID))
+            .willReturn(Optional.empty(), Optional.of(deleted));
+        ThreadActorCommand command = new ThreadActorCommand(THREAD_ID, 20L);
+
+        assertThatThrownBy(() -> sut.unpin(command))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
+        assertThatThrownBy(() -> sut.mute(command))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_DELETED);
+        then(loadMemberPort).shouldHaveNoInteractions();
     }
 }

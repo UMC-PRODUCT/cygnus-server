@@ -1,6 +1,7 @@
 package com.umc.product.community.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,17 @@ class CommunityThreadPropertiesTest {
                 assertThat(properties.allowsFanOutRecipientCount(3)).isTrue();
                 assertThat(properties.allowsFanOutRecipientCount(4)).isFalse();
             });
+    }
+
+    @Test
+    @DisplayName("남은 정원은 0 아래로 내려가지 않고 음수 active count는 거부한다")
+    void remainingCapacityIsClamped() {
+        CommunityThreadProperties properties = new CommunityThreadProperties(3);
+
+        assertThat(properties.remainingCapacity(1)).isEqualTo(2);
+        assertThat(properties.remainingCapacity(4)).isZero();
+        assertThatThrownBy(() -> properties.remainingCapacity(-1))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Configuration(proxyBeanMethods = false)

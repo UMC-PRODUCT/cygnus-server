@@ -1,6 +1,7 @@
 package com.umc.product.community.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -41,5 +42,31 @@ class ReportTest {
         assertThat(report.getTargetId()).isEqualTo(3L);
         assertThat(report.getReasonCode()).isEqualTo(ReportReason.ABUSE);
         assertThat(report.getReason()).isNull();
+    }
+
+    @Test
+    @DisplayName("일반 factory의 THREAD_MESSAGE 사용과 thread report 필수값 누락을 거부한다")
+    void rejectsInvalidThreadMessageReports() {
+        assertThatThrownBy(() -> Report.create(1L, ReportTargetType.THREAD_MESSAGE, 2L, null))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Report.createThreadMessage(0L, 2L, 3L, ReportReason.ABUSE))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Report.createThreadMessage(1L, 0L, 3L, ReportReason.ABUSE))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Report.createThreadMessage(1L, 2L, 0L, ReportReason.ABUSE))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> Report.createThreadMessage(1L, 2L, 3L, null))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("신고 검토 결과는 approve와 reject 상태로 명시적으로 전이한다")
+    void transitionsReviewStatus() {
+        Report report = Report.create(1L, ReportTargetType.POST, 2L, null);
+
+        report.approve();
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.APPROVED);
+        report.reject();
+        assertThat(report.getStatus()).isEqualTo(ReportStatus.REJECTED);
     }
 }

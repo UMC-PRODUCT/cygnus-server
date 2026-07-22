@@ -163,6 +163,28 @@ class CommunityThreadMessageReportQueryServiceTest {
         assertThat(result.total()).isEqualTo(5L);
     }
 
+    @Test
+    @DisplayName("서비스 경계도 음수 offset과 허용 범위 밖 limit을 방어한다")
+    void search_서비스_페이지_경계를_재검증한다() {
+        SearchCommunityThreadMessageReportsQuery negativeOffset =
+            mock(SearchCommunityThreadMessageReportsQuery.class);
+        given(negativeOffset.offset()).willReturn(-1);
+        given(negativeOffset.limit()).willReturn(20);
+        SearchCommunityThreadMessageReportsQuery excessiveLimit =
+            mock(SearchCommunityThreadMessageReportsQuery.class);
+        given(excessiveLimit.offset()).willReturn(0);
+        given(excessiveLimit.limit()).willReturn(101);
+
+        assertThatThrownBy(() -> sut.search(negativeOffset))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("offset must not be negative");
+        assertThatThrownBy(() -> sut.search(excessiveLimit))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("limit must be between 1 and 100");
+        then(checkChallengerAuthorityUseCase).shouldHaveNoInteractions();
+        then(searchThreadMessageReportPort).shouldHaveNoInteractions();
+    }
+
     private Report report(
         Long reportId,
         Long threadId,

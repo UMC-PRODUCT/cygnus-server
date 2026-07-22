@@ -146,7 +146,7 @@ class CommunityPersistenceAdapterUnitTest {
         Report report = Report.create(1L, ReportTargetType.POST, 10L, null);
         given(repository.existsByReporterIdAndTargetTypeAndTargetId(1L, ReportTargetType.POST, 10L))
             .willReturn(true);
-        given(repository.save(report)).willReturn(report);
+        given(repository.saveAndFlush(report)).willReturn(report);
 
         assertThat(sut.existsByReporterIdAndTargetTypeAndTargetId(1L, ReportTargetType.POST, 10L)).isTrue();
         assertThat(sut.save(report)).isSameAs(report);

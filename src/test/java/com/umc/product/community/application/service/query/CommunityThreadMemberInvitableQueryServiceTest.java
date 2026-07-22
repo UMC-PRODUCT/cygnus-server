@@ -224,6 +224,85 @@ class CommunityThreadMemberInvitableQueryServiceTest {
     }
 
     @Test
+    @DisplayName("중복 ACTIVE row는 첫 row를 사용하고 Challenger 이력 없는 멤버도 조립한다")
+    void getMembersByIds_중복_row와_빈_challenger_이력을_안전하게_처리한다() {
+        Set<Long> memberIds = Set.of(10L);
+        given(threadQueryPort.findThread(1L, 10L))
+            .willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
+        given(threadQueryPort.listActiveThreadMembers(1L)).willReturn(List.of(
+            memberRow(10L, CommunityThreadMemberRole.OWNER),
+            memberRow(10L, CommunityThreadMemberRole.ADMIN)
+        ));
+        given(getMemberUseCase.findAllByIds(memberIds)).willReturn(Map.of(10L, member(10L, "조이")));
+        given(getChallengerUseCase.getAllBasicByMemberIds(memberIds))
+            .willReturn(Map.of(10L, List.of()));
+
+        List<ThreadMemberInfo> result = sut.getMembersByIds(
+            new GetThreadMembersByIdsQuery(1L, 10L, List.of(10L))
+        );
+
+        assertThat(result).singleElement().satisfies(info -> {
+            assertThat(info.role()).isEqualTo(CommunityThreadMemberRole.OWNER);
+            assertThat(info.part()).isNull();
+            assertThat(info.generation()).isNull();
+        });
+        verifyNoInteractions(getGisuUseCase);
+    }
+
+    @Test
+    @DisplayName("빈 멤버 목록과 빈 지정 ID batch는 외부 read model 조회 없이 빈 결과를 반환한다")
+    void memberQueries_emptyBatchShortCircuits() {
+        given(threadQueryPort.findThread(1L, 10L))
+            .willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
+        given(threadQueryPort.listActiveThreadMembers(1L)).willReturn(List.of());
+
+        ThreadMemberPageInfo page = sut.listMembers(
+            new ListThreadMembersQuery(1L, 10L, null, null, null, null, 0, 20)
+        );
+        List<ThreadMemberInfo> selected = sut.getMembersByIds(
+            new GetThreadMembersByIdsQuery(1L, 10L, List.of())
+        );
+
+        assertThat(page.items()).isEmpty();
+        assertThat(page.nextOffset()).isNull();
+        assertThat(page.total()).isZero();
+        assertThat(selected).isEmpty();
+        verifyNoInteractions(getMemberUseCase, getChallengerUseCase, getGisuUseCase);
+    }
+
+    @Test
+    @DisplayName("여러 Challenger 이력에서는 generation·gisu·challenger ID 순으로 최신 이력을 선택한다")
+    void listMembers_selectsLatestChallengerDeterministically() {
+        Set<Long> memberIds = Set.of(10L);
+        ChallengerBasicInfo older = new ChallengerBasicInfo(
+            101L, 10L, 20L, ChallengerPart.DESIGN, List.of(), null
+        );
+        ChallengerBasicInfo latest = new ChallengerBasicInfo(
+            102L, 10L, 21L, ChallengerPart.PLAN, List.of(), null
+        );
+        given(threadQueryPort.findThread(1L, 10L))
+            .willReturn(Optional.of(thread(CommunityThreadMemberRole.OWNER)));
+        given(threadQueryPort.listActiveThreadMembers(1L))
+            .willReturn(List.of(memberRow(10L, CommunityThreadMemberRole.OWNER)));
+        given(getMemberUseCase.findAllByIds(memberIds)).willReturn(Map.of(10L, member(10L, "조이")));
+        given(getChallengerUseCase.getAllBasicByMemberIds(memberIds))
+            .willReturn(Map.of(10L, List.of(older, latest)));
+        given(getGisuUseCase.getByIds(Set.of(20L, 21L))).willReturn(List.of(
+            new GisuInfo(20L, 9L, NOW, NOW.plusSeconds(1), false),
+            new GisuInfo(21L, 10L, NOW, NOW.plusSeconds(1), true)
+        ));
+
+        ThreadMemberPageInfo result = sut.listMembers(
+            new ListThreadMembersQuery(1L, 10L, null, null, null, null, 0, 20)
+        );
+
+        assertThat(result.items()).singleElement().satisfies(info -> {
+            assertThat(info.part()).isEqualTo(ChallengerPart.PLAN);
+            assertThat(info.generation()).isEqualTo(10L);
+        });
+    }
+
+    @Test
     @DisplayName("memberIds는 양성 고유 ID의 불변 복사본으로 보존한다")
     void getThreadMembersByIdsQuery_양성_고유_ID를_복사한다() {
         // given

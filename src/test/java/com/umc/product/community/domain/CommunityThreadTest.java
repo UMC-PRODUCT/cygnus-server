@@ -149,6 +149,39 @@ class CommunityThreadTest {
         assertThat(thread.getLastActivityAt()).isEqualTo(previousMessageCreatedAt);
     }
 
+    @Test
+    @DisplayName("오래된 message·activity projection은 무시하고 최신 시각만 반영한다")
+    void ignoresStaleProjectionUpdates() {
+        CommunityThread thread = createThread();
+        Instant latest = CREATED_AT.plusSeconds(120);
+        thread.updateLastMessage(20L, null, 21L, latest);
+
+        thread.updateLastMessage(19L, "오래된 메시지", 22L, latest.plusSeconds(10));
+        thread.touchActivity(CREATED_AT);
+
+        assertThat(thread.getLastMessageId()).isEqualTo(20L);
+        assertThat(thread.getLastMessagePreview()).isEmpty();
+        assertThat(thread.getLastActivityAt()).isEqualTo(latest);
+
+        Instant newerActivity = latest.plusSeconds(30);
+        thread.touchActivity(newerActivity);
+        assertThat(thread.getLastActivityAt()).isEqualTo(newerActivity);
+    }
+
+    @Test
+    @DisplayName("metadata 수정은 정규화하며 null category와 null activity를 거부한다")
+    void validatesMetadataAndActivity() {
+        CommunityThread thread = createThread();
+        thread.updateMetadata("  새 제목 ", "  설명 ", CommunityThreadCategory.QNA, " ❓ ");
+        assertThat(thread.getTitle()).isEqualTo("새 제목");
+        assertThat(thread.getDescription()).isEqualTo("설명");
+
+        assertThatThrownBy(() -> thread.updateMetadata("제목", null, null, "💬"))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> thread.touchActivity(null))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
     private CommunityThread createThread() {
         return CommunityThread.create(
             10L,

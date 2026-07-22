@@ -119,4 +119,31 @@ class CommunityStompSendAuthorizerTest {
         assertThat(invalidDestination).isFalse();
         verifyNoInteractions(getThreadDetailUseCase);
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "/app/community/threads/12/messages",
+        "/app/community/threads/12/messages/34/edit",
+        "/app/community/threads/12/messages/34/delete",
+        "/app/community/threads/12/messages/34/reactions/add",
+        "/app/community/threads/12/messages/34/reactions/remove",
+        "/app/community/threads/12/read"
+    })
+    @DisplayName("모든 SEND command는 접근 조회 실패 시 fail-closed로 거부한다")
+    void rejectsEveryCommandWhenLookupFails(String destination) {
+        given(getThreadDetailUseCase.getThread(new GetThreadDetailQuery(12L, 41L)))
+            .willThrow(new IllegalArgumentException("invalid member"));
+
+        assertThat(authorizer.isAuthorized(41L, destination)).isFalse();
+    }
+
+    @Test
+    @DisplayName("0 이하 member ID도 조회 없이 거부하고 command별 metric을 남긴다")
+    void rejectsNonPositiveMemberId() {
+        assertThat(authorizer.isAuthorized(0L, "/app/community/threads/12/messages/34/delete"))
+            .isFalse();
+        verify(metrics).recordSend(Operation.MESSAGE_DELETE, Outcome.REJECTED);
+        verify(metrics).recordReject(Operation.MESSAGE_DELETE, Reason.AUTHORIZATION);
+        verifyNoInteractions(getThreadDetailUseCase);
+    }
 }

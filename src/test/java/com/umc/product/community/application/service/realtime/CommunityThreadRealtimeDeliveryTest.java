@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
 import static org.mockito.Mockito.times;
@@ -110,6 +111,54 @@ class CommunityThreadRealtimeDeliveryTest {
             .extracting(CommunityThreadRealtimeEvent::eventId)
             .containsOnly(EVENT_ID);
         then(metrics).should().recordFanOut(Operation.READ_UPDATED, Outcome.SUCCESS, 2);
+    }
+
+    @Test
+    @DisplayName("event factory 실패도 다음 recipient 전송을 계속한 뒤 원인을 집계한다")
+    void eventFactoryFailureAttemptsRemainingRecipients() {
+        CommunityThreadRealtimeEvent<?> event = event();
+        RuntimeException factoryFailure = new IllegalStateException("payload unavailable");
+
+        assertThatThrownBy(() -> sut.fanOutMembers(
+            List.of(10L, 20L),
+            Operation.MESSAGE_UPDATED,
+            memberId -> {
+                if (memberId == 10L) {
+                    throw factoryFailure;
+                }
+                return event;
+            }
+        ))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("failures=1")
+            .satisfies(exception -> assertThat(exception.getSuppressed()).containsExactly(factoryFailure));
+
+        then(broadcastPort).should().broadcastToMember(20L, event);
+        then(broadcastPort).shouldHaveNoMoreInteractions();
+        then(metrics).should().recordFanOut(Operation.MESSAGE_UPDATED, Outcome.FAILURE, 2);
+    }
+
+    @Test
+    @DisplayName("terminal audience에 대상 멤버가 없으면 잘못된 snapshot으로 판단한다")
+    void terminalAudience_requiresAffectedMember() {
+        given(properties.allowsFanOutRecipientCount(2)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.terminalAudience(List.of(10L, 30L), 20L))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("terminal audience must contain the affected member");
+    }
+
+    @Test
+    @DisplayName("fan-out audience는 비양수 member ID와 설정 용량 초과를 거절한다")
+    void audience_rejectsInvalidMemberAndCapacityOverflow() {
+        assertThatThrownBy(() -> sut.audience(List.of(0L)))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("memberId must be positive");
+
+        given(properties.allowsFanOutRecipientCount(1)).willReturn(false);
+        assertThatThrownBy(() -> sut.audience(List.of(10L)))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("fan-out audience exceeds the configured maximum");
     }
 
     private CommunityThreadRealtimeEvent<?> event() {

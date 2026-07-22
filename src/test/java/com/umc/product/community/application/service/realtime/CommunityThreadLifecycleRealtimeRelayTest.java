@@ -38,6 +38,7 @@ import com.umc.product.community.domain.CommunityThreadMember;
 import com.umc.product.community.domain.CommunityThreadProperties;
 import com.umc.product.community.domain.enums.CommunityThreadCategory;
 import com.umc.product.community.domain.enums.CommunityThreadMemberRole;
+import com.umc.product.community.domain.event.CommunityThreadDeletedEvent;
 import com.umc.product.community.domain.event.CommunityThreadInvitedEvent;
 import com.umc.product.community.domain.event.CommunityThreadMemberKickedEvent;
 import com.umc.product.community.domain.event.CommunityThreadMemberLeftEvent;
@@ -237,6 +238,34 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         then(broadcastPort).should().broadcastToMember(eq(20L), any());
         then(broadcastPort).shouldHaveNoMoreInteractions();
         then(metrics).should().recordFanOut(Operation.THREAD_INVITED, Outcome.SUCCESS, 1);
+    }
+
+    @Test
+    @DisplayName("thread.deleted는 삭제 전 ACTIVE snapshot 전체에 terminal event를 전송한다")
+    void threadDeletedUsesPreDeleteAudience() {
+        CommunityThreadDeletedEvent event = CommunityThreadDeletedEvent.of(
+            11L,
+            10L,
+            List.of(10L, 20L, 30L),
+            NOW
+        );
+
+        sut.relay(event);
+
+        ArgumentCaptor<Long> memberCaptor = ArgumentCaptor.forClass(Long.class);
+        then(broadcastPort).should(times(3)).broadcastToMember(
+            memberCaptor.capture(),
+            eventCaptor.capture()
+        );
+        assertThat(memberCaptor.getAllValues()).containsExactly(10L, 20L, 30L);
+        assertThat(eventCaptor.getAllValues())
+            .extracting(CommunityThreadRealtimeEvent::eventId)
+            .containsOnly(event.eventId());
+        CommunityThreadRealtimePayload.ThreadDeleted payload =
+            (CommunityThreadRealtimePayload.ThreadDeleted) eventCaptor.getValue().payload();
+        assertThat(payload.threadId()).isEqualTo("11");
+        assertThat(payload.deletedAt()).isEqualTo(NOW);
+        then(metrics).should().recordFanOut(Operation.THREAD_DELETED, Outcome.SUCCESS, 3);
     }
 
     private CommunityThread thread() {

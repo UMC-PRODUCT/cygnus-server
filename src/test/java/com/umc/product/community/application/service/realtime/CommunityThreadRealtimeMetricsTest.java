@@ -1,6 +1,7 @@
 package com.umc.product.community.application.service.realtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.Arrays;
 import java.util.List;
@@ -52,5 +53,17 @@ class CommunityThreadRealtimeMetricsTest {
             .isEqualTo(3.0);
         assertThat(registry.get("community.thread.realtime.broadcast.failures").counter().count())
             .isEqualTo(1.0);
+    }
+
+    @Test
+    @DisplayName("음수 fan-out recipient 수는 metric을 기록하지 않고 거절한다")
+    void negativeFanOutRecipientCountRejected() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        CommunityThreadRealtimeMetrics sut = new CommunityThreadRealtimeMetrics(registry);
+
+        assertThatThrownBy(() -> sut.recordFanOut(Operation.MESSAGE_CREATED, Outcome.FAILURE, -1))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("recipientCount must not be negative");
+        assertThat(registry.getMeters()).isEmpty();
     }
 }

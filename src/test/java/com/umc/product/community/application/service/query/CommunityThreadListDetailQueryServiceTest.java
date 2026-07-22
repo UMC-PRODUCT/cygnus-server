@@ -3,6 +3,7 @@ package com.umc.product.community.application.service.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -222,6 +223,32 @@ class CommunityThreadListDetailQueryServiceTest {
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
         verifyNoInteractions(getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("카테고리 filter 네 종류를 persistence category로 정확히 변환한다")
+    void listThreads_카테고리_filter를_모두_변환한다() {
+        given(threadQueryPort.searchThreads(org.mockito.ArgumentMatchers.any()))
+            .willReturn(new CommunityThreadListRows(List.of(), List.of(), 0L));
+
+        List.of(
+            ThreadListFilter.STUDY,
+            ThreadListFilter.QNA,
+            ThreadListFilter.PROJECT,
+            ThreadListFilter.FREE
+        ).forEach(filter -> sut.listThreads(new ListThreadsQuery(10L, filter, null, 0, 20)));
+
+        ArgumentCaptor<CommunityThreadListCondition> captor =
+            ArgumentCaptor.forClass(CommunityThreadListCondition.class);
+        verify(threadQueryPort, times(4)).searchThreads(captor.capture());
+        assertThat(captor.getAllValues())
+            .extracting(CommunityThreadListCondition::category)
+            .containsExactly(
+                CommunityThreadCategory.STUDY,
+                CommunityThreadCategory.QNA,
+                CommunityThreadCategory.PROJECT,
+                CommunityThreadCategory.FREE
+            );
     }
 
     private CommunityThreadQueryRow activeRow(Long threadId, boolean pinned, Long senderId) {

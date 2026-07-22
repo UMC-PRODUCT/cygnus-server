@@ -2,6 +2,7 @@ package com.umc.product.community.adapter.in.event;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -25,6 +26,7 @@ import com.umc.product.community.application.event.CommunityThreadMentionedEvent
 import com.umc.product.community.application.event.CommunityThreadMessageCreatedEvent;
 import com.umc.product.community.application.port.in.realtime.RelayCommunityThreadRealtimeEventUseCase;
 import com.umc.product.community.domain.event.CommunityThreadDeletedEvent;
+import com.umc.product.community.domain.event.CommunityThreadUpdatedEvent;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Community thread realtime event listener")
@@ -57,11 +59,14 @@ class CommunityThreadRealtimeEventListenerTest {
             List.of(10L, 20L),
             NOW
         );
+        CommunityThreadUpdatedEvent updatedEvent = mock(CommunityThreadUpdatedEvent.class);
 
         sut.onMessageCreated(messageEvent);
+        sut.onThreadUpdated(updatedEvent);
         sut.onThreadDeleted(deletedEvent);
 
         then(relayUseCase).should().relay(messageEvent);
+        then(relayUseCase).should().relay(updatedEvent);
         then(relayUseCase).should().relay(deletedEvent);
     }
 

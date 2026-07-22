@@ -226,4 +226,26 @@ class CommunityThreadInviteManagerTest {
         then(joinChatRoomUseCase).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("이미 ACTIVE인 멤버가 포함되면 적격성 조회 전에 전체 초대를 거부한다")
+    void invite_activeMemberIsRejected() {
+        CommunityThreadMember active = CommunityThreadLifecycleTestFixtures.activeMember(
+            20L,
+            CommunityThreadMemberRole.MEMBER
+        );
+        given(loadMemberPort.listByThreadIdAndMemberIds(THREAD_ID, Set.of(20L)))
+            .willReturn(List.of(active));
+
+        assertThatThrownBy(() -> sut.invite(
+            CommunityThreadLifecycleTestFixtures.thread(),
+            List.of(20L),
+            NOW
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_MEMBER_ALREADY_ACTIVE);
+        then(searchInvitationUseCase).shouldHaveNoInteractions();
+        then(joinChatRoomUseCase).shouldHaveNoInteractions();
+    }
+
 }

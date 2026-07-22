@@ -1,6 +1,7 @@
 package com.umc.product.community.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.List;
@@ -66,6 +67,14 @@ class CommunityThreadQueryRepositoryTest {
 
         // then
         assertThat(blockedMemberIds).containsExactly(10L, 30L);
+    }
+
+    @Test
+    @DisplayName("팬아웃 조회 limit은 양수만 허용한다")
+    void listActiveMemberIds_비양수_limit을_거절한다() {
+        assertThatThrownBy(() -> sut.listActiveMemberIdsByThreadId(1L, 0))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("limit must be positive");
     }
 
     private CommunityThread createThread(Long chatRoomId) {

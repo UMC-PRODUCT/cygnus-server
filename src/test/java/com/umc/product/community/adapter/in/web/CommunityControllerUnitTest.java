@@ -116,21 +116,18 @@ class CommunityControllerUnitTest {
     }
 
     @Test
-    @DisplayName("Report controller는 현재 challenger ID로 게시글과 댓글을 신고한다")
-    void Report_controller는_현재_challenger_ID로_게시글과_댓글을_신고한다() {
+    @DisplayName("Report controller는 현재 member ID로 게시글과 댓글을 신고한다")
+    void Report_controller는_현재_member_ID로_게시글과_댓글을_신고한다() {
         ReportPostUseCase reportPostUseCase = mock(ReportPostUseCase.class);
         ReportCommentUseCase reportCommentUseCase = mock(ReportCommentUseCase.class);
-        GetChallengerUseCase getChallengerUseCase = mock(GetChallengerUseCase.class);
-        ReportController sut = new ReportController(reportPostUseCase, reportCommentUseCase, getChallengerUseCase);
+        ReportController sut = new ReportController(reportPostUseCase, reportCommentUseCase);
         MemberPrincipal principal = MemberPrincipal.builder().memberId(100L).build();
-        given(getChallengerUseCase.getLatestActiveChallengerByMemberId(100L))
-            .willReturn(ChallengerInfoWithStatus.builder().challengerId(1L).build());
 
         sut.reportPost(10L, principal);
         sut.reportComment(20L, principal);
 
-        verify(reportPostUseCase).report(new ReportPostCommand(10L, 1L));
-        verify(reportCommentUseCase).report(new ReportCommentCommand(20L, 1L));
+        verify(reportPostUseCase).report(new ReportPostCommand(10L, 100L));
+        verify(reportCommentUseCase).report(new ReportCommentCommand(20L, 100L));
     }
 
     @Test

@@ -316,4 +316,172 @@ class CommunityThreadMembershipCommandServiceTest {
             .isEqualTo(CommunityErrorCode.THREAD_OWNER_REQUIRED);
         then(saveMemberPort).shouldHaveNoInteractions();
     }
+
+    @Test
+    @DisplayName("OWNER가 MEMBER를 ADMIN으로 변경하면 대상만 저장한다")
+    void changeRole_adminSavesOnlyTarget() {
+        // given
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        CommunityThreadMember owner = CommunityThreadLifecycleTestFixtures.activeMember(
+            OWNER_ID,
+            CommunityThreadMemberRole.OWNER
+        );
+        CommunityThreadMember target = CommunityThreadLifecycleTestFixtures.activeMember(
+            20L,
+            CommunityThreadMemberRole.MEMBER
+        );
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, OWNER_ID)).willReturn(Optional.of(owner));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, 20L)).willReturn(Optional.of(target));
+        given(loadMemberPort.countActiveByThreadId(THREAD_ID)).willReturn(2L);
+
+        // when
+        CommunityThreadMemberLifecycleInfo result = sut.changeRole(
+            new ChangeCommunityThreadMemberRoleCommand(
+                THREAD_ID,
+                OWNER_ID,
+                20L,
+                CommunityThreadMemberRole.ADMIN
+            )
+        );
+
+        // then
+        assertThat(result.role()).isEqualTo(CommunityThreadMemberRole.ADMIN);
+        then(saveMemberPort).should().save(target);
+        then(saveMemberPort).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 스레드의 membership 명령은 THREAD_NOT_FOUND로 실패한다")
+    void invite_missingThreadRejected() {
+        // given
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.empty());
+
+        // when & then
+        assertThatThrownBy(() -> sut.invite(
+            new InviteCommunityThreadMembersCommand(THREAD_ID, OWNER_ID, List.of(20L))
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
+        then(loadMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("삭제된 스레드의 membership 명령은 actor 조회 전에 실패한다")
+    void invite_deletedThreadRejectedBeforeActorLookup() {
+        // given
+        CommunityThread deleted = CommunityThreadLifecycleTestFixtures.thread();
+        deleted.delete(NOW.minusSeconds(1));
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(deleted));
+
+        // when & then
+        assertThatThrownBy(() -> sut.invite(
+            new InviteCommunityThreadMembersCommand(THREAD_ID, OWNER_ID, List.of(20L))
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_DELETED);
+        then(loadMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("탈퇴한 actor의 membership 명령은 THREAD_ACCESS_DENIED로 실패한다")
+    void invite_inactiveActorRejected() {
+        // given
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        CommunityThreadMember left = CommunityThreadLifecycleTestFixtures.member(
+            OWNER_ID,
+            CommunityThreadMemberRole.OWNER,
+            CommunityThreadMemberState.LEFT
+        );
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, OWNER_ID)).willReturn(Optional.of(left));
+
+        // when & then
+        assertThatThrownBy(() -> sut.invite(
+            new InviteCommunityThreadMembersCommand(THREAD_ID, OWNER_ID, List.of(20L))
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        then(inviteManager).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("활성 상태가 아닌 역할 변경 대상은 THREAD_MEMBER_NOT_FOUND로 실패한다")
+    void changeRole_inactiveTargetRejected() {
+        // given
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        CommunityThreadMember owner = CommunityThreadLifecycleTestFixtures.activeMember(
+            OWNER_ID,
+            CommunityThreadMemberRole.OWNER
+        );
+        CommunityThreadMember kicked = CommunityThreadLifecycleTestFixtures.member(
+            20L,
+            CommunityThreadMemberRole.MEMBER,
+            CommunityThreadMemberState.KICKED
+        );
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, OWNER_ID)).willReturn(Optional.of(owner));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, 20L)).willReturn(Optional.of(kicked));
+
+        // when & then
+        assertThatThrownBy(() -> sut.changeRole(
+            new ChangeCommunityThreadMemberRoleCommand(
+                THREAD_ID,
+                OWNER_ID,
+                20L,
+                CommunityThreadMemberRole.ADMIN
+            )
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_MEMBER_NOT_FOUND);
+        then(saveMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("자기 자신이나 동일 역할로의 변경은 THREAD_INVALID_ROLE_CHANGE로 실패한다")
+    void changeRole_invalidTransitionsRejected() {
+        // given
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        CommunityThreadMember owner = CommunityThreadLifecycleTestFixtures.activeMember(
+            OWNER_ID,
+            CommunityThreadMemberRole.OWNER
+        );
+        CommunityThreadMember admin = CommunityThreadLifecycleTestFixtures.activeMember(
+            20L,
+            CommunityThreadMemberRole.ADMIN
+        );
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, OWNER_ID)).willReturn(Optional.of(owner));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, 20L)).willReturn(Optional.of(admin));
+
+        // when & then
+        assertThatThrownBy(() -> sut.changeRole(
+            new ChangeCommunityThreadMemberRoleCommand(
+                THREAD_ID,
+                OWNER_ID,
+                OWNER_ID,
+                CommunityThreadMemberRole.ADMIN
+            )
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_INVALID_ROLE_CHANGE);
+
+        assertThatThrownBy(() -> sut.changeRole(
+            new ChangeCommunityThreadMemberRoleCommand(
+                THREAD_ID,
+                OWNER_ID,
+                20L,
+                CommunityThreadMemberRole.ADMIN
+            )
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_INVALID_ROLE_CHANGE);
+        then(saveMemberPort).shouldHaveNoInteractions();
+    }
 }

@@ -115,4 +115,40 @@ class CommunityThreadMemberTest {
         assertThat(owner.getJoinedAt()).isEqualTo(JOINED_AT);
         assertThat(owner.getLeftAt()).isEqualTo(leftAt);
     }
+
+    @Test
+    @DisplayName("pin·mute 전이는 멱등이고 반대 전이는 실제 상태 변경만 보고한다")
+    void pinAndMuteAreIdempotent() {
+        CommunityThreadMember member = CommunityThreadMember.createMember(1L, 11L, JOINED_AT);
+
+        member.changeRole(CommunityThreadMemberRole.ADMIN);
+        member.updateUnreadCount(3);
+        assertThat(member.getRole()).isEqualTo(CommunityThreadMemberRole.ADMIN);
+        assertThat(member.getUnreadCount()).isEqualTo(3);
+
+        assertThat(member.pin()).isTrue();
+        assertThat(member.pin()).isFalse();
+        assertThat(member.unpin()).isTrue();
+        assertThat(member.unpin()).isFalse();
+        assertThat(member.mute()).isTrue();
+        assertThat(member.mute()).isFalse();
+        assertThat(member.unmute()).isTrue();
+        assertThat(member.unmute()).isFalse();
+    }
+
+    @Test
+    @DisplayName("비활성 재전이·null role·non-positive ID를 거부한다")
+    void rejectsInvalidStateAndIdentityTransitions() {
+        CommunityThreadMember member = CommunityThreadMember.createMember(1L, 11L, JOINED_AT);
+        member.leave(JOINED_AT.plusSeconds(1));
+
+        assertThatThrownBy(() -> member.leave(JOINED_AT.plusSeconds(2)))
+            .isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> member.changeRole(null))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CommunityThreadMember.createMember(0L, 1L, JOINED_AT))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CommunityThreadMember.createMember(1L, 0L, JOINED_AT))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
 }

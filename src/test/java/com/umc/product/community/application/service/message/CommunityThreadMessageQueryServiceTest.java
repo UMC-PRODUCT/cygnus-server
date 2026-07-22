@@ -9,7 +9,9 @@ import static org.mockito.Mockito.inOrder;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,12 +22,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.port.in.query.GetChatMessageForViewersUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessageUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageReplyInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatReactionInfo;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessageForViewersQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessageQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.domain.MessageContentType;
@@ -33,6 +37,7 @@ import com.umc.product.community.application.port.in.query.thread.message.dto.Co
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessagePageInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageQuery;
+import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageRecipientsQuery;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageRecoveryQuery;
 import com.umc.product.community.application.port.out.thread.LoadCommunityThreadMemberPort;
 import com.umc.product.community.application.port.out.thread.LoadCommunityThreadPort;
@@ -62,6 +67,8 @@ class CommunityThreadMessageQueryServiceTest {
     GetChatMessagesUseCase getChatMessagesUseCase;
     @Mock
     GetChatMessageUseCase getChatMessageUseCase;
+    @Mock
+    GetChatMessageForViewersUseCase getChatMessageForViewersUseCase;
     @Mock
     CommunityThreadMessageInfoAssembler infoAssembler;
     @Mock
@@ -213,6 +220,106 @@ class CommunityThreadMessageQueryServiceTest {
             .isInstanceOf(CommunityDomainException.class)
             .extracting(error -> ((CommunityDomainException) error).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        then(getChatMessageUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("빈 recipient batch는 thread와 Chat을 조회하지 않고 빈 결과를 반환한다")
+    void recipients_emptyBatchShortCircuits() {
+        Map<Long, CommunityThreadMessageInfo> result = sut.getMessageForRecipients(
+            new CommunityThreadMessageRecipientsQuery(THREAD_ID, 900L, List.of())
+        );
+
+        assertThat(result).isEmpty();
+        then(loadThreadPort).shouldHaveNoInteractions();
+        then(getChatMessageForViewersUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("recipient batch는 모든 ACTIVE membership을 검증한 뒤 Chat viewer 결과를 조립한다")
+    void recipients_validatesAllMembersBeforeChatQuery() {
+        Long secondMemberId = 40L;
+        CommunityThread thread = thread();
+        CommunityThreadMember first = activeMember(MEMBER_ID);
+        CommunityThreadMember second = activeMember(secondMemberId);
+        ChatMessageInfo firstMessage = chatMessage(900L, MEMBER_ID, "첫 번째");
+        ChatMessageInfo secondMessage = chatMessage(900L, MEMBER_ID, "두 번째");
+        CommunityThreadMessageInfo firstInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
+        CommunityThreadMessageInfo secondInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
+        Map<Long, ChatMessageInfo> chatResult = Map.of(
+            MEMBER_ID, firstMessage,
+            secondMemberId, secondMessage
+        );
+        Map<Long, CommunityThreadMessageInfo> assembled = Map.of(
+            MEMBER_ID, firstInfo,
+            secondMemberId, secondInfo
+        );
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread));
+        given(loadThreadMemberPort.listByThreadIdAndMemberIds(
+            THREAD_ID,
+            Set.of(MEMBER_ID, secondMemberId)
+        )).willReturn(List.of(first, second));
+        given(getChatMessageForViewersUseCase.getMessageForViewers(
+            new GetChatMessageForViewersQuery(ROOM_ID, 900L, List.of(MEMBER_ID, secondMemberId))
+        )).willReturn(chatResult);
+        given(infoAssembler.assembleForRecipients(THREAD_ID, chatResult)).willReturn(assembled);
+
+        Map<Long, CommunityThreadMessageInfo> result = sut.getMessageForRecipients(
+            new CommunityThreadMessageRecipientsQuery(
+                THREAD_ID,
+                900L,
+                List.of(MEMBER_ID, secondMemberId)
+            )
+        );
+
+        assertThat(result).isEqualTo(assembled);
+        InOrder order = inOrder(loadThreadPort, loadThreadMemberPort, getChatMessageForViewersUseCase);
+        order.verify(loadThreadPort).findById(THREAD_ID);
+        order.verify(loadThreadMemberPort).listByThreadIdAndMemberIds(
+            THREAD_ID,
+            Set.of(MEMBER_ID, secondMemberId)
+        );
+        order.verify(getChatMessageForViewersUseCase).getMessageForViewers(any());
+    }
+
+    @Test
+    @DisplayName("recipient 중 하나라도 비활성이면 전체 viewer 조회를 fail-closed한다")
+    void recipients_inactiveMemberRejectsWholeBatch() {
+        Long inactiveMemberId = 40L;
+        CommunityThreadMember active = activeMember(MEMBER_ID);
+        CommunityThreadMember inactive = activeMember(inactiveMemberId);
+        inactive.leave(NOW.minusSeconds(1));
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.listByThreadIdAndMemberIds(
+            THREAD_ID,
+            Set.of(MEMBER_ID, inactiveMemberId)
+        )).willReturn(List.of(active, inactive));
+
+        assertThatThrownBy(() -> sut.getMessageForRecipients(
+            new CommunityThreadMessageRecipientsQuery(
+                THREAD_ID,
+                900L,
+                List.of(MEMBER_ID, inactiveMemberId)
+            )
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        then(getChatMessageForViewersUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 thread는 membership과 Chat 조회 전에 THREAD_NOT_FOUND로 실패한다")
+    void single_missingThreadRejected() {
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.getMessage(
+            new CommunityThreadMessageQuery(THREAD_ID, MEMBER_ID, 900L)
+        ))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
+        then(loadThreadMemberPort).shouldHaveNoInteractions();
         then(getChatMessageUseCase).shouldHaveNoInteractions();
     }
 

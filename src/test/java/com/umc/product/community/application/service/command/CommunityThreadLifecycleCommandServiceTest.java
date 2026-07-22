@@ -172,6 +172,34 @@ class CommunityThreadLifecycleCommandServiceTest {
     }
 
     @Test
+    @DisplayName("초대 없는 생성은 invite manager와 초대 event를 호출하지 않는다")
+    void create_withoutInviteesSkipsInviteFlow() {
+        CreateCommunityThreadCommand command = new CreateCommunityThreadCommand(
+            OWNER_ID,
+            "스레드",
+            null,
+            CommunityThreadCategory.FREE,
+            "💬",
+            List.of()
+        );
+        given(createChatRoomUseCase.create(any())).willReturn(
+            new ChatRoomInfo(CHAT_ROOM_ID, NOW, null, List.of(OWNER_ID))
+        );
+        given(saveThreadPort.save(any())).willAnswer(invocation -> {
+            CommunityThread thread = invocation.getArgument(0);
+            ReflectionTestUtils.setField(thread, "id", THREAD_ID);
+            return thread;
+        });
+        given(saveMemberPort.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        CommunityThreadLifecycleInfo result = sut.create(command);
+
+        assertThat(result.memberCount()).isOne();
+        then(inviteManager).shouldHaveNoInteractions();
+        then(eventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("수정은 스레드 잠금과 ACTIVE ADMIN 검증 뒤에만 저장한다")
     void update_locksThreadBeforeActorPermission() {
         // given
@@ -372,5 +400,28 @@ class CommunityThreadLifecycleCommandServiceTest {
             .extracting(error -> ((CommunityDomainException) error).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_DELETED);
         then(loadMemberPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("미존재 thread와 미존재 actor는 저장 전에 각각 명시 오류로 거부한다")
+    void update_rejectsMissingThreadAndActor() {
+        CommunityThread thread = CommunityThreadLifecycleTestFixtures.thread();
+        given(loadThreadPort.findByIdForUpdate(THREAD_ID))
+            .willReturn(Optional.empty(), Optional.of(thread));
+        given(loadMemberPort.findByThreadIdAndMemberId(THREAD_ID, OWNER_ID))
+            .willReturn(Optional.empty());
+        UpdateCommunityThreadCommand command = new UpdateCommunityThreadCommand(
+            THREAD_ID, OWNER_ID, "새 제목", null, null, null
+        );
+
+        assertThatThrownBy(() -> sut.update(command))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_NOT_FOUND);
+        assertThatThrownBy(() -> sut.update(command))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        then(saveThreadPort).shouldHaveNoInteractions();
     }
 }

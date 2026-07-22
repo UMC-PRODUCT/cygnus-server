@@ -24,7 +24,11 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
+import com.umc.product.chat.domain.event.ChatMessageDeletedEvent;
 import com.umc.product.chat.domain.event.ChatMessageReactionChangedEvent;
+import com.umc.product.chat.domain.event.ChatMessageSnapshot;
+import com.umc.product.chat.domain.event.ChatMessageUpdatedEvent;
+import com.umc.product.chat.domain.event.ChatReadUpdatedEvent;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageForRecipientsUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageInfo;
@@ -184,6 +188,70 @@ class CommunityThreadChatRealtimeRelayTest {
             .containsOnly(EVENT_ID);
     }
 
+    @Test
+    @DisplayName("message.updated와 message.deleted는 수신자별 최신 snapshot을 대응 payload로 전송한다")
+    void messageUpdatedAndDeletedUsePersonalizedSnapshots() {
+        CommunityThread thread = thread();
+        CommunityThreadMessageInfo ownerMessage = message(true);
+        CommunityThreadMessageInfo memberMessage = message(false);
+        Map<Long, CommunityThreadMessageInfo> messages = Map.of(
+            10L, ownerMessage,
+            20L, memberMessage
+        );
+        given(loadThreadPort.findByChatRoomId(101L)).willReturn(Optional.of(thread));
+        given(threadQueryPort.listActiveMemberIdsByThreadId(11L, 101))
+            .willReturn(List.of(10L, 20L));
+        given(getMessageForRecipientsUseCase.getMessageForRecipients(
+            new CommunityThreadMessageRecipientsQuery(11L, 900L, List.of(10L, 20L))
+        )).willReturn(messages);
+        ChatMessageSnapshot snapshot = snapshot();
+
+        sut.relay(new ChatMessageUpdatedEvent(EVENT_ID, NOW, snapshot));
+        sut.relay(new ChatMessageDeletedEvent(EVENT_ID, NOW, snapshot));
+
+        then(broadcastPort).should(times(4)).broadcastToMember(
+            any(Long.class),
+            eventCaptor.capture()
+        );
+        assertThat(eventCaptor.getAllValues())
+            .extracting(CommunityThreadRealtimeEvent::type)
+            .containsExactly(
+                CommunityThreadRealtimeEventType.MESSAGE_UPDATED,
+                CommunityThreadRealtimeEventType.MESSAGE_UPDATED,
+                CommunityThreadRealtimeEventType.MESSAGE_DELETED,
+                CommunityThreadRealtimeEventType.MESSAGE_DELETED
+            );
+        CommunityThreadRealtimePayload.MessageUpdated updated =
+            (CommunityThreadRealtimePayload.MessageUpdated) eventCaptor.getAllValues().get(0).payload();
+        CommunityThreadRealtimePayload.MessageDeleted deleted =
+            (CommunityThreadRealtimePayload.MessageDeleted) eventCaptor.getAllValues().get(3).payload();
+        assertThat(updated.message()).isSameAs(ownerMessage);
+        assertThat(deleted.message()).isSameAs(memberMessage);
+        then(metrics).should().recordFanOut(Operation.MESSAGE_UPDATED, Outcome.SUCCESS, 2);
+        then(metrics).should().recordFanOut(Operation.MESSAGE_DELETED, Outcome.SUCCESS, 2);
+    }
+
+    @Test
+    @DisplayName("read.updated는 한 번 만든 동일 event를 delivery-time ACTIVE audience에 전송한다")
+    void readUpdatedUsesOneStableEnvelope() {
+        given(loadThreadPort.findByChatRoomId(101L)).willReturn(Optional.of(thread()));
+        given(threadQueryPort.listActiveMemberIdsByThreadId(11L, 101))
+            .willReturn(List.of(10L, 20L));
+
+        sut.relay(new ChatReadUpdatedEvent(EVENT_ID, NOW, 101L, 10L, 900L));
+
+        then(broadcastPort).should(times(2)).broadcastToMember(
+            any(Long.class),
+            eventCaptor.capture()
+        );
+        assertThat(eventCaptor.getAllValues()).containsOnly(eventCaptor.getValue());
+        CommunityThreadRealtimePayload.ReadUpdated payload =
+            (CommunityThreadRealtimePayload.ReadUpdated) eventCaptor.getValue().payload();
+        assertThat(payload.memberId()).isEqualTo(10L);
+        assertThat(payload.lastReadMessageId()).isEqualTo(900L);
+        then(metrics).should().recordFanOut(Operation.READ_UPDATED, Outcome.SUCCESS, 2);
+    }
+
     private CommunityThread thread() {
         CommunityThread thread = CommunityThread.create(
             101L,
@@ -214,6 +282,23 @@ class CommunityThreadChatRealtimeRelayTest {
             CLIENT_MESSAGE_ID,
             NOW,
             null,
+            null
+        );
+    }
+
+    private ChatMessageSnapshot snapshot() {
+        return new ChatMessageSnapshot(
+            900L,
+            101L,
+            10L,
+            MessageContentType.TEXT,
+            "메시지",
+            List.of(),
+            null,
+            CLIENT_MESSAGE_ID,
+            List.of(),
+            NOW,
+            NOW,
             null
         );
     }
