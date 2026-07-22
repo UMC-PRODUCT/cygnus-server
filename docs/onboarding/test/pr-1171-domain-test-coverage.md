@@ -1,7 +1,7 @@
 # PR #1171 전체 Production 테스트 검증 목록
 
 > 대상 PR: `feature/#1167-domain-test-coverage` → `develop`  
-> 비교 기준: 최신 `origin/develop...HEAD`  
+> 비교 기준: `origin/develop` `ac1c18866` ... `HEAD`
 > 대상: `src/main/java/com/umc/product` 아래 직접 작성한 모든 production class  
 > 합격 기준: JaCoCo Line 100% / Class 100%, 실패·오류 0건
 
@@ -9,15 +9,15 @@
 
 `./gradlew clean test jacocoTestCoverageVerification`을 실행한 최종 결과다.
 
-- 전체 테스트: 4,430건
-- 성공: 4,390건
+- 전체 테스트: 5,001건
+- 성공: 4,961건
 - ignored: 40건
 - 실패: 0건
 - 오류: 0건
-- clean build 실행시간: 7분 18초
-- Line: 34,923 / 34,923 (100%)
-- Class: 2,306 / 2,306 (100%)
-- Branch: 9,228 / 10,295 (89.64%, 비강제 지표)
+- clean build 실행시간: 13분 58초
+- Line: 38,664 / 38,664 (100%)
+- Class: 2,532 / 2,532 (100%)
+- Branch: 10,482 / 11,689 (89.67%, 비강제 지표)
 - 새 `@Disabled` 또는 ignored 테스트: 추가하지 않음
 
 QueryDSL 제외 대상은 `build/generated/querydsl`에서 실제 생성된 source와 일치하는 class뿐이다. DTO,
@@ -27,25 +27,25 @@ configuration, exception, application root, 공통 package와 production seed pa
 
 | Production package | 테스트 건수 | ignored | Line | Class | Branch |
 |---|---:|---:|---:|---:|---:|
-| application root | - | - | 3/3 | 1/1 | - |
+| application root | 1 | 0 | 3/3 | 1/1 | - |
 | `analytics` | 46 | 0 | 1,288/1,288 | 96/96 | 89.61% |
 | `audit` | 22 | 0 | 168/168 | 13/13 | 94.74% |
 | `authentication` | 309 | 0 | 1,679/1,679 | 128/128 | 84.95% |
 | `authorization` | 137 | 0 | 840/840 | 44/44 | 97.67% |
 | `blog` | 94 | 0 | 1,779/1,779 | 87/87 | 85.24% |
 | `certificate` | 99 | 0 | 767/767 | 40/40 | 95.67% |
-| `challenger` | 185 | 0 | 1,320/1,320 | 77/77 | 89.58% |
-| `chat` | 109 | 0 | 344/344 | 32/32 | 92.65% |
+| `challenger` | 185 | 0 | 1,323/1,323 | 77/77 | 89.58% |
+| `chat` | 187 | 0 | 943/943 | 66/66 | 89.71% |
 | `common` | 13 | 0 | 78/78 | 10/10 | 97.37% |
-| `community` | 120 | 0 | 994/994 | 61/61 | 90.60% |
+| `community` | 517 | 0 | 3,683/3,683 | 227/227 | 90.46% |
 | `curriculum` | 132 | 0 | 870/870 | 132/132 | 97.75% |
 | `documentation` | 5 | 0 | 22/22 | 7/7 | 75.00% |
 | `feedback` | 20 | 0 | 120/120 | 19/19 | 100.00% |
 | `form` | 222 | 0 | 1,703/1,703 | 97/97 | 93.91% |
-| `global` | 365 | 0 | 2,344/2,344 | 130/130 | 92.54% |
+| `global` | 447 | 0 | 2,657/2,657 | 148/148 | 92.32% |
 | `llm` | 32 | 0 | 337/337 | 18/18 | 82.81% |
-| `maintenance` | 62 | 0 | 308/308 | 22/22 | 91.25% |
-| `member` | 238 | 29 | 1,447/1,447 | 89/89 | 90.45% |
+| `maintenance` | 63 | 0 | 308/308 | 22/22 | 91.25% |
+| `member` | 251 | 29 | 1,584/1,584 | 97/97 | 90.11% |
 | `notice` | 88 | 0 | 1,245/1,245 | 96/96 | 88.32% |
 | `notification` | 104 | 0 | 986/986 | 71/71 | 84.50% |
 | `organization` | 379 | 11 | 3,083/3,083 | 241/241 | 86.47% |
@@ -55,10 +55,10 @@ configuration, exception, application root, 공통 package와 production seed pa
 | `storage` | 88 | 0 | 538/538 | 27/27 | 90.23% |
 | `term` | 32 | 0 | 234/234 | 28/28 | 96.15% |
 | production `test` seed | 165 | 0 | 1,333/1,333 | 98/98 | 95.24% |
-| **전체** | **4,430** | **40** | **34,923/34,923** | **2,306/2,306** | **89.64%** |
+| **전체** | **5,001** | **40** | **38,664/38,664** | **2,532/2,532** | **89.67%** |
 
-package별 테스트 건수는 test classname의 최상위 package를 기준으로 집계했다. application root 테스트는
-전체 건수에는 포함되지만 위 표의 도메인별 건수에는 별도 배분하지 않았다.
+package별 테스트 건수는 test classname의 최상위 package를 기준으로 집계했다. 공통 `support` 1건과
+cross-domain `integration` 4건은 전체 건수에는 포함하지만 특정 production package 행에는 중복 배분하지 않았다.
 
 ## 3. 어떤 상황을 검증했는가
 
@@ -105,7 +105,26 @@ package별 테스트 건수는 test classname의 최상위 package를 기준으�
 - REST/GraphQL: optional input 기본값, page/ID validation, 익명 request 중첩 답변 변환,
   공개 결과 발표 전후 마스킹, 권한 없는 면접 일정 fail-closed.
 
-## 5. Fixture와 테스트 구조
+## 5. Community Thread·Chat·WebSocket 추가 검증 상세
+
+최신 develop의 Community Thread와 확장된 Chat/WebSocket 계약은 다음 상황을 별도로 고정했다.
+
+- Thread lifecycle: 생성·수정·삭제·복구, 참여·탈퇴·강퇴·재가입, 소유권 이전, 설정 변경,
+  초대 대상 중복·자기 초대·null 원소, 마지막 owner와 비활성 thread의 상태 전이.
+- Thread message: TEXT/IMAGE/SYSTEM 입력 조합, reply·attachment·mention 누락, 신고 중복과 사유,
+  sender 정보 누락 마스킹, batch 조회 단축, recipient별 입력 순서와 partial data 조립.
+- Realtime: client message ID 파싱, null·미지원·잘못된 JSON payload, 인증·인가·rate limit,
+  fan-out 일부 실패, local/relay 분기, interrupt 복원, metric 성공·실패·지연 기록.
+- Chat: payload fingerprint 실패, idempotent replay와 canonical payload, 작성자·moderator 삭제 권한,
+  reaction 문자 경계, image 크기·개수·중복, 빈 viewer/member batch와 legacy reply 호환.
+- Persistence/API: 빈 `IN`, filter 조합, cursor/page 경계, 안정 정렬, 이미 삭제된 row와 저장 경쟁,
+  REST/STOMP DTO validation, 민감 값이 없는 오류 mapping.
+
+이 과정에서 null STOMP payload, 초대 ID 목록의 null 원소, 발신자 ID가 없는 legacy message 조립이
+일반적인 계약 오류가 아닌 `NullPointerException`으로 실패하던 3개 경계를 발견했다. 공개 API 계약은 유지하면서
+null guard와 validation 순서만 최소 수정하고 각각 회귀 테스트를 추가했다.
+
+## 6. Fixture와 테스트 구조
 
 - `src/test/java/com/umc/product/support/fixture`의 valid-default factory를 우선 사용한다.
 - `AuthenticationFixture`, `AuthorizationFixture`, `ChallengerUnitFixture`, `MemberUnitFixture`,
@@ -117,7 +136,7 @@ package별 테스트 건수는 test classname의 최상위 package를 기준으�
   기반을 재사용한다.
 - 새 sleep, 외부 네트워크 호출, 테스트별 container 생성, 새 disabled 테스트를 추가하지 않았다.
 
-## 6. Coverage gate와 CI
+## 7. Coverage gate와 CI
 
 - `gradle/testing.gradle.kts`의 `jacocoTestCoverageVerification`이 bundle 기준 `LINE=1.0`,
   `CLASS=1.0`을 강제한다.
@@ -127,7 +146,7 @@ package별 테스트 건수는 test classname의 최상위 package를 기준으�
 - `--tests`를 사용하는 선택 실행은 전역 gate를 직접 실행하지 않으므로 개발 중 package 단위 검증을
   방해하지 않는다.
 
-## 7. 최종 검증 명령
+## 8. 최종 검증 명령
 
 ```bash
 ./gradlew spotlessCheck checkstyleMain checkstyleTest
@@ -138,7 +157,7 @@ package별 테스트 건수는 test classname의 최상위 package를 기준으�
 최종 JaCoCo HTML은 `build/reports/jacoco/test/html/index.html`, XML은
 `build/reports/jacoco/test/jacocoTestReport.xml`에서 확인할 수 있다.
 
-## 8. 해석 시 주의사항
+## 9. 해석 시 주의사항
 
 - Line/Class 100%는 모든 직접 작성 production class와 line이 full suite에서 실행됐다는 의미다.
 - Branch는 컴파일러 생성 분기와 방어 조건 조합을 포함하므로 100%를 합격 조건으로 강제하지 않는다.
