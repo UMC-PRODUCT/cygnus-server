@@ -69,6 +69,44 @@ class RecruitingRoundCreateCommandServiceTest {
     }
 
     @Test
+    @DisplayName("정규 모집 차수는 roundNo 1로 생성한다")
+    void createRegularRound() {
+        RecruitingSeason season = season(10L);
+        given(loadSeasonPort.getByIdForUpdate(10L)).willReturn(season);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            quota(season, ChallengerTrack.PLAN, 3)
+        ));
+        given(saveRoundPort.save(any())).willAnswer(invocation -> {
+            RecruitingRound round = invocation.getArgument(0);
+            ReflectionTestUtils.setField(round, "id", 201L);
+            return round;
+        });
+
+        Long id = sut.createRound(command(RecruitingRoundType.REGULAR, 1, ChallengerTrack.PLAN));
+
+        assertThat(id).isEqualTo(201L);
+    }
+
+    @Test
+    @DisplayName("정규 모집 roundNo와 추가 모집 순번은 연속성 규칙을 지켜야 한다")
+    void rejectInvalidRoundNumberSequence() {
+        assertThatThrownBy(() -> sut.createRound(command(
+            RecruitingRoundType.REGULAR, 2, ChallengerTrack.PLAN
+        )))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_ROUND_NO);
+
+        given(loadRoundPort.getMaxAdditionalRoundNo(10L)).willReturn(2);
+        assertThatThrownBy(() -> sut.createRound(command(
+            RecruitingRoundType.ADDITIONAL, 4, ChallengerTrack.PLAN
+        )))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_NO_SEQUENCE_CONFLICT);
+    }
+
+    @Test
     @DisplayName("같은 시즌 타입 차수는 중복 생성할 수 없다")
     void createRoundRejectsDuplicate() {
         given(loadRoundPort.existsBySeasonIdAndTypeAndRoundNo(10L, RecruitingRoundType.REGULAR, 1))

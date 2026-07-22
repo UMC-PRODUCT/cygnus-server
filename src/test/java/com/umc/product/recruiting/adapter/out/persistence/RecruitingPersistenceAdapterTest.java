@@ -1,14 +1,17 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
@@ -267,5 +270,39 @@ class RecruitingPersistenceAdapterTest extends RecruitingPersistenceAdapterTestS
         assertThat(row.schoolId()).isEqualTo(20L);
         assertThat(row.firstChoice()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         assertThat(row.applicationStatus()).isEqualTo(RecruitingApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("지원서 검색은 다중 학교·차수 filter와 빈 filter, page 경계를 모두 지원한다")
+    void searchApplicationsWithCollectionAndPageFilters() {
+        RecruitingGraph submitted = persistApplicationGraph(
+            5L, 50L, 1, "identity:collection", RecruitingApplicationStatus.SUBMITTED
+        );
+        persistApplicationGraph(5L, 51L, 2, "identity:other", RecruitingApplicationStatus.FINAL_FAILED);
+        em.flush();
+        em.clear();
+
+        List<RecruitingApplicationSummaryRow> filtered = applicationAdapter.searchSummaryRows(
+            5L,
+            List.of(50L),
+            List.of(submitted.round().getId()),
+            List.of(RecruitingApplicationStatus.SUBMITTED)
+        );
+        List<RecruitingApplicationSummaryRow> unfiltered = applicationAdapter.searchSummaryRows(
+            5L, (Collection<Long>) null, null, null
+        );
+        var page = applicationAdapter.searchByRoundId(
+            submitted.round().getId(), null, null, PageRequest.of(0, 1)
+        );
+
+        assertThat(filtered).singleElement()
+            .satisfies(row -> assertThat(row.schoolId()).isEqualTo(50L));
+        assertThat(unfiltered).hasSize(2);
+        assertThat(page.getContent()).singleElement()
+            .satisfies(application -> assertThat(application.getId())
+                .isEqualTo(submitted.application().getId()));
+        assertThat(page.getTotalElements()).isOne();
+        assertThatThrownBy(() -> applicationAdapter.getApplicantLockTarget(Long.MAX_VALUE))
+            .isInstanceOf(com.umc.product.recruiting.domain.exception.RecruitingDomainException.class);
     }
 }

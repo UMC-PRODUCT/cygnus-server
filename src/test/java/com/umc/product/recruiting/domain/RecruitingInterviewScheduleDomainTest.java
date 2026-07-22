@@ -97,6 +97,133 @@ class RecruitingInterviewScheduleDomainTest {
         assertThat(schedule.getRequestMailSentAt()).isEqualTo(sentAt);
     }
 
+    @Test
+    @DisplayName("면접 일정 생성은 지원서와 유효한 연락처 snapshot을 필수로 요구한다")
+    void 생성_필수값_검증() {
+        assertError(
+            () -> RecruitingInterviewSchedule.requestAvailability(null, "연락처"),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID
+        );
+        assertError(
+            () -> RecruitingInterviewSchedule.requestAvailability(application(), null),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_CONTACT
+        );
+        assertError(
+            () -> RecruitingInterviewSchedule.requestAvailability(application(), " "),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_CONTACT
+        );
+        assertError(
+            () -> RecruitingInterviewSchedule.requestAvailability(application(), "x".repeat(2001)),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_CONTACT
+        );
+    }
+
+    @Test
+    @DisplayName("응답 ID·기간·장소·확정 연락처의 null과 길이 경계를 거절한다")
+    void 일정_확정_입력_경계() {
+        assertError(() -> schedule().submitAvailability(null),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_RESPONSE);
+        assertError(() -> schedule().submitAvailability(0L),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_RESPONSE);
+
+        Instant start = Instant.parse("2026-08-12T01:00:00Z");
+        Instant end = start.plusSeconds(1800);
+        assertConfirmError(null, end, "온라인", "연락처",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD);
+        assertConfirmError(start, null, "온라인", "연락처",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD);
+        assertConfirmError(start, start, "온라인", "연락처",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD);
+        assertConfirmError(start, end, null, "연락처",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_LOCATION);
+        assertConfirmError(start, end, " ", "연락처",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_LOCATION);
+        assertConfirmError(start, end, "x".repeat(256), "연락처",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_LOCATION);
+        assertConfirmError(start, end, "온라인", " ",
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_CONTACT);
+    }
+
+    @Test
+    @DisplayName("요청 메일은 실패 상태에서만 재시도하고 취소 후에는 변경할 수 없다")
+    void 요청_메일_재시도와_취소() {
+        RecruitingInterviewSchedule schedule = schedule();
+        assertError(schedule::retryRequestMail,
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+        assertError(() -> schedule.markRequestMailSent(null),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+        assertError(() -> schedule.markRequestMailFailed(" "),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+        assertError(() -> schedule.markRequestMailFailed("x".repeat(2001)),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+
+        schedule.markRequestMailFailed("일시 오류");
+        schedule.retryRequestMail();
+        assertThat(schedule.getRequestMailStatus()).isEqualTo(RecruitingMailDeliveryStatus.PENDING);
+        assertThat(schedule.getRequestMailError()).isNull();
+        schedule.cancel();
+        schedule.cancel();
+        assertThat(schedule.isCancelled()).isTrue();
+        assertError(() -> schedule.markRequestMailSent(Instant.now()),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+        assertError(() -> schedule.markRequestMailFailed("오류"),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+        assertError(schedule::retryRequestMail,
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+    }
+
+    @Test
+    @DisplayName("확정 메일의 실패와 성공은 독립된 시도 횟수와 상태를 기록한다")
+    void 확정_메일_상태_기록() {
+        RecruitingInterviewSchedule schedule = confirmedSchedule();
+        assertError(() -> schedule.markConfirmationMailSent(null),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+        assertError(() -> schedule.markConfirmationMailFailed(null),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE);
+
+        schedule.markConfirmationMailFailed("SMTP 오류");
+        Instant sentAt = Instant.parse("2026-08-12T00:00:00Z");
+        schedule.markConfirmationMailSent(sentAt);
+
+        assertThat(schedule.getConfirmationMailAttempts()).isEqualTo(2);
+        assertThat(schedule.getConfirmationMailStatus()).isEqualTo(RecruitingMailDeliveryStatus.SENT);
+        assertThat(schedule.getConfirmationMailError()).isNull();
+        assertThat(schedule.getConfirmationMailSentAt()).isEqualTo(sentAt);
+        assertError(() -> schedule().markConfirmationMailFailed("오류"),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+    }
+
+    private void assertConfirmError(
+        Instant startsAt,
+        Instant endsAt,
+        String location,
+        String contact,
+        RecruitingErrorCode expected
+    ) {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+        assertError(() -> schedule.confirm(startsAt, endsAt, location, contact), expected);
+    }
+
+    private RecruitingInterviewSchedule confirmedSchedule() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+        schedule.confirm(
+            Instant.parse("2026-08-12T01:00:00Z"),
+            Instant.parse("2026-08-12T01:30:00Z"),
+            "온라인",
+            "연락처"
+        );
+        return schedule;
+    }
+
+    private void assertError(Runnable action, RecruitingErrorCode expected) {
+        assertThatThrownBy(action::run)
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(expected);
+    }
+
     private RecruitingInterviewSchedule schedule() {
         return RecruitingInterviewSchedule.requestAvailability(application(), "카카오톡 @umc");
     }

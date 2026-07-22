@@ -48,6 +48,7 @@ import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingFormSectionPolicy;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
+import com.umc.product.recruiting.domain.RecruitingRoundInterviewQuestion;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
@@ -123,6 +124,22 @@ class RecruitingRoundLifecycleCommandServiceTest {
     }
 
     @Test
+    @DisplayName("OPEN Round는 지원서 조회 전에 hard delete를 거부한다")
+    void rejectDeleteWhenRoundIsOpen() {
+        source.open();
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(source);
+
+        assertThatThrownBy(() -> sut.deleteRound(DeleteRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .requesterMemberId(99L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_DELETE_CONFLICT);
+    }
+
+    @Test
     @DisplayName("지원서와 응답이 없는 DRAFT Round는 명시적인 자식 삭제 순서로 hard delete한다")
     void hardDeleteDraftRoundInExplicitOrder() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(source, 100L);
@@ -157,11 +174,14 @@ class RecruitingRoundLifecycleCommandServiceTest {
     @DisplayName("Round 복제는 원본과 대상 Season 권한을 검증하고 availability Form을 초기화한다")
     void cloneRoundAuthorizesBothSeasonsAndClearsAvailabilityForm() {
         RecruitingRound cloned = round(30L, 40L, true, null);
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(
+            source, "협업 갈등을 어떻게 해결했나요?", 1, 88L
+        );
         given(loadRoundPort.getById(20L)).willReturn(source);
         given(createRoundUseCase.createRound(any())).willReturn(40L);
         given(loadRoundPort.getById(40L)).willReturn(cloned);
         given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.empty());
-        given(loadQuestionPort.listActiveByRoundId(20L)).willReturn(List.of());
+        given(loadQuestionPort.listActiveByRoundId(20L)).willReturn(List.of(question));
 
         Long result = sut.cloneRound(CloneRecruitingRoundCommand.builder()
             .sourceSeasonId(10L)
@@ -180,6 +200,12 @@ class RecruitingRoundLifecycleCommandServiceTest {
         then(createRoundUseCase).should().createRound(captor.capture());
         assertThat(captor.getValue().configuration().availabilityFormId()).isNull();
         assertThat(captor.getValue().configuration().announcement()).isEqualTo("공고");
+        ArgumentCaptor<RecruitingRoundInterviewQuestion> questionCaptor =
+            ArgumentCaptor.forClass(RecruitingRoundInterviewQuestion.class);
+        then(saveQuestionPort).should().save(questionCaptor.capture());
+        assertThat(questionCaptor.getValue().getRound()).isEqualTo(cloned);
+        assertThat(questionCaptor.getValue().getContent()).isEqualTo(question.getContent());
+        assertThat(questionCaptor.getValue().getCreatorMemberId()).isEqualTo(99L);
     }
 
     @Test
@@ -242,6 +268,41 @@ class RecruitingRoundLifecycleCommandServiceTest {
         assertThat(sections.getFirst().questions().getFirst().options().getFirst().nextSectionKey())
             .isEqualTo("section-2");
         assertThat(sections.get(1).track()).isEqualTo(ChallengerTrack.PLAN);
+    }
+
+    @Test
+    @DisplayName("Round 복제 시 Form section 정책이 누락되면 fail-closed로 거부한다")
+    void rejectCloneWhenSectionPolicyIsMissing() {
+        RecruitingRound cloned = round(30L, 40L, false, null);
+        RecruitingApplicationForm sourceForm = RecruitingApplicationForm.create(source, 100L);
+        ReflectionTestUtils.setField(sourceForm, "id", 200L);
+        given(loadRoundPort.getById(20L)).willReturn(source);
+        given(createRoundUseCase.createRound(any())).willReturn(40L);
+        given(loadRoundPort.getById(40L)).willReturn(cloned);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(sourceForm));
+        given(getFormUseCase.getFormWithStructure(100L)).willReturn(FormWithStructureInfo.builder()
+            .formId(100L)
+            .sections(List.of(FormWithStructureInfo.SectionWithQuestions.builder()
+                .sectionId(1L)
+                .title("공통")
+                .questions(List.of())
+                .build()))
+            .build());
+        given(loadPolicyPort.listByApplicationFormId(200L)).willReturn(List.of());
+
+        assertThatThrownBy(() -> sut.cloneRound(CloneRecruitingRoundCommand.builder()
+            .sourceSeasonId(10L)
+            .sourceRoundId(20L)
+            .targetSeasonId(30L)
+            .title("복제 모집")
+            .type(RecruitingRoundType.REGULAR)
+            .requesterMemberId(99L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);
+
+        then(upsertFormUseCase).shouldHaveNoInteractions();
     }
 
     private RecruitingRound round(Long seasonId, Long roundId, boolean interviewRequired, Long availabilityFormId) {

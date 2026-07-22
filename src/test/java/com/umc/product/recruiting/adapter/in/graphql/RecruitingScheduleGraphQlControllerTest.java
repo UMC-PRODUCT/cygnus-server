@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.time.Instant;
@@ -99,5 +100,27 @@ class RecruitingScheduleGraphQlControllerTest {
         then(manageInterviewScheduleUseCase).should().confirm(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
         assertThat(captor.getValue().startsAt()).isEqualTo(Instant.parse("2026-08-11T00:00:00Z"));
+    }
+
+    @Test
+    @DisplayName("면접 생략 Mutation은 input 생략 시 reason 없는 command를 전달한다")
+    void 면접_생략_Mutation은_기본_input을_사용한다() {
+        given(getApplicationQueryUseCase.isApplicationBelongsToSeason(20L, 10L)).willReturn(true);
+
+        graphQlTester.document("""
+                mutation {
+                  skipRecruitingInterview(seasonId: 10, applicationId: 20)
+                }
+                """)
+            .execute()
+            .path("skipRecruitingInterview")
+            .entity(Boolean.class)
+            .isEqualTo(true);
+
+        then(skipInterviewUseCase).should().skip(org.mockito.ArgumentMatchers.argThat(command ->
+            command.applicationId().equals(20L)
+                && command.skippedByMemberId().equals(REQUESTER_ID)
+                && command.reason() == null
+        ));
     }
 }

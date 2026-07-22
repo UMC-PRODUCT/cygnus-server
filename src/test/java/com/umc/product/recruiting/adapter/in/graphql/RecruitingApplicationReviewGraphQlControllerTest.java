@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.graphql.test.tester.GraphQlTester;
@@ -104,6 +105,24 @@ class RecruitingApplicationReviewGraphQlControllerTest {
             ChallengerTrack.DESIGN
         );
         assertThat(captor.getValue().pageable().getPageNumber()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("평가용 지원서 Query는 input 생략 시 기본 filter와 page를 사용한다")
+    void searchApplicationsWithDefaultInput() {
+        given(searchApplicationUseCase.search(any())).willReturn(Page.empty());
+
+        graphQlTester.document("""
+                query {
+                  recruitingRoundApplications(roundId: 20) {
+                    totalElements
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingRoundApplications.totalElements")
+            .entity(Long.class)
+            .isEqualTo(0L);
     }
 
     private RecruitingApplicationSummaryInfo summary() {

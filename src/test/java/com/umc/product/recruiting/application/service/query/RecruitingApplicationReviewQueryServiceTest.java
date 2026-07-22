@@ -144,6 +144,67 @@ class RecruitingApplicationReviewQueryServiceTest {
         assertThat(result.answers()).isEmpty();
     }
 
+    @Test
+    @DisplayName("다른 Round 지원서와 DRAFT 지원서는 상세 조회에서 not-found로 숨긴다")
+    void rejectWrongRoundOrDraftDetail() {
+        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(getRoundEvaluatorUseCase.canEvaluate(20L, 99L)).willReturn(true);
+        RecruitingRound otherRound = round();
+        ReflectionTestUtils.setField(otherRound, "id", 21L);
+        RecruitingApplication wrongRound = submittedApplication(otherRound);
+        given(loadApplicationPort.getByIdWithDetails(41L)).willReturn(wrongRound);
+
+        assertThatThrownBy(() -> sut.getDetail(20L, 41L, 99L))
+            .isInstanceOf(RecruitingDomainException.class);
+
+        RecruitingApplication draft = submittedApplication(round);
+        ReflectionTestUtils.setField(
+            draft,
+            "status",
+            com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus.DRAFT
+        );
+        given(loadApplicationPort.getByIdWithDetails(42L)).willReturn(draft);
+        assertThatThrownBy(() -> sut.getDetail(20L, 42L, 99L))
+            .isInstanceOf(RecruitingDomainException.class);
+    }
+
+    @Test
+    @DisplayName("익명 지원서 상세는 내부 access key로 Form 응답을 조회한다")
+    void getAnonymousApplicationDetailWithAnswers() {
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 100L);
+        RecruitingApplication anonymous = RecruitingApplication.createAnonymousDraft(
+            form,
+            31L,
+            "raw-key",
+            RecruitingApplicantProfile.create(
+                round,
+                "익명지원자",
+                RecruitingApplicantEmail.from("anonymous@example.com"),
+                ChallengerTrack.PLAN,
+                null
+            ),
+            "Z9Y8X7",
+            77L,
+            Instant.parse("2026-07-01T00:00:00Z")
+        );
+        ReflectionTestUtils.setField(anonymous, "id", 41L);
+        anonymous.submitAnonymous("anonymous@example.com");
+        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(getRoundEvaluatorUseCase.canEvaluate(20L, 99L)).willReturn(true);
+        given(loadApplicationPort.getByIdWithDetails(41L)).willReturn(anonymous);
+        given(loadEvaluationPort.listByApplicationIdsAndEvaluatorMemberId(List.of(41L), 99L))
+            .willReturn(List.of());
+        given(getFormResponseUseCase.getResponseWithAnswersByAccessKey("raw-key"))
+            .willReturn(FormResponseWithAnswersInfo.builder()
+                .id(31L)
+                .formId(100L)
+                .status(FormResponseStatus.SUBMITTED)
+                .answers(List.of())
+                .build());
+
+        assertThat(sut.getDetail(20L, 41L, 99L).formResponseId()).isEqualTo(31L);
+    }
+
     private RecruitingRound round() {
         RecruitingSeason season = RecruitingSeason.create(1L, 2L);
         ReflectionTestUtils.setField(season, "id", 10L);

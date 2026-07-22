@@ -86,6 +86,20 @@ class RecruitingRegistrationCommandServiceTest {
     }
 
     @Test
+    @DisplayName("SUPER_ADMIN은 기수 역할 없이도 등록 준비를 수행할 수 있다")
+    void superAdminPreparesRegistration() {
+        RecruitingApplication application = finalPassedApplication();
+        given(loadApplicationPort.getByIdWithDetailsForUpdate(900L)).willReturn(application);
+        given(getChallengerRoleUseCase.isSuperAdmin(9L)).willReturn(true);
+        given(loadQuotaPort.getBySeasonIdAndTrackForUpdate(1L, ChallengerTrack.DESIGN))
+            .willReturn(quota(application, 1));
+
+        sut.prepareRegistration(PrepareRecruitingRegistrationCommand.of(900L, 9L));
+
+        assertThat(application.getRegistrationStatus()).isEqualTo(RecruitingApplicationRegistrationStatus.READY);
+    }
+
+    @Test
     @DisplayName("학교 회장단은 등록 준비를 할 수 없다")
     void schoolCoreCannotPrepareRegistration() {
         RecruitingApplication application = finalPassedApplication();
@@ -147,6 +161,37 @@ class RecruitingRegistrationCommandServiceTest {
         then(addChallengerTrackUseCase).should().addTrack(captor.capture());
         assertThat(captor.getValue()).isEqualTo(AddChallengerTrackCommand.of(200L, 1L, ChallengerTrack.DESIGN));
         assertThat(application.getRegistrationStatus()).isEqualTo(RecruitingApplicationRegistrationStatus.REGISTERED);
+    }
+
+    @Test
+    @DisplayName("익명 지원서와 합격 트랙이 누락된 지원서는 등록 확정을 거부한다")
+    void rejectRegistrationWithoutMemberOrAcceptedTrack() {
+        RecruitingApplication anonymous = finalPassedApplication();
+        anonymous.markRegistrationReady(1L);
+        ReflectionTestUtils.setField(anonymous, "applicantMemberId", null);
+        given(loadApplicationPort.getByIdWithDetailsForUpdate(901L)).willReturn(anonymous);
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.confirmRegistration(ConfirmRecruitingRegistrationCommand.builder()
+            .applicationId(901L)
+            .executorMemberId(1L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_MEMBER_REQUIRED);
+
+        RecruitingApplication missingTrack = finalPassedApplication();
+        missingTrack.markRegistrationReady(1L);
+        ReflectionTestUtils.setField(missingTrack, "acceptedTrack", null);
+        given(loadApplicationPort.getByIdWithDetailsForUpdate(902L)).willReturn(missingTrack);
+
+        assertThatThrownBy(() -> sut.confirmRegistration(ConfirmRecruitingRegistrationCommand.builder()
+            .applicationId(902L)
+            .executorMemberId(1L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_ACCEPTED_TRACK);
     }
 
     @Test

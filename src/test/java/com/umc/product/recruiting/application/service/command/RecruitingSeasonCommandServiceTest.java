@@ -210,6 +210,36 @@ class RecruitingSeasonCommandServiceTest {
     }
 
     @Test
+    @DisplayName("시즌 쿼터 교체는 기존 트랙을 수정·삭제하고 신규 트랙을 한 번에 생성한다")
+    void replaceSeasonQuotasWithUpdateDeleteAndCreate() {
+        RecruitingSeason season = season(10L);
+        RecruitingSeasonTrackQuota plan = RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 3);
+        RecruitingSeasonTrackQuota design = RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 5);
+        given(loadSeasonPort.getById(10L)).willReturn(season);
+        given(loadRoundPort.listBySeasonId(10L)).willReturn(List.of());
+        given(loadQuotaPort.listBySeasonIdForUpdate(10L)).willReturn(List.of(plan, design));
+
+        sut.replaceQuotas(replaceCommand(
+            RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 4),
+            RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.MOBILE_PRODUCT_ENGINEER, 2)
+        ));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<RecruitingSeasonTrackQuota>> deleted = ArgumentCaptor.forClass(List.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<RecruitingSeasonTrackQuota>> saved = ArgumentCaptor.forClass(List.class);
+        then(saveQuotaPort).should().deleteAll(deleted.capture());
+        then(saveQuotaPort).should().saveAll(saved.capture());
+        assertThat(deleted.getValue()).containsExactly(design);
+        assertThat(saved.getValue())
+            .extracting(RecruitingSeasonTrackQuota::getTrack, RecruitingSeasonTrackQuota::getTargetCount)
+            .containsExactlyInAnyOrder(
+                org.assertj.core.groups.Tuple.tuple(ChallengerTrack.PLAN, 4),
+                org.assertj.core.groups.Tuple.tuple(ChallengerTrack.MOBILE_PRODUCT_ENGINEER, 2)
+            );
+    }
+
+    @Test
     @DisplayName("TO는 현재 READY와 REGISTERED 합계보다 작게 줄일 수 없다")
     void replaceQuotaCannotGoBelowReservedAndRegistered() {
         RecruitingSeason season = season(10L);

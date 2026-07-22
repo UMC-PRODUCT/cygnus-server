@@ -107,6 +107,39 @@ class RecruitingApplicationFormValidationServiceTest {
             .containsExactlyInAnyOrder(ChallengerTrack.PLAN, ChallengerTrack.DESIGN);
     }
 
+    @Test
+    @DisplayName("TRACK section에서 COMMON section으로 향하는 조건부 이동은 허용한다")
+    void allowConditionalTransitionToCommonSection() {
+        RecruitingApplicationForm form = applicationForm();
+        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(
+            RecruitingFormSectionPolicy.createTrack(form, 1L, ChallengerTrack.PLAN),
+            RecruitingFormSectionPolicy.createCommon(form, 2L)
+        ));
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(
+            section(1L, 2L),
+            section(2L, null)
+        ));
+
+        assertThat(sut.validateForPublish(100L)).containsExactly(ChallengerTrack.PLAN);
+    }
+
+    @Test
+    @DisplayName("존재하지 않는 section으로 향하는 조건부 이동은 fail-closed로 거부한다")
+    void rejectConditionalTransitionToUnknownSection() {
+        RecruitingApplicationForm form = applicationForm();
+        given(loadApplicationFormPort.getById(100L)).willReturn(form);
+        given(loadPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(
+            RecruitingFormSectionPolicy.createTrack(form, 1L, ChallengerTrack.PLAN)
+        ));
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(structure(section(1L, 999L)));
+
+        assertThatThrownBy(() -> sut.validateForPublish(100L))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);
+    }
+
     private RecruitingApplicationForm applicationForm() {
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
         RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfiguration.of(
@@ -136,12 +169,10 @@ class RecruitingApplicationFormValidationServiceTest {
     }
 
     private FormWithStructureInfo.SectionWithQuestions section(Long sectionId, Long nextSectionId) {
-        List<FormWithStructureInfo.Option> options = nextSectionId == null
-            ? List.of()
-            : List.of(FormWithStructureInfo.Option.builder()
-                .optionId(1000L + sectionId)
-                .nextSectionId(nextSectionId)
-                .build());
+        List<FormWithStructureInfo.Option> options = List.of(FormWithStructureInfo.Option.builder()
+            .optionId(1000L + sectionId)
+            .nextSectionId(nextSectionId)
+            .build());
         return FormWithStructureInfo.SectionWithQuestions.builder()
             .sectionId(sectionId)
             .questions(List.of(FormWithStructureInfo.QuestionWithOptions.builder()

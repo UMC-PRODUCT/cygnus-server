@@ -24,6 +24,7 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
@@ -37,6 +38,7 @@ import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundPhase;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundSort;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingSeasonQueryServiceTest {
@@ -192,6 +194,66 @@ class RecruitingSeasonQueryServiceTest {
         assertThat(result)
             .extracting(found -> found.round().id())
             .containsExactly(200L);
+    }
+
+    @Test
+    @DisplayName("차수 그룹 검색은 시즌별로 묶고 등록·모집일 정렬과 트랙 filter를 적용한다")
+    void searchRoundGroupsWithAllSorts() {
+        RecruitingSeason season = season(100L, 1L, 10L);
+        RecruitingRound first = regularRound(season, 200L);
+        RecruitingRound second = regularRound(season, 201L);
+        ReflectionTestUtils.setField(first, "createdAt", Instant.parse("2026-07-01T00:00:00Z"));
+        ReflectionTestUtils.setField(second, "createdAt", Instant.parse("2026-07-02T00:00:00Z"));
+        SubjectAttributes subject = SubjectAttributes.builder().memberId(99L).build();
+        given(getSchoolUseCase.getSchoolListByGisuId(1L))
+            .willReturn(List.of(school(7L, "A 지부", 10L, "A 학교")));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(checkPermissionUseCase.loadSubject(99L)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, readPermission(100L))).willReturn(true);
+        given(loadRoundPort.listBySeasonIds(List.of(100L))).willReturn(List.of(second, first));
+
+        var registered = sut.searchRoundGroups(RecruitingRoundGroupSearchQuery.builder()
+            .gisuId(1L)
+            .track(ChallengerTrack.PLAN)
+            .sort(RecruitingRoundSort.REGISTERED)
+            .requesterMemberId(99L)
+            .build());
+        var recruitment = sut.searchRoundGroups(RecruitingRoundGroupSearchQuery.builder()
+            .gisuId(1L)
+            .sort(RecruitingRoundSort.RECRUITMENT)
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(registered).singleElement().satisfies(group -> {
+            assertThat(group.seasonId()).isEqualTo(100L);
+            assertThat(group.rounds()).extracting(round -> round.id()).containsExactly(200L, 201L);
+        });
+        assertThat(recruitment).singleElement()
+            .satisfies(group -> assertThat(group.rounds()).hasSize(2));
+    }
+
+    @Test
+    @DisplayName("조회 가능한 시즌 후보가 없으면 subject를 조회하지 않고 빈 결과를 반환한다")
+    void searchRoundGroupsReturnsEmptyBeforePermissionLookup() {
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of());
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of());
+
+        assertThat(sut.searchRoundGroups(RecruitingRoundGroupSearchQuery.builder()
+            .gisuId(1L)
+            .requesterMemberId(99L)
+            .build())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("차수 제목 중복 검사는 신규와 수정 제외 ID를 구분한다")
+    void checkTitleAvailabilityForCreateAndUpdate() {
+        given(loadRoundPort.existsBySeasonIdAndTitleIgnoreCase(100L, "정규 모집"))
+            .willReturn(true);
+        given(loadRoundPort.existsBySeasonIdAndTitleIgnoreCaseAndIdNot(100L, "추가 모집", 200L))
+            .willReturn(false);
+
+        assertThat(sut.isTitleAvailable(100L, "  정규 모집  ", null)).isFalse();
+        assertThat(sut.isTitleAvailable(100L, " 추가 모집 ", 200L)).isTrue();
     }
 
     @Test

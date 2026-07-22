@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.util.List;
@@ -33,6 +34,7 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingApplication
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
+import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
@@ -40,6 +42,7 @@ import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
+import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingQueryServiceTest {
@@ -232,6 +235,37 @@ class RecruitingQueryServiceTest {
                 .extracting(FormWithStructureInfo.Option::optionId)
                 .containsExactly(101L)
         );
+    }
+
+    @Test
+    @DisplayName("권한용 소속 검증은 null과 다른 시즌·차수를 fail-closed로 처리한다")
+    void validateAuthorizationScopesFailClosed() {
+        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
+        ReflectionTestUtils.setField(season, "id", 5L);
+        RecruitingRound round = summaryRound(season, 20L, "15기 본모집");
+        RecruitingApplication application = mock(RecruitingApplication.class);
+        RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 500L);
+        given(application.getRound()).willReturn(round);
+        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadApplicationPort.getById(900L)).willReturn(application);
+        given(loadApplicationFormPort.getById(300L)).willReturn(form);
+        given(loadApplicationFormPort.existsByFormIdAndSeasonId(500L, 5L)).willReturn(true);
+
+        assertThat(sut.isRoundBelongsToSeason(null, 5L)).isFalse();
+        assertThat(sut.isApplicationBelongsToSeason(900L, null)).isFalse();
+        assertThat(sut.isApplicationFormBelongsToSeason(null, 5L)).isFalse();
+        assertThat(sut.isFormBelongsToSeason(500L, null)).isFalse();
+        assertThat(sut.isRoundBelongsToSeason(20L, 5L)).isTrue();
+        assertThat(sut.isApplicationBelongsToSeason(900L, 5L)).isTrue();
+        assertThat(sut.isApplicationFormBelongsToSeason(300L, 5L)).isTrue();
+        assertThat(sut.isFormBelongsToSeason(500L, 5L)).isTrue();
+        sut.validateRoundScope(900L, 20L);
+        sut.validateSeasonScope(300L, 5L);
+
+        assertThatThrownBy(() -> sut.validateRoundScope(900L, 21L))
+            .isInstanceOf(RecruitingDomainException.class);
+        assertThatThrownBy(() -> sut.validateSeasonScope(300L, 6L))
+            .isInstanceOf(RecruitingDomainException.class);
     }
 
     private FormWithStructureInfo.SectionWithQuestions section(

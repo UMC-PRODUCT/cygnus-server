@@ -117,6 +117,23 @@ class RecruitingDecisionCommandServiceTest {
     }
 
     @Test
+    @DisplayName("정의되지 않은 서류 결정은 상태를 변경하거나 저장하지 않는다")
+    void rejectUnknownDocumentDecision() {
+        RecruitingApplication application = submittedApplication();
+        given(concurrencyLockService.lockApplication(900L)).willReturn(application);
+        allowDocumentDecision();
+
+        assertThatThrownBy(() -> sut.decideDocument(DecideRecruitingDocumentCommand.builder()
+            .applicationId(900L)
+            .decision(null)
+            .decidedByMemberId(1L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class);
+
+        then(saveApplicationPort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("학교 회장단은 지원한 트랙을 선택해 최종 합격시키고 등록 상태는 NOT_READY로 둔다")
     void schoolCoreDecidesFinalPassWithAcceptedTrack() {
         RecruitingApplication application = documentPassedApplication();
@@ -141,6 +158,32 @@ class RecruitingDecisionCommandServiceTest {
         sut.decideFinal(finalPassCommand(1L, ChallengerTrack.WEB_PRODUCT_ENGINEER));
 
         assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
+    }
+
+    @Test
+    @DisplayName("최종 불합격은 최종 상태를 변경하고 정의되지 않은 결정은 거부한다")
+    void decideFinalFailureAndRejectUnknownDecision() {
+        RecruitingApplication failed = documentPassedApplication();
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(failed);
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+
+        sut.decideFinal(DecideRecruitingFinalCommand.builder()
+            .applicationId(900L)
+            .decision(RecruitingDecisionStatus.FAIL)
+            .decidedByMemberId(1L)
+            .reason("최종 불합격")
+            .build());
+
+        assertThat(failed.getStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_FAILED);
+
+        RecruitingApplication undecided = documentPassedApplication();
+        given(concurrencyLockService.lockApplicantThenApplication(901L, List.of())).willReturn(undecided);
+        assertThatThrownBy(() -> sut.decideFinal(DecideRecruitingFinalCommand.builder()
+            .applicationId(901L)
+            .decision(null)
+            .decidedByMemberId(1L)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class);
     }
 
     @Test

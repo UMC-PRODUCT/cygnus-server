@@ -1,7 +1,10 @@
 package com.umc.product.recruiting.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.mock;
 
 import java.util.Optional;
 
@@ -14,10 +17,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
+import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.authorization.domain.ResourcePermission;
+import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
 import com.umc.product.recruiting.domain.enums.RecruitingInterviewScheduleStatus;
+import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingInterviewScheduleQueryServiceTest {
@@ -58,5 +65,38 @@ class RecruitingInterviewScheduleQueryServiceTest {
         given(loadSchedulePort.findByApplicationId(900L)).willReturn(Optional.empty());
 
         assertThat(sut.findByApplicationId(900L, 1L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("다른 지원자의 면접 일정은 해당 시즌 READ 권한이 있을 때만 조회한다")
+    void allowPrivilegedScheduleReader() {
+        RecruitingApplication application = mock(RecruitingApplication.class, RETURNS_DEEP_STUBS);
+        given(application.getApplicantMemberId()).willReturn(1L);
+        given(application.getRound().getSeason().getId()).willReturn(10L);
+        RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
+            application, "카카오톡 @umc"
+        );
+        given(loadSchedulePort.findByApplicationId(900L)).willReturn(Optional.of(schedule));
+        given(checkPermissionUseCase.check(
+            2L,
+            ResourcePermission.of(ResourceType.RECRUITMENT, 10L, PermissionType.READ)
+        )).willReturn(true);
+
+        assertThat(sut.findByApplicationId(900L, 2L)).isPresent();
+    }
+
+    @Test
+    @DisplayName("다른 지원자의 면접 일정은 시즌 READ 권한이 없으면 fail-closed로 거부한다")
+    void rejectUnprivilegedScheduleReader() {
+        RecruitingApplication application = mock(RecruitingApplication.class, RETURNS_DEEP_STUBS);
+        given(application.getApplicantMemberId()).willReturn(1L);
+        given(application.getRound().getSeason().getId()).willReturn(10L);
+        RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
+            application, "카카오톡 @umc"
+        );
+        given(loadSchedulePort.findByApplicationId(900L)).willReturn(Optional.of(schedule));
+
+        assertThatThrownBy(() -> sut.findByApplicationId(900L, 2L))
+            .isInstanceOf(RecruitingDomainException.class);
     }
 }

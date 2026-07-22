@@ -128,6 +128,26 @@ class RecruitingPermissionEvaluatorTest {
     }
 
     @Test
+    @DisplayName("리소스를 지정하지 않은 모집 READ는 학교 회장·부회장 역할만 허용한다")
+    void typePermissionAllowsSchoolCoreOnly() {
+        SubjectAttributes vicePresident = subjectWithRoles(new RoleAttribute(
+            ChallengerRoleType.SCHOOL_VICE_PRESIDENT,
+            OrganizationType.SCHOOL,
+            SCHOOL_ID,
+            null,
+            GISU_ID
+        ));
+        SubjectAttributes partLeader = subjectWithRoles(schoolPartLeaderRole(SCHOOL_ID));
+        ResourcePermission permission = ResourcePermission.ofType(
+            ResourceType.RECRUITMENT,
+            PermissionType.READ
+        );
+
+        assertThat(sut.evaluate(vicePresident, permission)).isTrue();
+        assertThat(sut.evaluate(partLeader, permission)).isFalse();
+    }
+
+    @Test
     @DisplayName("DELETE 권한은 evaluator에서 구현하지 않아 예외가 발생한다")
     void DELETE_권한은_evaluator에서_구현하지_않아_예외가_발생한다() {
         SubjectAttributes subject = subjectWithRoles(centralPresidentRole());

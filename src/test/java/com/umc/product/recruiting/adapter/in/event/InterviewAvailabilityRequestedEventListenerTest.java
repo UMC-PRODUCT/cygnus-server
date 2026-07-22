@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.notification.application.port.in.SendEmailUseCase;
 import com.umc.product.notification.application.port.in.dto.SendHtmlEmailCommand;
 import com.umc.product.recruiting.application.event.InterviewAvailabilityRequestedEvent;
@@ -83,6 +84,35 @@ class InterviewAvailabilityRequestedEventListenerTest {
         ArgumentCaptor<String> errorCaptor = ArgumentCaptor.forClass(String.class);
         then(mailDeliveryUseCase).should().markRequestMailFailed(org.mockito.ArgumentMatchers.eq(40L), errorCaptor.capture());
         assertThat(errorCaptor.getValue()).doesNotContain("applicant@example.com").contains("[REDACTED]");
+    }
+
+    @Test
+    @DisplayName("메시지 없는 메일 실패는 예외 class 이름을 기록한다")
+    void 메시지_없는_메일_실패는_예외_이름을_기록한다() {
+        RuntimeException failure = new RuntimeException();
+        given(getMailDeliveryUseCase.getRequestMail(40L)).willReturn(mailInfo(RecruitingMailDeliveryStatus.PENDING));
+        doThrow(failure).when(sendEmailUseCase).sendHtmlEmail(any());
+
+        assertThatThrownBy(() -> sut.handle(event())).isSameAs(failure);
+
+        ArgumentCaptor<String> errorCaptor = ArgumentCaptor.forClass(String.class);
+        then(mailDeliveryUseCase).should().markRequestMailFailed(
+            org.mockito.ArgumentMatchers.eq(40L), errorCaptor.capture()
+        );
+        assertThat(errorCaptor.getValue()).isEqualTo(RuntimeException.class.getName());
+    }
+
+    @Test
+    @DisplayName("면접 일정 요청 이벤트는 식별자·시각을 생성하고 non-transactional 계약을 제공한다")
+    void 이벤트_metadata_계약() {
+        InterviewAvailabilityRequestedEvent event = InterviewAvailabilityRequestedEvent.of(40L);
+
+        assertThat(event.eventId()).isNotNull();
+        assertThat(event.occurredAt()).isNotNull();
+        assertThat(event.eventType()).isEqualTo("recruiting.interview.availability.requested");
+        assertThat(event.outboxDispatchMode()).isEqualTo(OutboxDispatchMode.NON_TRANSACTIONAL);
+        assertThatThrownBy(() -> InterviewAvailabilityRequestedEvent.of(0L))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

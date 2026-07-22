@@ -48,6 +48,18 @@ class RecruitingInterviewMailDeliveryCommandServiceTest {
     }
 
     @Test
+    @DisplayName("이미 발송된 일정의 성공 이벤트는 멱등하게 무시한다")
+    void 이미_발송된_일정은_성공을_중복_저장하지_않는다() {
+        given(schedule.getRequestMailStatus()).willReturn(RecruitingMailDeliveryStatus.SENT);
+
+        sut.markRequestMailSent(40L, Instant.parse("2026-08-10T00:00:00Z"));
+
+        then(schedule).should().getRequestMailStatus();
+        then(schedule).shouldHaveNoMoreInteractions();
+        then(saveSchedulePort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("이미 발송된 일정은 실패 이벤트가 뒤늦게 도착해도 상태를 되돌리지 않는다")
     void 이미_발송된_일정은_실패로_되돌리지_않는다() {
         given(schedule.getRequestMailStatus()).willReturn(RecruitingMailDeliveryStatus.SENT);

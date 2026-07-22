@@ -319,6 +319,94 @@ class RecruitingApplicationCommandServiceTest {
     }
 
     @Test
+    @DisplayName("작성 중 익명 지원서 수정은 access key 기반 draft 수정 API를 사용한다")
+    void updateAnonymousDraftApplication() {
+        RecruitingApplication application = anonymousDraftApplication();
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(java.util.Optional.of(application));
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of("new@example.com")))
+            .willReturn(application);
+        given(getQuestionScopeUseCase.getQuestionScope(100L, ChallengerTrack.PLAN, ChallengerTrack.DESIGN))
+            .willReturn(new RecruitingApplicationQuestionScopeInfo(Set.of(1L), Set.of(1L)));
+
+        RecruitingApplicationInfo result = sut.updateAnonymous(UpdateAnonymousRecruitingApplicationCommand.builder()
+            .credentialEmail("applicant@example.com")
+            .applicationKey("A1B2C3")
+            .applicantName("김지원")
+            .applicantEmail("new@example.com")
+            .firstChoice(ChallengerTrack.PLAN)
+            .secondChoice(ChallengerTrack.DESIGN)
+            .answers(List.of())
+            .build());
+
+        assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.DRAFT);
+        then(manageFormResponseUseCase).should().updateAnonymousDraft(any());
+        then(manageFormResponseUseCase).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("제출 완료 로그인 지원서 수정은 필수·허용 문항 범위를 포함한 제출 응답 수정 API를 사용한다")
+    void updateSubmittedMemberApplication() {
+        RecruitingApplication application = draftApplication();
+        application.submit(200L);
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of("new@example.com")))
+            .willReturn(application);
+        given(getQuestionScopeUseCase.getQuestionScope(100L, ChallengerTrack.DESIGN, ChallengerTrack.PLAN))
+            .willReturn(new RecruitingApplicationQuestionScopeInfo(Set.of(1L, 2L), Set.of(1L)));
+
+        RecruitingApplicationInfo result = sut.updateDraft(UpdateRecruitingApplicationDraftCommand.builder()
+            .applicationId(900L)
+            .requesterMemberId(200L)
+            .applicantName("김지원")
+            .applicantEmail("new@example.com")
+            .firstChoice(ChallengerTrack.DESIGN)
+            .secondChoice(ChallengerTrack.PLAN)
+            .answers(List.of())
+            .build());
+
+        assertThat(result.status()).isEqualTo(RecruitingApplicationStatus.SUBMITTED);
+        then(manageFormResponseUseCase).should().updateResponse(any());
+        then(manageFormResponseUseCase).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
+    @DisplayName("철회된 지원서는 수정 가능한 상태가 아니므로 Form 검증 전에 거부한다")
+    void rejectUpdateOfCancelledApplication() {
+        RecruitingApplication application = draftApplication();
+        application.cancel(200L, "철회");
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of("new@example.com")))
+            .willReturn(application);
+
+        assertThatThrownBy(() -> sut.updateDraft(UpdateRecruitingApplicationDraftCommand.builder()
+            .applicationId(900L)
+            .requesterMemberId(200L)
+            .applicantName("김지원")
+            .applicantEmail("new@example.com")
+            .firstChoice(ChallengerTrack.PLAN)
+            .answers(List.of())
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
+
+        then(validationService).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("익명 지원 키 형식이 잘못되면 저장소 조회 없이 거부한다")
+    void rejectMalformedAnonymousApplicationKey() {
+        assertThatThrownBy(() -> sut.cancelAnonymous(CancelAnonymousRecruitingApplicationCommand.builder()
+            .credentialEmail("applicant@example.com")
+            .applicationKey("bad-key")
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_KEY);
+
+        then(loadApplicationPort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("익명 지원서 수정은 선택한 트랙 scope 밖 질문을 Form 호출 전에 거부한다")
     void rejectAnonymousAnswerOutsideSelectedTrackScope() {
         RecruitingApplication application = anonymousDraftApplication();
@@ -371,6 +459,27 @@ class RecruitingApplicationCommandServiceTest {
         assertThat(captor.getValue().responseAccessKey()).isEqualTo("raw-form-key");
         assertThat(captor.getValue().allowedQuestionIds()).containsExactlyInAnyOrder(1L, 2L);
         assertThat(captor.getValue().submittedIp()).isEqualTo("127.0.0.1");
+    }
+
+    @Test
+    @DisplayName("이미 제출한 익명 지원서는 중복 제출할 수 없다")
+    void rejectAlreadySubmittedAnonymousApplication() {
+        RecruitingApplication application = anonymousDraftApplication();
+        application.submitAnonymous("applicant@example.com");
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(java.util.Optional.of(application));
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
+
+        assertThatThrownBy(() -> sut.submitAnonymous(SubmitAnonymousRecruitingApplicationCommand.builder()
+            .credentialEmail("applicant@example.com")
+            .applicationKey("A1B2C3")
+            .submittedIp("127.0.0.1")
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
+
+        then(manageFormResponseUseCase).shouldHaveNoInteractions();
     }
 
     @Test

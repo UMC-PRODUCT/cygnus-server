@@ -140,6 +140,37 @@ class RecruitingApplicationValidationServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_APPLICANT_MISMATCH);
     }
 
+    @Test
+    @DisplayName("익명 Form 응답의 access key·응답 ID·Form 연결이 모두 일치하면 수정할 수 있다")
+    void allowOwnedAnonymousFormResponse() {
+        RecruitingApplication application = anonymousApplication();
+        given(getFormResponseUseCase.findByAccessKey("raw-key")).willReturn(java.util.Optional.of(
+            formResponse(500L, null)
+        ));
+
+        assertThatCode(() -> sut.validateAnonymousFormResponseOwnership(application))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("익명 Form 응답에 회원이 연결되거나 응답 ID·Form이 다르면 수정을 거부한다")
+    void rejectMismatchedAnonymousFormResponseOwnership() {
+        RecruitingApplication application = anonymousApplication();
+        given(getFormResponseUseCase.findByAccessKey("raw-key")).willReturn(java.util.Optional.of(
+            FormResponseInfo.builder()
+                .id(701L)
+                .formId(501L)
+                .respondentMemberId(200L)
+                .status(FormResponseStatus.DRAFT)
+                .build()
+        ));
+
+        assertThatThrownBy(() -> sut.validateAnonymousFormResponseOwnership(application))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_APPLICANT_MISMATCH);
+    }
+
     private RecruitingRound round() {
         RecruitingRound round = RecruitingRound.createRegular(RecruitingSeason.create(1L, 100L));
         ReflectionTestUtils.setField(round, "id", 10L);
@@ -182,6 +213,25 @@ class RecruitingApplicationValidationServiceTest {
                 null
             ),
             "A1B2C3"
+        );
+    }
+
+    private RecruitingApplication anonymousApplication() {
+        RecruitingApplicationForm form = openApplicationForm();
+        return RecruitingApplication.createAnonymousDraft(
+            form,
+            700L,
+            "raw-key",
+            RecruitingApplicantProfile.create(
+                form.getRound(),
+                "지원자",
+                RecruitingApplicantEmail.from("applicant@example.com"),
+                ChallengerTrack.PLAN,
+                null
+            ),
+            "A1B2C3",
+            77L,
+            Instant.parse("2026-07-01T00:00:00Z")
         );
     }
 

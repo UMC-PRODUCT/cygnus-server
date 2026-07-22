@@ -11,7 +11,20 @@ import org.junit.jupiter.params.provider.ValueSource;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
+import jakarta.persistence.LockTimeoutException;
+
 class RecruitingLockExceptionTranslatorTest {
+
+    @org.junit.jupiter.api.Test
+    @DisplayName("JPA lock timeout도 재시도 가능한 Recruiting conflict로 변환한다")
+    void translateJpaLockTimeout() {
+        assertThatThrownBy(() -> RecruitingLockExceptionTranslator.translate(() -> {
+            throw new LockTimeoutException("lock timeout");
+        }))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_CONCURRENCY_LOCK_TIMEOUT);
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"55P03", "40P01"})

@@ -30,6 +30,7 @@ import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -83,6 +84,89 @@ class RecruitingPublicApplicationQueryServiceTest {
     }
 
     @Test
+    @DisplayName("접수 기간의 작성 중 지원서는 수정 가능하고 발표 결과는 대기 상태다")
+    void exposeEditableDraftBeforeDocumentPublication() {
+        RecruitingApplication application = anonymousDraftApplication();
+        application.getRound().open();
+        given(clock.instant()).willReturn(Instant.parse("2026-08-05T00:00:00Z"));
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(Optional.of(application));
+        given(getFormResponseUseCase.getResponseWithAnswersByAccessKey("raw-form-key"))
+            .willReturn(formResponse());
+
+        RecruitingPublicApplicationInfo result = sut.getByCredential("applicant@example.com", "A1B2C3");
+
+        assertThat(result.editable()).isTrue();
+        assertThat(result.documentResult()).isEqualTo(RecruitingPublicResultStatus.PENDING);
+        assertThat(result.finalResult()).isEqualTo(RecruitingPublicResultStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("서류 탈락과 최종 탈락은 각 발표 시각부터 거절 결과로 공개한다")
+    void exposeRejectedResultsAfterPublication() {
+        RecruitingApplication documentFailed = anonymousDraftApplication();
+        ReflectionTestUtils.setField(
+            documentFailed, "status", RecruitingApplicationStatus.DOCUMENT_FAILED
+        );
+        given(clock.instant()).willReturn(Instant.parse("2026-08-16T00:00:00Z"));
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(Optional.of(documentFailed));
+        given(getFormResponseUseCase.getResponseWithAnswersByAccessKey("raw-form-key"))
+            .willReturn(formResponse());
+
+        RecruitingPublicApplicationInfo documentResult =
+            sut.getByCredential("applicant@example.com", "A1B2C3");
+
+        RecruitingApplication finalFailed = anonymousDraftApplication();
+        ReflectionTestUtils.setField(finalFailed, "status", RecruitingApplicationStatus.FINAL_FAILED);
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(Optional.of(finalFailed));
+
+        RecruitingPublicApplicationInfo finalResult =
+            sut.getByCredential("applicant@example.com", "A1B2C3");
+
+        assertThat(documentResult.documentResult()).isEqualTo(RecruitingPublicResultStatus.REJECTED);
+        assertThat(finalResult.finalResult()).isEqualTo(RecruitingPublicResultStatus.REJECTED);
+    }
+
+    @Test
+    @DisplayName("발표 이후에도 결정 상태가 아니면 결과를 대기로 유지한다")
+    void keepPendingForUndecidedStatusAfterPublication() {
+        RecruitingApplication application = anonymousDraftApplication();
+        application.submitAnonymous("applicant@example.com");
+        given(clock.instant()).willReturn(Instant.parse("2026-08-16T00:00:00Z"));
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(Optional.of(application));
+        given(getFormResponseUseCase.getResponseWithAnswersByAccessKey("raw-form-key"))
+            .willReturn(formResponse());
+
+        RecruitingPublicApplicationInfo result = sut.getByCredential("applicant@example.com", "A1B2C3");
+
+        assertThat(result.documentResult()).isEqualTo(RecruitingPublicResultStatus.PENDING);
+        assertThat(result.finalResult()).isEqualTo(RecruitingPublicResultStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("지원서와 연결되지 않은 Form 응답은 credential이 맞아도 공개하지 않는다")
+    void rejectUnlinkedFormResponse() {
+        RecruitingApplication application = anonymousDraftApplication();
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(Optional.of(application));
+        given(getFormResponseUseCase.getResponseWithAnswersByAccessKey("raw-form-key"))
+            .willReturn(FormResponseWithAnswersInfo.builder()
+                .id(701L)
+                .formId(500L)
+                .status(FormResponseStatus.DRAFT)
+                .answers(List.of())
+                .build());
+
+        assertThatThrownBy(() -> sut.getByCredential("applicant@example.com", "A1B2C3"))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("지원 키 형식이 잘못되면 지원서 조회 전에 거부한다")
     void rejectInvalidApplicationKey() {
         assertThatThrownBy(() -> sut.getByCredential("applicant@example.com", "invalid"))
@@ -92,6 +176,14 @@ class RecruitingPublicApplicationQueryServiceTest {
     }
 
     private RecruitingApplication finalPassedApplication() {
+        RecruitingApplication application = anonymousDraftApplication();
+        application.submitAnonymous("applicant@example.com");
+        application.skipInterview(10L, "면접 미진행");
+        application.passFinal(10L, "최종 합격", ChallengerTrack.PLAN);
+        return application;
+    }
+
+    private RecruitingApplication anonymousDraftApplication() {
         RecruitingApplicationForm form = publishedForm();
         RecruitingApplication application = RecruitingApplication.createAnonymousDraft(
             form,
@@ -109,9 +201,6 @@ class RecruitingPublicApplicationQueryServiceTest {
             Instant.parse("2026-07-15T00:00:00Z")
         );
         ReflectionTestUtils.setField(application, "id", 900L);
-        application.submitAnonymous("applicant@example.com");
-        application.skipInterview(10L, "면접 미진행");
-        application.passFinal(10L, "최종 합격", ChallengerTrack.PLAN);
         return application;
     }
 
