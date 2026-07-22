@@ -96,9 +96,6 @@ public class NoticePermissionEvaluator implements ResourcePermissionEvaluator {
         return subjectAttributes.roleAttributes().stream()
             .anyMatch(role -> {
                 NoticeTab viewerRole = NoticeTab.findFrom(role.roleType()).orElse(null);
-                if (viewerRole == null) {
-                    return false;
-                }
                 // 역할 레벨 확인: 공지의 minTargetRole이 viewerRole을 포함하는지 (하한선 체크)
                 if (!targetInfo.targetNoticeTab().includes(viewerRole)) {
                     return false;

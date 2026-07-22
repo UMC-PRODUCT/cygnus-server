@@ -56,6 +56,15 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
         .withZone(ZoneId.of("Asia/Seoul"));
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final String templateConfigResourcePath;
+
+    public ThymeleafCertificatePdfAdapter() {
+        this(TEMPLATE_CONFIG_RESOURCE_PATH);
+    }
+
+    ThymeleafCertificatePdfAdapter(String templateConfigResourcePath) {
+        this.templateConfigResourcePath = templateConfigResourcePath;
+    }
 
     @Override
     public byte[] render(CertificatePdfRenderCommand command) {
@@ -98,7 +107,7 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
     }
 
     private JsonNode loadTemplateConfig() throws IOException {
-        try (InputStream inputStream = getResourceInputStream(TEMPLATE_CONFIG_RESOURCE_PATH)) {
+        try (InputStream inputStream = getResourceInputStream(templateConfigResourcePath)) {
             return objectMapper.readTree(inputStream);
         }
     }
@@ -261,10 +270,6 @@ public class ThymeleafCertificatePdfAdapter implements RenderCertificatePdfPort 
         int maxLines
     ) throws IOException {
         String[] tokens = text.split("\\s+");
-        if (tokens.length == 0) {
-            return List.of(text);
-        }
-
         List<String> lines = new ArrayList<>();
         String current = "";
         for (String token : tokens) {

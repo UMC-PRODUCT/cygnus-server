@@ -44,7 +44,9 @@ public record BlogContentRequest(
         seoTitle = normalize(seoTitle);
         seoDescription = normalize(seoDescription);
         ogImageUrl = normalize(ogImageUrl);
-        hashtags = hashtags == null ? List.of() : hashtags.stream().map(BlogContentRequest::normalize).toList();
+        hashtags = hashtags == null
+            ? List.of()
+            : hashtags.stream().map(BlogContentRequest::normalize).filter(value -> value != null).toList();
     }
 
     public CreateBlogContentCommand toCreateCommand(Long authorMemberId) {

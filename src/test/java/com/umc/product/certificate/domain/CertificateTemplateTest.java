@@ -66,6 +66,19 @@ class CertificateTemplateTest {
             .containsExactly(CertificateTemplate.UMC_COURSE_COMPLETION);
     }
 
+    @Test
+    @DisplayName("템플릿은 행사 식별자와 영문 기수 서수를 제공한다")
+    void 템플릿은_행사_식별자와_영문_기수_서수를_제공한다() {
+        CertificateTemplate template = CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE;
+
+        assertThat(template.eventKey()).isEqualTo("demo");
+        assertThat(template.englishTitleLine1(1L)).startsWith("1st ");
+        assertThat(template.englishTitleLine1(2L)).startsWith("2nd ");
+        assertThat(template.englishTitleLine1(3L)).startsWith("3rd ");
+        assertThat(template.englishTitleLine1(11L)).startsWith("11th ");
+        assertThat(template.englishTitleLine1(null)).startsWith("0th ");
+    }
+
     @ParameterizedTest
     @MethodSource("templateTextCases")
     @DisplayName("템플릿은 기획표 기준 인증서 문구를 생성한다")

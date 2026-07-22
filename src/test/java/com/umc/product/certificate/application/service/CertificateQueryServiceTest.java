@@ -1,6 +1,7 @@
 package com.umc.product.certificate.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import java.time.Clock;
@@ -22,7 +23,10 @@ import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssueSpec;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateTemplate;
+import com.umc.product.certificate.domain.exception.CertificateException;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
+import com.umc.product.storage.application.port.in.query.dto.FileInfo;
+import com.umc.product.storage.domain.enums.FileCategory;
 
 @ExtendWith(MockitoExtension.class)
 class CertificateQueryServiceTest {
@@ -151,5 +155,88 @@ class CertificateQueryServiceTest {
 
         // when & then
         assertThat(sut.listByMemberId(1L)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("유효한 본인 인증서는 파일 다운로드 정보를 반환한다")
+    void 유효한_본인_인증서는_파일_다운로드_정보를_반환한다() {
+        // given
+        Certificate certificate = certificate("김유엠", NOW);
+        given(loadCertificatePort.getById(10L)).willReturn(certificate);
+        given(getFileUseCase.getById("file-id")).willReturn(new FileInfo(
+            "file-id",
+            "certificate.pdf",
+            FileCategory.CERTIFICATE,
+            "application/pdf",
+            100L,
+            "https://cdn.example.com/certificate.pdf",
+            true,
+            1L,
+            NOW
+        ));
+        CertificateQueryService sut = sut();
+
+        // when
+        var result = sut.getDownloadInfo(10L, 1L);
+
+        // then
+        assertThat(result.serialNumber()).isEqualTo(certificate.getSerialNumber());
+        assertThat(result.downloadUrl()).isEqualTo("https://cdn.example.com/certificate.pdf");
+    }
+
+    @Test
+    @DisplayName("다른 회원의 인증서는 다운로드할 수 없다")
+    void 다른_회원의_인증서는_다운로드할_수_없다() {
+        given(loadCertificatePort.getById(10L)).willReturn(certificate("김유엠", NOW));
+
+        assertThatThrownBy(() -> sut().getDownloadInfo(10L, 2L))
+            .isInstanceOf(CertificateException.class);
+    }
+
+    @Test
+    @DisplayName("만료된 인증서는 소유자도 다운로드할 수 없다")
+    void 만료된_인증서는_소유자도_다운로드할_수_없다() {
+        given(loadCertificatePort.getById(10L))
+            .willReturn(certificate("김유엠", NOW.minus(366, ChronoUnit.DAYS)));
+
+        assertThatThrownBy(() -> sut().getDownloadInfo(10L, 1L))
+            .isInstanceOf(CertificateException.class);
+    }
+
+    @Test
+    @DisplayName("한 글자와 두 글자 이름은 노출 없이 길이에 맞게 마스킹한다")
+    void 한_글자와_두_글자_이름은_노출_없이_길이에_맞게_마스킹한다() {
+        Certificate oneCharacter = certificate("김", NOW);
+        Certificate twoCharacters = certificate("김유", NOW);
+        given(loadCertificatePort.findBySerialNumber("one")).willReturn(Optional.of(oneCharacter));
+        given(loadCertificatePort.findBySerialNumber("two")).willReturn(Optional.of(twoCharacters));
+        CertificateQueryService sut = sut();
+
+        assertThat(sut.verifyBySerialNumber("one").recipientName()).isEqualTo("*");
+        assertThat(sut.verifyBySerialNumber("two").recipientName()).isEqualTo("김*");
+    }
+
+    private CertificateQueryService sut() {
+        return new CertificateQueryService(
+            loadCertificatePort,
+            getFileUseCase,
+            Clock.fixed(NOW, ZoneOffset.UTC)
+        );
+    }
+
+    private Certificate certificate(String recipientName, Instant issuedAt) {
+        return Certificate.issue(CertificateIssueSpec.builder()
+            .serialNumber("UMC-CMP-20260701-QUERY001")
+            .template(CertificateTemplate.UMC_COURSE_COMPLETION)
+            .recipientMemberId(1L)
+            .recipientName(recipientName)
+            .recipientSchoolName("유엠씨대학교")
+            .gisuId(7L)
+            .gisuGeneration(7L)
+            .issuedByMemberId(10L)
+            .issuedAt(issuedAt)
+            .fileId("file-id")
+            .fileSha256("b".repeat(64))
+            .build());
     }
 }

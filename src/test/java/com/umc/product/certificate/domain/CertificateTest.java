@@ -1,6 +1,7 @@
 package com.umc.product.certificate.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -41,6 +42,20 @@ class CertificateTest {
         assertThat(certificate.getStatus()).isEqualTo(CertificateStatus.REVOKED);
         assertThat(certificate.isValidAt(ISSUED_AT.plus(2, ChronoUnit.DAYS))).isFalse();
         assertThat(certificate.getRevokedByMemberId()).isEqualTo(99L);
+        assertThat(certificate.statusAt(ISSUED_AT.plus(2, ChronoUnit.DAYS)))
+            .isEqualTo(CertificateStatus.REVOKED);
+    }
+
+    @Test
+    @DisplayName("이미 폐기된 인증서는 다시 폐기할 수 없다")
+    void 이미_폐기된_인증서는_다시_폐기할_수_없다() {
+        // given
+        Certificate certificate = Certificate.issue(spec());
+        certificate.revoke(99L, ISSUED_AT.plus(1, ChronoUnit.DAYS), "오발급");
+
+        // when & then
+        assertThatThrownBy(() -> certificate.revoke(100L, ISSUED_AT.plus(2, ChronoUnit.DAYS), "재폐기"))
+            .isInstanceOf(com.umc.product.certificate.domain.exception.CertificateException.class);
     }
 
     private CertificateIssueSpec spec() {

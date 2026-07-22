@@ -169,6 +169,17 @@ class PostQueryRepositoryTest {
         assertThat(statistics.getPrepareStatementCount()).isEqualTo(2L);
     }
 
+    @Test
+    @DisplayName("필터·키워드·댓글·스크랩이 비어 있으면 동일 pageable의 빈 결과를 반환한다")
+    void 필터_키워드_댓글_스크랩이_비어_있으면_동일_pageable의_빈_결과를_반환한다() {
+        PageRequest pageable = PageRequest.of(1, 10);
+
+        assertThat(sut.findAllByQuery(new PostSearchQuery(null), pageable)).isEmpty();
+        assertThat(sut.searchByKeyword(" ", pageable)).isEmpty();
+        assertThat(sut.findCommentedPostsByChallengerId(Long.MAX_VALUE, pageable)).isEmpty();
+        assertThat(sut.findScrappedPostsByChallengerId(Long.MAX_VALUE, pageable)).isEmpty();
+    }
+
     private Post persistPost(String title, String content, Category category, Long challengerId) {
         return em.persist(Post.createPost(title, content, category, challengerId));
     }

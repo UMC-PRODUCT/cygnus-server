@@ -46,7 +46,7 @@ public class CommunityPostPermissionEvaluator implements ResourcePermissionEvalu
             case WRITE -> {
                 // 게시글 작성은 챌린저라면 누구나 가능
                 return !getChallengerUseCase
-                    .getAllByMemberId(authorMemberId).isEmpty();
+                    .getAllByMemberId(subjectAttributes.memberId()).isEmpty();
             }
             case EDIT -> {
                 // 수정은 게시글 작성자만 가능

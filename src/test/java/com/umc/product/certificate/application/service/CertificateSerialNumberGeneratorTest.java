@@ -39,4 +39,15 @@ class CertificateSerialNumberGeneratorTest {
         // then
         assertThat(serialNumber).matches("UMC-MRT-20260701-[A-Z2-7]{8}");
     }
+
+    @Test
+    @DisplayName("기본 생성자는 보안 난수로 일련번호를 생성한다")
+    void 기본_생성자는_보안_난수로_일련번호를_생성한다() {
+        CertificateSerialNumberGenerator generator = new CertificateSerialNumberGenerator();
+
+        assertThat(generator.generate(
+            CertificateTemplate.UMC_COURSE_COMPLETION,
+            Instant.parse("2026-07-01T09:00:00Z")
+        )).matches("UMC-CMP-20260701-[A-Z2-7]{8}");
+    }
 }

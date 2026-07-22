@@ -86,6 +86,22 @@ class ChatAttachmentPolicyTest {
         assertInvalidFileType(MessageContentType.IMAGE, file("heic", "image/heic"));
     }
 
+    @Test
+    @DisplayName("첨부를 허용하지 않는 메시지 타입은 즉시 거부한다")
+    void validate_attachment_not_allowed() {
+        assertThatThrownBy(() -> sut.validate(MessageContentType.TEXT, List.of()))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_ATTACHMENT_NOT_ALLOWED);
+    }
+
+    @Test
+    @DisplayName("확장자나 contentType이 null인 파일은 거부한다")
+    void validate_null_metadata() {
+        assertInvalidFileType(MessageContentType.IMAGE, file(null, "image/jpeg"));
+        assertInvalidFileType(MessageContentType.IMAGE, file("jpg", null));
+    }
+
     private void assertInvalidFileType(MessageContentType contentType, FileMetadataInfo file) {
         assertThatThrownBy(() -> sut.validate(contentType, List.of(file)))
             .isInstanceOf(ChatDomainException.class)

@@ -99,6 +99,19 @@ class ChatMessageQueryRepositoryTest {
     }
 
     @Test
+    @DisplayName("빈 방 ID 입력과 메시지가 없는 방 목록은 빈 결과를 반환한다")
+    void empty_room_inputs() {
+        Long emptyRoomId = em.persist(ChatRoom.create()).getId();
+        flushAndClear();
+
+        assertThat(sut.listLatestPerRoom(null)).isEmpty();
+        assertThat(sut.listLatestPerRoom(List.of())).isEmpty();
+        assertThat(sut.listLatestPerRoom(List.of(emptyRoomId))).isEmpty();
+        assertThat(sut.countUnreadByRooms(ME, null)).isEmpty();
+        assertThat(sut.countUnreadByRooms(ME, List.of())).isEmpty();
+    }
+
+    @Test
     @DisplayName("replyToMessageId를 저장하고 조회할 수 있다")
     void replyToMessageId_persist() {
         Long originalMessageId = persistText(roomId, OTHER, "원본 메시지");

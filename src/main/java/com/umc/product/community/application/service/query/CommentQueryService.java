@@ -1,8 +1,14 @@
 package com.umc.product.community.application.service.query;
 
+import java.util.List;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
-import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.community.application.port.in.query.GetCommentListUseCase;
 import com.umc.product.community.application.port.in.query.dto.CommentInfo;
 import com.umc.product.community.application.port.out.comment.LoadCommentPort;
@@ -12,12 +18,8 @@ import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -56,7 +58,8 @@ public class CommentQueryService implements GetCommentListUseCase {
                     ? getMemberUseCase.findByIdOrNull(challengerInfo.memberId())
                     : null;
 
-                return CommentInfo.of(comment, memberInfo, challengerInfo);
+                boolean isAuthor = comment.getChallengerId().equals(currentChallengerId);
+                return CommentInfo.of(comment, memberInfo, challengerInfo, isAuthor);
             }).toList();
 
 //        // 1. 챌린저 ID 목록 추출
@@ -132,11 +135,5 @@ public class CommentQueryService implements GetCommentListUseCase {
                 );
             })
             .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.COMMENT_NOT_FOUND));
-    }
-
-    /**
-     * 작성자 정보를 담는 내부 record
-     */
-    private record AuthorDetails(String name, String profileImage, ChallengerPart part) {
     }
 }

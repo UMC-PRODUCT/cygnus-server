@@ -1,0 +1,22 @@
+{
+  "commonFields": [
+    {
+      "key": "issuanceNumber",
+      "xPx": 10,
+      "yPx": 10,
+      "widthPx": 1,
+      "heightPx": 1,
+      "fontSizePt": 10,
+      "minFontSizePt": 10,
+      "allowWrap": false,
+      "maxLines": 1,
+      "overflowBehavior": "error"
+    }
+  ],
+  "layouts": {
+    "4": {
+      "shapes": [],
+      "fields": []
+    }
+  }
+}

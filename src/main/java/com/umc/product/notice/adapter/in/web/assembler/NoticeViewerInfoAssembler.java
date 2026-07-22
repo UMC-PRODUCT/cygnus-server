@@ -35,7 +35,9 @@ public class NoticeViewerInfoAssembler {
         Set<ChallengerPart> memberParts = resolveParts(memberId, gisuId);
         NoticeTab viewerRole = resolveViewerRole(memberId, gisuId);
 
-        MemberInfo memberInfo = getMemberUseCase.findAllByIds(Set.of(memberId)).get(memberId);
+        MemberInfo memberInfo = memberId == null
+            ? null
+            : getMemberUseCase.findAllByIds(Set.of(memberId)).get(memberId);
         Long schoolId = memberInfo != null ? memberInfo.schoolId() : null;
 
         Long chapterId = null;

@@ -103,6 +103,16 @@ class ChatRoomQueryServiceTest {
         then(loadChatRoomPort).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("채팅방 접근 여부는 멤버 존재 조회 결과를 그대로 반환한다")
+    void has_chat_room_access() {
+        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 10L)).willReturn(true);
+        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 20L)).willReturn(false);
+
+        assertThat(sut.hasChatRoomAccess(10L, 1L)).isTrue();
+        assertThat(sut.hasChatRoomAccess(20L, 1L)).isFalse();
+    }
+
     private ChatRoom room(Long id) {
         ChatRoom room = ChatRoom.create();
         ReflectionTestUtils.setField(room, "id", id);

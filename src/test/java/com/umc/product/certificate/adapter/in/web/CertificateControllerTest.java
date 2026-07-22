@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,6 +36,8 @@ import com.umc.product.certificate.application.port.in.command.dto.CertificateIs
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.RevokeCertificateCommand;
 import com.umc.product.certificate.application.port.in.query.GetCertificateUseCase;
+import com.umc.product.certificate.application.port.in.query.dto.CertificateDownloadInfo;
+import com.umc.product.certificate.application.port.in.query.dto.CertificateInfo;
 import com.umc.product.certificate.application.port.in.query.dto.CertificateVerificationInfo;
 import com.umc.product.certificate.domain.CertificateIssuer;
 import com.umc.product.certificate.domain.CertificateStatus;
@@ -213,6 +216,45 @@ class CertificateControllerTest {
             .andExpect(jsonPath("$.result.issuer").value("UNIVERSITY_MAKEUS_CHALLENGE"))
             .andExpect(jsonPath("$.result.gisuGeneration").value(7))
             .andExpect(jsonPath("$.result.recipientName").value("김*엠"));
+    }
+
+    @Test
+    @DisplayName("본인 인증서 목록을 응답 DTO로 변환한다")
+    void 본인_인증서_목록을_응답_DTO로_변환한다() throws Exception {
+        given(getCertificateUseCase.listByMemberId(99L)).willReturn(List.of(new CertificateInfo(
+            10L,
+            "UMC-CMP-20260701-ABCDEFGH",
+            CertificateTemplate.UMC_COURSE_COMPLETION,
+            CertificateIssuer.UNIVERSITY_MAKEUS_CHALLENGE,
+            CertificateStatus.ISSUED,
+            "김유엠",
+            7L,
+            7L,
+            null,
+            ISSUED_AT,
+            EXPIRES_AT
+        )));
+
+        mockMvc.perform(get("/api/v1/certificates"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result[0].certificateId").value(10L))
+            .andExpect(jsonPath("$.result[0].serialNumber").value("UMC-CMP-20260701-ABCDEFGH"));
+    }
+
+    @Test
+    @DisplayName("본인 인증서 다운로드 정보를 응답 DTO로 변환한다")
+    void 본인_인증서_다운로드_정보를_응답_DTO로_변환한다() throws Exception {
+        given(getCertificateUseCase.getDownloadInfo(10L, 99L)).willReturn(CertificateDownloadInfo.of(
+            10L,
+            "UMC-CMP-20260701-ABCDEFGH",
+            "https://cdn.example.com/certificate.pdf",
+            EXPIRES_AT
+        ));
+
+        mockMvc.perform(get("/api/v1/certificates/{certificateId}/download", 10L))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.downloadUrl").value("https://cdn.example.com/certificate.pdf"))
+            .andExpect(jsonPath("$.result.expiresAt").exists());
     }
 
     @Test

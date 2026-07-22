@@ -97,6 +97,63 @@ class ThymeleafCertificatePdfAdapterTest {
             .isInstanceOf(CertificateException.class);
     }
 
+    @Test
+    @DisplayName("레이아웃의 도형·fallback 색상·blank·wrap·clip 분기를 실제 PDF에 반영한다")
+    void 레이아웃의_도형_fallback_색상_blank_wrap_clip_분기를_실제_PDF에_반영한다() throws Exception {
+        // given
+        ThymeleafCertificatePdfAdapter sut =
+            new ThymeleafCertificatePdfAdapter("certificate/config/certificate_template_test_edge.json");
+
+        // when
+        byte[] result = sut.render(command("https://example.com/verify", "가나다라마바사", "김 유 엠"));
+
+        // then
+        assertThat(new String(result, 0, 4, StandardCharsets.US_ASCII)).isEqualTo("%PDF");
+        assertThat(extractText(result)).contains("STATIC");
+    }
+
+    @Test
+    @DisplayName("최소 글꼴로도 필드에 맞지 않고 overflow 정책이 error이면 렌더링을 거부한다")
+    void 최소_글꼴로도_필드에_맞지_않고_overflow_정책이_error이면_렌더링을_거부한다() {
+        ThymeleafCertificatePdfAdapter sut =
+            new ThymeleafCertificatePdfAdapter("certificate/config/certificate_template_test_overflow.json");
+
+        assertThatThrownBy(() -> sut.render(command("https://example.com/verify", "김유엠", "대상")))
+            .isInstanceOf(CertificateException.class);
+    }
+
+    @Test
+    @DisplayName("템플릿 설정 리소스가 없으면 렌더링 예외로 변환한다")
+    void 템플릿_설정_리소스가_없으면_렌더링_예외로_변환한다() {
+        ThymeleafCertificatePdfAdapter sut = new ThymeleafCertificatePdfAdapter("missing-config.json");
+
+        assertThatThrownBy(() -> sut.render(command("https://example.com/verify", "김유엠", "대상")))
+            .isInstanceOf(CertificateException.class);
+    }
+
+    @Test
+    @DisplayName("QR 코드로 만들 수 없는 빈 검증 URL은 렌더링 예외로 변환한다")
+    void QR_코드로_만들_수_없는_빈_검증_URL은_렌더링_예외로_변환한다() {
+        ThymeleafCertificatePdfAdapter sut = new ThymeleafCertificatePdfAdapter();
+
+        assertThatThrownBy(() -> sut.render(command("", "김유엠", "대상")))
+            .isInstanceOf(CertificateException.class);
+    }
+
+    private CertificatePdfRenderCommand command(String verificationUrl, String recipientName, String meritTitle) {
+        return CertificatePdfRenderCommand.builder()
+            .issuanceNumber("UMC-MRT-20260701-ABCDEFGH")
+            .template(CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE)
+            .recipientName(recipientName)
+            .recipientSchoolName("가나다라마바사")
+            .gisuGeneration(7L)
+            .meritTitle(meritTitle)
+            .issuedAt(Instant.parse("2026-07-01T00:00:00Z"))
+            .expiresAt(Instant.parse("2027-07-01T00:00:00Z"))
+            .verificationUrl(verificationUrl)
+            .build();
+    }
+
     private String extractText(byte[] pdfBytes) throws IOException {
         try (PDDocument document = PDDocument.load(pdfBytes)) {
             return new PDFTextStripper().getText(document);

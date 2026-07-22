@@ -1,0 +1,72 @@
+{
+  "commonFields": [
+    {
+      "key": "unknown_blank",
+      "xPx": 10,
+      "yPx": 10,
+      "widthPx": 300,
+      "heightPx": 50
+    },
+    {
+      "key": "static_label",
+      "static": true,
+      "defaultText": "STATIC",
+      "xPx": 10,
+      "yPx": 30,
+      "widthPx": 300,
+      "heightPx": 50,
+      "fontSizePt": 10,
+      "letterSpacingPx": 0
+    },
+    {
+      "key": "item_value_1",
+      "xPx": 10,
+      "yPx": 50,
+      "widthPx": 50,
+      "heightPx": 100,
+      "fontSizePt": 10,
+      "minFontSizePt": 9,
+      "allowWrap": true,
+      "maxLines": 1,
+      "overflowBehavior": "clip"
+    },
+    {
+      "key": "item_value_2",
+      "xPx": 10,
+      "yPx": 70,
+      "widthPx": 1,
+      "heightPx": 100,
+      "fontSizePt": 10,
+      "minFontSizePt": 10,
+      "allowWrap": true,
+      "maxLines": 2,
+      "overflowBehavior": "clip"
+    },
+    {
+      "key": "item_value_4",
+      "xPx": 10,
+      "yPx": 90,
+      "widthPx": 50,
+      "heightPx": 100,
+      "fontSizePt": 10,
+      "minFontSizePt": 10,
+      "allowWrap": true,
+      "maxLines": 1,
+      "overflowBehavior": "clip"
+    }
+  ],
+  "layouts": {
+    "4": {
+      "shapes": [
+        {
+          "type": "rect",
+          "xPx": 5,
+          "yPx": 5,
+          "widthPx": 20,
+          "heightPx": 20
+        }
+      ],
+      "fields": []
+    }
+  }
+}

@@ -241,7 +241,8 @@ public enum CertificateTemplate {
     }
 
     public String englishTitleLine1(Long generation) {
-        return generation + ordinalSuffix(generation) + " " + brandName();
+        long normalizedGeneration = generation == null ? 0L : generation;
+        return normalizedGeneration + ordinalSuffix(normalizedGeneration) + " " + brandName();
     }
 
     public String englishTitleLine2() {
@@ -308,8 +309,8 @@ public enum CertificateTemplate {
         return "베스트 챌린저".equals(awardName);
     }
 
-    private String ordinalSuffix(Long value) {
-        long number = value == null ? 0L : Math.abs(value);
+    private String ordinalSuffix(long value) {
+        long number = Math.abs(value);
         long lastTwoDigits = number % 100;
         if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
             return "th";

@@ -17,8 +17,6 @@ import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.core.types.dsl.NumberExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.community.application.port.in.query.dto.PostSearchQuery;
-import com.umc.product.community.application.port.in.query.dto.PostSearchResult.MatchType;
-import com.umc.product.community.application.port.out.dto.PostSearchData;
 import com.umc.product.community.domain.Post;
 
 import lombok.RequiredArgsConstructor;
@@ -86,13 +84,6 @@ public class PostQueryRepository {
             .fetchOne();
 
         return new PageImpl<>(results, pageable, totalCount != null ? totalCount : 0);
-
-        // TODO: 여기서 PostSearchData 반환하는 중
-//        List<PostSearchData> searchDataList = results.stream()
-//            .map(entity -> toSearchData(entity, searchKeyword))
-//            .toList();
-//
-//        return new PageImpl<>(searchDataList, pageable, totalCount != null ? totalCount : 0);
     }
 
     private BooleanExpression titleContains(String keyword) {
@@ -112,37 +103,6 @@ public class PostQueryRepository {
             .when(post.content.lower().contains(keyword))
             .then(10)
             .otherwise(0);
-    }
-
-    private PostSearchData toSearchData(Post entity, String keyword) {
-        MatchType matchType = determineMatchType(entity, keyword);
-        int score = calculateScore(entity, keyword);
-
-        return PostSearchData.from(entity, matchType, score);
-    }
-
-    private MatchType determineMatchType(Post entity, String keyword) {
-        String titleLower = entity.getTitle().toLowerCase();
-
-        if (titleLower.startsWith(keyword)) {
-            return MatchType.TITLE_START;
-        }
-        if (titleLower.contains(keyword)) {
-            return MatchType.TITLE_CONTAIN;
-        }
-        return MatchType.CONTENT;
-    }
-
-    private int calculateScore(Post entity, String keyword) {
-        String titleLower = entity.getTitle().toLowerCase();
-
-        if (titleLower.startsWith(keyword)) {
-            return 100;
-        }
-        if (titleLower.contains(keyword)) {
-            return 50;
-        }
-        return 10;
     }
 
     /**

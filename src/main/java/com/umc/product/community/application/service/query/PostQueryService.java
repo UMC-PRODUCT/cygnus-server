@@ -74,10 +74,10 @@ public class PostQueryService implements GetPostDetailUseCase, GetPostListUseCas
         Long authorChallengerId = postWithAuthor.authorChallengerId();
 
         // 작성자 챌린저 정보 조회
-        ChallengerInfo authorChallengerInfo = getChallengerUseCase.findByIdOrNull(authorChallengerId);
+        ChallengerInfo authorChallengerInfo = getChallengerUseCase.getById(authorChallengerId);
 
         // 작성자 멤버 프로필 조회 (이름과 프로필 이미지)
-        MemberInfo memberProfile = getMemberUseCase.findByIdOrNull(authorChallengerInfo.memberId());
+        MemberInfo memberProfile = getMemberUseCase.getById(authorChallengerInfo.memberId());
 
         int commentCount = loadCommentPort.countByPostId(postId);
 

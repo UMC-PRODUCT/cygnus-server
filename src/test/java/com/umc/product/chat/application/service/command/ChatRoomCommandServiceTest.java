@@ -2,6 +2,7 @@ package com.umc.product.chat.application.service.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
@@ -15,7 +16,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomCommand;
 import com.umc.product.chat.application.port.in.command.dto.PinChatRoomMessageCommand;
+import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
 import com.umc.product.chat.application.port.out.SaveChatMemberPort;
@@ -45,6 +48,37 @@ class ChatRoomCommandServiceTest {
 
     @InjectMocks
     ChatRoomCommandService sut;
+
+    @Test
+    @DisplayName("채팅방 생성 시 생성자를 첫 멤버로 저장하고 방 정보를 반환한다")
+    void create() {
+        given(saveChatRoomPort.save(any(ChatRoom.class))).willAnswer(invocation -> {
+            ChatRoom room = invocation.getArgument(0);
+            ReflectionTestUtils.setField(room, "id", 1L);
+            return room;
+        });
+
+        ChatRoomInfo result = sut.create(CreateChatRoomCommand.from(10L));
+
+        assertThat(result.roomId()).isEqualTo(1L);
+        assertThat(result.memberIds()).containsExactly(10L);
+        ArgumentCaptor<com.umc.product.chat.domain.ChatMember> memberCaptor =
+            ArgumentCaptor.forClass(com.umc.product.chat.domain.ChatMember.class);
+        then(saveChatMemberPort).should().save(memberCaptor.capture());
+        assertThat(memberCaptor.getValue().getRoomId()).isEqualTo(1L);
+        assertThat(memberCaptor.getValue().getMemberId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("채팅방 삭제는 대상 방을 조회한 뒤 같은 entity를 삭제한다")
+    void delete() {
+        ChatRoom room = room(1L);
+        given(loadChatRoomPort.getById(1L)).willReturn(room);
+
+        sut.delete(1L);
+
+        then(saveChatRoomPort).should().delete(room);
+    }
 
     @Test
     @DisplayName("같은 방 메시지를 고정하고 채팅방을 저장한다")

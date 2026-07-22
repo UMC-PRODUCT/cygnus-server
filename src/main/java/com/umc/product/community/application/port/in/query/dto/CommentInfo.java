@@ -23,6 +23,15 @@ public record CommentInfo(
     boolean isAuthor
 ) {
     public static CommentInfo of(Comment comment, MemberInfo memberInfo, ChallengerInfo challengerInfo) {
+        return of(comment, memberInfo, challengerInfo, false);
+    }
+
+    public static CommentInfo of(
+        Comment comment,
+        MemberInfo memberInfo,
+        ChallengerInfo challengerInfo,
+        boolean isAuthor
+    ) {
         String name = memberInfo != null ? memberInfo.name() : null;
         String nickname = memberInfo != null ? memberInfo.nickname() : null;
         String profileImage = memberInfo != null ? memberInfo.profileImageLink() : null;
@@ -39,7 +48,7 @@ public record CommentInfo(
             .challengerPart(part)
             .content(comment.getContent())
             .createdAt(comment.getCreatedAt())
-            .isAuthor(false) // 기본값, 이후 로직에서 판단하여 설정
+            .isAuthor(isAuthor)
             .build();
     }
 

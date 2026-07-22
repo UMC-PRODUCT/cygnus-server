@@ -2,6 +2,7 @@ package com.umc.product.certificate.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -22,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.umc.product.certificate.domain.Certificate;
 import com.umc.product.certificate.domain.CertificateIssueSpec;
 import com.umc.product.certificate.domain.CertificateTemplate;
+import com.umc.product.certificate.domain.exception.CertificateException;
 import com.umc.product.support.PersistenceAdapterTest;
 
 @PersistenceAdapterTest
@@ -43,12 +45,20 @@ class CertificatePersistenceAdapterTest {
     @Test
     @DisplayName("인증서 발급 범위에 PostgreSQL transaction advisory lock을 획득한다")
     void 인증서_발급_범위에_PostgreSQL_transaction_advisory_lock을_획득한다() {
-        assertThatCode(() -> sut.lockScope(
+        assertThatCode(() -> {
+            sut.lockScope(
             CertificateTemplate.UMC_COURSE_COMPLETION,
             1L,
             7L,
             null
-        )).doesNotThrowAnyException();
+            );
+            sut.lockScope(
+                CertificateTemplate.UMC_DEMO_DAY_GRAND_PRIZE,
+                1L,
+                7L,
+                "대상"
+            );
+        }).doesNotThrowAnyException();
     }
 
     @Test
@@ -164,13 +174,55 @@ class CertificatePersistenceAdapterTest {
         assertThat(result).get().extracting(Certificate::getSerialNumber).isEqualTo(valid.getSerialNumber());
     }
 
+    @Test
+    @DisplayName("저장 및 단건·목록 조회 port 계약을 repository에 위임한다")
+    void 저장_및_단건_목록_조회_port_계약을_repository에_위임한다() {
+        // given
+        Certificate certificate = Certificate.issue(spec(
+            CertificateTemplate.UMC_COURSE_COMPLETION,
+            "UMC-CMP-20260701-PORT0001",
+            NOW,
+            null
+        ));
+
+        // when
+        Certificate saved = sut.save(certificate);
+        em.flush();
+        em.clear();
+
+        // then
+        assertThat(sut.findById(saved.getId())).isPresent();
+        assertThat(sut.getById(saved.getId()).getSerialNumber()).isEqualTo(saved.getSerialNumber());
+        assertThat(sut.findBySerialNumber(saved.getSerialNumber())).isPresent();
+        assertThat(sut.existsBySerialNumber(saved.getSerialNumber())).isTrue();
+        assertThat(sut.listByRecipientMemberId(1L))
+            .extracting(Certificate::getSerialNumber)
+            .contains(saved.getSerialNumber());
+    }
+
+    @Test
+    @DisplayName("필수 조회 대상 인증서가 없으면 not-found 예외를 던진다")
+    void 필수_조회_대상_인증서가_없으면_not_found_예외를_던진다() {
+        assertThatThrownBy(() -> sut.getById(Long.MAX_VALUE))
+            .isInstanceOf(CertificateException.class);
+    }
+
     private Certificate persist(
         CertificateTemplate template,
         String serialNumber,
         Instant issuedAt,
         String meritTitle
     ) {
-        return em.persist(Certificate.issue(CertificateIssueSpec.builder()
+        return em.persist(Certificate.issue(spec(template, serialNumber, issuedAt, meritTitle)));
+    }
+
+    private CertificateIssueSpec spec(
+        CertificateTemplate template,
+        String serialNumber,
+        Instant issuedAt,
+        String meritTitle
+    ) {
+        return CertificateIssueSpec.builder()
             .serialNumber(serialNumber)
             .template(template)
             .recipientMemberId(1L)
@@ -183,7 +235,7 @@ class CertificatePersistenceAdapterTest {
             .issuedAt(issuedAt)
             .fileId("file-" + serialNumber)
             .fileSha256("a".repeat(64))
-            .build()));
+            .build();
     }
 
     private void lockCompletionScope() {

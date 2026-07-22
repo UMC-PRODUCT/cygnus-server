@@ -207,9 +207,6 @@ public class BlogContent extends BaseEntity {
     }
 
     private void changeStatus(BlogContentStatus nextStatus) {
-        if (nextStatus == BlogContentStatus.DELETED) {
-            throw new BlogDomainException(BlogErrorCode.INVALID_CONTENT_STATUS);
-        }
         if (this.status == nextStatus) {
             return;
         }

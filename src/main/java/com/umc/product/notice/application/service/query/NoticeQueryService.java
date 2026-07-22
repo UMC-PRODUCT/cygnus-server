@@ -37,7 +37,6 @@ import com.umc.product.notice.domain.NoticeClassification;
 import com.umc.product.notice.domain.NoticeRead;
 import com.umc.product.notice.domain.NoticeTarget;
 import com.umc.product.notice.domain.NoticeTargetInfo;
-import com.umc.product.notice.domain.enums.NoticeReadStatusFilterType;
 import com.umc.product.notice.domain.enums.NoticeTab;
 import com.umc.product.notice.domain.enums.NoticeTargetPattern;
 import com.umc.product.notice.domain.exception.NoticeDomainException;
@@ -453,21 +452,24 @@ public class NoticeQueryService implements GetNoticeUseCase {
         MemberInfo memberInfo,
         Map<ChapterKey, ChapterInfo> chapterCache
     ) {
-        if (command.filterType() == null || command.filterType() == NoticeReadStatusFilterType.ALL) {
+        if (command.filterType() == null) {
             return true;
         }
 
-        if (memberInfo == null || command.organizationId() == null || command.organizationId().isEmpty()) {
-            return false;
-        }
-
-        ChapterInfo chapterInfo = getCachedChapterInfo(challenger.gisuId(), memberInfo.schoolId(), chapterCache);
-        Long chapterId = chapterInfo != null ? chapterInfo.id() : null;
-
         return switch (command.filterType()) {
-            case SCHOOL -> command.organizationId().contains(memberInfo.schoolId());
-            case CHAPTER -> chapterId != null && command.organizationId().contains(chapterId);
             case ALL -> true;
+            case SCHOOL -> memberInfo != null
+                && command.organizationId() != null
+                && command.organizationId().contains(memberInfo.schoolId());
+            case CHAPTER -> {
+                if (memberInfo == null || command.organizationId() == null || command.organizationId().isEmpty()) {
+                    yield false;
+                }
+                ChapterInfo chapterInfo = getCachedChapterInfo(
+                    challenger.gisuId(), memberInfo.schoolId(), chapterCache
+                );
+                yield chapterInfo != null && command.organizationId().contains(chapterInfo.id());
+            }
         };
     }
 

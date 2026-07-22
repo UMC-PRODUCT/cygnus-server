@@ -3,6 +3,7 @@ package com.umc.product.certificate.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -163,6 +164,23 @@ class CertificateIssueContextResolverTest {
     }
 
     @Test
+    @DisplayName("해당 기수 challenger가 없으면 수료증 발급 조건을 만족하지 않는다")
+    void 해당_기수_challenger가_없으면_수료증_발급_조건을_만족하지_않는다() {
+        given(getMemberUseCase.getById(1L)).willReturn(member());
+        given(getGisuUseCase.getById(7L)).willReturn(gisu());
+        given(getChallengerUseCase.findByMemberIdAndGisuId(1L, 7L)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut().resolveSelf(IssueCertificateCommand.builder()
+            .template(CertificateTemplate.UMC_COURSE_COMPLETION)
+            .requesterMemberId(1L)
+            .gisuId(7L)
+            .build()))
+            .isInstanceOf(CertificateException.class)
+            .extracting("baseCode")
+            .isEqualTo(CertificateErrorCode.CERTIFICATE_ELIGIBILITY_NOT_MET);
+    }
+
+    @Test
     @DisplayName("셀프 발급을 지원하지 않는 템플릿은 거부한다")
     void 셀프_발급을_지원하지_않는_템플릿은_거부한다() {
         // given
@@ -226,6 +244,28 @@ class CertificateIssueContextResolverTest {
 
         // then
         assertThat(result.meritTitle()).isEqualTo("공로증");
+    }
+
+    @Test
+    @DisplayName("공로 인증서의 커스텀 제목과 기본 제목이 모두 없으면 발급을 거부한다")
+    void 공로_인증서의_커스텀_제목과_기본_제목이_모두_없으면_발급을_거부한다() {
+        // given
+        CertificateTemplate template = mock(CertificateTemplate.class);
+        given(template.requiresGraduation()).willReturn(false);
+        given(template.defaultMeritTitle()).willReturn(null);
+        given(getMemberUseCase.getById(1L)).willReturn(member());
+        given(getGisuUseCase.getById(7L)).willReturn(gisu());
+
+        // when & then
+        assertThatThrownBy(() -> sut().resolveAdmin(AdminIssueCertificateCommand.builder()
+            .template(template)
+            .requesterMemberId(99L)
+            .recipientMemberId(1L)
+            .gisuId(7L)
+            .build()))
+            .isInstanceOf(CertificateException.class)
+            .extracting("baseCode")
+            .isEqualTo(CertificateErrorCode.CERTIFICATE_ELIGIBILITY_NOT_MET);
     }
 
     private CertificateIssueContextResolver sut() {
