@@ -1,204 +1,148 @@
-# PR #1171 도메인 테스트 검증 목록
+# PR #1171 전체 Production 테스트 검증 목록
 
-> 대상 PR: `feature/#1167-domain-test-coverage` → `develop`<br>
-> 비교 기준: `origin/develop...HEAD`<br>
-> 대상 도메인: `member`, `challenger`, `authentication`, `authorization`, `organization`
+> 대상 PR: `feature/#1167-domain-test-coverage` → `develop`  
+> 비교 기준: 최신 `origin/develop...HEAD`  
+> 대상: `src/main/java/com/umc/product` 아래 직접 작성한 모든 production class  
+> 합격 기준: JaCoCo Line 100% / Class 100%, 실패·오류 0건
 
-## 1. 요약
+## 1. 최종 결과
 
-이 PR은 다섯 도메인의 production class에 대해 JaCoCo **Line 100% / Class 100%**를 달성하고,
-성공 경로뿐 아니라 입력 경계, 권한 거부, 외부 연동 실패, 누락 데이터, 중복·정렬·배치 처리와 같은
-회귀 위험이 높은 상황을 테스트로 고정한다.
+`./gradlew clean test jacocoTestCoverageVerification`을 실행한 최종 결과다.
 
-| 도메인 | 변경 테스트 클래스 | 추가 테스트 선언 | Line | Class | Branch |
+- 전체 테스트: 4,430건
+- 성공: 4,390건
+- ignored: 40건
+- 실패: 0건
+- 오류: 0건
+- clean build 실행시간: 7분 18초
+- Line: 34,923 / 34,923 (100%)
+- Class: 2,306 / 2,306 (100%)
+- Branch: 9,228 / 10,295 (89.64%, 비강제 지표)
+- 새 `@Disabled` 또는 ignored 테스트: 추가하지 않음
+
+QueryDSL 제외 대상은 `build/generated/querydsl`에서 실제 생성된 source와 일치하는 class뿐이다. DTO,
+configuration, exception, application root, 공통 package와 production seed package는 제외하지 않았다.
+
+## 2. Production package별 coverage
+
+| Production package | 테스트 건수 | ignored | Line | Class | Branch |
 |---|---:|---:|---:|---:|---:|
-| authorization | 16 | 88 | 840/840 (100%) | 44/44 (100%) | 97.3% |
-| member | 20 | 73 | 1,446/1,446 (100%) | 89/89 (100%) | 90.5% |
-| authentication | 17 | 125 | 1,679/1,679 (100%) | 128/128 (100%) | 85.0% |
-| challenger | 12 | 87 | 1,268/1,268 (100%) | 76/76 (100%) | 89.0% |
-| organization | 17 | 120 | 3,083/3,083 (100%) | 241/241 (100%) | 86.5% |
-| **합계** | **82** | **493** | **8,316/8,316 (100%)** | **578/578 (100%)** | **88.5%** |
+| application root | - | - | 3/3 | 1/1 | - |
+| `analytics` | 46 | 0 | 1,288/1,288 | 96/96 | 89.61% |
+| `audit` | 22 | 0 | 168/168 | 13/13 | 94.74% |
+| `authentication` | 309 | 0 | 1,679/1,679 | 128/128 | 84.95% |
+| `authorization` | 137 | 0 | 840/840 | 44/44 | 97.67% |
+| `blog` | 94 | 0 | 1,779/1,779 | 87/87 | 85.24% |
+| `certificate` | 99 | 0 | 767/767 | 40/40 | 95.67% |
+| `challenger` | 185 | 0 | 1,320/1,320 | 77/77 | 89.58% |
+| `chat` | 109 | 0 | 344/344 | 32/32 | 92.65% |
+| `common` | 13 | 0 | 78/78 | 10/10 | 97.37% |
+| `community` | 120 | 0 | 994/994 | 61/61 | 90.60% |
+| `curriculum` | 132 | 0 | 870/870 | 132/132 | 97.75% |
+| `documentation` | 5 | 0 | 22/22 | 7/7 | 75.00% |
+| `feedback` | 20 | 0 | 120/120 | 19/19 | 100.00% |
+| `form` | 222 | 0 | 1,703/1,703 | 97/97 | 93.91% |
+| `global` | 365 | 0 | 2,344/2,344 | 130/130 | 92.54% |
+| `llm` | 32 | 0 | 337/337 | 18/18 | 82.81% |
+| `maintenance` | 62 | 0 | 308/308 | 22/22 | 91.25% |
+| `member` | 238 | 29 | 1,447/1,447 | 89/89 | 90.45% |
+| `notice` | 88 | 0 | 1,245/1,245 | 96/96 | 88.32% |
+| `notification` | 104 | 0 | 986/986 | 71/71 | 84.50% |
+| `organization` | 379 | 11 | 3,083/3,083 | 241/241 | 86.47% |
+| `project` | 765 | 0 | 5,310/5,310 | 272/272 | 92.74% |
+| `recruiting` | 491 | 0 | 4,676/4,676 | 314/314 | 83.59% |
+| `schedule` | 102 | 0 | 1,107/1,107 | 56/56 | 93.22% |
+| `storage` | 88 | 0 | 538/538 | 27/27 | 90.23% |
+| `term` | 32 | 0 | 234/234 | 28/28 | 96.15% |
+| production `test` seed | 165 | 0 | 1,333/1,333 | 98/98 | 95.24% |
+| **전체** | **4,430** | **40** | **34,923/34,923** | **2,306/2,306** | **89.64%** |
 
-추가 테스트 선언은 diff에 새로 추가된 `@Test`, `@ParameterizedTest`, `@RepeatedTest` 수다.
-Parameterized Test의 인자별 실행과 기존 테스트의 실행도 포함되므로 실제 Gradle 실행 건수와는 다르다.
+package별 테스트 건수는 test classname의 최상위 package를 기준으로 집계했다. application root 테스트는
+전체 건수에는 포함되지만 위 표의 도메인별 건수에는 별도 배분하지 않았다.
 
-## 2. 공통 검증 원칙
+## 3. 어떤 상황을 검증했는가
 
-- 정상 동작뿐 아니라 `null`, 빈 문자열·컬렉션, 잘못된 ID, 미존재 데이터와 같은 입력 경계를 검증한다.
-- 권한 검사는 미존재 사용자와 알 수 없는 권한에 대해 fail-closed로 동작하는지 검증한다.
-- 배치 처리는 빈 입력 단축, 중복 제거, 입력 순서 보존, 일부 데이터 누락을 검증한다.
-- Controller/Assembler/DTO는 command 변환, 응답 매핑, 민감 정보 마스킹과 호환 계약을 검증한다.
-- Persistence Adapter는 Port 위임, not-found 계약, 빈 입력 최적화와 QueryDSL 실제 조회를 검증한다.
-- OAuth/OIDC 외부 연동은 provider별 정상 응답과 네트워크·파싱·서명·claim 실패를 함께 검증한다.
-- 테스트 데이터는 도메인별 fixture를 재사용해 Given/When/Then 의도가 드러나도록 구성한다.
+### 공통 계층별 검증
 
-## 3. 도메인별 테스트 목록
-
-### 3.1 authorization
-
-| 테스트 클래스 | 검증 상황 |
+| 계층 | 검증 상황 |
 |---|---|
-| `AccessControlAspectTest` | 비인증·잘못된 principal 거부, null/blank 표현식, resource ID 해석, 권한 거부 시 대상 메서드 미호출 |
-| `ChallengerRoleControllerUnitTest` | 역할 생성 command 및 ID 응답, 기수 포함 조회 응답, 삭제 command 매핑 |
-| `ChallengerRoleAdapterTest` | 회원·기수별 조회 위임, batch 조회, not-found, 저장·일괄 저장·삭제 |
-| `ChallengerRoleQueryRepositoryTest` | 회원별 및 회원+기수별 역할 join 조회 |
-| `AuthoritySnapshotCacheSerializerTest` | null/blank/손상 JSON, 직렬화 실패, null tree와 null collection 정규화 |
-| `AuthorizationServiceCacheTest` | 캐시 역직렬화 실패 시 fresh subject 재조회 및 권한 판정 지속 |
-| `AuthorizationServicePolicyTest` | evaluator 선택·위임·허용·거부, evaluator 누락·중복, 권한 metric 기록 |
-| `AuthoritySnapshotCacheCommandServiceTest` | null/빈 member ID 입력 시 불필요한 eviction 생략 |
-| `ChallengerRoleAnyGisuAuthorityTest` | 미존재 회원 fail-closed, `SUPER_ADMIN` 전역 우회, 잘못된 system role, 역할 계층·조직 범위 |
-| `ChallengerRoleGisuAuthorityTest` | null 기수·조직, null 역할, ANY/ALL 의미, 정확한 기수 scope, `SUPER_ADMIN` 우회 |
-| `ChallengerRoleListQueryTest` | 회원·기수별 목록, 경량 scope, batch null/empty, 중복 제거와 안정적 정렬 |
-| `ChallengerRoleQueryServiceTest` | legacy facade 위임, 지원하지 않는 system role 거부, 지부장 호환 판정 |
-| `CheckResourcePermissionValidationTest` | query/resourceIds/permissions의 null·empty·null element 거부, 전체 권한 결과 순서 |
-| `AuthoritySnapshotMatrixTest` | snapshot 불변성·왕복 변환, null collection, 중앙·학교·지부 scope 권한 matrix |
-| `AuthorizationResidualContractTest` | legacy Info factory 호환, 조직 ID 필수 조건, 중앙·지부 정책 잔여 분기 |
-| `ResourcePermissionContractTest` | type code 왕복, permission set 불변성, 미지원 권한, ID 변환, evaluator 계약 |
+| Domain | 필수값과 null/blank, 길이·숫자·날짜 경계, 기간 중첩, 중복, 잘못된 상태 전이, 멱등성, aggregate 불변식 |
+| Application service | 성공·not-found, 빈 batch 단축, 중복 제거, 입력 순서, 일부 참조 누락, port 실패, event/cache 후처리 |
+| Authorization | 비인증, 미존재 회원, 다른 기수·학교 scope, 미지원 permission fail-closed, `SUPER_ADMIN` 전역 호환 |
+| Persistence | Optional/get 계약, 빈 `IN`, filter 조합, cursor/page 경계, 정렬, lock timeout/deadlock, DB 제약 |
+| REST/GraphQL | Bean Validation, command/query 변환, optional body 기본값, null nested data, 민감 정보 마스킹, legacy 호환 |
+| External/Scheduler | disabled/no-op, 통신·파싱 실패, 잘못된 응답, 부분 실패, metric, 오류 정규화와 예외 재전파 |
+| Production seed | production 환경 차단, 빈·중복 seed, 결정적 결과, 연관 데이터 생성·삭제 순서, 부분 단계 실패 |
 
-핵심적으로 기수 범위 역할과 전역 `SUPER_ADMIN`을 분리하고, 존재하지 않는 회원·리소스·권한은
-허용되지 않도록 검증한다. 캐시가 손상돼도 권한 검사가 잘못 허용되는 대신 원본 데이터를 다시 읽는다.
+### 도메인 묶음별 핵심 검증
 
-### 3.2 member
+| 묶음 | 대상 | 핵심 검증 |
+|---|---|---|
+| 기반·공통 | application root, `common`, `global`, `audit`, `documentation`, `maintenance`, `storage`, `llm`, `term` | boot entry, enum 변환, security/filter/resolver, 예외·응답 wrapping, observability sanitizing, cache/event/outbox, S3·LLM 외부 실패, maintenance no-op |
+| 콘텐츠·운영 | `blog`, `certificate`, `chat`, `community`, `feedback`, `notice` | content validation, PDF/template 실패, 채팅 접근·첨부 정책, 게시물/댓글 권한과 정렬, vote·조회·민감정보 조립 |
+| 분석·알림·일정 | `analytics`, `notification`, `schedule` | scope 조합과 빈 집계, FCM/SES/webhook 성공·부분 실패, outbox/scheduler 멱등성, 일정 기간·참여자·권한·cursor |
+| 교육·폼 | `curriculum`, `form` | workbook/mission lifecycle, 기간 경계, Form 구조 변경, 조건부 이동, 질문/선택지, anonymous/member 응답 소유권 |
+| 프로젝트 | `project` | 지원서·멤버·매칭 라운드 상태 전이, quota, 권한 scope, 통계 집계, GraphQL null nested data와 REST 호환 |
+| 모집 | `recruiting` | 시즌/차수/지원서/Form/평가/면접/등록 전체 lifecycle, 발표 시각 경계, 익명 credential, 동시성 lock, 공개 결과 마스킹 |
+| 핵심 회원·조직 | `member`, `challenger`, `authentication`, `authorization`, `organization` | OAuth/OIDC 실패, 역할 snapshot/cache, 기수·학교 권한, batch 누락·순서, 조직 기간 중첩, 공개 프로필 마스킹 |
+| Production seed | `test` | 회원·챌린저·역할·커리큘럼·공지·프로젝트 seed의 환경 guard, empty/no-op, 결정적 random seam, 단계별 실패 |
 
-| 테스트 클래스 | 검증 상황 |
-|---|---|
-| `MemberGraphQlControllerTest` | 빈 batch 단축, 중복 key가 있을 때 첫 결과 보존 |
-| `MemberSchoolGraphQlResponseTest` | link·시간이 null인 학교와 값이 채워진 학교의 GraphQL 응답 변환 |
-| `MemberCommandControllerUnitTest` | OAuth·email·Apple 가입 command, 프로필 이미지·링크, 본인/관리자 탈퇴 token 전달 |
-| `MemberQueryControllerTest` | ID 기반 공개 프로필 응답 |
-| `MemberInfoResponseAssemblerTest` | challenger 미존재 batch 단축, 기수 중복 제거, 공개 정보 마스킹, 학교 누락 |
-| `MemberInfoResponseTest` | legacy/current factory 호환, 학교 필수, 공개 응답 마스킹, 프로필 누락·존재 |
-| `MemberV2ResponseContractTest` | 현재·활동·전체 기수 이력, 활동 challenger 없음, 검색 응답과 email 마스킹 |
-| `MemberPersistenceAdaptersTest` | get/query/save/delete/search/count/profile/system-role 위임과 빈 입력 guard |
-| `MemberQueryRepositoryTest` | count·lock·nickname 조회와 chapter filter |
-| `EmailMemberRegisterServiceTest` | 빈 batch 단축과 입력 순서를 보존하는 batch ID 반환 |
-| `MemberCredentialCommandServiceTest` | 비밀번호 변경, 미존재 회원, null ID 방어 |
-| `MemberCredentialQueryServiceTest` | 잘못된 인증 입력, password hash 없음, 마스킹된 credential DTO |
-| `MemberPermissionEvaluatorTest` | 회원 read/delete 정책과 미지원 permission fail-closed |
-| `MemberQueryServiceEdgeCaseTest` | 학교·프로필·역할 조합, storage 누락, Optional/get 계약, 빈 batch와 일부 데이터 누락 |
-| `MemberRegistrationValidatorTest` | 선택 프로필 파일, 파일·학교 존재, 필수 약관 전체/일부/미동의 |
-| `MemberSearchServiceResidualTest` | null/empty ID, challenger·기수 데이터 누락 시 검색 결과 조립 |
-| `MemberServiceTest` | 가입 orchestration·event, 검증 실패, bulk 순서, 프로필 수정, 탈퇴·OAuth·권한 캐시 |
-| `MemberSummaryV2QueryServiceTest` | 학교·기수 정보 누락 시 안전한 summary 생성과 정렬 |
-| `MemberProfileTest` | LinkedIn·Instagram·GitHub·Blog·Personal 링크 전체 갱신 |
-| `MemberTest` | nickname/file ID를 각각 변경하는 profile overload의 상태 보존 |
+## 4. Recruiting 추가 검증 상세
 
-개인정보 노출 표면은 공개 응답에서 email 등 민감 값이 마스킹되는지 확인한다. 여러 도메인의 데이터를
-합치는 조회에서는 학교·기수·challenger·storage 데이터가 일부 없어도 결과 전체가 깨지지 않는지 검증한다.
+최신 `origin/develop`에서 추가된 `recruiting`은 다음 회귀 위험을 별도로 고정했다.
 
-### 3.3 authentication
+- 시즌/차수: 정규·추가 모집 번호, 제목 중복, 등록일·모집일 정렬, 공개 phase 경계, OPEN/CLOSED 전이.
+- Form 구조: section/question/option create·update·delete·reorder, 중복/foreign ID, 누락 정책,
+  TRACK→COMMON 허용과 다른 TRACK·미존재 section 이동 거부.
+- 지원서: 회원·익명 생성/수정/제출/철회, DRAFT/SUBMITTED 분기, invalid key, email 정규화,
+  선택 트랙 밖 답변, Form 응답 소유권, 재지원·다른 학교 중복.
+- 평가/면접: 서류·최종 PASS/FAIL/null 결정, 면접 배정·생략, 질문 불변성, 일정 확정·취소·재시도,
+  메일 발송 멱등성 및 메시지 없는 실패 fallback.
+- 등록: 중앙 운영진과 `SUPER_ADMIN`, quota lock과 소진, 익명 지원서·합격 트랙 누락 거부,
+  NOT_READY→READY→REGISTERED 전이.
+- Persistence/동시성: 복수 학교·차수·상태 filter, pageable 경계, 빈 `IN` 단축,
+  PostgreSQL/JPA lock timeout·deadlock 정규화, applicant lock 필수 scope.
+- REST/GraphQL: optional input 기본값, page/ID validation, 익명 request 중첩 답변 변환,
+  공개 결과 발표 전후 마스킹, 권한 없는 면접 일정 fail-closed.
 
-| 테스트 클래스 | 검증 상황 |
-|---|---|
-| `AuthenticationResidualContractTest` | SSO client·origin 필수값, provider 등록, 설정 기본값, DTO 마스킹, OAuth token 우선순위·redirect 검증 |
-| `EmailVerificationRetentionSchedulerTest` | 삭제 대상 없음, 정리 실패 시 실패 metric 기록과 예외 재전파 |
-| `AuthenticationControllerUnitTest` | Google/Kakao/Apple 기존·신규 회원, access/auth code, Apple refresh token 갱신·보존 |
-| `AuthenticationWebResidualTest` | token 재발급 매핑, SSO cookie domain·max-age, Referer origin 파싱 |
-| `CredentialAuthenticationControllerUnitTest` | 회원가입, 비밀번호 변경·초기화, 사용 가능 여부, email login command |
-| `EmailAuthenticationControllerUnitTest` | email 인증 확인·발송·재발송 command |
-| `MemberOAuthControllerUnitTest` | OAuth 연결·해제, token 유무, 연결 provider 목록 |
-| `AppleTokenVerifierEdgeCaseTest` | email/issuer/audience/kid 누락·불일치, client 구분, code 교환·revoke·client-secret·서명 오류 |
-| `GoogleTokenVerifierEdgeCaseTest` | issuer 변형, JWT 오류, opaque tokeninfo fallback, 빈 token, audience·claim·revoke 실패 |
-| `KakaoTokenVerifierEdgeCaseTest` | redirect whitelist, userinfo fallback, client secret 없음, token/응답/ID/profile·issuer·audience·kid 오류 |
-| `OAuthTokenVerificationAdapterTest` | provider별 verifier 위임, Apple audience, code 교환 제한, unlink/revoke 흐름 |
-| `OAuthVerifierFailureNormalizationTest` | Kakao/Google/Apple 네트워크·응답 파싱 실패를 공통 인증 예외로 정규화 |
-| `OidcPublicKeyResolverTest` | kid 누락, lock 안에서 JWKS cache 충전, JWKS 오류·빈 key set |
-| `AuthenticationPersistenceResidualTest` | MemberOAuth·EmailVerification adapter 계약과 최신 인증 row QueryDSL 조회 |
-| `AuthenticationApplicationResidualTest` | token row 발급, SHA-256·rehash, email event, query not-found, 재발송 throttling |
-| `OAuthAuthenticationServiceEdgeCaseTest` | 기존·신규 로그인, access/code, 중복 연결, Apple refresh, bulk 원자성, unlink 성공·실패 |
-| `SsoTokenExchangeCommandServiceTest` | redirect whitelist 적용과 Android client token 매핑 |
+## 5. Fixture와 테스트 구조
 
-외부 provider는 정상 응답만 mock하지 않고, claim 누락·잘못된 issuer/audience·JWKS 문제·통신 실패까지
-검증한다. 실패는 provider 구현 예외가 새지 않고 애플리케이션의 공통 인증 실패 의미로 변환된다.
+- `src/test/java/com/umc/product/support/fixture`의 valid-default factory를 우선 사용한다.
+- `AuthenticationFixture`, `AuthorizationFixture`, `ChallengerUnitFixture`, `MemberUnitFixture`,
+  `OrganizationUnitFixture`를 유지하고 `BlogUnitFixture`, `FormFixture`, `NoticeUnitFixture`,
+  `ScheduleUnitFixture`를 추가했다.
+- 각 테스트는 유효한 기본 fixture에서 검증 대상 값만 바꾼다.
+- 저장이 필요한 fixture는 SavePort 또는 기존 persistence test support를 사용한다.
+- 순수 로직은 Mockito 단위 테스트로 검증하고 실제 SQL·constraint·security wiring만 기존 통합 테스트
+  기반을 재사용한다.
+- 새 sleep, 외부 네트워크 호출, 테스트별 container 생성, 새 disabled 테스트를 추가하지 않았다.
 
-### 3.4 challenger
+## 6. Coverage gate와 CI
 
-| 테스트 클래스 | 검증 상황 |
-|---|---|
-| `ChallengerControllerResidualTest` | 일괄 생성, 비활성화, 파트 변경, 물리 삭제, 활동 기록 조회·소비·생성·일괄 처리 |
-| `ChallengerRecordResponseAssemblerTest` | 기수·학교·지부를 포함한 활동 기록 code/ID 응답 조립 |
-| `ChallengerResponseAssemblerTest` | member·gisu·chapter 집계, 빈 입력·중복·학교/지부 누락, null gisu 손상 데이터 |
-| `ChallengerWebDtoResidualTest` | cursor size 정규화·상태, 전역 검색, 수정 command, cursor 응답, 기록 조직 규칙 |
-| `ChallengerInfoResponseTest` | legacy alias, 역할 응답, 공개 정보 마스킹 |
-| `ChallengerPersistenceAdapterTest` | Optional/get not-found, 회원·기수 query, null/empty guard, exists/save/delete/search/count |
-| `ChallengerPersistenceResidualTest` | 활동 기록·점수 adapter와 점수 QueryDSL 잔여 분기 |
-| `ChallengerQueryRepositoryIntegrationTest` | 실제 DB 필터·paging·part·point·최신 기수, 잘못된 cursor, 지부 존재 조회 |
-| `ChallengerApplicationResidualTest` | 상태·점수·삭제, bulk 중복, production guard, 기록 bulk/delete와 DTO 변환 |
-| `ChallengerQueryServiceEdgeCaseTest` | get/find/null·미존재 조합, 활동 상태·점수, 빈 batch와 조회 계약 경계 |
-| `ChallengerSearchServiceTest` | 빈 입력 단축, batch 집계, `size + 1` cursor, 다음 페이지 없음, 전역·offset·cursor 검색 |
-| `ChallengerEvaluatorResidualTest` | 생성·수정·삭제, 기록·점수 권한의 중앙/학교 scope, 학교 누락·미지원 권한 |
+- `gradle/testing.gradle.kts`의 `jacocoTestCoverageVerification`이 bundle 기준 `LINE=1.0`,
+  `CLASS=1.0`을 강제한다.
+- `jacocoTestReport`와 verification은 같은 `jacocoProductionClassDirectories`를 사용한다.
+- `check`는 coverage verification에 의존한다.
+- CI와 Codecov workflow는 `./gradlew test jacocoTestCoverageVerification`을 실행한다.
+- `--tests`를 사용하는 선택 실행은 전역 gate를 직접 실행하지 않으므로 개발 중 package 단위 검증을
+  방해하지 않는다.
 
-검색과 batch 조회에서는 데이터 순서·cursor 경계·누락 참조를 다루고, 활동 기록과 점수 변경은
-리소스의 기수·학교 scope에 맞는 권한인지 검증한다.
-
-### 3.5 organization
-
-| 테스트 클래스 | 검증 상황 |
-|---|---|
-| `OrganizationDtoResidualTest` | request command 변환, 불변 member 교체, 학교·지부·study·page·UMC PRODUCT 응답, null link/time |
-| `OrganizationGraphQlControllerResidualTest` | batch source/model 중복 시 첫 결과 보존 |
-| `OrganizationControllerResidualTest` | study·chapter·school·schedule·gisu API 위임과 비인증 UMC PRODUCT command |
-| `OrganizationPersistenceAdapterResidualTest` | study/school/chapter/chapter-school/gisu adapter 계약, not-found와 입력 guard |
-| `OrganizationQueryRepositoryIntegrationTest` | 학교 paging/filter/active, 기수 날짜 경계, 상세·링크·join, UMC PRODUCT 검색 filter |
-| `StudyGroupQueryRepositoryTest` | scope별 이름·null scope, 동일 기수/파트 참여 충돌과 수정 대상 제외 |
-| `UmcProductPersistenceAdapterResidualTest` | member/chapter/membership/activity/leadership/squad/participant adapter와 제약 |
-| `OrganizationCoreServiceResidualTest` | chapter 조회·기수 불일치, 학교 상세·logo 없음·grouping, study lifecycle·충돌 |
-| `OrganizationCommandServiceResidualTest` | chapter가 있는 gisu 삭제 거부·동일 active no-op, school 삭제 null/empty ID |
-| `SchoolQueryServiceTest` | 모든 학교 logo가 null이면 storage batch 조회 생략 |
-| `StudyGroupQueryServiceResidualTest` | 내 study batch, 권한·part leader, scope·기수/파트, 빈 member와 상세 조회 |
-| `OrganizationRemainingServiceTest` | history 정렬, chapter/gisu/school/schedule lifecycle·validation, chapter/squad query·access policy |
-| `UmcProductMemberCommandServiceEdgeCaseTest` | 기간 경계·중복·null/empty·열린 종료일, 파일·권한, membership/leadership 겹침과 lifecycle |
-| `UmcProductMemberQueryServiceTest` | 전체 이력 집계, 누락 데이터, 빈 page, 정렬·미존재 참조, 기준일 active filter |
-| `UmcProductSquadCommandServiceEdgeCaseTest` | squad 생성·수정 권한/중복/기간, 열린 종료일 포함, participant lifecycle·겹침 |
-| `OrganizationPermissionEvaluatorResidualTest` | 지원 resource/permission 조합과 미지원 조합 fail-closed |
-| `OrganizationDomainResidualTest` | 필수 연관·ID, 날짜 경계, 상태 변경, activity/role/position 미존재 도메인 규칙 |
-
-조직 도메인의 핵심 경계인 기수·활동 기간은 시작일/종료일 포함 여부, 열린 종료일, 중첩 기간을
-집중 검증한다. 학교·지부·스쿼드·멤버십 참조가 누락되거나 충돌하는 경우도 명시적으로 다룬다.
-
-## 4. 추가·확장 fixture
-
-| fixture | 사용 목적 |
-|---|---|
-| `AuthenticationFixture` | OAuth/OIDC provider payload, 인증 token·command의 반복 생성을 통일 |
-| `AuthorizationFixture` | 역할, authority snapshot, resource permission 입력을 선언적으로 생성 |
-| `ChallengerUnitFixture` | challenger·기수·파트·활동 기록의 기본값과 변형 지점을 제공 |
-| `MemberUnitFixture` | member·profile·school·credential·응답 조립 데이터를 재사용 |
-| `OrganizationUnitFixture` | 학교·지부·기수·study·UMC PRODUCT membership/squad 기간 데이터를 재사용 |
-
-fixture는 유효한 기본 객체를 먼저 만들고, 각 테스트가 검증하려는 값만 명시적으로 바꾸도록 구성했다.
-그 결과 생성자 인자 나열보다 실패 원인과 기대 동작을 읽기 쉽게 유지한다.
-
-## 5. 실행 및 커버리지 측정
-
-검증 명령:
+## 7. 최종 검증 명령
 
 ```bash
-./gradlew test \
-  --tests 'com.umc.product.authorization.**' \
-  --tests 'com.umc.product.member.**' \
-  --tests 'com.umc.product.authentication.**' \
-  --tests 'com.umc.product.challenger.**' \
-  --tests 'com.umc.product.organization.**'
+./gradlew spotlessCheck checkstyleMain checkstyleTest
+./gradlew compileJava compileTestJava
+./gradlew clean test jacocoTestCoverageVerification
 ```
 
-실행 결과:
+최종 JaCoCo HTML은 `build/reports/jacoco/test/html/index.html`, XML은
+`build/reports/jacoco/test/jacocoTestReport.xml`에서 확인할 수 있다.
 
-- 총 1,220건 실행 대상
-- 1,180건 성공
-- 40건 ignored
-- 실패 0건
-- `BUILD SUCCESSFUL`
+## 8. 해석 시 주의사항
 
-JaCoCo 결과는 `build/reports/jacoco/test/html/index.html`을 기준으로 확인했다.
-QueryDSL 생성물은 실제 생성 경로인 `build/generated/querydsl` source tree에 속한 class만 제외하며,
-애플리케이션이 직접 작성한 `Query*`, `Question*` class는 커버리지 대상에 포함한다.
-
-## 6. 해석 시 주의사항
-
-- Line/Class 100%는 대상 production class가 테스트 실행 중 모두 로드되고 각 line이 실행됐다는 뜻이다.
-- Branch는 조건식 조합과 컴파일러 생성 분기 때문에 100%가 아니며, 이 PR의 목표는 발생 가능성이 높은
-  비즈니스·보안·외부 연동 경계를 우선 고정하는 것이다.
-- ignored 40건은 실행 결과에서 별도로 집계했으며 성공 건수에 포함하지 않았다.
-- 이 문서는 PR diff 기준 목록이다. 이후 `develop` 변경으로 테스트나 production class가 추가되면
-  커버리지를 다시 측정해야 한다.
+- Line/Class 100%는 모든 직접 작성 production class와 line이 full suite에서 실행됐다는 의미다.
+- Branch는 컴파일러 생성 분기와 방어 조건 조합을 포함하므로 100%를 합격 조건으로 강제하지 않는다.
+  다만 발생 가능한 비즈니스·보안·동시성·외부 연동 edge case는 명시적인 테스트로 우선 고정했다.
+- ignored 40건은 기존 테스트이며 이 PR에서 새 ignored/disabled 테스트를 추가하지 않았다.
+- production API, GraphQL schema, DB migration 계약은 변경하지 않았다. 테스트가 발견한 실제 결함은
+  client contract를 유지하는 최소 production 수정과 회귀 테스트로 함께 남겼다.
