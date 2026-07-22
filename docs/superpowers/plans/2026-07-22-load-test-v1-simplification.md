@@ -87,7 +87,7 @@ DELETE /test/seed/projects     (gisu 단위 정리)
 | 전략 | 계층 | 위치 | v1 |
 |------|------|------|----|
 | `api` | apply 이후 | `prepare-data.sh` → SeedController | ✅ 구현 |
-| `bulk` | apply 이후 | `prepare-data.sh` → SUT EC2 에서 `seeder` 프로파일 컨테이너 1회 실행 | 후속 |
+| `bulk` | apply 이후 | `prepare-data.sh` → SUT EC2 에서 `seeder` 프로파일 컨테이너 1회 실행 | ✅ 구현 |
 | `snapshot` | **apply 시점** | `rds.tf`의 `snapshot_identifier` (prepare-data.sh 아님) | 후속 |
 
 `api`/`bulk`는 prepare-data.sh의 `SEED_STRATEGY` 스위치로 드롭인 교체 가능. `snapshot`은 RDS 생성 시점 문제라 Terraform(`rds.tf`)에서 다룬다.
@@ -216,7 +216,7 @@ test -f loadtest/k6/script.js
     ```
     - **각 스텝은 얇게**: "어느 엔드포인트를, 어떤 순서로, 어떤 ID를 다음으로 넘기는지"만 담는다. **도메인 규칙은 SeedController/SeedService(Java)에 남긴다.** 스텝에 도메인 지식을 넣으면 이중 관리가 되므로 금지.
     - 변경 지점 분리: API 계약 변경 → 해당 도메인 스텝만 수정 / 도메인 규칙 변경 → Java만 (스텝 대개 무변경).
-  - `bulk`(후속): SUT EC2 에서 앱 이미지를 `seeder` 프로파일로 1회 실행해 대규모 적재 (4.1절 개정 참조). ~~`sql`(pg_dump 승계)~~ 는 폐기.
+  - `bulk`(구현): SUT EC2 에서 앱 이미지를 `seeder` 프로파일로 1회 실행해 대규모 적재 (4.1절 개정 참조). ~~`sql`(pg_dump 승계)~~ 는 폐기.
   - `snapshot`은 여기 아님 — RDS 생성 시점이라 `rds.tf`의 `snapshot_identifier`로 다룸(후속).
   - 주의: 6개 도메인을 bash로 오케스트레이션하면 JSON 스레딩/에러 처리가 지저분해질 수 있다. v1은 bash + `jq`로 충분하되, ID 전달이 복잡해지면 작은 스크립트 언어 이관을 후속으로 연다.
 

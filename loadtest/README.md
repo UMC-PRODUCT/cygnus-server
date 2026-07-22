@@ -42,7 +42,8 @@ terraform -chdir=loadtest/terraform plan
 terraform -chdir=loadtest/terraform apply
 
 # 2) 시딩 (데이터 준비의 유일한 소유자)
-loadtest/scripts/prepare-data.sh
+loadtest/scripts/prepare-data.sh                      # Tier 1: api (smoke·소규모)
+SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh   # Tier 2: bulk (10만+, seeder 프로파일)
 
 # 3) 실행: run-k6.sh <profile> <scenario> <rate> [duration]
 loadtest/scripts/run-k6.sh smoke  health-check 1   1m     # 시딩 불필요
@@ -56,29 +57,30 @@ SSH 키가 기본 키가 아니면 `SSH_KEY=~/.ssh/umc-loadtest.pem loadtest/scr
 
 ## 시딩 전략 (Tier)
 
-Source of truth 는 `prepare-data.sh`(스키마를 따라가는 시더)다. 규모로 tier 를 나누고, 캐시는 opt-in.
+원칙: **생성기(코드)가 원천, 데이터 파일(snapshot)은 캐시.** source of truth 는 항상 시더다.
 
 | Tier | 방식 | 언제 | 실행 |
 |------|------|------|------|
-| **1 (기본)** | api 시더 | smoke·개발·중간 규모(~수천). 매 run 신선, 스키마 자동 대응 | `loadtest/scripts/prepare-data.sh` |
-| **2 (opt-in 캐시)** | snapshot 복원 | 10만+ 를 자주 반복할 때만 | tfvars 에 `db_snapshot_identifier` 지정 후 `apply` |
+| **1 (기본)** | api 시더 (SeedController) | smoke·개발·소규모(~수천). 매 run 신선, 스키마 자동 대응 | `loadtest/scripts/prepare-data.sh` |
+| **2 (대규모)** | bulk 시더 (`seeder` 프로파일, JDBC 배치) | 10만+ 행. 결정적(seed 고정)·학교 스큐 반영 | `SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh` |
+| **3 (opt-in 캐시)** | snapshot 복원 | 같은 대규모 데이터로 자주 반복할 때 | tfvars 에 `db_snapshot_identifier` 지정 후 `apply` |
 
 운영 규칙:
 
-1. 평소엔 **Tier 1(api)**. 유일한 source of truth — 스키마 바뀌어도 도메인 코드+Flyway 가 같이 움직여 그냥 동작한다.
-2. api 가 느려지면 **먼저 bulk 엔드포인트로**(SEED-001/002 는 한 호출에 N 건). 그래도 아프면 Tier 2.
-3. **Tier 2 는 "굽고 → 복원" 캐시.** 굽기:
+1. 평소엔 **Tier 1(api)** — 도메인 가드를 통과하는 정확한 baseline. 스키마 바뀌어도 도메인 코드+Flyway 가 같이 움직여 그냥 동작한다.
+2. 10만+ 가 필요하면 **Tier 2(bulk)** — SUT EC2 에서 앱 이미지를 `seeder` 프로파일로 1회 실행해 JDBC 배치로 직접 적재한다(`BulkSeedService`). `BULK_MEMBER_COUNT`·`BULK_RANDOM_SEED` 로 제어하고, 같은 seed 면 같은 데이터가 나온다(실행 간 비교 가능). **빈 DB 전제** — 재실행은 destroy/apply 후에.
+3. **Tier 3 은 bulk 로 구운 DB 를 얼린 캐시.** 굽기:
    ```bash
    # db_snapshot_identifier 를 비운 채 빈 RDS 로 시작
    terraform -chdir=loadtest/terraform apply
-   loadtest/scripts/prepare-data.sh                 # (필요 규모만큼 시딩)
+   SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh
    aws rds create-db-snapshot \
      --db-instance-identifier umc-loadtest-pg \
      --db-snapshot-identifier umc-loadtest-<migration_version>-<yyyymmdd>
    # → 출력된 snapshot id 를 tfvars 의 db_snapshot_identifier 에 넣는다. 이후 apply 는 즉시 복원(시딩 0).
    ```
-4. **재굽기 트리거 = 스키마(Flyway 마이그레이션) 또는 시드 모양 변경.** snapshot 이름에 마이그레이션 버전을 박아 stale 을 감지한다. 안 바뀌는 동안은 캐시로 무한 재사용.
-5. **캐시(snapshot)는 절대 유일 수단이 아니다.** api 시더가 항상 fallback 이자 재굽기 재료다. 얼린 캐시는 스키마 변경 비용을 떠안기 때문.
+4. **재굽기 트리거 = 스키마(Flyway 마이그레이션) 또는 시드 모양 변경.** snapshot 이름에 마이그레이션 버전을 박아 stale 을 감지한다. bulk 시더의 SQL(`BulkSeedJdbcAdapter`)은 도메인 가드를 우회하므로 스키마 변경 PR 에서 함께 검토한다.
+5. **캐시(snapshot)는 절대 유일 수단이 아니다.** 시더(api·bulk)가 항상 fallback 이자 재굽기 재료다. 얼린 캐시는 스키마 변경 비용을 떠안기 때문.
 
 ## 개념 한 줄 정리
 
