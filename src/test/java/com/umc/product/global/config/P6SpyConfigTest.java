@@ -2,8 +2,17 @@ package com.umc.product.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+import java.util.Properties;
+import java.util.regex.Pattern;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.jpa.repository.Query;
+
+import com.umc.product.global.event.adapter.out.persistence.EventOutboxJpaRepository;
 
 class P6SpyConfigTest {
 
@@ -94,6 +103,30 @@ class P6SpyConfigTest {
                 "recruiting_application"
             )
             .doesNotContain(PROBE_EMAIL, PROBE_KEY);
+    }
+
+    @Test
+    @DisplayName("P6Spy는 명시적인 제외 tag가 붙은 event outbox polling SQL만 로그에서 제외한다")
+    void P6Spy는_명시적인_제외_tag가_붙은_event_outbox_polling_SQL만_로그에서_제외한다()
+        throws NoSuchMethodException {
+        Pattern logFilter = loadSqlLogFilter();
+        Query pollingQuery = EventOutboxJpaRepository.class
+            .getMethod("findPublishableForUpdate", int.class, Instant.class)
+            .getAnnotation(Query.class);
+        String pollingSql = pollingQuery.value();
+
+        assertThat(pollingSql).contains("/* p6spy:exclude */");
+        assertThat(logFilter.matcher(pollingSql).matches()).isFalse();
+        assertThat(logFilter.matcher(pollingSql.replace("/* p6spy:exclude */", "")).matches()).isTrue();
+        assertThat(logFilter.matcher("select * from member where id = ?").matches()).isTrue();
+    }
+
+    private Pattern loadSqlLogFilter() {
+        YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
+        yaml.setResources(new ClassPathResource("application.yml"));
+        Properties properties = yaml.getObject();
+        assertThat(properties).isNotNull();
+        return Pattern.compile(properties.getProperty("decorator.datasource.p6spy.log-filter.pattern"));
     }
 
     private String format(String prepared, String sql) {

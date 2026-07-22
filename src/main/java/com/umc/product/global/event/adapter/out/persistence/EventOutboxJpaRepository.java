@@ -12,7 +12,7 @@ import com.umc.product.global.event.domain.EventOutbox;
 public interface EventOutboxJpaRepository extends JpaRepository<EventOutbox, Long> {
 
     @Query(value = """
-        SELECT *
+        SELECT /* p6spy:exclude */ *
         FROM event_outbox
         WHERE status IN ('PENDING', 'PROCESSING')
           AND next_attempt_at <= :now

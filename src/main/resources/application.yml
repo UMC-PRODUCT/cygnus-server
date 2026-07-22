@@ -183,6 +183,10 @@ decorator:
   datasource:
     p6spy:
       enable-logging: ${P6SPY_ENABLE_LOGGING:false}
+      # 명시적으로 p6spy:exclude tag를 붙인 반복 SQL만 라인 로그에서 제외한다.
+      # query 통계와 DB span에는 영향이 없으며, 새로운 제외 대상에는 반드시 의도를 드러내는 tag를 붙인다.
+      log-filter:
+        pattern: '(?s)^(?!.*p6spy:exclude).*$'
       tracing:
         include-parameter-values: false
 
