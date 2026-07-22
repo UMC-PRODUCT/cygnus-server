@@ -1,156 +1,216 @@
 extend type Query {
+  """지원자가 조회할 수 있는 공개 Recruiting round를 조직 조건으로 검색한다."""
   publicRecruitingRounds(input: RecruitingPublicRoundSearchInput!): [RecruitingPublicRoundGroup!]!
+  """Form 구조를 지원자의 1·2지망 트랙에 맞게 필터링하여 조회한다."""
   recruitingApplicationFormStructure(
     applicationFormId: ID!
     input: RecruitingApplicationFormStructureInput!
   ): RecruitingApplicationFormStructure!
+  """이메일과 application key로 비회원 지원서를 조회한다."""
   recruitingApplicationByCredential(
     input: RecruitingApplicationCredentialInput!
   ): RecruitingPublicApplication!
+  """인증된 지원자의 Recruiting 지원서를 조회한다."""
   recruitingApplication(applicationId: ID!): RecruitingApplication!
+  """운영자가 Recruiting season과 round를 조직 조건으로 검색한다."""
   recruitingRoundGroups(input: RecruitingRoundSearchInput!): [RecruitingSeasonSummary!]!
+  """같은 season 안에서 round 제목을 사용할 수 있는지 검사한다."""
   recruitingRoundTitleAvailable(seasonId: ID!, title: String!, excludedRoundId: ID): Boolean!
+  """Recruiting season의 quota와 round 설정을 조회한다."""
   recruitingSeasonConfiguration(seasonId: ID!): RecruitingSeasonConfiguration!
+  """Recruiting round에 배정된 평가자 Member 식별자를 조회한다."""
   recruitingRoundEvaluators(
     seasonId: ID!
     roundId: ID!
   ): [RecruitingRoundEvaluator!]!
+  """Recruiting round 공통 면접 질문을 조회한다."""
   recruitingRoundInterviewQuestions(seasonId: ID!, roundId: ID!): [RecruitingRoundInterviewQuestion!]!
+  """특정 지원서에 추가된 개별 면접 질문을 조회한다."""
   recruitingApplicationInterviewQuestions(
     seasonId: ID!
     applicationId: ID!
   ): [RecruitingApplicationInterviewQuestion!]!
+  """특정 지원서의 서류 또는 면접 평가를 조회한다."""
   recruitingApplicationEvaluations(
     applicationId: ID!
     stage: RecruitingEvaluatorStage!
   ): [RecruitingApplicationEvaluation!]!
+  """특정 지원서의 면접 일정을 조회한다."""
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
+  """조직 및 round 조건별 지원 상태 집계를 조회한다."""
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
+  """운영자가 round의 지원서 목록을 페이지로 조회한다."""
   recruitingRoundApplications(
     roundId: ID!
     input: RecruitingApplicationSearchInput
   ): RecruitingApplicationReviewPage!
+  """운영자가 지원서 답변을 포함한 review 상세를 조회한다."""
   recruitingRoundApplication(roundId: ID!, applicationId: ID!): RecruitingApplicationReviewDetail!
 }
 
-type Mutation {
+extend type Mutation {
+  """Organization Gisu와 School에 연결된 Recruiting season을 생성한다."""
   createRecruitingSeason(input: CreateRecruitingSeasonInput!): RecruitingIdPayload!
+  """Recruiting season의 메모를 수정한다."""
   updateRecruitingSeason(seasonId: ID!, input: UpdateRecruitingSeasonInput!): Boolean!
+  """Recruiting season의 트랙별 목표 인원을 전체 교체한다."""
   replaceRecruitingSeasonTrackQuotas(seasonId: ID!, input: ReplaceRecruitingSeasonTrackQuotasInput!): Boolean!
+  """Recruiting season에 round를 생성한다."""
   createRecruitingRound(seasonId: ID!, input: CreateRecruitingRoundInput!): RecruitingIdPayload!
+  """Recruiting round의 lifecycle 상태를 변경한다."""
   updateRecruitingRoundStatus(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundStatusInput!): Boolean!
+  """Recruiting round의 모집 설정을 수정한다."""
   updateRecruitingRound(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundInput!): Boolean!
+  """Recruiting round와 Form 사이의 지원 폼을 생성하거나 전체 동기화한다."""
   upsertRecruitingApplicationForm(
     seasonId: ID!
     roundId: ID!
     input: UpsertRecruitingApplicationFormInput!
   ): RecruitingIdPayload!
+  """기존 Recruiting round 설정을 대상 season으로 복제한다."""
   cloneRecruitingRound(
     seasonId: ID!
     roundId: ID!
     input: CloneRecruitingRoundInput!
   ): RecruitingIdPayload!
+  """Recruiting round를 삭제한다."""
   deleteRecruitingRound(seasonId: ID!, roundId: ID!): Boolean!
+  """Recruiting round 평가자로 Member를 추가한다."""
   addRecruitingRoundEvaluator(
     seasonId: ID!
     roundId: ID!
     input: RecruitingRoundEvaluatorInput!
   ): RecruitingIdPayload!
+  """Recruiting round 평가자에서 Member를 제거한다."""
   removeRecruitingRoundEvaluator(
     seasonId: ID!
     roundId: ID!
     input: RecruitingRoundEvaluatorInput!
   ): Boolean!
+  """Recruiting round 공통 면접 질문을 생성한다."""
   createRecruitingRoundInterviewQuestion(
     roundId: ID!
     input: RecruitingInterviewQuestionInput!
   ): RecruitingIdPayload!
+  """Recruiting round 공통 면접 질문을 수정한다."""
   updateRecruitingRoundInterviewQuestion(
     roundId: ID!
     questionId: ID!
     input: RecruitingInterviewQuestionInput!
   ): Boolean!
+  """Recruiting round 공통 면접 질문을 비활성화한다."""
   deactivateRecruitingRoundInterviewQuestion(roundId: ID!, questionId: ID!): Boolean!
+  """특정 지원서의 개별 면접 질문을 생성한다."""
   createRecruitingApplicationInterviewQuestion(
     applicationId: ID!
     input: RecruitingInterviewQuestionInput!
   ): RecruitingIdPayload!
+  """특정 지원서의 개별 면접 질문을 수정한다."""
   updateRecruitingApplicationInterviewQuestion(
     applicationId: ID!
     questionId: ID!
     input: RecruitingInterviewQuestionInput!
   ): Boolean!
+  """특정 지원서의 개별 면접 질문을 비활성화한다."""
   deactivateRecruitingApplicationInterviewQuestion(applicationId: ID!, questionId: ID!): Boolean!
+  """인증된 Member의 Recruiting 지원서 초안을 생성한다."""
   createRecruitingApplicationDraft(input: CreateRecruitingApplicationDraftInput!): RecruitingApplicationCreated!
+  """비회원 Recruiting 지원서 초안을 생성하고 application key를 발급한다."""
   createAnonymousRecruitingApplicationDraft(
     input: CreateAnonymousRecruitingApplicationDraftInput!
   ): RecruitingApplicationCreated!
+  """인증된 지원자의 지원서 초안과 Form 답변을 수정한다."""
   updateRecruitingApplicationDraft(
     applicationId: ID!
     input: UpdateRecruitingApplicationDraftInput!
   ): RecruitingApplication!
+  """application key로 비회원 지원서 초안과 Form 답변을 수정한다."""
   updateAnonymousRecruitingApplication(
     input: UpdateAnonymousRecruitingApplicationInput!
   ): RecruitingApplication!
+  """인증된 지원자의 Recruiting 지원서를 제출한다."""
   submitRecruitingApplication(applicationId: ID!, input: SubmitRecruitingApplicationInput): RecruitingApplication!
+  """application key로 비회원 Recruiting 지원서를 제출한다."""
   submitAnonymousRecruitingApplication(
     input: SubmitAnonymousRecruitingApplicationInput!
   ): RecruitingApplication!
+  """인증된 지원자의 Recruiting 지원을 취소한다."""
   cancelRecruitingApplication(applicationId: ID!, input: CancelRecruitingApplicationInput): RecruitingApplication!
+  """application key로 비회원 Recruiting 지원을 취소한다."""
   cancelAnonymousRecruitingApplication(
     input: RecruitingApplicationCredentialInput!
   ): RecruitingApplication!
+  """운영자가 서류 심사 결과를 결정한다."""
   decideRecruitingDocument(
     seasonId: ID!
     applicationId: ID!
     input: RecruitingDocumentDecisionInput!
   ): Boolean!
+  """운영자가 최종 심사 결과와 합격 트랙을 결정한다."""
   decideRecruitingFinal(
     seasonId: ID!
     applicationId: ID!
     input: RecruitingFinalDecisionInput!
   ): Boolean!
+  """합격자의 활동 등록을 준비 상태로 변경한다."""
   prepareRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
+  """합격자의 활동 등록 준비를 취소한다."""
   cancelRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
+  """합격자의 활동 등록을 확정한다."""
   confirmRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
+  """특정 지원자의 면접 절차를 생략한다."""
   skipRecruitingInterview(seasonId: ID!, applicationId: ID!, input: SkipRecruitingInterviewInput): Boolean!
+  """지원자에게 면접 가능 시간 Form 응답을 요청한다."""
   requestRecruitingInterviewAvailability(
     applicationId: ID!
     input: RequestRecruitingInterviewAvailabilityInput!
   ): RecruitingIdPayload!
+  """지원자가 작성한 면접 가능 시간 Form 응답을 제출한다."""
   submitRecruitingInterviewAvailability(
     applicationId: ID!
   ): Boolean!
+  """지원자의 면접 일정을 확정한다."""
   confirmRecruitingInterviewSchedule(
     applicationId: ID!
     input: ConfirmRecruitingInterviewScheduleInput!
   ): Boolean!
+  """평가자가 지원서의 서류 또는 면접 평가를 제출한다."""
   submitRecruitingApplicationEvaluation(
     applicationId: ID!
     input: RecruitingApplicationEvaluationInput!
   ): Boolean!
 }
 
+"""지원자의 트랙 선택에 따라 Form section을 필터링하는 조건."""
 input RecruitingApplicationFormStructureInput {
   firstChoice: ChallengerTrack!
   secondChoice: ChallengerTrack
 }
 
+"""비회원 지원서를 식별하는 자격 정보."""
 input RecruitingApplicationCredentialInput {
   email: String!
   applicationKey: String!
 }
 
+"""Recruiting 지원 현황 집계 조건."""
 input RecruitingStatusSummaryInput {
+  """Organization Gisu 식별자."""
   gisuId: ID!
+  """Organization School 식별자 목록."""
   schoolIds: [ID!]
+  """Recruiting round 식별자 목록."""
   roundIds: [ID!]
   schoolName: String
 }
 
+"""공개 Recruiting round 검색 조건."""
 input RecruitingPublicRoundSearchInput {
+  """Organization Gisu 식별자."""
   gisuId: ID!
+  """Organization Chapter 식별자."""
   chapterId: ID
+  """Organization School 식별자 목록."""
   schoolIds: [ID!]
   roundIds: [ID!]
   schoolName: String
@@ -160,34 +220,45 @@ input RecruitingPublicRoundSearchInput {
   sort: RecruitingRoundSort
 }
 
+"""운영자용 Recruiting round 검색 조건."""
 input RecruitingRoundSearchInput {
+  """Organization Gisu 식별자."""
   gisuId: ID!
+  """Organization Chapter 식별자."""
   chapterId: ID
+  """Organization School 식별자."""
   schoolId: ID
   seasonId: ID
   track: ChallengerTrack
   sort: RecruitingRoundSort
 }
 
+"""Recruiting season 생성 입력."""
 input CreateRecruitingSeasonInput {
+  """Organization Gisu 식별자."""
   gisuId: ID!
+  """Organization School 식별자."""
   schoolId: ID!
   quotas: [RecruitingSeasonTrackQuotaInput!]!
 }
 
+"""Recruiting season의 트랙별 목표 인원."""
 input RecruitingSeasonTrackQuotaInput {
   track: ChallengerTrack!
   targetCount: Int!
 }
 
+"""Recruiting season의 전체 트랙 quota 교체 입력."""
 input ReplaceRecruitingSeasonTrackQuotasInput {
   quotas: [RecruitingSeasonTrackQuotaInput!]!
 }
 
+"""Recruiting season 수정 입력."""
 input UpdateRecruitingSeasonInput {
   memo: String
 }
 
+"""Recruiting round 생성 입력."""
 input CreateRecruitingRoundInput {
   title: String!
   type: RecruitingRoundType!
@@ -201,11 +272,13 @@ input CreateRecruitingRoundInput {
   interviewStartAt: Instant
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
+  """면접 가능 시간 수집에 사용하는 Form 식별자."""
   availabilityFormId: ID
   announcement: String
   contactText: String
 }
 
+"""Recruiting round 수정 입력."""
 input UpdateRecruitingRoundInput {
   title: String!
   recruitableTracks: [ChallengerTrack!]!
@@ -217,15 +290,18 @@ input UpdateRecruitingRoundInput {
   interviewStartAt: Instant
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
+  """면접 가능 시간 수집에 사용하는 Form 식별자."""
   availabilityFormId: ID
   announcement: String
   contactText: String
 }
 
+"""Recruiting round 상태 변경 입력."""
 input UpdateRecruitingRoundStatusInput {
   status: RecruitingRoundStatus!
 }
 
+"""Recruiting round 복제 입력."""
 input CloneRecruitingRoundInput {
   targetSeasonId: ID!
   title: String!
@@ -233,11 +309,13 @@ input CloneRecruitingRoundInput {
   roundNo: Int
 }
 
+"""Recruiting 지원 폼 전체 동기화 입력."""
 input UpsertRecruitingApplicationFormInput {
   description: String
   sections: [UpsertRecruitingFormSectionInput!]!
 }
 
+"""Recruiting 정책을 포함한 FormSection 동기화 입력."""
 input UpsertRecruitingFormSectionInput {
   sectionId: ID
   clientKey: String!
@@ -248,6 +326,7 @@ input UpsertRecruitingFormSectionInput {
   questions: [UpsertRecruitingFormQuestionInput!]!
 }
 
+"""FormQuestion 동기화 입력."""
 input UpsertRecruitingFormQuestionInput {
   questionId: ID
   type: QuestionType!
@@ -257,13 +336,16 @@ input UpsertRecruitingFormQuestionInput {
   options: [UpsertRecruitingFormOptionInput!]!
 }
 
+"""FormOption 동기화 입력."""
 input UpsertRecruitingFormOptionInput {
   optionId: ID
   content: String!
   other: Boolean!
+  """선택 시 이동할 같은 요청 안의 section client key."""
   nextSectionKey: String
 }
 
+"""운영자용 Recruiting 지원서 검색 조건."""
 input RecruitingApplicationSearchInput {
   statuses: [RecruitingApplicationStatus!]
   tracks: [ChallengerTrack!]
@@ -271,16 +353,21 @@ input RecruitingApplicationSearchInput {
   size: Int
 }
 
+"""Recruiting round 평가자 지정 입력."""
 input RecruitingRoundEvaluatorInput {
+  """평가자로 지정할 Member 식별자."""
   evaluatorMemberId: ID!
 }
 
+"""Recruiting 면접 질문 생성·수정 입력."""
 input RecruitingInterviewQuestionInput {
   content: String!
   orderNo: Int!
 }
 
+"""인증된 Member의 Recruiting 지원서 초안 생성 입력."""
 input CreateRecruitingApplicationDraftInput {
+  """RecruitingApplicationForm 식별자."""
   applicationFormId: ID!
   applicantName: String!
   applicantEmail: String!
@@ -288,16 +375,20 @@ input CreateRecruitingApplicationDraftInput {
   secondChoice: ChallengerTrack
 }
 
+"""비회원 Recruiting 지원서 초안 생성 입력."""
 input CreateAnonymousRecruitingApplicationDraftInput {
+  """RecruitingApplicationForm 식별자."""
   applicationFormId: ID!
   applicantName: String!
   applicantEmail: String!
   firstChoice: ChallengerTrack!
   secondChoice: ChallengerTrack
+  """약관 도메인의 개인정보 동의 약관 식별자."""
   privacyTermId: ID!
   privacyAgreed: Boolean!
 }
 
+"""인증된 지원서 초안과 Form 답변 수정 입력."""
 input UpdateRecruitingApplicationDraftInput {
   applicantName: String!
   applicantEmail: String!
@@ -306,6 +397,7 @@ input UpdateRecruitingApplicationDraftInput {
   answers: [RecruitingAnswerInput!]!
 }
 
+"""비회원 지원서 초안과 Form 답변 수정 입력."""
 input UpdateAnonymousRecruitingApplicationInput {
   credentialEmail: String!
   applicationKey: String!
@@ -316,45 +408,56 @@ input UpdateAnonymousRecruitingApplicationInput {
   answers: [RecruitingAnswerInput!]!
 }
 
+"""비회원 지원서 제출 입력."""
 input SubmitAnonymousRecruitingApplicationInput {
   email: String!
   applicationKey: String!
 }
 
+"""FormQuestion에 대한 Recruiting 지원 답변 입력."""
 input RecruitingAnswerInput {
+  """FormQuestion 식별자."""
   questionId: ID!
   textValue: String
+  """선택한 FormOption 식별자 목록."""
   selectedOptionIds: [ID!]!
   fileIds: [String!]!
 }
 
+"""인증된 Recruiting 지원서 제출 부가 입력."""
 input SubmitRecruitingApplicationInput {
   submittedIp: String
 }
 
+"""Recruiting 지원 취소 입력."""
 input CancelRecruitingApplicationInput {
   reason: String
 }
 
+"""Recruiting 서류 심사 결정 입력."""
 input RecruitingDocumentDecisionInput {
   decision: RecruitingDecisionStatus!
   reason: String
 }
 
+"""Recruiting 최종 심사 결정 입력."""
 input RecruitingFinalDecisionInput {
   decision: RecruitingDecisionStatus!
   acceptedTrack: ChallengerTrack
   reason: String
 }
 
+"""Recruiting 면접 생략 입력."""
 input SkipRecruitingInterviewInput {
   reason: String
 }
 
+"""면접 가능 시간 요청 입력."""
 input RequestRecruitingInterviewAvailabilityInput {
   contactSnapshot: String!
 }
 
+"""면접 일정 확정 입력."""
 input ConfirmRecruitingInterviewScheduleInput {
   startsAt: Instant!
   endsAt: Instant!
@@ -362,374 +465,9 @@ input ConfirmRecruitingInterviewScheduleInput {
   contactSnapshot: String!
 }
 
+"""Recruiting 지원서 평가 제출 입력."""
 input RecruitingApplicationEvaluationInput {
   stage: RecruitingEvaluatorStage!
   decision: RecruitingApplicationEvaluationDecision!
   comment: String
-}
-
-type RecruitingApplicationForm {
-  applicationFormId: ID!
-  roundId: ID!
-  roundType: RecruitingRoundType!
-  roundNo: Int
-  formId: ID!
-  status: RecruitingApplicationFormStatus!
-}
-
-type RecruitingApplicationFormStructure implements Form {
-  formId: ID!
-  createdMemberId: ID!
-  title: String!
-  description: String
-  status: FormStatus!
-  anonymous: Boolean!
-  allowDuplicateResponses: Boolean!
-  createdAt: Instant!
-  updatedAt: Instant!
-  sections: [RecruitingFormSection!]!
-}
-
-type RecruitingFormSection implements FormSection {
-  sectionId: ID!
-  title: String!
-  description: String
-  orderNo: Int!
-  questions: [FormQuestion!]!
-}
-
-type RecruitingApplicationCreated {
-  applicationId: ID!
-  applicationKey: String!
-  status: RecruitingApplicationStatus!
-}
-
-type RecruitingApplication {
-  applicationId: ID!
-  status: RecruitingApplicationStatus!
-  registrationStatus: RecruitingApplicationRegistrationStatus!
-  firstChoice: ChallengerTrack!
-  secondChoice: ChallengerTrack
-  acceptedTrack: ChallengerTrack
-}
-
-type RecruitingPublicApplication {
-  applicationId: ID!
-  applicantName: String!
-  applicantEmail: String!
-  firstChoice: ChallengerTrack!
-  secondChoice: ChallengerTrack
-  submitted: Boolean!
-  cancelled: Boolean!
-  editable: Boolean!
-  documentResult: RecruitingPublicResultStatus!
-  finalResult: RecruitingPublicResultStatus!
-  acceptedTrack: ChallengerTrack
-  answers: [RecruitingPublicAnswer!]!
-}
-
-type RecruitingPublicAnswer {
-  questionId: ID!
-  textValue: String
-  selectedOptionIds: [ID!]!
-  fileIds: [String!]!
-  times: [Instant!]!
-}
-
-type RecruitingSeasonConfiguration {
-  id: ID!
-  gisuId: ID!
-  schoolId: ID!
-  memo: String
-  quotas: [RecruitingSeasonTrackQuota!]!
-  rounds: [RecruitingRoundConfiguration!]!
-}
-
-type RecruitingSeasonSummary {
-  seasonId: ID!
-  gisuId: ID!
-  chapterId: ID!
-  chapterName: String!
-  schoolId: ID!
-  schoolName: String!
-  memo: String
-  rounds: [RecruitingRoundConfiguration!]!
-}
-
-type RecruitingRoundSummary {
-  seasonId: ID!
-  gisuId: ID!
-  chapterId: ID!
-  chapterName: String!
-  schoolId: ID!
-  schoolName: String!
-  id: ID!
-  type: RecruitingRoundType!
-  roundNo: Int
-  status: RecruitingRoundStatus!
-  recruitableTracks: [ChallengerTrack!]!
-  secondChoiceEnabled: Boolean!
-  documentStartAt: Instant!
-  documentEndAt: Instant!
-  documentResultPublishedAt: Instant!
-  interviewRequired: Boolean!
-  interviewStartAt: Instant
-  interviewEndAt: Instant
-  finalResultPublishedAt: Instant!
-  availabilityFormId: ID
-  announcement: String
-  contactText: String
-}
-
-type RecruitingSeasonTrackQuota {
-  track: ChallengerTrack!
-  targetCount: Int!
-}
-
-type RecruitingRoundConfiguration {
-  id: ID!
-  title: String!
-  type: RecruitingRoundType!
-  roundNo: Int
-  status: RecruitingRoundStatus!
-  recruitableTracks: [ChallengerTrack!]!
-  secondChoiceEnabled: Boolean!
-  documentStartAt: Instant!
-  documentEndAt: Instant!
-  documentResultPublishedAt: Instant!
-  interviewRequired: Boolean!
-  interviewStartAt: Instant
-  interviewEndAt: Instant
-  finalResultPublishedAt: Instant!
-  availabilityFormId: ID
-  announcement: String
-  contactText: String
-}
-
-type RecruitingRoundEvaluator {
-  id: ID!
-  roundId: ID!
-  evaluatorMemberId: ID!
-}
-
-type RecruitingRoundInterviewQuestion {
-  id: ID!
-  roundId: ID!
-  content: String!
-  orderNo: Int!
-  active: Boolean!
-}
-
-type RecruitingApplicationInterviewQuestion {
-  id: ID!
-  applicationId: ID!
-  content: String!
-  orderNo: Int!
-  active: Boolean!
-}
-
-type RecruitingApplicationEvaluation {
-  id: ID!
-  applicationId: ID!
-  evaluatorMemberId: ID!
-  stage: RecruitingEvaluatorStage!
-  decision: RecruitingApplicationEvaluationDecision!
-  comment: String
-  submittedAt: Instant!
-}
-
-type RecruitingInterviewSchedule {
-  id: ID!
-  applicationId: ID!
-  status: RecruitingInterviewScheduleStatus!
-  startsAt: Instant
-  endsAt: Instant
-  location: String
-  contactSnapshot: String!
-}
-
-type RecruitingStatusSummary {
-  totalCount: Long!
-  countByStatus: [RecruitingStatusCount!]!
-  schools: [RecruitingSchoolStatusSummary!]!
-}
-
-type RecruitingSchoolStatusSummary {
-  schoolId: ID!
-  schoolName: String!
-  chapterId: ID!
-  chapterName: String!
-  totalCount: Long!
-  countByStatus: [RecruitingStatusCount!]!
-  rounds: [RecruitingRoundStatusSummary!]!
-}
-
-type RecruitingRoundStatusSummary {
-  roundId: ID!
-  roundTitle: String!
-  roundType: RecruitingRoundType!
-  roundNo: Int!
-  totalCount: Long!
-  countByStatus: [RecruitingStatusCount!]!
-}
-
-type RecruitingStatusCount {
-  status: RecruitingApplicationStatus!
-  count: Long!
-}
-
-type RecruitingPublicRoundGroup {
-  seasonId: ID!
-  gisuId: ID!
-  chapterId: ID!
-  chapterName: String!
-  schoolId: ID!
-  schoolName: String!
-  rounds: [RecruitingPublicRound!]!
-}
-
-type RecruitingPublicRound {
-  roundId: ID!
-  title: String!
-  type: RecruitingRoundType!
-  roundNo: Int!
-  recruitableTracks: [ChallengerTrack!]!
-  secondChoiceEnabled: Boolean!
-  documentStartAt: Instant!
-  documentEndAt: Instant!
-  documentResultPublishedAt: Instant!
-  interviewRequired: Boolean!
-  interviewStartAt: Instant
-  interviewEndAt: Instant
-  finalResultPublishedAt: Instant!
-  announcement: String
-  applicationFormId: ID!
-  formId: ID!
-  applicationOpen: Boolean!
-}
-
-type RecruitingApplicationReviewPage {
-  content: [RecruitingApplicationReview!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
-}
-
-type RecruitingApplicationReview {
-  applicationId: ID!
-  applicantName: String!
-  email: String!
-  applicantMemberId: ID
-  firstChoice: ChallengerTrack!
-  secondChoice: ChallengerTrack
-  acceptedTrack: ChallengerTrack
-  status: RecruitingApplicationStatus!
-  registrationStatus: RecruitingApplicationRegistrationStatus!
-  submittedAt: Instant!
-  documentEvaluatedByMe: Boolean!
-  interviewEvaluatedByMe: Boolean!
-}
-
-type RecruitingApplicationReviewDetail {
-  application: RecruitingApplicationReview!
-  formResponseId: ID!
-  answers: [RecruitingApplicationReviewAnswer!]!
-}
-
-type RecruitingApplicationReviewAnswer {
-  questionId: ID!
-  type: QuestionType!
-  textValue: String
-  selectedOptions: [RecruitingApplicationReviewSelectedOption!]!
-  fileIds: [String!]!
-  times: [Instant!]!
-}
-
-type RecruitingApplicationReviewSelectedOption {
-  questionOptionId: ID
-  answeredAsContent: String!
-}
-
-type RecruitingIdPayload {
-  id: ID!
-}
-
-enum RecruitingRoundType {
-  REGULAR
-  ADDITIONAL
-}
-
-enum RecruitingRoundStatus {
-  DRAFT
-  OPEN
-  CLOSED
-}
-
-enum RecruitingApplicationFormStatus {
-  DRAFT
-  PUBLISHED
-  CLOSED
-}
-
-enum RecruitingApplicationStatus {
-  DRAFT
-  SUBMITTED
-  DOCUMENT_FAILED
-  INTERVIEW_ASSIGNED
-  INTERVIEW_SKIPPED
-  FINAL_PASSED
-  FINAL_FAILED
-  CANCELLED
-}
-
-enum RecruitingApplicationRegistrationStatus {
-  NOT_READY
-  READY
-  REGISTERED
-}
-
-enum RecruitingDecisionStatus {
-  PASS
-  FAIL
-}
-
-enum RecruitingEvaluatorStage {
-  DOCUMENT
-  INTERVIEW
-}
-
-enum RecruitingApplicationEvaluationDecision {
-  APPROVED
-  REJECTED
-}
-
-enum RecruitingFormSectionType {
-  COMMON
-  TRACK
-}
-
-enum RecruitingInterviewScheduleStatus {
-  AVAILABILITY_REQUESTED
-  AVAILABILITY_SUBMITTED
-  CONFIRMED
-  CANCELLED
-}
-
-enum RecruitingRoundPhase {
-  OPEN
-  PAST
-}
-
-enum RecruitingRoundSort {
-  NEWEST
-  REGISTERED
-  RECRUITMENT
-}
-
-enum RecruitingPublicResultStatus {
-  PENDING
-  APPROVED
-  REJECTED
 }

@@ -173,7 +173,7 @@ GraphQL은 REST와 같은 UseCase를 사용한다. CSV만 REST 전용이다.
 
 `RECRUITING-SCHEDULE-001`과 GraphQL `submitRecruitingInterviewAvailability`는 외부 FormResponse ID를 받지 않는다. Form Issue #1146 병합 전까지 REST는 `501 RECRUITING-0419`를 반환하고 GraphQL은 같은 오류 코드를 extension으로 반환한다. 이후 Recruiting이 회원·비회원 일정 draft 생성, 수정, 제출과 내부 access key 보관을 직접 중개하는 계약으로 교체한다.
 
-정확한 input/output 계약은 [`recruiting.graphqls`](../../../src/main/resources/graphql/recruiting.graphqls)를 기준으로 한다.
+정확한 input/output 계약은 [`graphql/recruiting`](../../../src/main/resources/graphql/recruiting/README.md)를 기준으로 한다.
 
 ## CSV와 민감정보
 

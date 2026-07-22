@@ -1,0 +1,27 @@
+extend type Query {
+  """Project 식별자로 Project 표준 응답을 조회한다."""
+  project(id: ID!): Project
+  """Project 조건 검색 결과를 페이지로 조회한다."""
+  projects(input: ProjectSearchInput!, page: ProjectPageInput): ProjectPage!
+}
+
+"""Project 검색 조건."""
+input ProjectSearchInput {
+  """Project가 속한 Organization Gisu 식별자."""
+  gisuId: ID!
+  keyword: String
+  """Project가 속한 Organization Chapter 식별자."""
+  chapterId: ID
+  """product owner가 소속된 Organization School 식별자 목록."""
+  productOwnerSchoolIds: [ID!]
+  parts: [ChallengerPart!]
+  partQuotaStatus: PartQuotaStatus
+  statuses: [ProjectStatus!]
+}
+
+"""Project 검색 페이지와 정렬 조건."""
+input ProjectPageInput {
+  page: Int = 0
+  size: Int = 20
+  sort: [ProjectSort!] = [CREATED_AT_ASC, NAME_ASC]
+}

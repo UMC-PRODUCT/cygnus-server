@@ -1,0 +1,463 @@
+"""Recruiting round와 Form aggregate의 연결 및 게시 상태."""
+type RecruitingApplicationForm {
+  """Recruiting 도메인이 소유하는 지원 폼 mapping 식별자."""
+  applicationFormId: ID!
+  """이 지원 폼을 사용하는 Recruiting round 식별자."""
+  roundId: ID!
+  roundType: RecruitingRoundType!
+  roundNo: Int
+  """지원 질문 구조를 소유하는 Form aggregate 식별자."""
+  formId: ID!
+  status: RecruitingApplicationFormStatus!
+}
+
+"""Form 원본을 지원자의 트랙 선택에 맞게 필터링한 Recruiting 소유 응답."""
+type RecruitingApplicationFormStructure {
+  """원본 Form aggregate 식별자."""
+  formId: ID!
+  """원본 Form을 생성한 Member 식별자."""
+  createdMemberId: ID!
+  title: String!
+  description: String
+  status: FormStatus!
+  anonymous: Boolean!
+  allowDuplicateResponses: Boolean!
+  createdAt: Instant!
+  updatedAt: Instant!
+  """지원자의 트랙에 허용된 section만 표시 순서대로 제공한다."""
+  sections: [RecruitingFormSection!]!
+}
+
+"""FormSection을 Recruiting 지원 문맥에 맞게 변환한 응답."""
+type RecruitingFormSection {
+  """원본 FormSection 식별자."""
+  sectionId: ID!
+  title: String!
+  description: String
+  orderNo: Int!
+  questions: [RecruitingFormQuestion!]!
+}
+
+"""FormQuestion을 Recruiting 지원 문맥에 맞게 변환한 응답."""
+type RecruitingFormQuestion {
+  """원본 FormQuestion 식별자."""
+  questionId: ID!
+  title: String!
+  description: String
+  type: QuestionType!
+  required: Boolean!
+  orderNo: Int!
+  options: [RecruitingFormQuestionOption!]!
+}
+
+"""FormOption과 조건부 section 이동 정보를 Recruiting 문맥으로 제공하는 응답."""
+type RecruitingFormQuestionOption {
+  """원본 FormOption 식별자."""
+  optionId: ID!
+  content: String!
+  orderNo: Int!
+  other: Boolean!
+  """선택 시 이동할 RecruitingFormSection의 원본 FormSection 식별자."""
+  nextSectionId: ID
+}
+
+"""지원서 초안 생성 결과와 비회원 재접근용 key."""
+type RecruitingApplicationCreated {
+  applicationId: ID!
+  applicationKey: String!
+  status: RecruitingApplicationStatus!
+}
+
+"""Recruiting 도메인의 지원 진행 상태 응답."""
+type RecruitingApplication {
+  applicationId: ID!
+  status: RecruitingApplicationStatus!
+  registrationStatus: RecruitingApplicationRegistrationStatus!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  acceptedTrack: ChallengerTrack
+}
+
+"""application key로 조회하는 비회원 지원서와 결과 응답."""
+type RecruitingPublicApplication {
+  applicationId: ID!
+  applicantName: String!
+  applicantEmail: String!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  submitted: Boolean!
+  cancelled: Boolean!
+  editable: Boolean!
+  documentResult: RecruitingPublicResultStatus!
+  finalResult: RecruitingPublicResultStatus!
+  acceptedTrack: ChallengerTrack
+  answers: [RecruitingPublicAnswer!]!
+}
+
+"""비회원 지원서에 저장된 FormQuestion 답변."""
+type RecruitingPublicAnswer {
+  """원본 FormQuestion 식별자."""
+  questionId: ID!
+  textValue: String
+  """선택한 원본 FormOption 식별자 목록."""
+  selectedOptionIds: [ID!]!
+  fileIds: [String!]!
+  times: [Instant!]!
+}
+
+"""Recruiting season의 전체 운영 설정."""
+type RecruitingSeasonConfiguration {
+  id: ID!
+  """이 season이 속한 Organization Gisu 식별자."""
+  gisuId: ID!
+  """이 season이 속한 Organization School 식별자."""
+  schoolId: ID!
+  memo: String
+  quotas: [RecruitingSeasonTrackQuota!]!
+  rounds: [RecruitingRoundConfiguration!]!
+}
+
+"""조직 정보 snapshot과 round를 묶은 Recruiting season 검색 응답."""
+type RecruitingSeasonSummary {
+  seasonId: ID!
+  """Organization Gisu 식별자."""
+  gisuId: ID!
+  """Organization Chapter 식별자."""
+  chapterId: ID!
+  """검색 시점의 Chapter 이름 snapshot."""
+  chapterName: String!
+  """Organization School 식별자."""
+  schoolId: ID!
+  """검색 시점의 School 이름 snapshot."""
+  schoolName: String!
+  memo: String
+  rounds: [RecruitingRoundConfiguration!]!
+}
+
+"""조직 정보 snapshot을 포함한 Recruiting round 요약."""
+type RecruitingRoundSummary {
+  seasonId: ID!
+  gisuId: ID!
+  chapterId: ID!
+  chapterName: String!
+  schoolId: ID!
+  schoolName: String!
+  id: ID!
+  type: RecruitingRoundType!
+  roundNo: Int
+  status: RecruitingRoundStatus!
+  recruitableTracks: [ChallengerTrack!]!
+  secondChoiceEnabled: Boolean!
+  documentStartAt: Instant!
+  documentEndAt: Instant!
+  documentResultPublishedAt: Instant!
+  interviewRequired: Boolean!
+  interviewStartAt: Instant
+  interviewEndAt: Instant
+  finalResultPublishedAt: Instant!
+  """면접 가능 시간 수집에 사용하는 Form 식별자."""
+  availabilityFormId: ID
+  announcement: String
+  contactText: String
+}
+
+"""Recruiting season의 ChallengerTrack별 목표 인원."""
+type RecruitingSeasonTrackQuota {
+  track: ChallengerTrack!
+  targetCount: Int!
+}
+
+"""Recruiting round의 모집 기간과 전형 설정."""
+type RecruitingRoundConfiguration {
+  id: ID!
+  title: String!
+  type: RecruitingRoundType!
+  roundNo: Int
+  status: RecruitingRoundStatus!
+  recruitableTracks: [ChallengerTrack!]!
+  secondChoiceEnabled: Boolean!
+  documentStartAt: Instant!
+  documentEndAt: Instant!
+  documentResultPublishedAt: Instant!
+  interviewRequired: Boolean!
+  interviewStartAt: Instant
+  interviewEndAt: Instant
+  finalResultPublishedAt: Instant!
+  """면접 가능 시간 수집에 사용하는 Form 식별자."""
+  availabilityFormId: ID
+  announcement: String
+  contactText: String
+}
+
+"""Recruiting round와 평가자 Member의 배정 관계."""
+type RecruitingRoundEvaluator {
+  id: ID!
+  roundId: ID!
+  """평가자로 배정된 Member 식별자."""
+  evaluatorMemberId: ID!
+}
+
+"""Recruiting round의 모든 지원자에게 적용되는 면접 질문."""
+type RecruitingRoundInterviewQuestion {
+  id: ID!
+  roundId: ID!
+  content: String!
+  orderNo: Int!
+  active: Boolean!
+}
+
+"""특정 Recruiting 지원서에만 적용되는 면접 질문."""
+type RecruitingApplicationInterviewQuestion {
+  id: ID!
+  applicationId: ID!
+  content: String!
+  orderNo: Int!
+  active: Boolean!
+}
+
+"""평가자 Member가 제출한 Recruiting 지원서 평가."""
+type RecruitingApplicationEvaluation {
+  id: ID!
+  applicationId: ID!
+  """평가를 제출한 Member 식별자."""
+  evaluatorMemberId: ID!
+  stage: RecruitingEvaluatorStage!
+  decision: RecruitingApplicationEvaluationDecision!
+  comment: String
+  submittedAt: Instant!
+}
+
+"""Recruiting 지원서와 연결된 면접 일정."""
+type RecruitingInterviewSchedule {
+  id: ID!
+  applicationId: ID!
+  status: RecruitingInterviewScheduleStatus!
+  startsAt: Instant
+  endsAt: Instant
+  location: String
+  contactSnapshot: String!
+}
+
+"""조건에 맞는 Recruiting 지원 상태 집계."""
+type RecruitingStatusSummary {
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
+  schools: [RecruitingSchoolStatusSummary!]!
+}
+
+"""Organization School과 Chapter snapshot 기준 지원 상태 집계."""
+type RecruitingSchoolStatusSummary {
+  """Organization School 식별자."""
+  schoolId: ID!
+  """집계 시점의 School 이름 snapshot."""
+  schoolName: String!
+  """Organization Chapter 식별자."""
+  chapterId: ID!
+  """집계 시점의 Chapter 이름 snapshot."""
+  chapterName: String!
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
+  rounds: [RecruitingRoundStatusSummary!]!
+}
+
+"""Recruiting round별 지원 상태 집계."""
+type RecruitingRoundStatusSummary {
+  roundId: ID!
+  roundTitle: String!
+  roundType: RecruitingRoundType!
+  roundNo: Int!
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
+}
+
+"""RecruitingApplicationStatus별 지원서 수."""
+type RecruitingStatusCount {
+  status: RecruitingApplicationStatus!
+  count: Long!
+}
+
+"""공개 목록에서 Organization 조직 snapshot으로 묶은 Recruiting round 그룹."""
+type RecruitingPublicRoundGroup {
+  seasonId: ID!
+  """Organization Gisu 식별자."""
+  gisuId: ID!
+  """Organization Chapter 식별자."""
+  chapterId: ID!
+  chapterName: String!
+  """Organization School 식별자."""
+  schoolId: ID!
+  schoolName: String!
+  rounds: [RecruitingPublicRound!]!
+}
+
+"""지원자가 확인하는 Recruiting round 공개 정보."""
+type RecruitingPublicRound {
+  roundId: ID!
+  title: String!
+  type: RecruitingRoundType!
+  roundNo: Int!
+  recruitableTracks: [ChallengerTrack!]!
+  secondChoiceEnabled: Boolean!
+  documentStartAt: Instant!
+  documentEndAt: Instant!
+  documentResultPublishedAt: Instant!
+  interviewRequired: Boolean!
+  interviewStartAt: Instant
+  interviewEndAt: Instant
+  finalResultPublishedAt: Instant!
+  announcement: String
+  """RecruitingApplicationForm mapping 식별자."""
+  applicationFormId: ID!
+  """지원 질문 구조를 소유하는 Form aggregate 식별자."""
+  formId: ID!
+  applicationOpen: Boolean!
+}
+
+"""운영자용 Recruiting 지원서 review 페이지."""
+type RecruitingApplicationReviewPage {
+  content: [RecruitingApplicationReview!]!
+  page: Int!
+  size: Int!
+  totalElements: Long!
+  totalPages: Int!
+  hasNext: Boolean!
+}
+
+"""운영자 심사 목록에 표시하는 Recruiting 지원자 정보."""
+type RecruitingApplicationReview {
+  applicationId: ID!
+  applicantName: String!
+  email: String!
+  """회원 지원자인 경우 연결되는 Member 식별자."""
+  applicantMemberId: ID
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  acceptedTrack: ChallengerTrack
+  status: RecruitingApplicationStatus!
+  registrationStatus: RecruitingApplicationRegistrationStatus!
+  submittedAt: Instant!
+  documentEvaluatedByMe: Boolean!
+  interviewEvaluatedByMe: Boolean!
+}
+
+"""지원서 정보와 Form 답변을 결합한 운영자 review 상세."""
+type RecruitingApplicationReviewDetail {
+  application: RecruitingApplicationReview!
+  """Form 도메인이 소유하는 응답 aggregate 식별자."""
+  formResponseId: ID!
+  answers: [RecruitingApplicationReviewAnswer!]!
+}
+
+"""원본 FormQuestion과 연결된 Recruiting review 답변."""
+type RecruitingApplicationReviewAnswer {
+  """원본 FormQuestion 식별자."""
+  questionId: ID!
+  type: QuestionType!
+  textValue: String
+  selectedOptions: [RecruitingApplicationReviewSelectedOption!]!
+  fileIds: [String!]!
+  times: [Instant!]!
+}
+
+"""응답 시점의 FormOption 선택 snapshot."""
+type RecruitingApplicationReviewSelectedOption {
+  """원본 FormOption이 유지되는 경우의 식별자."""
+  questionOptionId: ID
+  answeredAsContent: String!
+}
+
+"""생성된 Recruiting resource 식별자."""
+type RecruitingIdPayload {
+  id: ID!
+}
+
+"""Recruiting round의 모집 종류."""
+enum RecruitingRoundType {
+  REGULAR
+  ADDITIONAL
+}
+
+"""Recruiting round의 공개 lifecycle 상태."""
+enum RecruitingRoundStatus {
+  DRAFT
+  OPEN
+  CLOSED
+}
+
+"""RecruitingApplicationForm mapping의 게시 상태."""
+enum RecruitingApplicationFormStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+"""Recruiting 지원서의 전형 진행 상태."""
+enum RecruitingApplicationStatus {
+  DRAFT
+  SUBMITTED
+  DOCUMENT_FAILED
+  INTERVIEW_ASSIGNED
+  INTERVIEW_SKIPPED
+  FINAL_PASSED
+  FINAL_FAILED
+  CANCELLED
+}
+
+"""최종 합격 후 Challenger 등록 상태."""
+enum RecruitingApplicationRegistrationStatus {
+  NOT_READY
+  READY
+  REGISTERED
+}
+
+"""운영자의 합격·불합격 결정."""
+enum RecruitingDecisionStatus {
+  PASS
+  FAIL
+}
+
+"""지원서 평가 단계."""
+enum RecruitingEvaluatorStage {
+  DOCUMENT
+  INTERVIEW
+}
+
+"""평가자 개인의 지원서 평가 결정."""
+enum RecruitingApplicationEvaluationDecision {
+  APPROVED
+  REJECTED
+}
+
+"""Recruiting 정책상 공통 또는 트랙별 FormSection 구분."""
+enum RecruitingFormSectionType {
+  COMMON
+  TRACK
+}
+
+"""면접 일정 조율 lifecycle 상태."""
+enum RecruitingInterviewScheduleStatus {
+  AVAILABILITY_REQUESTED
+  AVAILABILITY_SUBMITTED
+  CONFIRMED
+  CANCELLED
+}
+
+"""공개 round의 현재·과거 시점 필터."""
+enum RecruitingRoundPhase {
+  OPEN
+  PAST
+}
+
+"""Recruiting round 검색 정렬 방식."""
+enum RecruitingRoundSort {
+  NEWEST
+  REGISTERED
+  RECRUITMENT
+}
+
+"""지원자에게 공개하는 심사 결과 상태."""
+enum RecruitingPublicResultStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}

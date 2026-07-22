@@ -8,11 +8,12 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 
 | Task | Location | Notes |
 |------|----------|-------|
-| Shared schema | `common.graphqls`, `form.graphqls` | scalars, common enums, reusable form contracts |
-| Member schema | `member.graphqls` | `me`, `member`, `members` and member nested types |
-| Organization schema | `organization.graphqls` | gisu, chapter, school, organization payloads |
-| Project schema | `project.graphqls` | project search/detail and application/form nested types |
-| Recruiting schema | `recruiting.graphqls` | recruiting queries, mutations, and domain-specific types |
+| Contract guide | `README.md` | ownership, composition, direct reference/projection/snapshot rules |
+| Technical root/shared | `schema.graphqls`, `shared/` | root types and transport scalars only |
+| Challenger output | `challenger/output.graphqls` | challenger-owned enums |
+| Form output | `form/output.graphqls` | canonical form structure and enums |
+| Domain contracts | `{domain}/request.graphqls`, `{domain}/response.graphqls` | root/input and output declarations |
+| Domain relation guide | `{domain}/README.md` | field ownership and cross-domain relationships |
 | Runtime wiring | `src/main/java/com/umc/product/global/config/GraphQlRuntimeWiringConfig.java` | scalars and runtime wiring |
 | Resolver code | `src/main/java/com/umc/product/*/adapter/in/graphql` | controller and DTO mapping |
 | GraphQL docs | `docs/onboarding/graphql/README.md`, `docs/graphql-schema.md` | pilot design and schema snapshot |
@@ -20,8 +21,11 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 ## CONVENTIONS
 
 - Schema changes must be mirrored in `*GraphQlController` and `*GraphQlResponse` DTOs.
-- Treat all `*.graphqls` files as one IDL contract; domain files may extend roots and reference shared declarations.
-- Declare shared scalars, enums, and form types only in their owning common schema file.
+- Treat all `*.graphqls` files as one runtime schema; each directory remains the provider domain's standard IDL.
+- Keep `shared` limited to ownerless transport primitives. Business enums and object types belong to their provider domain.
+- Put root operations and inputs in `request.graphqls`; put outputs and enums in `response.graphqls` or `output.graphqls`.
+- Reference provider types directly only when semantics are unchanged. Filtered, enriched, or snapshot data belongs to a consumer-owned type and converter.
+- Document external IDs and transformed fields with GraphQL descriptions and update the owning directory's `README.md`.
 - Prefer explicit non-null markers only when the resolver can always satisfy the field.
 - Keep GraphQL request DTOs in `adapter/in/graphql/dto`.
 - Resolver code should delegate to application inbound UseCases; it must not call repositories directly.

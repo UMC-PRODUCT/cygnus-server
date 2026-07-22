@@ -18,68 +18,51 @@ import graphql.analysis.MaxQueryComplexityInstrumentation;
 import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.schema.GraphQLEnumType;
 import graphql.schema.GraphQLFieldDefinition;
-import graphql.schema.GraphQLInterfaceType;
 import graphql.schema.GraphQLList;
 import graphql.schema.GraphQLNamedType;
 import graphql.schema.GraphQLNonNull;
 import graphql.schema.GraphQLObjectType;
+import graphql.schema.GraphQLScalarType;
 import graphql.schema.GraphQLType;
 
 class GraphQlRuntimeWiringConfigTest {
 
     @Test
-    @DisplayName("Project와 Recruiting GraphQL schema는 공통 scalar wiring과 함께 로드된다")
-    void project와_Recruiting_GraphQL_schema는_공통_scalar_wiring과_함께_로드된다() throws IOException {
-        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
-            .getResources("classpath*:graphql/**/*.graphqls");
+    @DisplayName("중첩 디렉터리의 도메인 GraphQL IDL을 하나의 schema로 조립한다")
+    void nestedDomainGraphQlContractsAreLoadedAsOneSchema() throws IOException {
+        Resource[] schemaResources = schemaResources();
 
-        assertThat(Arrays.stream(schemaResources).map(Resource::getFilename))
-            .contains("organization.graphqls", "project.graphqls", "recruiting.graphqls");
+        assertThat(Arrays.stream(schemaResources).map(Resource::getDescription))
+            .anyMatch(description -> description.contains("graphql/project/request.graphqls"))
+            .anyMatch(description -> description.contains("graphql/project/response.graphqls"))
+            .anyMatch(description -> description.contains("graphql/recruiting/request.graphqls"))
+            .anyMatch(description -> description.contains("graphql/recruiting/response.graphqls"));
 
-        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
-            .schemaResources(schemaResources)
-            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
-            .build();
+        GraphQlSource graphQlSource = graphQlSource(schemaResources);
 
         assertThat(graphQlSource.schema().getType("Project")).isNotNull();
         assertThat(graphQlSource.schema().getType("RecruitingApplicationForm")).isNotNull();
-        assertThat(graphQlSource.schema().getType("Long")).isNotNull();
-        assertThat(graphQlSource.schema().getType("Instant")).isNotNull();
+        assertThat(graphQlSource.schema().getType("Long")).isInstanceOf(GraphQLScalarType.class);
+        assertThat(graphQlSource.schema().getType("Instant")).isInstanceOf(GraphQLScalarType.class);
     }
 
     @Test
-    @DisplayName("공통 GraphQL schema는 common과 form 계약을 모두 로드한다")
-    void sharedGraphQlSchemaLoadsCommonAndFormContracts() throws IOException {
-        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
-            .getResources("classpath*:graphql/**/*.graphqls");
+    @DisplayName("Challenger와 Form provider IDL은 표준 output 계약을 제공한다")
+    void providerGraphQlContractsExposeCanonicalOutputs() throws IOException {
+        GraphQlSource graphQlSource = graphQlSource(schemaResources());
 
-        assertThat(Arrays.stream(schemaResources).map(Resource::getFilename))
-            .contains("common.graphqls", "form.graphqls");
+        assertThat(graphQlSource.schema().getType("ChallengerPart")).isInstanceOf(GraphQLEnumType.class);
+        assertThat(graphQlSource.schema().getType("ChallengerTrack")).isInstanceOf(GraphQLEnumType.class);
+        assertThat(graphQlSource.schema().getType("ChallengerStatus")).isInstanceOf(GraphQLEnumType.class);
+        assertThat(graphQlSource.schema().getType("Form")).isInstanceOf(GraphQLObjectType.class);
+        assertThat(graphQlSource.schema().getType("FormSection")).isInstanceOf(GraphQLObjectType.class);
+        assertThat(graphQlSource.schema().getType("FormQuestion")).isInstanceOf(GraphQLObjectType.class);
+        assertThat(graphQlSource.schema().getType("FormOption")).isInstanceOf(GraphQLObjectType.class);
 
-        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
-            .schemaResources(schemaResources)
-            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
-            .build();
-
-        assertThat(graphQlSource.schema().getType("Long")).isInstanceOf(graphql.schema.GraphQLScalarType.class);
-        assertThat(graphQlSource.schema().getType("Instant"))
-            .isInstanceOf(graphql.schema.GraphQLScalarType.class);
-        assertThat(graphQlSource.schema().getType("ChallengerPart"))
-            .isInstanceOf(GraphQLEnumType.class);
-        assertThat(graphQlSource.schema().getType("ChallengerTrack"))
-            .isInstanceOf(GraphQLEnumType.class);
-        assertThat(graphQlSource.schema().getType("Form"))
-            .isInstanceOf(GraphQLInterfaceType.class);
-        assertThat(graphQlSource.schema().getType("FormSection"))
-            .isInstanceOf(GraphQLInterfaceType.class);
-        assertThat(graphQlSource.schema().getType("FormQuestion"))
-            .isInstanceOf(GraphQLObjectType.class);
-        assertThat(graphQlSource.schema().getType("FormOption"))
-            .isInstanceOf(GraphQLObjectType.class);
-
-        assertFieldNames((GraphQLInterfaceType) graphQlSource.schema().getType("Form"),
-            "title", "description", "sections");
-        assertFieldNames((GraphQLInterfaceType) graphQlSource.schema().getType("FormSection"),
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("Form"),
+            "formId", "createdMemberId", "title", "description", "status", "anonymous",
+            "allowDuplicateResponses", "createdAt", "updatedAt", "sections");
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("FormSection"),
             "sectionId", "title", "description", "orderNo", "questions");
         assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("FormQuestion"),
             "questionId", "type", "title", "description", "required", "orderNo", "options");
@@ -100,48 +83,35 @@ class GraphQlRuntimeWiringConfigTest {
     }
 
     @Test
-    @DisplayName("Recruiting GraphQL은 공통 form 조회 계약을 재사용한다")
-    void recruitingGraphQlSchemaUsesSharedFormContracts() throws IOException {
-        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
-            .getResources("classpath*:graphql/**/*.graphqls");
-
-        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
-            .schemaResources(schemaResources)
-            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
-            .build();
+    @DisplayName("Recruiting GraphQL은 Form을 트랙 정책에 맞춘 자체 projection으로 제공한다")
+    void recruitingGraphQlUsesDomainOwnedFormProjection() throws IOException {
+        GraphQlSource graphQlSource = graphQlSource(schemaResources());
 
         GraphQLObjectType recruitingForm =
             (GraphQLObjectType) graphQlSource.schema().getType("RecruitingApplicationFormStructure");
-        assertThat(recruitingForm.getInterfaces())
-            .extracting(interfaceType -> interfaceType.getName())
-            .containsExactly("Form");
+        assertThat(recruitingForm.getInterfaces()).isEmpty();
         assertThat(typeName(recruitingForm.getFieldDefinition("sections").getType()))
             .isEqualTo("[RecruitingFormSection!]!");
 
         GraphQLObjectType recruitingSection =
             (GraphQLObjectType) graphQlSource.schema().getType("RecruitingFormSection");
-        assertThat(recruitingSection.getInterfaces())
-            .extracting(interfaceType -> interfaceType.getName())
-            .containsExactly("FormSection");
+        assertThat(recruitingSection.getInterfaces()).isEmpty();
         assertThat(typeName(recruitingSection.getFieldDefinition("questions").getType()))
-            .isEqualTo("[FormQuestion!]!");
+            .isEqualTo("[RecruitingFormQuestion!]!");
 
-        assertThat(graphQlSource.schema().getType("RecruitingFormQuestion")).isNull();
-        assertThat(graphQlSource.schema().getType("RecruitingFormQuestionOption")).isNull();
+        GraphQLObjectType recruitingQuestion =
+            (GraphQLObjectType) graphQlSource.schema().getType("RecruitingFormQuestion");
+        assertThat(typeName(recruitingQuestion.getFieldDefinition("options").getType()))
+            .isEqualTo("[RecruitingFormQuestionOption!]!");
     }
 
     @Test
-    @DisplayName("Project GraphQL은 공통 Member와 shared form 구현 계약을 노출한다")
-    void projectGraphQlSchemaUsesMemberAndFormImplementations() throws IOException {
-        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
-            .getResources("classpath*:graphql/**/*.graphqls");
-
-        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
-            .schemaResources(schemaResources)
-            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
-            .build();
+    @DisplayName("Project GraphQL은 canonical Member와 Project 소유 Form projection을 제공한다")
+    void projectGraphQlUsesCanonicalMemberAndDomainOwnedFormProjection() throws IOException {
+        GraphQlSource graphQlSource = graphQlSource(schemaResources());
 
         assertThat(graphQlSource.schema().getType("MemberSummary")).isNull();
+        assertThat(graphQlSource.schema().getType("MemberBrief")).isNull();
         assertThat(graphQlSource.schema().getType("Member")).isInstanceOf(GraphQLObjectType.class);
 
         GraphQLObjectType project = (GraphQLObjectType) graphQlSource.schema().getType("Project");
@@ -149,46 +119,36 @@ class GraphQlRuntimeWiringConfigTest {
         assertThat(typeName(project.getFieldDefinition("coProductOwners").getType()))
             .isEqualTo("[Member!]!");
 
-        GraphQLObjectType projectApplicationForm =
+        GraphQLObjectType projectForm =
             (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationForm");
-        assertThat(projectApplicationForm.getInterfaces())
-            .extracting(interfaceType -> interfaceType.getName())
-            .containsExactly("Form");
-        assertFieldNames(projectApplicationForm,
+        assertThat(projectForm.getInterfaces()).isEmpty();
+        assertFieldNames(projectForm,
             "projectId", "applicationFormId", "title", "description", "sections");
-        assertThat(typeName(projectApplicationForm.getFieldDefinition("sections").getType()))
-            .isEqualTo("[ApplicationFormSection!]!");
+        assertThat(typeName(projectForm.getFieldDefinition("sections").getType()))
+            .isEqualTo("[ProjectApplicationFormSection!]!");
 
-        GraphQLObjectType applicationFormSection =
-            (GraphQLObjectType) graphQlSource.schema().getType("ApplicationFormSection");
-        assertThat(applicationFormSection.getInterfaces())
-            .extracting(interfaceType -> interfaceType.getName())
-            .containsExactly("FormSection");
-        assertFieldNames(applicationFormSection,
+        GraphQLObjectType projectSection =
+            (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationFormSection");
+        assertThat(projectSection.getInterfaces()).isEmpty();
+        assertFieldNames(projectSection,
             "sectionId", "type", "allowedParts", "title", "description", "orderNo", "questions");
-        assertThat(typeName(applicationFormSection.getFieldDefinition("questions").getType()))
-            .isEqualTo("[FormQuestion!]!");
+        assertThat(typeName(projectSection.getFieldDefinition("questions").getType()))
+            .isEqualTo("[ProjectApplicationFormQuestion!]!");
 
         GraphQLObjectType responseQuestion =
             (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationResponseQuestion");
         assertThat(typeName(responseQuestion.getFieldDefinition("options").getType()))
-            .isEqualTo("[FormOption!]!");
+            .isEqualTo("[ProjectApplicationFormOption!]!");
 
-        assertThat(graphQlSource.schema().getType("MemberBrief")).isNull();
+        assertThat(graphQlSource.schema().getType("ApplicationFormSection")).isNull();
         assertThat(graphQlSource.schema().getType("ApplicationFormQuestion")).isNull();
         assertThat(graphQlSource.schema().getType("ApplicationFormOption")).isNull();
     }
 
     @Test
-    @DisplayName("Organization GraphQL은 Gisu, Chapter, School 단일 타입을 사용한다")
-    void organizationGraphQlSchemaUsesCanonicalTypes() throws IOException {
-        Resource[] schemaResources = new PathMatchingResourcePatternResolver()
-            .getResources("classpath*:graphql/**/*.graphqls");
-
-        GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
-            .schemaResources(schemaResources)
-            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
-            .build();
+    @DisplayName("Organization GraphQL은 Gisu, Chapter, School canonical type을 사용한다")
+    void organizationGraphQlUsesCanonicalTypes() throws IOException {
+        GraphQlSource graphQlSource = graphQlSource(schemaResources());
 
         GraphQLObjectType gisu = (GraphQLObjectType) graphQlSource.schema().getType("Gisu");
         GraphQLObjectType chapter = (GraphQLObjectType) graphQlSource.schema().getType("Chapter");
@@ -205,24 +165,24 @@ class GraphQlRuntimeWiringConfigTest {
         assertThat(graphQlSource.schema().getType("GisuChapter")).isNull();
         assertThat(graphQlSource.schema().getType("ChapterSchool")).isNull();
         assertThat(graphQlSource.schema().getType("GisuSchool")).isNull();
-        assertThat(graphQlSource.schema().getType("SchoolName")).isNull();
         assertThat(graphQlSource.schema().getType("SchoolDetail")).isNull();
     }
 
     @Test
-    @DisplayName("Project GraphQL schema는 shared 선언을 소유하지 않는다")
-    void projectGraphQlSchemaDoesNotOwnSharedDeclarations() throws IOException {
+    @DisplayName("Project response IDL은 provider 선언을 재정의하지 않는다")
+    void projectGraphQlResponseDoesNotOwnProviderDeclarations() throws IOException {
         Resource projectSchema = new PathMatchingResourcePatternResolver()
-            .getResource("classpath:graphql/project.graphqls");
-        String projectSchemaSource = new String(projectSchema.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            .getResource("classpath:graphql/project/response.graphqls");
+        String source = new String(projectSchema.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
-        assertThat(projectSchemaSource)
-            .doesNotContain("scalar Long", "enum ChallengerPart", "enum FormResponseStatus", "enum QuestionType");
+        assertThat(source)
+            .doesNotContain("scalar Long", "enum ChallengerPart", "enum FormResponseStatus", "enum QuestionType",
+                "type Member {", "type Form {");
     }
 
     @Test
     @DisplayName("GraphQL 실행 제한은 timeout과 depth, complexity 빈으로 구성된다")
-    void GraphQL_실행_제한은_timeout과_depth_complexity_빈으로_구성된다() {
+    void graphQlExecutionLimitsAreConfigured() {
         GraphQlExecutionProperties properties = new GraphQlExecutionProperties(Duration.ofSeconds(5), 10, 200);
         GraphQlExecutionConfig config = new GraphQlExecutionConfig();
 
@@ -232,6 +192,18 @@ class GraphQlRuntimeWiringConfigTest {
             .isInstanceOf(MaxQueryDepthInstrumentation.class);
         assertThat(config.graphQlMaxQueryComplexityInstrumentation(properties))
             .isInstanceOf(MaxQueryComplexityInstrumentation.class);
+    }
+
+    private Resource[] schemaResources() throws IOException {
+        return new PathMatchingResourcePatternResolver()
+            .getResources("classpath*:graphql/**/*.graphqls");
+    }
+
+    private GraphQlSource graphQlSource(Resource[] schemaResources) {
+        return GraphQlSource.schemaResourceBuilder()
+            .schemaResources(schemaResources)
+            .configureRuntimeWiring(new GraphQlRuntimeWiringConfig().graphQlRuntimeWiringConfigurer())
+            .build();
     }
 
     private void assertFieldNames(graphql.schema.GraphQLFieldsContainer type, String... fieldNames) {

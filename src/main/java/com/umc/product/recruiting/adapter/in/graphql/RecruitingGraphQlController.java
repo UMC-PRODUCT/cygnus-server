@@ -8,6 +8,7 @@ import org.springframework.stereotype.Controller;
 
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.recruiting.adapter.in.graphql.converter.RecruitingApplicationFormStructureGraphQlConverter;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CancelRecruitingApplicationGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateAnonymousRecruitingApplicationDraftGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingApplicationDraftGraphQlRequest;
@@ -71,7 +72,7 @@ public class RecruitingGraphQlController {
         @Argument Long applicationFormId,
         @Argument RecruitingApplicationFormStructureGraphQlRequest input
     ) {
-        return RecruitingApplicationFormStructureGraphQlResponse.from(
+        return RecruitingApplicationFormStructureGraphQlConverter.from(
             getFormQueryUseCase.getPublicFormStructure(
                 applicationFormId,
                 input.firstChoice(),

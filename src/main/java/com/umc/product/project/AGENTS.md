@@ -56,7 +56,7 @@ project/
 
 - Do not add another responsibility to existing large services without checking extraction first.
 - Do not compute permissions in controllers.
-- Do not add GraphQL fields without updating `src/main/resources/graphql/project.graphqls`.
+- Do not add GraphQL fields without updating `src/main/resources/graphql/project/` and its `README.md`.
 - Do not query member/organization internals directly; use public UseCases or IDs.
 - Do not make application-form changes without checking form policy and existing large test suites.
 - Do not bypass domain methods for status transitions.

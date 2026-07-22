@@ -1,39 +1,31 @@
-type Query {
-  gisuOrganizations(input: GisuOrganizationInput!): GisuOrganizationPayload!
-  gisu(id: ID!): Gisu!
-  activeGisu: Gisu!
-  chapters: [Chapter!]!
-  chapter(id: ID!): Chapter!
-  schools: [School!]!
-  school(id: ID!): School!
-}
-
-input GisuOrganizationInput {
-  ids: [ID!]
-  generations: [ID!]
-  active: Boolean
-}
-
+"""Gisu 조직도 조회 결과."""
 type GisuOrganizationPayload {
   gisus: [Gisu!]!
 }
 
+"""Organization 도메인이 표준으로 제공하는 기수 응답."""
 type Gisu {
   id: ID!
+  """사람이 인식하는 기수 번호."""
   generation: ID!
   startAt: String!
   endAt: String!
   active: Boolean!
+  """이 Gisu에 편성된 Chapter 목록."""
   chapters: [Chapter!]!
+  """이 Gisu에 참여한 School 목록."""
   schools: [School!]!
 }
 
+"""Organization 도메인이 표준으로 제공하는 지부 응답."""
 type Chapter {
   id: ID!
   name: String!
+  """이 Chapter에 소속된 School 목록."""
   schools: [School!]!
 }
 
+"""Organization 도메인이 표준으로 제공하는 학교 응답."""
 type School {
   id: ID!
   name: String!
@@ -45,12 +37,14 @@ type School {
   updatedAt: String!
 }
 
+"""School의 외부 채널 링크."""
 type SchoolLink {
   title: String
   type: SchoolLinkType!
   url: String!
 }
 
+"""School 외부 채널 종류."""
 enum SchoolLinkType {
   KAKAO
   YOUTUBE

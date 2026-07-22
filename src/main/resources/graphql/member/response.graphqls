@@ -1,23 +1,4 @@
-extend type Query {
-  me: Member!
-  member(id: ID!): Member
-  members(ids: [ID!]!): [Member!]!
-  memberSearch(input: MemberSearchInput!, page: MemberPageInput): MemberPage!
-}
-
-input MemberSearchInput {
-  keyword: String
-  gisuId: ID
-  part: ChallengerPart
-  chapterId: ID
-  schoolId: ID
-}
-
-input MemberPageInput {
-  page: Int = 0
-  size: Int = 20
-}
-
+"""Member 검색 결과 페이지."""
 type MemberPage {
   content: [MemberSearchResult!]!
   page: Int!
@@ -27,12 +8,15 @@ type MemberPage {
   hasNext: Boolean!
 }
 
+"""검색에 필요한 Member 정보와 Challenger projection을 함께 제공하는 응답."""
 type MemberSearchResult {
   memberId: ID!
   name: String
   nickname: String
   email: String
+  """Organization School을 조회하기 위한 식별자."""
   schoolId: ID
+  """schoolId로 연결한 Organization 도메인의 표준 School 응답."""
   school: School
   profileImageLink: String
   currentChallenger: MemberSearchChallenger
@@ -40,47 +24,50 @@ type MemberSearchResult {
   challengerRecords: [MemberSearchChallenger!]!
 }
 
+"""Member 검색 문맥에 맞게 변환한 Challenger 이력."""
 type MemberSearchChallenger {
   challengerId: ID!
   gisuId: ID!
+  """gisuId로 연결한 Organization 도메인의 표준 Gisu 응답."""
   gisu: Gisu
   generation: ID!
   part: ChallengerPart!
   challengerStatus: ChallengerStatus!
 }
 
+"""Member 도메인이 표준으로 제공하는 회원 응답."""
 type Member {
   memberId: ID!
   name: String
   nickname: String
   email: String
+  """Organization School을 조회하기 위한 식별자."""
   schoolId: ID
+  """Member 저장 시점의 학교명 문자열. 최신 학교 정보는 school field를 사용한다."""
   schoolName: String
   profileImageLink: String
   status: MemberStatus
+  """schoolId로 연결한 Organization 도메인의 표준 School 응답."""
   school: School
+  """Challenger 도메인 정보를 Member 조회 문맥에 맞게 변환한 활동 이력."""
   challengers: [MemberChallenger!]!
 }
 
+"""Member account lifecycle 상태."""
 enum MemberStatus {
   ACTIVE
   INACTIVE
   WITHDRAWN
 }
 
+"""Challenger 정보를 Member 조회 문맥에 맞게 변환한 응답."""
 type MemberChallenger {
   challengerId: ID!
   memberId: ID!
   gisuId: ID!
+  """gisuId로 연결한 Organization 도메인의 표준 Gisu 응답."""
   gisu: Gisu
   part: ChallengerPart
   tracks: [ChallengerTrack!]!
   status: ChallengerStatus!
-}
-
-enum ChallengerStatus {
-  ACTIVE
-  GRADUATED
-  EXPELLED
-  WITHDRAWN
 }

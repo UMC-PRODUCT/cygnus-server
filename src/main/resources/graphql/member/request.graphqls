@@ -1,0 +1,28 @@
+extend type Query {
+  """인증된 요청자의 Member 표준 응답을 조회한다."""
+  me: Member!
+  """Member 식별자로 Member 표준 응답을 조회한다."""
+  member(id: ID!): Member
+  """여러 Member 식별자를 입력 순서대로 일괄 조회한다."""
+  members(ids: [ID!]!): [Member!]!
+  """Member와 현재·과거 Challenger 이력을 조건과 페이지로 검색한다."""
+  memberSearch(input: MemberSearchInput!, page: MemberPageInput): MemberPage!
+}
+
+"""Member 검색 조건."""
+input MemberSearchInput {
+  keyword: String
+  """Challenger가 활동한 Organization Gisu 식별자."""
+  gisuId: ID
+  part: ChallengerPart
+  """Challenger가 활동한 Organization Chapter 식별자."""
+  chapterId: ID
+  """Member가 소속된 Organization School 식별자."""
+  schoolId: ID
+}
+
+"""Member 검색 페이지 조건."""
+input MemberPageInput {
+  page: Int = 0
+  size: Int = 20
+}

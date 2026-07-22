@@ -1,0 +1,5 @@
+"""64-bit signed integer value."""
+scalar Long
+
+"""ISO-8601 UTC instant value."""
+scalar Instant

@@ -1,0 +1,26 @@
+extend type Query {
+  """조건에 맞는 Gisu와 하위 Chapter·School 조직도를 조회한다."""
+  gisuOrganizations(input: GisuOrganizationInput!): GisuOrganizationPayload!
+  """Gisu 식별자로 표준 Gisu 응답을 조회한다."""
+  gisu(id: ID!): Gisu!
+  """현재 활성 Gisu를 조회한다."""
+  activeGisu: Gisu!
+  """전체 Chapter 표준 응답을 조회한다."""
+  chapters: [Chapter!]!
+  """Chapter 식별자로 표준 Chapter 응답을 조회한다."""
+  chapter(id: ID!): Chapter!
+  """전체 School 표준 응답을 조회한다."""
+  schools: [School!]!
+  """School 식별자로 표준 School 응답을 조회한다."""
+  school(id: ID!): School!
+}
+
+"""Gisu 조직도 검색 조건."""
+input GisuOrganizationInput {
+  """조회할 Gisu 식별자 목록."""
+  ids: [ID!]
+  """조회할 기수 번호 목록."""
+  generations: [ID!]
+  """활성 상태 필터."""
+  active: Boolean
+}

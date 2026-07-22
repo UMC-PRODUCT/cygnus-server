@@ -28,6 +28,7 @@ import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.project.adapter.in.graphql.converter.ProjectApplicationFormGraphQlConverter;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectGraphQlResponse;
@@ -125,7 +126,7 @@ public class ProjectGraphQlController {
         Map<ProjectGraphQlResponse, ProjectApplicationFormGraphQlResponse> result = new LinkedHashMap<>();
         for (ProjectGraphQlResponse project : projects) {
             ApplicationFormInfo form = formsByProjectId.get(project.id());
-            result.put(project, form == null ? null : ProjectApplicationFormGraphQlResponse.from(form));
+            result.put(project, form == null ? null : ProjectApplicationFormGraphQlConverter.from(form));
         }
         return result;
     }

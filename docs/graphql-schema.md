@@ -1,174 +1,54 @@
-# GraphQL Schema
+# GraphQL Schema Snapshot
 
-현재 GraphQL pilot은 여섯 SDL 파일을 Spring GraphQL이 합쳐 하나의 unified schema로 로드한다.
-파일은 선언 소유권을 나누지만 endpoint와 전역 type namespace는 공유한다.
+GraphQL pilot은 `src/main/resources/graphql` 아래의 도메인 IDL을 하나의 runtime schema로 조립한다.
+파일 구조와 소유권 규칙은 [GraphQL IDL README](../src/main/resources/graphql/README.md), 설계 기준은
+[GraphQL Schema 관계](onboarding/graphql/schema-relationships.md)를 참고한다.
 
-| 파일 | 소유 계약 |
-| --- | --- |
-| `common.graphqls` | `Long`, `Instant`, `ChallengerPart`, `ChallengerTrack` |
-| `form.graphqls` | 공통 Form interface, 질문·옵션 type, form enum |
-| `member.graphqls` | canonical `Member`와 member query |
-| `organization.graphqls` | root `Query`, canonical `Gisu`, `Chapter`, `School` |
-| `project.graphqls` | Project query와 Project concrete type |
-| `recruiting.graphqls` | root `Mutation`, Recruiting query·mutation과 concrete type |
+## Root
 
 ```mermaid
 flowchart TD
-  Common["common.graphqls"] --> Loader["Spring GraphQL schema loader"]
-  FormFile["form.graphqls"] --> Loader
-  MemberFile["member.graphqls"] --> Loader
-  OrganizationFile["organization.graphqls"] --> Loader
-  ProjectFile["project.graphqls"] --> Loader
-  RecruitingFile["recruiting.graphqls"] --> Loader
-  Loader --> Schema["Unified Schema"]
-  Schema --> Query["Query"]
-  Schema --> Mutation["Mutation"]
-  Query --> MemberQuery["me, member, members, memberSearch"]
-  Query --> OrganizationQuery["gisuOrganizations, gisu, activeGisu, chapters, chapter, schools, school"]
-  Query --> ProjectQuery["project, projects"]
-  Query --> RecruitingQuery["recruiting queries"]
+  Schema["Unified GraphQL Schema"] --> Query
+  Schema --> Mutation
+  Query --> Member["me / member / members / memberSearch"]
+  Query --> Organization["gisu / chapter / school"]
+  Query --> Project["project / projects"]
+  Query --> Recruiting["recruiting queries"]
   Mutation --> RecruitingMutation["recruiting mutations"]
 ```
 
-## Form, Project, Recruiting
-
-`ProjectApplicationForm`, `RecruitingApplicationFormStructure`와 각 section은 공통 interface를 구현한다.
-Project에만 필요한 `type`, `allowedParts`는 `ApplicationFormSection`에 남고 질문·옵션은 공통 object type을 재사용한다.
+## Domain 관계
 
 ```mermaid
 classDiagram
   direction LR
 
-  class Form {
-    <<interface>>
-    +String! title
-    +String description
-    +FormSection[]! sections
-  }
-  class FormSection {
-    <<interface>>
-    +ID! sectionId
-    +String! title
-    +String description
-    +Int! orderNo
-    +FormQuestion[]! questions
-  }
-  class FormQuestion {
-    +ID! questionId
-    +QuestionType! type
-    +String! title
-    +Boolean! required
-    +Int! orderNo
-    +FormOption[]! options
-  }
-  class FormOption {
-    +ID! optionId
-    +String! content
-    +Int! orderNo
-    +Boolean! other
-    +ID nextSectionId
-  }
+  class Member
+  class Gisu
+  class Chapter
+  class School
+  class Form
+  class Project
   class ProjectApplicationForm {
-    +ID! projectId
-    +ID! applicationFormId
-    +ApplicationFormSection[]! sections
+    <<Project projection>>
   }
-  class ApplicationFormSection {
-    +FormSectionType! type
-    +ChallengerPart[]! allowedParts
+  class RecruitingApplicationFormStructure {
+    <<Recruiting projection>>
   }
-  class RecruitingApplicationFormStructure
-  class RecruitingFormSection
-  class ProjectApplicationFormResponse
-  class ProjectApplicationResponseSection
-  class ProjectApplicationResponseQuestion
-  class ProjectApplicationAnswer
+  class ProjectApplicant {
+    <<snapshot>>
+  }
 
-  Form <|.. ProjectApplicationForm
-  FormSection <|.. ApplicationFormSection
-  Form <|.. RecruitingApplicationFormStructure
-  FormSection <|.. RecruitingFormSection
-  Form "1" o-- "0..*" FormSection : sections
-  FormSection "1" *-- "0..*" FormQuestion : questions
-  FormQuestion "1" *-- "0..*" FormOption : options
-  ProjectApplicationForm "1" *-- "0..*" ApplicationFormSection : sections
-  RecruitingApplicationFormStructure "1" *-- "0..*" RecruitingFormSection : sections
-  ProjectApplicationFormResponse "1" *-- "0..*" ProjectApplicationResponseSection : sections
-  ProjectApplicationResponseSection "1" *-- "0..*" ProjectApplicationResponseQuestion : questions
-  ProjectApplicationResponseQuestion "1" *-- "0..1" ProjectApplicationAnswer : answer
-```
-
-## Member, Organization, Project
-
-회원 identity는 `Member` 하나를 사용하고, 조직 identity는 `Gisu`, `Chapter`, `School`을 사용한다.
-Project의 owner와 member field도 member schema가 소유하는 같은 `Member` type을 참조한다.
-
-```mermaid
-classDiagram
-  direction LR
-
-  class Member {
-    +ID! memberId
-    +String name
-    +String nickname
-    +String email
-    +MemberStatus status
-    +School school
-    +MemberChallenger[]! challengers
-  }
-  class MemberChallenger {
-    +ID! challengerId
-    +ID! gisuId
-    +ChallengerPart! part
-    +Gisu gisu
-  }
-  class Gisu {
-    +ID! id
-    +ID! generation
-    +Chapter[]! chapters
-    +School[]! schools
-  }
-  class Chapter {
-    +ID! id
-    +String! name
-    +School[]! schools
-  }
-  class School {
-    +ID! id
-    +String! name
-    +SchoolLink[]! links
-  }
-  class Project {
-    +ID! id
-    +Member productOwner
-    +Member[]! coProductOwners
-    +ProjectMember[]! members
-    +ProjectApplicationForm applicationForm
-  }
-  class ProjectMember {
-    +ID! projectMemberId
-    +Member! member
-    +ProjectApplication application
-  }
-  class ProjectApplication
-  class ProjectApplicationForm
-
-  Member "1" *-- "0..*" MemberChallenger : challengers
   Member --> School : school
-  MemberChallenger --> Gisu : gisu
-  Gisu "1" *-- "0..*" Chapter : chapters
-  Gisu "1" *-- "0..*" School : schools
-  Chapter "1" *-- "0..*" School : schools
-  Project --> Member : productOwner
-  Project --> Member : coProductOwners
-  Project "1" *-- "0..*" ProjectMember : members
-  ProjectMember --> Member : member
-  ProjectMember "1" *-- "0..1" ProjectApplication : application
-  Project --> ProjectApplicationForm : applicationForm
+  Member --> Gisu : challengers.gisu
+  Gisu --> Chapter : chapters
+  Gisu --> School : schools
+  Chapter --> School : schools
+  Project --> Member : owners / members
+  Project --> ProjectApplicant : application snapshot
+  Form ..> ProjectApplicationForm : converter
+  Form ..> RecruitingApplicationFormStructure : filter + converter
 ```
 
-`ProjectApplicant`는 지원 당시 정보를 나타내는 Project-owned snapshot이므로 canonical `Member`와 별도 type이다.
-그 외 진입 경로별 field 수 차이는 `Summary`나 `Detail` type을 추가하지 않고 client selection set으로 조절한다.
-
-상세 설계 기준은 [GraphQL Schema 관계](onboarding/graphql/schema-relationships.md), 권한 적용 방식은
-[GraphQL 권한 관리](onboarding/graphql/authorization.md)를 참고한다.
+Provider resource를 그대로 노출할 때는 canonical type을 직접 참조한다. 소비 문맥에서 구조를
+필터링하거나 정책을 결합하면 소비 도메인이 projection과 converter를 소유한다.

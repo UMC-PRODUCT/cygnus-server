@@ -1,24 +1,4 @@
-extend type Query {
-  project(id: ID!): Project
-  projects(input: ProjectSearchInput!, page: ProjectPageInput): ProjectPage!
-}
-
-input ProjectSearchInput {
-  gisuId: ID!
-  keyword: String
-  chapterId: ID
-  productOwnerSchoolIds: [ID!]
-  parts: [ChallengerPart!]
-  partQuotaStatus: PartQuotaStatus
-  statuses: [ProjectStatus!]
-}
-
-input ProjectPageInput {
-  page: Int = 0
-  size: Int = 20
-  sort: [ProjectSort!] = [CREATED_AT_ASC, NAME_ASC]
-}
-
+"""Project 검색 결과 페이지."""
 type ProjectPage {
   content: [Project!]!
   page: Int!
@@ -28,6 +8,7 @@ type ProjectPage {
   hasNext: Boolean!
 }
 
+"""Project 도메인이 표준으로 제공하는 프로젝트 응답."""
 type Project {
   id: ID!
   status: ProjectStatus!
@@ -36,29 +17,39 @@ type Project {
   thumbnailImageUrl: String
   logoImageUrl: String
   externalLink: String
+  """Project가 속한 Organization Gisu 식별자."""
   gisuId: ID!
+  """Project가 속한 Organization Chapter 식별자."""
   chapterId: ID!
+  """product owner Member 식별자로 연결한 Member 도메인의 표준 응답."""
   productOwner: Member
+  """co-product owner Member 식별자로 연결한 Member 도메인의 표준 응답 목록."""
   coProductOwners: [Member!]!
   partQuotas: [ProjectPartQuota!]!
   createdAt: String!
   updatedAt: String!
+  """Project 소속 관계와 Project 문맥의 지원 정보를 함께 제공한다."""
   members: [ProjectMember!]!
+  """Form 원본을 Project 지원 정책에 맞게 변환한 지원 폼 응답."""
   applicationForm: ProjectApplicationForm
 }
 
+"""Project와 Member의 소속 관계를 나타내는 응답."""
 type ProjectMember {
   projectMemberId: ID!
   projectId: ID!
+  """memberId로 연결한 Member 도메인의 표준 응답."""
   member: Member!
   part: ChallengerPart!
   leader: Boolean!
   description: String
   decidedAt: String
   status: ProjectMemberStatus!
+  """해당 ProjectMember를 생성한 지원서가 있으면 Project 지원 문맥으로 제공한다."""
   application: ProjectApplication
 }
 
+"""Project 지원 당시의 지원자와 매칭 상태를 나타내는 응답."""
 type ProjectApplication {
   applicationId: ID!
   applicant: ProjectApplicant!
@@ -70,24 +61,51 @@ type ProjectApplication {
   formResponse: ProjectApplicationFormResponse
 }
 
-type ProjectApplicationForm implements Form {
+"""Form 원본에 Project section 정책을 결합한 Project 소유 지원 폼 응답."""
+type ProjectApplicationForm {
   projectId: ID!
+  """Project 도메인의 지원 폼 mapping 식별자."""
   applicationFormId: ID!
   title: String!
   description: String
-  sections: [ApplicationFormSection!]!
+  sections: [ProjectApplicationFormSection!]!
 }
 
-type ApplicationFormSection implements FormSection {
+"""FormSection을 Project의 part 정책에 맞게 변환한 응답."""
+type ProjectApplicationFormSection {
   sectionId: ID!
+  """Project 지원 폼에서 공통 또는 part별 section인지 나타낸다."""
   type: FormSectionType!
+  """이 section을 조회·응답할 수 있는 ChallengerPart 목록."""
   allowedParts: [ChallengerPart!]!
   title: String!
   description: String
   orderNo: Int!
-  questions: [FormQuestion!]!
+  questions: [ProjectApplicationFormQuestion!]!
 }
 
+"""FormQuestion을 Project 지원 문맥에 맞게 변환한 응답."""
+type ProjectApplicationFormQuestion {
+  questionId: ID!
+  type: QuestionType!
+  title: String!
+  description: String
+  required: Boolean!
+  orderNo: Int!
+  options: [ProjectApplicationFormOption!]!
+}
+
+"""FormOption을 Project 지원 문맥에 맞게 변환한 응답."""
+type ProjectApplicationFormOption {
+  optionId: ID!
+  content: String!
+  orderNo: Int!
+  other: Boolean!
+  """조건부 이동 대상인 FormSection 식별자. 이동 조건이 없으면 null."""
+  nextSectionId: ID
+}
+
+"""Project가 파트별 모집 인원과 현재 충원 상태를 계산한 응답."""
 type ProjectPartQuota {
   part: ChallengerPart!
   quota: Long!
@@ -96,6 +114,7 @@ type ProjectPartQuota {
   status: PartQuotaStatus!
 }
 
+"""지원 당시 Member 정보를 보존하는 Project 소유 snapshot."""
 type ProjectApplicant {
   memberId: ID!
   nickname: String
@@ -110,6 +129,7 @@ type ProjectMatchingRoundBrief {
   phase: MatchingRoundPhaseView!
 }
 
+"""Project 지원 폼에 제출한 응답과 원문 snapshot."""
 type ProjectApplicationFormResponse {
   formResponseId: ID!
   formId: ID!
@@ -136,7 +156,8 @@ type ProjectApplicationResponseQuestion {
   description: String
   required: Boolean!
   orderNo: Int!
-  options: [FormOption!]!
+  """응답 시점의 선택지 구조를 Project 소유 타입으로 제공한다."""
+  options: [ProjectApplicationFormOption!]!
   answer: ProjectApplicationAnswer
 }
 

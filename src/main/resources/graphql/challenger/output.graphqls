@@ -1,0 +1,28 @@
+"""챌린저가 활동하는 직군 단위."""
+enum ChallengerPart {
+  PLAN
+  DESIGN
+  WEB
+  ANDROID
+  IOS
+  NODEJS
+  SPRINGBOOT
+  ADMIN
+}
+
+"""모집과 활동 이력에서 사용하는 통합 챌린저 트랙."""
+enum ChallengerTrack {
+  PLAN
+  DESIGN
+  WEB_PRODUCT_ENGINEER
+  MOBILE_PRODUCT_ENGINEER
+  INFRA_PLUS
+}
+
+"""기수별 챌린저 활동 상태."""
+enum ChallengerStatus {
+  ACTIVE
+  GRADUATED
+  EXPELLED
+  WITHDRAWN
+}

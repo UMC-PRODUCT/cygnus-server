@@ -1,0 +1,94 @@
+"""Form 도메인이 표준으로 제공하는 폼 구조 응답."""
+type Form {
+  """Form aggregate 식별자."""
+  formId: ID!
+  """폼을 생성한 Member 식별자."""
+  createdMemberId: ID!
+  """사용자에게 노출하는 폼 제목."""
+  title: String!
+  """폼 전체에 대한 선택 설명."""
+  description: String
+  """Form 도메인의 게시 lifecycle 상태."""
+  status: FormStatus!
+  """응답 작성자의 Member 식별자를 저장하지 않는지 여부."""
+  anonymous: Boolean!
+  """같은 응답자가 여러 응답을 제출할 수 있는지 여부."""
+  allowDuplicateResponses: Boolean!
+  """폼 생성 시각."""
+  createdAt: Instant!
+  """폼 최종 수정 시각."""
+  updatedAt: Instant!
+  """표시 순서대로 정렬된 section 목록."""
+  sections: [FormSection!]!
+}
+
+"""Form 도메인이 표준으로 제공하는 section 응답."""
+type FormSection {
+  """Section 식별자."""
+  sectionId: ID!
+  """Section 제목."""
+  title: String!
+  """Section에 대한 선택 설명."""
+  description: String
+  """폼 내부 section 표시 순서."""
+  orderNo: Int!
+  """표시 순서대로 정렬된 질문 목록."""
+  questions: [FormQuestion!]!
+}
+
+"""Form 도메인이 표준으로 제공하는 질문 응답."""
+type FormQuestion {
+  """질문 식별자."""
+  questionId: ID!
+  """응답 값의 입력 및 검증 방식을 결정하는 질문 유형."""
+  type: QuestionType!
+  """질문 제목."""
+  title: String!
+  """질문에 대한 선택 설명."""
+  description: String
+  """응답 제출 시 값이 반드시 필요한지 여부."""
+  required: Boolean!
+  """Section 내부 질문 표시 순서."""
+  orderNo: Int!
+  """선택형 질문의 표시 순서대로 정렬된 option 목록."""
+  options: [FormOption!]!
+}
+
+"""Form 도메인이 표준으로 제공하는 선택지 응답."""
+type FormOption {
+  """선택지 식별자."""
+  optionId: ID!
+  """사용자에게 노출하는 선택지 문구."""
+  content: String!
+  """질문 내부 선택지 표시 순서."""
+  orderNo: Int!
+  """직접 입력하는 기타 선택지인지 여부."""
+  other: Boolean!
+  """선택 시 이동할 FormSection 식별자. 조건부 이동이 없으면 null."""
+  nextSectionId: ID
+}
+
+"""Form aggregate의 lifecycle 상태."""
+enum FormStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+"""폼 응답의 작성 lifecycle 상태."""
+enum FormResponseStatus {
+  DRAFT
+  SUBMITTED
+}
+
+"""Form 도메인이 지원하는 질문 입력 유형."""
+enum QuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  RADIO
+  CHECKBOX
+  DROPDOWN
+  SCHEDULE
+  FILE
+  PORTFOLIO
+}

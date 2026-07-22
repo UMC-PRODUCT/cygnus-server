@@ -1,0 +1,5 @@
+"""도메인별 Query field를 조립하는 기술 root type."""
+type Query
+
+"""도메인별 Mutation field를 조립하는 기술 root type."""
+type Mutation

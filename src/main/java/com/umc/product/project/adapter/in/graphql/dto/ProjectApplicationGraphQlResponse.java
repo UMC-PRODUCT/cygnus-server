@@ -11,6 +11,7 @@ import com.umc.product.form.application.port.in.query.dto.AnswerInfo.SelectedOpt
 import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
 import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.adapter.in.graphql.converter.ProjectApplicationFormGraphQlConverter;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationViewStatus;
@@ -155,7 +156,7 @@ public record ProjectApplicationGraphQlResponse(
         String description,
         boolean required,
         long orderNo,
-        List<ProjectApplicationFormGraphQlResponse.ProjectFormOptionGraphQlResponse> options,
+        List<ProjectApplicationFormGraphQlResponse.ProjectApplicationFormOptionGraphQlResponse> options,
         ProjectApplicationAnswerGraphQlResponse answer
     ) {
         public static ProjectApplicationResponseQuestionGraphQlResponse from(
@@ -171,7 +172,7 @@ public record ProjectApplicationGraphQlResponse(
                 info.isRequired(),
                 info.orderNo(),
                 info.options().stream()
-                    .map(ProjectApplicationFormGraphQlResponse.ProjectFormOptionGraphQlResponse::from)
+                    .map(ProjectApplicationFormGraphQlConverter::optionFrom)
                     .toList(),
                 answer == null ? null : ProjectApplicationAnswerGraphQlResponse.from(answer, filesByFileId)
             );

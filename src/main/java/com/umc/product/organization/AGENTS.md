@@ -53,7 +53,7 @@ organization/
 
 - Do not let controllers call `adapter/out/persistence` repositories.
 - Do not merge school/chapter/gisu/study-group rules into one god service.
-- Do not add GraphQL fields without updating `src/main/resources/graphql/organization.graphqls`.
+- Do not add GraphQL fields without updating `src/main/resources/graphql/organization/` and its `README.md`.
 - Do not introduce direct `Member`, `Project`, or `Challenger` aggregate references.
 - Do not add `@OneToMany` collections to organization entities.
 - Do not hide not-found behavior behind `findBy`; use `getBy` semantics when existence is required.
