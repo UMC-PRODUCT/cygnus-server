@@ -82,6 +82,34 @@ SSH 키가 기본 키가 아니면 `SSH_KEY=~/.ssh/umc-loadtest.pem loadtest/scr
 4. **재굽기 트리거 = 스키마(Flyway 마이그레이션) 또는 시드 모양 변경.** snapshot 이름에 마이그레이션 버전을 박아 stale 을 감지한다. bulk 시더의 SQL(`BulkSeedJdbcAdapter`)은 도메인 가드를 우회하므로 스키마 변경 PR 에서 함께 검토한다.
 5. **캐시(snapshot)는 절대 유일 수단이 아니다.** 시더(api·bulk)가 항상 fallback 이자 재굽기 재료다. 얼린 캐시는 스키마 변경 비용을 떠안기 때문.
 
+## 새 시나리오 추가 (확장 가이드)
+
+확장은 3계층에서 일어나고, 필요한 곳만 건드린다:
+
+```
+[k6 시나리오]  scenarios/<profile>/<name>.js + script.js REGISTRY 한 줄   ← 항상
+[시드 데이터]  기존 데이터로 충분하면 없음 → 부족하면 api/bulk 확장        ← 필요할 때만
+[seed.json]   k6 가 고를 대상 ID 가 더 필요하면 targets 에 추가           ← 필요할 때만
+```
+
+1. **k6 시나리오 (항상)** — `loadtest/k6/README.md` "시나리오 추가" 참조. smoke 에서 검증한 뒤 `scenarios/load/` 로 복사해 튜닝한다 (프로파일별 파일 분리는 의도 — tier 마다 혼합 비율을 다르게 가져가기 위함).
+
+2. **시드 데이터 (분기)**
+   - **기존 seed.json(memberIds)으로 충분** → 할 일 없음. `requiresSeed = true` 만 켠다.
+   - **새 도메인 데이터, 소규모** → SeedController 에 이미 있는지 먼저 확인 (SEED-001~007: 멤버·챌린저·역할·프로젝트·지원서·커리큘럼·공지·상벌점). 없으면 **SEED-007 이 표준 템플릿**: UseCase+Command/Result → `{도메인}SeedService`(`@Profile("!prod")`+`app.seed.enabled` 이중 가드) → Request/Response → 엔드포인트 → 테스트. 그 뒤 `prepare-data.sh` 에 **얇은 스텝** 추가 — 도메인 지식은 Java(SeedService)에 두고, bash 는 호출 순서·ID 핸드오프만 담는다.
+   - **10만+ 대규모** → bulk 시더 확장. 새 테이블당 정확히 3곳:
+     1. `test/application/port/out/dto/Seed{X}Row` — 행 record
+     2. `BulkSeedPort` 메서드 + `BulkSeedJdbcAdapter` INSERT SQL — 다른 행이 FK 로 참조하면 명시 id 부여 + `IDENTITY_SYNC_TABLES` 등록, 아니면 id 생략(identity 기본값)
+     3. `BulkSeedService` 에 생성 단계 — RNG 는 기존 `rng` 를 재사용(결정성 유지), 규모 파라미터는 `SeedBulkDataCommand` + `BulkSeedProperties` 에 추가
+     마지막으로 `ANALYZE_TABLES` 에 테이블을, `SeedBulkDataResult` 에 카운트를 추가한다.
+
+3. **seed.json 계약** — 스키마는 api/bulk 공용이고 k6 는 어느 시더가 만들었는지 모른다. 대상 ID 가 더 필요하면 `targets` 를 채우고 `lib/data.js` 에 pick 함수를 추가한다 (`pickProjectId` 참조). **두 시더가 같은 스키마를 산출해야 한다는 것이 유일한 계약.**
+
+설계 트레이드오프 (알고 확장할 것):
+
+- `BulkSeedJdbcAdapter` 의 SQL 은 도메인 가드를 우회한 스키마 강결합 — 속도를 위한 의도된 선택. Flyway 마이그레이션 PR 에서 함께 검토한다(위 재굽기 규칙 4). 어긋나면 시더가 즉시 실패하므로 조용히 썩지는 않는다.
+- 시나리오 데이터 모양이 3~4개 이상 쌓이면 `BulkSeedService` 를 시나리오별 단계 객체로 분리한다. 그 전의 선제 추상화는 금지 (두 번째 대규모 시나리오가 실제로 생길 때 한다).
+
 ## 개념 한 줄 정리
 
 - **PROFILE** = 부하 유형(smoke/load/stress/soak), **SCENARIO** = 업무 시나리오(health-check/project-read…). `run-k6.sh`가 둘을 generator의 `run-umc-k6`로 넘기고, `script.js`가 곱해서 고른다.

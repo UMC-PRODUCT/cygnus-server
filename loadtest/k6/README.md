@@ -34,3 +34,6 @@ k6 는 시딩하지 않는다. 시딩은 `loadtest/scripts/prepare-data.sh` 가 
 
 `scenarios/<profile>/<name>.js` 에 `export const requiresSeed` 와 default 함수를 만들고,
 `script.js` 의 `REGISTRY` 에 한 줄 등록한다. 인증이 필요하면 `lib/auth.js` 를 쓴다.
+
+새 시드 데이터가 필요하면(시드 API 추가·bulk 시더 확장·seed.json targets)
+`loadtest/README.md` 의 "새 시나리오 추가 (확장 가이드)" 를 따른다.
