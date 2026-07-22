@@ -32,6 +32,14 @@ class ChatReactionPolicyTest {
         assertInvalid("A");
     }
 
+    @Test
+    @DisplayName("null·blank·길이 초과 reaction을 grapheme 검사 전에 거절한다")
+    void validate_requiredBoundaries() {
+        assertInvalid(null);
+        assertInvalid("   ");
+        assertInvalid("👍".repeat(33));
+    }
+
     private void assertInvalid(String emoji) {
         assertThatThrownBy(() -> sut.validate(emoji))
             .isInstanceOf(ChatDomainException.class)

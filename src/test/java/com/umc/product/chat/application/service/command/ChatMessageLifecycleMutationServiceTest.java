@@ -178,6 +178,23 @@ class ChatMessageLifecycleMutationServiceTest {
         then(domainEventPublisher).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("작성자가 아니며 moderator도 아닌 멤버는 tombstone할 수 없다")
+    void tombstone_nonAuthorWithoutModeratorRejected() {
+        ChatMessage message = message(MessageContentType.TEXT, "본문", List.of(), null);
+        given(loadChatMessagePort.getByIdAndRoomId(100L, 1L)).willReturn(message);
+
+        assertThatThrownBy(() -> sut.tombstone(
+            new TombstoneChatMessageCommand(1L, 100L, 20L, false)
+        ))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN);
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+        then(saveChatMessageMentionPort).shouldHaveNoInteractions();
+        then(saveChatMessageReactionPort).shouldHaveNoInteractions();
+    }
+
     private ChatMessage message(
         MessageContentType type,
         String content,

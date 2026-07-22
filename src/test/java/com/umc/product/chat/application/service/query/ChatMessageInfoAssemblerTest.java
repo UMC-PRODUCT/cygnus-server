@@ -118,6 +118,39 @@ class ChatMessageInfoAssemblerTest {
         then(loadChatMessagePort).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("빈 viewer batch는 mention·reaction·reply 조회 없이 빈 결과를 반환한다")
+    void assembleForViewers_emptyBatchShortCircuits() {
+        assertThat(sut.assembleForViewers(message(100L, "본문", null), List.of())).isEmpty();
+        then(loadChatMessageMentionPort).shouldHaveNoInteractions();
+        then(loadChatMessageReactionPort).shouldHaveNoInteractions();
+        then(loadChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("본문이 없는 IMAGE 답장의 snippet은 null로 유지한다")
+    void assemble_replyWithoutContentKeepsNullSnippet() {
+        ChatMessage reply = ChatMessage.create(
+            1L,
+            20L,
+            MessageContentType.IMAGE,
+            null,
+            List.of("file-1")
+        );
+        ReflectionTestUtils.setField(reply, "id", 90L);
+        ChatMessage original = message(100L, "답장", 90L);
+        given(loadChatMessageMentionPort.listMemberIdsByMessageIds(List.of(100L)))
+            .willReturn(Map.of());
+        given(loadChatMessageReactionPort.summarizeByMessageIds(List.of(100L), 10L))
+            .willReturn(List.of());
+        given(loadChatMessagePort.listByIds(List.of(90L))).willReturn(List.of(reply));
+
+        ChatMessageInfo result = sut.assemble(original, 10L);
+
+        assertThat(result.replyTo()).isNotNull();
+        assertThat(result.replyTo().snippet()).isNull();
+    }
+
     private ChatMessage message(Long id, String content, Long replyToId) {
         ChatMessage message = ChatMessage.create(
             1L,

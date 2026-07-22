@@ -211,6 +211,30 @@ class ChatMessageLifecycleCreateServiceTest {
     }
 
     @Test
+    @DisplayName("fingerprint가 없는 legacy row도 canonical payload와 mention이 같으면 replay한다")
+    void create_legacyCanonicalPayloadReplay() {
+        UUID clientMessageId = UUID.fromString("2bb0e8e5-19aa-41ae-b5eb-79c2ba83bdc5");
+        CreateChatMessageCommand command = text(clientMessageId, List.of());
+        ChatMessage existing = savedText(100L, clientMessageId, "본문", null);
+        ReflectionTestUtils.setField(existing, "clientPayloadFingerprint", null);
+        ChatMessageInfo info = ChatMessageInfo.from(existing);
+        given(loadChatMessagePort.findByRoomIdAndSenderMemberIdAndClientMessageId(
+            1L,
+            10L,
+            clientMessageId
+        )).willReturn(Optional.of(existing));
+        given(loadChatMessageMentionPort.listMemberIdsByMessageId(100L)).willReturn(List.of());
+        given(chatMessageInfoAssembler.assemble(existing, 10L)).willReturn(info);
+
+        ChatMessageMutationResult result = sut.create(command);
+
+        assertThat(result.deduplicated()).isTrue();
+        assertThat(result.message()).isSameAs(info);
+        then(saveChatMessagePort).shouldHaveNoInteractions();
+        then(domainEventPublisher).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("멘션 대상이 잠금 시점에 멤버가 아니면 idempotency lookup 전에 거부한다")
     void create_mentionLeftBeforeLock() {
         UUID clientMessageId = UUID.fromString("208bc80a-45c8-49bd-81dd-b578cb51d93c");

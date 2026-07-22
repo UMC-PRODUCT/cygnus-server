@@ -1,12 +1,17 @@
 package com.umc.product.chat.application.policy;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.mockStatic;
 
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.List;
 import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 
 import com.umc.product.chat.application.port.in.command.dto.CreateChatMessageCommand;
 import com.umc.product.chat.domain.MessageContentType;
@@ -37,6 +42,22 @@ class ChatMessagePayloadFingerprintTest {
             .isNotEqualTo(ChatMessagePayloadFingerprint.from(baseline));
         assertThat(ChatMessagePayloadFingerprint.from(command("캡션", List.of("b", "a"), List.of(20L), 91L)))
             .isNotEqualTo(ChatMessagePayloadFingerprint.from(baseline));
+    }
+
+    @Test
+    @DisplayName("런타임에 SHA-256을 제공하지 않으면 원인을 보존해 명시적으로 실패한다")
+    void unavailableSha256FailsExplicitly() {
+        try (MockedStatic<MessageDigest> digest = mockStatic(MessageDigest.class)) {
+            digest.when(() -> MessageDigest.getInstance("SHA-256"))
+                .thenThrow(new NoSuchAlgorithmException("missing"));
+
+            assertThatThrownBy(() -> ChatMessagePayloadFingerprint.from(
+                command("캡션", List.of(), List.of(), null)
+            ))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SHA-256 is unavailable")
+                .hasCauseInstanceOf(NoSuchAlgorithmException.class);
+        }
     }
 
     private CreateChatMessageCommand command(

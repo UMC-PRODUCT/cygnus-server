@@ -50,6 +50,28 @@ class ChatRealtimeEventDispatchModeTest {
         assertThat(dispatchMode).isEqualTo(OutboxDispatchMode.TRANSACTIONAL);
     }
 
+    @Test
+    @DisplayName("reply ID 호환 생성자는 나머지 optional realtime 필드를 비운다")
+    void createdEventReplyCompatibilityConstructor() {
+        ChatMessageCreatedEvent event = new ChatMessageCreatedEvent(
+            EVENT_ID,
+            OCCURRED_AT,
+            11L,
+            2L,
+            3L,
+            MessageContentType.TEXT,
+            "reply",
+            List.of(),
+            10L
+        );
+
+        assertThat(event.replyToMessageId()).isEqualTo(10L);
+        assertThat(event.clientMessageId()).isNull();
+        assertThat(event.mentionedMemberIds()).isEmpty();
+        assertThat(event.editedAt()).isNull();
+        assertThat(event.deletedAt()).isNull();
+    }
+
     private static Stream<Arguments> realtimeEvents() {
         ChatMessageSnapshot snapshot = new ChatMessageSnapshot(
             11L,

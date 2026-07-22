@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -139,6 +140,12 @@ class ChatMessageTest {
             List.of("file-a", "file-b"),
             90L
         )).isFalse();
+        assertThat(message.hasCanonicalPayload(
+            MessageContentType.IMAGE,
+            "캡션",
+            null,
+            90L
+        )).isFalse();
     }
 
     @Test
@@ -194,5 +201,48 @@ class ChatMessageTest {
         assertThat(message.getContent()).isEqualTo(ChatMessage.DELETED_CONTENT);
         assertThat(message.getFileMetadataIds()).isEmpty();
         assertThat(message.getDeletedAt()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("TEXT blank 수정은 거절하고 IMAGE는 null caption 수정도 허용한다")
+    void edit_validatesByContentType() {
+        ChatMessage text = ChatMessage.create(1L, 10L, MessageContentType.TEXT, "본문", List.of());
+        ChatMessage image = ChatMessage.create(
+            1L,
+            10L,
+            MessageContentType.IMAGE,
+            "캡션",
+            List.of("file-1")
+        );
+
+        assertThatThrownBy(() -> text.editContent("   "))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_EMPTY);
+        assertThat(image.editContent(null)).isTrue();
+        assertThat(image.getContent()).isNull();
+    }
+
+    @Test
+    @DisplayName("SYSTEM 또는 이미 삭제된 메시지의 수정은 mutation forbidden으로 거절한다")
+    void edit_rejectsSystemAndDeletedMessages() {
+        ChatMessage system = ChatMessage.createSystem(1L, "시스템");
+        ChatMessage deletedImage = ChatMessage.create(
+            1L,
+            10L,
+            MessageContentType.IMAGE,
+            "캡션",
+            List.of("file-1")
+        );
+        ReflectionTestUtils.setField(deletedImage, "deletedAt", Instant.EPOCH);
+
+        assertThatThrownBy(() -> system.editContent("수정"))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN);
+        assertThatThrownBy(() -> deletedImage.editContent("수정"))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN);
     }
 }

@@ -10,6 +10,7 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,9 @@ import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResul
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.CheckChatMessageReadQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessageForViewersQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessageQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessageRoomQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
@@ -118,6 +121,26 @@ class ChatMessageQueryServiceTest {
 
         assertThat(result).isSameAs(info);
         then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
+    }
+
+    @Test
+    @DisplayName("빈 viewer batch는 membership과 메시지를 조회하지 않고 빈 결과를 반환한다")
+    void getMessageForViewers_emptyBatchShortCircuits() {
+        Map<Long, ChatMessageInfo> result = sut.getMessageForViewers(
+            new GetChatMessageForViewersQuery(1L, 30L, List.of())
+        );
+
+        assertThat(result).isEmpty();
+        then(loadChatMemberPort).shouldHaveNoInteractions();
+        then(loadChatMessagePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("message ID로 소유 room ID를 조회한다")
+    void getRoomId_returnsMessageRoom() {
+        given(loadChatMessagePort.getById(30L)).willReturn(message(30L, 7L));
+
+        assertThat(sut.getRoomId(new GetChatMessageRoomQuery(30L))).isEqualTo(7L);
     }
 
     @Test

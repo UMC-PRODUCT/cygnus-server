@@ -146,6 +146,21 @@ class ChatCommunityMessagePersistenceTest {
     }
 
     @Test
+    @DisplayName("빈 message·viewer batch는 SQL을 만들지 않고 빈 projection을 반환한다")
+    void emptyBatchShortCircuits() {
+        assertThat(reactionQueryRepository.summarizeByMessageIds(List.of(), 10L)).isEmpty();
+        assertThat(reactionQueryRepository.summarizeByMessageIdsForViewers(
+            List.of(),
+            List.of(10L)
+        )).isEmpty();
+        assertThat(reactionQueryRepository.summarizeByMessageIdsForViewers(
+            List.of(1L),
+            List.of()
+        )).isEmpty();
+        assertThat(mentionAdapter.listMemberIdsByMessageIds(List.of())).isEmpty();
+    }
+
+    @Test
     @DisplayName("동일 reaction 재시도는 insert 한 건과 duplicate no-op으로 귀결된다")
     void reaction_insertIfAbsent() {
         Long messageId = em.persist(message(10L, UUID.randomUUID(), "본문")).getId();

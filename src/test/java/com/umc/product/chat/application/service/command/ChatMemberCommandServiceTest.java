@@ -114,6 +114,20 @@ class ChatMemberCommandServiceTest {
     }
 
     @Test
+    @DisplayName("사전 조회 뒤 동시 삽입이 발생하면 원자적 save 결과로 중복 참여를 거절한다")
+    void joinChatRoom_concurrentInsertRejected() {
+        JoinChatRoomCommand command = new JoinChatRoomCommand(1L, 10L);
+        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 10L)).willReturn(false);
+        given(saveChatMemberPort.saveIfAbsent(any(ChatMember.class))).willReturn(false);
+
+        assertThatThrownBy(() -> sut.joinChatRoom(command))
+            .isInstanceOf(ChatDomainException.class)
+            .extracting(error -> ((ChatDomainException) error).getBaseCode())
+            .isEqualTo(ChatErrorCode.CHAT_MEMBER_ALREADY_EXISTS);
+        then(saveChatMemberPort).should().saveIfAbsent(any(ChatMember.class));
+    }
+
+    @Test
     @DisplayName("채팅방이 없으면 멤버를 저장하지 않는다")
     void joinChatRoom_roomNotFound() {
         JoinChatRoomCommand command = new JoinChatRoomCommand(1L, 10L);
