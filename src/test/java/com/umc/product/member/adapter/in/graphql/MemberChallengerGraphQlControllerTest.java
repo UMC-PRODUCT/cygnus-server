@@ -43,7 +43,7 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 
-@GraphQlTest(MemberGraphQlController.class)
+@GraphQlTest({MemberGraphQlController.class, MemberFieldGraphQlController.class})
 @Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, CurrentMemberSecurityConfig.class})
 @DisplayName("Member Challenger GraphQL")
 class MemberChallengerGraphQlControllerTest {
@@ -129,8 +129,8 @@ class MemberChallengerGraphQlControllerTest {
                   members(ids: [2, 3]) {
                     memberId
                     school {
-                      schoolId
-                      schoolName
+                      id
+                      name
                     }
                     challengers {
                       challengerId
@@ -138,7 +138,7 @@ class MemberChallengerGraphQlControllerTest {
                       tracks
                       status
                       gisu {
-                        gisuId
+                        id
                         generation
                       }
                     }
@@ -146,13 +146,13 @@ class MemberChallengerGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("members[0].school.schoolName").entity(String.class).isEqualTo("중앙대학교")
+            .path("members[0].school.name").entity(String.class).isEqualTo("중앙대학교")
             .path("members[0].challengers[0].part").entity(String.class).isEqualTo("SPRINGBOOT")
             .path("members[0].challengers[0].tracks").entityList(String.class)
             .containsExactly("WEB_PRODUCT_ENGINEER", "MOBILE_PRODUCT_ENGINEER")
             .path("members[0].challengers[0].status").entity(String.class).isEqualTo("ACTIVE")
             .path("members[0].challengers[0].gisu.generation").entity(String.class).isEqualTo("6")
-            .path("members[1].school.schoolName").entity(String.class).isEqualTo("숭실대학교")
+            .path("members[1].school.name").entity(String.class).isEqualTo("숭실대학교")
             .path("members[1].challengers[0].status").entity(String.class).isEqualTo("GRADUATED")
             .path("members[1].challengers[0].gisu.generation").entity(String.class).isEqualTo("7");
 

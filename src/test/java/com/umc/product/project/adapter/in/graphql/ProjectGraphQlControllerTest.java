@@ -348,6 +348,7 @@ class ProjectGraphQlControllerTest {
                             optionId
                             content
                             other
+                            nextSectionId
                           }
                         }
                       }
@@ -368,7 +369,9 @@ class ProjectGraphQlControllerTest {
             .path("project.applicationForm.sections[0].questions[0].options[0].optionId").entity(String.class)
             .isEqualTo("800")
             .path("project.applicationForm.sections[0].questions[0].options[0].other").entity(Boolean.class)
-            .isEqualTo(false);
+            .isEqualTo(false)
+            .path("project.applicationForm.sections[0].questions[0].options[0].nextSectionId").entity(String.class)
+            .isEqualTo("601");
 
         then(checkPermissionUseCase).should().check(subject, projectReadPermission(PROJECT_ID));
         then(getProjectApplicationFormUseCase).should().findAllByProjectIds(List.of(PROJECT_ID), REQUESTER_ID);
@@ -547,6 +550,7 @@ class ProjectGraphQlControllerTest {
                         .content("Spring")
                         .orderNo(1L)
                         .isOther(false)
+                        .nextSectionId(601L)
                         .build()))
                     .build()))
                 .build()))

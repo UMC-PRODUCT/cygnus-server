@@ -73,14 +73,16 @@ public record ProjectApplicationFormGraphQlResponse(
         Long optionId,
         String content,
         long orderNo,
-        boolean other
+        boolean other,
+        Long nextSectionId
     ) {
         public static ProjectFormOptionGraphQlResponse from(ApplicationFormInfo.OptionInfo info) {
             return new ProjectFormOptionGraphQlResponse(
                 info.optionId(),
                 info.content(),
                 info.orderNo(),
-                info.isOther()
+                info.isOther(),
+                info.nextSectionId()
             );
         }
     }

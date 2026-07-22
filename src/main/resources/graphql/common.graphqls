@@ -1,4 +1,5 @@
 scalar Long
+scalar Instant
 
 enum ChallengerPart {
   PLAN
@@ -9,4 +10,12 @@ enum ChallengerPart {
   NODEJS
   SPRINGBOOT
   ADMIN
+}
+
+enum ChallengerTrack {
+  PLAN
+  DESIGN
+  WEB_PRODUCT_ENGINEER
+  MOBILE_PRODUCT_ENGINEER
+  INFRA_PLUS
 }

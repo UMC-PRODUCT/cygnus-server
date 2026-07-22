@@ -1,15 +1,16 @@
 # GraphQL Schema
 
-현재 GraphQL pilot은 다섯 SDL 파일을 Spring GraphQL이 합쳐 하나의 unified schema로 로드한다.
+현재 GraphQL pilot은 여섯 SDL 파일을 Spring GraphQL이 합쳐 하나의 unified schema로 로드한다.
 파일은 선언 소유권을 나누지만 endpoint와 전역 type namespace는 공유한다.
 
 | 파일 | 소유 계약 |
 | --- | --- |
-| `common.graphqls` | `Long`, `ChallengerPart` |
+| `common.graphqls` | `Long`, `Instant`, `ChallengerPart`, `ChallengerTrack` |
 | `form.graphqls` | 공통 Form interface, 질문·옵션 type, form enum |
 | `member.graphqls` | canonical `Member`와 member query |
 | `organization.graphqls` | root `Query`, canonical `Gisu`, `Chapter`, `School` |
 | `project.graphqls` | Project query와 Project concrete type |
+| `recruiting.graphqls` | root `Mutation`, Recruiting query·mutation과 concrete type |
 
 ```mermaid
 flowchart TD
@@ -18,17 +19,21 @@ flowchart TD
   MemberFile["member.graphqls"] --> Loader
   OrganizationFile["organization.graphqls"] --> Loader
   ProjectFile["project.graphqls"] --> Loader
+  RecruitingFile["recruiting.graphqls"] --> Loader
   Loader --> Schema["Unified Schema"]
   Schema --> Query["Query"]
+  Schema --> Mutation["Mutation"]
   Query --> MemberQuery["me, member, members, memberSearch"]
   Query --> OrganizationQuery["gisuOrganizations, gisu, activeGisu, chapters, chapter, schools, school"]
   Query --> ProjectQuery["project, projects"]
+  Query --> RecruitingQuery["recruiting queries"]
+  Mutation --> RecruitingMutation["recruiting mutations"]
 ```
 
-## Form과 Project
+## Form, Project, Recruiting
 
-`ProjectApplicationForm`과 `ApplicationFormSection`은 공통 interface를 구현한다. Project에만 필요한
-`type`, `allowedParts`는 `ApplicationFormSection`에 남고 질문·옵션은 공통 object type을 재사용한다.
+`ProjectApplicationForm`, `RecruitingApplicationFormStructure`와 각 section은 공통 interface를 구현한다.
+Project에만 필요한 `type`, `allowedParts`는 `ApplicationFormSection`에 남고 질문·옵션은 공통 object type을 재사용한다.
 
 ```mermaid
 classDiagram
@@ -61,6 +66,7 @@ classDiagram
     +String! content
     +Int! orderNo
     +Boolean! other
+    +ID nextSectionId
   }
   class ProjectApplicationForm {
     +ID! projectId
@@ -71,6 +77,8 @@ classDiagram
     +FormSectionType! type
     +ChallengerPart[]! allowedParts
   }
+  class RecruitingApplicationFormStructure
+  class RecruitingFormSection
   class ProjectApplicationFormResponse
   class ProjectApplicationResponseSection
   class ProjectApplicationResponseQuestion
@@ -78,10 +86,13 @@ classDiagram
 
   Form <|.. ProjectApplicationForm
   FormSection <|.. ApplicationFormSection
+  Form <|.. RecruitingApplicationFormStructure
+  FormSection <|.. RecruitingFormSection
   Form "1" o-- "0..*" FormSection : sections
   FormSection "1" *-- "0..*" FormQuestion : questions
   FormQuestion "1" *-- "0..*" FormOption : options
   ProjectApplicationForm "1" *-- "0..*" ApplicationFormSection : sections
+  RecruitingApplicationFormStructure "1" *-- "0..*" RecruitingFormSection : sections
   ProjectApplicationFormResponse "1" *-- "0..*" ProjectApplicationResponseSection : sections
   ProjectApplicationResponseSection "1" *-- "0..*" ProjectApplicationResponseQuestion : questions
   ProjectApplicationResponseQuestion "1" *-- "0..1" ProjectApplicationAnswer : answer

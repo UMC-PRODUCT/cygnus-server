@@ -1,5 +1,3 @@
-scalar Instant
-
 extend type Query {
   publicRecruitingRounds(input: RecruitingPublicRoundSearchInput!): [RecruitingPublicRoundGroup!]!
   recruitingApplicationFormStructure(
@@ -379,7 +377,7 @@ type RecruitingApplicationForm {
   status: RecruitingApplicationFormStatus!
 }
 
-type RecruitingApplicationFormStructure {
+type RecruitingApplicationFormStructure implements Form {
   formId: ID!
   createdMemberId: ID!
   title: String!
@@ -392,30 +390,12 @@ type RecruitingApplicationFormStructure {
   sections: [RecruitingFormSection!]!
 }
 
-type RecruitingFormSection {
+type RecruitingFormSection implements FormSection {
   sectionId: ID!
   title: String!
   description: String
-  orderNo: Long!
-  questions: [RecruitingFormQuestion!]!
-}
-
-type RecruitingFormQuestion {
-  questionId: ID!
-  title: String!
-  description: String
-  type: QuestionType!
-  required: Boolean!
-  orderNo: Long!
-  options: [RecruitingFormQuestionOption!]!
-}
-
-type RecruitingFormQuestionOption {
-  optionId: ID!
-  content: String!
-  orderNo: Long!
-  other: Boolean!
-  nextSectionId: ID
+  orderNo: Int!
+  questions: [FormQuestion!]!
 }
 
 type RecruitingApplicationCreated {
@@ -676,14 +656,6 @@ type RecruitingIdPayload {
   id: ID!
 }
 
-enum ChallengerTrack {
-  PLAN
-  DESIGN
-  WEB_PRODUCT_ENGINEER
-  MOBILE_PRODUCT_ENGINEER
-  INFRA_PLUS
-}
-
 enum RecruitingRoundType {
   REGULAR
   ADDITIONAL
@@ -754,12 +726,6 @@ enum RecruitingRoundSort {
   NEWEST
   REGISTERED
   RECRUITMENT
-}
-
-enum FormStatus {
-  DRAFT
-  PUBLISHED
-  CLOSED
 }
 
 enum RecruitingPublicResultStatus {

@@ -27,11 +27,13 @@ type FormOption {
   content: String!
   orderNo: Int!
   other: Boolean!
+  nextSectionId: ID
 }
 
 enum FormStatus {
   DRAFT
   PUBLISHED
+  CLOSED
 }
 
 enum FormResponseStatus {

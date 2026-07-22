@@ -8,9 +8,11 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 
 | Task | Location | Notes |
 |------|----------|-------|
+| Shared schema | `common.graphqls`, `form.graphqls` | scalars, common enums, reusable form contracts |
 | Member schema | `member.graphqls` | `me`, `member`, `members` and member nested types |
 | Organization schema | `organization.graphqls` | gisu, chapter, school, organization payloads |
 | Project schema | `project.graphqls` | project search/detail and application/form nested types |
+| Recruiting schema | `recruiting.graphqls` | recruiting queries, mutations, and domain-specific types |
 | Runtime wiring | `src/main/java/com/umc/product/global/config/GraphQlRuntimeWiringConfig.java` | scalars and runtime wiring |
 | Resolver code | `src/main/java/com/umc/product/*/adapter/in/graphql` | controller and DTO mapping |
 | GraphQL docs | `docs/onboarding/graphql/README.md`, `docs/graphql-schema.md` | pilot design and schema snapshot |
@@ -18,9 +20,11 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 ## CONVENTIONS
 
 - Schema changes must be mirrored in `*GraphQlController` and `*GraphQlResponse` DTOs.
+- Treat all `*.graphqls` files as one IDL contract; domain files may extend roots and reference shared declarations.
+- Declare shared scalars, enums, and form types only in their owning common schema file.
 - Prefer explicit non-null markers only when the resolver can always satisfy the field.
 - Keep GraphQL request DTOs in `adapter/in/graphql/dto`.
-- Resolver code should delegate to Query UseCases; it must not call repositories directly.
+- Resolver code should delegate to application inbound UseCases; it must not call repositories directly.
 - Batch/nested fields should avoid N+1 by using batch mappings, IN queries, or DataLoader-aware patterns.
 - Reuse one object type for the same domain identity; do not create `Summary`, `Detail`, or parent-prefixed types only to vary field selection.
 - Keep enum names aligned with Java enum names unless a deliberate API compatibility reason exists.

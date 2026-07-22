@@ -173,7 +173,8 @@ public record ApplicationFormInfo(
         Long optionId,
         String content,
         long orderNo,
-        boolean isOther
+        boolean isOther,
+        Long nextSectionId
     ) {
         public static OptionInfo from(FormWithStructureInfo.Option option) {
             return OptionInfo.builder()
@@ -181,6 +182,7 @@ public record ApplicationFormInfo(
                 .content(option.content())
                 .orderNo(option.orderNo())
                 .isOther(option.isOther())
+                .nextSectionId(option.nextSectionId())
                 .build();
         }
     }

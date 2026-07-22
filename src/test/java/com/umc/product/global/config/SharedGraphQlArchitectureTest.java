@@ -24,7 +24,9 @@ class SharedGraphQlArchitectureTest {
     );
     private static final Map<String, String> SHARED_DECLARATION_OWNERS = Map.ofEntries(
         Map.entry("scalar Long", "common.graphqls"),
+        Map.entry("scalar Instant", "common.graphqls"),
         Map.entry("enum ChallengerPart", "common.graphqls"),
+        Map.entry("enum ChallengerTrack", "common.graphqls"),
         Map.entry("interface Form", "form.graphqls"),
         Map.entry("interface FormSection", "form.graphqls"),
         Map.entry("type FormQuestion", "form.graphqls"),
