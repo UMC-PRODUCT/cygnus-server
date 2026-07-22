@@ -28,6 +28,10 @@ resource "aws_db_instance" "this" {
   username = var.db_username
   password = random_password.db.result
 
+  # 시딩 Tier 2: snapshot id 가 있으면 그걸 복원한다(시딩 0). 없으면 위 db_name 으로 빈 DB 를 만든다.
+  # 복원 시 db_name/username 은 snapshot 값이 우선하고, password 만 여기 값으로 재설정된다.
+  snapshot_identifier = var.db_snapshot_identifier != "" ? var.db_snapshot_identifier : null
+
   availability_zone      = var.az # SUT 와 같은 AZ
   multi_az               = false  # 임계점 탐색용 단일 DB 스펙을 고정한다.
   db_subnet_group_name   = aws_db_subnet_group.this.name

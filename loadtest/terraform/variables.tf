@@ -115,6 +115,16 @@ variable "db_username" {
   default     = "postgres"
 }
 
+# 시딩 Tier 2 (opt-in 캐시): 미리 구운 DB snapshot 에서 복원한다.
+# 빈 문자열이면 새 빈 RDS 를 만들고 api 시더로 채운다(Tier 1, 기본).
+# snapshot id 를 넣으면 apply 시 그 snapshot 을 복원해 시딩 없이 즉시 대규모 데이터로 시작한다.
+# 스키마(Flyway)나 시드 모양이 바뀌면 snapshot 을 다시 구워야 한다(stale).
+variable "db_snapshot_identifier" {
+  description = "복원할 RDS snapshot 식별자. 빈 문자열이면 새 빈 인스턴스를 만든다. (대규모 반복 실행용 opt-in 캐시)"
+  type        = string
+  default     = ""
+}
+
 # ── 앱 이미지 / 배포 ─────────────────────────────────────────
 # app_image 는 이미 registry 에 push 된 dev profile 실행 가능 이미지를 가리켜야 한다.
 # Terraform 은 이미지를 빌드하지 않고 EC2 에서 docker compose pull 만 수행한다.
