@@ -545,17 +545,19 @@ FCM/APNs, token, deeplink, title/name, mute/offline/DND 결정과 notification d
 
 ### Broker, readiness, and observability gates
 
-- `WebSocketMessageBrokerConfig`는 local/test의 `SIMPLE` broker와 dev/prod의 shared external
-  `RELAY`를 분기한다. `WebSocketBrokerPropertiesValidator`는 dev/prod에서 simple mode를 거부하고
-  relay host/virtual-host/system·client credential 누락과 port 범위를 fail-fast로 검증한다.
-- dev/prod relay는 `tls-enabled=true`여야 한다. `StompRelayTcpClientFactory`가 Reactor Netty TLS와
-  HTTPS hostname verification을 적용하며, `WebSocketBrokerProperties.Relay.toString()`은 credential을
-  redacted한다. secret은 환경/secret injection에서만 읽고 로그에 남기지 않는다.
+- `WebSocketMessageBrokerConfig`는 모든 프로필에서 선택 가능한 instance-local `SIMPLE` broker와 shared
+  external `RELAY`를 분기한다. `WebSocketBrokerPropertiesValidator`는 `RELAY`를 선택한 경우에만 relay
+  host/virtual-host/system·client credential 누락과 port 범위를 fail-fast로 검증한다.
+- dev/prod에서 relay를 선택하면 `tls-enabled=true`여야 한다. `StompRelayTcpClientFactory`가 Reactor Netty
+  TLS와 HTTPS hostname verification을 적용하며, `WebSocketBrokerProperties.Relay.toString()`은
+  credential을 redacted한다. secret은 환경/secret injection에서만 읽고 로그에 남기지 않는다.
 - `StompBrokerRelayMonitor`의 availability/reconnect 관측과 `WebSocketBrokerRelayStartupValidator`의
-  `startup-timeout` 내 readiness가 운영 기동 조건이다.
-- shared RabbitMQ STOMP plugin/relay provisioning, secret injection, ALB SockJS fallback stickiness,
-  configured heartbeat보다 긴 idle timeout, multi-instance readiness/전환 증거는 로컬 코드만으로
-  증명할 수 없는 외부 인프라 증거다. 이 증거가 없으면 PR3 merge/deploy를 차단한다.
+  `startup-timeout` 내 readiness가 relay 운영 기동 조건이다.
+- simple broker의 구독과 session registry는 instance-local이다. rolling deploy의 일시적 instance 중첩을
+  포함해 다중 instance에서 무손실 실시간 전달이 필요해지면 shared RabbitMQ STOMP plugin/relay
+  provisioning, secret injection, ALB SockJS fallback stickiness, configured heartbeat보다 긴 idle timeout과
+  전환 검증을 scale-out 선행 조건으로 갖춘다. simple 운영 중 연결 종료·전달 공백은 client reconnect와
+  REST backfill로 복구한다.
 - `CommunityThreadRealtimeMetrics`는 send/reject/rate-limit/fan-out/broadcast-failure/backfill을
   유한한 `operation`/`outcome`/`reason` bucket으로만 기록한다. `threadId`, `memberId`, `messageId`,
   `eventId`, raw destination은 metric tag가 될 수 없다. relay availability/reconnect 및

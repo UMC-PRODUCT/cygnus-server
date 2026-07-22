@@ -139,20 +139,22 @@ event와 분리된 alarm-ready snapshot으로 realtime relay가 다시 소비하
 `CommunityThreadInvitedEvent`는 thread/inviter/invited member ID snapshot만 보관한다. 알림 발송, FCM/APNs,
 token/deeplink consumer는 이 문서의 구현 범위가 아니다.
 
-## Broker와 운영 blocker
+## Broker와 운영 조건
 
-- local/test는 `app.websocket.broker.mode=SIMPLE`을 사용할 수 있다. `dev`/`prod`는 shared external
-  STOMP relay(`RELAY`)만 허용한다. `WebSocketBrokerPropertiesValidator`가 simple mode를 거부하고
-  relay host/virtual-host/system·client credentials 누락과 port 범위를 startup에서 fail-fast로
-  검증한다.
-- `dev`/`prod`는 `tls-enabled=true`를 요구한다. `StompRelayTcpClientFactory`가 TLS hostname
-  verification(`HTTPS`)을 적용하고, `WebSocketBrokerProperties.Relay.toString()`은 credentials를
-  redacted한다. 비밀번호는 환경변수/secret injection으로만 주입하고 로그에 남기지 않는다.
-- `StompBrokerRelayMonitor`의 availability/reconnect metric과
+- 단일 application instance 운영에서는 모든 프로필이 `app.websocket.broker.mode=SIMPLE`을 사용할 수
+  있다. `WebSocketBrokerPropertiesValidator`는 `RELAY`를 선택한 경우에만 relay
+  host/virtual-host/system·client credentials 누락과 port 범위를 startup에서 fail-fast로 검증한다.
+- `dev`/`prod`에서 `RELAY`를 선택하면 `tls-enabled=true`를 요구한다.
+  `StompRelayTcpClientFactory`가 TLS hostname verification(`HTTPS`)을 적용하고,
+  `WebSocketBrokerProperties.Relay.toString()`은 credentials를 redacted한다. 비밀번호는
+  환경변수/secret injection으로만 주입하고 로그에 남기지 않는다.
+- relay 운영에서는 `StompBrokerRelayMonitor`의 availability/reconnect metric과
   `WebSocketBrokerRelayStartupValidator`의 startup-timeout readiness 검증을 통과해야 한다.
-- 운영 provisioning(공유 RabbitMQ STOMP plugin/relay 및 secret injection), ALB SockJS fallback
-  stickiness, configured heartbeat보다 긴 idle timeout, 다중 application instance readiness/전환
-  증거는 로컬에서 증명할 수 없는 외부 인프라 산출물이다. 이 증거가 없으면 PR3 merge/deploy blocker다.
+- simple broker의 구독과 session registry는 instance-local이다. rolling deploy의 일시적 instance 중첩을
+  포함해 다중 instance에서 무손실 실시간 전달이 필요해지면, 공유 RabbitMQ STOMP plugin/relay,
+  secret injection, ALB SockJS fallback stickiness, configured heartbeat보다 긴 idle timeout과 전환
+  검증을 scale-out 선행 조건으로 갖춘다. simple 운영 중 연결 종료·전달 공백은 client reconnect와 REST
+  backfill로 복구한다.
 
 ## Observability 규칙
 
