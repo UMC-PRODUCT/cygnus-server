@@ -180,18 +180,20 @@ message/reaction/read gap은 history endpoint로, metadata/member/settings gap�
 query로 backfill한다. kick/leave/delete terminal event는 broker replay가 아니라 REST terminal state를
 기준으로 한다.
 
-## Broker 운영 전제와 merge/deploy blocker
+## Broker 운영 전제와 확장 조건
 
-- local/test는 `app.websocket.broker.mode=SIMPLE`을 허용한다. `dev`/`prod`는 shared external STOMP
-  relay(`RELAY`)만 허용하며 `WebSocketBrokerPropertiesValidator`가 simple mode를 거부하고
+- 단일 application instance 운영에서는 모든 프로필이 `app.websocket.broker.mode=SIMPLE`을 허용한다.
+  `WebSocketBrokerPropertiesValidator`는 `RELAY`를 선택한 경우에만
   host/virtual-host/system·client credentials 누락과 port 범위를 fail-fast로 검증한다.
-- dev/prod relay는 `tls-enabled=true`여야 한다. `StompRelayTcpClientFactory`가 TLS hostname
+- dev/prod에서 relay를 선택하면 `tls-enabled=true`여야 한다. `StompRelayTcpClientFactory`가 TLS hostname
   verification(`HTTPS`)을 사용하고 `WebSocketBrokerProperties.Relay.toString()`은 credential을
   redacted한다. secret은 환경/secret injection으로만 주입하고 로그에 남기지 않는다.
-- `StompBrokerRelayMonitor` availability/reconnect와 `WebSocketBrokerRelayStartupValidator`의
-  `startup-timeout` 내 readiness를 확인한다. RabbitMQ STOMP plugin/relay provisioning, secret injection,
-  ALB SockJS fallback stickiness, configured heartbeat보다 긴 idle timeout, multi-instance readiness/전환
-  증거는 로컬에서 입증할 수 없는 외부 인프라 산출물이며, 누락 시 PR3 merge/deploy blocker다.
+- relay 운영에서는 `StompBrokerRelayMonitor` availability/reconnect와
+  `WebSocketBrokerRelayStartupValidator`의 `startup-timeout` 내 readiness를 확인한다. simple broker의
+  구독과 session registry는 instance-local이므로 rolling deploy의 일시적 instance 중첩을 포함해 다중
+  instance에서 무손실 전달이 필요해지면 RabbitMQ STOMP plugin/relay provisioning, secret injection,
+  ALB SockJS fallback stickiness, configured heartbeat보다 긴 idle timeout과 전환 검증을 scale-out 선행
+  조건으로 갖춘다. simple 운영 중 연결 종료·전달 공백은 client reconnect와 REST backfill로 복구한다.
 
 ## Metrics cardinality
 

@@ -159,17 +159,20 @@ consumer는 이 범위에 없다.
 
 ## BROKER, READINESS, AND METRICS
 
-- local/test는 `app.websocket.broker.mode=SIMPLE`을 사용할 수 있다. `dev`/`prod`는 shared external
-  STOMP relay(`RELAY`)만 허용한다. `WebSocketBrokerPropertiesValidator`가 simple mode를 거부하고,
-  host/virtual-host/system·client credential 누락과 port 범위를 startup에서 fail-fast로 검증한다.
-- `dev`/`prod`에서는 `relay.tls-enabled=true`가 필수다. `StompRelayTcpClientFactory`는 TLS hostname
-  verification(`HTTPS`)을 적용하며, `WebSocketBrokerProperties.Relay.toString()`은 credentials를
-  redacted한다. secret은 환경변수/secret injection으로만 주입하고 로그에 기록하지 않는다.
+- 단일 application instance 운영에서는 모든 프로필이 `app.websocket.broker.mode=SIMPLE`을 사용할 수
+  있다. `WebSocketBrokerPropertiesValidator`는 `RELAY`를 선택한 경우에만 host/virtual-host/system·client
+  credential 누락과 port 범위를 startup에서 fail-fast로 검증한다.
+- `dev`/`prod`에서 `RELAY`를 선택하면 `relay.tls-enabled=true`가 필수다.
+  `StompRelayTcpClientFactory`는 TLS hostname verification(`HTTPS`)을 적용하며,
+  `WebSocketBrokerProperties.Relay.toString()`은 credentials를 redacted한다. secret은 환경변수/secret
+  injection으로만 주입하고 로그에 기록하지 않는다.
 - `StompBrokerRelayMonitor`의 availability/reconnect와 `WebSocketBrokerRelayStartupValidator`의
   `startup-timeout` readiness 대기는 운영 broker가 실제로 연결된 경우에만 통과한다.
-- production provisioning(공유 RabbitMQ STOMP plugin/relay, secret injection), ALB SockJS fallback
-  stickiness, configured heartbeat보다 긴 idle timeout, multi-instance readiness/전환 증거는 로컬
-  코드만으로 증명할 수 없는 외부 인프라 산출물이다. 이 증거가 없으면 PR3 merge/deploy blocker다.
+- simple broker의 구독과 session registry는 instance-local이다. rolling deploy의 일시적 instance 중첩을
+  포함해 다중 instance에서 무손실 실시간 전달이 필요해지면, shared RabbitMQ STOMP plugin/relay,
+  secret injection, ALB SockJS fallback stickiness, configured heartbeat보다 긴 idle timeout과 전환
+  검증을 scale-out 선행 조건으로 갖춘다. simple 운영 중 연결 종료·전달 공백은 client reconnect와 REST
+  backfill로 복구한다.
 - `CommunityThreadRealtimeMetrics`는 send/reject/rate-limit/fan-out/broadcast-failure/backfill을
   `operation`, `outcome`, `reason` 같은 고정 bucket으로만 기록한다. `threadId`, `memberId`,
   `messageId`, `eventId` 등 ID를 metric tag로 사용하지 않는다. broker availability/reconnect 및

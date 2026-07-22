@@ -26,34 +26,30 @@ class WebSocketBrokerPropertiesValidatorTest {
     }
 
     @Test
-    @DisplayName("dev와 prod 프로필은 simple broker로 시작할 수 없다")
-    void validate_sharedEnvironmentRejectsSimpleBroker() {
+    @DisplayName("dev와 prod 프로필도 single instance에서는 simple broker로 시작할 수 있다")
+    void validate_sharedEnvironmentAllowsSimpleBroker() {
         for (String profile : new String[] {"dev", "prod"}) {
             MockEnvironment environment = new MockEnvironment();
             environment.setActiveProfiles(profile);
 
-            assertThatThrownBy(() -> WebSocketBrokerPropertiesValidator.validate(
+            assertThatCode(() -> WebSocketBrokerPropertiesValidator.validate(
                 new WebSocketBrokerProperties(WebSocketBrokerProperties.Mode.SIMPLE, null),
                 environment
-            ))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("app.websocket.broker.mode=relay");
+            )).doesNotThrowAnyException();
         }
     }
 
     @Test
-    @DisplayName("dev 또는 prod가 포함된 혼합 프로필은 simple broker로 시작할 수 없다")
-    void validate_mixedSharedProfilesRejectSimpleBroker() {
+    @DisplayName("dev 또는 prod가 포함된 혼합 프로필도 simple broker로 시작할 수 있다")
+    void validate_mixedSharedProfilesAllowsSimpleBroker() {
         for (String[] profiles : new String[][] {{"test", "dev"}, {"local", "prod"}}) {
             MockEnvironment environment = new MockEnvironment();
             environment.setActiveProfiles(profiles);
 
-            assertThatThrownBy(() -> WebSocketBrokerPropertiesValidator.validate(
+            assertThatCode(() -> WebSocketBrokerPropertiesValidator.validate(
                 new WebSocketBrokerProperties(WebSocketBrokerProperties.Mode.SIMPLE, null),
                 environment
-            ))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("app.websocket.broker.mode=relay");
+            )).doesNotThrowAnyException();
         }
     }
 

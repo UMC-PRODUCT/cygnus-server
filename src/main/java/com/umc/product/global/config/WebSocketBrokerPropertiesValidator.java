@@ -16,16 +16,11 @@ public final class WebSocketBrokerPropertiesValidator {
     }
 
     public static void validate(WebSocketBrokerProperties properties, Environment environment) {
-        boolean sharedEnvironment = environment.acceptsProfiles(SHARED_ENVIRONMENT_PROFILES);
         if (properties.mode() == WebSocketBrokerProperties.Mode.SIMPLE) {
-            if (sharedEnvironment) {
-                throw new IllegalStateException(
-                    "dev/prod 프로필에서는 app.websocket.broker.mode=relay가 필요합니다."
-                );
-            }
             return;
         }
 
+        boolean sharedEnvironment = environment.acceptsProfiles(SHARED_ENVIRONMENT_PROFILES);
         validateRelay(properties.relay(), sharedEnvironment);
     }
 
