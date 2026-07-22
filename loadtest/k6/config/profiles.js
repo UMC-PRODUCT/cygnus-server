@@ -1,0 +1,58 @@
+// 부하 유형(profile)별 k6 실행 옵션·thresholds 를 만든다.
+// RATE/DURATION 은 run-umc-k6 인자로 들어오고, 없으면 유형별 기본값을 쓴다.
+const DEFAULT_DURATION = {
+  smoke: "1m",
+  load: "10m",
+  stress: "20m",
+  soak: "2h",
+};
+
+function thresholds(profile) {
+  // stress 는 한계점 탐색이라 에러/지연 허용치를 완화한다. 나머지는 SLO 에 가깝게 죈다.
+  const failRate = profile === "stress" ? "rate<0.05" : "rate<0.01";
+  const p95 = profile === "stress" ? 2000 : 800;
+  return {
+    http_req_failed: [failRate],
+    http_req_duration: [`p(95)<${p95}`],
+  };
+}
+
+// arrival-rate executor 의 VU 풀 크기. rate 기준으로 여유 있게 잡되 상한을 둔다.
+function vuPool(rate) {
+  return {
+    preAllocatedVUs: Math.min(Math.max(rate, 10), 500),
+    maxVUs: Math.min(Math.max(rate * 2, 50), 1000),
+  };
+}
+
+export function buildOptions(profile, rateEnv, durationEnv) {
+  const rate = Math.max(parseInt(rateEnv, 10) || 1, 1);
+  const duration =
+    durationEnv && durationEnv.length ? durationEnv : DEFAULT_DURATION[profile];
+
+  // smoke 는 "테스트 자체가 도는지"를 보는 사전 점검이라 소수 VU 로 짧게 돈다.
+  if (profile === "smoke") {
+    return {
+      vus: rate,
+      duration: duration,
+      thresholds: thresholds(profile),
+    };
+  }
+
+  // load/stress/soak 은 목표 처리량(RATE req/s)을 constant-arrival-rate 로 고정한다.
+  // 도착률 기반이라 SUT 가 느려져도 부하가 밀리지 않고 목표 rate 를 유지한다 —
+  // "요청을 얼마나 던졌나"가 아니라 "SUT 가 얼마나 받아내나"를 본다.
+  // (stress 의 ramping-arrival-rate 전환은 후속 개선. v1 은 높은 상수 rate 로 한계를 본다.)
+  return {
+    scenarios: {
+      [profile]: {
+        executor: "constant-arrival-rate",
+        rate: rate,
+        timeUnit: "1s",
+        duration: duration,
+        ...vuPool(rate),
+      },
+    },
+    thresholds: thresholds(profile),
+  };
+}
