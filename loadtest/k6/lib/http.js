@@ -42,4 +42,24 @@ export function post(path, body, { token, tag, expectedStatus = 200 } = {}) {
   return res;
 }
 
+// 여러 GET을 홈 화면처럼 동시에(병렬) 발사한다. 각 응답을 개별 태깅·체크한다.
+// reqs: [{ path, tag, expectedStatus }]
+export function batchGet(token, reqs) {
+  const requests = reqs.map((r) => ({
+    method: "GET",
+    url: `${BASE_URL}${r.path}`,
+    params: { headers: headers(token), tags: { scenario: r.tag } },
+  }));
+  const responses = http.batch(requests);
+  responses.forEach((res, i) => {
+    const label = reqs[i].tag;
+    const expected = reqs[i].expectedStatus || 200;
+    const ok = check(res, {
+      [`${label} status ${expected}`]: (r) => r.status === expected,
+    });
+    errorRate.add(!ok, { scenario: label });
+  });
+  return responses;
+}
+
 export { BASE_URL };

@@ -19,6 +19,8 @@ import stressProjectRead, {
 import soakProjectRead, {
   requiresSeed as soakProjectReadSeed,
 } from "./scenarios/soak/project-read.js";
+import smokeHome, { requiresSeed as smokeHomeSeed } from "./scenarios/smoke/home.js";
+import loadHome, { requiresSeed as loadHomeSeed } from "./scenarios/load/home.js";
 
 // PROFILE(부하 유형) × SCENARIO(업무 시나리오) → 실제 실행 함수 매핑.
 // k6 는 런타임 동적 import 를 지원하지 않으므로, 정적 import 를 registry 로 모아 __ENV 로 고른다.
@@ -26,6 +28,7 @@ const REGISTRY = {
   smoke: {
     "health-check": { fn: healthCheck, requiresSeed: healthCheckSeed },
     "project-read": { fn: smokeProjectRead, requiresSeed: smokeProjectReadSeed },
+    home: { fn: smokeHome, requiresSeed: smokeHomeSeed },
   },
   load: {
     "project-read": { fn: loadProjectRead, requiresSeed: loadProjectReadSeed },
@@ -33,6 +36,7 @@ const REGISTRY = {
       fn: applicationSubmit,
       requiresSeed: applicationSubmitSeed,
     },
+    home: { fn: loadHome, requiresSeed: loadHomeSeed },
   },
   stress: {
     "project-read": { fn: stressProjectRead, requiresSeed: stressProjectReadSeed },
