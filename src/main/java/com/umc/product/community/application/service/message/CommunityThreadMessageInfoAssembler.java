@@ -152,6 +152,9 @@ public class CommunityThreadMessageInfoAssembler {
     }
 
     private String memberName(Map<Long, MemberInfo> members, Long memberId) {
+        if (memberId == null) {
+            return UNKNOWN_MEMBER_NAME;
+        }
         MemberInfo member = members.get(memberId);
         return member == null || member.name() == null ? UNKNOWN_MEMBER_NAME : member.name();
     }

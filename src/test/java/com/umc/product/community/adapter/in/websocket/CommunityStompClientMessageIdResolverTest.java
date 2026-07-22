@@ -9,6 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.community.adapter.in.websocket.dto.request.CreateCommunityThreadMessageRequest;
+import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageType;
 
 @DisplayName("Community STOMP clientMessageId resolver")
 class CommunityStompClientMessageIdResolverTest {
@@ -40,5 +42,33 @@ class CommunityStompClientMessageIdResolverTest {
             .getBytes(UTF_8);
 
         assertThat(sut.resolve(payload)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("typed request와 String JSON에서도 clientMessageId를 복원한다")
+    void resolvesTypedAndStringPayloads() {
+        CreateCommunityThreadMessageRequest request = new CreateCommunityThreadMessageRequest(
+            CLIENT_MESSAGE_ID,
+            CommunityThreadMessageType.TEXT,
+            "메시지",
+            java.util.List.of(),
+            java.util.List.of(),
+            null
+        );
+
+        assertThat(sut.resolve(request)).contains(UUID.fromString(CLIENT_MESSAGE_ID));
+        assertThat(sut.resolve("{\"clientMessageId\":\"" + CLIENT_MESSAGE_ID + "\"}"))
+            .contains(UUID.fromString(CLIENT_MESSAGE_ID));
+    }
+
+    @Test
+    @DisplayName("null·미지원 payload·잘못된 JSON·비문자 필드는 빈 결과를 반환한다")
+    void rejectsUnsupportedAndMalformedPayloads() {
+        assertThat(sut.resolve(null)).isEmpty();
+        assertThat(sut.resolve(1L)).isEmpty();
+        assertThat(sut.resolve("{" )).isEmpty();
+        assertThat(sut.resolve("null")).isEmpty();
+        assertThat(sut.resolve("{\"clientMessageId\":1}")).isEmpty();
+        assertThat(sut.resolve("{\"other\":\"value\"}")).isEmpty();
     }
 }

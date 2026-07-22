@@ -44,10 +44,11 @@ final class CommunityThreadCommandValidation {
     }
 
     static List<Long> uniqueIds(List<Long> values, boolean emptyAllowed) {
-        List<Long> copied = values == null ? List.of() : List.copyOf(values);
-        if ((!emptyAllowed && copied.isEmpty()) || copied.stream().anyMatch(value -> value == null || value <= 0)) {
+        List<Long> source = values == null ? List.of() : values;
+        if ((!emptyAllowed && source.isEmpty()) || source.stream().anyMatch(value -> value == null || value <= 0)) {
             throw invalidCommand();
         }
+        List<Long> copied = List.copyOf(source);
         if (new HashSet<>(copied).size() != copied.size()) {
             throw invalidCommand();
         }

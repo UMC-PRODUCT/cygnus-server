@@ -32,6 +32,9 @@ public class CommunityStompClientMessageIdResolver implements StompClientMessage
 
     @Override
     public Optional<UUID> resolve(Object payload) {
+        if (payload == null) {
+            return Optional.empty();
+        }
         if (payload instanceof CreateCommunityThreadMessageRequest request) {
             return Optional.ofNullable(CommunityStompUuid.parseOrNull(request.clientMessageId()));
         }

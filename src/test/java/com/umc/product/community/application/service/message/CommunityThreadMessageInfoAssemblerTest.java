@@ -1,6 +1,7 @@
 package com.umc.product.community.application.service.message;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.times;
@@ -134,6 +135,88 @@ class CommunityThreadMessageInfoAssemblerTest {
         assertThat(systemInfo.type()).isEqualTo(CommunityThreadMessageType.SYSTEM);
         assertThat(systemInfo.status()).isEqualTo(CommunityThreadMessageStatus.SENT);
         then(getMemberUseCase).should(times(2)).findAllByIds(Set.of(10L));
+    }
+
+    @Test
+    @DisplayName("null·빈 batch는 Member 조회 없이 빈 결과를 반환한다")
+    void assemble_emptyBatchShortCircuits() {
+        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+
+        assertThat(sut.assemble(THREAD_ID, (List<ChatMessageInfo>) null)).isEmpty();
+        assertThat(sut.assemble(THREAD_ID, List.of())).isEmpty();
+        assertThat(sut.assembleForRecipients(THREAD_ID, null)).isEmpty();
+        assertThat(sut.assembleForRecipients(THREAD_ID, Map.of())).isEmpty();
+        then(getMemberUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("recipient별 조립은 입력 순서를 보존하고 이름 누락을 안전한 기본값으로 마스킹한다")
+    void assembleForRecipients_preservesOrderAndMasksMissingName() {
+        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+        ChatMessageInfo message = chatMessage(900L, 10L, "본문", List.of(), null);
+        MemberInfo memberWithoutName = mockMember(10L, null);
+        given(getMemberUseCase.findAllByIds(Set.of(10L))).willReturn(Map.of(10L, memberWithoutName));
+
+        Map<Long, CommunityThreadMessageInfo> result = sut.assembleForRecipients(
+            THREAD_ID,
+            Map.of(20L, message)
+        );
+
+        assertThat(result).containsOnlyKeys(20L);
+        assertThat(result.get(20L).senderName()).isEqualTo("알 수 없음");
+    }
+
+    @Test
+    @DisplayName("발신자 ID가 없는 메시지는 Member batch 조회를 생략하고 응답 계약에서 거절한다")
+    void assemble_withoutAnyMemberIdsRejectedByResponseContract() {
+        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+        ChatMessageInfo message = new ChatMessageInfo(
+            900L,
+            ROOM_ID,
+            null,
+            MessageContentType.SYSTEM,
+            "시스템",
+            List.of(),
+            CREATED_AT,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            null,
+            List.of()
+        );
+
+        assertThatThrownBy(() -> sut.assemble(THREAD_ID, message))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("senderId must be positive");
+        then(getMemberUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("content type 누락은 임의 타입으로 변환하지 않고 명시적으로 실패한다")
+    void assemble_nullContentTypeRejected() {
+        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+        ChatMessageInfo message = new ChatMessageInfo(
+            900L,
+            ROOM_ID,
+            null,
+            null,
+            "본문",
+            List.of(),
+            CREATED_AT,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            null,
+            List.of()
+        );
+
+        assertThatThrownBy(() -> sut.assemble(THREAD_ID, message))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("contentType must not be null");
     }
 
     private ChatMessageInfo chatMessage(
