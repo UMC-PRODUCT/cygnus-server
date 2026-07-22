@@ -186,12 +186,6 @@ class SsoClientConfigAdapterTest {
                     "https://dev.university.neordinary.com/auth/callback",
                     "https://dev.university.neordinary.com"
                 );
-                assertDevWebClient(
-                    adapter.getByClientId("tech"),
-                    "https://dev.tech.university.neordinary.com/auth/callback",
-                    "https://dev.tech.university.neordinary.com"
-                );
-
                 SsoClient iosApp = adapter.getByClientId("ios-app");
                 SsoClient androidApp = adapter.getByClientId("android-app");
 

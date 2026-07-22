@@ -13,7 +13,6 @@
 | authentication | 72 | OAuth/ID/PW 인증 흐름, provider 호출 실패, 토큰 revoke, email verification retention |
 | authorization | 6 | 권한 evaluator 등록, 권한 평가, 접근 거부 |
 | audit | 6 | audit event 발행/저장 실패, details 직렬화 실패 |
-| blog | 3 | 지원하지 않는 permission type |
 | challenger | 6 | ChallengerRecord 생성/대량생성/검증 실패, deprecated API |
 | community | 2 | 지원하지 않는 permission type |
 | curriculum | 3 | Workbook 자동 배포 스케줄 |
@@ -92,18 +91,6 @@
 
 - audit 저장 실패는 metric counter와 alert를 붙인다.
 - details 직렬화 실패는 event id 또는 target을 포함해 추적성을 높인다.
-
-## blog
-
-| 위치 | 레벨 | 무엇을 남기는가 | 판단 |
-| --- | --- | --- | --- |
-| `BlogSeriesPermissionEvaluator` | WARN | 지원하지 않는 permission type | 개발/설정 오류 진단용 |
-| `BlogContentPermissionEvaluator` | WARN | 지원하지 않는 permission type | 개발/설정 오류 진단용 |
-| `BlogCommentPermissionEvaluator` | WARN | 지원하지 않는 permission type | 개발/설정 오류 진단용 |
-
-추가 계획:
-
-- permission evaluator 공통 helper로 메시지와 필드를 표준화한다.
 
 ## challenger
 

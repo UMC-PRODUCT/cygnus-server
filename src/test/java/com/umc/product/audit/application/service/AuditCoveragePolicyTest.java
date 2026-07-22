@@ -139,11 +139,6 @@ class AuditCoveragePolicyTest {
             spec("community.application.service.command.PostCommandService", "deletePost", "COMMUNITY", "DELETE", "Post", longType),
             spec("community.application.service.command.ReportCommandService", "report", "COMMUNITY", "SUBMIT", "PostReport", type("community.application.port.in.command.report.dto.ReportPostCommand")),
 
-            spec("blog.application.service.BlogContentCommandService", "create", "BLOG", "CREATE", "BlogContent", type("blog.application.port.in.command.dto.CreateBlogContentCommand")),
-            spec("blog.application.service.BlogContentCommandService", "update", "BLOG", "UPDATE", "BlogContent", type("blog.application.port.in.command.dto.UpdateBlogContentCommand")),
-            spec("blog.application.service.BlogContentCommandService", "delete", "BLOG", "DELETE", "BlogContent", type("blog.application.port.in.command.dto.DeleteBlogContentCommand")),
-            spec("blog.application.service.BlogSeriesCommandService", "replaceContents", "BLOG", "REORDER", "BlogSeries", type("blog.application.port.in.command.dto.ReplaceBlogSeriesContentsCommand")),
-
             spec("notice.application.service.command.NoticeService", "createNotice", "NOTICE", "CREATE", "Notice", type("notice.application.port.in.command.dto.CreateNoticeCommand")),
             spec("notice.application.service.command.NoticeService", "updateNoticeTitleOrContent", "NOTICE", "UPDATE", "Notice", type("notice.application.port.in.command.dto.UpdateNoticeCommand")),
             spec("notice.application.service.command.NoticeService", "deleteNotice", "NOTICE", "DELETE", "Notice", type("notice.application.port.in.command.dto.DeleteNoticeCommand")),

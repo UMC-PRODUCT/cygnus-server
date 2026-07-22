@@ -30,7 +30,6 @@ public enum Domain {
     CHAT,
     MAINTENANCE,
     FEEDBACK,
-    BLOG,
     DOCUMENTATION,
     CERTIFICATE
 }

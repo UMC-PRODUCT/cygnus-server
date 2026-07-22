@@ -304,9 +304,6 @@ app:
       - origin: https://admin.university.neordinary.com
         service-type: UMC_BACKOFFICE
         environment: PROD
-      - origin: https://tech.university.neordinary.com
-        service-type: UMC_TECH_BLOG
-        environment: PROD
 
   sso:
     issuer: ${SSO_ISSUER:https://api.university.neordinary.com}
@@ -338,16 +335,6 @@ app:
           - https://university.neordinary.com/auth/callback
         allowed-origins:
           - https://university.neordinary.com
-      tech:
-        name: UMC Tech Blog
-        service-type: UMC_TECH_BLOG
-        environment: PROD
-        require-pkce: true
-        access-token-ttl: PT1H
-        redirect-uris:
-          - https://tech.university.neordinary.com/auth/callback
-        allowed-origins:
-          - https://tech.university.neordinary.com
       ios-app:
         name: UMC iOS App
         service-type: IOS_APP
@@ -579,16 +566,6 @@ app:
           - https://dev.university.neordinary.com/auth/callback
         allowed-origins:
           - https://dev.university.neordinary.com
-      tech:
-        name: UMC Tech Blog
-        service-type: UMC_TECH_BLOG
-        environment: DEV
-        require-pkce: true
-        access-token-ttl: PT1H
-        redirect-uris:
-          - https://dev.tech.university.neordinary.com/auth/callback
-        allowed-origins:
-          - https://dev.tech.university.neordinary.com
       local:
         name: local dev
         service-type: UNKNOWN
