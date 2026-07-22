@@ -17,6 +17,7 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummar
 import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryQuery;
 import com.umc.product.analytics.domain.AdminAnalyticsScope;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
+import com.umc.product.analytics.domain.AdminAnalyticsSort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.challenger.domain.ChallengerPoint;
@@ -159,6 +160,50 @@ class AdminSchoolAnalyticsQueryRepositoryTest {
         Page<AdminSchoolSummaryInfo> result = sut.getSchoolSummaries(centralScope(), query(null, null, null));
 
         assertThat(result.getContent().getFirst().averagePointSum()).isEqualTo(-5.0);
+    }
+
+    @Test
+    @DisplayName("학교 요약은 운영진 조립·모든 정렬·빈 페이지와 학교·파트 스코프를 처리한다")
+    void 운영진_정렬_빈_page와_scope를_처리한다() {
+        Challenger president = persistChallenger("회장", schoolAId, ChallengerPart.SPRINGBOOT);
+        Challenger vicePresident = persistChallenger("부회장", schoolAId, ChallengerPart.WEB);
+        Challenger leader = persistChallenger("파트장", schoolAId, ChallengerPart.SPRINGBOOT);
+        em.persist(ChallengerRole.create(
+            president.getId(), ChallengerRoleType.SCHOOL_PRESIDENT, schoolAId, null, gisuId
+        ));
+        em.persist(ChallengerRole.create(
+            vicePresident.getId(), ChallengerRoleType.SCHOOL_VICE_PRESIDENT, schoolAId, null, gisuId
+        ));
+        em.persist(ChallengerRole.create(
+            leader.getId(), ChallengerRoleType.SCHOOL_PART_LEADER, schoolAId, ChallengerPart.SPRINGBOOT, gisuId
+        ));
+        em.flush();
+        em.clear();
+
+        for (AdminAnalyticsSort sort : AdminAnalyticsSort.values()) {
+            AdminSchoolSummaryQuery direct = new AdminSchoolSummaryQuery(
+                1L, gisuId, null, null, -8, PageRequest.of(0, 10), sort
+            );
+            assertThat(sut.getSchoolSummaries(centralScope(), direct)).isNotEmpty();
+        }
+        AdminSchoolSummaryInfo first = sut.getSchoolSummaries(centralScope(), query(null, null, null))
+            .getContent().getFirst();
+        assertThat(first.president().name()).isEqualTo("회장");
+        assertThat(first.vicePresident().name()).isEqualTo("부회장");
+
+        AdminSchoolSummaryQuery beyond = new AdminSchoolSummaryQuery(
+            1L, gisuId, null, null, -8, PageRequest.of(100, 10),
+            AdminAnalyticsSort.RISK_CHALLENGER_COUNT_DESC
+        );
+        assertThat(sut.getSchoolSummaries(centralScope(), beyond)).isEmpty();
+        assertThat(sut.getSchoolSummaries(centralScope(), query(null, "존재하지않음", null))).isEmpty();
+
+        AdminAnalyticsScope partScope = AdminAnalyticsScope.of(
+            AdminAnalyticsScopeType.SCHOOL_PART, gisuId, null, schoolAId, ChallengerPart.SPRINGBOOT,
+            ChallengerRoleType.SCHOOL_PART_LEADER
+        );
+        assertThat(sut.getSchoolSummaries(partScope, query(null, null, null)))
+            .extracting(AdminSchoolSummaryInfo::schoolId).containsExactly(schoolAId);
     }
 
     private AdminSchoolSummaryQuery query(Long chapterId, String search, String sort) {

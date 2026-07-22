@@ -34,6 +34,40 @@ import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 class FcmSendBatchRequestedEventListenerTest {
 
     @Test
+    @DisplayName("FCM이 비활성화되면 토큰 조회와 발송을 생략한다")
+    void disabled_skips_batch() {
+        FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of(token(1L, 10L, "token")));
+        FakeSendFcmMessagePort sendPort = new FakeSendFcmMessagePort(
+            FcmSendResult.of(0, 0, List.of(), List.of())
+        );
+        FcmSendBatchRequestedEventListener listener = listener(
+            new FcmProperties(false, true), loadFcmPort, new FakeSaveFcmPort(), sendPort
+        );
+
+        listener.handle(event(List.of(1L)));
+
+        assertThat(loadFcmPort.called).isFalse();
+        assertThat(sendPort.lastRequest).isNull();
+    }
+
+    @Test
+    @DisplayName("활성 토큰이 없으면 FCM 발송을 생략한다")
+    void no_active_token_skips_send() {
+        FakeLoadFcmPort loadFcmPort = new FakeLoadFcmPort(List.of());
+        FakeSendFcmMessagePort sendPort = new FakeSendFcmMessagePort(
+            FcmSendResult.of(0, 0, List.of(), List.of())
+        );
+        FcmSendBatchRequestedEventListener listener = listener(
+            new FcmProperties(true, true), loadFcmPort, new FakeSaveFcmPort(), sendPort
+        );
+
+        listener.handle(event(List.of(1L)));
+
+        assertThat(loadFcmPort.called).isTrue();
+        assertThat(sendPort.lastRequest).isNull();
+    }
+
+    @Test
     @DisplayName("UNREGISTERED 결과를 받은 토큰을 비활성화한다")
     void invalid_token_비활성화() {
         // given
@@ -167,9 +201,32 @@ class FcmSendBatchRequestedEventListenerTest {
         return token;
     }
 
+    private FcmSendBatchRequestedEventListener listener(
+        FcmProperties properties,
+        FakeLoadFcmPort loadPort,
+        FakeSaveFcmPort savePort,
+        FakeSendFcmMessagePort sendPort
+    ) {
+        return new FcmSendBatchRequestedEventListener(
+            properties,
+            loadPort,
+            savePort,
+            sendPort,
+            new RecordingDomainEventPublisher(),
+            new OperationalMetrics(new SimpleMeterRegistry())
+        );
+    }
+
+    private FcmSendBatchRequestedEvent event(List<Long> tokenIds) {
+        return new FcmSendBatchRequestedEvent(
+            null, null, UUID.randomUUID(), tokenIds, "제목", "본문", Map.of(), null, null
+        );
+    }
+
     private static class FakeLoadFcmPort implements LoadFcmPort {
 
         private final List<FcmToken> tokens;
+        private boolean called;
 
         private FakeLoadFcmPort(List<FcmToken> tokens) {
             this.tokens = tokens;
@@ -197,6 +254,7 @@ class FcmSendBatchRequestedEventListenerTest {
 
         @Override
         public List<FcmToken> listActiveByIds(List<Long> ids) {
+            called = true;
             return tokens;
         }
 

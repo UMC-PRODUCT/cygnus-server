@@ -37,7 +37,12 @@ import com.umc.product.analytics.application.port.in.query.GetAdminRiskChallenge
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardContextInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsPointsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSchoolsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSignupsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsStudyGroupsInfo;
 import com.umc.product.analytics.domain.AdminAnalyticsRoleType;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -218,5 +223,55 @@ class AdminDashboardControllerTest {
             .andExpect(jsonPath("$.result.studyGroupStatus.studyGroupCount").value(9L))
             .andExpect(jsonPath("$.result.signupBuckets[0].count").value(2L))
             .andDo(restDocsHandler);
+    }
+
+    @Test
+    @DisplayName("분리된 operations API들은 중첩 집계와 기간 요청을 응답으로 변환한다")
+    void 분리된_operations_API_응답() throws Exception {
+        given(getAdminOperationsSchoolsUseCase.getOperationsSchools(any())).willReturn(
+            AdminOperationsSchoolsInfo.from(java.util.List.of(AdminOperationsSchoolsInfo.ChapterStatusInfo.of(
+                10L, "중앙", java.util.List.of(AdminOperationsSchoolsInfo.SchoolChallengerStatusInfo.of(
+                    20L, "학교", 3L, Map.of(ChallengerPart.WEB, 3L)
+                ))
+            )))
+        );
+        given(getAdminOperationsPointsUseCase.getOperationsPoints(any())).willReturn(
+            AdminOperationsPointsInfo.from(java.util.List.of(
+                AdminOperationsPointsInfo.ChapterPartPointGrantStatusInfo.of(
+                    10L, "중앙", ChallengerPart.WEB, 2L, -4.0
+                )
+            ))
+        );
+        given(getAdminOperationsAttendanceUseCase.getOperationsAttendance(any())).willReturn(
+            AdminOperationsAttendanceInfo.of(3L, 2L, 1L, Map.of(AttendanceStatus.PRESENT, 1L))
+        );
+        given(getAdminOperationsStudyGroupsUseCase.getOperationsStudyGroups(any())).willReturn(
+            AdminOperationsStudyGroupsInfo.of(4L, 5L)
+        );
+        given(getAdminOperationsSignupsUseCase.getOperationsSignups(any())).willReturn(
+            AdminOperationsSignupsInfo.from(java.util.List.of(
+                AdminOperationsSignupsInfo.SignupBucketInfo.of(LocalDate.parse("2026-05-01"), 6L)
+            ))
+        );
+
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations/schools").param("gisuId", "7"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.chapters[0].schools[0].challengerPartCounts.WEB").value(3L));
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations/points")
+                .param("gisuId", "7").param("from", "2026-05-01T00:00:00Z").param("to", "2026-05-13T00:00:00Z"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.pointGrantStatuses[0].pointSum").value(-4.0));
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations/attendance")
+                .param("gisuId", "7").param("from", "2026-05-01T00:00:00Z").param("to", "2026-05-13T00:00:00Z"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.attendanceRecordCount").value(1L));
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations/study-groups")
+                .param("gisuId", "7").param("from", "2026-05-01T00:00:00Z").param("to", "2026-05-13T00:00:00Z"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.studyGroupScheduleCount").value(5L));
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations/signups")
+                .param("gisuId", "7").param("from", "2026-05-01T00:00:00Z").param("to", "2026-05-13T00:00:00Z"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.signupBuckets[0].count").value(6L));
     }
 }

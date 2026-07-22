@@ -3,17 +3,20 @@ package com.umc.product.schedule.adapter.out.persistence;
 import static com.umc.product.schedule.domain.QSchedule.schedule;
 import static com.umc.product.schedule.domain.QScheduleParticipant.scheduleParticipant;
 
-import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.umc.product.schedule.domain.Schedule;
-import com.umc.product.schedule.domain.enums.AttendanceStatus;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Repository;
+
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.schedule.domain.Schedule;
+import com.umc.product.schedule.domain.enums.AttendanceStatus;
+
+import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
@@ -128,9 +131,7 @@ public class ScheduleQueryRepository {
         // 경우 1 : 운영진이 명시적으로 특정 상태를 검색한 경우
         // -> 지정 기간 내 + 해당 상태 ('승인 대기 건 무조건 표시' 로직은 무시)
         if (statusFilter != null) {
-            if (dateCondition != null) {
-                return dateCondition.and(statusFilter);
-            }
+            return dateCondition != null ? dateCondition.and(statusFilter) : statusFilter;
         }
 
         // 경우 2 : 상태 필터 없이 전체 조회를 하는 경우

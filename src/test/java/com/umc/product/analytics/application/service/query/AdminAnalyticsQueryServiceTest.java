@@ -4,28 +4,49 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
-import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueInfo;
-import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueQuery;
-import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardQuery;
-import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
-import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
-import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewQuery;
-import com.umc.product.analytics.application.port.out.LoadAdminDashboardAnalyticsPort;
-import com.umc.product.analytics.application.port.out.LoadAdminOperationsAnalyticsPort;
-import com.umc.product.analytics.application.port.out.LoadAdminRiskChallengerAnalyticsPort;
-import com.umc.product.analytics.application.port.out.LoadAdminSchoolAnalyticsPort;
-import com.umc.product.analytics.domain.AdminAnalyticsScope;
-import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
+import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsAttendanceQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsPointsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsPointsQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSchoolsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSchoolsQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSignupsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsSignupsQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsStudyGroupsInfo;
+import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsStudyGroupsQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminRiskChallengerQuery;
+import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummaryQuery;
+import com.umc.product.analytics.application.port.out.LoadAdminDashboardAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsAttendancePort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsPointsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsSchoolsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsSignupsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminOperationsStudyGroupsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminRiskChallengerAnalyticsPort;
+import com.umc.product.analytics.application.port.out.LoadAdminSchoolAnalyticsPort;
+import com.umc.product.analytics.domain.AdminAnalyticsScope;
+import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("AdminAnalyticsQueryService")
@@ -48,6 +69,21 @@ class AdminAnalyticsQueryServiceTest {
 
     @Mock
     LoadAdminOperationsAnalyticsPort loadAdminOperationsAnalyticsPort;
+
+    @Mock
+    LoadAdminOperationsSchoolsPort loadAdminOperationsSchoolsPort;
+
+    @Mock
+    LoadAdminOperationsPointsPort loadAdminOperationsPointsPort;
+
+    @Mock
+    LoadAdminOperationsAttendancePort loadAdminOperationsAttendancePort;
+
+    @Mock
+    LoadAdminOperationsStudyGroupsPort loadAdminOperationsStudyGroupsPort;
+
+    @Mock
+    LoadAdminOperationsSignupsPort loadAdminOperationsSignupsPort;
 
     @InjectMocks
     AdminAnalyticsQueryService sut;
@@ -135,6 +171,55 @@ class AdminAnalyticsQueryServiceTest {
 
         assertThat(actual).isEqualTo(expected);
         then(loadAdminOperationsAnalyticsPort).should().getOperationsOverview(scope, query);
+    }
+
+    @Test
+    @DisplayName("context·학교·위험군과 분리된 운영 지표를 동일한 권한 스코프로 조회한다")
+    void delegates_remaining_analytics_queries_with_resolved_scope() {
+        Instant from = Instant.parse("2026-05-01T00:00:00Z");
+        Instant to = Instant.parse("2026-05-13T00:00:00Z");
+        AdminAnalyticsScope scope = centralScope();
+        given(scopeResolver.resolve(MEMBER_ID, null, null, null, null)).willReturn(scope);
+        assertThat(sut.getContext(MEMBER_ID).gisuId()).isEqualTo(GISU_ID);
+
+        PageRequest pageable = PageRequest.of(0, 10);
+        AdminSchoolSummaryQuery schoolQuery = AdminSchoolSummaryQuery.of(
+            MEMBER_ID, GISU_ID, 2L, null, null, pageable, null
+        );
+        AdminRiskChallengerQuery riskQuery = AdminRiskChallengerQuery.of(
+            MEMBER_ID, GISU_ID, 2L, 3L, null, pageable
+        );
+        given(scopeResolver.resolve(MEMBER_ID, GISU_ID, 2L, null, null)).willReturn(scope);
+        given(scopeResolver.resolve(MEMBER_ID, GISU_ID, 2L, 3L, null)).willReturn(scope);
+        given(loadAdminSchoolAnalyticsPort.getSchoolSummaries(scope, schoolQuery))
+            .willReturn(new PageImpl<>(java.util.List.of(), pageable, 0));
+        given(loadAdminRiskChallengerAnalyticsPort.getRiskChallengers(scope, riskQuery))
+            .willReturn(new PageImpl<>(java.util.List.of(), pageable, 0));
+        assertThat(sut.getSchoolSummaries(schoolQuery)).isEmpty();
+        assertThat(sut.getRiskChallengers(riskQuery)).isEmpty();
+
+        AdminOperationsSchoolsQuery schoolsQuery = AdminOperationsSchoolsQuery.of(MEMBER_ID, GISU_ID);
+        AdminOperationsPointsQuery pointsQuery = AdminOperationsPointsQuery.of(MEMBER_ID, GISU_ID, from, to);
+        AdminOperationsAttendanceQuery attendanceQuery = AdminOperationsAttendanceQuery.of(MEMBER_ID, GISU_ID, from, to);
+        AdminOperationsStudyGroupsQuery studyGroupsQuery = AdminOperationsStudyGroupsQuery.of(MEMBER_ID, GISU_ID, from, to);
+        AdminOperationsSignupsQuery signupsQuery = AdminOperationsSignupsQuery.of(MEMBER_ID, GISU_ID, from, to);
+        given(scopeResolver.resolve(MEMBER_ID, GISU_ID, null, null, null)).willReturn(scope);
+        AdminOperationsSchoolsInfo schools = AdminOperationsSchoolsInfo.from(java.util.List.of());
+        AdminOperationsPointsInfo points = AdminOperationsPointsInfo.from(java.util.List.of());
+        AdminOperationsAttendanceInfo attendance = AdminOperationsAttendanceInfo.of(0, 0, 0, Map.of());
+        AdminOperationsStudyGroupsInfo groups = AdminOperationsStudyGroupsInfo.of(0, 0);
+        AdminOperationsSignupsInfo signups = AdminOperationsSignupsInfo.from(java.util.List.of());
+        given(loadAdminOperationsSchoolsPort.getOperationsSchools(scope)).willReturn(schools);
+        given(loadAdminOperationsPointsPort.getOperationsPoints(scope, from, to)).willReturn(points);
+        given(loadAdminOperationsAttendancePort.getOperationsAttendance(scope, from, to)).willReturn(attendance);
+        given(loadAdminOperationsStudyGroupsPort.getOperationsStudyGroups(scope, from, to)).willReturn(groups);
+        given(loadAdminOperationsSignupsPort.getOperationsSignups(scope, from, to)).willReturn(signups);
+
+        assertThat(sut.getOperationsSchools(schoolsQuery)).isSameAs(schools);
+        assertThat(sut.getOperationsPoints(pointsQuery)).isSameAs(points);
+        assertThat(sut.getOperationsAttendance(attendanceQuery)).isSameAs(attendance);
+        assertThat(sut.getOperationsStudyGroups(studyGroupsQuery)).isSameAs(groups);
+        assertThat(sut.getOperationsSignups(signupsQuery)).isSameAs(signups);
     }
 
     private AdminAnalyticsScope centralScope() {

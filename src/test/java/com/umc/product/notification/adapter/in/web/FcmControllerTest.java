@@ -103,6 +103,25 @@ class FcmControllerTest {
     }
 
     @Test
+    @DisplayName("현재 회원의 모든 legacy topic 구독을 해제한다")
+    void legacy_topic_구독_해제() throws Exception {
+        mockMvc.perform(delete("/api/v1/notification/fcm/topics/legacy"))
+            .andExpect(status().isOk());
+
+        then(manageFcmTopicUseCase).should().unsubscribeLegacyTopics(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("관리용 legacy topic 재구독 요청을 위임한다")
+    void legacy_topic_전체_재구독() {
+        FcmController sut = new FcmController(manageFcmUseCase, manageFcmTopicUseCase);
+
+        sut.resubscribeAllMemberLegacyTopics();
+
+        then(manageFcmTopicUseCase).should().resubscribeAllLegacyTopics();
+    }
+
+    @Test
     @DisplayName("token-only 등록 API는 제공하지 않는다")
     void token_only_등록_API_비활성화() throws Exception {
         mockMvc.perform(put("/api/v1/notifications/fcm/tokens")

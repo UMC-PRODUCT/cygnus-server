@@ -117,6 +117,28 @@ class FcmTokenValidationServiceTest {
         assertThat(loadFcmPort.called).isFalse();
     }
 
+    @Test
+    @DisplayName("검증 기한이 지난 토큰이 없으면 provider를 호출하지 않는다")
+    void no_due_token_short_circuit() {
+        FakeValidateFcmTokenPort validatePort = new FakeValidateFcmTokenPort(
+            FcmTokenValidationResult.of(0, 0, List.of(), List.of())
+        );
+        FcmTokenValidationService service = new FcmTokenValidationService(
+            new FcmProperties(true, true),
+            new FakeLoadFcmPort(List.of()),
+            new FakeSaveFcmPort(),
+            validatePort,
+            new OperationalMetrics(new SimpleMeterRegistry()),
+            500,
+            Duration.ofDays(30)
+        );
+
+        FcmTokenValidationInfo info = service.validateDueTokens();
+
+        assertThat(info.requestedCount()).isZero();
+        assertThat(validatePort.lastRequest).isNull();
+    }
+
     private FcmToken staleToken(Long id, Long memberId, String value) {
         FcmToken token = FcmToken.create(memberId, "installation-" + memberId, value);
         ReflectionTestUtils.setField(token, "id", id);

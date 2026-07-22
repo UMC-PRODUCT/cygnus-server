@@ -3,6 +3,7 @@ package com.umc.product.notification.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 
 import java.util.List;
@@ -32,6 +33,39 @@ class WebhookAlarmServiceTest {
     OperationalMetrics operationalMetrics;
     @Mock
     SendWebhookPort sendWebhookPort;
+
+    @Test
+    @DisplayName("활성 profile을 제목에 표시하고 플랫폼별 성공·실패·미등록 결과를 격리한다")
+    void 플랫폼별_전송_결과를_격리한다() {
+        SendWebhookPort failingPort = mock(SendWebhookPort.class);
+        given(sendWebhookPort.platform()).willReturn(WebhookPlatform.TELEGRAM);
+        given(failingPort.platform()).willReturn(WebhookPlatform.DISCORD);
+        given(environment.getActiveProfiles()).willReturn(new String[]{"LOCAL", "prod"});
+        RuntimeException providerFailure = new RuntimeException("provider failure");
+        org.mockito.BDDMockito.willThrow(providerFailure)
+            .given(failingPort).send("[Local, Prod] 배포 알림", "본문");
+        DomainEventPublisher eventPublisher = mock(DomainEventPublisher.class);
+        WebhookAlarmService sut = new WebhookAlarmService(
+            List.of(sendWebhookPort, failingPort),
+            environment,
+            operationalMetrics,
+            eventPublisher
+        );
+        SendWebhookAlarmCommand command = SendWebhookAlarmCommand.builder()
+            .platforms(List.of(WebhookPlatform.TELEGRAM, WebhookPlatform.DISCORD, WebhookPlatform.SLACK))
+            .title("배포 알림")
+            .content("본문")
+            .build();
+
+        sut.send(command);
+
+        then(sendWebhookPort).should().send("[Local, Prod] 배포 알림", "본문");
+        then(failingPort).should().send("[Local, Prod] 배포 알림", "본문");
+        then(operationalMetrics).should().recordNotification("TELEGRAM", "SEND_WEBHOOK", "success", 1);
+        then(operationalMetrics).should().recordNotification("DISCORD", "SEND_WEBHOOK", "failure", 1);
+        then(operationalMetrics).should().recordNotification("SLACK", "SEND_WEBHOOK", "missing_adapter", 1);
+        then(eventPublisher).shouldHaveNoInteractions();
+    }
 
     @Test
     @DisplayName("sendBuffered는 외부 웹훅을 즉시 호출하지 않고 이벤트를 발행한다")

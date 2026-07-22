@@ -45,59 +45,54 @@ public class AdminAnalyticsScopeResolver {
         ChallengerRoleInfo role = highestRole(memberId, gisuId);
 
         ChallengerRoleType roleType = role.roleType();
-        if (roleType.isAtLeastCentralMember()) {
-            return AdminAnalyticsScope.of(
-                AdminAnalyticsScopeType.CENTRAL,
-                gisuId,
-                requestedChapterId,
-                requestedSchoolId,
-                requestedPart,
-                roleType
-            );
-        }
-
-        if (roleType == ChallengerRoleType.CHAPTER_PRESIDENT) {
-            Long chapterId = role.organizationId();
-            if (requestedChapterId != null && !Objects.equals(requestedChapterId, chapterId)) {
-                throwAccessDenied();
+        return switch (roleType) {
+            case CENTRAL_PRESIDENT, CENTRAL_VICE_PRESIDENT,
+                CENTRAL_OPERATING_TEAM_MEMBER, CENTRAL_EDUCATION_TEAM_MEMBER -> AdminAnalyticsScope.of(
+                    AdminAnalyticsScopeType.CENTRAL,
+                    gisuId,
+                    requestedChapterId,
+                    requestedSchoolId,
+                    requestedPart,
+                    roleType
+                );
+            case CHAPTER_PRESIDENT -> {
+                Long chapterId = role.organizationId();
+                if (requestedChapterId != null && !Objects.equals(requestedChapterId, chapterId)) {
+                    throw accessDenied();
+                }
+                yield AdminAnalyticsScope.of(
+                    AdminAnalyticsScopeType.CHAPTER,
+                    gisuId,
+                    chapterId,
+                    requestedSchoolId,
+                    requestedPart,
+                    roleType
+                );
             }
-            return AdminAnalyticsScope.of(
-                AdminAnalyticsScopeType.CHAPTER,
-                gisuId,
-                chapterId,
-                requestedSchoolId,
-                requestedPart,
-                roleType
-            );
-        }
-
-        if (roleType == ChallengerRoleType.SCHOOL_PART_LEADER) {
-            validateSchool(role.organizationId(), requestedSchoolId);
-            validatePart(role.responsiblePart(), requestedPart);
-            return AdminAnalyticsScope.of(
-                AdminAnalyticsScopeType.SCHOOL_PART,
-                gisuId,
-                null,
-                role.organizationId(),
-                role.responsiblePart(),
-                roleType
-            );
-        }
-
-        if (roleType.isAtLeastSchoolAdmin()) {
-            validateSchool(role.organizationId(), requestedSchoolId);
-            return AdminAnalyticsScope.of(
-                AdminAnalyticsScopeType.SCHOOL,
-                gisuId,
-                null,
-                role.organizationId(),
-                requestedPart,
-                roleType
-            );
-        }
-
-        throwAccessDenied();
-        throw new IllegalStateException("unreachable");
+            case SCHOOL_PART_LEADER -> {
+                validateSchool(role.organizationId(), requestedSchoolId);
+                validatePart(role.responsiblePart(), requestedPart);
+                yield AdminAnalyticsScope.of(
+                    AdminAnalyticsScopeType.SCHOOL_PART,
+                    gisuId,
+                    null,
+                    role.organizationId(),
+                    role.responsiblePart(),
+                    roleType
+                );
+            }
+            case SCHOOL_PRESIDENT, SCHOOL_VICE_PRESIDENT, SCHOOL_ETC_ADMIN -> {
+                validateSchool(role.organizationId(), requestedSchoolId);
+                yield AdminAnalyticsScope.of(
+                    AdminAnalyticsScopeType.SCHOOL,
+                    gisuId,
+                    null,
+                    role.organizationId(),
+                    requestedPart,
+                    roleType
+                );
+            }
+        };
     }
 
     public AdminAnalyticsScope resolve(Long memberId, Long requestedGisuId) {
@@ -107,12 +102,11 @@ public class AdminAnalyticsScopeResolver {
     private ChallengerRoleInfo highestRole(Long memberId, Long gisuId) {
         List<ChallengerRoleInfo> roles = getGisuChallengerRoleUseCase.findAllByMemberId(memberId).stream()
             .filter(role -> Objects.equals(role.gisuId(), gisuId))
-            .filter(role -> priority(role.roleType()) < Integer.MAX_VALUE)
             .sorted(Comparator.comparingInt(role -> priority(role.roleType())))
             .toList();
 
         if (roles.isEmpty()) {
-            throwAccessDenied();
+            throw accessDenied();
         }
 
         return roles.getFirst();
@@ -120,35 +114,27 @@ public class AdminAnalyticsScopeResolver {
 
     private void validateSchool(Long roleSchoolId, Long requestedSchoolId) {
         if (requestedSchoolId != null && !Objects.equals(requestedSchoolId, roleSchoolId)) {
-            throwAccessDenied();
+            throw accessDenied();
         }
     }
 
     private void validatePart(ChallengerPart responsiblePart, ChallengerPart requestedPart) {
         if (requestedPart != null && requestedPart != responsiblePart) {
-            throwAccessDenied();
+            throw accessDenied();
         }
     }
 
     private int priority(ChallengerRoleType roleType) {
-        if (roleType.isAtLeastCentralMember()) {
-            return 1;
-        }
-        if (roleType == ChallengerRoleType.CHAPTER_PRESIDENT) {
-            return 2;
-        }
-        if (roleType == ChallengerRoleType.SCHOOL_PRESIDENT
-            || roleType == ChallengerRoleType.SCHOOL_VICE_PRESIDENT
-            || roleType == ChallengerRoleType.SCHOOL_ETC_ADMIN) {
-            return 3;
-        }
-        if (roleType == ChallengerRoleType.SCHOOL_PART_LEADER) {
-            return 4;
-        }
-        return Integer.MAX_VALUE;
+        return switch (roleType) {
+            case CENTRAL_PRESIDENT, CENTRAL_VICE_PRESIDENT,
+                CENTRAL_OPERATING_TEAM_MEMBER, CENTRAL_EDUCATION_TEAM_MEMBER -> 1;
+            case CHAPTER_PRESIDENT -> 2;
+            case SCHOOL_PRESIDENT, SCHOOL_VICE_PRESIDENT, SCHOOL_ETC_ADMIN -> 3;
+            case SCHOOL_PART_LEADER -> 4;
+        };
     }
 
-    private void throwAccessDenied() {
-        throw new AnalyticsDomainException(AnalyticsErrorCode.RESOURCE_ACCESS_DENIED);
+    private AnalyticsDomainException accessDenied() {
+        return new AnalyticsDomainException(AnalyticsErrorCode.RESOURCE_ACCESS_DENIED);
     }
 }

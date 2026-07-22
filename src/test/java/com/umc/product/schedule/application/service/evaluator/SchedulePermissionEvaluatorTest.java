@@ -1,7 +1,9 @@
 package com.umc.product.schedule.application.service.evaluator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import java.time.Instant;
 import java.util.List;
@@ -28,6 +30,8 @@ import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.schedule.application.port.out.LoadSchedulePort;
 import com.umc.product.schedule.domain.Schedule;
+import com.umc.product.schedule.domain.exception.ScheduleDomainException;
+import com.umc.product.schedule.domain.exception.ScheduleErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("SchedulePermissionEvaluator")
@@ -56,6 +60,60 @@ class SchedulePermissionEvaluatorTest {
             ResourceType.SCHEDULE, SCHEDULE_ID, PermissionType.WRITE);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    @DisplayName("READ와 WRITE는 SUPER_ADMIN 또는 챌린저 활동 이력을 요구한다")
+    void read_and_write_require_challenger_or_super_admin() {
+        SubjectAttributes challenger = SubjectAttributes.builder()
+            .memberId(20L)
+            .gisuChallengerInfos(List.of(GisuChallengerInfo.builder().gisuId(1L).challengerId(1L).build()))
+            .build();
+        SubjectAttributes plainMember = subjectWith(20L, List.of());
+
+        assertThat(sut.evaluate(challenger,
+            ResourcePermission.ofType(ResourceType.SCHEDULE, PermissionType.READ))).isTrue();
+        assertThat(sut.evaluate(challenger,
+            ResourcePermission.ofType(ResourceType.SCHEDULE, PermissionType.WRITE))).isTrue();
+        assertThat(sut.evaluate(plainMember,
+            ResourcePermission.ofType(ResourceType.SCHEDULE, PermissionType.READ))).isFalse();
+    }
+
+    @Test
+    @DisplayName("EDIT는 resource ID와 존재하는 일정의 작성자 조건을 검증한다")
+    void edit_requires_resource_and_author() {
+        SubjectAttributes author = subjectWith(AUTHOR_MEMBER_ID, List.of());
+        assertThat(sut.evaluate(author,
+            ResourcePermission.ofType(ResourceType.SCHEDULE, PermissionType.EDIT))).isFalse();
+
+        givenSchedule();
+        assertThat(sut.evaluate(author,
+            ResourcePermission.of(ResourceType.SCHEDULE, SCHEDULE_ID, PermissionType.EDIT))).isTrue();
+    }
+
+    @Test
+    @DisplayName("수정·강제 삭제 대상 일정이 없으면 not-found를 반환한다")
+    void target_schedule_not_found() {
+        given(loadSchedulePort.findById(SCHEDULE_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.evaluate(subjectWith(AUTHOR_MEMBER_ID, List.of()),
+            ResourcePermission.of(ResourceType.SCHEDULE, SCHEDULE_ID, PermissionType.EDIT)))
+            .isInstanceOfSatisfying(ScheduleDomainException.class, exception ->
+                assertThat(exception.getBaseCode()).isEqualTo(ScheduleErrorCode.SCHEDULE_NOT_FOUND)
+            );
+        assertThatThrownBy(() -> sut.evaluate(superAdminSubject(AUTHOR_MEMBER_ID),
+            ResourcePermission.of(ResourceType.SCHEDULE, SCHEDULE_ID, PermissionType.FORCE_DELETE)))
+            .isInstanceOf(ScheduleDomainException.class);
+    }
+
+    @Test
+    @DisplayName("강제 삭제에 resource ID가 없거나 permission을 지원하지 않으면 fail-closed 처리한다")
+    void missing_resource_and_unsupported_permission_are_denied() {
+        assertThat(sut.evaluate(superAdminSubject(AUTHOR_MEMBER_ID),
+            ResourcePermission.ofType(ResourceType.SCHEDULE, PermissionType.FORCE_DELETE))).isFalse();
+        ResourcePermission unsupported = mock(ResourcePermission.class);
+        given(unsupported.permission()).willReturn(PermissionType.APPROVE);
+        assertThat(sut.evaluate(subjectWith(AUTHOR_MEMBER_ID, List.of()), unsupported)).isFalse();
     }
 
     private void givenSchedule() {

@@ -297,12 +297,6 @@ public class ScheduleCommandService implements CreateScheduleUseCase, UpdateSche
 
     // 참여자 업데이트
     private void updateParticipants(Schedule schedule, EditScheduleCommand command) {
-
-        // 참여자 변경 없으면 스킵
-        if (!command.isParticipantsUpdateRequested()) {
-            return;
-        }
-
         Set<Long> newMemberIds = command.participantMemberIds();
 
         // 기존 참여자 조회

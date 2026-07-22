@@ -71,36 +71,24 @@ public class ScheduleCapabilitiesService implements GetScheduleCapabilitiesUseCa
 
     // 역할의 우선순위 반환 (낮을수록 높은 권한, maxParticipantCount 기준)
     private int getRolePriority(ChallengerRoleType roleType) {
-
-        if (roleType.isAtLeastCentralCore()) { // 중앙 총괄단
-            return 1; // 2000명
-        }
-        if (roleType.isAtLeastCentralMember()) { // 중앙 운영진
-            return 2; // 300명
-        }
-        if (roleType == ChallengerRoleType.CHAPTER_PRESIDENT) { // 지부장
-            return 3; // 300명
-        }
-        if (roleType.isAtLeastSchoolCore()) { // 교내 회장단
-            return 4; // 100명
-        }
-        if (roleType.isAtLeastSchoolAdmin()) { // 교내 파트장, 교내 기타 운영진
-            return 5; // 100명
-        }
-        return Integer.MAX_VALUE;
+        return switch (roleType) {
+            case CENTRAL_PRESIDENT, CENTRAL_VICE_PRESIDENT -> 1;
+            case CENTRAL_OPERATING_TEAM_MEMBER, CENTRAL_EDUCATION_TEAM_MEMBER -> 2;
+            case CHAPTER_PRESIDENT -> 3;
+            case SCHOOL_PRESIDENT, SCHOOL_VICE_PRESIDENT -> 4;
+            case SCHOOL_PART_LEADER, SCHOOL_ETC_ADMIN -> 5;
+        };
     }
 
 
     // 우선순위를 capabilities로 매핑
     private ScheduleCapabilitiesInfo mapPriorityToCapabilities(int priority) {
-
-        return switch (priority) {
-            case 1 -> ScheduleCapabilitiesInfo.forCentralCore();       // 2000명
-            case 2 -> ScheduleCapabilitiesInfo.forCentralMember();     // 300명
-            case 3 -> ScheduleCapabilitiesInfo.forChapterPresident();  // 300명
-            case 4 -> ScheduleCapabilitiesInfo.forSchoolCore();        // 100명
-            case 5 -> ScheduleCapabilitiesInfo.forSchoolAdmin();       // 100명
-            default -> ScheduleCapabilitiesInfo.forChallenger();       // 50명
-        };
+        return List.of(
+            ScheduleCapabilitiesInfo.forCentralCore(),
+            ScheduleCapabilitiesInfo.forCentralMember(),
+            ScheduleCapabilitiesInfo.forChapterPresident(),
+            ScheduleCapabilitiesInfo.forSchoolCore(),
+            ScheduleCapabilitiesInfo.forSchoolAdmin()
+        ).get(priority - 1);
     }
 }

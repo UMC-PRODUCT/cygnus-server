@@ -126,6 +126,61 @@ class AdminAnalyticsScopeResolverTest {
             .isEqualTo(AnalyticsErrorCode.RESOURCE_ACCESS_DENIED);
     }
 
+    @Test
+    @DisplayName("기수를 생략하면 활성 기수를 사용하고 지부장은 본인 지부 스코프를 얻는다")
+    void 활성_기수와_지부장_스코프를_해석한다() {
+        given(getGisuUseCase.getActiveGisuId()).willReturn(GISU_ID);
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))
+            .willReturn(List.of(role(ChallengerRoleType.CHAPTER_PRESIDENT, OrganizationType.CHAPTER, 10L, null)));
+
+        AdminAnalyticsScope scope = sut.resolve(MEMBER_ID, null);
+
+        assertThat(scope.type()).isEqualTo(AdminAnalyticsScopeType.CHAPTER);
+        assertThat(scope.chapterId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("학교 운영진의 다른 학교 요청과 파트장의 다른 파트 요청은 거부한다")
+    void 학교와_파트_scope_우회를_거부한다() {
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))
+            .willReturn(List.of(role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 30L, null)));
+        assertThatThrownBy(() -> sut.resolve(MEMBER_ID, GISU_ID, null, 31L, null))
+            .isInstanceOf(AnalyticsDomainException.class);
+
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))
+            .willReturn(List.of(
+                role(ChallengerRoleType.SCHOOL_PART_LEADER, OrganizationType.SCHOOL, 30L, ChallengerPart.ANDROID)
+            ));
+        assertThatThrownBy(() -> sut.resolve(MEMBER_ID, GISU_ID, null, 30L, ChallengerPart.WEB))
+            .isInstanceOf(AnalyticsDomainException.class);
+    }
+
+    @Test
+    @DisplayName("다른 기수 역할만 있으면 접근을 거부한다")
+    void 다른_기수_역할을_제외한다() {
+        ChallengerRoleInfo otherGisu = ChallengerRoleInfo.builder()
+            .roleType(ChallengerRoleType.CENTRAL_PRESIDENT)
+            .gisuId(GISU_ID + 1)
+            .build();
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID)).willReturn(List.of(otherGisu));
+
+        assertThatThrownBy(() -> sut.resolve(MEMBER_ID, GISU_ID))
+            .isInstanceOf(AnalyticsDomainException.class);
+    }
+
+    @Test
+    @DisplayName("여러 역할은 중앙·지부·학교·파트장 우선순위로 정렬한다")
+    void 여러_역할에서_최상위_역할을_선택한다() {
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID)).willReturn(List.of(
+            role(ChallengerRoleType.SCHOOL_PART_LEADER, OrganizationType.SCHOOL, 30L, ChallengerPart.WEB),
+            role(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 30L, null),
+            role(ChallengerRoleType.CHAPTER_PRESIDENT, OrganizationType.CHAPTER, 10L, null),
+            role(ChallengerRoleType.CENTRAL_EDUCATION_TEAM_MEMBER, OrganizationType.CENTRAL, null, null)
+        ));
+
+        assertThat(sut.resolve(MEMBER_ID, GISU_ID).type()).isEqualTo(AdminAnalyticsScopeType.CENTRAL);
+    }
+
     private ChallengerRoleInfo role(
         ChallengerRoleType roleType,
         OrganizationType organizationType,

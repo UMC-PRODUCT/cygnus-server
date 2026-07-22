@@ -1,6 +1,8 @@
 package com.umc.product.notification.application.service.evaluator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 
@@ -35,6 +37,28 @@ class FcmPermissionEvaluatorTest {
             subject(ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER),
             ResourcePermission.ofType(ResourceType.FCM, PermissionType.WRITE)
         )).isFalse();
+    }
+
+    @Test
+    @DisplayName("중앙운영사무국 총괄단은 FCM token 삭제 권한을 가진다")
+    void central_core_can_delete() {
+        assertThat(evaluator.evaluate(
+            subject(ChallengerRoleType.CENTRAL_PRESIDENT),
+            ResourcePermission.ofType(ResourceType.FCM, PermissionType.DELETE)
+        )).isTrue();
+    }
+
+    @Test
+    @DisplayName("FCM read는 지원하지 않아 총괄단도 fail-closed 처리한다")
+    void read_is_not_supported() {
+        ResourcePermission unsupportedPermission = mock(ResourcePermission.class);
+        given(unsupportedPermission.permission()).willReturn(PermissionType.READ);
+
+        assertThat(evaluator.evaluate(
+            subject(ChallengerRoleType.CENTRAL_PRESIDENT),
+            unsupportedPermission
+        )).isFalse();
+        assertThat(evaluator.supportedResourceType()).isEqualTo(ResourceType.FCM);
     }
 
     private SubjectAttributes subject(ChallengerRoleType roleType) {

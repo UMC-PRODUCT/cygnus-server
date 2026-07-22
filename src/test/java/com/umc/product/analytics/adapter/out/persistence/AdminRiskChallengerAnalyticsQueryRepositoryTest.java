@@ -41,6 +41,7 @@ class AdminRiskChallengerAnalyticsQueryRepositoryTest {
     AdminRiskChallengerAnalyticsQueryRepository sut;
 
     private Long gisuId;
+    private Long chapterId;
     private Long schoolId;
 
     @BeforeEach
@@ -53,6 +54,7 @@ class AdminRiskChallengerAnalyticsQueryRepositoryTest {
         em.persist(ChapterSchool.create(chapter, school));
         em.flush();
         gisuId = gisu.getId();
+        chapterId = chapter.getId();
         schoolId = school.getId();
     }
 
@@ -86,6 +88,23 @@ class AdminRiskChallengerAnalyticsQueryRepositoryTest {
 
         assertThat(result.getContent().getFirst().latestNegativePoint()).isNotNull();
         assertThat(result.getContent().getFirst().latestNegativePoint().score()).isEqualTo(-10.0);
+    }
+
+    @Test
+    @DisplayName("빈 위험군과 지부·학교·파트 스코프를 안전하게 처리한다")
+    void 빈_결과와_세부_scope를_처리한다() {
+        Challenger risk = persistChallenger("위험", ChallengerPart.SPRINGBOOT);
+        persistPoint(risk, -10);
+        em.flush();
+        em.clear();
+
+        assertThat(sut.getRiskChallengers(scope(), query(-100))).isEmpty();
+        AdminAnalyticsScope scoped = AdminAnalyticsScope.of(
+            AdminAnalyticsScopeType.SCHOOL_PART, gisuId, chapterId, schoolId, ChallengerPart.SPRINGBOOT,
+            ChallengerRoleType.SCHOOL_PART_LEADER
+        );
+        assertThat(sut.getRiskChallengers(scoped, query(-8)))
+            .extracting(AdminRiskChallengerInfo::challengerId).containsExactly(risk.getId());
     }
 
     private AdminRiskChallengerQuery query(Integer riskThreshold) {

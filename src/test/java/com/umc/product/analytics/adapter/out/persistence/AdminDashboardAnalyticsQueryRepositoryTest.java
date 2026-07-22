@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardActionQueueInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
@@ -120,6 +121,37 @@ class AdminDashboardAnalyticsQueryRepositoryTest {
         AdminDashboardActionQueueInfo result = sut.getActionQueue(centralScope(), -8);
 
         assertThat(result.pendingAttendanceDecisionCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("수료 임박과 지부·학교·파트 스코프 및 이전 주 대비 증감률을 계산한다")
+    void 수료_임박_scope와_증감률을_계산한다() {
+        Gisu nearEnd = em.persist(Gisu.create(
+            8L, Instant.now().minusSeconds(86400), Instant.now().plusSeconds(86400 * 10), false
+        ));
+        Chapter nearChapter = em.persist(Chapter.create(nearEnd, "임박 지부"));
+        School nearSchool = em.persist(School.create("임박 학교", null));
+        em.persist(ChapterSchool.create(nearChapter, nearSchool));
+        Member nearMember = em.persist(Member.create("임박", "임박닉", "near@example.com", nearSchool.getId(), null));
+        em.persist(new Challenger(nearMember.getId(), ChallengerPart.WEB, nearEnd.getId()));
+        em.flush();
+        em.clear();
+
+        AdminAnalyticsScope nearScope = AdminAnalyticsScope.of(
+            AdminAnalyticsScopeType.CENTRAL, nearEnd.getId(), null, null, null,
+            ChallengerRoleType.CENTRAL_PRESIDENT
+        );
+        assertThat(sut.getActionQueue(nearScope, -8).upcomingGraduationCount()).isOne();
+
+        AdminAnalyticsScope scoped = AdminAnalyticsScope.of(
+            AdminAnalyticsScopeType.SCHOOL_PART, gisuId, chapterId, schoolAId, ChallengerPart.SPRINGBOOT,
+            ChallengerRoleType.SCHOOL_PART_LEADER
+        );
+        assertThat(sut.getSummary(scoped).activeChallengerCount()).isZero();
+        assertThat(sut.getActionQueue(scoped, -8).pendingAttendanceDecisionCount()).isZero();
+
+        Double increase = ReflectionTestUtils.invokeMethod(sut, "deltaPercent", 3L, 2L);
+        assertThat(increase).isEqualTo(50.0);
     }
 
     private Challenger persistChallenger(
