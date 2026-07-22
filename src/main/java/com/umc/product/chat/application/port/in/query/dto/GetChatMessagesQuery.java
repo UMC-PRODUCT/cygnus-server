@@ -16,7 +16,7 @@ public record GetChatMessagesQuery(
     int size
 ) {
 
-    public static final int MAX_PAGE_SIZE = 50;
+    public static final int MAX_PAGE_SIZE = 100;
 
     public GetChatMessagesQuery {
         if (size < 1 || size > MAX_PAGE_SIZE) {

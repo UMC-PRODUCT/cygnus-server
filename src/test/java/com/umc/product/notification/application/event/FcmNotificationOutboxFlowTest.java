@@ -29,6 +29,7 @@ import com.umc.product.global.event.adapter.out.EventPayloadSerializer;
 import com.umc.product.global.event.adapter.out.OutboxDomainEventPublisher;
 import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
+import com.umc.product.global.event.application.service.EventOutboxRelayMetrics;
 import com.umc.product.global.event.application.service.EventOutboxRelayService;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxStatus;
@@ -90,6 +91,7 @@ class FcmNotificationOutboxFlowTest {
             springPublisher,
             new LocalTransactionManager(),
             new DefaultListableBeanFactory().getBeanProvider(Tracer.class),
+            new EventOutboxRelayMetrics(new SimpleMeterRegistry()),
             100,
             3
         );
@@ -146,6 +148,7 @@ class FcmNotificationOutboxFlowTest {
             publishedEvent -> listener.handle((FcmSendBatchRequestedEvent) publishedEvent),
             new LocalTransactionManager(),
             new DefaultListableBeanFactory().getBeanProvider(Tracer.class),
+            new EventOutboxRelayMetrics(new SimpleMeterRegistry()),
             100,
             3
         );

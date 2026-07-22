@@ -46,4 +46,5 @@ class ChallengerQueryServiceTest {
         assertThat(result).isFalse();
         then(loadChallengerPort).shouldHaveNoInteractions();
     }
+
 }

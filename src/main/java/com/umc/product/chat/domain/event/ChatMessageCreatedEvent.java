@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.MessageContentType;
-import com.umc.product.global.event.domain.DomainEvent;
 
 /**
  * 채팅 메시지가 생성되었음을 알리는 도메인 이벤트.
@@ -29,8 +28,19 @@ public record ChatMessageCreatedEvent(
     MessageContentType contentType,
     String content,
     List<String> fileMetadataIds,
-    Long replyToMessageId
-) implements DomainEvent {
+    Long replyToMessageId,
+    UUID clientMessageId,
+    List<Long> mentionedMemberIds,
+    Instant editedAt,
+    Instant deletedAt
+) implements ChatRealtimeEvent {
+
+    public ChatMessageCreatedEvent {
+        eventId = eventId == null ? UUID.randomUUID() : eventId;
+        occurredAt = occurredAt == null ? Instant.now() : occurredAt;
+        fileMetadataIds = List.copyOf(fileMetadataIds);
+        mentionedMemberIds = mentionedMemberIds == null ? List.of() : List.copyOf(mentionedMemberIds);
+    }
 
     public ChatMessageCreatedEvent(
         UUID eventId,
@@ -42,10 +52,56 @@ public record ChatMessageCreatedEvent(
         String content,
         List<String> fileMetadataIds
     ) {
-        this(eventId, occurredAt, messageId, roomId, senderMemberId, contentType, content, fileMetadataIds, null);
+        this(
+            eventId,
+            occurredAt,
+            messageId,
+            roomId,
+            senderMemberId,
+            contentType,
+            content,
+            fileMetadataIds,
+            null,
+            null,
+            List.of(),
+            null,
+            null
+        );
+    }
+
+    public ChatMessageCreatedEvent(
+        UUID eventId,
+        Instant occurredAt,
+        Long messageId,
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds,
+        Long replyToMessageId
+    ) {
+        this(
+            eventId,
+            occurredAt,
+            messageId,
+            roomId,
+            senderMemberId,
+            contentType,
+            content,
+            fileMetadataIds,
+            replyToMessageId,
+            null,
+            List.of(),
+            null,
+            null
+        );
     }
 
     public static ChatMessageCreatedEvent from(ChatMessage message) {
+        return from(message, List.of());
+    }
+
+    public static ChatMessageCreatedEvent from(ChatMessage message, List<Long> mentionedMemberIds) {
         return new ChatMessageCreatedEvent(
             UUID.randomUUID(),
             message.getCreatedAt(),
@@ -55,7 +111,11 @@ public record ChatMessageCreatedEvent(
             message.getContentType(),
             message.getContent(),
             message.getFileMetadataIds(),
-            message.getReplyToMessageId()
+            message.getReplyToMessageId(),
+            message.getClientMessageId(),
+            mentionedMemberIds,
+            message.getEditedAt(),
+            message.getDeletedAt()
         );
     }
 

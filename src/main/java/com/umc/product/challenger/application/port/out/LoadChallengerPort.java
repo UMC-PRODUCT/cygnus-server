@@ -82,7 +82,7 @@ public interface LoadChallengerPort {
     List<Challenger> listByMemberIdsAndGisuId(Set<Long> memberIds, Long gisuId);
 
     /**
-     * 각 멤버별 가장 최근 기수(gisuId 최대값)의 챌린저 목록 조회
+     * 각 멤버별 generation이 가장 높은 기수의 챌린저 목록 조회
      */
     List<Challenger> findLatestPerMember();
 }

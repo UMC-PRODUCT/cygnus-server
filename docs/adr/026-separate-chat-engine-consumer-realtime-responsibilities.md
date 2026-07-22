@@ -2,7 +2,12 @@
 
 ## Status
 
-Proposed
+Accepted — PR3 #1127 구현 기준 (2026-07-18)
+
+이 ADR의 결정은 Community invitation-only thread를 Chat engine에 연결하는 PR3에 적용됐다.
+아래 `PR3 current implementation`이 기존 예시보다 우선하는 현재 계약이며, client가 보는 정확한
+REST/STOMP path·payload는 [`community-thread-client-contract.md`](../guides/community-thread-client-contract.md)에
+고정한다. 이 문서의 Context와 대안 설명은 결정을 남기는 historical record다.
 
 ## Context
 
@@ -126,8 +131,9 @@ aggregate와 Chat aggregate 사이에는 객체 관계나 cross-domain JPA FK를
 - `CONNECT`와 STOMP 1.2 `STOMP` 명령의 JWT 인증
 - `/topic*`, `/queue*`, `/user/**`에 대한 client 직접 발행 차단
 - client inbound의 server-only `MESSAGE` 명령 차단
-- `/user/queue/errors` 외 `/user/**` SUBSCRIBE 차단
-- `/topic*`, `/queue*` SUBSCRIBE를 `StompSubscriptionAuthorizerRegistry`로 위임
+- `/user/queue/errors`는 recoverable error용 exact destination으로 공통 허용
+- 그 외 `/topic*`, `/queue*`, `/user/**` SUBSCRIBE를
+  `StompSubscriptionAuthorizerRegistry`로 위임하고 exact-match 승인이 없으면 차단
 
 Registry는 destination을 지원하는 authorizer가 **정확히 하나이고**, 해당 authorizer가 승인한 경우에만
 구독을 허용한다. authorizer 없음, 거부, 복수 매칭, 인증 주체 없음은 모두 fail-closed 처리한다.
@@ -439,3 +445,120 @@ Consumer마다 다음 테스트를 추가한다.
 - [ADR-011: Inquiry domain with WebSocket STOMP](./011-inquiry-domain-with-websocket-stomp.md)
 - [ADR-018: DomainEventPublisher 추상화](./018-abstract-spring-event-publisher-for-future-broker.md)
 - [ADR-019: Transactional Event Outbox](./019-introduce-transactional-event-outbox.md)
+
+## PR3 current implementation
+
+Issue #1127의 Community thread는 위 결정을 다음과 같이 구체화한다.
+
+### Ownership and persistence
+
+- CommunityThread가 메타데이터, membership/role/state, capacity, pin/mute, projection, report와
+  외부 API/destination을 소유한다. Chat은 message/reply/attachment/mention/reaction/edit/tombstone/read
+  invariant와 generic event만 소유한다.
+- CommunityThread와 CommunityThreadMember는 direct JPA entity다. 두 domain 사이에는 scalar
+  `chatRoomId`만 있고 JPA FK·entity/repository 참조·`@OneToMany`는 없다.
+- `chatRoomId`는 내부 역매핑용이며 REST, STOMP request/response, event payload에 노출하지 않는다.
+  Community service가 Chat public UseCase를 호출하고 thread lock 뒤 ChatRoom lock에서 membership과
+  reply/mention/idempotency를 재검증한다.
+- Community soft delete는 Chat hard delete를 호출하지 않는다. Chat history와 Community detail/list가
+  reconnect/backfill의 source of truth다.
+
+### Current transport boundary
+
+- REST `/api/v1/community`는 thread control/query/recovery/moderation만 담당한다. History query,
+  report와 `/api/v1/community/admin/thread-message-reports`는 REST에 남기되 message create/edit/
+  tombstone, reaction add/remove, read mutation은 REST에 만들지 않는다.
+- `/ws` SockJS/STOMP는 six `/app/community/threads/...` SEND command를 통해 message/reaction/read
+  mutation을 담당한다. subscription은 정상 event와 ACK를 위한
+  `/user/queue/community/threads/events`, recoverable error를 위한 `/user/queue/errors` 두
+  namespace만 사용하며 공용 thread topic은 금지한다.
+- Global WebSocket은 JWT CONNECT, broker-direct SEND 차단, destination registry 위임, typed recoverable
+  error와 rate-limit만 제공한다. Community가 subscribe/SEND business permission과 payload를 소유한다.
+
+정확한 SEND namespace는 다음 여섯 개뿐이다.
+
+```text
+/app/community/threads/{threadId}/messages
+/app/community/threads/{threadId}/messages/{messageId}/edit
+/app/community/threads/{threadId}/messages/{messageId}/delete
+/app/community/threads/{threadId}/messages/{messageId}/reactions/add
+/app/community/threads/{threadId}/messages/{messageId}/reactions/remove
+/app/community/threads/{threadId}/read
+```
+
+정확한 subscription namespace는 다음 두 개뿐이다.
+
+```text
+/user/queue/community/threads/events
+/user/queue/errors
+```
+
+공용 thread topic, raw `roomId` 경로, message/reaction/read REST mutation은 제공하지 않는다.
+client는 각 session에서 event queue와 error queue를 한 번씩 구독하며, 한 회원의 여러 활성
+session이 구독하면 모든 session이 같은 사용자 대상 event를 받는다.
+
+### Commit, relay, and recovery
+
+Chat/Community state event는 commit 이후 outbox relay에서 전송한다. per-recipient fan-out은 모든
+수신자를 시도하고 실패를 집계한 뒤 stable `eventId`를 유지해 retry한다. broker failure는 business
+transaction을 rollback하지 않으며, client는 history/detail/member REST query로 backfill한다.
+ACK는 storage acknowledgement가 아닌 caller correlation이며, recoverable error는
+`/user/queue/errors`로 보낸다. CONNECT/protocol/direct-broker-SEND/malformed-SUBSCRIBE 오류만 terminal
+STOMP ERROR로 남긴다.
+
+User Destination 전환은 per-recipient fan-out을 제거하지 않는다. relay는 event마다 현재 ACTIVE
+멤버를 계산해 각 member의 `/user/queue/community/threads/events`로 전송한다. 따라서
+kick/leave 후 기존 session에 구독이 남아 있어도 후속 event의 recipient에서 제외된다.
+
+현재 구현 경로는 `CommunityThreadRealtimeEventListener` →
+`CommunityThreadRealtimeFanOutService` → `CommunityThreadChatRealtimeRelay`/`CommunityThreadLifecycleRealtimeRelay`
+→ `CommunityThreadRealtimeDelivery` → `CommunityThreadRealtimeBroadcastAdapter`다. Chat의
+`ChatMessageCreatedEvent`, `ChatMessageUpdatedEvent`, `ChatMessageDeletedEvent`,
+`ChatMessageReactionChangedEvent`, `ChatReadUpdatedEvent`는 generic source이고, Community의
+`CommunityThreadInvitedEvent`, `CommunityThreadUpdatedEvent`, `CommunityThreadDeletedEvent`,
+`CommunityThreadMemberKickedEvent`, `CommunityThreadMemberLeftEvent`는 lifecycle source다.
+`EventOutboxRelayService`가 `NON_TRANSACTIONAL` event를 outbox commit 뒤 publish하며, listener 예외는
+fan-out 실패로 집계되어 재시도된다. 따라서 코드의 `@EventListener`가 임의의 pre-commit broadcast를
+의미하는 것은 아니다.
+
+recoverable error payload는 `WebSocketErrorPayload`의 nullable command/client IDs, numeric status,
+stable code/message, retryable이며 session을 닫지 않는다. message/reaction/read gap은
+`GET /api/v1/community/threads/{threadId}/messages`, metadata/member/settings gap은 thread
+detail/list/member REST query로 복구한다. terminal kick/leave/delete event에는 broker replay를
+가정하지 않는다.
+
+### Alarm-ready seam
+
+알람 delivery consumer는 PR3에서 구현하지 않는다. 미래 consumer를 위해
+`CommunityThreadInvitedEvent`, `CommunityThreadMessageCreatedEvent`,
+`CommunityThreadMentionedEvent`라는 ID-only immutable business facts만 남긴다. text, title, name,
+token, deeplink, provider payload, mute/offline/DND decision과 notification dependency는 포함하지
+않는다. `CommunityThreadInvitedEvent`는 lifecycle `thread.invited` realtime source이기도 하지만,
+`CommunityThreadMessageCreatedEvent`와 `CommunityThreadMentionedEvent`는 Chat generic realtime
+event와 분리된 alarm-ready fact이며 realtime fan-out source로 다시 소비하지 않는다.
+
+세 fact의 구현은 `community/application/event/CommunityThreadMessageCreatedEvent.java`,
+`CommunityThreadMentionedEvent.java`와 `CommunityThreadInvitedEvent.java`이며 payload는 thread,
+message, sender/inviter와 recipient/invited/mentioned member의 ID snapshot만 갖는다. 알림 발송,
+FCM/APNs, token, deeplink, title/name, mute/offline/DND 결정과 notification dependency는 PR3에서
+구현하지 않는다.
+
+### Broker, readiness, and observability gates
+
+- `WebSocketMessageBrokerConfig`는 local/test의 `SIMPLE` broker와 dev/prod의 shared external
+  `RELAY`를 분기한다. `WebSocketBrokerPropertiesValidator`는 dev/prod에서 simple mode를 거부하고
+  relay host/virtual-host/system·client credential 누락과 port 범위를 fail-fast로 검증한다.
+- dev/prod relay는 `tls-enabled=true`여야 한다. `StompRelayTcpClientFactory`가 Reactor Netty TLS와
+  HTTPS hostname verification을 적용하며, `WebSocketBrokerProperties.Relay.toString()`은 credential을
+  redacted한다. secret은 환경/secret injection에서만 읽고 로그에 남기지 않는다.
+- `StompBrokerRelayMonitor`의 availability/reconnect 관측과 `WebSocketBrokerRelayStartupValidator`의
+  `startup-timeout` 내 readiness가 운영 기동 조건이다.
+- shared RabbitMQ STOMP plugin/relay provisioning, secret injection, ALB SockJS fallback stickiness,
+  configured heartbeat보다 긴 idle timeout, multi-instance readiness/전환 증거는 로컬 코드만으로
+  증명할 수 없는 외부 인프라 증거다. 이 증거가 없으면 PR3 merge/deploy를 차단한다.
+- `CommunityThreadRealtimeMetrics`는 send/reject/rate-limit/fan-out/broadcast-failure/backfill을
+  유한한 `operation`/`outcome`/`reason` bucket으로만 기록한다. `threadId`, `memberId`, `messageId`,
+  `eventId`, raw destination은 metric tag가 될 수 없다. relay availability/reconnect 및
+  `EventOutboxRelayMetrics` retry/failed도 low-cardinality를 유지한다. 이름은
+  `community.thread.realtime.send.commands`, `.reject.commands`, `.rate.limit.rejections`,
+  `.fanout.events`, `.fanout.recipients`, `.broadcast.failures`, `.backfill.requests`로 고정한다.

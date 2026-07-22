@@ -2,6 +2,7 @@ package com.umc.product.chat.application.port.in.query.dto;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.MessageContentType;
@@ -17,8 +18,20 @@ public record ChatMessageInfo(
     String content,
     List<String> fileMetadataIds,
     Instant createdAt,
-    Long replyToMessageId
+    Long replyToMessageId,
+    UUID clientMessageId,
+    Instant editedAt,
+    Instant deletedAt,
+    List<Long> mentionedMemberIds,
+    ChatMessageReplyInfo replyTo,
+    List<ChatReactionInfo> reactions
 ) {
+    public ChatMessageInfo {
+        fileMetadataIds = fileMetadataIds == null ? List.of() : List.copyOf(fileMetadataIds);
+        mentionedMemberIds = mentionedMemberIds == null ? List.of() : List.copyOf(mentionedMemberIds);
+        reactions = reactions == null ? List.of() : List.copyOf(reactions);
+    }
+
     public ChatMessageInfo(
         Long messageId,
         Long roomId,
@@ -28,7 +41,50 @@ public record ChatMessageInfo(
         List<String> fileMetadataIds,
         Instant createdAt
     ) {
-        this(messageId, roomId, senderMemberId, contentType, content, fileMetadataIds, createdAt, null);
+        this(
+            messageId,
+            roomId,
+            senderMemberId,
+            contentType,
+            content,
+            fileMetadataIds,
+            createdAt,
+            null,
+            null,
+            null,
+            null,
+            List.of(),
+            null,
+            List.of()
+        );
+    }
+
+    public ChatMessageInfo(
+        Long messageId,
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds,
+        Instant createdAt,
+        Long replyToMessageId
+    ) {
+        this(
+            messageId,
+            roomId,
+            senderMemberId,
+            contentType,
+            content,
+            fileMetadataIds,
+            createdAt,
+            replyToMessageId,
+            null,
+            null,
+            null,
+            List.of(),
+            null,
+            List.of()
+        );
     }
 
     public static ChatMessageInfo from(ChatMessage message) {
@@ -40,7 +96,13 @@ public record ChatMessageInfo(
             message.getContent(),
             message.getFileMetadataIds(),
             message.getCreatedAt(),
-            message.getReplyToMessageId()
+            message.getReplyToMessageId(),
+            message.getClientMessageId(),
+            message.getEditedAt(),
+            message.getDeletedAt(),
+            List.of(),
+            null,
+            List.of()
         );
     }
 }

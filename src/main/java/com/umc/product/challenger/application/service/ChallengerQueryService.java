@@ -127,6 +127,13 @@ public class ChallengerQueryService implements GetChallengerUseCase, CheckChalle
     }
 
     @Override
+    public List<ChallengerBasicInfo> listBasicByGisuId(Long gisuId) {
+        return loadChallengerPort.getAllByGisuId(gisuId).stream()
+            .map(ChallengerBasicInfo::from)
+            .toList();
+    }
+
+    @Override
     public ChallengerInfoWithStatus getLatestActiveChallengerByMemberId(Long memberId) {
         Challenger challenger = loadChallengerPort.findTopByMemberIdOrderByCreatedAtDesc(memberId);
         if (challenger.getStatus() == ChallengerStatus.WITHDRAWN

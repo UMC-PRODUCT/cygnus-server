@@ -58,6 +58,8 @@ import com.umc.product.global.websocket.interceptor.StompPrincipalInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketInboundMetricInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketOutboundMetricInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketRateLimitInterceptor;
+import com.umc.product.global.websocket.relay.RelayDestinationChannelInterceptors;
+import com.umc.product.global.websocket.relay.RelayDestinationCodec;
 
 import io.micrometer.context.ContextSnapshotFactory;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -292,7 +294,9 @@ class ApiResponseStompErrorHandlerIntegrationTest {
         WebSocketRateLimitInterceptor.class,
         WebSocketInboundMetricInterceptor.class,
         WebSocketOutboundMetricInterceptor.class,
-        ShutdownAwareHandshakeInterceptor.class
+        ShutdownAwareHandshakeInterceptor.class,
+        RelayDestinationChannelInterceptors.class,
+        RelayDestinationCodec.class
     })
     static class TestApplication {
 

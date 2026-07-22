@@ -1,6 +1,8 @@
 package com.umc.product.chat.adapter.out.persistence;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -42,6 +44,24 @@ public class ChatMessagePersistenceAdapter implements
     @Override
     public boolean existsByIdAndRoomId(Long messageId, Long roomId) {
         return chatMessageJpaRepository.existsByIdAndRoomId(messageId, roomId);
+    }
+
+    @Override
+    public Optional<ChatMessage> findByRoomIdAndSenderMemberIdAndClientMessageId(
+        Long roomId,
+        Long senderMemberId,
+        UUID clientMessageId
+    ) {
+        return chatMessageJpaRepository.findByRoomIdAndSenderMemberIdAndClientMessageId(
+            roomId,
+            senderMemberId,
+            clientMessageId
+        );
+    }
+
+    @Override
+    public List<ChatMessage> listByIds(List<Long> messageIds) {
+        return chatMessageJpaRepository.findAllById(messageIds);
     }
 
     @Override

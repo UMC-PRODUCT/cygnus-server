@@ -5,15 +5,19 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
 
 @DisplayName("ChatMessage")
 class ChatMessageTest {
+
+    private static final String CLIENT_PAYLOAD_FINGERPRINT = "a".repeat(64);
 
     @Test
     @DisplayName("일반 메시지를 생성한다")
@@ -26,6 +30,8 @@ class ChatMessageTest {
         assertThat(message.getContent()).isEqualTo("안녕하세요");
         assertThat(message.getFileMetadataIds()).containsExactly("file-1");
         assertThat(message.getReplyToMessageId()).isNull();
+        assertThat(message.getClientMessageId()).isNull();
+        assertThat(message.getClientPayloadFingerprint()).isNull();
     }
 
     @Test
@@ -105,5 +111,88 @@ class ChatMessageTest {
             .isInstanceOf(ChatDomainException.class)
             .extracting(e -> ((ChatDomainException) e).getBaseCode())
             .isEqualTo(ChatErrorCode.CHAT_MESSAGE_INVALID_CONTENT_TYPE);
+    }
+
+    @Test
+    @DisplayName("canonical payload 비교는 content와 파일 순서와 reply를 정확히 비교한다")
+    void hasCanonicalPayload_exact() {
+        ChatMessage message = ChatMessage.create(
+            1L,
+            10L,
+            MessageContentType.IMAGE,
+            "캡션",
+            List.of("file-b", "file-a"),
+            90L,
+            UUID.randomUUID(),
+            CLIENT_PAYLOAD_FINGERPRINT
+        );
+
+        assertThat(message.hasCanonicalPayload(
+            MessageContentType.IMAGE,
+            "캡션",
+            List.of("file-b", "file-a"),
+            90L
+        )).isTrue();
+        assertThat(message.hasCanonicalPayload(
+            MessageContentType.IMAGE,
+            "캡션",
+            List.of("file-a", "file-b"),
+            90L
+        )).isFalse();
+    }
+
+    @Test
+    @DisplayName("clientMessageId만 있고 fingerprint가 없는 메시지는 생성할 수 없다")
+    void create_clientMessageIdWithoutFingerprintRejected() {
+        assertThatThrownBy(() -> ChatMessage.create(
+            1L,
+            10L,
+            MessageContentType.TEXT,
+            "본문",
+            List.of(),
+            null,
+            UUID.fromString("bb18eb33-f0f8-4a44-bd48-0f8795d696eb"),
+            null
+        )).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("같은 내용 edit은 editedAt을 바꾸지 않는다")
+    void edit_sameContentNoop() {
+        ChatMessage message = ChatMessage.create(1L, 10L, MessageContentType.TEXT, "본문", List.of());
+
+        boolean changed = message.editContent("본문");
+
+        assertThat(changed).isFalse();
+        assertThat(message.getEditedAt()).isNull();
+    }
+
+    @Test
+    @DisplayName("tombstone은 identity, sender, reply, createdAt을 보존하고 SYSTEM payload로 바꾼다")
+    void tombstone_preservesIdentityAndReply() {
+        ChatMessage message = ChatMessage.create(
+            1L,
+            10L,
+            MessageContentType.IMAGE,
+            "캡션",
+            List.of("file-1"),
+            90L,
+            UUID.randomUUID(),
+            CLIENT_PAYLOAD_FINGERPRINT
+        );
+        ReflectionTestUtils.setField(message, "id", 100L);
+        ReflectionTestUtils.setField(message, "createdAt", java.time.Instant.parse("2026-07-18T00:00:00Z"));
+
+        boolean changed = message.tombstone();
+
+        assertThat(changed).isTrue();
+        assertThat(message.getId()).isEqualTo(100L);
+        assertThat(message.getSenderMemberId()).isEqualTo(10L);
+        assertThat(message.getReplyToMessageId()).isEqualTo(90L);
+        assertThat(message.getCreatedAt()).isEqualTo(java.time.Instant.parse("2026-07-18T00:00:00Z"));
+        assertThat(message.getContentType()).isEqualTo(MessageContentType.SYSTEM);
+        assertThat(message.getContent()).isEqualTo(ChatMessage.DELETED_CONTENT);
+        assertThat(message.getFileMetadataIds()).isEmpty();
+        assertThat(message.getDeletedAt()).isNotNull();
     }
 }

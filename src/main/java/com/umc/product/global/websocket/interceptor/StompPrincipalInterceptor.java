@@ -59,6 +59,7 @@ public class StompPrincipalInterceptor implements ChannelInterceptor {
             new UsernamePasswordAuthenticationToken(principal, null, authorities);
 
         accessor.setUser(authentication);
+        accessor.removeNativeHeader("Authorization");
 
         log.debug("WebSocket CONNECT 인증 확인 memberId={}", parsed.memberId());
 

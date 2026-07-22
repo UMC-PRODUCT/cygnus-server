@@ -1,0 +1,893 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Community Thread WebSocket Console</title>
+    <link href="/umc-logo.svg" rel="icon" type="image/svg+xml">
+    <style>
+        :root {
+            color-scheme: dark;
+            font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --background: #0b1110;
+            --surface: #121b19;
+            --surface-raised: #182320;
+            --border: #2a3935;
+            --text: #ecf4f1;
+            --muted: #9aaca7;
+            --accent: #62e3b1;
+            --accent-strong: #24ba83;
+            --warning: #f0bd63;
+            --danger: #ff7d87;
+            --info: #78b7ff;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-width: 320px;
+            background:
+                radial-gradient(circle at 12% -10%, rgba(36, 186, 131, .18), transparent 34rem),
+                var(--background);
+            color: var(--text);
+        }
+
+        button, input, select, textarea { font: inherit; }
+
+        header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 24px;
+            padding: 30px clamp(18px, 4vw, 52px) 24px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(11, 17, 16, .84);
+            backdrop-filter: blur(14px);
+        }
+
+        h1, h2, h3, p { margin-top: 0; }
+        h1 { margin-bottom: 8px; font-size: clamp(25px, 4vw, 36px); letter-spacing: -.04em; }
+        h2 { margin-bottom: 18px; font-size: 18px; }
+        h3 { margin-bottom: 10px; font-size: 14px; }
+        p { color: var(--muted); line-height: 1.6; }
+
+        main {
+            display: grid;
+            grid-template-columns: minmax(360px, 520px) minmax(420px, 1fr);
+            gap: 18px;
+            min-width: 0;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 22px clamp(18px, 4vw, 52px) 52px;
+        }
+
+        .column { display: grid; align-content: start; gap: 18px; min-width: 0; }
+        .card {
+            min-width: 0;
+            padding: 20px;
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            background: linear-gradient(145deg, rgba(24, 35, 32, .96), rgba(18, 27, 25, .96));
+            box-shadow: 0 14px 36px rgba(0, 0, 0, .16);
+        }
+
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            flex: 0 0 auto;
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--muted);
+            background: var(--surface);
+            font-size: 13px;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .docs-link {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            color: var(--accent);
+            background: var(--surface);
+            font-size: 12px;
+            font-weight: 700;
+            text-decoration: none;
+        }
+
+        .status::before {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--muted);
+            content: "";
+        }
+
+        .status.connected { color: var(--accent); border-color: rgba(98, 227, 177, .38); }
+        .status.connected::before { background: var(--accent); box-shadow: 0 0 14px var(--accent); }
+        .status.connecting { color: var(--warning); }
+        .status.connecting::before { background: var(--warning); }
+        .status.error { color: var(--danger); }
+        .status.error::before { background: var(--danger); }
+
+        .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+        .field-grid .wide { grid-column: 1 / -1; }
+        .field-grid > *, .inline > * { min-width: 0; }
+
+        label {
+            display: grid;
+            gap: 7px;
+            color: var(--muted);
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .01em;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            outline: 0;
+            background: #0d1513;
+            color: var(--text);
+            transition: border-color .15s ease, box-shadow .15s ease;
+        }
+
+        input, select { height: 42px; padding: 0 11px; }
+        textarea {
+            min-height: 210px;
+            padding: 12px;
+            resize: vertical;
+            font-family: "SFMono-Regular", Consolas, monospace;
+            font-size: 13px;
+            line-height: 1.55;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-strong);
+            box-shadow: 0 0 0 3px rgba(36, 186, 131, .14);
+        }
+
+        input:disabled, select:disabled, textarea:disabled, button:disabled {
+            cursor: not-allowed;
+            opacity: .48;
+        }
+
+        .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+        button {
+            min-height: 39px;
+            padding: 0 14px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            cursor: pointer;
+            background: var(--surface-raised);
+            color: var(--text);
+            font-weight: 750;
+        }
+
+        button:hover:not(:disabled) { border-color: #52645f; transform: translateY(-1px); }
+        button.primary { border-color: var(--accent-strong); background: var(--accent-strong); color: #06110d; }
+        button.danger { color: var(--danger); }
+        button.small { min-height: 32px; padding: 0 10px; font-size: 12px; }
+
+        .hint, code, .destination {
+            font-family: "SFMono-Regular", Consolas, monospace;
+            font-size: 12px;
+        }
+
+        .hint { margin: 8px 0 0; color: #81958f; overflow-wrap: anywhere; }
+        .warning {
+            margin: 16px 0 0;
+            padding: 11px 12px;
+            border-left: 3px solid var(--warning);
+            background: rgba(240, 189, 99, .08);
+            color: #dccbaf;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        .destination {
+            overflow-wrap: anywhere;
+            padding: 11px 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #0d1513;
+            color: var(--info);
+        }
+
+        .inline { display: flex; align-items: end; gap: 9px; }
+        .inline label { flex: 1; }
+
+        .log-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .log-toolbar h2 { margin: 0; }
+        .log {
+            height: min(720px, 70vh);
+            min-height: 430px;
+            overflow: auto;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            background: #09100e;
+        }
+
+        .empty {
+            display: grid;
+            min-height: 100%;
+            place-items: center;
+            padding: 30px;
+            color: #63736f;
+            text-align: center;
+        }
+
+        .entry { padding: 13px 14px; border-bottom: 1px solid #1b2825; }
+        .entry:last-child { border-bottom: 0; }
+        .entry-head { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+        .entry time { margin-left: auto; color: #667873; font: 11px "SFMono-Regular", monospace; }
+        .direction {
+            min-width: 36px;
+            padding: 2px 6px;
+            border-radius: 5px;
+            background: rgba(120, 183, 255, .12);
+            color: var(--info);
+            text-align: center;
+            font: 700 10px "SFMono-Regular", monospace;
+        }
+        .entry.out .direction { background: rgba(98, 227, 177, .12); color: var(--accent); }
+        .entry.system .direction { background: rgba(240, 189, 99, .12); color: var(--warning); }
+        .entry.error .direction { background: rgba(255, 125, 135, .12); color: var(--danger); }
+        .entry-title { overflow-wrap: anywhere; font: 700 12px "SFMono-Regular", monospace; }
+        .entry pre {
+            overflow: auto;
+            margin: 0;
+            color: #b8c8c3;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font: 12px/1.55 "SFMono-Regular", Consolas, monospace;
+        }
+
+        details { border-top: 1px solid var(--border); }
+        details:first-of-type { border-top: 0; }
+        summary { padding: 14px 0; cursor: pointer; color: var(--text); font-weight: 750; }
+        details p, details li { color: var(--muted); font-size: 13px; line-height: 1.6; }
+        details ul { padding-left: 20px; }
+        details pre {
+            overflow: auto;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #0d1513;
+            color: #b8c8c3;
+            font: 12px/1.55 "SFMono-Regular", Consolas, monospace;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 9px 7px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+        th { color: var(--muted); }
+        td code { color: var(--info); overflow-wrap: anywhere; }
+
+        @media (max-width: 980px) {
+            header { align-items: center; }
+            main { grid-template-columns: 1fr; }
+            .log { height: 520px; min-height: 360px; }
+        }
+
+        @media (max-width: 560px) {
+            header { align-items: flex-start; flex-direction: column; }
+            .field-grid { grid-template-columns: 1fr; }
+            .field-grid .wide { grid-column: auto; }
+            .inline { align-items: stretch; flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div>
+        <h1>Community Thread WebSocket Console</h1>
+        <p>native WebSocket transport 위에서 STOMP 1.2 연결, 구독, command, ACK와 error를 직접 확인합니다.</p>
+    </div>
+    <div class="header-actions">
+        <a class="docs-link" href="/docs/asyncapi">AsyncAPI 명세</a>
+        <div class="status" id="connection-status">연결 안 됨</div>
+    </div>
+</header>
+
+<main>
+    <section class="column">
+        <div class="card">
+            <h2>1. 연결</h2>
+            <div class="field-grid">
+                <label class="wide">
+                    Native WebSocket URL
+                    <input id="ws-url" autocomplete="off" spellcheck="false">
+                </label>
+                <label class="wide">
+                    Access token
+                    <input id="access-token" type="password" autocomplete="off" placeholder="Bearer를 제외한 JWT">
+                </label>
+            </div>
+            <p class="hint">CONNECT header: Authorization: Bearer &lt;access-token&gt;</p>
+            <div class="actions">
+                <button class="primary" id="connect-button">연결하고 구독</button>
+                <button class="danger" id="disconnect-button" disabled>연결 종료</button>
+                <button id="subscribe-button" disabled>다시 구독</button>
+            </div>
+            <p class="warning">토큰은 이 페이지의 메모리에서만 사용하며 저장하지 않습니다. 공유 화면이나 운영 토큰으로 테스트하지 마세요.</p>
+        </div>
+
+        <div class="card">
+            <h2>2. Command 전송</h2>
+            <div class="field-grid">
+                <label class="wide">
+                    Thread ID
+                    <input id="thread-id" inputmode="numeric" placeholder="예: 100">
+                </label>
+                <label class="wide">
+                    Command
+                    <select id="command-type">
+                        <option value="message-create">메시지 생성</option>
+                        <option value="message-edit">메시지 수정</option>
+                        <option value="message-delete">메시지 삭제</option>
+                        <option value="reaction-add">반응 추가</option>
+                        <option value="reaction-remove">반응 제거</option>
+                        <option value="read-update">읽음 위치 변경</option>
+                    </select>
+                </label>
+                <label id="message-id-field">
+                    Message ID
+                    <input id="message-id" inputmode="numeric" placeholder="대상 메시지 ID">
+                </label>
+                <label>
+                    x-command-id
+                    <input id="command-id" readonly>
+                </label>
+            </div>
+            <p class="hint">전송 시도마다 commandId는 새로 만들고, 생성 retry에서는 payload의 clientMessageId를 유지하세요.</p>
+            <h3>Destination</h3>
+            <div class="destination" id="send-destination"></div>
+            <div class="inline" style="margin-top: 14px;">
+                <label>
+                    JSON payload
+                    <textarea id="command-payload" spellcheck="false"></textarea>
+                </label>
+            </div>
+            <div class="actions">
+                <button class="primary" id="send-button" disabled>STOMP SEND</button>
+                <button id="reset-payload-button">예시 초기화</button>
+                <button id="new-client-message-id-button">새 clientMessageId</button>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>계약 빠른 참조</h2>
+            <details open>
+                <summary>연결과 구독</summary>
+                <table>
+                    <thead><tr><th>용도</th><th>Destination</th></tr></thead>
+                    <tbody>
+                    <tr><td>native 연결</td><td><code>/ws/websocket</code></td></tr>
+                    <tr><td>Thread event + ACK</td><td><code>/user/queue/community/threads/events</code></td></tr>
+                    <tr><td>recoverable error</td><td><code>/user/queue/errors</code></td></tr>
+                    </tbody>
+                </table>
+            </details>
+            <details>
+                <summary>메시지 생성 payload</summary>
+                <pre>{
+  "clientMessageId": "lowercase UUID",
+  "type": "TEXT | IMAGE",
+  "content": "본문 또는 이미지 캡션",
+  "fileMetadataIds": [],
+  "mentionedMemberIds": [],
+  "replyToId": null
+}</pre>
+                <ul>
+                    <li><code>TEXT</code>: content 필수, fileMetadataIds는 비어 있어야 합니다.</li>
+                    <li><code>IMAGE</code>: fileMetadataIds 1~4개가 필수입니다.</li>
+                    <li>같은 clientMessageId retry는 type/content/files/mentions/replyToId가 동일해야 합니다.</li>
+                </ul>
+            </details>
+            <details>
+                <summary>수신 event envelope</summary>
+                <pre>{
+  "eventId": "UUID",
+  "type": "message.created",
+  "threadId": "100",
+  "occurredAt": "2026-07-21T04:00:00Z",
+  "payload": { ... }
+}</pre>
+                <p>type은 command.acknowledged, message.created/updated/deleted, reaction.changed, read.updated, thread.invited/updated/deleted, member.kicked/left 중 하나입니다.</p>
+            </details>
+            <details>
+                <summary>ACK와 error</summary>
+                <pre>// /user/queue/community/threads/events의 ACK payload
+{
+  "commandId": "UUID",
+  "command": "MESSAGE_CREATE",
+  "messageId": 123,
+  "clientMessageId": "UUID",
+  "deduplicated": false
+}
+
+// /user/queue/errors payload
+{
+  "commandId": "UUID | null",
+  "clientMessageId": "UUID | null",
+  "status": 409,
+  "code": "CHAT-...",
+  "message": "...",
+  "retryable": false
+}</pre>
+            </details>
+        </div>
+    </section>
+
+    <section class="column">
+        <div class="card">
+            <div class="log-toolbar">
+                <h2>Frame / Event log</h2>
+                <button class="small" id="clear-log-button">로그 비우기</button>
+            </div>
+            <div class="log" id="log" aria-live="polite">
+                <div class="empty" id="empty-log">연결하면 STOMP frame과 application event가 여기에 표시됩니다.</div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    (() => {
+        "use strict";
+
+        const elements = {
+            wsUrl: document.getElementById("ws-url"),
+            accessToken: document.getElementById("access-token"),
+            threadId: document.getElementById("thread-id"),
+            status: document.getElementById("connection-status"),
+            connect: document.getElementById("connect-button"),
+            disconnect: document.getElementById("disconnect-button"),
+            subscribe: document.getElementById("subscribe-button"),
+            commandType: document.getElementById("command-type"),
+            messageIdField: document.getElementById("message-id-field"),
+            messageId: document.getElementById("message-id"),
+            commandId: document.getElementById("command-id"),
+            destination: document.getElementById("send-destination"),
+            payload: document.getElementById("command-payload"),
+            send: document.getElementById("send-button"),
+            resetPayload: document.getElementById("reset-payload-button"),
+            newClientMessageId: document.getElementById("new-client-message-id-button"),
+            clearLog: document.getElementById("clear-log-button"),
+            log: document.getElementById("log"),
+            emptyLog: document.getElementById("empty-log")
+        };
+
+        const state = {
+            socket: null,
+            connected: false,
+            intentionalClose: false,
+            subscriptionSequence: 0,
+            subscriptionIds: [],
+            heartbeatTimer: null,
+            watchdogTimer: null,
+            lastServerActivity: 0,
+            receiveHeartbeatTimeout: 25000,
+            decoderBuffer: ""
+        };
+
+        const commandDefinitions = {
+            "message-create": {
+                path: ({threadId}) => `/app/community/threads/${threadId}/messages`,
+                needsMessageId: false,
+                payload: () => ({
+                    clientMessageId: uuid(),
+                    type: "TEXT",
+                    content: "WebSocket 테스트 메시지",
+                    fileMetadataIds: [],
+                    mentionedMemberIds: [],
+                    replyToId: null
+                })
+            },
+            "message-edit": {
+                path: ({threadId, messageId}) => `/app/community/threads/${threadId}/messages/${messageId}/edit`,
+                needsMessageId: true,
+                payload: () => ({content: "수정된 테스트 메시지"})
+            },
+            "message-delete": {
+                path: ({threadId, messageId}) => `/app/community/threads/${threadId}/messages/${messageId}/delete`,
+                needsMessageId: true,
+                payload: () => ({})
+            },
+            "reaction-add": {
+                path: ({threadId, messageId}) => `/app/community/threads/${threadId}/messages/${messageId}/reactions/add`,
+                needsMessageId: true,
+                payload: () => ({emoji: "👍"})
+            },
+            "reaction-remove": {
+                path: ({threadId, messageId}) => `/app/community/threads/${threadId}/messages/${messageId}/reactions/remove`,
+                needsMessageId: true,
+                payload: () => ({emoji: "👍"})
+            },
+            "read-update": {
+                path: ({threadId}) => `/app/community/threads/${threadId}/read`,
+                needsMessageId: false,
+                payload: () => ({lastReadMessageId: positiveId(elements.messageId.value, "Message ID")})
+            }
+        };
+
+        function defaultWebSocketUrl() {
+            if (location.protocol === "http:" || location.protocol === "https:") {
+                const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+                return `${protocol}//${location.host}/ws/websocket`;
+            }
+            return "ws://localhost:8080/ws/websocket";
+        }
+
+        function uuid() {
+            if (typeof crypto.randomUUID === "function") {
+                return crypto.randomUUID();
+            }
+            const bytes = crypto.getRandomValues(new Uint8Array(16));
+            bytes[6] = (bytes[6] & 0x0f) | 0x40;
+            bytes[8] = (bytes[8] & 0x3f) | 0x80;
+            return [...bytes].map((value, index) => {
+                const separator = [4, 6, 8, 10].includes(index) ? "-" : "";
+                return separator + value.toString(16).padStart(2, "0");
+            }).join("");
+        }
+
+        function positiveId(rawValue, label) {
+            const value = String(rawValue).trim();
+            if (!/^[1-9][0-9]*$/.test(value)) {
+                throw new Error(`${label}는 양의 정수여야 합니다.`);
+            }
+            return value;
+        }
+
+        function updateStatus(label, kind = "") {
+            elements.status.textContent = label;
+            elements.status.className = `status ${kind}`.trim();
+        }
+
+        function setConnected(connected) {
+            state.connected = connected;
+            elements.connect.disabled = connected;
+            elements.disconnect.disabled = !connected;
+            elements.subscribe.disabled = !connected;
+            elements.send.disabled = !connected;
+            if (connected) {
+                updateStatus("STOMP 연결됨", "connected");
+            }
+        }
+
+        function addLog(direction, title, detail) {
+            elements.emptyLog?.remove();
+            const entry = document.createElement("article");
+            entry.className = `entry ${direction}`;
+
+            const head = document.createElement("div");
+            head.className = "entry-head";
+            const badge = document.createElement("span");
+            badge.className = "direction";
+            badge.textContent = direction === "in" ? "IN" : direction === "out" ? "OUT" : direction === "error" ? "ERR" : "SYS";
+            const titleNode = document.createElement("span");
+            titleNode.className = "entry-title";
+            titleNode.textContent = title;
+            const time = document.createElement("time");
+            time.textContent = new Date().toLocaleTimeString("ko-KR", {hour12: false});
+            head.append(badge, titleNode, time);
+
+            const body = document.createElement("pre");
+            body.textContent = typeof detail === "string" ? detail : JSON.stringify(detail, null, 2);
+            entry.append(head, body);
+            elements.log.prepend(entry);
+        }
+
+        function normalizeToken() {
+            return elements.accessToken.value.trim().replace(/^Bearer\s+/i, "");
+        }
+
+        function connect() {
+            if (state.socket && state.socket.readyState <= WebSocket.OPEN) {
+                return;
+            }
+
+            const url = elements.wsUrl.value.trim();
+            const token = normalizeToken();
+            if (!/^wss?:\/\//.test(url)) {
+                throw new Error("Native WebSocket URL은 ws:// 또는 wss://로 시작해야 합니다.");
+            }
+            if (!token) {
+                throw new Error("Access token을 입력해주세요.");
+            }
+
+            state.intentionalClose = false;
+            state.decoderBuffer = "";
+            updateStatus("WebSocket 연결 중", "connecting");
+            addLog("system", "WebSocket handshake", {url, protocol: "STOMP 1.2"});
+
+            const socket = new WebSocket(url, ["v12.stomp", "v11.stomp", "v10.stomp"]);
+            state.socket = socket;
+            socket.addEventListener("open", () => {
+                state.lastServerActivity = Date.now();
+                state.subscriptionIds = [];
+                sendFrame("CONNECT", {
+                    "accept-version": "1.2",
+                    host: new URL(url).host,
+                    "heart-beat": "10000,10000",
+                    Authorization: `Bearer ${token}`
+                }, "", false);
+                addLog("out", "CONNECT", {"accept-version": "1.2", "heart-beat": "10000,10000", Authorization: "Bearer [REDACTED]"});
+            });
+            socket.addEventListener("message", async event => {
+                state.lastServerActivity = Date.now();
+                const text = typeof event.data === "string" ? event.data : await event.data.text();
+                consumeIncoming(text);
+            });
+            socket.addEventListener("error", () => {
+                updateStatus("WebSocket 오류", "error");
+                addLog("error", "WebSocket transport error", "브라우저 개발자 도구의 Network > WS도 확인해주세요.");
+            });
+            socket.addEventListener("close", event => {
+                clearHeartbeat();
+                setConnected(false);
+                state.subscriptionIds = [];
+                state.socket = null;
+                updateStatus(state.intentionalClose ? "연결 종료됨" : "연결 끊김", state.intentionalClose ? "" : "error");
+                addLog(state.intentionalClose ? "system" : "error", "WebSocket CLOSED", {code: event.code, reason: event.reason || null, clean: event.wasClean});
+            });
+        }
+
+        function sendFrame(command, headers = {}, body = "", logFrame = true) {
+            if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+                throw new Error("WebSocket이 연결되어 있지 않습니다.");
+            }
+            const finalHeaders = {...headers};
+            if (body) {
+                finalHeaders["content-length"] = new TextEncoder().encode(body).length;
+            }
+            const frame = `${command}\n${Object.entries(finalHeaders)
+                .map(([name, value]) => `${name}:${value}`)
+                .join("\n")}\n\n${body}\0`;
+            state.socket.send(frame);
+            if (logFrame) {
+                addLog("out", `${command} ${headers.destination || ""}`.trim(), body ? parseJsonOrText(body) : headers);
+            }
+        }
+
+        function consumeIncoming(chunk) {
+            state.decoderBuffer += chunk;
+            while (state.decoderBuffer.length > 0) {
+                if (state.decoderBuffer[0] === "\n" || state.decoderBuffer[0] === "\r") {
+                    state.decoderBuffer = state.decoderBuffer.slice(1);
+                    continue;
+                }
+                const terminator = state.decoderBuffer.indexOf("\0");
+                if (terminator < 0) {
+                    return;
+                }
+                const rawFrame = state.decoderBuffer.slice(0, terminator);
+                state.decoderBuffer = state.decoderBuffer.slice(terminator + 1);
+                handleFrame(parseFrame(rawFrame));
+            }
+        }
+
+        function parseFrame(rawFrame) {
+            const separator = rawFrame.search(/\r?\n\r?\n/);
+            const headerBlock = separator < 0 ? rawFrame : rawFrame.slice(0, separator);
+            const body = separator < 0 ? "" : rawFrame.slice(separator).replace(/^\r?\n\r?\n/, "");
+            const lines = headerBlock.split(/\r?\n/);
+            const command = lines.shift();
+            const headers = {};
+            for (const line of lines) {
+                const colon = line.indexOf(":");
+                if (colon > 0) {
+                    headers[line.slice(0, colon)] = unescapeHeader(line.slice(colon + 1));
+                }
+            }
+            return {command, headers, body};
+        }
+
+        function unescapeHeader(value) {
+            return value.replace(/\\r/g, "\r").replace(/\\n/g, "\n").replace(/\\c/g, ":").replace(/\\\\/g, "\\");
+        }
+
+        function handleFrame(frame) {
+            const detail = frame.body ? parseJsonOrText(frame.body) : frame.headers;
+            addLog(frame.command === "ERROR" ? "error" : "in", `${frame.command} ${frame.headers.destination || ""}`.trim(), detail);
+
+            if (frame.command === "CONNECTED") {
+                setConnected(true);
+                configureHeartbeat(frame.headers["heart-beat"]);
+                subscribeAll();
+                return;
+            }
+            if (frame.command === "ERROR") {
+                updateStatus("STOMP ERROR", "error");
+            }
+        }
+
+        function configureHeartbeat(serverHeader) {
+            clearHeartbeat();
+            const [serverCanSend = 0, serverWantsReceive = 0] = String(serverHeader || "0,0")
+                .split(",")
+                .map(Number);
+            const outgoingInterval = Math.max(10000, serverWantsReceive);
+            const incomingInterval = Math.max(10000, serverCanSend);
+            state.receiveHeartbeatTimeout = incomingInterval * 2.5;
+
+            if (serverWantsReceive > 0) {
+                state.heartbeatTimer = window.setInterval(() => {
+                    if (state.socket?.readyState === WebSocket.OPEN) {
+                        state.socket.send("\n");
+                    }
+                }, outgoingInterval);
+            }
+            if (serverCanSend > 0) {
+                state.watchdogTimer = window.setInterval(() => {
+                    if (Date.now() - state.lastServerActivity > state.receiveHeartbeatTimeout) {
+                        addLog("error", "Heartbeat timeout", `서버 activity가 ${state.receiveHeartbeatTimeout}ms 동안 없습니다.`);
+                        state.socket?.close(4000, "Heartbeat timeout");
+                    }
+                }, incomingInterval);
+            }
+        }
+
+        function clearHeartbeat() {
+            window.clearInterval(state.heartbeatTimer);
+            window.clearInterval(state.watchdogTimer);
+            state.heartbeatTimer = null;
+            state.watchdogTimer = null;
+        }
+
+        function subscribe(destination) {
+            const id = `community-console-${++state.subscriptionSequence}`;
+            sendFrame("SUBSCRIBE", {
+                id,
+                destination,
+                ack: "auto"
+            });
+            state.subscriptionIds.push(id);
+        }
+
+        function subscribeAll() {
+            unsubscribeAll();
+            subscribe("/user/queue/community/threads/events");
+            subscribe("/user/queue/errors");
+        }
+
+        function unsubscribeAll() {
+            for (const id of state.subscriptionIds) {
+                sendFrame("UNSUBSCRIBE", {id});
+            }
+            state.subscriptionIds = [];
+        }
+
+        function disconnect() {
+            if (!state.socket) {
+                return;
+            }
+            state.intentionalClose = true;
+            if (state.socket.readyState === WebSocket.OPEN) {
+                sendFrame("DISCONNECT", {receipt: `disconnect-${uuid()}`});
+                window.setTimeout(() => state.socket?.close(1000, "Client disconnect"), 250);
+            } else {
+                state.socket.close();
+            }
+        }
+
+        function selectedDefinition() {
+            return commandDefinitions[elements.commandType.value];
+        }
+
+        function destination() {
+            const definition = selectedDefinition();
+            const context = {
+                threadId: positiveId(elements.threadId.value, "Thread ID"),
+                messageId: definition.needsMessageId
+                    ? positiveId(elements.messageId.value, "Message ID")
+                    : ""
+            };
+            return definition.path(context);
+        }
+
+        function updateCommandForm(resetPayload = false) {
+            const definition = selectedDefinition();
+            const usesMessageId = definition.needsMessageId || elements.commandType.value === "read-update";
+            elements.messageIdField.style.display = usesMessageId ? "grid" : "none";
+            elements.newClientMessageId.style.display = elements.commandType.value === "message-create" ? "inline-flex" : "none";
+            if (resetPayload) {
+                elements.payload.value = JSON.stringify(definition.payload(), null, 2);
+            }
+            try {
+                elements.destination.textContent = destination();
+            } catch (error) {
+                elements.destination.textContent = error.message;
+            }
+        }
+
+        function sendCommand() {
+            const payload = JSON.parse(elements.payload.value);
+            if (payload === null || Array.isArray(payload) || typeof payload !== "object") {
+                throw new Error("payload는 JSON object여야 합니다.");
+            }
+            const commandId = elements.commandId.value;
+            const target = destination();
+            sendFrame("SEND", {
+                destination: target,
+                "content-type": "application/json",
+                "x-command-id": commandId
+            }, JSON.stringify(payload));
+            elements.commandId.value = uuid();
+        }
+
+        function replaceClientMessageId() {
+            if (elements.commandType.value !== "message-create") {
+                return;
+            }
+            const payload = JSON.parse(elements.payload.value);
+            payload.clientMessageId = uuid();
+            elements.payload.value = JSON.stringify(payload, null, 2);
+        }
+
+        function parseJsonOrText(value) {
+            try {
+                return JSON.parse(value);
+            } catch (ignored) {
+                return value;
+            }
+        }
+
+        function safely(action) {
+            return () => {
+                try {
+                    action();
+                } catch (error) {
+                    addLog("error", "Client validation", error.message);
+                }
+            };
+        }
+
+        elements.connect.addEventListener("click", safely(connect));
+        elements.disconnect.addEventListener("click", disconnect);
+        elements.subscribe.addEventListener("click", safely(subscribeAll));
+        elements.send.addEventListener("click", safely(sendCommand));
+        elements.commandType.addEventListener("change", () => updateCommandForm(true));
+        elements.threadId.addEventListener("input", () => updateCommandForm(false));
+        elements.messageId.addEventListener("input", () => updateCommandForm(false));
+        elements.resetPayload.addEventListener("click", () => updateCommandForm(true));
+        elements.newClientMessageId.addEventListener("click", safely(replaceClientMessageId));
+        elements.clearLog.addEventListener("click", () => {
+            elements.log.replaceChildren();
+            const empty = document.createElement("div");
+            empty.className = "empty";
+            empty.id = "empty-log";
+            empty.textContent = "로그를 비웠습니다.";
+            elements.log.append(empty);
+            elements.emptyLog = empty;
+        });
+        window.addEventListener("beforeunload", () => {
+            state.intentionalClose = true;
+            state.socket?.close();
+        });
+
+        elements.wsUrl.value = defaultWebSocketUrl();
+        elements.commandId.value = uuid();
+        updateCommandForm(true);
+    })();
+</script>
+</body>
+</html>

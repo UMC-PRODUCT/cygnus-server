@@ -24,6 +24,7 @@ public enum MaintenanceDomain {
         "/api/v1/notices/**"
     )),
     COMMUNITY(List.of(
+        "/api/v1/community/**",
         "/api/v1/posts/**"
     )),
     ORGANIZATION(List.of(
@@ -43,8 +44,7 @@ public enum MaintenanceDomain {
     )),
     AUTHORIZATION(List.of(
         "/api/v1/authorization/**"
-    )),
-    ;
+    ));
 
     private static final AntPathMatcher PATH_MATCHER = new AntPathMatcher();
 
