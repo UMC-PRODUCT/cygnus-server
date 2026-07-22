@@ -1,13 +1,7 @@
 package com.umc.product.audit.adapter.in.aop;
 
-import com.umc.product.audit.application.port.in.annotation.Audited;
-import com.umc.product.audit.domain.AuditLogEvent;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
-import com.umc.product.global.security.MemberPrincipal;
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
 import org.aspectj.lang.annotation.Aspect;
@@ -23,6 +17,15 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
+
+import com.umc.product.audit.application.port.in.annotation.Audited;
+import com.umc.product.audit.domain.AuditLogEvent;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.security.MemberPrincipal;
+
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * {@link Audited} 어노테이션이 붙은 메서드 실행 성공 후 감사 로그 이벤트를 발행합니다.
@@ -114,6 +117,7 @@ public class AuditAspect {
             }
         } catch (Exception e) {
             log.debug("IP 주소 추출 실패: {}", e.getMessage());
+            return null;
         }
         return null;
     }

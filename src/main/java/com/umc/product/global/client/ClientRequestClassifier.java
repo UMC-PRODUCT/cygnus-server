@@ -20,9 +20,6 @@ public class ClientRequestClassifier {
     public ClientRequestContext classify(HttpServletRequest request, MemberPrincipal principal) {
         ClientDeviceType deviceType = resolveDeviceType(request, principal);
         ClientContextClaims tokenClaims = principal == null ? ClientContextClaims.empty() : principal.getClientContextClaims();
-        if (tokenClaims == null) {
-            tokenClaims = ClientContextClaims.empty();
-        }
         String origin = resolveOrigin(request);
         ClientContextProperties.Origin registeredOrigin = originRegistry.findByOrigin(origin).orElse(null);
 

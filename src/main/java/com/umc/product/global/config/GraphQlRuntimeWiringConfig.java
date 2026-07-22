@@ -155,7 +155,11 @@ public class GraphQlRuntimeWiringConfig {
                 return exactLong(bigInteger);
             }
             if (value instanceof BigDecimal bigDecimal) {
-                return exactLong(bigDecimal.toBigIntegerExact());
+                try {
+                    return exactLong(bigDecimal.toBigIntegerExact());
+                } catch (ArithmeticException ex) {
+                    throw new IllegalArgumentException("Expected an integer decimal value", ex);
+                }
             }
             if (value instanceof String stringValue) {
                 return Long.parseLong(stringValue);

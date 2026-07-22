@@ -96,7 +96,44 @@ class P6SpyConfigTest {
             .doesNotContain(PROBE_EMAIL, PROBE_KEY);
     }
 
+    @Test
+    @DisplayName("blank SQL은 그대로 유지하고 prepared가 없으면 bound SQL을 사용한다")
+    void blank와_bound_sql_fallback() {
+        assertThat(SqlLogRedactor.redact(null, " ")).isBlank();
+        assertThat(format("", null)).contains("null");
+        assertThat(format("", "select 1")).contains("select", "1");
+    }
+
+    @Test
+    @DisplayName("line comment와 dollar quoted 문자열도 민감값을 치환한다")
+    void line_comment와_dollar_quote_redaction() {
+        String redacted = SqlLogRedactor.redact("""
+            select $$%s$$, $tag$%s$tag$ -- %s
+            """.formatted(PROBE_EMAIL, PROBE_KEY, PROBE_EMAIL));
+
+        assertThat(redacted)
+            .contains("'[REDACTED]'", "-- [REDACTED]")
+            .doesNotContain(PROBE_EMAIL, PROBE_KEY);
+    }
+
+    @Test
+    @DisplayName("statement DDL과 statement가 아닌 category를 각각 형식화한다")
+    void ddl과_non_statement_format() {
+        assertThat(format("create table sample(id bigint)", ""))
+            .containsIgnoringCase("create table");
+        assertThat(format("alter table sample add name varchar(10)", ""))
+            .containsIgnoringCase("alter table");
+        assertThat(format("comment on table sample is 'secret'", ""))
+            .containsIgnoringCase("comment on table")
+            .doesNotContain("secret");
+        assertThat(formatCategory("commit", "select 'secret'")).contains("'[REDACTED]'");
+    }
+
     private String format(String prepared, String sql) {
         return formatter.formatMessage(1, "now", 3L, "statement", prepared, sql, "jdbc:postgresql:test");
+    }
+
+    private String formatCategory(String category, String sql) {
+        return formatter.formatMessage(1, "now", 3L, category, "", sql, "jdbc:postgresql:test");
     }
 }

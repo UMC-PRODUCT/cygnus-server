@@ -12,16 +12,67 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 import org.springframework.graphql.execution.GraphQlSource;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import graphql.ExecutionResult;
 import graphql.GraphQL;
 import graphql.Scalars;
+import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.schema.GraphQLInputObjectType;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLSchema;
 
 class GraphQlExecutionConfigTest {
+
+    @Test
+    @DisplayName("실행 설정은 null에 기본값을 적용하고 0 이하 값을 거부한다")
+    void execution_properties_기본값과_검증() {
+        GraphQlExecutionProperties defaults = new GraphQlExecutionProperties(null, null, null);
+
+        assertThat(defaults.timeout()).isEqualTo(Duration.ofSeconds(5));
+        assertThat(defaults.maxDepth()).isEqualTo(10);
+        assertThat(defaults.maxComplexity()).isEqualTo(200);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new GraphQlExecutionProperties(Duration.ZERO, 1, 1)
+        ).isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new GraphQlExecutionProperties(Duration.ofSeconds(-1), 1, 1)
+        ).isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new GraphQlExecutionProperties(Duration.ofSeconds(1), 0, 1)
+        ).isInstanceOf(IllegalArgumentException.class);
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> new GraphQlExecutionProperties(Duration.ofSeconds(1), 1, 0)
+        ).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("timeout과 depth instrumentation bean을 설정값으로 생성한다")
+    void timeout과_depth_instrumentation_생성() {
+        GraphQlExecutionProperties properties = new GraphQlExecutionProperties(
+            Duration.ofSeconds(3),
+            7,
+            30
+        );
+        GraphQlExecutionConfig config = new GraphQlExecutionConfig();
+
+        assertThat(config.graphQlTimeoutWebGraphQlInterceptor(properties)).isNotNull();
+        assertThat(config.graphQlMaxQueryDepthInstrumentation(properties))
+            .isInstanceOf(MaxQueryDepthInstrumentation.class);
+    }
+
+    @Test
+    @DisplayName("page.size가 숫자가 아니면 최대 비용으로 계산한다")
+    void non_number_page_size() {
+        Integer size = ReflectionTestUtils.invokeMethod(
+            GraphQlExecutionConfig.class,
+            "resolveMemberSearchSize",
+            Map.of("size", "100")
+        );
+
+        assertThat(size).isEqualTo(100);
+    }
 
     @Test
     @DisplayName("memberSearch는 기본 page.size 비용을 포함한 설정 한도에서 실행된다")

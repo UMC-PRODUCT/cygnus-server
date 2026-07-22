@@ -19,7 +19,6 @@ import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
 import org.bouncycastle.openssl.PEMKeyPair;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -72,9 +71,6 @@ public class S3StorageAdapter implements StoragePort {
     private final OperationalMetrics operationalMetrics;
 
     private volatile String cachedCloudFrontPrivateKey;
-
-    @Value("${spring.profiles.active:default}")
-    private String springProfile;
 
     @Override
     public FileUploadInfo generateUploadUrl(
@@ -398,12 +394,4 @@ public class S3StorageAdapter implements StoragePort {
         return lowerUrl.startsWith("http://") || lowerUrl.startsWith("https://");
     }
 
-    private String parseSpringProfileToCloudFrontPath() {
-        return switch (springProfile) {
-            case "prod" -> "prod";
-            case "dev" -> "dev";
-            case "local" -> "local";
-            default -> throw new StorageException(StorageErrorCode.INVALID_SPRING_PROFILE);
-        };
-    }
 }

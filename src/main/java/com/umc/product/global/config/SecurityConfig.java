@@ -79,19 +79,6 @@ public class SecurityConfig {
         List<PublicEndpointCollector.EndpointMatcher> publicEndpoints = PublicEndpointCollector
             .collectPublicEndpoints(requestMappingHandlerMapping);
 
-        // ✅ 디버깅 로그
-        System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        System.out.println("🔓 Public Endpoints 수집 결과:");
-        if (publicEndpoints.isEmpty()) {
-            System.out.println("  ⚠️  수집된 엔드포인트가 없습니다!");
-        } else {
-            publicEndpoints.forEach(endpoint -> {
-                String method = endpoint.method() != null ? endpoint.method().name() : "ALL";
-                System.out.println("  ✅ " + method + " " + endpoint.pattern());
-            });
-        }
-        System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-
         http
             .cors(Customizer.withDefaults())
             .csrf(AbstractHttpConfigurer::disable)

@@ -20,7 +20,7 @@ public enum ChallengerTrack {
     private final int sortOrder;
 
     public static ChallengerTrack from(ChallengerPart part) {
-        if (part == null || part == ChallengerPart.ADMIN) {
+        if (part == null) {
             throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);
         }
 

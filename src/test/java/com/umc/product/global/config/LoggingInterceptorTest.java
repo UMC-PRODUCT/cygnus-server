@@ -235,6 +235,58 @@ class LoggingInterceptorTest {
         assertThat(snapshot).containsEntry("clientIp", "203.0.113.7");
     }
 
+    @Test
+    @DisplayName("인증 객체의 principal이 MemberPrincipal이 아니면 회원 MDC를 채우지 않는다")
+    void authenticated_non_member_principal() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("system", null, Collections.emptyList())
+        );
+
+        interceptor.preHandle(
+            new MockHttpServletRequest("GET", "/forms"),
+            new MockHttpServletResponse(),
+            new Object()
+        );
+
+        assertThat(MDC.get("memberId")).isNull();
+    }
+
+    @Test
+    @DisplayName("처리 예외는 class명만 MDC에 기록하고 민감 message는 완료 로그에 노출하지 않는다")
+    void after_completion_with_exception() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/forms");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        interceptor.preHandle(request, response, new Object());
+
+        interceptor.afterCompletion(
+            request,
+            response,
+            new Object(),
+            new IllegalStateException("Bearer secret-token")
+        );
+
+        Map<String, String> snapshot = findEventMdc("api_request_completed");
+        assertThat(snapshot).containsEntry("exception", "IllegalStateException");
+        assertThat(listAppender.list.getLast().getFormattedMessage()).doesNotContain("secret-token");
+    }
+
+    @Test
+    @DisplayName("client context attribute가 없고 비표준 status여도 UNKNOWN 값으로 완료 메트릭을 남긴다")
+    void after_completion_fallback_context_and_status() {
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/forms");
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        interceptor.preHandle(request, response, new Object());
+        request.removeAttribute(LoggingInterceptor.CLIENT_REQUEST_CONTEXT_ATTR);
+        response.setStatus(99);
+
+        interceptor.afterCompletion(request, response, new Object(), null);
+
+        Map<String, String> snapshot = findEventMdc("api_request_completed");
+        assertThat(snapshot)
+            .containsEntry("clientService", "UNKNOWN")
+            .containsEntry("statusCode", "99");
+    }
+
     private Map<String, String> findEventMdc(String message) {
         // api_request_completed 메시지는 로컬 콘솔 가시화를 위해 본문 뒤에
         // " status=... durationMs=... queryCount=... queryTimeMs=..." 가 따라붙으므로

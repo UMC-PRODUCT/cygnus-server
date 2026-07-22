@@ -27,7 +27,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
+import com.umc.product.storage.application.port.in.command.dto.GeneratedFileInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
+import com.umc.product.storage.application.port.in.command.dto.StoreGeneratedFileCommand;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
 import com.umc.product.storage.application.port.out.SaveFileMetadataPort;
 import com.umc.product.storage.application.port.out.StoragePort;
@@ -265,6 +267,120 @@ class FileCommandServiceUnitTest {
             .isEqualTo(StorageErrorCode.STORAGE_DELETE_FAILED);
 
         then(saveFileMetadataPort).should(never()).deleteByFileId(anyString());
+    }
+
+    @Test
+    @DisplayName("서버 생성 파일은 객체 저장 후 업로드 완료 metadata를 저장한다")
+    void 서버_생성_파일을_저장한다() {
+        StoreGeneratedFileCommand command = StoreGeneratedFileCommand.of(
+            "certificate.pdf", "application/pdf", new byte[]{1, 2, 3}, FileCategory.CERTIFICATE, 10L);
+
+        GeneratedFileInfo result = sut.store(command);
+
+        assertThat(result.fileSize()).isEqualTo(3L);
+        assertThat(result.storageKey()).matches("private/certificate/.+\\.pdf");
+        then(storagePort).should().uploadObject(result.storageKey(), "application/pdf", command.content());
+        ArgumentCaptor<FileMetadata> captor = ArgumentCaptor.forClass(FileMetadata.class);
+        then(saveFileMetadataPort).should().save(captor.capture());
+        assertThat(captor.getValue().isUploaded()).isTrue();
+        assertThat(captor.getValue().getUploadedMemberId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("서버 생성 파일은 확장자와 실제 byte 크기 제한을 외부 저장 전에 검증한다")
+    void 서버_생성_파일의_확장자와_크기를_검증한다() {
+        StoreGeneratedFileCommand noExtension = StoreGeneratedFileCommand.of(
+            "certificate", "application/pdf", new byte[]{1}, FileCategory.CERTIFICATE, null);
+        StoreGeneratedFileCommand blankName = StoreGeneratedFileCommand.of(
+            " ", "application/pdf", new byte[]{1}, FileCategory.CERTIFICATE, null);
+        StoreGeneratedFileCommand invalidExtension = StoreGeneratedFileCommand.of(
+            "certificate.png", "image/png", new byte[]{1}, FileCategory.CERTIFICATE, null);
+        StoreGeneratedFileCommand oversized = StoreGeneratedFileCommand.of(
+            "image.png", "image/png", new byte[5 * 1024 * 1024 + 1], FileCategory.PROFILE_IMAGE, null);
+
+        assertStorageError(() -> sut.store(noExtension), StorageErrorCode.INVALID_FILE_EXTENSION);
+        assertStorageError(() -> sut.store(blankName), StorageErrorCode.INVALID_FILE_EXTENSION);
+        assertStorageError(() -> sut.store(invalidExtension), StorageErrorCode.INVALID_FILE_EXTENSION);
+        assertStorageError(() -> sut.store(oversized), StorageErrorCode.FILE_SIZE_EXCEEDED);
+        then(storagePort).should(never()).uploadObject(
+            anyString(), anyString(), org.mockito.ArgumentMatchers.any(byte[].class));
+    }
+
+    @Test
+    @DisplayName("확장자가 선택인 ETC 파일은 점 없는 이름으로도 업로드 URL을 생성한다")
+    void ETC는_확장자_없이_업로드_URL을_생성한다() {
+        PrepareFileUploadCommand command =
+            new PrepareFileUploadCommand("README", "text/plain", 10L, FileCategory.ETC, 1L);
+        given(storagePort.generateUploadUrl(
+            org.mockito.ArgumentMatchers.matches("public/etc/.+"),
+            org.mockito.ArgumentMatchers.eq("text/plain"),
+            org.mockito.ArgumentMatchers.eq(10L),
+            org.mockito.ArgumentMatchers.eq(15L)
+        )).willReturn(new FileUploadInfo(
+            null, "https://upload", "PUT", Map.of(), LocalDateTime.now().plusMinutes(15)));
+
+        assertThat(sut.getFileUploadUrl(command).uploadUrl()).isEqualTo("https://upload");
+    }
+
+    @Test
+    @DisplayName("필수 확장자 누락·미허용 확장자·크기 초과는 metadata 저장 전에 거부한다")
+    void 업로드_URL_요청의_파일_정책을_검증한다() {
+        assertStorageError(() -> sut.getFileUploadUrl(new PrepareFileUploadCommand(
+            ".hidden", "image/png", 1L, FileCategory.PROFILE_IMAGE, 1L)),
+            StorageErrorCode.INVALID_FILE_EXTENSION);
+        assertStorageError(() -> sut.getFileUploadUrl(new PrepareFileUploadCommand(
+            "image.exe", "application/octet-stream", 1L, FileCategory.PROFILE_IMAGE, 1L)),
+            StorageErrorCode.INVALID_FILE_EXTENSION);
+        assertStorageError(() -> sut.getFileUploadUrl(new PrepareFileUploadCommand(
+            "image.png", "image/png", 5 * 1024 * 1024 + 1L, FileCategory.PROFILE_IMAGE, 1L)),
+            StorageErrorCode.FILE_SIZE_EXCEEDED);
+        then(saveFileMetadataPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("업로드 확인은 metadata 미존재와 이미 완료된 중복 요청을 거부한다")
+    void 업로드_확인의_미존재와_멱등성_경계를_검증한다() {
+        given(loadFileMetadataPort.findByFileId("missing")).willReturn(Optional.empty());
+        FileMetadata uploaded = uploadedFile("uploaded", 1L);
+        given(loadFileMetadataPort.findByFileId("uploaded")).willReturn(Optional.of(uploaded));
+
+        assertStorageError(() -> sut.confirmUpload("missing"), StorageErrorCode.FILE_NOT_FOUND);
+        assertStorageError(() -> sut.confirmUpload("uploaded"), StorageErrorCode.FILE_ALREADY_UPLOADED);
+    }
+
+    @Test
+    @DisplayName("검증 실패 객체 정리까지 실패해도 최초 검증 예외를 보존한다")
+    void 잘못된_객체_정리_실패에도_최초_예외를_보존한다() {
+        FileMetadata metadata = pendingFile("file-id", FileCategory.PORTFOLIO, 1024L, "application/pdf");
+        given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
+        given(storagePort.findObjectInfoByStorageKey(metadata.getStorageKey()))
+            .willReturn(Optional.of(StorageObjectInfo.of(metadata.getStorageKey(), 2048L, "application/pdf")));
+        willThrow(new StorageException(StorageErrorCode.STORAGE_DELETE_FAILED))
+            .given(storagePort)
+            .delete(metadata.getStorageKey());
+
+        assertStorageError(() -> sut.confirmUpload("file-id"), StorageErrorCode.FILE_SIZE_MISMATCH);
+    }
+
+    @Test
+    @DisplayName("파일 삭제는 미존재를 거부하고 소유자는 관리자 조회 없이 삭제한다")
+    void 삭제의_미존재와_소유자_단축을_검증한다() {
+        given(loadFileMetadataPort.findByFileId("missing")).willReturn(Optional.empty());
+        FileMetadata owned = uploadedFile("owned", 1L);
+        given(loadFileMetadataPort.findByFileId("owned")).willReturn(Optional.of(owned));
+
+        assertStorageError(() -> sut.deleteFile(deleteCommand("missing", 1L)), StorageErrorCode.FILE_NOT_FOUND);
+        sut.deleteFile(deleteCommand("owned", 1L));
+
+        then(getChallengerRoleUseCase).shouldHaveNoInteractions();
+        then(storagePort).should().delete(owned.getStorageKey());
+    }
+
+    private void assertStorageError(Runnable action, StorageErrorCode errorCode) {
+        assertThatThrownBy(action::run)
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(errorCode);
     }
 
     private DeleteFileCommand deleteCommand(String fileId, Long requesterMemberId) {

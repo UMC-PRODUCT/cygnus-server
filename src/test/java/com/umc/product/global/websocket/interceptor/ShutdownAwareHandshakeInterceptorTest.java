@@ -62,4 +62,13 @@ class ShutdownAwareHandshakeInterceptorTest {
     void get_phase_returns_default_phase() {
         assertThat(sut.getPhase()).isEqualTo(SmartLifecycle.DEFAULT_PHASE);
     }
+
+    @Test
+    @DisplayName("start와 afterHandshake callback은 상태를 변경하지 않는다")
+    void lifecycle_noop_callbacks() {
+        sut.start();
+        sut.afterHandshake(request, response, wsHandler, null);
+
+        assertThat(sut.isRunning()).isTrue();
+    }
 }

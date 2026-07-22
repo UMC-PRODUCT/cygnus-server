@@ -44,6 +44,15 @@ class ChallengerTrackTest {
     }
 
     @Test
+    @DisplayName("null 파트는 모집 트랙으로 변환할 수 없다")
+    void null_파트는_모집_트랙으로_변환할_수_없다() {
+        assertThatThrownBy(() -> ChallengerTrack.from(null))
+            .isInstanceOf(ChallengerDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(ChallengerErrorCode.CHALLENGER_PART_NOT_FOUND);
+    }
+
+    @Test
     @DisplayName("모집 트랙은 INFRA_CORE를 지원하지 않는다")
     void 모집_트랙은_INFRA_CORE를_지원하지_않는다() {
         assertThat(ChallengerTrack.values())

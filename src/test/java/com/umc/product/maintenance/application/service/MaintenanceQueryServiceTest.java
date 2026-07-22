@@ -4,17 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
-import com.umc.product.maintenance.application.port.out.LoadMaintenanceWindowPort;
-import com.umc.product.maintenance.domain.MaintenanceScope;
-import com.umc.product.maintenance.domain.MaintenanceWindow;
-import com.umc.product.maintenance.exception.MaintenanceDomainException;
-import com.umc.product.maintenance.exception.MaintenanceErrorCode;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,6 +19,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.umc.product.maintenance.application.port.out.LoadMaintenanceWindowPort;
+import com.umc.product.maintenance.domain.MaintenanceScope;
+import com.umc.product.maintenance.domain.MaintenanceWindow;
+import com.umc.product.maintenance.exception.MaintenanceDomainException;
+import com.umc.product.maintenance.exception.MaintenanceErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class MaintenanceQueryServiceTest {
@@ -95,6 +98,26 @@ class MaintenanceQueryServiceTest {
     class GetById {
 
         @Test
+        void 존재하는_윈도우는_도메인_집합과_함께_반환한다() {
+            MaintenanceWindow window = MaintenanceWindow.of(
+                MaintenanceScope.PER_DOMAIN,
+                EnumSet.of(com.umc.product.maintenance.domain.MaintenanceDomain.NOTICE),
+                NOW,
+                NOW.plus(Duration.ofHours(1)),
+                "공지 점검",
+                "점검 중",
+                1L,
+                NOW
+            );
+            given(loadPort.findById(7L)).willReturn(Optional.of(window));
+
+            var result = sut.getById(7L);
+
+            assertThat(result.targetDomains())
+                .containsExactly(com.umc.product.maintenance.domain.MaintenanceDomain.NOTICE);
+        }
+
+        @Test
         void 없는_id_면_예외() {
             given(loadPort.findById(99L)).willReturn(Optional.empty());
 
@@ -113,6 +136,24 @@ class MaintenanceQueryServiceTest {
             given(loadPort.findAllOrderByCreatedAtDesc()).willReturn(List.of());
 
             assertThat(sut.listAll()).isEmpty();
+        }
+
+        @Test
+        void 목록의_윈도우를_응답으로_변환한다() {
+            MaintenanceWindow window = MaintenanceWindow.of(
+                MaintenanceScope.FULL,
+                null,
+                NOW,
+                NOW.plus(Duration.ofHours(1)),
+                "전체 점검",
+                "점검 중",
+                1L,
+                NOW
+            );
+            given(loadPort.findAllOrderByCreatedAtDesc()).willReturn(List.of(window));
+
+            assertThat(sut.listAll()).singleElement()
+                .satisfies(info -> assertThat(info.title()).isEqualTo("전체 점검"));
         }
     }
 }

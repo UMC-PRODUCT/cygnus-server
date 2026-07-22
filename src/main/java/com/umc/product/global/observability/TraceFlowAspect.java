@@ -96,13 +96,10 @@ public class TraceFlowAspect {
     }
 
     private boolean shouldTrace(TraceSpanMetadata metadata) {
-        if (metadata.kind() == TraceSpanKind.USECASE) {
-            return properties.isUseCaseSpans();
-        }
-        if (metadata.kind() == TraceSpanKind.ADAPTER) {
-            return properties.isAdapterSpans();
-        }
-        return false;
+        return switch (metadata.kind()) {
+            case USECASE -> properties.isUseCaseSpans();
+            case ADAPTER -> properties.isAdapterSpans();
+        };
     }
 
     private enum TraceSpanKind {
@@ -169,8 +166,7 @@ public class TraceFlowAspect {
         }
 
         private static Method mostSpecificMethod(Method method, Class<?> targetClass) {
-            Method specificMethod = AopUtils.getMostSpecificMethod(method, targetClass);
-            return specificMethod != null ? specificMethod : method;
+            return AopUtils.getMostSpecificMethod(method, targetClass);
         }
 
         private static boolean isApplicationService(String packageName, Class<?> targetClass) {

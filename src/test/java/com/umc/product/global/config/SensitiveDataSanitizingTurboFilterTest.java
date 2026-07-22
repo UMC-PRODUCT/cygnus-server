@@ -8,6 +8,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Marker;
+import org.slf4j.MarkerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 
 import ch.qos.logback.classic.Level;
@@ -94,6 +96,17 @@ class SensitiveDataSanitizingTurboFilterTest {
         assertThat(event.getMessage()).isEqualTo("Rejected email: {}");
         assertThat(event.getArgumentArray()).containsExactly("[REDACTED]");
         assertThat(event.getFormattedMessage()).isEqualTo("Rejected email: [REDACTED]");
+    }
+
+    @Test
+    @DisplayName("민감값을 정제한 로그에도 marker를 유지한다")
+    void marker_보존() {
+        Marker marker = MarkerFactory.getMarker("SECURITY");
+
+        logger.error(marker, "Rejected email: {}", PROBE_EMAIL);
+
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list.getFirst().getMarkerList()).containsExactly(marker);
     }
 
     private String throwableText(IThrowableProxy throwable) {

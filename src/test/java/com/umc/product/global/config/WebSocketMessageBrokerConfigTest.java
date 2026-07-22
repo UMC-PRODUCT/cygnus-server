@@ -1,5 +1,6 @@
 package com.umc.product.global.config;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
@@ -7,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.Duration;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,12 +18,15 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
+import org.springframework.core.task.TaskDecorator;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.config.SimpleBrokerRegistration;
 import org.springframework.messaging.simp.config.StompBrokerRelayRegistration;
 import org.springframework.messaging.support.ChannelInterceptor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.global.websocket.handler.ApiResponseStompErrorHandler;
 import com.umc.product.global.websocket.interceptor.ShutdownAwareHandshakeInterceptor;
@@ -32,7 +37,9 @@ import com.umc.product.global.websocket.interceptor.WebSocketOutboundMetricInter
 import com.umc.product.global.websocket.interceptor.WebSocketRateLimitInterceptor;
 import com.umc.product.global.websocket.relay.RelayDestinationChannelInterceptors;
 
+import io.micrometer.context.ContextSnapshot;
 import io.micrometer.context.ContextSnapshotFactory;
+import io.micrometer.observation.Observation;
 import io.micrometer.observation.ObservationRegistry;
 
 @ExtendWith(MockitoExtension.class)
@@ -178,6 +185,50 @@ class WebSocketMessageBrokerConfigTest {
         verify(relayRegistration).setUserRegistryBroadcast("/topic/__internal.user-registry");
         verify(registry).setApplicationDestinationPrefixes("/app");
         verifyNoInteractions(simpleBrokerRegistration);
+    }
+
+    @Test
+    @DisplayName("outbound 작업은 현재 observation이 있으면 child observation 안에서 실행한다")
+    void outboundTaskWithParentObservation() {
+        ContextSnapshotFactory localSnapshotFactory = mock(ContextSnapshotFactory.class);
+        ContextSnapshot snapshot = mock(ContextSnapshot.class);
+        given(localSnapshotFactory.captureAll()).willReturn(snapshot);
+        given(snapshot.wrap(org.mockito.ArgumentMatchers.any(Runnable.class)))
+            .willAnswer(invocation -> invocation.getArgument(0));
+        ObservationRegistry localRegistry = ObservationRegistry.create();
+        WebSocketMessageBrokerConfig config = config(localRegistry, localSnapshotFactory);
+        ThreadPoolTaskExecutor executor = config.webSocketOutboundExecutor();
+        TaskDecorator decorator = (TaskDecorator) ReflectionTestUtils.getField(executor, "taskDecorator");
+        AtomicBoolean executed = new AtomicBoolean();
+        Observation parent = Observation.start("parent", localRegistry);
+
+        try (Observation.Scope ignored = parent.openScope()) {
+            decorator.decorate(() -> executed.set(true)).run();
+        } finally {
+            parent.stop();
+        }
+
+        assertThat(executed).isTrue();
+    }
+
+    private WebSocketMessageBrokerConfig config(
+        ObservationRegistry registry,
+        ContextSnapshotFactory localSnapshotFactory
+    ) {
+        return new WebSocketMessageBrokerConfig(
+            mock(StompPrincipalInterceptor.class),
+            mock(StompAuthChannelInterceptor.class),
+            mock(WebSocketRateLimitInterceptor.class),
+            mock(WebSocketInboundMetricInterceptor.class),
+            mock(WebSocketOutboundMetricInterceptor.class),
+            mock(ShutdownAwareHandshakeInterceptor.class),
+            mock(ApiResponseStompErrorHandler.class),
+            registry,
+            localSnapshotFactory,
+            mock(WebSocketBrokerProperties.class),
+            mock(Environment.class),
+            mock(RelayDestinationChannelInterceptors.class)
+        );
     }
 
     private WebSocketBrokerProperties.Relay relayProperties() {

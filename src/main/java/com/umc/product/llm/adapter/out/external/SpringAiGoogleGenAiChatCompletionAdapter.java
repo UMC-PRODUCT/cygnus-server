@@ -54,11 +54,16 @@ public class SpringAiGoogleGenAiChatCompletionAdapter implements ChatCompletionP
         String userPrompt = command.userPrompt() == null ? "" : command.userPrompt();
 
         try {
-            ChatResponse response = ChatClient.builder(chatModel)
+            var promptSpec = ChatClient.builder(chatModel)
                 .build()
-                .prompt()
-                .system(systemPrompt)
-                .user(userPrompt)
+                .prompt();
+            if (!systemPrompt.isBlank()) {
+                promptSpec.system(systemPrompt);
+            }
+            if (!userPrompt.isBlank()) {
+                promptSpec.user(userPrompt);
+            }
+            ChatResponse response = promptSpec
                 .options(options)
                 .call()
                 .chatResponse();

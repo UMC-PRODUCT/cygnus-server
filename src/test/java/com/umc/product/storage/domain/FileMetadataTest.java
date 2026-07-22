@@ -130,6 +130,20 @@ class FileMetadataTest {
         assertThat(metadata.isUploaded()).isTrue();
     }
 
+    @Test
+    void 요청과_실제_Content_Type이_모두_null이면_동일하게_처리한다() {
+        FileMetadata metadata = createFileMetadata("file.bin", FileCategory.ETC, null, 1L);
+
+        metadata.confirmUploaded(1L, null);
+
+        assertThat(metadata.isUploaded()).isTrue();
+    }
+
+    @Test
+    void ETC는_임의_확장자를_허용한다() {
+        assertThat(FileCategory.ETC.isAllowedExtension("unknown")).isTrue();
+    }
+
     /**
      * ✅ 학습 포인트 2: 경계값 테스트 (정상 케이스) - 다양한 입력값으로 테스트합니다
      */

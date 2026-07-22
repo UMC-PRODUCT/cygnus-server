@@ -1,12 +1,14 @@
 package com.umc.product.documentation.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
@@ -16,6 +18,8 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogItemResponse;
 import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogResponse;
+import com.umc.product.documentation.domain.DocumentationDomainException;
+import com.umc.product.documentation.domain.DocumentationErrorCode;
 
 @DisplayName("ErrorCodeCatalogQueryService")
 class ErrorCodeCatalogQueryServiceTest {
@@ -82,5 +86,19 @@ class ErrorCodeCatalogQueryServiceTest {
         assertThat(first).isSameAs(response);
         assertThat(second).isSameAs(response);
         verify(objectMapper).readValue(any(InputStream.class), eq(ErrorCodeCatalogResponse.class));
+    }
+
+    @Test
+    @DisplayName("manifest 역직렬화 실패는 문서 도메인 예외로 변환한다")
+    void manifest_역직렬화_실패를_변환한다() throws Exception {
+        ObjectMapper objectMapper = mock(ObjectMapper.class);
+        given(objectMapper.readValue(any(InputStream.class), eq(ErrorCodeCatalogResponse.class)))
+            .willThrow(new IOException("broken manifest"));
+        ErrorCodeCatalogQueryService failingService = new ErrorCodeCatalogQueryService(objectMapper);
+
+        assertThatThrownBy(failingService::getErrorCodeCatalog)
+            .isInstanceOf(DocumentationDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", DocumentationErrorCode.ERROR_CODE_CATALOG_UNAVAILABLE)
+            .hasCauseInstanceOf(IOException.class);
     }
 }

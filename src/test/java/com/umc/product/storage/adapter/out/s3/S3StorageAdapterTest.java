@@ -2,10 +2,13 @@ package com.umc.product.storage.adapter.out.s3;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
+import java.io.StringWriter;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.KeyPair;
@@ -14,6 +17,9 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.Optional;
 
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo;
+import org.bouncycastle.util.io.pem.PemObject;
+import org.bouncycastle.util.io.pem.PemWriter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +36,7 @@ import com.umc.product.storage.domain.exception.StorageException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -283,6 +290,114 @@ class S3StorageAdapterTest {
             .isEqualTo(StorageErrorCode.STORAGE_METADATA_READ_FAILED);
     }
 
+    @Test
+    @DisplayName("파일 크기 없는 legacy 업로드 URL도 PUT 서명으로 생성한다")
+    void 파일_크기_없는_업로드_URL을_생성한다() throws Exception {
+        S3StorageAdapter sut = adapter();
+        ArgumentCaptor<PutObjectPresignRequest> captor = ArgumentCaptor.forClass(PutObjectPresignRequest.class);
+        given(presignedPutObjectRequest.url()).willReturn(URI.create("https://storage.example.com/upload").toURL());
+        given(s3Presigner.presignPutObject(captor.capture())).willReturn(presignedPutObjectRequest);
+
+        assertThat(sut.generateUploadUrl("key", "text/plain", 15L).uploadUrl())
+            .isEqualTo("https://storage.example.com/upload");
+        assertThat(captor.getValue().putObjectRequest().contentLength()).isNull();
+    }
+
+    @Test
+    @DisplayName("업로드 URL 생성과 객체 저장 실패는 원인을 보존한 storage 예외로 변환한다")
+    void 업로드_실패를_변환한다() {
+        S3StorageAdapter sut = adapter();
+        RuntimeException presignFailure = new RuntimeException("presign fail");
+        RuntimeException uploadFailure = new RuntimeException("upload fail");
+        given(s3Presigner.presignPutObject(any(PutObjectPresignRequest.class))).willThrow(presignFailure);
+        given(s3Client.putObject(any(PutObjectRequest.class), any(RequestBody.class))).willThrow(uploadFailure);
+
+        assertThatThrownBy(() -> sut.generateUploadUrl("key", "text/plain", 15L))
+            .isInstanceOf(StorageException.class)
+            .hasCause(presignFailure)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.STORAGE_URL_GENERATION_FAILED);
+        assertThatThrownBy(() -> sut.uploadObject("key", "text/plain", new byte[]{1}))
+            .isInstanceOf(StorageException.class)
+            .hasCause(uploadFailure)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.STORAGE_UPLOAD_FAILED);
+    }
+
+    @Test
+    @DisplayName("HeadObject의 S3 404도 미존재로 정규화한다")
+    void S3_404를_미존재로_정규화한다() {
+        S3StorageAdapter sut = adapter();
+        given(s3Client.headObject(any(HeadObjectRequest.class)))
+            .willThrow(S3Exception.builder().statusCode(404).build());
+
+        assertThat(sut.findObjectInfoByStorageKey("missing")).isEmpty();
+    }
+
+    @Test
+    @DisplayName("객체 삭제 요청은 bucket과 key를 전달하고 외부 실패를 변환한다")
+    void 객체_삭제의_성공과_실패를_검증한다() {
+        S3StorageAdapter sut = adapter();
+        sut.delete("private/file.pdf");
+        ArgumentCaptor<DeleteObjectRequest> captor = ArgumentCaptor.forClass(DeleteObjectRequest.class);
+        verify(s3Client).deleteObject(captor.capture());
+        assertThat(captor.getValue().bucket()).isEqualTo("test-bucket");
+        assertThat(captor.getValue().key()).isEqualTo("private/file.pdf");
+
+        RuntimeException failure = new RuntimeException("delete fail");
+        willThrow(failure).given(s3Client).deleteObject(any(DeleteObjectRequest.class));
+        assertThatThrownBy(() -> sut.delete("private/fail.pdf"))
+            .isInstanceOf(StorageException.class)
+            .hasCause(failure)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.STORAGE_DELETE_FAILED);
+    }
+
+    @Test
+    @DisplayName("헤더 없는 PKCS8와 PKCS1 PEM private key를 모두 파싱한다")
+    void CloudFront_private_key_형식을_파싱한다() throws Exception {
+        String rawPkcs8 = Base64.getMimeEncoder().encodeToString(keyPair().getPrivate().getEncoded());
+        S3StorageAdapter rawAdapter = adapter(new S3StorageProperties.CloudFront(
+            "cdn.example.com", true, "K1234567890", rawPkcs8, null));
+        S3StorageAdapter pkcs1Adapter = adapter(new S3StorageProperties.CloudFront(
+            "cdn.example.com", true, "K1234567890", pkcs1PrivateKeyPem(), null));
+
+        assertThat(rawAdapter.generateAccessUrl("private/file.pdf", 1L)).contains("Key-Pair-Id=K1234567890");
+        assertThat(pkcs1Adapter.generateAccessUrl("private/file.pdf", 1L)).contains("Key-Pair-Id=K1234567890");
+    }
+
+    @Test
+    @DisplayName("잘못된 CDN 도메인·private key와 미지원 PEM 객체는 서명 실패로 정규화한다")
+    void CloudFront_설정과_key_파싱_실패를_정규화한다() throws Exception {
+        S3StorageAdapter invalidDomain = adapter(new S3StorageProperties.CloudFront(
+            "https:///missing-host", true, "key", pkcs8PrivateKeyPem(), null));
+        S3StorageAdapter invalidKey = adapter(new S3StorageProperties.CloudFront(
+            "cdn.example.com", true, "key", "not-base64", null));
+        S3StorageAdapter unsupportedPem = adapter(new S3StorageProperties.CloudFront(
+            "cdn.example.com", true, "key", publicKeyPem(), null));
+
+        assertCdnSigningFailed(() -> invalidDomain.generateAccessUrl("file", 1L));
+        assertCdnSigningFailed(() -> invalidKey.generateAccessUrl("file", 1L));
+        assertCdnSigningFailed(() -> unsupportedPem.generateAccessUrl("file", 1L));
+    }
+
+    @Test
+    @DisplayName("SSM private key가 비거나 조회가 실패하면 서명 실패로 변환한다")
+    void SSM_private_key_실패를_변환한다() {
+        S3StorageProperties.CloudFront cloudFront = new S3StorageProperties.CloudFront(
+            "cdn.example.com", true, "key", null, "/key");
+        S3StorageAdapter sut = adapter(cloudFront);
+        given(ssmClient.getParameter(any(GetParameterRequest.class))).willReturn(GetParameterResponse.builder()
+            .parameter(Parameter.builder().value(" ").build())
+            .build());
+        assertCdnSigningFailed(() -> sut.generateAccessUrl("file", 1L));
+
+        S3StorageAdapter failed = adapter(cloudFront);
+        given(ssmClient.getParameter(any(GetParameterRequest.class)))
+            .willThrow(new RuntimeException("ssm fail"));
+        assertCdnSigningFailed(() -> failed.generateAccessUrl("file", 1L));
+    }
+
     private S3StorageAdapter adapter() {
         return adapter(new S3StorageProperties.CloudFront("cdn.example.com", false, null, null, null));
     }
@@ -308,9 +423,7 @@ class S3StorageAdapterTest {
     }
 
     private String pkcs8PrivateKeyPem() throws Exception {
-        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
-        generator.initialize(2048);
-        KeyPair keyPair = generator.generateKeyPair();
+        KeyPair keyPair = keyPair();
         String encoded = Base64.getMimeEncoder(64, "\n".getBytes(StandardCharsets.US_ASCII))
             .encodeToString(keyPair.getPrivate().getEncoded());
         return """
@@ -318,5 +431,35 @@ class S3StorageAdapterTest {
             %s
             -----END PRIVATE KEY-----
             """.formatted(encoded);
+    }
+
+    private String pkcs1PrivateKeyPem() throws Exception {
+        PrivateKeyInfo privateKeyInfo = PrivateKeyInfo.getInstance(keyPair().getPrivate().getEncoded());
+        StringWriter output = new StringWriter();
+        try (PemWriter writer = new PemWriter(output)) {
+            writer.writeObject(new PemObject("RSA PRIVATE KEY", privateKeyInfo.parsePrivateKey().toASN1Primitive().getEncoded()));
+        }
+        return output.toString();
+    }
+
+    private String publicKeyPem() throws Exception {
+        StringWriter output = new StringWriter();
+        try (PemWriter writer = new PemWriter(output)) {
+            writer.writeObject(new PemObject("PUBLIC KEY", keyPair().getPublic().getEncoded()));
+        }
+        return output.toString();
+    }
+
+    private KeyPair keyPair() throws Exception {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        return generator.generateKeyPair();
+    }
+
+    private void assertCdnSigningFailed(Runnable action) {
+        assertThatThrownBy(action::run)
+            .isInstanceOf(StorageException.class)
+            .extracting("baseCode")
+            .isEqualTo(StorageErrorCode.CDN_SIGNING_FAILED);
     }
 }

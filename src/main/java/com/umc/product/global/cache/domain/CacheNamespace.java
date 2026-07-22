@@ -31,6 +31,10 @@ public enum CacheNamespace {
         Map<String, Long> counts = Arrays.stream(values())
             .map(CacheNamespace::value)
             .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()));
+        validateUniqueValueCounts(counts);
+    }
+
+    static void validateUniqueValueCounts(Map<String, Long> counts) {
         counts.forEach((namespace, count) -> {
             if (count > 1) {
                 throw new IllegalStateException("중복 cache namespace 입니다. namespace=" + namespace);

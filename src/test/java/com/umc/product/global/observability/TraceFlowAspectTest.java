@@ -5,16 +5,21 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
+
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 
 class TraceFlowAspectTest {
 
@@ -101,6 +106,101 @@ class TraceFlowAspectTest {
         assertThat(result).isEqualTo("result");
         then(span).should().name("usecase.DemoUseCase.getById");
         then(span).should().tag("app.usecase", "DemoUseCase");
+    }
+
+    @Test
+    @DisplayName("비활성 usecase span은 span을 만들지 않고 원 호출만 진행한다")
+    void usecase_span_disabled() throws Throwable {
+        ObservabilityTracingProperties properties = new ObservabilityTracingProperties();
+        properties.setUseCaseSpans(false);
+        sut = new TraceFlowAspect(tracer, properties);
+        Method method = DemoUseCase.class.getMethod("getById", Long.class);
+
+        Object result = sut.traceUseCaseAndAdapter(joinPoint(method, new DemoQueryService(), "result"));
+
+        assertThat(result).isEqualTo("result");
+        then(tracer).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("trace 대상 호출 실패는 정제된 error를 기록하고 원 예외를 다시 던진다")
+    void traced_invocation_failure() throws Throwable {
+        IllegalStateException failure = new IllegalStateException("person@example.invalid");
+        Method method = DemoUseCase.class.getMethod("getById", Long.class);
+        ProceedingJoinPoint joinPoint = joinPoint(method, new DemoQueryService(), null);
+        given(joinPoint.proceed()).willThrow(failure);
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> sut.traceUseCaseAndAdapter(joinPoint)
+        ).isSameAs(failure);
+
+        then(span).should().error(org.mockito.ArgumentMatchers.argThat(error ->
+            error != failure && !error.getMessage().contains("person@example.invalid")
+        ));
+        then(span).should().end();
+    }
+
+    @Test
+    @DisplayName("target이 없는 join point는 signature 선언 type으로 metadata를 계산한다")
+    void null_target_uses_declaring_type() throws Throwable {
+        Method method = DemoUseCase.class.getMethod("getById", Long.class);
+        ProceedingJoinPoint joinPoint = joinPoint(method, null, "result");
+
+        assertThat(sut.traceUseCaseAndAdapter(joinPoint)).isEqualTo("result");
+
+        then(span).should().name("usecase.DemoUseCase.getById");
+    }
+
+    @Test
+    @DisplayName("provider 생성자는 Tracer bean이 없어도 NOOP tracer를 사용한다")
+    void constructor_without_tracer_bean() {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        ObjectProvider<Tracer> provider = beanFactory.getBeanProvider(Tracer.class);
+
+        assertThat(new TraceFlowAspect(provider, new ObservabilityTracingProperties())).isNotNull();
+    }
+
+    @Test
+    @DisplayName("metadata naming은 service suffix와 adapter package·domain 경계를 안정적으로 해석한다")
+    void metadata_naming_edges() throws Exception {
+        Class<?> metadataType = Class.forName(
+            TraceFlowAspect.class.getName() + "$TraceSpanMetadata"
+        );
+
+        assertThat(invoke(metadataType, "classNameAsUseCase", "DemoCommandService"))
+            .isEqualTo("DemoUseCase");
+        assertThat(invoke(metadataType, "classNameAsUseCase", "DemoQueryService"))
+            .isEqualTo("DemoUseCase");
+        assertThat(invoke(metadataType, "classNameAsUseCase", "DemoService"))
+            .isEqualTo("DemoUseCase");
+        assertThat(invoke(metadataType, "resolveAdapterType", "com.example", "DemoPersistenceAdapter"))
+            .isEqualTo("persistence");
+        assertThat(invoke(metadataType, "resolveAdapterType", "com.example", "DemoClient"))
+            .isEqualTo("unknown");
+        assertThat(invoke(
+            metadataType,
+            "resolveAdapterType",
+            "com.umc.product.demo.adapter.out.http.nested",
+            "DemoClient"
+        )).isEqualTo("http");
+        assertThat(invoke(
+            metadataType,
+            "resolveAdapterType",
+            "com.umc.product.demo.adapter.out.http",
+            "DemoClient"
+        )).isEqualTo("http");
+        assertThat(invoke(
+            metadataType,
+            "resolveDomain",
+            "com.umc.product.demo.adapter.out.http",
+            "DemoClient"
+        )).isEqualTo("demo");
+        assertThat(invoke(metadataType, "resolveDomain", "com.example", "Service"))
+            .isEqualTo("unknown");
+    }
+
+    private Object invoke(Class<?> type, String method, Object... arguments) {
+        return ReflectionTestUtils.invokeMethod(type, method, arguments);
     }
 
     private ProceedingJoinPoint joinPoint(Method method, Object target, Object result) throws Throwable {

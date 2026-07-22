@@ -7,6 +7,10 @@ import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.umc.product.global.client.ClientDeviceType;
+import com.umc.product.global.client.ClientEnvironment;
+import com.umc.product.global.client.ClientServiceType;
+
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 class OperationalMetricsTest {
@@ -88,5 +92,53 @@ class OperationalMetricsTest {
             .tag("result", "success")
             .counter()
             .count()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("0건 알림은 무시하고 null·blank·긴 tag 및 음수 duration을 안전한 값으로 정규화한다")
+    void normalize_metric_edge_values() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        OperationalMetrics metrics = new OperationalMetrics(registry);
+
+        metrics.recordNotification("FCM", "SEND", "success", 0);
+        metrics.recordExternalCall(null, " ", "x".repeat(65), null);
+        metrics.recordBatchJob("job", "failure", Duration.ofSeconds(-1), 0);
+        metrics.recordClientRequest(null, null, null, null, " ");
+
+        assertThat(registry.find("operational.notification.send.total").counter()).isNull();
+        assertThat(registry.get("operational.external.call.total")
+            .tag("provider", "unknown")
+            .tag("operation", "unknown")
+            .tag("result", "other")
+            .counter()).isNotNull();
+        assertThat(registry.get("operational.batch.job.seconds").timer().totalTime(
+            java.util.concurrent.TimeUnit.NANOSECONDS
+        )).isZero();
+        assertThat(registry.get("operational.client.request.total")
+            .tag("service", "unknown")
+            .tag("device", "unknown")
+            .tag("environment", "unknown")
+            .tag("source", "unknown")
+            .tag("statusFamily", "unknown")
+            .counter()).isNotNull();
+    }
+
+    @Test
+    @DisplayName("client request enum은 enum 이름으로 기록한다")
+    void client_request_enum_names() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        OperationalMetrics metrics = new OperationalMetrics(registry);
+
+        metrics.recordClientRequest(
+            ClientServiceType.UMC_WEBSITE,
+            ClientDeviceType.DESKTOP,
+            ClientEnvironment.PROD,
+            "origin",
+            "2xx"
+        );
+
+        assertThat(registry.get("operational.client.request.total")
+            .tag("service", "UMC_WEBSITE")
+            .counter()).isNotNull();
     }
 }

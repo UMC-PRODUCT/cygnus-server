@@ -52,4 +52,44 @@ class CacheSpecTest {
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("cache maximumSize는 양수여야 합니다.");
     }
+
+    @Test
+    @DisplayName("namespace와 valueType은 필수다")
+    void 필수값_검증() {
+        assertThatThrownBy(() -> CacheSpec.of(
+            null,
+            String.class,
+            Duration.ofMinutes(5),
+            1L
+        )).isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("cache namespace는 필수입니다.");
+
+        assertThatThrownBy(() -> CacheSpec.of(
+            CacheNamespace.GOOGLE_JWKS,
+            null,
+            Duration.ofMinutes(5),
+            1L
+        )).isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("cache valueType은 필수입니다.");
+    }
+
+    @Test
+    @DisplayName("ttl은 null이거나 음수일 수 없다")
+    void ttl_null_음수_검증() {
+        assertThatThrownBy(() -> CacheSpec.of(
+            CacheNamespace.GOOGLE_JWKS,
+            String.class,
+            null,
+            1L
+        )).isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("cache ttl은 양수여야 합니다.");
+
+        assertThatThrownBy(() -> CacheSpec.of(
+            CacheNamespace.GOOGLE_JWKS,
+            String.class,
+            Duration.ofSeconds(-1),
+            1L
+        )).isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("cache ttl은 양수여야 합니다.");
+    }
 }

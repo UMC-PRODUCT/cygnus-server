@@ -28,10 +28,6 @@ public class GlobalResponseWrapper implements ResponseBodyAdvice<Object> {
             return false;
         }
 
-        if (ResponseEntity.class.isAssignableFrom(returnType.getParameterType())) {
-            return false;
-        }
-
         // Swagger/OpenAPI 관련 컨트롤러 제외
         String className = returnType.getContainingClass().getName();
         if (className.startsWith("org.springdoc") ||

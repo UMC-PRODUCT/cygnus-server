@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.p6spy.engine.common.PreparedStatementInformation;
+import com.p6spy.engine.common.StatementInformation;
 import com.umc.product.global.observability.ObservabilityTracingProperties;
 
 import io.micrometer.tracing.Span;
@@ -135,6 +136,84 @@ class QueryStatsJdbcEventListenerTest {
         then(span).should().tag("db.query.elapsed_ms", "3");
         then(span).should().end();
         then(spanInScope).should().close();
+    }
+
+    @Test
+    @DisplayName("P6Spy의 prepared·statement 실행 변형을 모두 동일하게 집계한다")
+    void p6spy_execute_callback_variants() {
+        ObservabilityTracingProperties properties = new ObservabilityTracingProperties();
+        properties.setEnabled(false);
+        sut = new QueryStatsJdbcEventListener(tracer, properties);
+        PreparedStatementInformation prepared = mock(PreparedStatementInformation.class);
+        StatementInformation statement = mock(StatementInformation.class);
+        QueryStatsHolder.init();
+
+        sut.onBeforeExecute(prepared);
+        sut.onAfterExecute(prepared, 1_000_000L, null);
+        sut.onBeforeExecuteUpdate(prepared);
+        sut.onAfterExecuteUpdate(prepared, 2_000_000L, 1, null);
+        sut.onBeforeExecuteBatch(statement);
+        sut.onAfterExecuteBatch(statement, 3_000_000L, new int[]{1}, null);
+        sut.onBeforeExecute(statement, "select 1");
+        sut.onAfterExecute(statement, 4_000_000L, "select 1", null);
+        sut.onBeforeExecuteQuery(statement, "select 1");
+        sut.onAfterExecuteQuery(statement, 5_000_000L, "select 1", null);
+        sut.onBeforeExecuteUpdate(statement, "update sample set value = 1");
+        sut.onAfterExecuteUpdate(statement, 6_000_000L, "update sample set value = 1", 1, null);
+
+        assertThat(QueryStatsHolder.getQueryCount()).isEqualTo(6);
+        assertThat(QueryStatsHolder.getTotalTimeMs()).isEqualTo(21);
+        then(statement).should(org.mockito.Mockito.atLeastOnce()).setStatementQuery("select 1");
+        then(statement).should().setStatementQuery("update sample set value = 1");
+    }
+
+    @Test
+    @DisplayName("span 없이 after callback만 수신해도 stack을 정리하고 성공 쿼리만 기록한다")
+    void after_without_before와_실패_query() {
+        QueryStatsHolder.init();
+        PreparedStatementInformation info = mock(PreparedStatementInformation.class);
+
+        sut.onAfterExecute(info, 1_000_000L, null);
+        sut.onAfterExecute(info, 1_000_000L, new SQLException("failure"));
+
+        assertThat(QueryStatsHolder.getQueryCount()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("null·해석 불가 SQL은 UNKNOWN이며 span SQL 길이 제한을 적용한다")
+    void unknown_operation과_sql_length_limit() {
+        ObservabilityTracingProperties properties = new ObservabilityTracingProperties();
+        properties.setIncludeSql(true);
+        properties.setMaxSqlLength(5);
+        sut = new QueryStatsJdbcEventListener(tracer, properties);
+        PreparedStatementInformation nullSql = mock(PreparedStatementInformation.class);
+        PreparedStatementInformation invalidSql = mock(PreparedStatementInformation.class);
+        PreparedStatementInformation longSql = mock(PreparedStatementInformation.class);
+        given(invalidSql.getSql()).willReturn("/* comment only */");
+        given(longSql.getSql()).willReturn("select * from member");
+
+        sut.onBeforeExecuteQuery(nullSql);
+        sut.onAfterExecuteQuery(nullSql, 1L, null);
+        sut.onBeforeExecuteQuery(invalidSql);
+        sut.onAfterExecuteQuery(invalidSql, 1L, null);
+        sut.onBeforeExecuteQuery(longSql);
+        sut.onAfterExecuteQuery(longSql, 1L, null);
+
+        then(span).should(org.mockito.Mockito.atLeast(2)).tag("db.operation", "UNKNOWN");
+        then(span).should().tag("db.statement", "");
+        then(span).should().tag("db.statement", "selec");
+    }
+
+    @Test
+    @DisplayName("QueryStatsHolder는 초기화 전 record를 무시하고 기본값을 반환한다")
+    void query_stats_holder_noop_before_init() {
+        new QueryStatsHolder();
+        QueryStatsHolder.clear();
+
+        QueryStatsHolder.record(10_000_000L);
+
+        assertThat(QueryStatsHolder.getQueryCount()).isZero();
+        assertThat(QueryStatsHolder.getTotalTimeMs()).isZero();
     }
 
     private SQLException duplicateException() {

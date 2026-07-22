@@ -208,6 +208,82 @@ class ClientRequestClassifierTest {
         assertThat(context.mismatched()).isFalse();
     }
 
+    @Test
+    @DisplayName("principal의 client claim이 null이면 빈 claim으로 안전하게 분류한다")
+    void null_client_claim_분류() {
+        MemberPrincipal principal = MemberPrincipal.builder()
+            .memberId(1L)
+            .clientType(ClientType.WEB)
+            .clientContextClaims(null)
+            .build();
+
+        ClientRequestContext context = classifier.classify(
+            request("GET", "/api/v1/forms"),
+            principal
+        );
+
+        assertThat(context.serviceType()).isEqualTo(ClientServiceType.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("등록 Origin의 서비스가 UNKNOWN이고 토큰도 없으면 Origin 환경만 유지한다")
+    void unknown_service_origin_환경_유지() {
+        MockHttpServletRequest request = request("GET", "/api/v1/forms");
+        request.addHeader("Origin", "http://localhost:5173");
+
+        ClientRequestContext context = classifier.classify(request, null);
+
+        assertThat(context.serviceType()).isEqualTo(ClientServiceType.UNKNOWN);
+        assertThat(context.environment()).isEqualTo(ClientEnvironment.DEV);
+        assertThat(context.source()).isEqualTo("origin");
+    }
+
+    @Test
+    @DisplayName("Referer가 blank, 상대 경로, 잘못된 URI이면 Origin을 유추하지 않는다")
+    void 잘못된_referer_무시() {
+        for (String referer : List.of(" ", "/relative/path", "http://[invalid")) {
+            MockHttpServletRequest request = request("GET", "/api/v1/forms");
+            request.addHeader("Referer", referer);
+
+            assertThat(classifier.classify(request, null).source()).isEqualTo("unknown");
+        }
+    }
+
+    @Test
+    @DisplayName("Referer의 명시적 port까지 포함하여 Origin을 유추한다")
+    void referer_port_포함() {
+        MockHttpServletRequest request = request("GET", "/api/v1/forms");
+        request.addHeader("Referer", "http://localhost:5173/projects");
+
+        ClientRequestContext context = classifier.classify(request, null);
+
+        assertThat(context.environment()).isEqualTo(ClientEnvironment.DEV);
+    }
+
+    @Test
+    @DisplayName("blank User-Agent는 UNKNOWN 기기로 분류한다")
+    void blank_user_agent() {
+        assertThat(classifier.classify(requestWithUserAgent(" "), null).deviceType())
+            .isEqualTo(ClientDeviceType.UNKNOWN);
+    }
+
+    @Test
+    @DisplayName("Origin registry는 blank를 무시하고 slash를 제거하며 중복은 마지막 설정을 사용한다")
+    void origin_registry_정규화() {
+        ClientOriginRegistry registry = new ClientOriginRegistry(new ClientContextProperties(List.of(
+            new ClientContextProperties.Origin(" ", ClientServiceType.UMC_WEBSITE, ClientEnvironment.PROD),
+            new ClientContextProperties.Origin("https://example.com///", ClientServiceType.UMC_WEBSITE, ClientEnvironment.PROD),
+            new ClientContextProperties.Origin("https://example.com", ClientServiceType.UMC_BACKOFFICE, ClientEnvironment.DEV)
+        )));
+
+        assertThat(registry.findByOrigin(null)).isEmpty();
+        assertThat(registry.findByOrigin(" ")).isEmpty();
+        assertThat(registry.findByOrigin(" https://example.com/ "))
+            .get()
+            .extracting(ClientContextProperties.Origin::serviceType)
+            .isEqualTo(ClientServiceType.UMC_BACKOFFICE);
+    }
+
     private MockHttpServletRequest requestWithUserAgent(String userAgent) {
         MockHttpServletRequest request = request("GET", "/api/v1/forms");
         request.addHeader("User-Agent", userAgent);

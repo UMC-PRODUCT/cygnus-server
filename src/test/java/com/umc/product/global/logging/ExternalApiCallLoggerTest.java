@@ -3,6 +3,7 @@ package com.umc.product.global.logging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Duration;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
@@ -17,6 +18,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 
 /**
  * ExternalApiCallLogger 가 external_api_called 이벤트를 통일된 스키마로 남기는지 검증한다.
@@ -110,6 +112,28 @@ class ExternalApiCallLoggerTest {
         assertThat(kvOf(event, "provider")).isEqualTo("APPLE");
         assertThat(kvOf(event, "operation")).isEqualTo("EXCHANGE_TOKEN");
         assertThat(kvOf(event, "result")).isEqualTo("SUCCESS");
+    }
+
+    @Test
+    @DisplayName("metrics binder가 연결되면 호출 메트릭을 기록하고 종료 시 연결을 해제한다")
+    void metrics_binder_lifecycle() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        OperationalMetrics metrics = new OperationalMetrics(registry);
+        ExternalApiCallMetricsBinder binder = new ExternalApiCallMetricsBinder(metrics);
+
+        ExternalApiCallLogger.measure("GITHUB", "FETCH", () -> "ok");
+        binder.clear();
+
+        assertThat(registry.get("operational.external.call.total")
+            .tag("provider", "GITHUB")
+            .tag("operation", "FETCH")
+            .tag("result", "success")
+            .counter()
+            .count()).isEqualTo(1);
+        assertThat(registry.get("operational.external.call.seconds")
+            .timer()
+            .totalTime(java.util.concurrent.TimeUnit.NANOSECONDS))
+            .isGreaterThanOrEqualTo(Duration.ZERO.toNanos());
     }
 
     private ILoggingEvent onlyEvent() {

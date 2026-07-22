@@ -11,6 +11,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.support.DefaultListableBeanFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.transaction.TransactionDefinition;
@@ -307,6 +309,91 @@ class EventOutboxRelayServiceTest {
 
         assertThat(publisher.events).hasSize(1);
         assertThat(savePort.savedStatuses).containsExactly(EventOutboxStatus.PROCESSING);
+    }
+
+    @Test
+    @DisplayName("실패 상태 저장 중 lease를 잃으면 새 소유자의 상태를 덮어쓰지 않는다")
+    void relay_failure_record_optimistic_lock() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        TestEvent event = TestEvent.create("test.created", "hello");
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        SaveEventOutboxPort savePort = new SaveEventOutboxPort() {
+            @Override
+            public void save(EventOutbox eventOutbox) {
+                throw new OptimisticLockingFailureException("lease lost");
+            }
+
+            @Override
+            public void saveAll(Collection<EventOutbox> eventOutboxes) {
+            }
+        };
+        ApplicationEventPublisher publisher = ignored -> {
+            throw new IllegalStateException("publish failed");
+        };
+        EventOutboxRelayService service = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            savePort,
+            new EventPayloadDeserializer(objectMapper),
+            publisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            100,
+            20
+        );
+
+        service.relay();
+
+        assertThat(outbox.getAttempts()).isOne();
+    }
+
+    @Test
+    @DisplayName("재시도 횟수가 커지면 backoff를 5분으로 제한하고 blank 오류는 class명으로 저장한다")
+    void relay_backoff_cap_and_blank_error() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        TestEvent event = TestEvent.create("test.created", "hello");
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        for (int attempt = 0; attempt < 7; attempt++) {
+            outbox.recordFailure("previous", Instant.now(), 100);
+        }
+        Instant beforeRelay = Instant.now();
+        EventOutboxRelayService service = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            new FakeSaveEventOutboxPort(),
+            new EventPayloadDeserializer(objectMapper),
+            ignored -> { throw new IllegalStateException(); },
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            100,
+            100
+        );
+
+        service.relay();
+
+        assertThat(outbox.getLastError()).isEqualTo(IllegalStateException.class.getName());
+        assertThat(outbox.getNextAttemptAt())
+            .isBetween(beforeRelay.plusSeconds(299), Instant.now().plusSeconds(301));
+    }
+
+    @Test
+    @DisplayName("Autowired 생성자는 Tracer bean이 없으면 NOOP tracer로 구성된다")
+    void constructor_without_tracer_bean() {
+        DefaultListableBeanFactory beanFactory = new DefaultListableBeanFactory();
+        ObjectProvider<Tracer> tracerProvider = beanFactory.getBeanProvider(Tracer.class);
+
+        EventOutboxRelayService service = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of()),
+            new FakeSaveEventOutboxPort(),
+            new EventPayloadDeserializer(new ObjectMapper().findAndRegisterModules()),
+            new CapturingApplicationEventPublisher(),
+            new LocalTransactionManager(),
+            tracerProvider,
+            10,
+            3
+        );
+
+        assertThat(service).isNotNull();
     }
 
     private static class FailOnPublishedSaveEventOutboxPort implements SaveEventOutboxPort {

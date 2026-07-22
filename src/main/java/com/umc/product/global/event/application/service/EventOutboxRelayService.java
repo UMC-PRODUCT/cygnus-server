@@ -135,7 +135,7 @@ public class EventOutboxRelayService {
             saveEventOutboxPort.saveAll(publishableOutboxes);
             return publishableOutboxes;
         });
-        return outboxes == null ? List.of() : outboxes;
+        return outboxes;
     }
 
     private void relayOne(EventOutbox outbox) {

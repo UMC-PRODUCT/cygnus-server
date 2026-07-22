@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.storage.application.port.in.query.dto.FileInfo;
 import com.umc.product.storage.application.port.in.query.dto.FileMetadataInfo;
 import com.umc.product.storage.application.port.out.LoadFileMetadataPort;
 import com.umc.product.storage.application.port.out.StoragePort;
@@ -97,6 +100,71 @@ class FileQueryServiceUnitTest {
             () -> sut.batchGetUsableByIds(List.of("file-1"), 10L),
             StorageErrorCode.FILE_USE_FORBIDDEN
         );
+    }
+
+    @Test
+    @DisplayName("단건 조회는 signed URL을 결합하고 미존재는 예외로 변환한다")
+    void 단건_조회를_검증한다() {
+        FileMetadata metadata = uploadedFile("file-1", "image.jpg", "image/jpeg", 10L);
+        given(loadFileMetadataPort.findByFileId("file-1")).willReturn(java.util.Optional.of(metadata));
+        given(loadFileMetadataPort.findByFileId("missing")).willReturn(java.util.Optional.empty());
+        given(storagePort.generateAccessUrl(metadata.getStorageKey(), 60L)).willReturn("https://cdn/file-1");
+
+        FileInfo result = sut.getById("file-1");
+
+        assertThat(result.fileLink()).isEqualTo("https://cdn/file-1");
+        assertStorageError(() -> sut.getById("missing"), StorageErrorCode.FILE_NOT_FOUND);
+    }
+
+    @Test
+    @DisplayName("batch 링크와 상세 조회는 DB 반환 데이터만 signed URL과 함께 map으로 변환한다")
+    void batch_링크와_상세를_변환한다() {
+        FileMetadata metadata = uploadedFile("file-1", "image.jpg", "image/jpeg", 10L);
+        given(loadFileMetadataPort.findByFileIds(List.of("file-1", "missing"))).willReturn(List.of(metadata));
+        given(storagePort.generateAccessUrl(metadata.getStorageKey(), 60L)).willReturn("https://cdn/file-1");
+
+        Map<String, String> links = sut.getFileLinks(List.of("file-1", "missing"));
+        Map<String, FileInfo> infos = sut.findAllByIds(List.of("file-1", "missing"));
+
+        assertThat(links).containsOnlyKeys("file-1").containsValue("https://cdn/file-1");
+        assertThat(infos.get("file-1").fileLink()).isEqualTo("https://cdn/file-1");
+    }
+
+    @Test
+    @DisplayName("빈 batch는 DB를 조회하지 않고 중복 ID는 최초 순서로 한 번씩 반환한다")
+    void 빈_batch와_중복_ID를_처리한다() {
+        assertThat(sut.batchGetUsableByIds(null, 10L)).isEmpty();
+        assertThat(sut.batchGetUsableByIds(List.of(), 10L)).isEmpty();
+        FileMetadata metadata = uploadedFile("file-1", "image.jpg", "image/jpeg", 10L);
+        given(loadFileMetadataPort.findByFileIds(List.of("file-1"))).willReturn(List.of(metadata));
+
+        assertThat(sut.batchGetUsableByIds(List.of("file-1", "file-1"), 10L))
+            .extracting(FileMetadataInfo::fileId)
+            .containsExactly("file-1");
+    }
+
+    @Test
+    @DisplayName("batch의 null·blank ID와 null 회원은 fail-closed한다")
+    void batch_입력을_fail_closed한다() {
+        assertStorageError(() -> sut.batchGetUsableByIds(java.util.Arrays.asList("file-1", null), 10L),
+            StorageErrorCode.FILE_NOT_FOUND);
+        assertStorageError(() -> sut.batchGetUsableByIds(List.of(" "), 10L), StorageErrorCode.FILE_NOT_FOUND);
+        FileMetadata metadata = uploadedFile("file-1", "image.jpg", "image/jpeg", 10L);
+        given(loadFileMetadataPort.findByFileIds(List.of("file-1"))).willReturn(List.of(metadata));
+        assertStorageError(() -> sut.batchGetUsableByIds(List.of("file-1"), null),
+            StorageErrorCode.FILE_USE_FORBIDDEN);
+    }
+
+    @Test
+    @DisplayName("존재 확인과 throw 계약은 port 결과를 정확히 반영한다")
+    void 존재_확인_계약을_검증한다() {
+        given(loadFileMetadataPort.existsByFileId("exists")).willReturn(true);
+        given(loadFileMetadataPort.existsByFileId("missing")).willReturn(false);
+
+        assertThat(sut.existsById("exists")).isTrue();
+        sut.throwIfNotExists("exists");
+        assertStorageError(() -> sut.throwIfNotExists("missing"), StorageErrorCode.FILE_NOT_FOUND);
+        then(storagePort).should(never()).delete(org.mockito.ArgumentMatchers.anyString());
     }
 
     private void assertStorageError(Runnable action, StorageErrorCode errorCode) {

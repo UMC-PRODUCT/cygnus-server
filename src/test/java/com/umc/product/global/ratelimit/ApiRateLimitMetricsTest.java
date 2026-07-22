@@ -26,4 +26,21 @@ class ApiRateLimitMetricsTest {
             .counter()
             .count()).isEqualTo(1);
     }
+
+    @Test
+    @DisplayName("null·blank·긴 tag와 식별자 URI를 low-cardinality 값으로 축약한다")
+    void normalize_edge_tags() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        ApiRateLimitMetrics metrics = new ApiRateLimitMetrics(registry);
+
+        metrics.record(null, " ", "x".repeat(129), "/api/v1/member/123456", null);
+
+        assertThat(registry.get("api.rate_limit.requests.total")
+            .tag("result", "unknown")
+            .tag("rule", "unknown")
+            .tag("method", "other")
+            .tag("uriTemplate", "other")
+            .tag("clientType", "unknown")
+            .counter()).isNotNull();
+    }
 }

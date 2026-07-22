@@ -2,6 +2,7 @@ package com.umc.product.global.config;
 
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -10,10 +11,15 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.annotation.Import;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
+import com.umc.product.global.security.annotation.Public;
 import com.umc.product.support.IntegrationTestSupport;
 
 @DisplayName("SecurityConfig 통합 테스트")
+@Import(SecurityConfigIntegrationTest.PublicAllMethodController.class)
 class SecurityConfigIntegrationTest extends IntegrationTestSupport {
 
     @Test
@@ -99,5 +105,24 @@ class SecurityConfigIntegrationTest extends IntegrationTestSupport {
         mockMvc.perform(get("/v3/api-docs")
                 .header("Authorization", "Bearer " + token))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("HTTP method가 지정되지 않은 Public endpoint는 모든 method에 공개한다")
+    void publicEndpointWithoutMethodAllowsAllMethods() throws Exception {
+        mockMvc.perform(get("/test/public-all"))
+            .andExpect(status().isOk());
+        mockMvc.perform(post("/test/public-all"))
+            .andExpect(status().isOk());
+    }
+
+    @RestController
+    @Public
+    static class PublicAllMethodController {
+
+        @RequestMapping("/test/public-all")
+        String publicAll() {
+            return "ok";
+        }
     }
 }

@@ -199,15 +199,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return super.handleExceptionInternal(e, body, headers, code.getHttpStatus(), request);
     }
 
-    private ResponseEntity<Object> buildResponse(
-        Exception e, BaseCode code,
-        HttpHeaders headers, WebRequest request, Object detail,
-        String message
-    ) {
-        ApiResponse<Object> body = ApiErrorResponseFactory.from(code, message, detail);
-        return super.handleExceptionInternal(e, body, headers, code.getHttpStatus(), request);
-    }
-
     /**
      * 프로덕션 환경 여부 확인
      */

@@ -73,6 +73,37 @@ class ApiResponseStompErrorHandlerTest {
         assertThat(body.has("result")).isFalse();
     }
 
+    @Test
+    @DisplayName("응답 직렬화 실패 시 고정된 내부 오류 payload로 대체한다")
+    void serialization_failure_uses_safe_fallback() throws Exception {
+        ObjectMapper failingMapper = org.mockito.Mockito.mock(ObjectMapper.class);
+        org.mockito.BDDMockito.given(failingMapper.writeValueAsBytes(org.mockito.ArgumentMatchers.any()))
+            .willThrow(new com.fasterxml.jackson.core.JsonProcessingException("failure") {
+            });
+
+        Message<byte[]> result = new ApiResponseStompErrorHandler(failingMapper)
+            .handleClientMessageProcessingError(null, new IllegalStateException("boom"));
+
+        JsonNode body = objectMapper.readTree(result.getPayload());
+        assertThat(body.path("code").asText()).isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode());
+    }
+
+    @Test
+    @DisplayName("cause가 자기 자신인 비정상 예외도 순환하지 않고 내부 오류로 변환한다")
+    void self_referencing_cause() throws Exception {
+        RuntimeException selfCause = new RuntimeException("cycle") {
+            @Override
+            public synchronized Throwable getCause() {
+                return this;
+            }
+        };
+
+        Message<byte[]> result = sut.handleClientMessageProcessingError(null, selfCause);
+
+        assertThat(objectMapper.readTree(result.getPayload()).path("code").asText())
+            .isEqualTo(CommonErrorCode.INTERNAL_SERVER_ERROR.getCode());
+    }
+
     private Message<byte[]> stompMessageWithReceipt(String receipt) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
         accessor.setDestination("/topic/test/rooms/10/messages");

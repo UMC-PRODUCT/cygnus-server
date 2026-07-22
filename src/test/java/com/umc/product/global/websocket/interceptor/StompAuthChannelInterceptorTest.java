@@ -221,6 +221,14 @@ class StompAuthChannelInterceptorTest {
         assertThat(sut.preSend(message, null)).isSameAs(message);
     }
 
+    @Test
+    @DisplayName("STOMP header가 없는 일반 message는 그대로 통과한다")
+    void message_without_stomp_headers_passes() {
+        Message<byte[]> message = MessageBuilder.withPayload(new byte[0]).build();
+
+        assertThat(sut.preSend(message, null)).isSameAs(message);
+    }
+
     private Message<byte[]> stompMessage(StompCommand command, String destination) {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
         accessor.setDestination(destination);
