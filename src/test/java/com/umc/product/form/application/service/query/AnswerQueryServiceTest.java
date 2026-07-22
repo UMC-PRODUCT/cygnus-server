@@ -18,11 +18,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authentication.application.service.SecureTokenGenerator;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.domain.Answer;
+import com.umc.product.form.domain.AnswerChoice;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormResponse;
 import com.umc.product.form.domain.Question;
+import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
@@ -80,6 +83,16 @@ class AnswerQueryServiceTest {
     }
 
     @Test
+    @DisplayName("getById: 기명 답변은 choice와 함께 반환")
+    void getById_기명_답변_반환() {
+        Answer answer = shortTextAnswer(namedDraft(OWNER_MEMBER_ID));
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(answer));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(Set.of(ANSWER_ID))).willReturn(List.of());
+
+        assertThat(sut.getById(ANSWER_ID).id()).isEqualTo(ANSWER_ID);
+    }
+
+    @Test
     @DisplayName("listByFormResponseId: 익명 응답이면 빈 리스트")
     void listByFormResponseId_익명_응답이면_빈_리스트() {
         Answer answer = shortTextAnswer(anonymousDraft());
@@ -94,6 +107,46 @@ class AnswerQueryServiceTest {
         given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of());
 
         assertThat(sut.listByFormResponseId(FORM_RESPONSE_ID)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("listByFormResponseId: 기명 답변은 choice를 bulk 조회해 조립")
+    void listByFormResponseId_기명_답변_choice_조립() {
+        Answer answer = shortTextAnswer(namedDraft(OWNER_MEMBER_ID));
+        QuestionOption option = QuestionOption.create("선택", 1L, false);
+        ReflectionTestUtils.setField(option, "id", 600L);
+        AnswerChoice choice = AnswerChoice.create(answer, option);
+        given(loadAnswerPort.listByFormResponseId(FORM_RESPONSE_ID)).willReturn(List.of(answer));
+        given(loadAnswerPort.listChoicesByAnswerIdIn(Set.of(ANSWER_ID))).willReturn(List.of(choice));
+
+        assertThat(sut.listByFormResponseId(FORM_RESPONSE_ID).get(0).selectedOptions())
+            .extracting(AnswerInfo.SelectedOption::questionOptionId)
+            .containsExactly(600L);
+    }
+
+    @Test
+    @DisplayName("listByFormResponseIds: null·empty와 익명 전용 결과는 빈 map")
+    void listByFormResponseIds_빈_입력과_익명만_있으면_빈_map() {
+        assertThat(sut.listByFormResponseIds(null)).isEmpty();
+        assertThat(sut.listByFormResponseIds(Set.of())).isEmpty();
+        given(loadAnswerPort.listByFormResponseIds(Set.of(FORM_RESPONSE_ID)))
+            .willReturn(List.of(shortTextAnswer(anonymousDraft())));
+
+        assertThat(sut.listByFormResponseIds(Set.of(FORM_RESPONSE_ID))).isEmpty();
+    }
+
+    @Test
+    @DisplayName("삭제된 option의 choice는 snapshot content와 null ID로 반환")
+    void selected_option_preserves_snapshot_after_option_deletion() {
+        Answer answer = shortTextAnswer(namedDraft(OWNER_MEMBER_ID));
+        QuestionOption option = QuestionOption.create("삭제 전", 1L, false);
+        AnswerChoice choice = AnswerChoice.create(answer, option);
+        ReflectionTestUtils.setField(choice, "questionOption", null);
+
+        AnswerInfo.SelectedOption result = AnswerInfo.SelectedOption.from(choice);
+
+        assertThat(result.questionOptionId()).isNull();
+        assertThat(result.answeredAsContent()).isEqualTo("삭제 전");
     }
 
     @Test

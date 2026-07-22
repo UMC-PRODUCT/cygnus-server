@@ -80,7 +80,7 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
             .collect(Collectors.toSet());
         Set<Long> requestedIds = new HashSet<>(command.orderedSectionIds());
 
-        if (!existingIds.equals(requestedIds)) {
+        if (command.orderedSectionIds().size() != existingIds.size() || !existingIds.equals(requestedIds)) {
             throw new FormDomainException(
                 FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
                 "재배치 요청의 섹션 ID 셋이 실제 폼의 섹션 ID 셋과 일치하지 않습니다."

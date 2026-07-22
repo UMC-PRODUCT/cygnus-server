@@ -96,7 +96,7 @@ public class QuestionOptionCommandService implements ManageQuestionOptionUseCase
             .collect(Collectors.toSet());
         Set<Long> requestedIds = new HashSet<>(command.orderedOptionIds());
 
-        if (!existingIds.equals(requestedIds)) {
+        if (command.orderedOptionIds().size() != existingIds.size() || !existingIds.equals(requestedIds)) {
             throw new FormDomainException(
                 FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
                 "재배치 요청의 선택지 ID 셋이 실제 질문의 선택지 ID 셋과 일치하지 않습니다."

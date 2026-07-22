@@ -464,9 +464,6 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (form.isAllowDuplicateResponses()) {
             return;
         }
-        if (respondentMemberId == null) {
-            return;
-        }
         if (loadFormResponsePort.existsByFormIdAndMemberId(form.getId(), respondentMemberId)) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_ALREADY_EXISTS);
         }

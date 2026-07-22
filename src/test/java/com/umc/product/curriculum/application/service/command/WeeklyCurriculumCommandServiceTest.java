@@ -7,6 +7,19 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.curriculum.application.port.in.command.dto.curriculum.CreateWeeklyCurriculumCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.curriculum.EditWeeklyCurriculumCommand;
@@ -17,16 +30,6 @@ import com.umc.product.curriculum.domain.Curriculum;
 import com.umc.product.curriculum.domain.WeeklyCurriculum;
 import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
 import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
-import java.time.Instant;
-import java.util.Optional;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class WeeklyCurriculumCommandServiceTest {
@@ -56,6 +59,34 @@ class WeeklyCurriculumCommandServiceTest {
     }
 
     // ===== create =====
+
+    @Test
+    @DisplayName("빈 일괄 생성은 조회와 저장 없이 빈 목록을 반환한다")
+    void empty_bulk_short_circuits() {
+        assertThat(sut.createBulk(List.of())).isEmpty();
+
+        then(loadCurriculumPort).shouldHaveNoInteractions();
+        then(saveWeeklyCurriculumPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("일괄 생성은 입력 순서대로 생성 ID를 반환한다")
+    void bulk_create_preserves_input_order() {
+        Curriculum curriculum = 커리큘럼();
+        given(loadCurriculumPort.findById(1L)).willReturn(Optional.of(curriculum));
+        given(saveWeeklyCurriculumPort.save(any())).willAnswer(invocation -> {
+            WeeklyCurriculum weekly = invocation.getArgument(0);
+            ReflectionTestUtils.setField(weekly, "id", weekly.getWeekNo() + 100L);
+            return weekly;
+        });
+
+        List<Long> result = sut.createBulk(List.of(
+            createCommand(1L, false, END),
+            createCommand(2L, false, END.plusSeconds(86400))
+        ));
+
+        assertThat(result).containsExactly(101L, 102L);
+    }
 
     @Nested
     @DisplayName("주차별 커리큘럼 생성")
@@ -158,6 +189,33 @@ class WeeklyCurriculumCommandServiceTest {
                 .isInstanceOf(CurriculumDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(CurriculumErrorCode.INVALID_WEEKLY_CURRICULUM_PERIOD);
+        }
+
+        @Test
+        @DisplayName("이미 종료된 주차는 생성할 수 없다")
+        void rejects_already_ended_period() {
+            given(loadCurriculumPort.findById(1L)).willReturn(Optional.of(커리큘럼()));
+
+            assertThatThrownBy(() -> sut.create(
+                createCommand(1L, false, Instant.now().minusSeconds(1))))
+                .isInstanceOf(CurriculumDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(CurriculumErrorCode.WEEKLY_CURRICULUM_PERIOD_ALREADY_ENDED);
+        }
+
+        @Test
+        @DisplayName("같은 커리큘럼·주차·부록 조합은 중복 생성할 수 없다")
+        void rejects_duplicate_week_and_type() {
+            given(loadCurriculumPort.findById(1L)).willReturn(Optional.of(커리큘럼()));
+            given(loadWeeklyCurriculumPort.existsByCurriculumIdAndWeekNoAndIsExtra(1L, 1L, false))
+                .willReturn(true);
+
+            assertThatThrownBy(() -> sut.create(createCommand(1L, false, END)))
+                .isInstanceOf(CurriculumDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(CurriculumErrorCode.WEEKLY_CURRICULUM_ALREADY_EXISTS);
+
+            then(saveWeeklyCurriculumPort).should(never()).save(any());
         }
     }
 
@@ -298,6 +356,56 @@ class WeeklyCurriculumCommandServiceTest {
                 .extracting("baseCode")
                 .isEqualTo(CurriculumErrorCode.WEEKLY_CURRICULUM_NOT_FOUND);
         }
+
+        @Test
+        @DisplayName("종료 시각을 과거로 변경할 수 없다")
+        void rejects_edit_to_already_ended_period() {
+            given(loadWeeklyCurriculumPort.getById(10L)).willReturn(주차별_커리큘럼(커리큘럼()));
+
+            var command = EditWeeklyCurriculumCommand.builder()
+                .weeklyCurriculumId(10L)
+                .endsAt(Instant.now().minusSeconds(1))
+                .build();
+
+            assertThatThrownBy(() -> sut.edit(command))
+                .isInstanceOf(CurriculumDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(CurriculumErrorCode.WEEKLY_CURRICULUM_PERIOD_ALREADY_ENDED);
+        }
+
+        @Test
+        @DisplayName("주차만 변경해 기존 부록 여부와 중복되면 수정할 수 없다")
+        void rejects_duplicate_when_only_week_changes() {
+            Curriculum curriculum = 커리큘럼();
+            WeeklyCurriculum weekly = 주차별_커리큘럼(curriculum);
+            given(loadWeeklyCurriculumPort.getById(10L)).willReturn(weekly);
+            given(loadWeeklyCurriculumPort.existsByCurriculumIdAndWeekNoAndIsExtraAndIdNot(
+                curriculum.getId(), 2L, false, 10L)).willReturn(true);
+
+            var command = EditWeeklyCurriculumCommand.builder()
+                .weeklyCurriculumId(10L).weekNo(2L).build();
+
+            assertThatThrownBy(() -> sut.edit(command))
+                .isInstanceOf(CurriculumDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(CurriculumErrorCode.WEEKLY_CURRICULUM_ALREADY_EXISTS);
+        }
+
+        @Test
+        @DisplayName("부록 여부만 변경하면 기존 주차 번호로 중복을 검사하고 저장한다")
+        void edits_only_extra_flag_with_effective_week() {
+            Curriculum curriculum = 커리큘럼();
+            WeeklyCurriculum weekly = 주차별_커리큘럼(curriculum);
+            given(loadWeeklyCurriculumPort.getById(10L)).willReturn(weekly);
+            given(loadWeeklyCurriculumPort.existsByCurriculumIdAndWeekNoAndIsExtraAndIdNot(
+                curriculum.getId(), 1L, true, 10L)).willReturn(false);
+
+            sut.edit(EditWeeklyCurriculumCommand.builder()
+                .weeklyCurriculumId(10L).isExtra(true).build());
+
+            assertThat(weekly.isExtra()).isTrue();
+            then(saveWeeklyCurriculumPort).should().save(weekly);
+        }
     }
 
     // ===== delete =====
@@ -352,5 +460,16 @@ class WeeklyCurriculumCommandServiceTest {
 
             then(saveWeeklyCurriculumPort).should(never()).delete(any());
         }
+    }
+
+    private CreateWeeklyCurriculumCommand createCommand(long weekNo, boolean isExtra, Instant endsAt) {
+        return CreateWeeklyCurriculumCommand.builder()
+            .curriculumId(1L)
+            .weekNo(weekNo)
+            .isExtra(isExtra)
+            .title(weekNo + "주차")
+            .startsAt(START)
+            .endsAt(endsAt)
+            .build();
     }
 }

@@ -42,9 +42,6 @@ public class FormPersistenceAdapter implements SaveFormPort, LoadFormPort {
                 java.util.stream.Collectors.toCollection(LinkedHashSet::new),
                 List::copyOf
             ));
-        if (uniqueIds.isEmpty()) {
-            return List.of();
-        }
 
         List<Form> forms = formJpaRepository.findAllById(uniqueIds);
         if (forms.size() != uniqueIds.size()) {

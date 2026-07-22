@@ -85,10 +85,6 @@ public class FormQueryService implements GetFormUseCase {
                 Collectors.toCollection(LinkedHashSet::new),
                 List::copyOf
             ));
-        if (uniqueFormIds.isEmpty()) {
-            return Map.of();
-        }
-
         List<Form> forms = loadFormPort.batchGetByIds(uniqueFormIds);
         List<FormSection> sections = loadFormSectionPort.listByFormIds(uniqueFormIds);
         Set<Long> sectionIds = sections.stream()

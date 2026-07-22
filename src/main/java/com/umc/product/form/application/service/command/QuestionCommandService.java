@@ -112,7 +112,7 @@ public class QuestionCommandService implements ManageQuestionUseCase {
             .collect(Collectors.toSet());
         Set<Long> requestedIds = new HashSet<>(command.orderedQuestionIds());
 
-        if (!existingIds.equals(requestedIds)) {
+        if (command.orderedQuestionIds().size() != existingIds.size() || !existingIds.equals(requestedIds)) {
             throw new FormDomainException(
                 FormErrorCode.INVALID_VOTE_FORM_STRUCTURE,
                 "재배치 요청의 질문 ID 셋이 실제 섹션의 질문 ID 셋과 일치하지 않습니다."
