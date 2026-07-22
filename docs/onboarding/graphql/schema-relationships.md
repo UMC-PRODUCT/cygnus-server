@@ -3,23 +3,60 @@
 GraphQL SDL의 소유권과 도메인 간 관계를 설명한다. 실행 계약의 source of truth는
 `src/main/resources/graphql/**/*.graphqls`이고, 각 도메인의 field 표는 같은 경로의 `README.md`에 있다.
 
-## 파일 소유권
+## 전체 Schema 구성
 
 ```mermaid
 flowchart TB
-  Root["schema.graphqls<br/>Query / Mutation root"] --> Loader["Spring GraphQL schema loader"]
-  Shared["shared<br/>Long / Instant / Pagination"] --> Loader
-  Challenger["challenger<br/>part / track / status"] --> Loader
-  Form["form<br/>Form standard output"] --> Loader
-  Member["member<br/>request / response"] --> Loader
-  Organization["organization<br/>request / response"] --> Loader
-  Project["project<br/>request / response"] --> Loader
-  Recruiting["recruiting<br/>request / response"] --> Loader
-  Loader --> Schema["Unified runtime schema"]
+  Root["schema.graphqls<br/>Query / Mutation root"]
+  Shared["shared/<br/>Long / Instant / PageInput / PageInfo"]
+  Challenger["challenger/<br/>part / track / status provider contract"]
+  Form["form/<br/>Form provider contract"]
+  Organization["organization/<br/>Gisu / Chapter / School provider contract"]
+  Member["member/<br/>Member provider contract"]
+
+  subgraph ProjectIdl["project/"]
+    Project["Project request / response<br/>Project provider contract"]
+    ProjectForm["ProjectApplicationForm<br/>Form consumer projection"]
+  end
+
+  subgraph RecruitingIdl["recruiting/"]
+    Recruiting["Recruiting request / response<br/>Recruiting provider contract"]
+    RecruitingForm["RecruitingApplicationFormStructure<br/>Form consumer projection"]
+  end
+
+  Root --> Loader["Spring GraphQL schema loader<br/>classpath*:graphql/**/*.graphqls"]
+  Shared --> Loader
+  Challenger --> Loader
+  Form --> Loader
+  Organization --> Loader
+  Member --> Loader
+  Project --> Loader
+  ProjectForm --> Loader
+  Recruiting --> Loader
+  RecruitingForm --> Loader
+  Loader --> Schema["Unified runtime schema<br/>POST /graphql"]
+
+  Member -. "canonical type 참조" .-> Organization
+  Member -. "Challenger enum 참조" .-> Challenger
+  Project -. "Member 직접 참조" .-> Member
+  Project -. "Organization ID 참조" .-> Organization
+  Project -. "Challenger enum 참조" .-> Challenger
+  ProjectForm -. "Form + Project 정책" .-> Form
+  Recruiting -. "Organization ID 참조" .-> Organization
+  Recruiting -. "Member ID 참조" .-> Member
+  Recruiting -. "Challenger enum 참조" .-> Challenger
+  RecruitingForm -. "Form + track 필터" .-> Form
 ```
 
+실선은 SDL이 하나의 runtime schema로 조립되는 경로이고, 점선은 domain contract 사이의 의미적
+의존성이다. 각 도메인 디렉터리의 선언은 해당 도메인이 외부에 제공하는 provider contract다. 동시에
+`ProjectApplicationForm`처럼 다른 provider 데이터를 소비해 만든 타입은 원본 도메인 관점에서 consumer
+projection이기도 하다. 즉 provider contract는 **계약 소유권**, consumer projection은 **데이터 출처와
+변환 방식**을 나타내므로 서로 배타적인 분류가 아니다.
+
 `shared`는 여러 곳에서 사용된다는 이유가 아니라 비즈니스 owner가 없을 때만 사용한다.
-`ChallengerPart`와 `QuestionType`은 각각 Challenger와 Form이 소유한다.
+`ChallengerPart`와 `QuestionType`은 각각 Challenger와 Form이 소유한다. 모든 선언은 runtime에서 전역
+GraphQL type namespace를 공유한다.
 
 ## 관계 종류
 
