@@ -1,5 +1,6 @@
 package com.umc.product.global.websocket.relay;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
@@ -41,6 +42,23 @@ class WebSocketBrokerRelayStartupValidatorTest {
     }
 
     @Test
+    @DisplayName("prod에서 relay가 준비되면 정상적으로 시작한다")
+    void productionStartsWhenRelayIsAvailable() throws InterruptedException {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("prod");
+        WebSocketBrokerProperties properties = relayProperties();
+        given(monitor.awaitAvailable(properties.relay().startupTimeout())).willReturn(true);
+        WebSocketBrokerRelayStartupValidator sut = new WebSocketBrokerRelayStartupValidator(
+            properties,
+            environment,
+            monitor
+        );
+
+        assertThatCode(() -> sut.run(new DefaultApplicationArguments(new String[0])))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
     @DisplayName("local에서는 relay startup readiness를 강제하지 않는다")
     void localDoesNotRequireStartupReadiness() {
         MockEnvironment environment = new MockEnvironment();
@@ -76,6 +94,32 @@ class WebSocketBrokerRelayStartupValidatorTest {
                 .hasMessageContaining("STOMP broker relay");
         }
         verify(monitor, times(2)).awaitAvailable(properties.relay().startupTimeout());
+    }
+
+    @Test
+    @DisplayName("relay readiness 대기가 interrupt되면 interrupt 상태와 원인을 보존해 시작을 거부한다")
+    void interruptedReadinessRestoresInterruptFlag() throws InterruptedException {
+        MockEnvironment environment = new MockEnvironment();
+        environment.setActiveProfiles("prod");
+        WebSocketBrokerProperties properties = relayProperties();
+        InterruptedException interruption = new InterruptedException("interrupted");
+        given(monitor.awaitAvailable(properties.relay().startupTimeout()))
+            .willThrow(interruption);
+        WebSocketBrokerRelayStartupValidator sut = new WebSocketBrokerRelayStartupValidator(
+            properties,
+            environment,
+            monitor
+        );
+
+        try {
+            assertThatThrownBy(() -> sut.run(new DefaultApplicationArguments(new String[0])))
+                .isInstanceOf(ApplicationContextException.class)
+                .hasMessageContaining("중단")
+                .hasCause(interruption);
+            assertThat(Thread.currentThread().isInterrupted()).isTrue();
+        } finally {
+            Thread.interrupted();
+        }
     }
 
     private WebSocketBrokerProperties relayProperties() {

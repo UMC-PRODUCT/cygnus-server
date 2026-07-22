@@ -1,6 +1,7 @@
 package com.umc.product.global.websocket.interceptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
@@ -24,6 +25,7 @@ import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
+import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.websocket.application.service.StompClientMessageIdResolverRegistry;
@@ -143,6 +145,29 @@ class StompAuthChannelInterceptorCommandCorrelationTest {
             assertThat(event.code()).isEqualTo(CommonErrorCode.BAD_REQUEST.getCode());
             assertThat(event.retryable()).isFalse();
         });
+        verifyNoInteractions(sendAuthorizerRegistry);
+    }
+
+    @Test
+    @DisplayName("인증 principal이 없는 Community SEND는 보안 오류로 즉시 거절한다")
+    void communitySendWithoutPrincipalRejected() {
+        StompSendAuthorizerRegistry sendAuthorizerRegistry = mock(StompSendAuthorizerRegistry.class);
+        StompAuthChannelInterceptor sut = interceptor(
+            sendAuthorizerRegistry,
+            new RecordingEventPublisher()
+        );
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SEND);
+        accessor.setDestination("/app/community/threads/10/messages");
+        accessor.setNativeHeader(StompCommandIdParser.COMMAND_ID_HEADER, COMMAND_ID.toString());
+        Message<byte[]> message = MessageBuilder.createMessage(
+            new byte[0],
+            accessor.getMessageHeaders()
+        );
+
+        assertThatThrownBy(() -> sut.preSend(message, null))
+            .isInstanceOf(CommonException.class)
+            .extracting(error -> ((CommonException) error).getBaseCode())
+            .isEqualTo(CommonErrorCode.SECURITY_NOT_GIVEN);
         verifyNoInteractions(sendAuthorizerRegistry);
     }
 

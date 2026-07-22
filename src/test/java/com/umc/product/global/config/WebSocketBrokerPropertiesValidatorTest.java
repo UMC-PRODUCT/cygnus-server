@@ -163,6 +163,25 @@ class WebSocketBrokerPropertiesValidatorTest {
             .doesNotContain(systemLogin, systemPassword, clientLogin, clientPassword);
     }
 
+    @Test
+    @DisplayName("relay port·heartbeat·startup timeout의 숫자 경계를 검증한다")
+    void validate_relayNumericBoundaries() {
+        MockEnvironment environment = new MockEnvironment();
+
+        assertThatThrownBy(() -> WebSocketBrokerPropertiesValidator.validate(
+            relayProperties(0, Duration.ZERO, Duration.ZERO, Duration.ofSeconds(1)),
+            environment
+        )).hasMessageContaining("1..65535");
+        assertThatThrownBy(() -> WebSocketBrokerPropertiesValidator.validate(
+            relayProperties(61613, Duration.ofSeconds(-1), Duration.ZERO, Duration.ofSeconds(1)),
+            environment
+        )).hasMessageContaining("system-heartbeat-send-interval");
+        assertThatThrownBy(() -> WebSocketBrokerPropertiesValidator.validate(
+            relayProperties(61613, Duration.ZERO, Duration.ZERO, Duration.ZERO),
+            environment
+        )).hasMessageContaining("startup-timeout");
+    }
+
     private WebSocketBrokerProperties relayProperties(boolean tlsEnabled) {
         return relayProperties(
             tlsEnabled,
@@ -188,6 +207,30 @@ class WebSocketBrokerPropertiesValidatorTest {
                 Duration.ofSeconds(10),
                 Duration.ofSeconds(10),
                 Duration.ofSeconds(5)
+            )
+        );
+    }
+
+    private WebSocketBrokerProperties relayProperties(
+        Integer port,
+        Duration sendHeartbeat,
+        Duration receiveHeartbeat,
+        Duration startupTimeout
+    ) {
+        return new WebSocketBrokerProperties(
+            WebSocketBrokerProperties.Mode.RELAY,
+            new WebSocketBrokerProperties.Relay(
+                "broker.internal",
+                port,
+                true,
+                "/product",
+                "system-user",
+                "system-password",
+                "client-user",
+                "client-password",
+                sendHeartbeat,
+                receiveHeartbeat,
+                startupTimeout
             )
         );
     }

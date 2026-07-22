@@ -17,6 +17,7 @@ import java.util.UUID;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
@@ -140,6 +141,34 @@ class WebSocketRateLimitInterceptorTest {
 
         assertThatCode(() -> sut.preSend(message, mock(MessageChannel.class)))
             .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("기본 생성자는 no-op observer로 제한 초과를 안전하게 처리한다")
+    void defaultConstructorHandlesRateLimitWithoutPublisher() {
+        WebSocketRateLimitInterceptor defaultInterceptor = new WebSocketRateLimitInterceptor();
+
+        assertThatCode(() -> {
+            for (int i = 0; i < 21; i++) {
+                defaultInterceptor.preSend(sendMessage(1L, COMMAND_ID), mock(MessageChannel.class));
+            }
+        }).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("Clock provider 호환 생성자는 제공된 clock과 빈 observer 목록을 사용한다")
+    @SuppressWarnings("unchecked")
+    void clockProviderCompatibilityConstructor() {
+        ObjectProvider<Clock> clockProvider = mock(ObjectProvider.class);
+        given(clockProvider.getIfAvailable(any())).willReturn(clock);
+
+        WebSocketRateLimitInterceptor interceptor = new WebSocketRateLimitInterceptor(
+            clockProvider,
+            eventPublisher
+        );
+
+        assertThat(interceptor.preSend(sendMessage(1L, COMMAND_ID), mock(MessageChannel.class)))
+            .isNotNull();
     }
 
     private Message<byte[]> sendMessage(Long memberId, UUID commandId) {

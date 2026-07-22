@@ -49,4 +49,15 @@ class StompClientMessageIdResolverRegistryTest {
 
         assertThat(result).isEmpty();
     }
+
+    @Test
+    @DisplayName("destination 또는 payload가 null이면 resolver를 호출하지 않고 빈 값을 반환한다")
+    void nullInputShortCircuits() {
+        StompClientMessageIdResolver resolver = mock(StompClientMessageIdResolver.class);
+        StompClientMessageIdResolverRegistry sut =
+            new StompClientMessageIdResolverRegistry(List.of(resolver));
+
+        assertThat(sut.resolve(null, new byte[0])).isEmpty();
+        assertThat(sut.resolve(DESTINATION, null)).isEmpty();
+    }
 }
