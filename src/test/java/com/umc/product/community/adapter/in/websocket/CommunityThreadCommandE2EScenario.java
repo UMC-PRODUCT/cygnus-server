@@ -7,10 +7,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.TimeUnit;
-
-import org.springframework.messaging.simp.user.SimpUser;
-import org.springframework.messaging.simp.user.SimpUserRegistry;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -30,6 +26,7 @@ final class CommunityThreadCommandE2EScenario {
     private final Scenario scenario;
     private final ObjectMapper objectMapper;
     private final CommunityThreadFrameAwaiter awaiter;
+    private final CommunityThreadOutboxProbe outbox;
 
     CommunityThreadCommandE2EScenario(
         CommunityThreadTwoInstanceTopology topology,
@@ -40,6 +37,7 @@ final class CommunityThreadCommandE2EScenario {
         this.scenario = scenario;
         this.objectMapper = objectMapper;
         this.awaiter = new CommunityThreadFrameAwaiter(objectMapper);
+        this.outbox = new CommunityThreadOutboxProbe(topology.appA().context());
     }
 
     void run() throws Exception {
@@ -54,8 +52,8 @@ final class CommunityThreadCommandE2EScenario {
                 member.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT),
                 owner.subscribe("/user/queue/errors", RECEIPT_TIMEOUT)
             );
-            awaitUserRegistry(scenario.owner().memberId(), 2);
-            awaitUserRegistry(scenario.member().memberId(), 1);
+            topology.awaitUserRegistry(scenario.owner().memberId(), 2);
+            topology.awaitUserRegistry(scenario.member().memberId(), 1);
 
             Long baseMessageId = createAndVerifyIdempotency(owner, channels);
             Long replyMessageId = createReplyWithMention(member, channels, baseMessageId);
@@ -85,8 +83,14 @@ final class CommunityThreadCommandE2EScenario {
         // given/when: app A owner가 최초 create command를 전송한다.
         UUID createCommandId = UUID.randomUUID();
         owner.send(CommunityThreadE2EProtocol.messages(scenario.threadId()), createCommandId, body);
-        assertAck(channels.ownerFrames(), createCommandId, "MESSAGE_CREATE", false);
+        JsonNode createAck = assertAck(
+            channels.ownerFrames(),
+            createCommandId,
+            "MESSAGE_CREATE",
+            false
+        );
         assertAck(channels.ownerMirrorFrames(), createCommandId, "MESSAGE_CREATE", false);
+        awaitCommittedMessage(createAck);
         topology.relayOutbox();
 
         // then: app B member가 state event를 받고 caller는 correlated ACK를 받는다.
@@ -162,7 +166,13 @@ final class CommunityThreadCommandE2EScenario {
                 baseMessageId
             )
         );
-        assertAck(channels.memberFrames(), commandId, "MESSAGE_CREATE", false);
+        JsonNode createAck = assertAck(
+            channels.memberFrames(),
+            commandId,
+            "MESSAGE_CREATE",
+            false
+        );
+        awaitCommittedMessage(createAck);
         topology.relayOutbox();
 
         JsonNode created = awaiter.awaitMessage(
@@ -194,6 +204,12 @@ final class CommunityThreadCommandE2EScenario {
         return ack;
     }
 
+    private void awaitCommittedMessage(JsonNode acknowledgement) {
+        long messageId = acknowledgement.at("/payload/messageId").asLong();
+        assertThat(messageId).isPositive();
+        outbox.awaitMessageCreated(messageId, EVENT_TIMEOUT);
+    }
+
     private void assertEnvelope(JsonNode event) {
         assertThat(event.path("eventId").asText()).isNotBlank();
         assertThat(event.path("threadId").asText()).isEqualTo(scenario.threadId().toString());
@@ -209,26 +225,6 @@ final class CommunityThreadCommandE2EScenario {
         Actor actor
     ) throws Exception {
         return CommunityThreadStompProbe.connect(app.port(), actor.accessToken(), objectMapper);
-    }
-
-    private void awaitUserRegistry(Long memberId, int expectedSessionCount)
-        throws InterruptedException {
-        SimpUserRegistry registry = topology.appA().context().getBean(SimpUserRegistry.class);
-        long deadline = System.nanoTime() + EVENT_TIMEOUT.toNanos();
-        do {
-            SimpUser user = registry.getUser(memberId.toString());
-            if (user != null && user.getSessions().size() >= expectedSessionCount) {
-                return;
-            }
-            TimeUnit.MILLISECONDS.sleep(50);
-        } while (System.nanoTime() < deadline);
-
-        SimpUser user = registry.getUser(memberId.toString());
-        int actualSessionCount = user == null ? 0 : user.getSessions().size();
-        throw new AssertionError(
-            "multi-server user registry가 제한 시간 안에 수렴하지 않았습니다: memberId=%d, expected=%d, actual=%d"
-                .formatted(memberId, expectedSessionCount, actualSessionCount)
-        );
     }
 
     private record Channels(

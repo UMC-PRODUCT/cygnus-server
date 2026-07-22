@@ -9,12 +9,12 @@
 
 `./gradlew clean test jacocoTestCoverageVerification`을 실행한 최종 결과다.
 
-- 전체 테스트: 5,001건
-- 성공: 4,961건
+- 전체 테스트: 5,002건
+- 성공: 4,962건
 - ignored: 40건
 - 실패: 0건
 - 오류: 0건
-- clean build 실행시간: 13분 58초
+- clean build 실행시간: 8분 6초
 - Line: 38,664 / 38,664 (100%)
 - Class: 2,532 / 2,532 (100%)
 - Branch: 10,482 / 11,689 (89.67%, 비강제 지표)
@@ -37,7 +37,7 @@ configuration, exception, application root, 공통 package와 production seed pa
 | `challenger` | 185 | 0 | 1,323/1,323 | 77/77 | 89.58% |
 | `chat` | 187 | 0 | 943/943 | 66/66 | 89.71% |
 | `common` | 13 | 0 | 78/78 | 10/10 | 97.37% |
-| `community` | 517 | 0 | 3,683/3,683 | 227/227 | 90.46% |
+| `community` | 518 | 0 | 3,683/3,683 | 227/227 | 90.46% |
 | `curriculum` | 132 | 0 | 870/870 | 132/132 | 97.75% |
 | `documentation` | 5 | 0 | 22/22 | 7/7 | 75.00% |
 | `feedback` | 20 | 0 | 120/120 | 19/19 | 100.00% |
@@ -55,7 +55,7 @@ configuration, exception, application root, 공통 package와 production seed pa
 | `storage` | 88 | 0 | 538/538 | 27/27 | 90.23% |
 | `term` | 32 | 0 | 234/234 | 28/28 | 96.15% |
 | production `test` seed | 165 | 0 | 1,333/1,333 | 98/98 | 95.24% |
-| **전체** | **5,001** | **40** | **38,664/38,664** | **2,532/2,532** | **89.67%** |
+| **전체** | **5,002** | **40** | **38,664/38,664** | **2,532/2,532** | **89.67%** |
 
 package별 테스트 건수는 test classname의 최상위 package를 기준으로 집계했다. 공통 `support` 1건과
 cross-domain `integration` 4건은 전체 건수에는 포함하지만 특정 production package 행에는 중복 배분하지 않았다.
@@ -114,7 +114,8 @@ cross-domain `integration` 4건은 전체 건수에는 포함하지만 특정 pr
 - Thread message: TEXT/IMAGE/SYSTEM 입력 조합, reply·attachment·mention 누락, 신고 중복과 사유,
   sender 정보 누락 마스킹, batch 조회 단축, recipient별 입력 순서와 partial data 조립.
 - Realtime: client message ID 파싱, null·미지원·잘못된 JSON payload, 인증·인가·rate limit,
-  fan-out 일부 실패, local/relay 분기, interrupt 복원, metric 성공·실패·지연 기록.
+  fan-out 일부 실패, local/relay 분기, multi-server user registry 수렴, ACK 이후 outbox commit,
+  interrupt 복원, metric 성공·실패·지연 기록.
 - Chat: payload fingerprint 실패, idempotent replay와 canonical payload, 작성자·moderator 삭제 권한,
   reaction 문자 경계, image 크기·개수·중복, 빈 viewer/member batch와 legacy reply 호환.
 - Persistence/API: 빈 `IN`, filter 조합, cursor/page 경계, 안정 정렬, 이미 삭제된 row와 저장 경쟁,
@@ -145,6 +146,8 @@ null guard와 validation 순서만 최소 수정하고 각각 회귀 테스트�
 - CI와 Codecov workflow는 `./gradlew test jacocoTestCoverageVerification`을 실행한다.
 - `--tests`를 사용하는 선택 실행은 전역 gate를 직접 실행하지 않으므로 개발 중 package 단위 검증을
   방해하지 않는다.
+- 실패한 테스트는 exception message·cause·stack을 CI console에 남겨 비결정적 통합 테스트도 원인을
+  바로 추적할 수 있게 했다.
 
 ## 8. 최종 검증 명령
 

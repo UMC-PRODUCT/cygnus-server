@@ -1,6 +1,7 @@
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.testing.Test
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
@@ -83,6 +84,13 @@ val checkSensitiveMainResourcesExcluded by tasks.registering {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     maxHeapSize = "3g"
+    testLogging {
+        events("failed")
+        exceptionFormat = TestExceptionFormat.FULL
+        showCauses = true
+        showExceptions = true
+        showStackTraces = true
+    }
     dependsOn(tasks.named("spotlessTest"))
     dependsOn(checkDuplicateFlywayMigrationVersions)
     dependsOn(checkSensitiveMainResourcesExcluded)

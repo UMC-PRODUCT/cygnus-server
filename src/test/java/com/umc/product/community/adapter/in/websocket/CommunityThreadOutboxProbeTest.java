@@ -63,4 +63,43 @@ class CommunityThreadOutboxProbeTest {
         assertThat(row.status()).isEqualTo("PENDING");
         assertThat(row.attempts()).isZero();
     }
+
+    @Test
+    @DisplayName("ACK의 messageId와 일치하는 commit된 채팅 메시지 payload row를 찾는다")
+    void findsCommittedChatMessageByAcknowledgedMessageId() {
+        // given
+        UUID eventId = UUID.randomUUID();
+        Instant now = Instant.parse("2026-07-18T00:00:00Z");
+        Timestamp timestamp = Timestamp.from(now);
+        jdbcTemplate.update(
+            """
+                INSERT INTO event_outbox (
+                    event_id, event_type, event_class, payload, status, attempts,
+                    next_attempt_at, created_at, updated_at
+                ) VALUES (?, 'chat.message.created', 'test.MessageCreatedEvent',
+                    CAST(? AS jsonb), 'PENDING', 0, ?, ?, ?)
+                """,
+            eventId,
+            """
+                {"eventId":"%s","messageId":"41","roomId":"7",\
+                "senderMemberId":"3","content":"commit 이후 relay"}
+                """.formatted(eventId),
+            timestamp,
+            timestamp,
+            timestamp
+        );
+        CommunityThreadOutboxProbe probe = new CommunityThreadOutboxProbe(
+            jdbcTemplate,
+            new SimpleMeterRegistry(),
+            new ObjectMapper()
+        );
+
+        // when
+        OutboxRow row = probe.awaitMessageCreated(41L, Duration.ZERO);
+
+        // then
+        assertThat(row.eventId()).isEqualTo(eventId);
+        assertThat(row.status()).isEqualTo("PENDING");
+        assertThat(row.attempts()).isZero();
+    }
 }

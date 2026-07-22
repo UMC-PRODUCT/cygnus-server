@@ -27,6 +27,7 @@ final class CommunityThreadLifecycleE2EScenario {
     private final Scenario scenario;
     private final ObjectMapper objectMapper;
     private final CommunityThreadFrameAwaiter awaiter;
+    private final CommunityThreadOutboxProbe outbox;
 
     CommunityThreadLifecycleE2EScenario(
         CommunityThreadTwoInstanceTopology topology,
@@ -37,6 +38,7 @@ final class CommunityThreadLifecycleE2EScenario {
         this.scenario = scenario;
         this.objectMapper = objectMapper;
         this.awaiter = new CommunityThreadFrameAwaiter(objectMapper);
+        this.outbox = new CommunityThreadOutboxProbe(topology.appA().context());
     }
 
     void run() throws Exception {
@@ -55,6 +57,7 @@ final class CommunityThreadLifecycleE2EScenario {
                 CommunityThreadE2EProtocol.userEvents(),
                 RECEIPT_TIMEOUT
             );
+            awaitRemoteUserRegistry();
 
             // given/when: app B REST에서 제3의 멤버를 초대하고 소유권을 이전한다.
             inviteAndTransfer(http, ownerFrames, memberFrames, attackerFrames);
@@ -128,7 +131,8 @@ final class CommunityThreadLifecycleE2EScenario {
         BlockingQueue<StompFrame> ownerFrames
     ) throws Exception {
         UUID commandId = sendMessage(attacker, FIRST_CONTENT);
-        awaiter.awaitAck(attackerFrames, commandId, EVENT_TIMEOUT);
+        JsonNode acknowledgement = awaiter.awaitAck(attackerFrames, commandId, EVENT_TIMEOUT);
+        awaitCommittedMessage(acknowledgement);
         topology.relayOutbox();
         JsonNode created = awaiter.awaitMessage(
             memberFrames,
@@ -162,7 +166,8 @@ final class CommunityThreadLifecycleE2EScenario {
         memberFrames.clear();
 
         UUID commandId = sendMessage(attacker, SECOND_CONTENT);
-        awaiter.awaitAck(attackerFrames, commandId, EVENT_TIMEOUT);
+        JsonNode acknowledgement = awaiter.awaitAck(attackerFrames, commandId, EVENT_TIMEOUT);
+        awaitCommittedMessage(acknowledgement);
         topology.relayOutbox();
         awaiter.awaitMessage(attackerFrames, "message.created", SECOND_CONTENT, EVENT_TIMEOUT);
         awaiter.assertNoType(memberFrames, "message.created", NO_LEAK_WINDOW);
@@ -222,12 +227,24 @@ final class CommunityThreadLifecycleE2EScenario {
         return commandId;
     }
 
+    private void awaitCommittedMessage(JsonNode acknowledgement) {
+        long messageId = acknowledgement.at("/payload/messageId").asLong();
+        assertThat(messageId).isPositive();
+        outbox.awaitMessageCreated(messageId, EVENT_TIMEOUT);
+    }
+
     private BlockingQueue<StompFrame> subscribeEvents(CommunityThreadStompProbe probe)
         throws InterruptedException {
         return probe.subscribe(
             CommunityThreadE2EProtocol.userEvents(),
             RECEIPT_TIMEOUT
         );
+    }
+
+    private void awaitRemoteUserRegistry() throws InterruptedException {
+        topology.awaitUserRegistry(scenario.owner().memberId(), 1);
+        topology.awaitUserRegistry(scenario.member().memberId(), 1);
+        topology.awaitUserRegistry(scenario.attacker().memberId(), 1);
     }
 
     private CommunityThreadStompProbe connect(

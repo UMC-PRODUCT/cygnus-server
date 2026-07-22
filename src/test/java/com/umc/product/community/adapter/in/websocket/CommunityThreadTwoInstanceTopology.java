@@ -4,10 +4,13 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.boot.web.context.WebServerApplicationContext;
 import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.messaging.simp.user.SimpUser;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -39,6 +42,7 @@ final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
         "community-thread-e2e-email-key-material-20260718";
     private static final String JWT_SSO_LOGIN_TOKEN_SECRET =
         "community-thread-e2e-sso-key-material-20260718";
+    private static final Duration INITIAL_RELAY_TIMEOUT = Duration.ofSeconds(60);
     private static final Duration RELAY_TRANSITION_TIMEOUT = Duration.ofSeconds(30);
 
     private final PostgreSQLContainer<?> postgis = new PostgreSQLContainer<>(postgisImage())
@@ -95,6 +99,26 @@ final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
 
     void relayOutbox() {
         appA.context().getBean(EventOutboxRelayService.class).relay();
+    }
+
+    void awaitUserRegistry(Long memberId, int expectedSessionCount) throws InterruptedException {
+        SimpUserRegistry registry = appA.context().getBean(SimpUserRegistry.class);
+        long deadline = System.nanoTime() + RELAY_TRANSITION_TIMEOUT.toNanos();
+        do {
+            SimpUser user = registry.getUser(memberId.toString());
+            if (user != null && user.getSessions().size() >= expectedSessionCount) {
+                return;
+            }
+            TimeUnit.MILLISECONDS.sleep(50);
+        } while (System.nanoTime() < deadline);
+
+        SimpUser user = registry.getUser(memberId.toString());
+        int actualSessionCount = user == null ? 0 : user.getSessions().size();
+        throw new AssertionError(
+            "multi-server user registry가 제한 시간 안에 수렴하지 않았습니다: "
+                + "memberId=%d, expected=%d, actual=%d"
+                    .formatted(memberId, expectedSessionCount, actualSessionCount)
+        );
     }
 
     void pauseRelay() throws InterruptedException {
@@ -203,7 +227,7 @@ final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
     private void requireInitiallyAvailable(AppInstance app) {
         StompBrokerRelayMonitor monitor = app.context().getBean(StompBrokerRelayMonitor.class);
         try {
-            if (!monitor.awaitAvailable(RELAY_TRANSITION_TIMEOUT)) {
+            if (!monitor.awaitAvailable(INITIAL_RELAY_TIMEOUT)) {
                 throw new IllegalStateException("STOMP relay가 초기 연결되지 않았습니다: " + app.port());
             }
         } catch (InterruptedException exception) {

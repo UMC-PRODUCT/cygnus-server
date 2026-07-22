@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 import org.springframework.context.ApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -17,6 +18,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 final class CommunityThreadOutboxProbe {
 
     private static final String INVITED_EVENT_TYPE = "community.thread.invited";
+    private static final String MESSAGE_CREATED_EVENT_TYPE = "chat.message.created";
 
     private final JdbcTemplate jdbcTemplate;
     private final MeterRegistry meterRegistry;
@@ -41,16 +43,40 @@ final class CommunityThreadOutboxProbe {
     }
 
     OutboxRow awaitInvitation(Long threadId, Long invitedMemberId, Duration timeout) {
+        return awaitEvent(
+            INVITED_EVENT_TYPE,
+            payload -> payload.path("threadId").asLong(-1L) == threadId.longValue()
+                && containsId(payload.path("invitedMemberIds"), invitedMemberId),
+            "threadId=" + threadId + ", memberId=" + invitedMemberId,
+            timeout
+        );
+    }
+
+    OutboxRow awaitMessageCreated(Long messageId, Duration timeout) {
+        return awaitEvent(
+            MESSAGE_CREATED_EVENT_TYPE,
+            payload -> payload.path("messageId").asLong(-1L) == messageId.longValue(),
+            "messageId=" + messageId,
+            timeout
+        );
+    }
+
+    private OutboxRow awaitEvent(
+        String eventType,
+        Predicate<JsonNode> payloadPredicate,
+        String description,
+        Duration timeout
+    ) {
         long deadline = System.nanoTime() + timeout.toNanos();
         while (true) {
-            List<InvitationOutboxRow> rows = jdbcTemplate.query(
+            List<EventOutboxRow> rows = jdbcTemplate.query(
                 """
                     SELECT event_id, payload::text AS payload_text, status, attempts, last_error
                     FROM event_outbox
                     WHERE event_type = ?
                     ORDER BY id DESC
                     """,
-                (resultSet, rowNumber) -> new InvitationOutboxRow(
+                (resultSet, rowNumber) -> new EventOutboxRow(
                     new OutboxRow(
                         resultSet.getObject("event_id", UUID.class),
                         resultSet.getString("status"),
@@ -59,20 +85,20 @@ final class CommunityThreadOutboxProbe {
                     ),
                     resultSet.getString("payload_text")
                 ),
-                INVITED_EVENT_TYPE
+                eventType
             );
-            OutboxRow invitation = rows.stream()
-                .filter(row -> matches(row, threadId, invitedMemberId))
-                .map(InvitationOutboxRow::outbox)
+            OutboxRow matched = rows.stream()
+                .filter(row -> payloadPredicate.test(payload(row)))
+                .map(EventOutboxRow::outbox)
                 .findFirst()
                 .orElse(null);
-            if (invitation != null) {
-                return invitation;
+            if (matched != null) {
+                return matched;
             }
             if (System.nanoTime() >= deadline) {
                 throw new AssertionError(
-                    "commit된 community.thread.invited outbox를 찾지 못했습니다: threadId="
-                        + threadId + ", memberId=" + invitedMemberId
+                    "commit된 outbox를 찾지 못했습니다: eventType=" + eventType
+                        + ", " + description
                         + ", broadRows=" + describeBroadRows()
                 );
             }
@@ -119,19 +145,21 @@ final class CommunityThreadOutboxProbe {
         return meterRegistry.get("event.outbox.relay.failed").counter().count();
     }
 
-    private boolean matches(InvitationOutboxRow row, Long threadId, Long invitedMemberId) {
-        JsonNode payload;
+    private JsonNode payload(EventOutboxRow row) {
         try {
-            payload = objectMapper.readTree(row.payload());
+            JsonNode storedPayload = objectMapper.readTree(row.payload());
+            return storedPayload.isTextual()
+                ? objectMapper.readTree(storedPayload.textValue())
+                : storedPayload;
         } catch (JsonProcessingException exception) {
-            throw new AssertionError("초대 outbox payload를 파싱하지 못했습니다: eventId="
+            throw new AssertionError("outbox payload를 파싱하지 못했습니다: eventId="
                 + row.outbox().eventId(), exception);
         }
-        if (payload.path("threadId").asLong(-1L) != threadId.longValue()) {
-            return false;
-        }
-        for (JsonNode memberId : payload.path("invitedMemberIds")) {
-            if (memberId.asLong(-1L) == invitedMemberId.longValue()) {
+    }
+
+    private boolean containsId(JsonNode ids, Long expectedId) {
+        for (JsonNode id : ids) {
+            if (id.asLong(-1L) == expectedId.longValue()) {
                 return true;
             }
         }
@@ -186,7 +214,7 @@ final class CommunityThreadOutboxProbe {
     record OutboxRow(UUID eventId, String status, int attempts, String lastError) {
     }
 
-    private record InvitationOutboxRow(OutboxRow outbox, String payload) {
+    private record EventOutboxRow(OutboxRow outbox, String payload) {
     }
 
     private record BroadOutboxRow(
