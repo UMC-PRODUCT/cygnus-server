@@ -1,5 +1,6 @@
 package com.umc.product.project.adapter.in.graphql.dto;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
@@ -18,8 +19,8 @@ public record ProjectGraphQlResponse(
     Long productOwnerMemberId,
     List<Long> coProductOwnerMemberIds,
     List<ProjectPartQuotaGraphQlResponse> partQuotas,
-    String createdAt,
-    String updatedAt
+    Instant createdAt,
+    Instant updatedAt
 ) {
     public static ProjectGraphQlResponse from(ProjectInfo info) {
         return new ProjectGraphQlResponse(
@@ -37,8 +38,8 @@ public record ProjectGraphQlResponse(
             info.partQuotas() == null
                 ? List.of()
                 : info.partQuotas().stream().map(ProjectPartQuotaGraphQlResponse::from).toList(),
-            info.createdAt() == null ? null : info.createdAt().toString(),
-            info.updatedAt() == null ? null : info.updatedAt().toString()
+            info.createdAt(),
+            info.updatedAt()
         );
     }
 }

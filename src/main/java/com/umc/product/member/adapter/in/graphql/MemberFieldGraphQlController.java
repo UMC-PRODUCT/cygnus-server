@@ -3,9 +3,10 @@ package com.umc.product.member.adapter.in.graphql;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.stereotype.Controller;
 
-import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.global.security.CurrentMemberProvider;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.adapter.in.graphql.dto.MemberPrivateGraphQlResponse;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberPublicInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -14,23 +15,13 @@ import lombok.RequiredArgsConstructor;
 public class MemberFieldGraphQlController {
 
     private final CurrentMemberProvider currentMemberProvider;
+    private final GetMemberUseCase getMemberUseCase;
 
-    @SchemaMapping(typeName = "Member", field = "memberId")
-    public Long memberId(MemberInfo member) {
-        return member.id();
-    }
-
-    @SchemaMapping(typeName = "Member", field = "email")
-    public String email(MemberInfo member) {
-        return isRequester(member) ? member.email() : null;
-    }
-
-    @SchemaMapping(typeName = "Member", field = "status")
-    public MemberStatus status(MemberInfo member) {
-        return isRequester(member) ? member.status() : null;
-    }
-
-    private boolean isRequester(MemberInfo member) {
-        return currentMemberProvider.getRequiredCurrentMemberId().equals(member.id());
+    @SchemaMapping(typeName = "MemberPublic", field = "private")
+    public MemberPrivateGraphQlResponse privateInfo(MemberPublicInfo member) {
+        if (!java.util.Objects.equals(currentMemberProvider.getNullableCurrentMemberId(), member.memberId())) {
+            return null;
+        }
+        return MemberPrivateGraphQlResponse.from(getMemberUseCase.getById(member.memberId()));
     }
 }

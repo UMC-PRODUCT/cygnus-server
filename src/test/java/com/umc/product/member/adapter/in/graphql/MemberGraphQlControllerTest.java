@@ -35,6 +35,7 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -119,18 +120,20 @@ class MemberGraphQlControllerTest {
                     memberId
                     name
                     nickname
-                    email
                     schoolId
                     schoolName
                     profileImageLink
-                    status
+                    private {
+                      email
+                      status
+                    }
                   }
                 }
                 """)
             .execute()
             .path("me.memberId").entity(String.class).isEqualTo("1")
-            .path("me.email").entity(String.class).isEqualTo("member1@example.com")
-            .path("me.status").entity(String.class).isEqualTo("ACTIVE");
+            .path("me.private.email").entity(String.class).isEqualTo("member1@example.com")
+            .path("me.private.status").entity(String.class).isEqualTo("ACTIVE");
 
         then(checkPermissionUseCase).shouldHaveNoInteractions();
     }
@@ -146,16 +149,14 @@ class MemberGraphQlControllerTest {
                     memberId
                     name
                     nickname
-                    email
-                    status
+                    private { email status }
                   }
                 }
                 """)
             .execute()
             .path("member.memberId").entity(String.class).isEqualTo("2")
             .path("member.name").entity(String.class).isEqualTo("member2")
-            .path("member.email").valueIsNull()
-            .path("member.status").valueIsNull();
+            .path("member.private").valueIsNull();
 
         then(checkPermissionUseCase).should().checkOrThrow(REQUESTER_ID, memberReadPermission(TARGET_ID));
         then(getMemberUseCase).should().getById(TARGET_ID);
@@ -218,15 +219,13 @@ class MemberGraphQlControllerTest {
                 query {
                   members(ids: [2, 2, 3]) {
                     memberId
-                    email
-                    status
+                    private { email status }
                   }
                 }
                 """)
             .execute()
             .path("members[0].memberId").entity(String.class).isEqualTo("2")
-            .path("members[0].email").valueIsNull()
-            .path("members[0].status").valueIsNull()
+            .path("members[0].private").valueIsNull()
             .path("members[1].memberId").entity(String.class).isEqualTo("3");
 
         then(getMemberUseCase).should().findAllByIds(Set.of(2L, 3L));
@@ -263,6 +262,16 @@ class MemberGraphQlControllerTest {
         );
         given(searchMemberUseCase.searchByV2ForGraphQl(query, REQUESTER_ID, pageable))
             .willReturn(new SearchMemberV2Result(new PageImpl<>(List.of(item), pageable, 5)));
+        given(getChallengerUseCase.getAllByIds(Set.of(200L))).willReturn(List.of(
+            ChallengerInfo.builder()
+                .challengerId(200L)
+                .memberId(2L)
+                .gisuId(100L)
+                .part(ChallengerPart.SPRINGBOOT)
+                .tracks(List.of(ChallengerTrack.from(ChallengerPart.SPRINGBOOT)))
+                .challengerStatus(ChallengerStatus.ACTIVE)
+                .build()
+        ));
 
         graphQlTester.document("""
                 query {
@@ -271,27 +280,21 @@ class MemberGraphQlControllerTest {
                     page: { page: 1, size: 2 }
                   ) {
                     content {
-                      memberId
-                      name
-                      nickname
-                      email
-                      schoolId
-                      profileImageLink
+                      member {
+                        memberId
+                        name
+                        nickname
+                        schoolId
+                        profileImageLink
+                      }
+                      maskedEmail
                       currentChallenger {
                         challengerId
                         gisuId
-                        generation
                         part
-                        challengerStatus
+                        status
                       }
                       isAdminInActiveGisu
-                      challengerRecords {
-                        challengerId
-                        gisuId
-                        generation
-                        part
-                        challengerStatus
-                      }
                     }
                     pageInfo {
                       page
@@ -304,27 +307,19 @@ class MemberGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("memberSearch.content[0].memberId").entity(String.class).isEqualTo("2")
-            .path("memberSearch.content[0].name").entity(String.class).isEqualTo("김회원")
-            .path("memberSearch.content[0].nickname").entity(String.class).isEqualTo("키미")
-            .path("memberSearch.content[0].email").entity(String.class).isEqualTo("mem****@example.com")
-            .path("memberSearch.content[0].schoolId").entity(String.class).isEqualTo("10")
-            .path("memberSearch.content[0].profileImageLink").entity(String.class)
+            .path("memberSearch.content[0].member.memberId").entity(String.class).isEqualTo("2")
+            .path("memberSearch.content[0].member.name").entity(String.class).isEqualTo("김회원")
+            .path("memberSearch.content[0].member.nickname").entity(String.class).isEqualTo("키미")
+            .path("memberSearch.content[0].maskedEmail").entity(String.class).isEqualTo("mem****@example.com")
+            .path("memberSearch.content[0].member.schoolId").entity(String.class).isEqualTo("10")
+            .path("memberSearch.content[0].member.profileImageLink").entity(String.class)
                 .isEqualTo("https://cdn.example.com/profile-2.png")
             .path("memberSearch.content[0].currentChallenger.challengerId").entity(String.class).isEqualTo("200")
             .path("memberSearch.content[0].currentChallenger.gisuId").entity(String.class).isEqualTo("100")
-            .path("memberSearch.content[0].currentChallenger.generation").entity(String.class).isEqualTo("6")
             .path("memberSearch.content[0].currentChallenger.part").entity(String.class).isEqualTo("SPRINGBOOT")
-            .path("memberSearch.content[0].currentChallenger.challengerStatus")
+            .path("memberSearch.content[0].currentChallenger.status")
                 .entity(String.class).isEqualTo("ACTIVE")
             .path("memberSearch.content[0].isAdminInActiveGisu").entity(Boolean.class).isEqualTo(true)
-            .path("memberSearch.content[0].challengerRecords[0].challengerId")
-                .entity(String.class).isEqualTo("201")
-            .path("memberSearch.content[0].challengerRecords[0].gisuId").entity(String.class).isEqualTo("90")
-            .path("memberSearch.content[0].challengerRecords[0].generation").entity(String.class).isEqualTo("5")
-            .path("memberSearch.content[0].challengerRecords[0].part").entity(String.class).isEqualTo("NODEJS")
-            .path("memberSearch.content[0].challengerRecords[0].challengerStatus")
-                .entity(String.class).isEqualTo("GRADUATED")
             .path("memberSearch.pageInfo.page").entity(Integer.class).isEqualTo(1)
             .path("memberSearch.pageInfo.size").entity(Integer.class).isEqualTo(2)
             .path("memberSearch.pageInfo.totalElements").entity(Long.class).isEqualTo(5L)
@@ -360,12 +355,12 @@ class MemberGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   memberSearch(input: { keyword: "kim" }) {
-                    content { email }
+                    content { maskedEmail }
                   }
                 }
                 """)
             .execute()
-            .path("memberSearch.content[0].email").entity(String.class)
+            .path("memberSearch.content[0].maskedEmail").entity(String.class)
                 .isEqualTo("[masked-email]")
             .path("memberSearch").entity(Object.class)
                 .satisfies(data -> assertThat(data.toString()).doesNotContain(rawEmail));
@@ -397,17 +392,15 @@ class MemberGraphQlControllerTest {
                 query {
                   memberSearch(input: { keyword: "kim" }) {
                     content {
-                      email
+                      maskedEmail
                       currentChallenger { challengerId }
-                      challengerRecords { challengerId }
                     }
                   }
                 }
                 """)
             .execute()
-            .path("memberSearch.content[0].email").valueIsNull()
-            .path("memberSearch.content[0].currentChallenger").valueIsNull()
-            .path("memberSearch.content[0].challengerRecords").entityList(Object.class).hasSize(0);
+            .path("memberSearch.content[0].maskedEmail").valueIsNull()
+            .path("memberSearch.content[0].currentChallenger").valueIsNull();
 
         then(searchMemberUseCase).should().searchByV2ForGraphQl(query, REQUESTER_ID, pageable);
     }
@@ -423,7 +416,7 @@ class MemberGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   memberSearch(input: { keyword: "kim" }) {
-                    content { memberId }
+                    content { member { memberId } }
                     pageInfo {
                       page
                       size
@@ -646,6 +639,21 @@ class MemberGraphQlControllerTest {
             .willReturn(new SearchMemberV2Result(
                 new PageImpl<>(List.of(first, second, missingSchool, nullSchool), pageable, 4)
             ));
+        SubjectAttributes subject = subject();
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        for (long memberId = 2L; memberId <= 5L; memberId++) {
+            given(checkPermissionUseCase.check(subject, memberReadPermission(memberId))).willReturn(true);
+        }
+        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(2L, 3L, 4L, 5L))).willReturn(Map.of(
+            2L, List.of(
+                challenger(201L, 2L, 90L, ChallengerPart.NODEJS, ChallengerStatus.GRADUATED),
+                challenger(202L, 2L, 100L, ChallengerPart.SPRINGBOOT, ChallengerStatus.ACTIVE)
+            ),
+            3L, List.of(
+                challenger(301L, 3L, 999L, ChallengerPart.DESIGN, ChallengerStatus.GRADUATED),
+                challenger(302L, 3L, null, ChallengerPart.DESIGN, ChallengerStatus.GRADUATED)
+            )
+        ));
         given(getSchoolUseCase.listDetailsByIds(schoolIds))
             .willReturn(List.of(school(10L, "중앙대학교")));
         given(getGisuUseCase.getByIds(gisuIds))
@@ -658,33 +666,26 @@ class MemberGraphQlControllerTest {
                     page: { page: 0, size: 20 }
                   ) {
                     content {
-                      memberId
-                      name
-                      nickname
-                      email
-                      profileImageLink
-                      school {
-                        id
+                      member {
+                        memberId
                         name
-                      }
-                      currentChallenger {
-                        challengerId
-                        part
-                        challengerStatus
-                        gisu {
+                        nickname
+                        profileImageLink
+                        school {
                           id
-                          generation
+                          name
+                        }
+                        challengers {
+                          challengerId
+                          part
+                          status
+                          gisu {
+                            id
+                            generation
+                          }
                         }
                       }
-                      challengerRecords {
-                        challengerId
-                        part
-                        challengerStatus
-                        gisu {
-                          id
-                          generation
-                        }
-                      }
+                      maskedEmail
                     }
                     pageInfo {
                       page
@@ -697,46 +698,33 @@ class MemberGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("memberSearch.content[0].memberId").entity(String.class).isEqualTo("2")
-            .path("memberSearch.content[0].name").entity(String.class).isEqualTo("김회원")
-            .path("memberSearch.content[0].nickname").entity(String.class).isEqualTo("키미")
-            .path("memberSearch.content[0].email").entity(String.class).isEqualTo("mem****@example.com")
-            .path("memberSearch.content[0].profileImageLink").entity(String.class)
+            .path("memberSearch.content[0].member.memberId").entity(String.class).isEqualTo("2")
+            .path("memberSearch.content[0].member.name").entity(String.class).isEqualTo("김회원")
+            .path("memberSearch.content[0].member.nickname").entity(String.class).isEqualTo("키미")
+            .path("memberSearch.content[0].maskedEmail").entity(String.class).isEqualTo("mem****@example.com")
+            .path("memberSearch.content[0].member.profileImageLink").entity(String.class)
                 .isEqualTo("https://cdn.example.com/profile-2.png")
-            .path("memberSearch.content[0].school.id").entity(String.class).isEqualTo("10")
-            .path("memberSearch.content[0].school.name").entity(String.class).isEqualTo("중앙대학교")
-            .path("memberSearch.content[0].currentChallenger.challengerId")
-                .entity(String.class).isEqualTo("200")
-            .path("memberSearch.content[0].currentChallenger.part")
-                .entity(String.class).isEqualTo("SPRINGBOOT")
-            .path("memberSearch.content[0].currentChallenger.challengerStatus")
-                .entity(String.class).isEqualTo("ACTIVE")
-            .path("memberSearch.content[0].currentChallenger.gisu.id")
-                .entity(String.class).isEqualTo("100")
-            .path("memberSearch.content[0].currentChallenger.gisu.generation")
-                .entity(String.class).isEqualTo("6")
-            .path("memberSearch.content[0].challengerRecords[0].gisu.id")
+            .path("memberSearch.content[0].member.school.id").entity(String.class).isEqualTo("10")
+            .path("memberSearch.content[0].member.school.name").entity(String.class).isEqualTo("중앙대학교")
+            .path("memberSearch.content[0].member.challengers[0].gisu.id")
                 .entity(String.class).isEqualTo("90")
-            .path("memberSearch.content[0].challengerRecords[0].gisu.generation")
+            .path("memberSearch.content[0].member.challengers[0].gisu.generation")
                 .entity(String.class).isEqualTo("5")
-            .path("memberSearch.content[0].challengerRecords[0].challengerId")
+            .path("memberSearch.content[0].member.challengers[0].challengerId")
                 .entity(String.class).isEqualTo("201")
-            .path("memberSearch.content[0].challengerRecords[0].part")
+            .path("memberSearch.content[0].member.challengers[0].part")
                 .entity(String.class).isEqualTo("NODEJS")
-            .path("memberSearch.content[0].challengerRecords[0].challengerStatus")
+            .path("memberSearch.content[0].member.challengers[0].status")
                 .entity(String.class).isEqualTo("GRADUATED")
-            .path("memberSearch.content[0].challengerRecords[1].gisu.id")
+            .path("memberSearch.content[0].member.challengers[1].gisu.id")
                 .entity(String.class).isEqualTo("100")
-            .path("memberSearch.content[0].challengerRecords[1].gisu.generation")
+            .path("memberSearch.content[0].member.challengers[1].gisu.generation")
                 .entity(String.class).isEqualTo("6")
-            .path("memberSearch.content[1].school.id").entity(String.class).isEqualTo("10")
-            .path("memberSearch.content[1].currentChallenger.gisu.id")
-                .entity(String.class).isEqualTo("100")
-            .path("memberSearch.content[1].challengerRecords[0].gisu").valueIsNull()
-            .path("memberSearch.content[1].challengerRecords[1].gisu").valueIsNull()
-            .path("memberSearch.content[2].school").valueIsNull()
-            .path("memberSearch.content[2].currentChallenger").valueIsNull()
-            .path("memberSearch.content[3].school").valueIsNull()
+            .path("memberSearch.content[1].member.school.id").entity(String.class).isEqualTo("10")
+            .path("memberSearch.content[1].member.challengers[0].gisu").valueIsNull()
+            .path("memberSearch.content[1].member.challengers[1].gisu").valueIsNull()
+            .path("memberSearch.content[2].member.school").valueIsNull()
+            .path("memberSearch.content[3].member.school").valueIsNull()
             .path("memberSearch.pageInfo.page").entity(Integer.class).isEqualTo(0)
             .path("memberSearch.pageInfo.size").entity(Integer.class).isEqualTo(20)
             .path("memberSearch.pageInfo.totalElements").entity(Long.class).isEqualTo(4L)
@@ -781,6 +769,18 @@ class MemberGraphQlControllerTest {
         Set<Long> gisuIds = Set.of(100L);
         given(searchMemberUseCase.searchByV2ForGraphQl(query, REQUESTER_ID, pageable))
             .willReturn(new SearchMemberV2Result(new PageImpl<>(List.of(item), pageable, 1)));
+        SubjectAttributes subject = subject();
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, memberReadPermission(2L))).willReturn(true);
+        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(2L))).willReturn(Map.of(
+            2L, List.of(challenger(
+                201L,
+                2L,
+                100L,
+                ChallengerPart.NODEJS,
+                ChallengerStatus.GRADUATED
+            ))
+        ));
         given(getGisuUseCase.getByIds(gisuIds)).willReturn(List.of(gisu(100L, 6L)));
         given(getChapterUseCase.listByGisuIds(gisuIds)).willReturn(Map.of(
             100L, List.of(new ChapterInfo(20L, 100L, "Ain 지부"))
@@ -793,16 +793,12 @@ class MemberGraphQlControllerTest {
                 query {
                   memberSearch(input: { keyword: "kim" }) {
                     content {
-                      currentChallenger {
-                        gisu {
-                          chapters { id name }
-                          schools { id name }
-                        }
-                      }
-                      challengerRecords {
-                        gisu {
-                          chapters { id name }
-                          schools { id name }
+                      member {
+                        challengers {
+                          gisu {
+                            chapters { id name }
+                            schools { id name }
+                          }
                         }
                       }
                     }
@@ -810,17 +806,15 @@ class MemberGraphQlControllerTest {
                 }
                 """)
             .execute()
-            .path("memberSearch.content[0].currentChallenger.gisu.chapters[0].id")
+            .path("memberSearch.content[0].member.challengers[0].gisu.chapters[0].id")
                 .entity(String.class).isEqualTo("20")
-            .path("memberSearch.content[0].currentChallenger.gisu.chapters[0].name")
+            .path("memberSearch.content[0].member.challengers[0].gisu.chapters[0].name")
                 .entity(String.class).isEqualTo("Ain 지부")
-            .path("memberSearch.content[0].currentChallenger.gisu.schools[0].id")
+            .path("memberSearch.content[0].member.challengers[0].gisu.schools[0].id")
                 .entity(String.class).isEqualTo("10")
-            .path("memberSearch.content[0].currentChallenger.gisu.schools[0].name")
+            .path("memberSearch.content[0].member.challengers[0].gisu.schools[0].name")
                 .entity(String.class).isEqualTo("중앙대학교")
-            .path("memberSearch.content[0].challengerRecords[0].gisu.chapters[0].id")
-                .entity(String.class).isEqualTo("20")
-            .path("memberSearch.content[0].challengerRecords[0].gisu.schools[0].id")
+            .path("memberSearch.content[0].member.challengers[0].gisu.schools[0].id")
                 .entity(String.class).isEqualTo("10");
 
         then(getGisuUseCase).should(times(1)).getByIds(gisuIds);
@@ -853,22 +847,34 @@ class MemberGraphQlControllerTest {
         );
         given(searchMemberUseCase.searchByV2ForGraphQl(query, REQUESTER_ID, pageable))
             .willReturn(new SearchMemberV2Result(new PageImpl<>(List.of(item), pageable, 1)));
+        SubjectAttributes subject = subject();
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, memberReadPermission(2L))).willReturn(true);
+        given(getChallengerUseCase.getAllBasicByMemberIds(Set.of(2L))).willReturn(Map.of(
+            2L, List.of(challenger(
+                201L,
+                2L,
+                null,
+                ChallengerPart.NODEJS,
+                ChallengerStatus.GRADUATED
+            ))
+        ));
 
         graphQlTester.document("""
                 query {
                   memberSearch(input: { keyword: "kim" }) {
                     content {
-                      school { id }
-                      currentChallenger { gisu { id } }
-                      challengerRecords { gisu { id } }
+                      member {
+                        school { id }
+                        challengers { gisu { id } }
+                      }
                     }
                   }
                 }
                 """)
             .execute()
-            .path("memberSearch.content[0].school").valueIsNull()
-            .path("memberSearch.content[0].currentChallenger").valueIsNull()
-            .path("memberSearch.content[0].challengerRecords[0].gisu").valueIsNull();
+            .path("memberSearch.content[0].member.school").valueIsNull()
+            .path("memberSearch.content[0].member.challengers[0].gisu").valueIsNull();
 
         then(getSchoolUseCase).shouldHaveNoInteractions();
         then(getGisuUseCase).shouldHaveNoInteractions();

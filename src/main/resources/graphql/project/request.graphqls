@@ -19,6 +19,6 @@ input ProjectSearchInput {
   """product owner가 소속된 Organization School 식별자 목록."""
   productOwnerSchoolIds: [ID!]
   parts: [ChallengerPart!]
-  partQuotaStatus: PartQuotaStatus
+  partQuotaStatus: ProjectPartQuotaStatus
   statuses: [ProjectStatus!]
 }

@@ -38,7 +38,8 @@ class SharedGraphQlArchitectureTest {
         Map.entry("enum FormStatus", "form/output.graphqls"),
         Map.entry("enum FormResponseStatus", "form/output.graphqls"),
         Map.entry("enum QuestionType", "form/output.graphqls"),
-        Map.entry("type Member", "member/response.graphqls"),
+        Map.entry("type MemberPublic", "member/response.graphqls"),
+        Map.entry("type MemberPrivate", "member/response.graphqls"),
         Map.entry("type Gisu", "organization/response.graphqls"),
         Map.entry("type Chapter", "organization/response.graphqls"),
         Map.entry("type School", "organization/response.graphqls")

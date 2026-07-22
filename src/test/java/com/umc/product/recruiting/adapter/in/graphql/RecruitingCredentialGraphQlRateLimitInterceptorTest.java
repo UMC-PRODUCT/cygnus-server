@@ -54,7 +54,7 @@ class RecruitingCredentialGraphQlRateLimitInterceptorTest {
     @DisplayName("credential이 아닌 GraphQL 요청은 전용 rate limit bucket을 사용하지 않는다")
     void passNonCredentialOperation() {
         WebGraphQlRequest request = request(
-            "query { publicRecruitingRounds(input: {gisuId: 1}) { seasonId } }"
+            "query { recruitingRounds(filter: {gisuId: 1}) { id } }"
         );
         given(chain.next(request)).willReturn(Mono.just(downstreamResponse));
 
@@ -72,11 +72,15 @@ class RecruitingCredentialGraphQlRateLimitInterceptorTest {
               ...CredentialFields
             }
             fragment CredentialFields on Query {
-              first: recruitingApplicationByCredential(input: {email: "a@example.com", applicationKey: "A1B2C3"}) {
-                applicationId
+              first: recruitingApplication(access: {
+                credential: {email: "a@example.com", applicationKey: "A1B2C3"}
+              }) {
+                id
               }
-              second: recruitingApplicationByCredential(input: {email: "a@example.com", applicationKey: "A1B2C3"}) {
-                applicationId
+              second: recruitingApplication(access: {
+                credential: {email: "a@example.com", applicationKey: "A1B2C3"}
+              }) {
+                id
               }
             }
             """);
@@ -95,12 +99,12 @@ class RecruitingCredentialGraphQlRateLimitInterceptorTest {
     void limitAnonymousCancellationMutation() {
         WebGraphQlRequest request = request("""
             mutation {
-              first: cancelAnonymousRecruitingApplication(
-                input: {email: "a@example.com", applicationKey: "A1B2C3"}
-              ) { applicationId }
-              second: cancelAnonymousRecruitingApplication(
-                input: {email: "a@example.com", applicationKey: "A1B2C3"}
-              ) { applicationId }
+              first: cancelRecruitingApplication(access: {
+                credential: {email: "a@example.com", applicationKey: "A1B2C3"}
+              }) { id }
+              second: cancelRecruitingApplication(access: {
+                credential: {email: "a@example.com", applicationKey: "A1B2C3"}
+              }) { id }
             }
             """);
 

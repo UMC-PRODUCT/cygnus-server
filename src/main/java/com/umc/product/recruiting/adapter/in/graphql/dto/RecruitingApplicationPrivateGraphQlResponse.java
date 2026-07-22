@@ -4,43 +4,36 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
-import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
-public record RecruitingPublicApplicationGraphQlResponse(
+public record RecruitingApplicationPrivateGraphQlResponse(
     Long applicationId,
     String applicantName,
     String applicantEmail,
-    ChallengerTrack firstChoice,
-    ChallengerTrack secondChoice,
     boolean submitted,
     boolean cancelled,
     boolean editable,
     RecruitingPublicResultStatus documentResult,
     RecruitingPublicResultStatus finalResult,
-    ChallengerTrack acceptedTrack,
-    List<AnswerGraphQlResponse> answers
+    List<Answer> answers
 ) {
 
-    public static RecruitingPublicApplicationGraphQlResponse from(RecruitingPublicApplicationInfo info) {
-        return new RecruitingPublicApplicationGraphQlResponse(
+    public static RecruitingApplicationPrivateGraphQlResponse from(RecruitingPublicApplicationInfo info) {
+        return new RecruitingApplicationPrivateGraphQlResponse(
             info.applicationId(),
             info.applicantName(),
             info.applicantEmail(),
-            info.firstChoice(),
-            info.secondChoice(),
             info.submitted(),
             info.cancelled(),
             info.editable(),
             info.documentResult(),
             info.finalResult(),
-            info.acceptedTrack(),
-            info.answers().stream().map(AnswerGraphQlResponse::from).toList()
+            info.answers().stream().map(Answer::from).toList()
         );
     }
 
-    public record AnswerGraphQlResponse(
+    public record Answer(
         Long questionId,
         String textValue,
         List<Long> selectedOptionIds,
@@ -48,13 +41,13 @@ public record RecruitingPublicApplicationGraphQlResponse(
         Set<Instant> times
     ) {
 
-        private static AnswerGraphQlResponse from(RecruitingPublicApplicationInfo.Answer answer) {
-            return new AnswerGraphQlResponse(
-                answer.questionId(),
-                answer.textValue(),
-                answer.selectedOptionIds(),
-                answer.fileIds(),
-                answer.times()
+        private static Answer from(RecruitingPublicApplicationInfo.Answer info) {
+            return new Answer(
+                info.questionId(),
+                info.textValue(),
+                info.selectedOptionIds(),
+                info.fileIds(),
+                info.times()
             );
         }
     }

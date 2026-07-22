@@ -24,18 +24,19 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.global.graphql.dto.PageGraphQlRequest;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.adapter.in.graphql.dto.MemberChallengerGraphQlResponse;
-import com.umc.product.member.adapter.in.graphql.dto.MemberPageGraphQlResponse;
-import com.umc.product.member.adapter.in.graphql.dto.MemberSearchChallengerGraphQlResponse;
+import com.umc.product.member.adapter.in.graphql.dto.MemberSearchEdgeGraphQlResponse;
 import com.umc.product.member.adapter.in.graphql.dto.MemberSearchGraphQlRequest;
-import com.umc.product.member.adapter.in.graphql.dto.MemberSearchResultGraphQlResponse;
+import com.umc.product.member.adapter.in.graphql.dto.MemberSearchPageGraphQlResponse;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.application.port.in.query.dto.MemberPublicInfo;
 import com.umc.product.organization.adapter.in.graphql.dto.GisuGraphQlResponse;
 import com.umc.product.organization.adapter.in.graphql.dto.SchoolGraphQlResponse;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -58,23 +59,23 @@ public class MemberGraphQlController {
     private final CurrentMemberProvider currentMemberProvider;
 
     @QueryMapping
-    public MemberInfo me(@Nullable @CurrentMember MemberPrincipal memberPrincipal) {
+    public MemberPublicInfo me(@Nullable @CurrentMember MemberPrincipal memberPrincipal) {
         Long requesterMemberId = currentMemberId(memberPrincipal);
-        return getMemberUseCase.getById(requesterMemberId);
+        return MemberPublicInfo.from(getMemberUseCase.getById(requesterMemberId));
     }
 
     @QueryMapping
-    public MemberInfo member(
+    public MemberPublicInfo member(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long id
     ) {
         Long requesterMemberId = currentMemberId(memberPrincipal);
         checkPermissionUseCase.checkOrThrow(requesterMemberId, memberReadPermission(id));
-        return getMemberUseCase.getById(id);
+        return MemberPublicInfo.from(getMemberUseCase.getById(id));
     }
 
     @QueryMapping
-    public List<MemberInfo> members(
+    public List<MemberPublicInfo> members(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument List<Long> ids
     ) {
@@ -91,30 +92,31 @@ public class MemberGraphQlController {
         return uniqueMemberIds.stream()
             .map(membersById::get)
             .filter(Objects::nonNull)
+            .map(MemberPublicInfo::from)
             .toList();
     }
 
     @QueryMapping
-    public MemberPageGraphQlResponse memberSearch(
+    public MemberSearchPageGraphQlResponse memberSearch(
         @Argument MemberSearchGraphQlRequest input,
         @Argument PageGraphQlRequest page
     ) {
         Long requesterMemberId = currentMemberId();
         Pageable pageable = PageGraphQlRequest.defaultIfNull(page).toPageableWithMaxOffset(10_000L);
-        return MemberPageGraphQlResponse.from(
+        return MemberSearchPageGraphQlResponse.from(
             searchMemberUseCase.searchByV2ForGraphQl(input.toQuery(), requesterMemberId, pageable).page()
         );
     }
 
-    @BatchMapping(typeName = "Member", field = "school")
-    public Map<MemberInfo, SchoolGraphQlResponse> schoolByMember(
-        List<MemberInfo> members
+    @BatchMapping(typeName = "MemberPublic", field = "school")
+    public Map<MemberPublicInfo, SchoolGraphQlResponse> schoolByMember(
+        List<MemberPublicInfo> members
     ) {
         Set<Long> readableMemberIds = readableMemberIds(members);
 
         Set<Long> schoolIds = members.stream()
-            .filter(member -> readableMemberIds.contains(member.id()))
-            .map(MemberInfo::schoolId)
+            .filter(member -> readableMemberIds.contains(member.memberId()))
+            .map(MemberPublicInfo::schoolId)
             .filter(Objects::nonNull)
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -127,9 +129,9 @@ public class MemberGraphQlController {
                     (left, right) -> left
                 ));
 
-        Map<MemberInfo, SchoolGraphQlResponse> result = new LinkedHashMap<>();
-        for (MemberInfo member : members) {
-            SchoolDetailInfo school = readableMemberIds.contains(member.id())
+        Map<MemberPublicInfo, SchoolGraphQlResponse> result = new LinkedHashMap<>();
+        for (MemberPublicInfo member : members) {
+            SchoolDetailInfo school = readableMemberIds.contains(member.memberId()) && member.schoolId() != null
                 ? schoolsById.get(member.schoolId())
                 : null;
             result.put(member, school == null ? null : SchoolGraphQlResponse.from(school));
@@ -137,9 +139,9 @@ public class MemberGraphQlController {
         return result;
     }
 
-    @BatchMapping(typeName = "Member", field = "challengers")
-    public Map<MemberInfo, List<MemberChallengerGraphQlResponse>> challengersByMember(
-        List<MemberInfo> members
+    @BatchMapping(typeName = "MemberPublic", field = "challengers")
+    public Map<MemberPublicInfo, List<MemberChallengerGraphQlResponse>> challengersByMember(
+        List<MemberPublicInfo> members
     ) {
         Set<Long> readableMemberIds = readableMemberIds(members);
         Map<Long, List<ChallengerBasicInfo>> challengersByMemberId = readableMemberIds.isEmpty()
@@ -149,7 +151,7 @@ public class MemberGraphQlController {
         return members.stream()
             .collect(Collectors.toMap(
                 Function.identity(),
-                member -> challengersByMemberId.getOrDefault(member.id(), List.of()).stream()
+                member -> challengersByMemberId.getOrDefault(member.memberId(), List.of()).stream()
                     .map(MemberChallengerGraphQlResponse::from)
                     .toList(),
                 (left, right) -> left,
@@ -176,58 +178,35 @@ public class MemberGraphQlController {
 
         Map<MemberChallengerGraphQlResponse, GisuGraphQlResponse> result = new LinkedHashMap<>();
         for (MemberChallengerGraphQlResponse challenger : challengers) {
-            GisuInfo gisu = gisusById.get(challenger.gisuId());
-            result.put(challenger, gisu == null ? null : GisuGraphQlResponse.from(gisu));
-        }
-        return result;
-    }
-
-    @BatchMapping(typeName = "MemberSearchResult", field = "school")
-    public Map<MemberSearchResultGraphQlResponse, SchoolGraphQlResponse> schoolByMemberSearchResult(
-        List<MemberSearchResultGraphQlResponse> members
-    ) {
-        Set<Long> schoolIds = members.stream()
-            .map(MemberSearchResultGraphQlResponse::schoolId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, SchoolDetailInfo> schoolsById = schoolIds.isEmpty()
-            ? Map.of()
-            : getSchoolUseCase.listDetailsByIds(schoolIds).stream()
-                .collect(Collectors.toMap(
-                    SchoolDetailInfo::schoolId,
-                    Function.identity(),
-                    (left, right) -> left
-                ));
-
-        Map<MemberSearchResultGraphQlResponse, SchoolGraphQlResponse> result = new LinkedHashMap<>();
-        for (MemberSearchResultGraphQlResponse member : members) {
-            SchoolDetailInfo school = member.schoolId() == null ? null : schoolsById.get(member.schoolId());
-            result.put(member, school == null ? null : SchoolGraphQlResponse.from(school));
-        }
-        return result;
-    }
-
-    @BatchMapping(typeName = "MemberSearchChallenger", field = "gisu")
-    public Map<MemberSearchChallengerGraphQlResponse, GisuGraphQlResponse> gisuByMemberSearchChallenger(
-        List<MemberSearchChallengerGraphQlResponse> challengers
-    ) {
-        Set<Long> gisuIds = challengers.stream()
-            .map(MemberSearchChallengerGraphQlResponse::gisuId)
-            .filter(Objects::nonNull)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-        Map<Long, GisuInfo> gisusById = gisuIds.isEmpty()
-            ? Map.of()
-            : getGisuUseCase.getByIds(gisuIds).stream()
-                .collect(Collectors.toMap(
-                    GisuInfo::gisuId,
-                    Function.identity(),
-                    (left, right) -> left
-                ));
-
-        Map<MemberSearchChallengerGraphQlResponse, GisuGraphQlResponse> result = new LinkedHashMap<>();
-        for (MemberSearchChallengerGraphQlResponse challenger : challengers) {
             GisuInfo gisu = challenger.gisuId() == null ? null : gisusById.get(challenger.gisuId());
             result.put(challenger, gisu == null ? null : GisuGraphQlResponse.from(gisu));
+        }
+        return result;
+    }
+
+    @BatchMapping(typeName = "MemberSearchEdge", field = "currentChallenger")
+    public Map<MemberSearchEdgeGraphQlResponse, MemberChallengerGraphQlResponse> currentChallengerBySearchEdge(
+        List<MemberSearchEdgeGraphQlResponse> edges
+    ) {
+        Set<Long> challengerIds = edges.stream()
+            .map(MemberSearchEdgeGraphQlResponse::currentChallengerId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, ChallengerInfo> challengersById = challengerIds.isEmpty()
+            ? Map.of()
+            : getChallengerUseCase.getAllByIds(challengerIds).stream()
+                .collect(Collectors.toMap(
+                    ChallengerInfo::challengerId,
+                    Function.identity(),
+                    (left, right) -> left
+                ));
+
+        Map<MemberSearchEdgeGraphQlResponse, MemberChallengerGraphQlResponse> result = new LinkedHashMap<>();
+        for (MemberSearchEdgeGraphQlResponse edge : edges) {
+            ChallengerInfo challenger = edge.currentChallengerId() == null
+                ? null
+                : challengersById.get(edge.currentChallengerId());
+            result.put(edge, challenger == null ? null : MemberChallengerGraphQlResponse.from(challenger));
         }
         return result;
     }
@@ -256,10 +235,10 @@ public class MemberGraphQlController {
         }
     }
 
-    private Set<Long> readableMemberIds(List<MemberInfo> members) {
+    private Set<Long> readableMemberIds(List<MemberPublicInfo> members) {
         Long requesterMemberId = currentMemberId();
         Set<Long> memberIds = members.stream()
-            .map(MemberInfo::id)
+            .map(MemberPublicInfo::memberId)
             .filter(Objects::nonNull)
             .collect(Collectors.toCollection(LinkedHashSet::new));
         Set<Long> readableMemberIds = new LinkedHashSet<>();

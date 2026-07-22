@@ -3,6 +3,7 @@ package com.umc.product.member.adapter.in.graphql.dto;
 import java.util.List;
 
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -17,6 +18,17 @@ public record MemberChallengerGraphQlResponse(
 ) {
 
     public static MemberChallengerGraphQlResponse from(ChallengerBasicInfo info) {
+        return new MemberChallengerGraphQlResponse(
+            info.challengerId(),
+            info.memberId(),
+            info.gisuId(),
+            info.part(),
+            info.tracks(),
+            info.challengerStatus()
+        );
+    }
+
+    public static MemberChallengerGraphQlResponse from(ChallengerInfo info) {
         return new MemberChallengerGraphQlResponse(
             info.challengerId(),
             info.memberId(),

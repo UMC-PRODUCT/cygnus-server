@@ -6,6 +6,9 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -13,9 +16,11 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationInterviewQuestionCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DeactivateRecruitingApplicationInterviewQuestionCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingInterviewQuestionsCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationInterviewQuestionCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
@@ -197,6 +202,33 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
         then(loadSubmittedEvaluationPort).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("개별 질문 전체 교체는 수정·생성·재활성화·누락 비활성화를 diff로 반영한다")
+    void replaceApplicationQuestionsAppliesFullDiff() {
+        RecruitingApplication application = whitelistedApplication(2L, 1L, 99L);
+        RecruitingApplicationInterviewQuestion updated = question(application, 201L, "기존 질문", 0, true);
+        RecruitingApplicationInterviewQuestion removed = question(application, 202L, "삭제 질문", 1, true);
+        RecruitingApplicationInterviewQuestion reactivated = question(application, 203L, "비활성 질문", 2, false);
+        given(loadQuestionPort.listByApplicationId(2L)).willReturn(List.of(updated, removed, reactivated));
+        given(loadSubmittedEvaluationPort.existsSubmittedByApplicationId(2L)).willReturn(false);
+
+        sut.replaceApplicationQuestions(new ReplaceRecruitingInterviewQuestionsCommand.Application(
+            2L,
+            99L,
+            List.of(
+                new ReplaceRecruitingInterviewQuestionsCommand.Entry(201L, "수정 질문", 2),
+                new ReplaceRecruitingInterviewQuestionsCommand.Entry(203L, "재활성 질문", 0),
+                new ReplaceRecruitingInterviewQuestionsCommand.Entry(null, "신규 질문", 1)
+            )
+        ));
+
+        assertThat(updated.getContent()).isEqualTo("수정 질문");
+        assertThat(removed.isActive()).isFalse();
+        assertThat(reactivated.isActive()).isTrue();
+        assertThat(reactivated.getContent()).isEqualTo("재활성 질문");
+        then(saveQuestionPort).should(times(4)).save(org.mockito.ArgumentMatchers.any());
+    }
+
     private RecruitingApplication whitelistedApplication(Long applicationId, Long roundId, Long requesterMemberId) {
         RecruitingRound round = mock(RecruitingRound.class);
         given(round.getId()).willReturn(roundId);
@@ -206,5 +238,21 @@ class RecruitingApplicationInterviewQuestionCommandServiceTest {
         given(concurrencyLockService.lockRoundThenApplication(applicationId)).willReturn(application);
         given(loadEvaluatorPort.existsByRoundIdAndMemberId(roundId, requesterMemberId)).willReturn(true);
         return application;
+    }
+
+    private RecruitingApplicationInterviewQuestion question(
+        RecruitingApplication application,
+        Long id,
+        String content,
+        int orderNo,
+        boolean active
+    ) {
+        RecruitingApplicationInterviewQuestion question =
+            RecruitingApplicationInterviewQuestion.create(application, content, orderNo);
+        ReflectionTestUtils.setField(question, "id", id);
+        if (!active) {
+            question.deactivateBeforeFirstEvaluationSubmission();
+        }
+        return question;
     }
 }

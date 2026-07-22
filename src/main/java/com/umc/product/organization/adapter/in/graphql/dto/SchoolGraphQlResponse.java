@@ -13,8 +13,8 @@ public record SchoolGraphQlResponse(
     String logoImageUrl,
     List<SchoolLinkGraphQlResponse> links,
     boolean active,
-    String createdAt,
-    String updatedAt
+    Instant createdAt,
+    Instant updatedAt
 ) {
 
     public static SchoolGraphQlResponse from(SchoolDetailInfo info) {
@@ -31,13 +31,9 @@ public record SchoolGraphQlResponse(
             info.logoImageUrl(),
             links,
             info.isActive(),
-            format(info.createdAt()),
-            format(info.updatedAt())
+            info.createdAt(),
+            info.updatedAt()
         );
-    }
-
-    private static String format(Instant instant) {
-        return instant == null ? null : instant.toString();
     }
 
     public record SchoolLinkGraphQlResponse(

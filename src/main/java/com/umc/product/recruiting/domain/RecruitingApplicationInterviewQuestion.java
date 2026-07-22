@@ -85,6 +85,11 @@ public class RecruitingApplicationInterviewQuestion extends BaseEntity {
         this.active = false;
     }
 
+    public void replaceBeforeFirstEvaluationSubmission(String content, Integer orderNo) {
+        updateBeforeFirstEvaluationSubmission(content, orderNo);
+        this.active = true;
+    }
+
     private static void validateTarget(RecruitingApplication application) {
         if (application == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_INVALID_TARGET);

@@ -22,6 +22,7 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplica
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
@@ -104,6 +105,12 @@ public class RecruitingQueryService implements
                 .map(section -> filterConditionalDestinations(section, visibleSectionIds))
                 .toList())
             .build();
+    }
+
+    @Override
+    public java.util.Optional<RecruitingApplicationFormInfo> findApplicationFormByRoundId(Long roundId) {
+        return loadApplicationFormPort.findByRoundId(roundId)
+            .map(RecruitingApplicationFormInfo::from);
     }
 
     private FormWithStructureInfo.SectionWithQuestions filterConditionalDestinations(

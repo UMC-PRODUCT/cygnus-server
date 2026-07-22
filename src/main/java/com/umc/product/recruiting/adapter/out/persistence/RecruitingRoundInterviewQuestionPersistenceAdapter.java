@@ -1,6 +1,9 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -36,6 +39,15 @@ public class RecruitingRoundInterviewQuestionPersistenceAdapter implements
     @Override
     public List<RecruitingRoundInterviewQuestion> listActiveByRoundId(Long roundId) {
         return repository.findAllByRound_IdAndActiveTrueOrderByOrderNoAscIdAsc(roundId);
+    }
+
+    @Override
+    public Map<Long, List<RecruitingRoundInterviewQuestion>> listActiveByRoundIds(Set<Long> roundIds) {
+        if (roundIds.isEmpty()) {
+            return Map.of();
+        }
+        return repository.findAllByRound_IdInAndActiveTrueOrderByRound_IdAscOrderNoAscIdAsc(roundIds).stream()
+            .collect(Collectors.groupingBy(question -> question.getRound().getId()));
     }
 
     @Override

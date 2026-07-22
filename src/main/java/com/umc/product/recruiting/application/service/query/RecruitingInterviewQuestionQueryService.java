@@ -1,6 +1,9 @@
 package com.umc.product.recruiting.application.service.query;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +62,40 @@ public class RecruitingInterviewQuestionQueryService implements GetRecruitingInt
         return loadApplicationQuestionPort.listActiveByApplicationId(applicationId).stream()
             .map(RecruitingApplicationInterviewQuestionInfo::from)
             .toList();
+    }
+
+    @Override
+    public Map<Long, List<RecruitingRoundInterviewQuestionInfo>> listActiveRoundQuestionsByRoundIds(
+        Set<Long> roundIds,
+        Long requesterMemberId
+    ) {
+        roundIds.forEach(roundId -> {
+            RecruitingRound round = loadRoundPort.getById(roundId);
+            authorizeQuestionRead(requesterMemberId, roundId, round.getSeason().getId());
+        });
+        return loadRoundQuestionPort.listActiveByRoundIds(roundIds).entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().stream().map(RecruitingRoundInterviewQuestionInfo::from).toList()
+            ));
+    }
+
+    @Override
+    public Map<Long, List<RecruitingApplicationInterviewQuestionInfo>>
+        listActiveApplicationQuestionsByApplicationIds(Set<Long> applicationIds, Long requesterMemberId) {
+        applicationIds.forEach(applicationId -> {
+            RecruitingApplication application = loadApplicationPort.getById(applicationId);
+            authorizeQuestionRead(
+                requesterMemberId,
+                application.getRound().getId(),
+                application.getRound().getSeason().getId()
+            );
+        });
+        return loadApplicationQuestionPort.listActiveByApplicationIds(applicationIds).entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().stream().map(RecruitingApplicationInterviewQuestionInfo::from).toList()
+            ));
     }
 
     private void authorizeQuestionRead(Long requesterMemberId, Long roundId, Long seasonId) {

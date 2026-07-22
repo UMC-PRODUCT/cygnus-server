@@ -32,7 +32,7 @@ query {
     members {
       member {
         name
-        email
+        private { email }
         challengers {
           part
         }
@@ -65,7 +65,7 @@ sequenceDiagram
 ```
 
 GraphQL runtime은 sibling field를 병렬 또는 batch로 실행할 수 있다. 권한 로직은 실행 순서나 root path 문자열에
-의존하면 안 된다. 같은 `Member.email`은 Project 아래에서 조회하더라도 동일한 Member field 정책을 적용한다.
+의존하면 안 된다. 같은 `MemberPublic.private`는 Project 아래에서 조회하더라도 동일한 Member field 정책을 적용한다.
 
 ## Resolver별 책임
 
@@ -88,15 +88,16 @@ checkPermissionUseCase.checkOrThrow(
 있다면 schema field만 nullable로 바꾸는 것으로는 보호되지 않는다. 민감 field에는 명시적인 resolver를 두거나,
 parent source에서 민감 값을 제거하고 resolver가 권한 확인 후 조회하도록 한다.
 
-현재 `MemberFieldGraphQlController`는 `Member.email`과 `Member.status`의 기본 DataFetcher를 대체한다.
-두 field는 요청자 본인에게만 값을 반환하고 다른 요청자에게는 error 없이 `null`을 반환한다.
+`MemberPublic` source에는 email과 status를 넣지 않는다. `MemberFieldGraphQlController`가
+`MemberPublic.private`를 해석하며 요청자 본인에게만 `MemberPrivate`를 반환한다. 다른 요청자에게는
+error 없이 권한 그룹 전체를 `null`로 반환한다.
 
 ### Nested Object와 Collection
 
 목록 parent의 nested field는 `@BatchMapping`을 사용한다. Parent ID를 모아 권한을 먼저 판정하고 허용된 ID만
 batch Query UseCase에 전달한다. 서로 다른 권한을 가진 parent가 섞일 수 있으므로 batch 전체를 한 번에 실패시키지 않는다.
 
-현재 `Member.school`과 `Member.challengers`는 다음 순서로 처리한다.
+현재 `MemberPublic.school`과 `MemberPublic.challengers`는 다음 순서로 처리한다.
 
 1. 본인 ID는 별도 `MEMBER READ` 검사 없이 허용한다.
 2. 나머지 ID는 authority snapshot을 한 번 로드해 parent별 `MEMBER READ`를 확인한다.
@@ -111,15 +112,19 @@ batch Query UseCase에 전달한다. 서로 다른 권한을 가진 parent가 �
 | `me` | 로그인한 본인 |
 | `member`, `members` | 대상별 `MEMBER READ` |
 | `memberSearch` | application query가 요청자의 조회 scope를 제한 |
-| `Member.email`, `Member.status` | 본인만 값 반환, 그 외 `null` |
-| `Member.school` | 본인 또는 대상 `MEMBER READ`, 그 외 `null` |
-| `Member.challengers` | 본인 또는 대상 `MEMBER READ`, 그 외 빈 목록 |
+| `MemberPublic.private` | 본인만 `MemberPrivate` 반환, 그 외 `null` |
+| `MemberPublic.school` | 본인 또는 대상 `MEMBER READ`, 그 외 `null` |
+| `MemberPublic.challengers` | 본인 또는 대상 `MEMBER READ`, 그 외 빈 목록 |
 | `project`, `projects` | 대상 `PROJECT READ` |
 | `Project.members`, `Project.applicationForm` | parent Project별 `PROJECT READ` 재확인 |
 | `ProjectMember.application` | `PROJECT_APPLICATION READ`, 거부 대상은 `null` |
+| `RecruitingSeason.management` | Recruitment `READ`, 그 외 `null` |
+| `RecruitingRound.management` | 해당 season의 Recruitment `READ`, 그 외 `null` |
+| `RecruitingApplication.private` | 지원자 본인 또는 올바른 credential, 그 외 `null` |
+| `RecruitingApplication.review` | Recruitment 운영자 또는 해당 round 평가자, 그 외 `null` |
 
-Project가 canonical `Member`를 반환해도 Member private field 정책은 바뀌지 않는다. Field 접근 범위 차이를
-`MemberSummary` 같은 별도 type으로 우회하지 않고 `Member` 소유 resolver에서 일관되게 판정한다.
+Project와 Recruiting이 canonical `MemberPublic`을 반환해도 Member private 정책은 바뀌지 않는다. Field 접근
+범위 차이를 `MemberSummary` 같은 별도 type으로 우회하지 않고 Member 소유 resolver에서 일관되게 판정한다.
 
 ## Partial Response와 Null Bubbling
 
@@ -131,7 +136,7 @@ GraphQL은 일부 field가 숨겨져도 sibling data를 유지할 수 있다.
     "member": {
       "memberId": "2",
       "name": "홍길동",
-      "email": null
+      "private": null
     }
   }
 }
@@ -139,8 +144,8 @@ GraphQL은 일부 field가 숨겨져도 sibling data를 유지할 수 있다.
 
 | SDL 계약 | resolver가 `null`을 반환할 때 |
 | --- | --- |
-| `email: String` | `email`만 `null`, sibling 유지 |
-| `email: String!` | 가장 가까운 nullable ancestor까지 null bubbling |
+| `private: MemberPrivate` | `private`만 `null`, sibling 유지 |
+| `private: MemberPrivate!` | 가장 가까운 nullable ancestor까지 null bubbling |
 | `[MemberChallenger!]!` | 목록 자체는 `null`일 수 없으므로 빈 목록 정책이 필요 |
 
 권한에 따라 숨길 수 있는 field는 nullable이어야 한다. Non-null 계약이 반드시 필요하면 field를 redaction하지 말고
@@ -149,7 +154,7 @@ parent object 진입 단계에서 전체 접근을 거부한다.
 정책별 응답 기준은 다음과 같다.
 
 - Root resource 권한 없음: `FORBIDDEN` error로 query field를 실패시킨다.
-- Member private scalar 권한 없음: error 없이 nullable `null`을 반환한다.
+- Member와 Recruiting 권한 그룹 접근 불가: error 없이 nullable `null`을 반환한다.
 - 존재 자체를 숨기는 relation: 문서화된 정책에 따라 `null` 또는 빈 목록을 반환한다.
 - mixed visibility batch: 허용된 parent 결과는 유지하고 거부된 ID는 downstream query에서 제외한다.
 
@@ -163,13 +168,14 @@ application permission usecase를 호출하는 방식을 우선한다.
 
 1. 인증되지 않은 요청은 private resolver와 domain usecase에 도달하지 않는다.
 2. Root 권한 거부 시 GraphQL error classification과 path가 계약에 맞는다.
-3. 공개 field는 유지되지만 같은 Member의 private field는 redaction된다.
+3. 공개 field는 유지되지만 같은 Member의 `private` 권한 그룹은 redaction된다.
 4. 본인은 private field와 nested relation을 조회할 수 있다.
 5. Mixed visibility batch에서 허용된 parent 결과가 유지된다.
 6. 권한 없는 ID가 downstream batch query에 전달되지 않는다.
 7. Authority snapshot과 nested data 조회가 parent마다 N+1로 실행되지 않는다.
 8. Nullable field 거부가 예상하지 않은 null bubbling을 만들지 않는다.
 9. Project를 통한 Member 조회가 Member private 권한으로 자동 승격되지 않는다.
+10. Recruiting `management`, `private`, `review`가 권한별로 부분 응답을 유지한다.
 
 ## 변경 체크리스트
 

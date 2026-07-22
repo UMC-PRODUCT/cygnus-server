@@ -2,9 +2,9 @@ package com.umc.product.recruiting.application.service.query;
 
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 import org.springframework.data.domain.Page;
@@ -76,30 +76,78 @@ public class RecruitingApplicationReviewQueryService implements SearchRecruiting
         Long applicationId,
         Long requesterMemberId
     ) {
-        RecruitingRound round = loadRoundPort.getById(roundId);
-        authorizeReview(round, requesterMemberId);
-        RecruitingApplication application = loadApplicationPort.getByIdWithDetails(applicationId);
-        if (!Objects.equals(application.getRound().getId(), roundId)
-            || application.getStatus() == com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus.DRAFT) {
+        if (!roundId.equals(loadApplicationPort.getRoundIdByApplicationId(applicationId))) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
         }
+        RecruitingApplicationDetailInfo detail = getDetails(Set.of(applicationId), requesterMemberId).get(applicationId);
+        if (detail == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
+        }
+        return detail;
+    }
+
+    @Override
+    public Map<Long, RecruitingApplicationDetailInfo> getDetails(
+        Set<Long> applicationIds,
+        Long requesterMemberId
+    ) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return Map.of();
+        }
+
+        List<RecruitingApplication> applications = loadApplicationPort.listByIdsWithDetails(applicationIds).stream()
+            .filter(application -> application.getStatus()
+                != com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus.DRAFT)
+            .toList();
+        applications.stream()
+            .map(RecruitingApplication::getRound)
+            .collect(java.util.stream.Collectors.toMap(
+                RecruitingRound::getId,
+                java.util.function.Function.identity(),
+                (left, right) -> left
+            ))
+            .values()
+            .forEach(round -> authorizeReview(round, requesterMemberId));
+
         Map<Long, Set<RecruitingEvaluatorStage>> stagesByApplication = stagesEvaluatedByRequester(
-            List.of(application),
+            applications,
             requesterMemberId
         );
-        Set<RecruitingEvaluatorStage> stages = stagesByApplication.getOrDefault(applicationId, Set.of());
-        FormResponseWithAnswersInfo response = application.isAnonymous()
-            ? getFormResponseUseCase.getResponseWithAnswersByAccessKey(application.getFormResponseAccessKey())
-            : getFormResponseUseCase.getResponseWithAnswers(application.getFormResponseId());
-        return RecruitingApplicationDetailInfo.builder()
-            .application(RecruitingApplicationSummaryInfo.from(
-                application,
-                stages.contains(RecruitingEvaluatorStage.DOCUMENT),
-                stages.contains(RecruitingEvaluatorStage.INTERVIEW)
-            ))
-            .formResponseId(response.id())
-            .answers(response.answers())
-            .build();
+        Set<Long> memberResponseIds = applications.stream()
+            .filter(application -> !application.isAnonymous())
+            .map(RecruitingApplication::getFormResponseId)
+            .collect(java.util.stream.Collectors.toSet());
+        Map<Long, String> anonymousAccessKeys = applications.stream()
+            .filter(RecruitingApplication::isAnonymous)
+            .collect(java.util.stream.Collectors.toMap(
+                RecruitingApplication::getFormResponseId,
+                RecruitingApplication::getFormResponseAccessKey
+            ));
+        Map<Long, FormResponseWithAnswersInfo> responsesById = new HashMap<>(
+            getFormResponseUseCase.findResponsesWithAnswers(memberResponseIds)
+        );
+        responsesById.putAll(
+            getFormResponseUseCase.findAnonymousResponsesWithAnswers(anonymousAccessKeys)
+        );
+
+        Map<Long, RecruitingApplicationDetailInfo> result = new LinkedHashMap<>();
+        for (RecruitingApplication application : applications) {
+            FormResponseWithAnswersInfo response = responsesById.get(application.getFormResponseId());
+            if (response == null) {
+                continue;
+            }
+            Set<RecruitingEvaluatorStage> stages = stagesByApplication.getOrDefault(application.getId(), Set.of());
+            result.put(application.getId(), RecruitingApplicationDetailInfo.builder()
+                .application(RecruitingApplicationSummaryInfo.from(
+                    application,
+                    stages.contains(RecruitingEvaluatorStage.DOCUMENT),
+                    stages.contains(RecruitingEvaluatorStage.INTERVIEW)
+                ))
+                .formResponseId(response.id())
+                .answers(response.answers())
+                .build());
+        }
+        return result;
     }
 
     private void authorizeReview(RecruitingRound round, Long requesterMemberId) {

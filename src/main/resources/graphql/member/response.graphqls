@@ -1,52 +1,40 @@
 """Member 검색 결과 페이지."""
-type MemberPage {
-  content: [MemberSearchResult!]!
+type MemberSearchPage {
+  content: [MemberSearchEdge!]!
   pageInfo: PageInfo!
 }
 
-"""검색에 필요한 Member 정보와 Challenger projection을 함께 제공하는 응답."""
-type MemberSearchResult {
-  memberId: ID!
-  name: String
-  nickname: String
-  email: String
-  """Organization School을 조회하기 위한 식별자."""
-  schoolId: ID
-  """schoolId로 연결한 Organization 도메인의 표준 School 응답."""
-  school: School
-  profileImageLink: String
-  currentChallenger: MemberSearchChallenger
+"""Member resource와 검색 문맥에서만 계산되는 정보를 분리한 edge."""
+type MemberSearchEdge {
+  member: MemberPublic!
+  """운영자 검색 화면에 제공하는 마스킹된 이메일."""
+  maskedEmail: String
+  currentChallenger: MemberChallenger
   isAdminInActiveGisu: Boolean!
-  challengerRecords: [MemberSearchChallenger!]!
 }
 
-"""Member 검색 문맥에 맞게 변환한 Challenger 이력."""
-type MemberSearchChallenger {
-  challengerId: ID!
-  gisuId: ID!
-  """gisuId로 연결한 Organization 도메인의 표준 Gisu 응답."""
-  gisu: Gisu
-  generation: ID!
-  part: ChallengerPart!
-  challengerStatus: ChallengerStatus!
-}
-
-"""Member 도메인이 표준으로 제공하는 회원 응답."""
-type Member {
+"""Member 도메인이 표준으로 제공하는 공개 회원 응답."""
+type MemberPublic {
   memberId: ID!
   name: String
   nickname: String
-  email: String
   """Organization School을 조회하기 위한 식별자."""
   schoolId: ID
   """Member 저장 시점의 학교명 문자열. 최신 학교 정보는 school field를 사용한다."""
   schoolName: String
   profileImageLink: String
-  status: MemberStatus
   """schoolId로 연결한 Organization 도메인의 표준 School 응답."""
   school: School
   """Challenger 도메인 정보를 Member 조회 문맥에 맞게 변환한 활동 이력."""
   challengers: [MemberChallenger!]!
+  """본인에게만 제공하는 Member 비공개 정보."""
+  private: MemberPrivate
+}
+
+"""Member 본인에게만 제공하는 비공개 정보."""
+type MemberPrivate {
+  email: String!
+  status: MemberStatus!
 }
 
 """Member account lifecycle 상태."""

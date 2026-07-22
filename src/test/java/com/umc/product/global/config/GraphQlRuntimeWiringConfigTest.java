@@ -58,11 +58,11 @@ class GraphQlRuntimeWiringConfigTest {
         assertInputFieldNames((GraphQLInputObjectType) graphQlSource.schema().getType("PageInput"), "page", "size");
         assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("PageInfo"),
             "page", "size", "totalElements", "totalPages", "hasNext");
-        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("MemberPage"),
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("MemberSearchPage"),
             "content", "pageInfo");
         assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("ProjectPage"),
             "content", "pageInfo");
-        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("RecruitingApplicationReviewPage"),
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("RecruitingApplicationPage"),
             "content", "pageInfo");
     }
 
@@ -132,12 +132,13 @@ class GraphQlRuntimeWiringConfigTest {
 
         assertThat(graphQlSource.schema().getType("MemberSummary")).isNull();
         assertThat(graphQlSource.schema().getType("MemberBrief")).isNull();
-        assertThat(graphQlSource.schema().getType("Member")).isInstanceOf(GraphQLObjectType.class);
+        assertThat(graphQlSource.schema().getType("MemberPublic")).isInstanceOf(GraphQLObjectType.class);
+        assertThat(graphQlSource.schema().getType("MemberPrivate")).isInstanceOf(GraphQLObjectType.class);
 
         GraphQLObjectType project = (GraphQLObjectType) graphQlSource.schema().getType("Project");
-        assertThat(typeName(project.getFieldDefinition("productOwner").getType())).isEqualTo("Member");
+        assertThat(typeName(project.getFieldDefinition("productOwner").getType())).isEqualTo("MemberPublic");
         assertThat(typeName(project.getFieldDefinition("coProductOwners").getType()))
-            .isEqualTo("[Member!]!");
+            .isEqualTo("[MemberPublic!]!");
 
         GraphQLObjectType projectForm =
             (GraphQLObjectType) graphQlSource.schema().getType("ProjectApplicationForm");
@@ -173,7 +174,7 @@ class GraphQlRuntimeWiringConfigTest {
         GraphQLObjectType gisu = (GraphQLObjectType) graphQlSource.schema().getType("Gisu");
         GraphQLObjectType chapter = (GraphQLObjectType) graphQlSource.schema().getType("Chapter");
         GraphQLObjectType school = (GraphQLObjectType) graphQlSource.schema().getType("School");
-        GraphQLObjectType member = (GraphQLObjectType) graphQlSource.schema().getType("Member");
+        GraphQLObjectType member = (GraphQLObjectType) graphQlSource.schema().getType("MemberPublic");
 
         assertThat(typeName(gisu.getFieldDefinition("chapters").getType())).isEqualTo("[Chapter!]!");
         assertThat(typeName(gisu.getFieldDefinition("schools").getType())).isEqualTo("[School!]!");
@@ -197,7 +198,7 @@ class GraphQlRuntimeWiringConfigTest {
 
         assertThat(source)
             .doesNotContain("scalar Long", "enum ChallengerPart", "enum FormResponseStatus", "enum QuestionType",
-                "type Member {", "type Form {");
+                "type MemberPublic {", "type Form {");
     }
 
     @Test

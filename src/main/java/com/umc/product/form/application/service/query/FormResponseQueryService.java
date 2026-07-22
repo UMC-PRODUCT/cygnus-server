@@ -162,4 +162,35 @@ public class FormResponseQueryService implements GetFormResponseUseCase {
                 Function.identity()
             ));
     }
+
+    @Override
+    public Map<Long, FormResponseWithAnswersInfo> findAnonymousResponsesWithAnswers(
+        Map<Long, String> accessKeysByFormResponseId
+    ) {
+        if (accessKeysByFormResponseId == null || accessKeysByFormResponseId.isEmpty()) {
+            return Map.of();
+        }
+
+        Set<Long> formResponseIds = accessKeysByFormResponseId.keySet();
+        List<FormResponse> formResponses = loadFormResponsePort.listByIdsWithForm(formResponseIds).stream()
+            .filter(formResponse -> formResponse.getRespondentMemberId() == null)
+            .filter(formResponse -> {
+                String rawAccessKey = accessKeysByFormResponseId.get(formResponse.getId());
+                return rawAccessKey != null
+                    && secureTokenGenerator.sha256Hex(rawAccessKey).equals(formResponse.getResponseAccessKeyHash());
+            })
+            .toList();
+        Map<Long, List<AnswerInfo>> answersByFormResponseId =
+            getAnswerUseCase.listByFormResponseIds(formResponseIds);
+
+        return formResponses.stream()
+            .map(formResponse -> FormResponseWithAnswersInfo.from(
+                formResponse,
+                answersByFormResponseId.getOrDefault(formResponse.getId(), List.of())
+            ))
+            .collect(Collectors.toMap(
+                FormResponseWithAnswersInfo::id,
+                Function.identity()
+            ));
+    }
 }

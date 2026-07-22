@@ -13,8 +13,8 @@ flowchart TD
   Query --> Member["me / member / members / memberSearch"]
   Query --> Organization["gisu / chapter / school"]
   Query --> Project["project / projects"]
-  Query --> Recruiting["recruiting queries"]
-  Mutation --> RecruitingMutation["recruiting mutations"]
+  Query --> Recruiting["5 Recruiting resource queries"]
+  Mutation --> RecruitingMutation["25 Recruiting lifecycle commands"]
 ```
 
 ## Domain 관계
@@ -23,7 +23,9 @@ flowchart TD
 classDiagram
   direction LR
 
-  class Member
+  class MemberPublic
+  class MemberPrivate
+  class MemberSearchEdge
   class Gisu
   class Chapter
   class School
@@ -38,16 +40,43 @@ classDiagram
   class ProjectApplicant {
     <<snapshot>>
   }
+  class RecruitingSeason
+  class RecruitingSeasonManagement {
+    <<authorized group>>
+  }
+  class RecruitingRound
+  class RecruitingRoundManagement {
+    <<authorized group>>
+  }
+  class RecruitingApplication
+  class RecruitingApplicationPrivate {
+    <<applicant group>>
+  }
+  class RecruitingApplicationReview {
+    <<reviewer group>>
+  }
 
-  Member --> School : school
-  Member --> Gisu : challengers.gisu
+  MemberPublic --> MemberPrivate : private
+  MemberSearchEdge --> MemberPublic : member
+  MemberPublic --> School : school
+  MemberPublic --> Gisu : challengers.gisu
   Gisu --> Chapter : chapters
   Gisu --> School : schools
   Chapter --> School : schools
-  Project --> Member : owners / members
+  Project --> MemberPublic : owners / members
   Project --> ProjectApplicant : application snapshot
   Form ..> ProjectApplicationForm : converter
   Form ..> RecruitingApplicationFormStructure : filter + converter
+  RecruitingSeason --> RecruitingSeasonManagement : management
+  RecruitingSeason --> Gisu : gisu
+  RecruitingSeason --> School : school
+  RecruitingSeason --> RecruitingRound : rounds
+  RecruitingRound --> RecruitingRoundManagement : management
+  RecruitingApplication --> RecruitingRound : round
+  RecruitingApplication --> RecruitingApplicationPrivate : private
+  RecruitingApplication --> RecruitingApplicationReview : review
+  RecruitingRoundManagement --> MemberPublic : evaluators
+  RecruitingApplicationReview --> MemberPublic : applicant
 ```
 
 Provider resource를 그대로 노출할 때는 canonical type을 직접 참조한다. 소비 문맥에서 구조를

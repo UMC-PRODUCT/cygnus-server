@@ -94,6 +94,16 @@ public interface GetFormResponseUseCase {
     Map<Long, FormResponseWithAnswersInfo> findResponsesWithAnswers(Set<Long> formResponseIds);
 
     /**
+     * (익명 전용) 응답 ID와 raw access key를 함께 검증해 여러 응답의 메타와 답변을 조회한다.
+     * <p>
+     * access key가 일치하지 않거나 기명 응답인 경우 결과 map에서 제외한다. 호출 도메인이 자체 접근 권한을 먼저
+     * 검증한 뒤 익명 응답을 일괄 조회할 때 사용한다.
+     */
+    Map<Long, FormResponseWithAnswersInfo> findAnonymousResponsesWithAnswers(
+        Map<Long, String> accessKeysByFormResponseId
+    );
+
+    /**
      * (익명 전용) {@code responseAccessKey}(raw) 의 sha256 매칭으로 응답 단건 조회.
      * <p>
      * 매칭 없으면 Optional.empty. 기명 응답이 매칭되면 방어 목적으로 Optional.empty.

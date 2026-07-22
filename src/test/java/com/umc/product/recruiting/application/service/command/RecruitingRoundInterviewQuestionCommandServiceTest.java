@@ -7,6 +7,9 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,12 +17,14 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundInterviewQuestionCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DeactivateRecruitingRoundInterviewQuestionCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingInterviewQuestionsCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundInterviewQuestionCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
@@ -214,6 +219,33 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
         then(loadSubmittedEvaluationPort).shouldHaveNoInteractions();
     }
 
+    @Test
+    @DisplayName("공통 질문 전체 교체는 수정·생성·재활성화·누락 비활성화를 diff로 반영한다")
+    void replaceRoundQuestionsAppliesFullDiff() {
+        RecruitingRound round = authorizedRound(1L, 11L);
+        RecruitingRoundInterviewQuestion updated = question(round, 101L, "기존 질문", 0, true);
+        RecruitingRoundInterviewQuestion removed = question(round, 102L, "삭제 질문", 1, true);
+        RecruitingRoundInterviewQuestion reactivated = question(round, 103L, "비활성 질문", 2, false);
+        given(loadQuestionPort.listByRoundId(1L)).willReturn(List.of(updated, removed, reactivated));
+        given(loadSubmittedEvaluationPort.existsSubmittedByRoundId(1L)).willReturn(false);
+
+        sut.replaceRoundQuestions(new ReplaceRecruitingInterviewQuestionsCommand.Round(
+            1L,
+            99L,
+            List.of(
+                new ReplaceRecruitingInterviewQuestionsCommand.Entry(101L, "수정 질문", 2),
+                new ReplaceRecruitingInterviewQuestionsCommand.Entry(103L, "재활성 질문", 0),
+                new ReplaceRecruitingInterviewQuestionsCommand.Entry(null, "신규 질문", 1)
+            )
+        ));
+
+        assertThat(updated.getContent()).isEqualTo("수정 질문");
+        assertThat(removed.isActive()).isFalse();
+        assertThat(reactivated.isActive()).isTrue();
+        assertThat(reactivated.getContent()).isEqualTo("재활성 질문");
+        then(saveQuestionPort).should(times(4)).save(org.mockito.ArgumentMatchers.any());
+    }
+
     private RecruitingRound authorizedRound(Long roundId, Long seasonId) {
         RecruitingSeason season = mock(RecruitingSeason.class);
         RecruitingRound round = mock(RecruitingRound.class);
@@ -222,5 +254,20 @@ class RecruitingRoundInterviewQuestionCommandServiceTest {
         given(season.getId()).willReturn(seasonId);
         given(concurrencyLockService.lockRound(roundId)).willReturn(round);
         return round;
+    }
+
+    private RecruitingRoundInterviewQuestion question(
+        RecruitingRound round,
+        Long id,
+        String content,
+        int orderNo,
+        boolean active
+    ) {
+        RecruitingRoundInterviewQuestion question = RecruitingRoundInterviewQuestion.create(round, content, orderNo, 10L);
+        ReflectionTestUtils.setField(question, "id", id);
+        if (!active) {
+            question.deactivateBeforeFirstEvaluationSubmission(10L);
+        }
+        return question;
     }
 }

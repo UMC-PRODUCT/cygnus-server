@@ -3,6 +3,7 @@ package com.umc.product.recruiting.adapter.out.persistence;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -60,6 +61,11 @@ public class RecruitingApplicationPersistenceAdapter
     public RecruitingApplication getByIdWithDetails(Long id) {
         return findByIdWithDetails(id)
             .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));
+    }
+
+    @Override
+    public List<RecruitingApplication> listByIdsWithDetails(Set<Long> ids) {
+        return recruitingApplicationQueryRepository.findAllByIdsWithDetails(ids);
     }
 
     @Override

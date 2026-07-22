@@ -1,5 +1,7 @@
 package com.umc.product.project.adapter.in.graphql.dto;
 
+import java.time.Instant;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
@@ -12,7 +14,7 @@ public record ProjectMemberGraphQlResponse(
     ChallengerPart part,
     boolean leader,
     String description,
-    String decidedAt,
+    Instant decidedAt,
     ProjectMemberStatus status
 ) {
     public static ProjectMemberGraphQlResponse from(ProjectMemberInfo info) {
@@ -24,7 +26,7 @@ public record ProjectMemberGraphQlResponse(
             info.part(),
             info.isLeader(),
             info.description(),
-            info.decidedAt() == null ? null : info.decidedAt().toString(),
+            info.decidedAt(),
             info.status()
         );
     }

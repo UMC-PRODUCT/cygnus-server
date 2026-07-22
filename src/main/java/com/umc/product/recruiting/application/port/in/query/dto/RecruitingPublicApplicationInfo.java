@@ -6,6 +6,8 @@ import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 import lombok.Builder;
@@ -13,6 +15,10 @@ import lombok.Builder;
 @Builder
 public record RecruitingPublicApplicationInfo(
     Long applicationId,
+    Long roundId,
+    Long seasonId,
+    RecruitingApplicationStatus status,
+    RecruitingApplicationRegistrationStatus registrationStatus,
     String applicantName,
     String applicantEmail,
     ChallengerTrack firstChoice,

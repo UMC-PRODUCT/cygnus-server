@@ -1,6 +1,9 @@
 package com.umc.product.recruiting.application.service.query;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +30,15 @@ public class RecruitingRoundEvaluatorQueryService implements GetRecruitingRoundE
         return loadEvaluatorPort.listByRoundId(roundId).stream()
             .map(RecruitingRoundEvaluatorInfo::from)
             .toList();
+    }
+
+    @Override
+    public Map<Long, List<RecruitingRoundEvaluatorInfo>> listByRoundIds(Set<Long> roundIds) {
+        return loadEvaluatorPort.listByRoundIds(roundIds).entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> entry.getValue().stream().map(RecruitingRoundEvaluatorInfo::from).toList()
+            ));
     }
 
     @Override

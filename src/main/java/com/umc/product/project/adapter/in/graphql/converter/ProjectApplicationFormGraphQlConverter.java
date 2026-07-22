@@ -4,6 +4,7 @@ import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGrap
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGraphQlResponse.ProjectApplicationFormOptionGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGraphQlResponse.ProjectApplicationFormQuestionGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGraphQlResponse.ProjectApplicationFormSectionGraphQlResponse;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectFormSectionType;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 
 public final class ProjectApplicationFormGraphQlConverter {
@@ -34,7 +35,7 @@ public final class ProjectApplicationFormGraphQlConverter {
     private static ProjectApplicationFormSectionGraphQlResponse sectionFrom(ApplicationFormInfo.SectionInfo info) {
         return new ProjectApplicationFormSectionGraphQlResponse(
             info.sectionId(),
-            info.type(),
+            ProjectFormSectionType.from(info.type()),
             info.allowedParts(),
             info.title(),
             info.description(),

@@ -22,19 +22,35 @@ import graphql.introspection.Introspection;
 class RecruitingGraphQlSurfaceTest {
 
     private static final Set<String> REMOVED_FIELDS = Set.of(
-        "recruitingApplicationResult",
-        "findRecruitingInterviewScheduleCandidates",
-        "sendRecruitingInterviewGuide",
-        "assignRecruitingInterview",
-        "applicationNo",
-        "applicantIdentityKey",
-        "assignment",
-        "assignments",
-        "score",
-        "scores",
-        "saveRecruitingApplicationEvaluation",
-        "availabilityFormResponseId",
-        "csv"
+        "publicRecruitingRounds",
+        "recruitingApplicationByCredential",
+        "recruitingRoundGroups",
+        "recruitingRoundTitleAvailable",
+        "recruitingSeasonConfiguration",
+        "recruitingRoundEvaluators",
+        "recruitingRoundInterviewQuestions",
+        "recruitingApplicationInterviewQuestions",
+        "recruitingApplicationEvaluations",
+        "recruitingInterviewSchedule",
+        "recruitingStatusSummary",
+        "recruitingRoundApplications",
+        "recruitingRoundApplication"
+    );
+
+    private static final Set<String> REMOVED_TYPES = Set.of(
+        "Member",
+        "MemberSearchResult",
+        "MemberSearchChallenger",
+        "RecruitingPublicRoundGroup",
+        "RecruitingPublicRound",
+        "RecruitingSeasonSummary",
+        "RecruitingSeasonConfiguration",
+        "RecruitingRoundConfiguration",
+        "RecruitingApplicationReviewDetail",
+        "FormSectionType",
+        "PartQuotaStatus",
+        "MatchingType",
+        "MatchingRoundPhaseView"
     );
 
     @Test
@@ -51,43 +67,51 @@ class RecruitingGraphQlSurfaceTest {
             // Then
             assertThat(result.getErrors()).isEmpty();
             Map<String, Object> data = result.getData();
-            assertThat(fieldNames(data, "Query"))
-                .contains(
-                    "publicRecruitingRounds",
-                    "recruitingApplication",
-                    "recruitingRoundGroups",
-                    "recruitingRoundTitleAvailable",
-                    "recruitingSeasonConfiguration",
-                    "recruitingRoundEvaluators",
-                    "recruitingRoundInterviewQuestions",
-                    "recruitingApplicationInterviewQuestions",
-                    "recruitingApplicationEvaluations",
-                    "recruitingInterviewSchedule",
-                    "recruitingStatusSummary"
-                    , "recruitingRoundApplications"
-                    , "recruitingRoundApplication"
-                );
-            assertThat(fieldNames(data, "Mutation"))
-                .contains(
-                    "replaceRecruitingSeasonTrackQuotas",
-                    "updateRecruitingRound",
-                    "upsertRecruitingApplicationForm",
-                    "cloneRecruitingRound",
-                    "deleteRecruitingRound",
-                    "addRecruitingRoundEvaluator",
-                    "removeRecruitingRoundEvaluator",
-                    "createRecruitingRoundInterviewQuestion",
-                    "createRecruitingApplicationInterviewQuestion",
-                    "decideRecruitingFinal",
-                    "prepareRecruitingRegistration",
-                    "cancelRecruitingRegistration",
-                    "confirmRecruitingRegistration",
-                    "requestRecruitingInterviewAvailability",
-                    "submitRecruitingInterviewAvailability",
-                    "confirmRecruitingInterviewSchedule",
-                    "submitRecruitingApplicationEvaluation"
-                );
+            assertThat(recruitingFieldNames(data, "Query")).containsExactlyInAnyOrder(
+                "recruitingSeasons",
+                "recruitingSeason",
+                "recruitingRounds",
+                "recruitingRound",
+                "recruitingApplication"
+            );
+            assertThat(recruitingFieldNames(data, "Mutation")).containsExactlyInAnyOrder(
+                "createRecruitingSeason",
+                "updateRecruitingSeason",
+                "createRecruitingRound",
+                "updateRecruitingRound",
+                "changeRecruitingRoundStatus",
+                "cloneRecruitingRound",
+                "deleteRecruitingRound",
+                "upsertRecruitingApplicationForm",
+                "setRecruitingRoundEvaluators",
+                "replaceRecruitingRoundInterviewQuestions",
+                "replaceRecruitingApplicationInterviewQuestions",
+                "createRecruitingApplication",
+                "updateRecruitingApplication",
+                "submitRecruitingApplication",
+                "cancelRecruitingApplication",
+                "decideRecruitingDocument",
+                "decideRecruitingFinal",
+                "prepareRecruitingRegistration",
+                "cancelRecruitingRegistration",
+                "confirmRecruitingRegistration",
+                "skipRecruitingInterview",
+                "requestRecruitingInterviewAvailability",
+                "submitRecruitingInterviewAvailability",
+                "confirmRecruitingInterviewSchedule",
+                "submitRecruitingApplicationEvaluation"
+            );
             assertThat(allFieldNames(data)).doesNotContainAnyElementsOf(REMOVED_FIELDS);
+            assertThat(typeNames(data)).doesNotContainAnyElementsOf(REMOVED_TYPES);
+            assertThat(fieldType(data, "Mutation", "createRecruitingApplication"))
+                .isEqualTo("RecruitingApplicationCreatedPayload!");
+            assertThat(fieldType(data, "Mutation", "deleteRecruitingRound"))
+                .isEqualTo("RecruitingDeletedPayload!");
+            assertThat(resourceMutationReturnTypes(data)).containsOnly(
+                "RecruitingSeason!",
+                "RecruitingRound!",
+                "RecruitingApplication!"
+            );
         } finally {
             Introspection.enabledJvmWide(previousIntrospectionEnabled);
         }
@@ -108,9 +132,9 @@ class RecruitingGraphQlSurfaceTest {
             assertThat(result.getErrors()).isEmpty();
             Map<String, Object> data = result.getData();
             assertThat(typeKind(data, "Instant")).isEqualTo("SCALAR");
-            assertThat(fieldType(data, "RecruitingRoundConfiguration", "recruitableTracks"))
+            assertThat(fieldType(data, "RecruitingRound", "recruitableTracks"))
                 .isEqualTo("[ChallengerTrack!]!");
-            assertThat(fieldType(data, "RecruitingRoundConfiguration", "documentStartAt"))
+            assertThat(fieldType(data, "RecruitingRound", "documentStartAt"))
                 .isEqualTo("Instant!");
             assertThat(fieldType(data, "RecruitingApplication", "status"))
                 .isEqualTo("RecruitingApplicationStatus!");
@@ -118,6 +142,26 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("RecruitingApplicationRegistrationStatus!");
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
+            assertThat(fieldType(data, "RecruitingSeason", "management"))
+                .isEqualTo("RecruitingSeasonManagement");
+            assertThat(fieldType(data, "RecruitingRound", "management"))
+                .isEqualTo("RecruitingRoundManagement");
+            assertThat(fieldType(data, "RecruitingApplication", "private"))
+                .isEqualTo("RecruitingApplicationPrivate");
+            assertThat(fieldType(data, "RecruitingApplication", "review"))
+                .isEqualTo("RecruitingApplicationReview");
+            assertThat(fieldType(data, "Gisu", "startAt")).isEqualTo("Instant!");
+            assertThat(fieldType(data, "School", "createdAt")).isEqualTo("Instant!");
+            assertThat(fieldType(data, "Project", "createdAt")).isEqualTo("Instant!");
+            assertThat(fieldType(data, "ProjectApplication", "submittedAt")).isEqualTo("Instant");
+            assertThat(typeNames(data)).contains(
+                "MemberPublic",
+                "MemberPrivate",
+                "ProjectFormSectionType",
+                "ProjectPartQuotaStatus",
+                "ProjectMatchingType",
+                "ProjectMatchingRoundPhase"
+            );
             assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
             assertThat(enumValues(data, "ChallengerTrack"))
                 .containsExactlyInAnyOrder(
@@ -197,6 +241,27 @@ class RecruitingGraphQlSurfaceTest {
         return fields(type(data, typeName)).stream()
             .map(field -> (String)field.get("name"))
             .toList();
+    }
+
+    private static List<String> recruitingFieldNames(Map<String, Object> data, String typeName) {
+        return fieldNames(data, typeName).stream()
+            .filter(name -> name.toLowerCase(java.util.Locale.ROOT).contains("recruiting"))
+            .toList();
+    }
+
+    private static Set<String> typeNames(Map<String, Object> data) {
+        return types(data).stream()
+            .map(type -> (String)type.get("name"))
+            .collect(Collectors.toSet());
+    }
+
+    private static Set<String> resourceMutationReturnTypes(Map<String, Object> data) {
+        return fields(type(data, "Mutation")).stream()
+            .filter(field -> ((String)field.get("name")).contains("Recruiting"))
+            .filter(field -> !Set.of("createRecruitingApplication", "deleteRecruitingRound")
+                .contains(field.get("name")))
+            .map(field -> renderType(castMap(field.get("type"))))
+            .collect(Collectors.toSet());
     }
 
     private static String fieldType(Map<String, Object> data, String typeName, String fieldName) {

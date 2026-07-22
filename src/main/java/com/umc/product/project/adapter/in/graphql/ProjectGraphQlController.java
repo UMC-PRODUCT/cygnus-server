@@ -28,7 +28,7 @@ import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.application.port.in.query.dto.MemberPublicInfo;
 import com.umc.product.project.adapter.in.graphql.converter.ProjectApplicationFormGraphQlConverter;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationGraphQlResponse;
@@ -134,16 +134,16 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "Project", field = "productOwner")
-    public Map<ProjectGraphQlResponse, MemberInfo> productOwnerByProject(
+    public Map<ProjectGraphQlResponse, MemberPublicInfo> productOwnerByProject(
         List<ProjectGraphQlResponse> projects
     ) {
         Set<Long> memberIds = projects.stream()
             .map(ProjectGraphQlResponse::productOwnerMemberId)
             .filter(Objects::nonNull)
             .collect(Collectors.toSet());
-        Map<Long, MemberInfo> membersById = findMembers(memberIds);
+        Map<Long, MemberPublicInfo> membersById = findMembers(memberIds);
 
-        Map<ProjectGraphQlResponse, MemberInfo> result = new LinkedHashMap<>();
+        Map<ProjectGraphQlResponse, MemberPublicInfo> result = new LinkedHashMap<>();
         for (ProjectGraphQlResponse project : projects) {
             result.put(project, membersById.get(project.productOwnerMemberId()));
         }
@@ -151,7 +151,7 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "Project", field = "coProductOwners")
-    public Map<ProjectGraphQlResponse, List<MemberInfo>> coProductOwnersByProject(
+    public Map<ProjectGraphQlResponse, List<MemberPublicInfo>> coProductOwnersByProject(
         List<ProjectGraphQlResponse> projects
     ) {
         Set<Long> memberIds = projects.stream()
@@ -159,7 +159,7 @@ public class ProjectGraphQlController {
                 ? Stream.empty()
                 : project.coProductOwnerMemberIds().stream())
             .collect(Collectors.toSet());
-        Map<Long, MemberInfo> membersById = findMembers(memberIds);
+        Map<Long, MemberPublicInfo> membersById = findMembers(memberIds);
 
         return projects.stream()
             .collect(Collectors.toMap(
@@ -176,16 +176,16 @@ public class ProjectGraphQlController {
     }
 
     @BatchMapping(typeName = "ProjectMember", field = "member")
-    public Map<ProjectMemberGraphQlResponse, MemberInfo> memberByProjectMember(
+    public Map<ProjectMemberGraphQlResponse, MemberPublicInfo> memberByProjectMember(
         List<ProjectMemberGraphQlResponse> projectMembers
     ) {
         Set<Long> memberIds = projectMembers.stream()
             .map(ProjectMemberGraphQlResponse::memberId)
             .filter(Objects::nonNull)
             .collect(Collectors.toSet());
-        Map<Long, MemberInfo> membersById = findMembers(memberIds);
+        Map<Long, MemberPublicInfo> membersById = findMembers(memberIds);
 
-        Map<ProjectMemberGraphQlResponse, MemberInfo> result = new LinkedHashMap<>();
+        Map<ProjectMemberGraphQlResponse, MemberPublicInfo> result = new LinkedHashMap<>();
         for (ProjectMemberGraphQlResponse projectMember : projectMembers) {
             result.put(projectMember, membersById.get(projectMember.memberId()));
         }
@@ -263,7 +263,14 @@ public class ProjectGraphQlController {
             ));
     }
 
-    private Map<Long, MemberInfo> findMembers(Set<Long> memberIds) {
-        return memberIds.isEmpty() ? Map.of() : getMemberUseCase.findAllByIds(memberIds);
+    private Map<Long, MemberPublicInfo> findMembers(Set<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return Map.of();
+        }
+        return getMemberUseCase.findAllByIds(memberIds).entrySet().stream()
+            .collect(Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> MemberPublicInfo.from(entry.getValue())
+            ));
     }
 }

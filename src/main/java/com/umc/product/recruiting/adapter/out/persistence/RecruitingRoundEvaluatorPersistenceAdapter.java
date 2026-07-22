@@ -1,6 +1,9 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -31,6 +34,15 @@ public class RecruitingRoundEvaluatorPersistenceAdapter implements
     @Override
     public List<RecruitingRoundEvaluator> listByRoundId(Long roundId) {
         return repository.findAllByRound_IdOrderByMemberIdAscIdAsc(roundId);
+    }
+
+    @Override
+    public Map<Long, List<RecruitingRoundEvaluator>> listByRoundIds(Set<Long> roundIds) {
+        if (roundIds.isEmpty()) {
+            return Map.of();
+        }
+        return repository.findAllByRound_IdInOrderByRound_IdAscMemberIdAscIdAsc(roundIds).stream()
+            .collect(Collectors.groupingBy(RecruitingRoundEvaluator::getRoundId));
     }
 
     @Override

@@ -11,7 +11,7 @@
 | `shared/` | transport scalar와 pagination 같은 platform contract |
 | `challenger/` | Challenger 도메인이 제공하는 part, track, status enum |
 | `form/` | Form 도메인이 제공하는 표준 form 구조 |
-| `member/` | Member 조회 요청과 표준 Member 응답 |
+| `member/` | Member 조회 요청과 표준 `MemberPublic`, `MemberPrivate` 응답 |
 | `organization/` | Gisu, Chapter, School 조회 요청과 표준 응답 |
 | `project/` | Project 조회 요청과 Project 전용 응답 projection |
 | `recruiting/` | Recruiting 요청과 Recruiting 전용 응답 projection |
@@ -23,11 +23,11 @@
 ## 소유권 규칙
 
 1. 도메인이 표준으로 제공하는 resource는 제공 도메인의 output에 한 번만 선언한다.
-2. 소비 도메인이 의미를 바꾸지 않으면 제공 타입을 직접 참조한다. 예: `Project.productOwner: Member`.
+2. 소비 도메인이 의미를 바꾸지 않으면 제공 타입을 직접 참조한다. 예: `Project.productOwner: MemberPublic`.
 3. 소비 도메인이 필터링하거나 정책 필드를 결합하면 자체 타입과 converter를 둔다. 예:
    `ProjectApplicationForm`, `RecruitingApplicationFormStructure`.
 4. 과거 값을 보존해야 하면 소비 도메인이 snapshot 타입 또는 scalar field를 소유한다. 예:
-   `ProjectApplicant.schoolName`, `RecruitingSeasonSummary.chapterName`.
+   `ProjectApplicant.schoolName`, Recruiting 지원서의 applicant profile.
 5. 외래 도메인 aggregate 객체를 Java domain model에 직접 보관하지 않는다. GraphQL 관계는 ID와
    resolver/use case 조합으로 해석한다.
 

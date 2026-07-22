@@ -12,7 +12,7 @@ flowchart TB
   Challenger["challenger/<br/>part / track / status provider contract"]
   Form["form/<br/>Form provider contract"]
   Organization["organization/<br/>Gisu / Chapter / School provider contract"]
-  Member["member/<br/>Member provider contract"]
+  Member["member/<br/>MemberPublic / MemberPrivate provider contract"]
 
   subgraph ProjectIdl["project/"]
     Project["Project request / response<br/>Project provider contract"]
@@ -43,7 +43,7 @@ flowchart TB
   Project -. "Challenger enum 참조" .-> Challenger
   ProjectForm -. "Form + Project 정책" .-> Form
   Recruiting -. "Organization ID 참조" .-> Organization
-  Recruiting -. "Member ID 참조" .-> Member
+  Recruiting -. "MemberPublic 직접 참조" .-> Member
   Recruiting -. "Challenger enum 참조" .-> Challenger
   RecruitingForm -. "Form + track 필터" .-> Form
 ```
@@ -62,10 +62,10 @@ GraphQL type namespace를 공유한다.
 
 | 종류 | 조건 | 예시 |
 |---|---|---|
-| 직접 참조 | provider resource의 의미와 lifecycle을 그대로 사용 | `Project.productOwner: Member` |
-| ID 참조 | 객체 조립 없이 aggregate 식별자만 전달 | `Project.gisuId`, `RecruitingRoundEvaluator.evaluatorMemberId` |
+| 직접 참조 | provider resource의 의미와 lifecycle을 그대로 사용 | `Project.productOwner: MemberPublic` |
+| ID 참조 | 객체 조립 없이 aggregate 식별자만 전달 | `Project.gisuId`, `RecruitingApplicationForm.formId` |
 | consumer projection | 필터링하거나 consumer 정책을 결합 | `RecruitingApplicationFormStructure`, `ProjectApplicationForm` |
-| snapshot | 과거 시점 값을 consumer lifecycle로 보존 | `ProjectApplicant`, `RecruitingSeasonSummary.schoolName` |
+| snapshot | 과거 시점 값을 consumer lifecycle로 보존 | `ProjectApplicant`, 지원서의 applicant profile |
 
 ## 표준 Resource 관계
 
@@ -73,7 +73,9 @@ GraphQL type namespace를 공유한다.
 classDiagram
   direction LR
 
-  class Member
+  class MemberPublic
+  class MemberPrivate
+  class MemberSearchEdge
   class MemberChallenger
   class Gisu
   class Chapter
@@ -84,8 +86,10 @@ classDiagram
   class FormOption
   class Project
 
-  Member --> School : school
-  Member *-- MemberChallenger : challengers
+  MemberPublic --> MemberPrivate : private
+  MemberSearchEdge --> MemberPublic : member
+  MemberPublic --> School : school
+  MemberPublic *-- MemberChallenger : challengers
   MemberChallenger --> Gisu : gisu
   Gisu *-- Chapter : chapters
   Gisu *-- School : schools
@@ -94,12 +98,56 @@ classDiagram
   FormSection *-- FormQuestion : questions
   FormQuestion *-- FormOption : options
   FormOption --> FormSection : nextSectionId
-  Project --> Member : productOwner / coProductOwners
+  Project --> MemberPublic : productOwner / coProductOwners
 ```
 
-`Member`, `Gisu`, `Chapter`, `School`, `Form`은 provider가 표준으로 제공하는 canonical type이다.
+`MemberPublic`, `MemberPrivate`, `Gisu`, `Chapter`, `School`, `Form`은 provider가 표준으로 제공하는
+canonical type이다. `MemberPrivate`는 별도 회원 resource가 아니라 `MemberPublic.private`에서 본인에게만
+열리는 권한 그룹이다.
 `MemberSummary`, `MemberBrief`, `GisuChapter`처럼 조회 경로나 persistence 관계를 type 이름으로 복제하지
 않는다. 관계에 독립적인 속성과 lifecycle이 생길 때만 edge type을 도입한다.
+
+## Recruiting Resource 관계
+
+```mermaid
+classDiagram
+  direction LR
+
+  class RecruitingSeason
+  class RecruitingSeasonManagement {
+    <<authorized group>>
+  }
+  class RecruitingRound
+  class RecruitingRoundManagement {
+    <<authorized group>>
+  }
+  class RecruitingApplication
+  class RecruitingApplicationPrivate {
+    <<applicant group>>
+  }
+  class RecruitingApplicationReview {
+    <<reviewer group>>
+  }
+  class MemberPublic
+  class Gisu
+  class School
+
+  RecruitingSeason --> Gisu : gisu
+  RecruitingSeason --> School : school
+  RecruitingSeason --> RecruitingSeasonManagement : management
+  RecruitingSeason --> RecruitingRound : rounds
+  RecruitingRound --> RecruitingSeason : season
+  RecruitingRound --> RecruitingRoundManagement : management
+  RecruitingRoundManagement --> MemberPublic : evaluators
+  RecruitingApplication --> RecruitingRound : round
+  RecruitingApplication --> RecruitingApplicationPrivate : private
+  RecruitingApplication --> RecruitingApplicationReview : review
+  RecruitingApplicationReview --> MemberPublic : applicant
+```
+
+Recruiting은 다섯 root query로 canonical resource에 진입한다. 운영자·지원자·평가자마다 resource type을
+복제하지 않고 nullable 권한 그룹 field에서 접근을 판정한다. Round 목록의 evaluator, 지원서 review,
+질문처럼 반복되는 nested 관계는 `@BatchMapping`과 batch query use case로 해석한다.
 
 ## Form 소비 관계
 

@@ -269,6 +269,27 @@ class RecruitingSeasonCommandServiceTest {
         then(saveSeasonPort).should().save(season);
     }
 
+    @Test
+    @DisplayName("시즌 메모와 전체 쿼터를 하나의 command 경계에서 함께 변경한다")
+    void updateSeasonAndQuotas() {
+        RecruitingSeason season = season(10L);
+        given(loadSeasonPort.getById(10L)).willReturn(season);
+        given(loadRoundPort.listBySeasonId(10L)).willReturn(List.of());
+        given(loadQuotaPort.listBySeasonIdForUpdate(10L)).willReturn(List.of());
+
+        sut.updateSeasonAndQuotas(
+            UpdateRecruitingSeasonCommand.builder()
+                .seasonId(10L)
+                .memo("통합 수정")
+                .build(),
+            replaceCommand(RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 3))
+        );
+
+        assertThat(season.getMemo()).isEqualTo("통합 수정");
+        then(saveSeasonPort).should().save(season);
+        then(saveQuotaPort).should().saveAll(any());
+    }
+
     private ReplaceRecruitingSeasonTrackQuotasCommand replaceCommand(
         RecruitingSeasonTrackQuotaCommand... quotas
     ) {

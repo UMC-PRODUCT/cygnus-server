@@ -3,6 +3,7 @@ package com.umc.product.recruiting.application.port.out;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +28,8 @@ public interface LoadRecruitingApplicationPort {
     Optional<RecruitingApplication> findByIdWithDetails(Long id);
 
     RecruitingApplication getByIdWithDetails(Long id);
+
+    List<RecruitingApplication> listByIdsWithDetails(Set<Long> ids);
 
     RecruitingApplication getByIdWithDetailsForUpdate(Long id);
 

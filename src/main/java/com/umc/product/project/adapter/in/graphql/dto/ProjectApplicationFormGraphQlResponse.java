@@ -5,7 +5,6 @@ import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.form.domain.enums.QuestionType;
-import com.umc.product.project.domain.enums.FormSectionType;
 
 public record ProjectApplicationFormGraphQlResponse(
     Long projectId,
@@ -16,7 +15,7 @@ public record ProjectApplicationFormGraphQlResponse(
 ) {
     public record ProjectApplicationFormSectionGraphQlResponse(
         Long sectionId,
-        FormSectionType type,
+        ProjectFormSectionType type,
         Set<ChallengerPart> allowedParts,
         String title,
         String description,

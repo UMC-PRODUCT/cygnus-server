@@ -1,7 +1,10 @@
 package com.umc.product.recruiting.application.port.in.query;
 
+import java.util.Optional;
+
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationFormInfo;
 
 public interface GetRecruitingFormQueryUseCase {
 
@@ -10,6 +13,8 @@ public interface GetRecruitingFormQueryUseCase {
         ChallengerTrack firstChoice,
         ChallengerTrack secondChoice
     );
+
+    Optional<RecruitingApplicationFormInfo> findApplicationFormByRoundId(Long roundId);
 
     boolean isApplicationFormBelongsToSeason(Long applicationFormId, Long seasonId);
 

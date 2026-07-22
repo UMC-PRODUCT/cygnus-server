@@ -15,8 +15,6 @@ import com.umc.product.project.adapter.in.graphql.converter.ProjectApplicationFo
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationViewStatus;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
 
 public record ProjectApplicationGraphQlResponse(
@@ -25,8 +23,8 @@ public record ProjectApplicationGraphQlResponse(
     ChallengerPart applicantPart,
     ProjectMatchingRoundBriefGraphQlResponse matchingRound,
     ProjectApplicationViewStatus status,
-    String submittedAt,
-    String statusChangedAt,
+    Instant submittedAt,
+    Instant statusChangedAt,
     ProjectApplicationFormResponseGraphQlResponse formResponse
 ) {
     public static ProjectApplicationGraphQlResponse from(ProjectApplicationDetailInfo info) {
@@ -42,8 +40,8 @@ public record ProjectApplicationGraphQlResponse(
             info.applicantPart(),
             matchingRound(info),
             info.status(),
-            instantToString(info.submittedAt()),
-            instantToString(info.statusChangedAt()),
+            info.submittedAt(),
+            info.statusChangedAt(),
             ProjectApplicationFormResponseGraphQlResponse.from(
                 info.formResponse(),
                 info.formStructure(),
@@ -53,18 +51,14 @@ public record ProjectApplicationGraphQlResponse(
         );
     }
 
-    private static String instantToString(Instant instant) {
-        return instant == null ? null : instant.toString();
-    }
-
     private static ProjectMatchingRoundBriefGraphQlResponse matchingRound(ProjectApplicationDetailInfo info) {
         if (info.matchingRoundId() == null || info.matchingRoundType() == null || info.matchingRoundPhase() == null) {
             return null;
         }
         return new ProjectMatchingRoundBriefGraphQlResponse(
             info.matchingRoundId(),
-            info.matchingRoundType(),
-            MatchingRoundPhaseView.from(info.matchingRoundPhase())
+            ProjectMatchingType.from(info.matchingRoundType()),
+            ProjectMatchingRoundPhase.from(info.matchingRoundPhase())
         );
     }
 
@@ -79,8 +73,8 @@ public record ProjectApplicationGraphQlResponse(
 
     public record ProjectMatchingRoundBriefGraphQlResponse(
         Long id,
-        MatchingType type,
-        MatchingRoundPhaseView phase
+        ProjectMatchingType type,
+        ProjectMatchingRoundPhase phase
     ) {
     }
 
@@ -88,8 +82,8 @@ public record ProjectApplicationGraphQlResponse(
         Long formResponseId,
         Long formId,
         FormResponseStatus status,
-        String submittedAt,
-        String lastSavedAt,
+        Instant submittedAt,
+        Instant lastSavedAt,
         List<ProjectApplicationResponseSectionGraphQlResponse> sections
     ) {
         public static ProjectApplicationFormResponseGraphQlResponse from(
@@ -108,8 +102,8 @@ public record ProjectApplicationGraphQlResponse(
                 formResponse.id(),
                 formResponse.formId(),
                 formResponse.status(),
-                instantToString(formResponse.submittedAt()),
-                instantToString(formResponse.lastSavedAt()),
+                formResponse.submittedAt(),
+                formResponse.lastSavedAt(),
                 formStructure.sections().stream()
                     .map(section -> ProjectApplicationResponseSectionGraphQlResponse.from(section, answers, files))
                     .toList()
@@ -119,7 +113,7 @@ public record ProjectApplicationGraphQlResponse(
 
     public record ProjectApplicationResponseSectionGraphQlResponse(
         Long sectionId,
-        FormSectionType type,
+        ProjectFormSectionType type,
         Set<ChallengerPart> allowedParts,
         String title,
         String description,
@@ -133,7 +127,7 @@ public record ProjectApplicationGraphQlResponse(
         ) {
             return new ProjectApplicationResponseSectionGraphQlResponse(
                 info.sectionId(),
-                info.type(),
+                ProjectFormSectionType.from(info.type()),
                 info.allowedParts(),
                 info.title(),
                 info.description(),
@@ -185,7 +179,7 @@ public record ProjectApplicationGraphQlResponse(
         String textValue,
         List<ProjectApplicationSelectedOptionGraphQlResponse> selectedOptions,
         List<ProjectApplicationFileGraphQlResponse> files,
-        List<String> times
+        List<Instant> times
     ) {
         public static ProjectApplicationAnswerGraphQlResponse from(
             AnswerInfo info,
@@ -208,7 +202,7 @@ public record ProjectApplicationGraphQlResponse(
                 info.textValue(),
                 selectedOptions,
                 files,
-                info.times() == null ? List.of() : info.times().stream().map(Instant::toString).toList()
+                info.times() == null ? List.of() : List.copyOf(info.times())
             );
         }
     }

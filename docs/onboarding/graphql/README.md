@@ -5,9 +5,9 @@ UMC PRODUCT 서버의 GraphQL pilot 실행 방법과 IDL 관리 원칙을 설명
 ## 현재 범위
 
 - `organization`: Gisu, Chapter, School 조회
-- `member`: Member 조회·검색과 학교·Challenger nested field
-- `project`: Project 조회와 Member·지원서·지원 Form nested field
-- `recruiting`: 공개·운영 조회, 지원서 작성, 모집 운영 mutation
+- `member`: `MemberPublic` 조회·검색, 본인 `MemberPrivate`, 학교·Challenger nested field
+- `project`: Project 조회와 `MemberPublic`·지원서·지원 Form nested field
+- `recruiting`: canonical Season/Round/Application 조회와 lifecycle mutation
 
 상세 문서는 다음을 참고한다.
 
@@ -42,7 +42,7 @@ resource 의미를 바꾸지 않으면 해당 type을 직접 참조한다.
 
 ```graphql
 type Project {
-  productOwner: Member
+  productOwner: MemberPublic
 }
 ```
 

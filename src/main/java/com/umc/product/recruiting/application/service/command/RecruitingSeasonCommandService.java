@@ -87,6 +87,15 @@ public class RecruitingSeasonCommandService implements
     }
 
     @Override
+    public void updateSeasonAndQuotas(
+        UpdateRecruitingSeasonCommand seasonCommand,
+        ReplaceRecruitingSeasonTrackQuotasCommand quotaCommand
+    ) {
+        updateSeason(seasonCommand);
+        replaceQuotas(quotaCommand);
+    }
+
+    @Override
     public void replaceQuotas(ReplaceRecruitingSeasonTrackQuotasCommand command) {
         RecruitingSeason season = loadSeasonPort.getById(command.seasonId());
         validateUniqueTracks(command.quotas());

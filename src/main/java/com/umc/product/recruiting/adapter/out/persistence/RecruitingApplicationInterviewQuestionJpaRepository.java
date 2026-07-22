@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -14,4 +15,7 @@ public interface RecruitingApplicationInterviewQuestionJpaRepository
     List<RecruitingApplicationInterviewQuestion> findAllByApplication_IdAndActiveTrueOrderByOrderNoAscIdAsc(
         Long applicationId
     );
+
+    List<RecruitingApplicationInterviewQuestion>
+        findAllByApplication_IdInAndActiveTrueOrderByApplication_IdAscOrderNoAscIdAsc(Set<Long> applicationIds);
 }

@@ -244,8 +244,7 @@ class ProjectGraphQlControllerTest {
                       nickname
                       name
                       schoolName
-                      email
-                      status
+                      private { email status }
                     }
                     coProductOwners {
                       memberId
@@ -269,8 +268,7 @@ class ProjectGraphQlControllerTest {
             .path("project.productOwner.nickname").entity(String.class).isEqualTo("nick100")
             .path("project.productOwner.name").entity(String.class).isEqualTo("member100")
             .path("project.productOwner.schoolName").entity(String.class).isEqualTo("중앙대학교")
-            .path("project.productOwner.email").valueIsNull()
-            .path("project.productOwner.status").valueIsNull()
+            .path("project.productOwner.private").valueIsNull()
             .path("project.coProductOwners[0].memberId").entity(String.class).isEqualTo("101")
             .path("project.coProductOwners[0].nickname").entity(String.class).isEqualTo("nick101")
             .path("project.coProductOwners[0].name").entity(String.class).isEqualTo("member101")
@@ -298,8 +296,7 @@ class ProjectGraphQlControllerTest {
                   project(id: 42) {
                     productOwner {
                       memberId
-                      email
-                      status
+                      private { email status }
                       school { id }
                       challengers { challengerId }
                     }
@@ -308,8 +305,7 @@ class ProjectGraphQlControllerTest {
                 """)
             .execute()
             .path("project.productOwner.memberId").entity(String.class).isEqualTo("100")
-            .path("project.productOwner.email").valueIsNull()
-            .path("project.productOwner.status").valueIsNull()
+            .path("project.productOwner.private").valueIsNull()
             .path("project.productOwner.school").valueIsNull()
             .path("project.productOwner.challengers").entityList(Object.class).hasSize(0);
 

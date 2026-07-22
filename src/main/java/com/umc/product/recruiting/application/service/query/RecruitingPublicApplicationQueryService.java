@@ -51,6 +51,10 @@ public class RecruitingPublicApplicationQueryService implements GetAnonymousRecr
         RecruitingPublicResultStatus finalResult = resolveFinalResult(application.getStatus(), round, now);
         return RecruitingPublicApplicationInfo.builder()
             .applicationId(application.getId())
+            .roundId(round.getId())
+            .seasonId(round.getSeason().getId())
+            .status(application.getStatus())
+            .registrationStatus(application.getRegistrationStatus())
             .applicantName(application.getApplicantName())
             .applicantEmail(application.getApplicantEmail())
             .firstChoice(application.getFirstChoice())

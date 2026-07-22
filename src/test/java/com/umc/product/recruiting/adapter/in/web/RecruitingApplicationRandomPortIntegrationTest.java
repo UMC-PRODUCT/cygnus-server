@@ -45,11 +45,14 @@ import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingResourceUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationResourceInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationCommandService;
 import com.umc.product.recruiting.application.service.query.RecruitingPublicApplicationQueryService;
 import com.umc.product.recruiting.application.service.query.RecruitingSeasonQueryService;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 import com.umc.product.storage.application.port.out.StoragePort;
@@ -106,6 +109,9 @@ class RecruitingApplicationRandomPortIntegrationTest {
 
     @MockitoBean
     RecruitingPublicApplicationQueryService recruitingPublicApplicationQueryService;
+
+    @MockitoBean
+    GetRecruitingResourceUseCase getRecruitingResourceUseCase;
 
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
@@ -172,6 +178,7 @@ class RecruitingApplicationRandomPortIntegrationTest {
         given(recruitingSeasonQueryService.searchPublicRounds(any())).willReturn(List.of());
         given(applicationCommandService.createDraft(argThat(command -> MEMBER_ID.equals(command.applicantMemberId()))))
             .willReturn(createdInfo());
+        given(getRecruitingResourceUseCase.getApplication(900L, MEMBER_ID)).willReturn(applicationInfo());
 
         ResponseEntity<String> queryResponse = post(
             "/graphql",
@@ -186,19 +193,19 @@ class RecruitingApplicationRandomPortIntegrationTest {
 
         assertThat(queryResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(objectMapper.readTree(queryResponse.getBody()).path("data")
-            .path("publicRecruitingRounds").isArray()).isTrue();
+            .path("recruitingRounds").isArray()).isTrue();
         JsonNode created = objectMapper.readTree(mutationResponse.getBody()).path("data")
-            .path("createRecruitingApplicationDraft");
-        assertThat(created.path("applicationId").asLong()).isEqualTo(900L);
-        assertThat(created.path("applicationKey").asText()).isEqualTo(APPLICATION_KEY);
-        assertThat(created.path("status").asText()).isEqualTo("DRAFT");
+            .path("createRecruitingApplication");
+        assertThat(created.path("application").path("id").asLong()).isEqualTo(900L);
+        assertThat(created.path("application").path("status").asText()).isEqualTo("DRAFT");
+        assertThat(created.path("credential").isNull()).isTrue();
         recordTranscript("graphql-query", queryResponse);
         recordTranscript("graphql-authenticated-mutation", mutationResponse);
     }
 
     @Test
-    @DisplayName("실제 GraphQL HTTP에서 비로그인 mutation을 거부한다")
-    void 실제_GraphQL_HTTP_비로그인_mutation_거부() throws JsonProcessingException {
+    @DisplayName("실제 GraphQL HTTP에서 비로그인 mutation은 개인정보 동의가 없으면 거부한다")
+    void 실제_GraphQL_HTTP_비로그인_mutation_개인정보_동의_거부() throws JsonProcessingException {
         ResponseEntity<String> response = post(
             "/graphql",
             RecruitingHttpTestPayloads.graphQlMutation(objectMapper, PROBE_EMAIL),
@@ -208,7 +215,7 @@ class RecruitingApplicationRandomPortIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode body = objectMapper.readTree(response.getBody());
         assertThat(body.path("errors").isArray()).isTrue();
-        assertThat(body.path("data").hasNonNull("createRecruitingApplicationDraft")).isFalse();
+        assertThat(body.path("data").hasNonNull("createRecruitingApplication")).isFalse();
         then(applicationCommandService).shouldHaveNoInteractions();
         recordTranscript("graphql-unauthenticated-mutation", response);
     }
@@ -280,13 +287,11 @@ class RecruitingApplicationRandomPortIntegrationTest {
             .willReturn(publicApplicationInfo());
         String graphQlBody = objectMapper.writeValueAsString(Map.of("query", """
             query {
-              recruitingApplicationByCredential(input: {
-                email: "%s",
-                applicationKey: "%s"
-              }) {
-                applicationId
-                documentResult
-                finalResult
+              recruitingApplication(access: {credential: {
+                email: "%s", applicationKey: "%s"
+              }}) {
+                id
+                private { documentResult finalResult }
               }
             }
             """.formatted(PROBE_EMAIL, APPLICATION_KEY)));
@@ -296,10 +301,10 @@ class RecruitingApplicationRandomPortIntegrationTest {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode result = objectMapper.readTree(response.getBody())
             .path("data")
-            .path("recruitingApplicationByCredential");
-        assertThat(result.path("applicationId").asText()).isEqualTo("900");
-        assertThat(result.path("documentResult").asText()).isEqualTo("PENDING");
-        assertThat(result.path("finalResult").asText()).isEqualTo("PENDING");
+            .path("recruitingApplication");
+        assertThat(result.path("id").asText()).isEqualTo("900");
+        assertThat(result.path("private").path("documentResult").asText()).isEqualTo("PENDING");
+        assertThat(result.path("private").path("finalResult").asText()).isEqualTo("PENDING");
         recordTranscript("graphql-anonymous-credential", response);
     }
 
@@ -431,6 +436,10 @@ class RecruitingApplicationRandomPortIntegrationTest {
     private static RecruitingPublicApplicationInfo publicApplicationInfo() {
         return RecruitingPublicApplicationInfo.builder()
             .applicationId(900L)
+            .roundId(30L)
+            .seasonId(10L)
+            .status(RecruitingApplicationStatus.DRAFT)
+            .registrationStatus(RecruitingApplicationRegistrationStatus.NOT_READY)
             .applicantName("지원자")
             .applicantEmail(PROBE_EMAIL)
             .firstChoice(ChallengerTrack.PLAN)
@@ -440,6 +449,21 @@ class RecruitingApplicationRandomPortIntegrationTest {
             .finalResult(RecruitingPublicResultStatus.PENDING)
             .answers(List.of())
             .build();
+    }
+
+    private static RecruitingApplicationResourceInfo applicationInfo() {
+        return new RecruitingApplicationResourceInfo(
+            900L,
+            30L,
+            10L,
+            RecruitingApplicationStatus.DRAFT,
+            RecruitingApplicationRegistrationStatus.NOT_READY,
+            ChallengerTrack.PLAN,
+            null,
+            null,
+            true,
+            false
+        );
     }
 
 }

@@ -105,6 +105,15 @@ public class RecruitingRoundInterviewQuestion extends BaseEntity {
         this.lastModifiedByMemberId = lastModifiedByMemberId;
     }
 
+    public void replaceBeforeFirstEvaluationSubmission(
+        String content,
+        Integer orderNo,
+        Long lastModifiedByMemberId
+    ) {
+        updateBeforeFirstEvaluationSubmission(content, orderNo, lastModifiedByMemberId);
+        this.active = true;
+    }
+
     private static void validateTarget(RecruitingRound round) {
         if (round == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_QUESTION_INVALID_TARGET);

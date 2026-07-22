@@ -21,3 +21,6 @@ Gisu, Chapter, School의 표준 조회 operation과 canonical 응답을 제공�
 `GisuChapter`, `GisuSchool`, `ChapterSchool`은 persistence 관계나 조회 중간 모델일 수 있지만 공개
 resource가 아니다. GraphQL에서는 관계를 `Gisu`, `Chapter`, `School` field로 노출하며, 관계 자체에
 추가 속성이 생길 때만 별도 edge type을 도입한다.
+
+`Gisu.startAt/endAt`과 `School.createdAt/updatedAt`은 Java 원본과 동일한 GraphQL `Instant`이다.
+adapter에서 문자열로 변환하지 않고 runtime scalar coercing에 직접 전달한다.

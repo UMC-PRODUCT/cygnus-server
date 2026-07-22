@@ -1,11 +1,17 @@
 package com.umc.product.recruiting.application.service.command;
 
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingRoundEvaluatorUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundEvaluatorCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.SetRecruitingRoundEvaluatorsCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
@@ -53,5 +59,27 @@ public class RecruitingRoundEvaluatorCommandService implements ManageRecruitingR
             command.memberId()
         );
         saveEvaluatorPort.delete(evaluator);
+    }
+
+    @Override
+    public void setEvaluators(SetRecruitingRoundEvaluatorsCommand command) {
+        RecruitingRound round = loadRoundPort.getById(command.roundId());
+        authorizeManagementUseCase.authorizeSeasonManagement(
+            command.requesterMemberId(),
+            round.getSeason().getId()
+        );
+        Map<Long, RecruitingRoundEvaluator> currentByMemberId = loadEvaluatorPort.listByRoundId(command.roundId())
+            .stream()
+            .collect(Collectors.toMap(RecruitingRoundEvaluator::getMemberId, Function.identity()));
+        Set<Long> requestedMemberIds = command.memberIds();
+
+        currentByMemberId.entrySet().stream()
+            .filter(entry -> !requestedMemberIds.contains(entry.getKey()))
+            .map(Map.Entry::getValue)
+            .forEach(saveEvaluatorPort::delete);
+        requestedMemberIds.stream()
+            .filter(memberId -> !currentByMemberId.containsKey(memberId))
+            .map(memberId -> RecruitingRoundEvaluator.create(round, memberId))
+            .forEach(saveEvaluatorPort::save);
     }
 }

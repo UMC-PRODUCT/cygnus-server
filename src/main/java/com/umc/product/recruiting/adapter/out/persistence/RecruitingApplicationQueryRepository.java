@@ -8,6 +8,7 @@ import static com.umc.product.recruiting.domain.QRecruitingSeason.recruitingSeas
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -52,6 +53,19 @@ public class RecruitingApplicationQueryRepository {
             .where(recruitingApplication.id.eq(id))
             .fetchOne();
         return Optional.ofNullable(result);
+    }
+
+    public List<RecruitingApplication> findAllByIdsWithDetails(Set<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return queryFactory
+            .selectFrom(recruitingApplication)
+            .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm).fetchJoin()
+            .innerJoin(recruitingApplicationForm.round, recruitingRound).fetchJoin()
+            .innerJoin(recruitingRound.season, recruitingSeason).fetchJoin()
+            .where(recruitingApplication.id.in(ids))
+            .fetch();
     }
 
     public Optional<RecruitingApplication> findByIdForUpdate(Long id) {

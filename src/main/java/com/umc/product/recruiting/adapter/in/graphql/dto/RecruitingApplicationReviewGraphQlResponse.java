@@ -1,25 +1,21 @@
 package com.umc.product.recruiting.adapter.in.graphql.dto;
 
 import java.time.Instant;
+import java.util.List;
 
-import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationSummaryInfo;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
-import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 
 public record RecruitingApplicationReviewGraphQlResponse(
     Long applicationId,
     String applicantName,
-    String email,
+    String applicantEmail,
     Long applicantMemberId,
-    ChallengerTrack firstChoice,
-    ChallengerTrack secondChoice,
-    ChallengerTrack acceptedTrack,
-    RecruitingApplicationStatus status,
-    RecruitingApplicationRegistrationStatus registrationStatus,
     Instant submittedAt,
+    Long formResponseId,
     boolean documentEvaluatedByMe,
-    boolean interviewEvaluatedByMe
+    boolean interviewEvaluatedByMe,
+    List<RecruitingApplicationReviewDetailGraphQlResponse.Answer> answers
 ) {
 
     public static RecruitingApplicationReviewGraphQlResponse from(RecruitingApplicationSummaryInfo info) {
@@ -28,14 +24,28 @@ public record RecruitingApplicationReviewGraphQlResponse(
             info.applicantName(),
             info.email(),
             info.applicantMemberId(),
-            info.firstChoice(),
-            info.secondChoice(),
-            info.acceptedTrack(),
-            info.status(),
-            info.registrationStatus(),
             info.submittedAt(),
+            null,
             info.documentEvaluatedByMe(),
-            info.interviewEvaluatedByMe()
+            info.interviewEvaluatedByMe(),
+            List.of()
+        );
+    }
+
+    public static RecruitingApplicationReviewGraphQlResponse from(RecruitingApplicationDetailInfo info) {
+        RecruitingApplicationReviewDetailGraphQlResponse detail =
+            RecruitingApplicationReviewDetailGraphQlResponse.from(info);
+        RecruitingApplicationSummaryInfo application = info.application();
+        return new RecruitingApplicationReviewGraphQlResponse(
+            application.applicationId(),
+            application.applicantName(),
+            application.email(),
+            application.applicantMemberId(),
+            application.submittedAt(),
+            detail.formResponseId(),
+            application.documentEvaluatedByMe(),
+            application.interviewEvaluatedByMe(),
+            detail.answers()
         );
     }
 }

@@ -230,6 +230,28 @@ class FormResponseQueryServiceTest {
         assertThat(result).containsOnlyKeys(300L);
     }
 
+    @Test
+    @DisplayName("findAnonymousResponsesWithAnswers: access key가 일치하는 익명 응답만 batch 조회한다")
+    void findAnonymousResponsesWithAnswers_access_key_검증_batch() {
+        FormResponse valid = anonymousResponseWithId(300L);
+        FormResponse invalid = anonymousResponseWithId(301L);
+        given(loadFormResponsePort.listByIdsWithForm(java.util.Set.of(300L, 301L)))
+            .willReturn(List.of(valid, invalid));
+        given(secureTokenGenerator.sha256Hex("valid-key")).willReturn("hash-value");
+        given(secureTokenGenerator.sha256Hex("invalid-key")).willReturn("different-hash");
+        given(getAnswerUseCase.listByFormResponseIds(java.util.Set.of(300L, 301L)))
+            .willReturn(java.util.Map.of());
+
+        var result = sut.findAnonymousResponsesWithAnswers(java.util.Map.of(
+            300L, "valid-key",
+            301L, "invalid-key"
+        ));
+
+        assertThat(result).containsOnlyKeys(300L);
+        then(loadFormResponsePort).should().listByIdsWithForm(java.util.Set.of(300L, 301L));
+        then(getAnswerUseCase).should().listByFormResponseIds(java.util.Set.of(300L, 301L));
+    }
+
     private FormResponse anonymousDraftWithMember(Long memberId) {
         Form form = Form.createDraft("폼", 1L, false);
         ReflectionTestUtils.setField(form, "id", FORM_ID);

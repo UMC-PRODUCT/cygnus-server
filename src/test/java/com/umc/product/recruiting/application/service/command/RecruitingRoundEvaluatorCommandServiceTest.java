@@ -8,11 +8,16 @@ import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+
+import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -21,6 +26,7 @@ import com.umc.product.authorization.domain.exception.AuthorizationDomainExcepti
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundEvaluatorCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.SetRecruitingRoundEvaluatorsCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
@@ -120,5 +126,28 @@ class RecruitingRoundEvaluatorCommandServiceTest {
         ))).isInstanceOf(AuthorizationDomainException.class);
         then(loadEvaluatorPort).shouldHaveNoInteractions();
         then(saveEvaluatorPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("평가자 전체 교체는 누락된 평가자를 삭제하고 신규 평가자를 추가한다")
+    void setEvaluatorsDiffsCurrentAndRequestedMembers() {
+        RecruitingSeason season = mock(RecruitingSeason.class);
+        RecruitingRound round = mock(RecruitingRound.class);
+        RecruitingRoundEvaluator removed = mock(RecruitingRoundEvaluator.class);
+        RecruitingRoundEvaluator retained = mock(RecruitingRoundEvaluator.class);
+        given(round.getSeason()).willReturn(season);
+        given(season.getId()).willReturn(11L);
+        given(loadRoundPort.getById(1L)).willReturn(round);
+        given(removed.getMemberId()).willReturn(10L);
+        given(retained.getMemberId()).willReturn(20L);
+        given(loadEvaluatorPort.listByRoundId(1L)).willReturn(List.of(removed, retained));
+
+        sut.setEvaluators(new SetRecruitingRoundEvaluatorsCommand(1L, 99L, Set.of(20L, 30L)));
+
+        then(saveEvaluatorPort).should().delete(removed);
+        then(saveEvaluatorPort).should(never()).delete(retained);
+        ArgumentCaptor<RecruitingRoundEvaluator> captor = ArgumentCaptor.forClass(RecruitingRoundEvaluator.class);
+        then(saveEvaluatorPort).should(times(1)).save(captor.capture());
+        assertThat(captor.getValue().getMemberId()).isEqualTo(30L);
     }
 }

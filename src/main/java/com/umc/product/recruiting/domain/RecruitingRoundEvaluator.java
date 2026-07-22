@@ -56,6 +56,10 @@ public class RecruitingRoundEvaluator extends BaseEntity {
             .build();
     }
 
+    public Long getRoundId() {
+        return round.getId();
+    }
+
     private static void validate(RecruitingRound round, Long memberId) {
         if (round == null || memberId == null || memberId <= 0) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_EVALUATOR_INVALID);

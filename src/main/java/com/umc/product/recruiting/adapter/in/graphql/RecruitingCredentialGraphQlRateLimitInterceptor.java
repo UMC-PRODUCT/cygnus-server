@@ -31,9 +31,14 @@ import graphql.language.Field;
 import graphql.language.FragmentDefinition;
 import graphql.language.FragmentSpread;
 import graphql.language.InlineFragment;
+import graphql.language.NullValue;
+import graphql.language.ObjectField;
+import graphql.language.ObjectValue;
 import graphql.language.OperationDefinition;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
+import graphql.language.Value;
+import graphql.language.VariableReference;
 import graphql.parser.InvalidSyntaxException;
 import graphql.parser.Parser;
 import io.github.bucket4j.Bucket;
@@ -45,10 +50,11 @@ import reactor.core.publisher.Mono;
 public class RecruitingCredentialGraphQlRateLimitInterceptor implements WebGraphQlInterceptor {
 
     private static final Set<String> CREDENTIAL_FIELDS = Set.of(
-        "recruitingApplicationByCredential",
-        "updateAnonymousRecruitingApplication",
-        "submitAnonymousRecruitingApplication",
-        "cancelAnonymousRecruitingApplication"
+        "recruitingApplication",
+        "updateRecruitingApplication",
+        "submitRecruitingApplication",
+        "cancelRecruitingApplication",
+        "submitRecruitingInterviewAvailability"
     );
     private static final String POLICY_NAME = "recruiting-graphql-credential";
     private static final String ROUTE_NAME = "recruitingCredentialGraphQl";
@@ -94,7 +100,12 @@ public class RecruitingCredentialGraphQlRateLimitInterceptor implements WebGraph
             Map<String, FragmentDefinition> fragments = new HashMap<>();
             document.getDefinitionsOfType(FragmentDefinition.class)
                 .forEach(fragment -> fragments.put(fragment.getName(), fragment));
-            return countCredentialFields(operation.getSelectionSet(), fragments, new HashSet<>());
+            return countCredentialFields(
+                operation.getSelectionSet(),
+                fragments,
+                new HashSet<>(),
+                request.getVariables()
+            );
         } catch (InvalidSyntaxException ignored) {
             return 0;
         }
@@ -114,7 +125,8 @@ public class RecruitingCredentialGraphQlRateLimitInterceptor implements WebGraph
     private int countCredentialFields(
         SelectionSet selectionSet,
         Map<String, FragmentDefinition> fragments,
-        Set<String> visitedFragments
+        Set<String> visitedFragments,
+        Map<String, Object> variables
     ) {
         if (selectionSet == null) {
             return 0;
@@ -122,20 +134,51 @@ public class RecruitingCredentialGraphQlRateLimitInterceptor implements WebGraph
         int count = 0;
         for (Selection<?> selection : selectionSet.getSelections()) {
             if (selection instanceof Field field) {
-                if (CREDENTIAL_FIELDS.contains(field.getName())) {
+                if (CREDENTIAL_FIELDS.contains(field.getName()) && usesCredential(field, variables)) {
                     count++;
                 }
             } else if (selection instanceof InlineFragment inlineFragment) {
-                count += countCredentialFields(inlineFragment.getSelectionSet(), fragments, visitedFragments);
+                count += countCredentialFields(
+                    inlineFragment.getSelectionSet(),
+                    fragments,
+                    visitedFragments,
+                    variables
+                );
             } else if (selection instanceof FragmentSpread fragmentSpread
                 && visitedFragments.add(fragmentSpread.getName())) {
                 FragmentDefinition fragment = fragments.get(fragmentSpread.getName());
                 if (fragment != null) {
-                    count += countCredentialFields(fragment.getSelectionSet(), fragments, visitedFragments);
+                    count += countCredentialFields(
+                        fragment.getSelectionSet(),
+                        fragments,
+                        visitedFragments,
+                        variables
+                    );
                 }
             }
         }
         return count;
+    }
+
+    private boolean usesCredential(Field field, Map<String, Object> variables) {
+        return field.getArguments().stream()
+            .filter(argument -> "access".equals(argument.getName()))
+            .map(argument -> argument.getValue())
+            .anyMatch(value -> containsCredential(value, variables));
+    }
+
+    private boolean containsCredential(Value<?> value, Map<String, Object> variables) {
+        if (value instanceof VariableReference variableReference) {
+            Object variable = variables.get(variableReference.getName());
+            return variable instanceof Map<?, ?> map && map.get("credential") != null;
+        }
+        if (value instanceof ObjectValue objectValue) {
+            return objectValue.getObjectFields().stream()
+                .filter(field -> "credential".equals(field.getName()))
+                .map(ObjectField::getValue)
+                .anyMatch(credential -> !(credential instanceof NullValue));
+        }
+        return false;
     }
 
     private WebGraphQlResponse rateLimitedResponse(WebGraphQlRequest request, ConsumptionProbe probe) {

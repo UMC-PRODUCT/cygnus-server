@@ -6,7 +6,6 @@ import org.springframework.data.domain.Pageable;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
-import com.umc.product.project.domain.enums.PartQuotaStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 
 public record ProjectSearchGraphQlRequest(
@@ -15,7 +14,7 @@ public record ProjectSearchGraphQlRequest(
     Long chapterId,
     List<Long> productOwnerSchoolIds,
     List<ChallengerPart> parts,
-    PartQuotaStatus partQuotaStatus,
+    ProjectPartQuotaStatus partQuotaStatus,
     List<ProjectStatus> statuses
 ) {
     public SearchProjectQuery toQuery(Pageable pageable) {
@@ -29,7 +28,7 @@ public record ProjectSearchGraphQlRequest(
             .chapterId(chapterId)
             .productOwnerSchoolIds(productOwnerSchoolIds)
             .parts(parts)
-            .partQuotaStatus(partQuotaStatus)
+            .partQuotaStatus(partQuotaStatus == null ? null : partQuotaStatus.toDomain())
             .statuses(effectiveStatuses)
             .pageable(pageable)
             .build();

@@ -28,8 +28,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.security.JwtTokenProvider;
-import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
-import com.umc.product.recruiting.application.service.query.RecruitingQueryService;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingResourceUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationResourceInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.storage.application.port.out.StoragePort;
@@ -64,7 +64,7 @@ class RecruitingGraphQlRandomPortIntegrationTest {
     ObjectMapper objectMapper;
 
     @MockitoBean
-    RecruitingQueryService recruitingQueryService;
+    GetRecruitingResourceUseCase getRecruitingResourceUseCase;
 
     @MockitoBean
     JavaMailSender mailSender;
@@ -96,12 +96,12 @@ class RecruitingGraphQlRandomPortIntegrationTest {
     @Test
     @DisplayName("실제 GraphQL HTTP는 JWT CurrentMember로 로그인 지원서를 조회한다")
     void 실제_GraphQL_HTTP는_JWT_CurrentMember로_로그인_지원서를_조회한다() throws Exception {
-        given(recruitingQueryService.getById(20L, MEMBER_ID)).willReturn(applicationInfo());
+        given(getRecruitingResourceUseCase.getApplication(20L, MEMBER_ID)).willReturn(applicationInfo());
 
         ResponseEntity<String> response = post("""
             query {
-              recruitingApplication(applicationId: 20) {
-                applicationId
+              recruitingApplication(access: {applicationId: 20}) {
+                id
                 status
                 registrationStatus
                 acceptedTrack
@@ -113,7 +113,7 @@ class RecruitingGraphQlRandomPortIntegrationTest {
         JsonNode application = objectMapper.readTree(response.getBody())
             .path("data")
             .path("recruitingApplication");
-        assertThat(application.path("applicationId").asText()).isEqualTo("20");
+        assertThat(application.path("id").asText()).isEqualTo("20");
         assertThat(application.path("registrationStatus").asText()).isEqualTo("READY");
         assertThat(application.path("acceptedTrack").asText()).isEqualTo("DESIGN");
     }
@@ -123,7 +123,7 @@ class RecruitingGraphQlRandomPortIntegrationTest {
     void 실제_GraphQL_HTTP는_비로그인_지원서_조회를_FORBIDDEN으로_거부한다() throws Exception {
         ResponseEntity<String> response = post("""
             query {
-              recruitingApplication(applicationId: 20) { applicationId }
+              recruitingApplication(access: {applicationId: 20}) { id }
             }
             """, false);
 
@@ -131,7 +131,7 @@ class RecruitingGraphQlRandomPortIntegrationTest {
         JsonNode body = objectMapper.readTree(response.getBody());
         assertThat(body.path("errors").get(0).path("extensions").path("code").asText())
             .isEqualTo("COMMON-403");
-        assertThat(body.path("data").isNull()).isTrue();
+        assertThat(body.path("data").path("recruitingApplication").isNull()).isTrue();
     }
 
     private ResponseEntity<String> post(String query, boolean authenticated) throws Exception {
@@ -144,14 +144,18 @@ class RecruitingGraphQlRandomPortIntegrationTest {
         return restTemplate.exchange("/graphql", HttpMethod.POST, new HttpEntity<>(body, headers), String.class);
     }
 
-    private static RecruitingApplicationInfo applicationInfo() {
-        return new RecruitingApplicationInfo(
+    private static RecruitingApplicationResourceInfo applicationInfo() {
+        return new RecruitingApplicationResourceInfo(
             20L,
+            30L,
+            10L,
             RecruitingApplicationStatus.FINAL_PASSED,
             RecruitingApplicationRegistrationStatus.READY,
             ChallengerTrack.PLAN,
             ChallengerTrack.DESIGN,
-            ChallengerTrack.DESIGN
+            ChallengerTrack.DESIGN,
+            true,
+            false
         );
     }
 }

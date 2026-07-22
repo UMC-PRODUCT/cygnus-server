@@ -8,8 +8,8 @@ type Gisu {
   id: ID!
   """사람이 인식하는 기수 번호."""
   generation: ID!
-  startAt: String!
-  endAt: String!
+  startAt: Instant!
+  endAt: Instant!
   active: Boolean!
   """이 Gisu에 편성된 Chapter 목록."""
   chapters: [Chapter!]!
@@ -33,8 +33,8 @@ type School {
   logoImageUrl: String
   links: [SchoolLink!]!
   active: Boolean!
-  createdAt: String!
-  updatedAt: String!
+  createdAt: Instant!
+  updatedAt: Instant!
 }
 
 """School의 외부 채널 링크."""

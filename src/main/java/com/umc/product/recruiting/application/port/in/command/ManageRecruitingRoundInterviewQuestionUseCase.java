@@ -2,6 +2,7 @@ package com.umc.product.recruiting.application.port.in.command;
 
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundInterviewQuestionCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DeactivateRecruitingRoundInterviewQuestionCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingInterviewQuestionsCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundInterviewQuestionCommand;
 
 public interface ManageRecruitingRoundInterviewQuestionUseCase {
@@ -11,4 +12,6 @@ public interface ManageRecruitingRoundInterviewQuestionUseCase {
     void updateRoundQuestion(UpdateRecruitingRoundInterviewQuestionCommand command);
 
     void deactivateRoundQuestion(DeactivateRecruitingRoundInterviewQuestionCommand command);
+
+    void replaceRoundQuestions(ReplaceRecruitingInterviewQuestionsCommand.Round command);
 }

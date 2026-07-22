@@ -16,8 +16,11 @@ final class RecruitingHttpTestPayloads {
 
     static String graphQlMutation(ObjectMapper objectMapper, String email) throws JsonProcessingException {
         String document = """
-            mutation Create($input: CreateRecruitingApplicationDraftInput!) {
-              createRecruitingApplicationDraft(input: $input) { applicationId applicationKey status }
+            mutation Create($input: CreateRecruitingApplicationInput!) {
+              createRecruitingApplication(input: $input) {
+                application { id status }
+                credential { email applicationKey }
+              }
             }
             """;
         return objectMapper.writeValueAsString(new GraphQlRequest(
@@ -30,7 +33,7 @@ final class RecruitingHttpTestPayloads {
 
     static String graphQlQuery(ObjectMapper objectMapper) throws JsonProcessingException {
         return objectMapper.writeValueAsString(new GraphQlRequest(
-            "query { publicRecruitingRounds(input: {gisuId: 1, schoolIds: [2]}) { seasonId rounds { roundId } } }",
+            "query { recruitingRounds(filter: {gisuId: 1, schoolIds: [2]}) { id } }",
             objectMapper.createObjectNode()
         ));
     }

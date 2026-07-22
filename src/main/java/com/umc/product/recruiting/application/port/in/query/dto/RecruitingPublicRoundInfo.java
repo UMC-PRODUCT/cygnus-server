@@ -6,6 +6,7 @@ import java.util.List;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingRound;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 public record RecruitingPublicRoundInfo(
@@ -13,6 +14,7 @@ public record RecruitingPublicRoundInfo(
     String title,
     RecruitingRoundType type,
     Integer roundNo,
+    RecruitingRoundStatus status,
     List<ChallengerTrack> recruitableTracks,
     boolean secondChoiceEnabled,
     Instant documentStartAt,
@@ -38,6 +40,7 @@ public record RecruitingPublicRoundInfo(
             round.getTitle(),
             round.getType(),
             round.getRoundNo(),
+            round.getStatus(),
             List.copyOf(round.getRecruitableTracks()),
             round.isSecondChoiceEnabled(),
             round.getDocumentStartAt(),

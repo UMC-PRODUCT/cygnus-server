@@ -8,8 +8,8 @@ import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrgan
 public record GisuGraphQlResponse(
     Long id,
     Long generation,
-    String startAt,
-    String endAt,
+    Instant startAt,
+    Instant endAt,
     boolean active
 ) {
 
@@ -17,8 +17,8 @@ public record GisuGraphQlResponse(
         return new GisuGraphQlResponse(
             info.gisuId(),
             info.generation(),
-            format(info.startAt()),
-            format(info.endAt()),
+            info.startAt(),
+            info.endAt(),
             info.isActive()
         );
     }
@@ -27,13 +27,10 @@ public record GisuGraphQlResponse(
         return new GisuGraphQlResponse(
             info.gisuId(),
             info.generation(),
-            format(info.startAt()),
-            format(info.endAt()),
+            info.startAt(),
+            info.endAt(),
             info.isActive()
         );
     }
 
-    private static String format(Instant instant) {
-        return instant == null ? null : instant.toString();
-    }
 }

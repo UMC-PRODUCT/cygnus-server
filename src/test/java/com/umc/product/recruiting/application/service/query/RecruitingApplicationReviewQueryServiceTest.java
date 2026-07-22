@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -113,7 +114,8 @@ class RecruitingApplicationReviewQueryServiceTest {
     @Test
     @DisplayName("평가자나 Season 관리자가 아니면 지원서 상세를 조회할 수 없다")
     void rejectUnauthorizedDetailAccess() {
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadApplicationPort.getRoundIdByApplicationId(40L)).willReturn(20L);
+        given(loadApplicationPort.listByIdsWithDetails(Set.of(40L))).willReturn(List.of(application));
         given(getRoundEvaluatorUseCase.canEvaluate(20L, 99L)).willReturn(false);
         given(authorizeManagementUseCase.canManageSeason(99L, 10L)).willReturn(false);
 
@@ -124,18 +126,19 @@ class RecruitingApplicationReviewQueryServiceTest {
     @Test
     @DisplayName("지원서 상세는 Form 응답 답변을 결합하고 credential은 노출하지 않는다")
     void getMemberApplicationDetailWithAnswers() {
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadApplicationPort.getRoundIdByApplicationId(40L)).willReturn(20L);
         given(getRoundEvaluatorUseCase.canEvaluate(20L, 99L)).willReturn(true);
-        given(loadApplicationPort.getByIdWithDetails(40L)).willReturn(application);
+        given(loadApplicationPort.listByIdsWithDetails(Set.of(40L))).willReturn(List.of(application));
         given(loadEvaluationPort.listByApplicationIdsAndEvaluatorMemberId(List.of(40L), 99L))
             .willReturn(List.of());
-        given(getFormResponseUseCase.getResponseWithAnswers(30L))
-            .willReturn(FormResponseWithAnswersInfo.builder()
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(30L)))
+            .willReturn(Map.of(30L, FormResponseWithAnswersInfo.builder()
                 .id(30L)
                 .formId(100L)
                 .status(FormResponseStatus.SUBMITTED)
                 .answers(List.of())
-                .build());
+                .build()));
+        given(getFormResponseUseCase.findAnonymousResponsesWithAnswers(Map.of())).willReturn(Map.of());
 
         RecruitingApplicationDetailInfo result = sut.getDetail(20L, 40L, 99L);
 
