@@ -45,6 +45,11 @@ output "generator_ssh" {
   value       = "ssh ec2-user@${aws_instance.generator.public_ip}"
 }
 
+output "generator_public_ip" {
+  description = "k6 스크립트 업로드/원격 실행에 쓸 generator 공인 IP. loadtest/scripts/{sync-k6,run-k6}.sh 가 파싱한다."
+  value       = aws_instance.generator.public_ip
+}
+
 output "rds_endpoint" {
   description = "RDS endpoint. 앱과 postgres_exporter 가 같은 DB 를 바라보는지 확인할 때 사용한다."
   value       = aws_db_instance.this.endpoint
@@ -63,9 +68,10 @@ output "next_steps" {
        SUT 헬스 직접 확인: curl http://${aws_instance.sut.public_ip}:9090/actuator/health
     2) Grafana: http://${aws_instance.monitoring.public_ip}:${local.grafana_port}
        비밀번호: terraform output -raw grafana_admin_password
-    3) 생성기 접속 후 k6 실행:
-       ssh ec2-user@${aws_instance.generator.public_ip}
-       run-umc-k6 smoke 1
+    3) 로컬에서 시딩 + k6 실행 (권장):
+       loadtest/scripts/prepare-data.sh
+       loadtest/scripts/run-k6.sh smoke health-check 1 1m
+       # 생성기 직접 실행: ssh ec2-user@${aws_instance.generator.public_ip} 후 run-umc-k6 smoke health-check 1 1m
     4) 끝나면: terraform destroy
   EOT
 }

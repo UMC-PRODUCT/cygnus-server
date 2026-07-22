@@ -25,78 +25,14 @@ chmod +x /usr/libexec/docker/cli-plugins/docker-compose
 mkdir -p /opt/umc
 cd /opt/umc
 
-# registry_type=ecr 이면 SUT EC2 role 로 ECR 에 로그인한다.
-# generic private registry 는 SSM SecureString 의 JSON credential 로 로그인한다.
-if [ "${registry_type}" = "ecr" ]; then
-  aws --region "${region}" ecr get-login-password \
-    | docker login --username AWS --password-stdin "${registry_server}"
-elif [ "${registry_type}" = "generic" ]; then
-  if [ -z "${registry_credentials_ssm_parameter_name}" ]; then
-    echo "registry_credentials_ssm_parameter_name is required when registry_type=generic"
-    exit 1
-  fi
+# load-test 는 ECR 전용 — SUT EC2 IAM role 로 ECR 에 로그인한다.
+aws --region "${region}" ecr get-login-password \
+  | docker login --username AWS --password-stdin "${registry_server}"
 
-  # secret 예: {"username":"docker-user","password":"read-only-token"}
-  registry_json="$(aws --region "${region}" ssm get-parameter \
-    --name "${registry_credentials_ssm_parameter_name}" \
-    --with-decryption \
-    --query Parameter.Value \
-    --output text)"
-  registry_username="$(printf '%s' "$${registry_json}" | jq -r '.username // ""')"
-  registry_password="$(printf '%s' "$${registry_json}" | jq -r '.password // ""')"
-
-  if [ -z "$${registry_username}" ] || [ -z "$${registry_password}" ]; then
-    echo "Registry credential secret must contain username and password"
-    exit 1
-  fi
-
-  printf '%s' "$${registry_password}" | docker login "${registry_server}" -u "$${registry_username}" --password-stdin
-fi
-
-# 앱 런타임 env: SSM Parameter Store env + 부하테스트 오버라이드
-# app_env SSM path 는 외부 연동 secret 등 "앱 부팅에 필요한 값"만 받는다.
+# 앱 런타임 env: 로컬 load-test.env(base64) 디코딩 + 부하테스트 오버라이드
+# load-test.env 는 외부 연동 secret 등 "앱 부팅에 필요한 값"만 담는다.
 # DB/OTLP/Hikari/dev profile 은 부하 테스트 조건 고정을 위해 아래 OVERRIDE_ENV 에서 항상 덮어쓴다.
-if [ -n "${app_env_ssm_parameter_path}" ]; then
-  PARAMETERS_JSON="$(aws --region "${region}" ssm get-parameters-by-path \
-    --path "${app_env_ssm_parameter_path}" \
-    --with-decryption \
-    --recursive \
-    --output json)"
-
-  PARAMETER_COUNT="$(jq '.Parameters | length' <<< "$${PARAMETERS_JSON}")"
-  if [ "$${PARAMETER_COUNT}" = "0" ]; then
-    echo "No SSM parameters found under ${app_env_ssm_parameter_path}"
-    exit 1
-  fi
-
-  jq -r '
-    def invalid_key_items:
-      map(select((.env_key | test("^[A-Z_][A-Z0-9_]*$")) | not));
-    def multiline_value_items:
-      map(select((.Value | contains("\n")) or (.Value | contains("\r"))));
-    def duplicate_key_groups:
-      group_by(.env_key) | map(select(length > 1));
-
-    .Parameters
-    | map(. + { env_key: (.Name | split("/")[-1]) })
-    | invalid_key_items as $invalid_keys
-    | if ($invalid_keys | length) > 0 then
-        error("Invalid env key from SSM parameter name: " + $invalid_keys[0].Name)
-      else . end
-    | multiline_value_items as $multiline_values
-    | if ($multiline_values | length) > 0 then
-        error("Parameter value must be single-line for dotenv rendering: " + $multiline_values[0].Name)
-      else . end
-    | duplicate_key_groups as $duplicate_groups
-    | if ($duplicate_groups | length) > 0 then
-        error("Duplicate env key resolved from SSM parameters: " + $duplicate_groups[0][0].env_key)
-      else . end
-    | sort_by(.env_key)[]
-    | "\(.env_key)=\(.Value)"
-  ' <<< "$${PARAMETERS_JSON}" > app.env
-else
-  : > app.env
-fi
+printf '%s' "${app_env_content_b64}" | base64 -d > app.env
 
 cat >> app.env <<OVERRIDE_ENV
 SPRING_PROFILES_ACTIVE=dev

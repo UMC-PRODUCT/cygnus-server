@@ -8,3 +8,7 @@ terraform.tfvars
 .terraform.lock.hcl
 crash.log
 tfplan
+
+# load-test 전용 secret env — 커밋 금지 (example 은 커밋)
+load-test.env
+!load-test.env.example

@@ -62,27 +62,25 @@ resource "aws_instance" "sut" {
   private_ip                  = local.sut_private_ip
   vpc_security_group_ids      = [aws_security_group.sut.id]
   key_name                    = var.key_name
-  iam_instance_profile        = try(aws_iam_instance_profile.sut[0].name, null)
+  iam_instance_profile        = aws_iam_instance_profile.sut.name
   user_data_replace_on_change = true
 
-  # 앱 env/registry credential 은 SSM parameter 이름만 전달하고 EC2 role 로 런타임 조회한다.
+  # 앱 비밀 env 는 로컬 load-test.env 를 base64 로 넘겨 SUT 에서 app.env 로 디코딩한다. ECR 로그인은 SUT EC2 IAM role 로 수행한다.
   # DB/OTLP/Hikari/dev profile 값은 여기서 강제로 덮어써 매 테스트 조건을 고정한다.
   # 이렇게 해야 매 테스트가 같은 DB/관측/풀 크기 조건에서 시작한다.
   user_data = templatefile("${path.module}/user-data/sut.sh.tftpl", {
-    app_image                               = var.app_image
-    registry_type                           = var.registry_type
-    registry_server                         = local.resolved_registry_server
-    registry_credentials_ssm_parameter_name = var.registry_credentials_ssm_parameter_name
-    app_env_ssm_parameter_path              = var.app_env_ssm_parameter_path
-    region                                  = var.aws_region
-    db_host                                 = aws_db_instance.this.address
-    db_port                                 = aws_db_instance.this.port
-    db_name                                 = var.db_name
-    db_username                             = var.db_username
-    db_password                             = random_password.db.result
-    otel_host                               = local.monitoring_private_ip
-    otel_token                              = random_password.otel_token.result
-    hikari_pool                             = 4
+    app_image           = var.app_image
+    registry_server     = local.ecr_registry_server
+    app_env_content_b64 = base64encode(local.app_env_content)
+    region              = var.aws_region
+    db_host             = aws_db_instance.this.address
+    db_port             = aws_db_instance.this.port
+    db_name             = var.db_name
+    db_username         = var.db_username
+    db_password         = random_password.db.result
+    otel_host           = local.monitoring_private_ip
+    otel_token          = random_password.otel_token.result
+    hikari_pool         = 4
   })
 
   dynamic "credit_specification" {
@@ -108,12 +106,11 @@ resource "aws_instance" "generator" {
   key_name                    = var.key_name
   user_data_replace_on_change = true
 
-  # k6 스크립트는 repo 의 docs/guides/load-test/k6 에서 가져오고,
+  # k6 스크립트는 로컬 loadtest/scripts/sync-k6.sh 로 loadtest/k6 를 올리고(부팅 시 clone 하지 않음),
   # 실행 결과는 monitoring Prometheus remote-write endpoint 로 바로 보낸다.
   user_data = templatefile("${path.module}/user-data/generator.sh.tftpl", {
-    git_repo_url = var.git_repo_url
-    base_url     = "http://${aws_lb.sut.dns_name}"
-    prom_rw_url  = "http://${local.monitoring_private_ip}:${local.prometheus_port}/api/v1/write"
+    base_url    = "http://${aws_lb.sut.dns_name}"
+    prom_rw_url = "http://${local.monitoring_private_ip}:${local.prometheus_port}/api/v1/write"
   })
 
   dynamic "credit_specification" {

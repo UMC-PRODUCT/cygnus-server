@@ -42,21 +42,10 @@ locals {
   grafana_port    = 13000
   prometheus_port = 19090
 
-  normalized_app_env_ssm_parameter_path          = trim(var.app_env_ssm_parameter_path, "/")
-  normalized_registry_credentials_ssm_param_name = trim(var.registry_credentials_ssm_parameter_name, "/")
-  app_env_ssm_parameter_arns = var.app_env_ssm_parameter_path != "" ? [
-    "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.normalized_app_env_ssm_parameter_path}",
-    "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.normalized_app_env_ssm_parameter_path}/*",
-  ] : []
-  registry_credentials_ssm_parameter_arns = var.registry_credentials_ssm_parameter_name != "" ? [
-    "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter/${local.normalized_registry_credentials_ssm_param_name}",
-  ] : []
-  sut_ssm_parameter_arns = concat(local.app_env_ssm_parameter_arns, local.registry_credentials_ssm_parameter_arns)
+  # load-test 전용 비밀값은 로컬 load-test.env 파일에서 읽어 base64 로 SUT user-data 에 넘긴다.
+  # 이 값은 Terraform state 와 EC2 user-data 에 남는다 — destroy 전제의 ephemeral 환경이라 감수한다.
+  app_env_content = file(var.app_env_file_path)
 
-  # 개인 계정에서 ECR 을 쓰는 경우 registry_server 를 비워두면 현재 AWS 계정의 ECR registry 를 사용한다.
-  ecr_registry_server      = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
-  resolved_registry_server = var.registry_server != "" ? var.registry_server : local.ecr_registry_server
-
-  # SUT 가 SSM/KMS 또는 ECR 중 하나라도 런타임 AWS API 를 호출하면 instance profile 이 필요하다.
-  sut_needs_iam_role = length(local.sut_ssm_parameter_arns) > 0 || var.ssm_kms_key_arn != "" || var.registry_type == "ecr"
+  # SUT 는 현재 AWS 계정 ECR 에서 이미지를 pull 한다. SUT 는 ECR 로그인을 위해 항상 IAM role 이 필요하다.
+  ecr_registry_server = "${data.aws_caller_identity.current.account_id}.dkr.ecr.${var.aws_region}.amazonaws.com"
 }
