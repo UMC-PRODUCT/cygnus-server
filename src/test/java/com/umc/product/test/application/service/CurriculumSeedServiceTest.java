@@ -4,13 +4,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.curriculum.application.port.in.command.ManageCurriculumUseCase;
@@ -25,15 +35,6 @@ import com.umc.product.curriculum.application.port.in.command.dto.workbook.missi
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.test.application.port.in.command.dto.SeedCurriculumCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedCurriculumResult;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class CurriculumSeedServiceTest {
@@ -267,6 +268,31 @@ class CurriculumSeedServiceTest {
 
         // Then - WEB 1개만 생성
         assertThat(result.createdCurriculumIds()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("주차·워크북 bulk와 미션 실패는 단계별 카운터로 격리된다")
+    void 하위_단계별_실패_격리() {
+        given(manageCurriculumUseCase.create(any())).willReturn(100L, 101L, 102L);
+        given(manageWeeklyCurriculumUseCase.createBulk(any()))
+            .willThrow(new RuntimeException("weekly boom"))
+            .willReturn(List.of(201L), List.of(202L));
+        given(manageOriginalWorkbookUseCase.createBulk(any()))
+            .willThrow(new RuntimeException("workbook boom"))
+            .willReturn(List.of(302L));
+        given(manageOriginalWorkbookMissionUseCase.create(any()))
+            .willThrow(new RuntimeException("mission boom"));
+
+        SeedCurriculumResult result = sut.seed(new SeedCurriculumCommand(
+            9L, 1, 1,
+            List.of(ChallengerPart.WEB, ChallengerPart.IOS, ChallengerPart.SPRINGBOOT),
+            null
+        ));
+
+        assertThat(result.weeklyCurriculumFailed()).isOne();
+        assertThat(result.originalWorkbookFailed()).isOne();
+        assertThat(result.missionFailed()).isOne();
+        assertThat(result.createdOriginalWorkbookIds()).containsExactly(302L);
     }
 
     private void givenSequentialIds() {

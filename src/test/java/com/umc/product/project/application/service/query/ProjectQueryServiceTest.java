@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +55,102 @@ class ProjectQueryServiceTest {
 
     @InjectMocks
     ProjectQueryService sut;
+
+    @Test
+    void findAllByIds_빈값_누락_중복파일과_기본집계를_한번에_처리한다() {
+        assertThat(sut.findAllByIds(List.of())).isEmpty();
+        given(loadProjectPort.listByIds(List.of(999L))).willReturn(List.of());
+        assertThat(sut.findAllByIds(List.of(999L))).isEmpty();
+
+        Project first = createProject(1L, ProjectStatus.IN_PROGRESS);
+        Project second = createProject(2L, ProjectStatus.IN_PROGRESS);
+        ReflectionTestUtils.setField(first, "logoFileId", "logo-1");
+        ReflectionTestUtils.setField(second, "thumbnailFileId", "thumb-1");
+        ReflectionTestUtils.setField(second, "logoFileId", null);
+        given(loadProjectPort.listByIds(List.of(1L, 2L))).willReturn(List.of(first, second));
+        given(loadProjectMemberPort.listByProjectIdsAndPartGroupedByProjectId(
+            Set.of(1L, 2L), ChallengerPart.PLAN)).willReturn(Map.of(
+                1L, List.of(createProjectMember(10L), createProjectMember(20L))));
+        given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(Set.of(1L, 2L)))
+            .willReturn(Map.of(1L, List.of(createPartQuota(1L, ChallengerPart.WEB, 3))));
+        given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(Set.of(1L, 2L)))
+            .willReturn(Map.of(1L, Map.of()));
+        given(getFileUseCase.getFileLinks(List.of("thumb-1", "logo-1")))
+            .willReturn(Map.of("thumb-1", "thumb-url", "logo-1", "logo-url"));
+
+        Map<Long, ProjectInfo> result = sut.findAllByIds(List.of(1L, 2L));
+
+        assertThat(result.keySet()).containsExactly(1L, 2L);
+        assertThat(result.get(1L).coProductOwnerMemberIds()).containsExactly(20L);
+        assertThat(result.get(1L).partQuotas().get(0).currentCount()).isZero();
+        assertThat(result.get(1L).logoImageUrl()).isEqualTo("logo-url");
+    }
+
+    @Test
+    void 단건_파일은_logo만_있거나_모두_없어도_안전하게_조립한다() {
+        Project logoOnly = createProject(1L, ProjectStatus.IN_PROGRESS);
+        ReflectionTestUtils.setField(logoOnly, "thumbnailFileId", null);
+        ReflectionTestUtils.setField(logoOnly, "logoFileId", "logo-1");
+        given(loadProjectPort.getById(1L)).willReturn(logoOnly);
+        given(loadProjectMemberPort.listByProjectIdAndPart(1L, ChallengerPart.PLAN)).willReturn(List.of());
+        given(loadProjectPartQuotaPort.listByProjectId(1L)).willReturn(List.of());
+        given(getFileUseCase.getFileLinks(List.of("logo-1"))).willReturn(Map.of("logo-1", "logo-url"));
+
+        assertThat(sut.getById(1L).logoImageUrl()).isEqualTo("logo-url");
+
+        Project noFiles = createProject(2L, ProjectStatus.IN_PROGRESS);
+        ReflectionTestUtils.setField(noFiles, "thumbnailFileId", null);
+        ReflectionTestUtils.setField(noFiles, "logoFileId", null);
+        given(loadProjectPort.getById(2L)).willReturn(noFiles);
+        given(loadProjectMemberPort.listByProjectIdAndPart(2L, ChallengerPart.PLAN)).willReturn(List.of());
+        given(loadProjectPartQuotaPort.listByProjectId(2L)).willReturn(List.of());
+
+        assertThat(sut.getById(2L).thumbnailImageUrl()).isNull();
+    }
+
+    @Test
+    void batch_프로젝트에_파일이_전혀_없으면_storage를_호출하지_않는다() {
+        Project noFiles = createProject(3L, ProjectStatus.IN_PROGRESS);
+        ReflectionTestUtils.setField(noFiles, "thumbnailFileId", null);
+        ReflectionTestUtils.setField(noFiles, "logoFileId", null);
+        given(loadProjectPort.listByIds(List.of(3L))).willReturn(List.of(noFiles));
+        given(loadProjectMemberPort.listByProjectIdsAndPartGroupedByProjectId(
+            Set.of(3L), ChallengerPart.PLAN)).willReturn(Map.of());
+        given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(Set.of(3L))).willReturn(Map.of());
+        given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(Set.of(3L))).willReturn(Map.of());
+
+        assertThat(sut.findAllByIds(List.of(3L)).get(3L).thumbnailImageUrl()).isNull();
+        verify(getFileUseCase, never()).getFileLinks(any());
+    }
+
+    @Test
+    void 검색_scope의_모든_형태를_query로_변환한다() {
+        PageRequest pageable = PageRequest.of(0, 20);
+        SearchProjectQuery query = SearchProjectQuery.forAdmin(
+            1L, null, null, null, null, null, List.of(ProjectStatus.DRAFT), pageable);
+        Set<ProjectStatus> statuses = Set.of(ProjectStatus.DRAFT, ProjectStatus.IN_PROGRESS);
+        given(loadProjectPort.search(any(SearchProjectQuery.class)))
+            .willReturn(new PageImpl<>(List.of(), pageable, 0));
+        given(scopeResolver.resolveForPublicSearch(any(), any(), anySet())).willReturn(
+            new ProjectAccessScope.All(statuses),
+            new ProjectAccessScope.ChapterScoped(10L, statuses),
+            new ProjectAccessScope.OwnerOnly(20L, statuses),
+            new ProjectAccessScope.PublicOnly(),
+            new ProjectAccessScope.None(),
+            new ProjectAccessScope.WithOwnerIncluded(new ProjectAccessScope.All(statuses), 30L, statuses),
+            new ProjectAccessScope.WithOwnerIncluded(new ProjectAccessScope.OwnerOnly(20L, statuses), 30L, statuses),
+            new ProjectAccessScope.WithOwnerIncluded(new ProjectAccessScope.PublicOnly(), 30L, statuses),
+            new ProjectAccessScope.WithOwnerIncluded(new ProjectAccessScope.None(), 30L, statuses),
+            new ProjectAccessScope.WithOwnerIncluded(
+                new ProjectAccessScope.WithOwnerIncluded(new ProjectAccessScope.All(statuses), 31L, statuses),
+                30L,
+                statuses)
+        );
+
+        for (int i = 0; i < 10; i++) {
+            assertThat(sut.search(query, 99L)).isEmpty();
+        }
+    }
 
     @Test
     void getById_프로젝트_상세_조회_성공() {

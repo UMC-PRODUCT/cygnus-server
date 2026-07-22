@@ -7,6 +7,7 @@ import static org.mockito.BDDMockito.then;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,12 +18,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
 import com.umc.product.project.domain.Project;
 import com.umc.product.project.domain.ProjectApplication;
 import com.umc.product.project.domain.ProjectMember;
+import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 
@@ -34,6 +37,49 @@ class ProjectMemberQueryServiceTest {
 
     @Mock
     GetChallengerUseCase getChallengerUseCase;
+
+    private ProjectMemberQueryService sut() {
+        return new ProjectMemberQueryService(loadProjectMemberPort, getChallengerUseCase);
+    }
+
+    @Test
+    @DisplayName("랜덤 매칭 멤버는 챌린저 파트에 맞는 matching type으로 조회한다")
+    void 랜덤_매칭_멤버를_파트에_맞게_조회한다() {
+        ProjectMember matched = member(10L, project(1L), 100L, null);
+        given(getChallengerUseCase.findByMemberIdAndGisuId(100L, 1L))
+            .willReturn(Optional.of(ChallengerInfo.builder().part(ChallengerPart.WEB).build()));
+        given(loadProjectMemberPort.findActiveWithoutApplicationByMemberIdAndGisuIdAndMatchingType(
+            100L, 1L, MatchingType.PLAN_DEVELOPER)).willReturn(Optional.of(matched));
+
+        assertThat(sut().findRandomMatched(100L, 1L)).get()
+            .extracting(ProjectMemberInfo::projectMemberId).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("챌린저가 없거나 매칭 대상 파트가 아니면 랜덤 매칭 멤버는 없다")
+    void 랜덤_매칭_비대상은_빈_값을_반환한다() {
+        given(getChallengerUseCase.findByMemberIdAndGisuId(100L, 1L)).willReturn(Optional.empty());
+        given(getChallengerUseCase.findByMemberIdAndGisuId(101L, 1L))
+            .willReturn(Optional.of(ChallengerInfo.builder().part(ChallengerPart.PLAN).build()));
+
+        assertThat(sut().findRandomMatched(100L, 1L)).isEmpty();
+        assertThat(sut().findRandomMatched(101L, 1L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("프로젝트 멤버 단건·목록 조회 결과를 info로 변환한다")
+    void 프로젝트_멤버_단건과_목록을_조회한다() {
+        ProjectMember found = member(10L, project(1L), 100L, null);
+        given(loadProjectMemberPort.listByProjectId(1L)).willReturn(List.of(found));
+        given(loadProjectMemberPort.getByProjectIdAndMemberId(1L, 100L)).willReturn(found);
+        given(loadProjectMemberPort.findByProjectIdAndMemberId(1L, 100L)).willReturn(Optional.of(found));
+        given(loadProjectMemberPort.findByProjectIdAndMemberId(1L, 999L)).willReturn(Optional.empty());
+
+        assertThat(sut().listByProjectId(1L)).extracting(ProjectMemberInfo::projectMemberId).containsExactly(10L);
+        assertThat(sut().getByProjectIdAndMemberId(1L, 100L).projectMemberId()).isEqualTo(10L);
+        assertThat(sut().findByProjectIdAndMemberId(1L, 100L)).isPresent();
+        assertThat(sut().findByProjectIdAndMemberId(1L, 999L)).isEmpty();
+    }
 
     @Test
     @DisplayName("여러 프로젝트 멤버를 중복 제거해 조회하고 지원서 ID를 함께 매핑한다")

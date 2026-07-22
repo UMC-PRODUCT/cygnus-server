@@ -603,6 +603,28 @@ class ProjectApplicationQueryServiceTest {
             .isInstanceOf(ProjectDomainException.class);
     }
 
+    @Test
+    @DisplayName("searchByProjects는 프로젝트 미존재와 전부 권한 없음 결과를 빈 목록으로 고정한다")
+    void searchByProjects_미존재와_전부_권한없음() {
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(REQUESTER_ID)
+            .projectIds(List.of(1L, 2L))
+            .build();
+        given(loadProjectPort.listByIds(List.of(1L, 2L)))
+            .willReturn(List.of(), List.of(createProject(1L, "프로젝트A", null, 99L)));
+
+        assertThat(sut.searchByProjects(query)).containsOnlyKeys(1L, 2L)
+            .allSatisfy((key, applications) -> assertThat(applications).isEmpty());
+
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        given(loadProjectPort.listByIds(List.of(1L, 2L))).willReturn(List.of(project));
+        given(accessScopeResolver.resolveForProjectApplicantLists(eq(REQUESTER_ID), any()))
+            .willReturn(Map.of(1L, new ProjectApplicationAccessScope.None()));
+
+        assertThat(sut.searchByProjects(query)).allSatisfy((key, applications) ->
+            assertThat(applications).isEmpty());
+    }
+
     // ============================================================
     //                getDetail (지원서 단건 상세 조회) 테스트
     // ============================================================
@@ -1080,6 +1102,181 @@ class ProjectApplicationQueryServiceTest {
         verify(getFormResponseUseCase, never()).findResponseWithAnswers(any());
     }
 
+    @Test
+    @DisplayName("batchGetDetails는 null·빈 입력을 조회 없이 단축한다")
+    void batchGetDetails_빈_입력() {
+        assertThat(sut.batchGetDetails(null)).isEmpty();
+        assertThat(sut.batchGetDetails(List.of())).isEmpty();
+        verify(loadProjectApplicationPort, never()).batchGetByIdsWithDetails(any());
+    }
+
+    @Test
+    @DisplayName("batchGetDetails는 중복 application query의 첫 요청을 보존한다")
+    void batchGetDetails_중복_query는_첫_요청을_보존한다() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectApplication application = createApplicationWithFormResponse(
+            55L, project, createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST),
+            REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 123L);
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(application));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(REQUESTER_ID), GISU_ID))
+            .willReturn(Map.of(REQUESTER_ID, challengerInfoOf(REQUESTER_ID, ChallengerPart.DESIGN)));
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormIds(Set.of(33L))).willReturn(Map.of());
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(123L)))
+            .willReturn(Map.of(123L, response(123L, List.of())));
+        given(getFormUseCase.getFormWithStructureByQuestionIds(7L, Set.of()))
+            .willReturn(FormWithStructureInfo.builder().formId(7L).sections(List.of()).build());
+
+        Map<Long, ProjectApplicationDetailInfo> result = sut.batchGetDetails(List.of(
+            detailQuery(1L, 55L, REQUESTER_ID),
+            detailQuery(999L, 55L, REQUESTER_ID)
+        ));
+
+        assertThat(result).containsOnlyKeys(55L);
+    }
+
+    @Test
+    @DisplayName("batchGetDetails는 미요청 지원서나 다른 프로젝트 지원서를 not-found로 위장한다")
+    void batchGetDetails_프로젝트_정합성_위반() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectApplication unexpected = createApplicationWithFormResponse(
+            56L, project, createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST),
+            REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 123L);
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(unexpected));
+
+        assertThatThrownBy(() -> sut.batchGetDetails(List.of(detailQuery(1L, 55L))))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+
+        ProjectApplication wrongProject = createApplicationWithFormResponse(
+            55L, project, createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST),
+            REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 123L);
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(wrongProject));
+
+        assertThatThrownBy(() -> sut.batchGetDetails(List.of(detailQuery(2L, 55L))))
+            .isInstanceOf(ProjectDomainException.class);
+    }
+
+    @Test
+    @DisplayName("batchGetDetails는 타인의 진행 중 차수를 scope가 허용하지 않으면 거부한다")
+    void batchGetDetails_타인_진행중_차수_거부() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectMatchingRound ongoing = createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST);
+        ReflectionTestUtils.setField(ongoing, "endsAt", java.time.Instant.now().plusSeconds(3_600));
+        ProjectApplication application = createApplicationWithFormResponse(
+            55L, project, ongoing, 200L, ProjectApplicationStatus.SUBMITTED, 123L);
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(application));
+        given(accessScopeResolver.resolveForProjectApplicantLists(eq(REQUESTER_ID), any()))
+            .willReturn(Map.of(1L, new ProjectApplicationAccessScope.None()));
+
+        assertThatThrownBy(() -> sut.batchGetDetails(List.of(detailQuery(1L, 55L))))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue(
+                "baseCode", ProjectErrorCode.PROJECT_MATCHING_ROUND_APPLICANTS_NOT_VIEWABLE);
+    }
+
+    @Test
+    @DisplayName("batchGetDetails는 scope가 허용하지 않아도 종료된 차수의 타인 지원서를 조회한다")
+    void batchGetDetails_타인_종료된_차수_허용() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectApplication application = createApplicationWithFormResponse(
+            55L, project, createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST),
+            200L, ProjectApplicationStatus.SUBMITTED, 123L);
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(application));
+        given(accessScopeResolver.resolveForProjectApplicantLists(eq(REQUESTER_ID), any()))
+            .willReturn(Map.of(1L, new ProjectApplicationAccessScope.None()));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(200L), GISU_ID))
+            .willReturn(Map.of(200L, challengerInfoOf(200L, ChallengerPart.DESIGN)));
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormIds(Set.of(33L))).willReturn(Map.of());
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(123L)))
+            .willReturn(Map.of(123L, response(123L, List.of())));
+        given(getFormUseCase.getFormWithStructureByQuestionIds(7L, Set.of()))
+            .willReturn(FormWithStructureInfo.builder().formId(7L).sections(List.of()).build());
+
+        assertThat(sut.batchGetDetails(List.of(detailQuery(1L, 55L)))).containsOnlyKeys(55L);
+    }
+
+    @Test
+    @DisplayName("batchGetDetails는 지원자·응답 누락을 not-found로 통일한다")
+    void batchGetDetails_지원자와_응답_누락() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectApplication application = createApplicationWithFormResponse(
+            55L, project, createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST),
+            REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 123L);
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(application));
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormIds(Set.of(33L))).willReturn(Map.of());
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(123L)))
+            .willReturn(Map.of(123L, response(123L, List.of())), Map.of());
+        given(getFormUseCase.getFormWithStructureByQuestionIds(7L, Set.of()))
+            .willReturn(FormWithStructureInfo.builder().formId(7L).sections(List.of()).build());
+
+        assertThatThrownBy(() -> sut.batchGetDetails(List.of(detailQuery(1L, 55L))))
+            .isInstanceOf(ProjectDomainException.class);
+
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(REQUESTER_ID), GISU_ID))
+            .willReturn(Map.of(REQUESTER_ID, challengerInfoOf(REQUESTER_ID, ChallengerPart.DESIGN)));
+        assertThatThrownBy(() -> sut.batchGetDetails(List.of(detailQuery(1L, 55L))))
+            .isInstanceOf(ProjectDomainException.class);
+    }
+
+    @Test
+    @DisplayName("batchGetDetails는 답변 파일을 일괄 조회하고 누락 파일만 제외한다")
+    void batchGetDetails_파일_batch와_누락_필터() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectApplication application = createApplicationWithFormResponse(
+            55L, project, createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST),
+            REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 123L);
+        AnswerInfo fileAnswer = AnswerInfo.builder()
+            .id(1L).formResponseId(123L).questionId(10L).answeredAsType(QuestionType.FILE)
+            .selectedOptions(List.of()).fileIds(Set.of("file-1", "missing")).build();
+        AnswerInfo textAnswer = AnswerInfo.builder()
+            .id(2L).formResponseId(123L).questionId(11L).answeredAsType(QuestionType.SHORT_TEXT)
+            .selectedOptions(List.of()).fileIds(null).build();
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L))).willReturn(List.of(application));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(REQUESTER_ID), GISU_ID))
+            .willReturn(Map.of(REQUESTER_ID, challengerInfoOf(REQUESTER_ID, ChallengerPart.DESIGN)));
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormIds(Set.of(33L))).willReturn(Map.of());
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(123L)))
+            .willReturn(Map.of(123L, response(123L, List.of(fileAnswer, textAnswer))));
+        given(getFormUseCase.getFormWithStructureByQuestionIds(7L, Set.of(10L, 11L)))
+            .willReturn(FormWithStructureInfo.builder().formId(7L).sections(List.of()).build());
+        FileInfo file = new FileInfo("file-1", "포트폴리오.pdf", FileCategory.PORTFOLIO,
+            "application/pdf", 10L, "url", true, REQUESTER_ID, null);
+        given(getFileUseCase.findAllByIds(anyList())).willReturn(Map.of("file-1", file));
+
+        ProjectApplicationDetailInfo result = sut.batchGetDetails(List.of(detailQuery(1L, 55L))).get(55L);
+
+        assertThat(result.filesByFileId()).containsOnlyKeys("file-1");
+    }
+
+    @Test
+    @DisplayName("batchGetDetails 파일 분리는 응답이 누락된 지원서를 건너뛴 뒤 not-found로 통일한다")
+    void batchGetDetails_파일_분리중_응답_누락() {
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectMatchingRound round = createMatchingRound(7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST);
+        ProjectApplication missing = createApplicationWithFormResponse(
+            55L, project, round, REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 123L);
+        ProjectApplication present = createApplicationWithFormResponse(
+            56L, project, round, REQUESTER_ID, ProjectApplicationStatus.SUBMITTED, 124L);
+        AnswerInfo answer = AnswerInfo.builder()
+            .id(1L).formResponseId(124L).questionId(10L).answeredAsType(QuestionType.FILE)
+            .selectedOptions(List.of()).fileIds(Set.of("file-1")).build();
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L, 56L)))
+            .willReturn(List.of(missing, present));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(REQUESTER_ID), GISU_ID))
+            .willReturn(Map.of(REQUESTER_ID, challengerInfoOf(REQUESTER_ID, ChallengerPart.DESIGN)));
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormIds(Set.of(33L))).willReturn(Map.of());
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(123L, 124L)))
+            .willReturn(Map.of(124L, response(124L, List.of(answer))));
+        given(getFileUseCase.findAllByIds(List.of("file-1"))).willReturn(Map.of(
+            "file-1", new FileInfo("file-1", "file.pdf", FileCategory.PORTFOLIO,
+                "application/pdf", 10L, "url", true, REQUESTER_ID, null)));
+
+        assertThatThrownBy(() -> sut.batchGetDetails(List.of(
+            detailQuery(1L, 55L), detailQuery(1L, 56L))))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+    }
+
     // ============================================================
     //                      Helper Methods
     // ============================================================
@@ -1107,6 +1304,16 @@ class ProjectApplicationQueryServiceTest {
             .memberId(memberId)
             .gisuId(GISU_ID)
             .part(part)
+            .build();
+    }
+
+    private FormResponseWithAnswersInfo response(Long id, List<AnswerInfo> answers) {
+        return FormResponseWithAnswersInfo.builder()
+            .id(id)
+            .formId(7L)
+            .respondentMemberId(REQUESTER_ID)
+            .status(FormResponseStatus.SUBMITTED)
+            .answers(answers)
             .build();
     }
 

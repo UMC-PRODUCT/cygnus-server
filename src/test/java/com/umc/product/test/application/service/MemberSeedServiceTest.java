@@ -10,19 +10,23 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.umc.product.member.application.port.in.command.RegisterEmailMemberUseCase;
-import com.umc.product.member.application.port.in.command.dto.EmailRegisterMemberCommand;
-import com.umc.product.member.application.port.in.command.dto.TermConsents;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.test.application.port.in.command.dto.SeedMembersCommand;
-import com.umc.product.test.application.port.in.command.dto.SeedMembersResult;
 import java.util.List;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import com.umc.product.member.application.port.in.command.RegisterEmailMemberUseCase;
+import com.umc.product.member.application.port.in.command.dto.EmailRegisterMemberCommand;
+import com.umc.product.member.application.port.in.command.dto.TermConsents;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.test.application.port.in.command.dto.CreateSeedMemberCommand;
+import com.umc.product.test.application.port.in.command.dto.SeedMembersCommand;
+import com.umc.product.test.application.port.in.command.dto.SeedMembersResult;
 
 @ExtendWith(MockitoExtension.class)
 class MemberSeedServiceTest {
@@ -148,5 +152,31 @@ class MemberSeedServiceTest {
         // Then
         verify(dummyMemberFactory).nextEmailCommand(43L, consents);
         verify(dummyMemberFactory).nextEmailCommand(44L, consents);
+    }
+
+    @Test
+    @DisplayName("단건 멤버 생성은 공백 비밀번호를 기본값으로 치환하고 명시값은 보존한다")
+    void 단건_멤버_비밀번호_기본값() {
+        given(registerEmailMemberUseCase.register(any()))
+            .willReturn(1L, 2L, 3L);
+        ArgumentCaptor<EmailRegisterMemberCommand> captor =
+            ArgumentCaptor.forClass(EmailRegisterMemberCommand.class);
+
+        var nullPassword = sut.create(CreateSeedMemberCommand.of(
+            "이름", "닉네임", 10L, "one@example.com", null
+        ));
+        sut.create(CreateSeedMemberCommand.of(
+            "이름", "닉네임", 10L, "two@example.com", "  "
+        ));
+        sut.create(CreateSeedMemberCommand.of(
+            "이름", "닉네임", 10L, "three@example.com", "custom"
+        ));
+
+        verify(registerEmailMemberUseCase, times(3)).register(captor.capture());
+        assertThat(captor.getAllValues())
+            .extracting(EmailRegisterMemberCommand::rawPassword)
+            .containsExactly("Alpha!Pass2026", "Alpha!Pass2026", "custom");
+        assertThat(nullPassword.memberId()).isEqualTo(1L);
+        assertThat(nullPassword.email()).isEqualTo("one@example.com");
     }
 }

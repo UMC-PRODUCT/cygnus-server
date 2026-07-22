@@ -592,6 +592,91 @@ class ProjectMatchingRoundFinalizationCommandServiceTest {
             then(searchChallengerUseCase).should(never()).cursorSearch(any(), any(), anyInt());
             then(saveProjectMemberPort).should(never()).saveAll(any());
         }
+
+        @Test
+        void PLAN_DEVELOPER_3차에_진행중_프로젝트가_없으면_랜덤_배정을_종료한다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DEVELOPER, MatchingPhase.THIRD);
+            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
+            given(loadProjectPort.listByChapterIdAndStatus(1L, ProjectStatus.IN_PROGRESS)).willReturn(List.of());
+
+            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+
+            then(searchChallengerUseCase).should(never()).cursorSearch(any(), any(), anyInt());
+        }
+
+        @Test
+        void PLAN_DEVELOPER_3차_승인_예정자가_TO를_채우면_추가_랜덤_배정을_생략한다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DEVELOPER, MatchingPhase.THIRD);
+            Project project = projectWithId(PROJECT_ID);
+            ProjectApplication application = application(
+                201L, 21L, ProjectApplicationStatus.SUBMITTED, project, round);
+            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of(application));
+            given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), anyLong()))
+                .willReturn(Map.of(21L, challenger(21L, ChallengerPart.WEB)));
+            given(loadProjectPort.listByChapterIdAndStatus(1L, ProjectStatus.IN_PROGRESS))
+                .willReturn(List.of(project));
+            given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
+                .willReturn(Map.of(PROJECT_ID, List.of(
+                    partQuota(project, ChallengerPart.WEB, 1L),
+                    partQuota(project, ChallengerPart.DESIGN, 1L))));
+            given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(any())).willReturn(Map.of());
+
+            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+
+            then(searchChallengerUseCase).should(never()).cursorSearch(any(), any(), anyInt());
+            then(saveProjectMemberPort).should().saveAll(any());
+        }
+
+        @Test
+        void 개발자_후보의_파트에_남은_TO가_없으면_후보를_건너뛴다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DEVELOPER, MatchingPhase.THIRD);
+            Project project = projectWithId(PROJECT_ID);
+            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
+            given(loadProjectPort.listByChapterIdAndStatus(1L, ProjectStatus.IN_PROGRESS))
+                .willReturn(List.of(project));
+            given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
+                .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.WEB, 1L))));
+            given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(any())).willReturn(Map.of());
+            given(loadProjectMemberPort.listByProjectIds(any())).willReturn(Map.of());
+            given(searchChallengerUseCase.cursorSearch(any(SearchChallengerQuery.class), isNull(), eq(500)))
+                .willReturn(new SearchChallengerCursorResult(
+                    List.of(
+                        searchCandidate(31L, ChallengerPart.SPRINGBOOT),
+                        searchCandidate(32L, ChallengerPart.DESIGN)),
+                    null, false, Map.of()));
+
+            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+
+            then(saveProjectMemberPort).should(never()).saveAll(any());
+        }
+
+        @Test
+        void 남은_TO를_모두_채우면_후속_후보_순회를_중단한다() {
+            ProjectMatchingRound round = expiredRound(MatchingType.PLAN_DEVELOPER, MatchingPhase.THIRD);
+            Project project = projectWithId(PROJECT_ID);
+            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.listByMatchingRoundId(ROUND_ID)).willReturn(List.of());
+            given(loadProjectPort.listByChapterIdAndStatus(1L, ProjectStatus.IN_PROGRESS))
+                .willReturn(List.of(project));
+            given(loadProjectPartQuotaPort.listByProjectIdsGroupedByProjectId(any()))
+                .willReturn(Map.of(PROJECT_ID, List.of(partQuota(project, ChallengerPart.WEB, 1L))));
+            given(loadProjectMemberPort.countByProjectIdsGroupByProjectIdAndPart(any())).willReturn(Map.of());
+            given(loadProjectMemberPort.listByProjectIds(any())).willReturn(Map.of());
+            given(searchChallengerUseCase.cursorSearch(any(SearchChallengerQuery.class), isNull(), eq(500)))
+                .willReturn(new SearchChallengerCursorResult(List.of(
+                    searchCandidate(31L, ChallengerPart.WEB),
+                    searchCandidate(32L, ChallengerPart.WEB)), null, false, Map.of()));
+
+            sut.autoDecide(ROUND_ID, EXECUTOR_MEMBER_ID);
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<Collection<ProjectMember>> captor = ArgumentCaptor.forClass(Collection.class);
+            then(saveProjectMemberPort).should().saveAll(captor.capture());
+            assertThat(captor.getValue()).hasSize(1);
+        }
     }
 
     private ProjectMatchingRound expiredRound(MatchingType type) {

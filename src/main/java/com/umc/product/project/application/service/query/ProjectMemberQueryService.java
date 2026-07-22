@@ -70,15 +70,13 @@ public class ProjectMemberQueryService implements GetRandomMatchedProjectMemberU
             ));
         Map<Long, List<ProjectMember>> membersByProjectId = loadProjectMemberPort.listByProjectIds(uniqueProjectIds);
 
-        return uniqueProjectIds.stream()
-            .collect(Collectors.toMap(
-                projectId -> projectId,
-                projectId -> membersByProjectId.getOrDefault(projectId, List.of()).stream()
-                    .map(ProjectMemberInfo::from)
-                    .toList(),
-                (left, right) -> left,
-                LinkedHashMap::new
-            ));
+        Map<Long, List<ProjectMemberInfo>> result = new LinkedHashMap<>();
+        for (Long projectId : uniqueProjectIds) {
+            result.put(projectId, membersByProjectId.getOrDefault(projectId, List.of()).stream()
+                .map(ProjectMemberInfo::from)
+                .toList());
+        }
+        return result;
     }
 
     @Override

@@ -222,7 +222,10 @@ public class ProjectGraphQlController {
 
         Map<ProjectMemberGraphQlResponse, ProjectApplicationGraphQlResponse> result = new LinkedHashMap<>();
         for (ProjectMemberGraphQlResponse projectMember : projectMembers) {
-            ProjectApplicationDetailInfo detail = detailsByApplicationId.get(projectMember.applicationId());
+            Long applicationId = projectMember.applicationId();
+            ProjectApplicationDetailInfo detail = applicationId == null
+                ? null
+                : detailsByApplicationId.get(applicationId);
             result.put(projectMember, detail == null ? null : ProjectApplicationGraphQlResponse.from(detail));
         }
         return result;
@@ -262,7 +265,7 @@ public class ProjectGraphQlController {
     }
 
     private MemberBriefGraphQlResponse memberBrief(Map<Long, MemberInfo> membersById, Long memberId) {
-        MemberInfo memberInfo = membersById.get(memberId);
+        MemberInfo memberInfo = memberId == null ? null : membersById.get(memberId);
         return memberInfo == null ? null : MemberBriefGraphQlResponse.from(memberInfo);
     }
 

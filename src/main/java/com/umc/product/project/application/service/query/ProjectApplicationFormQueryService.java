@@ -83,20 +83,20 @@ public class ProjectApplicationFormQueryService implements GetProjectApplication
         Map<Long, List<ProjectApplicationFormPolicy>> policiesByApplicationFormId =
             loadPolicyPort.listByApplicationFormIds(applicationFormIds(applicationForms));
 
-        return uniqueProjectIds.stream()
-            .filter(formsByProjectId::containsKey)
-            .collect(Collectors.toMap(
-                projectId -> projectId,
-                projectId -> assemble(
-                    formsByProjectId.get(projectId),
+        Map<Long, ApplicationFormInfo> result = new LinkedHashMap<>();
+        for (Long projectId : uniqueProjectIds) {
+            ProjectApplicationForm applicationForm = formsByProjectId.get(projectId);
+            if (applicationForm != null) {
+                result.put(projectId, assemble(
+                    applicationForm,
                     fullViewAllowedByProjectId.getOrDefault(projectId, false),
                     applicantPartsByGisuId,
                     formStructuresByFormId,
                     policiesByApplicationFormId
-                ),
-                (left, right) -> left,
-                LinkedHashMap::new
-            ));
+                ));
+            }
+        }
+        return result;
     }
 
     private ApplicationFormInfo assemble(ProjectApplicationForm applicationForm, Long requesterMemberId) {

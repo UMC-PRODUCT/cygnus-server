@@ -480,6 +480,96 @@ class ProjectStatisticsQueryServiceTest {
     }
 
     @Test
+    void 프로젝트_ID_목록의_빈값_미존재_타지부_조합을_검증한다() {
+        Long requesterMemberId = 7000L;
+        assertThat(sut.getByProjectIds(null, requesterMemberId).projects()).isEmpty();
+        assertThat(sut.getByProjectIds(
+            java.util.Collections.singletonList(null), requesterMemberId).projects()).isEmpty();
+
+        given(loadProjectPort.listByIds(Set.of(10L))).willReturn(List.of());
+        assertThatThrownBy(() -> sut.getByProjectIds(List.of(10L), requesterMemberId))
+            .isInstanceOf(ProjectDomainException.class);
+
+        Project first = project(10L, requesterMemberId, 3L);
+        Project second = project(11L, requesterMemberId, 4L);
+        given(loadProjectPort.listByIds(Set.of(10L, 11L))).willReturn(List.of(first, second));
+        given(projectStatisticsAccessPolicy.canReadProjectStatistics(
+            eq(requesterMemberId), any(Project.class))).willReturn(true);
+        assertThatThrownBy(() -> sut.getByProjectIds(List.of(10L, 11L), requesterMemberId))
+            .isInstanceOf(ProjectDomainException.class);
+    }
+
+    @Test
+    void 빈_지부와_빈_공개_프로젝트는_빈_요약을_반환한다() {
+        Long chapterId = 3L;
+        Long requesterMemberId = 7000L;
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+            .willReturn(true);
+        given(loadProjectStatisticsPort.listProjectsByChapterId(chapterId)).willReturn(List.of());
+        given(loadProjectStatisticsPort.listActiveMembersByChapterId(chapterId)).willReturn(List.of());
+
+        ChapterProjectStatisticsInfo chapter = sut.getByChapterId(chapterId, requesterMemberId);
+        assertThat(chapter.projects()).isEmpty();
+        assertThat(chapter.summary().roundApplicationStatistics()).isEmpty();
+
+        given(loadProjectStatisticsPort.listPublicProjectsByChapterId(chapterId)).willReturn(List.of());
+        ChapterProjectMatchingStatisticsInfo publicStatistics =
+            sut.getPublicMatchingStatisticsByChapterId(chapterId);
+        assertThat(publicStatistics.roundMatchingStatistics()).isEmpty();
+        assertThat(publicStatistics.schoolMatchingStatistics()).isEmpty();
+        assertThat(publicStatistics.unclassifiedMatchingStatistics().matchedMemberCount()).isZero();
+    }
+
+    @Test
+    void 학교_ID가_누락된_멤버와_지원서는_학교별_집계에서_제외한다() {
+        Long chapterId = 3L;
+        Long gisuId = 1L;
+        Long requesterMemberId = 7000L;
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+            .willReturn(true);
+        given(loadProjectStatisticsPort.listProjectsByChapterId(chapterId))
+            .willReturn(List.of(projectRow(10L, gisuId, chapterId)));
+        given(loadProjectStatisticsPort.listMatchingRoundsByChapterId(chapterId))
+            .willReturn(List.of(roundRow(1L, MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST)));
+        given(loadProjectStatisticsPort.listActiveMembersByChapterId(chapterId))
+            .willReturn(List.of(memberRow(10L, 101L, 1001L, ChallengerPart.WEB)));
+        given(loadProjectStatisticsPort.listCountedApplicationsByProjectIds(Set.of(10L)))
+            .willReturn(List.of(applicationRow(10L, 1002L, 201L, ProjectApplicationStatus.SUBMITTED,
+                1L, MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST)));
+        given(getChallengerUseCase.listByChapterId(chapterId)).willReturn(List.of(
+            challenger(1001L, gisuId, ChallengerPart.WEB),
+            challenger(1002L, gisuId, ChallengerPart.WEB)));
+        given(getMemberUseCase.findAllSchoolIdsByIds(Set.of(1001L, 1002L))).willReturn(Map.of());
+
+        ChapterProjectStatisticsInfo result = sut.getByChapterId(chapterId, requesterMemberId);
+
+        assertThat(result.summary().schoolMatchingStatistics()).isEmpty();
+        assertThat(result.summary().roundSchoolRankings().get(0).schools()).isEmpty();
+    }
+
+    @Test
+    void 공개_학교별_집계는_null_멤버와_학교_ID_누락을_제외한다() {
+        Long chapterId = 3L;
+        Long gisuId = 1L;
+        given(loadProjectStatisticsPort.listPublicProjectsByChapterId(chapterId))
+            .willReturn(List.of(projectRow(10L, gisuId, chapterId)));
+        given(loadProjectStatisticsPort.listMatchingRoundsByChapterId(chapterId)).willReturn(List.of());
+        given(loadProjectStatisticsPort.listPublicActiveMembersByChapterId(chapterId)).willReturn(List.of(
+            memberRow(10L, 101L, null, ChallengerPart.WEB),
+            memberRow(10L, 102L, 1001L, ChallengerPart.WEB)));
+        given(loadProjectStatisticsPort.listApprovedApplicationsByProjectIds(Set.of(10L)))
+            .willReturn(List.of());
+        given(getChallengerUseCase.listByChapterId(chapterId))
+            .willReturn(List.of(challenger(1001L, gisuId, ChallengerPart.WEB)));
+        given(getMemberUseCase.findAllSchoolIdsByIds(Set.of(1001L))).willReturn(Map.of());
+
+        ChapterProjectMatchingStatisticsInfo result = sut.getPublicMatchingStatisticsByChapterId(chapterId);
+
+        assertThat(result.schoolMatchingStatistics()).isEmpty();
+        assertThat(result.unclassifiedMatchingStatistics().matchedMemberCount()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("getByChapterId_지부장이면_조회_가능하다")
     void 지부_지부장이면_조회_가능() {
         // given

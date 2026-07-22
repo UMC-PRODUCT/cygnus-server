@@ -1,6 +1,7 @@
 package com.umc.product.project.application.access;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.lenient;
 
@@ -56,6 +57,16 @@ class ProjectAccessScopeResolverTest {
 
         assertThat(scope).isInstanceOf(All.class);
         assertThat(((All) scope).visibleStatuses()).containsExactlyInAnyOrderElementsOf(requested);
+    }
+
+    @Test
+    void publicSearch_은_SUPER_ADMIN이면_All이고_DRAFT는_거부한다() {
+        given(getChallengerRoleUseCase.isSuperAdmin(10L)).willReturn(true);
+
+        assertThat(sut.resolveForPublicSearch(10L, 1L, Set.of(ProjectStatus.IN_PROGRESS)))
+            .isInstanceOf(All.class);
+        assertThatThrownBy(() -> sut.resolveForPublicSearch(10L, 1L, Set.of(ProjectStatus.DRAFT)))
+            .isInstanceOf(com.umc.product.project.domain.exception.ProjectDomainException.class);
     }
 
     @Test
@@ -152,6 +163,37 @@ class ProjectAccessScopeResolverTest {
         ProjectAccessScope scope = sut.resolveForManagement(memberId, gisuId, requested);
 
         assertThat(scope).isInstanceOf(All.class);
+    }
+
+    @Test
+    void management_은_SUPER_ADMIN이면_All() {
+        given(getChallengerRoleUseCase.isSuperAdmin(10L)).willReturn(true);
+
+        ProjectAccessScope scope = sut.resolveForManagement(10L, 1L, Set.of(ProjectStatus.IN_PROGRESS));
+
+        assertThat(scope).isInstanceOf(All.class);
+    }
+
+    @Test
+    void management_PO의_상태_요청이_비면_전체_상태와_DRAFT를_포함한다() {
+        given(getChallengerRoleUseCase.findAllByMemberId(10L)).willReturn(List.of());
+        given(loadProjectPort.existsByOwnerAndGisu(10L, 1L)).willReturn(true);
+
+        ProjectAccessScope scope = sut.resolveForManagement(10L, 1L, Set.of());
+
+        assertThat(((OwnerOnly) scope).visibleStatuses()).containsExactlyInAnyOrder(ProjectStatus.values());
+    }
+
+    @Test
+    void management_운영진_PO의_상태_요청이_비면_owner에는_전체_상태를_포함한다() {
+        given(getChallengerRoleUseCase.findAllByMemberId(10L)).willReturn(List.of(
+            roleInfo(ChallengerRoleType.CENTRAL_PRESIDENT, OrganizationType.CENTRAL, null, 1L)));
+        given(loadProjectPort.existsByOwnerAndGisu(10L, 1L)).willReturn(true);
+
+        ProjectAccessScope scope = sut.resolveForManagement(10L, 1L, Set.of());
+
+        assertThat(((WithOwnerIncluded) scope).ownerVisibleStatuses())
+            .containsExactlyInAnyOrder(ProjectStatus.values());
     }
 
     @Test

@@ -53,6 +53,15 @@ class ProjectPermissionEvaluatorTest {
         assertThat(sut.supportedResourceType()).isEqualTo(ResourceType.PROJECT);
     }
 
+    @Test
+    void 지원하지_않는_권한은_fail_closed한다() {
+        SubjectAttributes subject = subjectWith(1L, List.of(), List.of());
+        ResourcePermission permission = org.mockito.Mockito.mock(ResourcePermission.class);
+        given(permission.permission()).willReturn(PermissionType.RELEASE);
+
+        assertThat(sut.evaluate(subject, permission)).isFalse();
+    }
+
     // --- READ (목록 — resourceId 없음) ---
 
     @Test

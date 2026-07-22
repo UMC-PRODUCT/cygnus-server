@@ -265,6 +265,24 @@ class ProjectApplicationResponseAssemblerTest {
         assertThat(result.get(0).project().productOwner()).isNull();
     }
 
+    @Test
+    @DisplayName("myApplicationsFor는 PM 식별자가 없는 프로젝트도 회원 조회 없이 조립한다")
+    void PM_식별자_없음() {
+        GetMyProjectApplicationsQuery query = queryOf(null);
+        ProjectApplicationSummaryInfo application = applicationSummaryOf(55L, 1L, 7L, 100L);
+        ProjectInfo project = projectInfoOf(1L, "프로젝트A", null);
+        given(getMyProjectApplicationsUseCase.listMyApplications(query)).willReturn(List.of(application));
+        given(getRandomMatchedProjectMemberUseCase.findRandomMatched(100L, GISU_ID)).willReturn(Optional.empty());
+        given(getProjectUseCase.findAllByIds(Set.of(1L))).willReturn(Map.of(1L, project));
+        given(getProjectMatchingRoundUseCase.findAllByIds(Set.of(7L)))
+            .willReturn(Map.of(7L, roundInfoOf(7L, MatchingPhase.FIRST)));
+
+        List<MyProjectApplicationResponse> result = sut.myApplicationsFor(query);
+
+        assertThat(result.get(0).project().productOwner()).isNull();
+        verify(getMemberUseCase, never()).findAllByIds(anySet());
+    }
+
     // ============================================================
     //          applicantsFor (PM/운영진 지원자 목록) 테스트
     // ============================================================
@@ -565,6 +583,53 @@ class ProjectApplicationResponseAssemblerTest {
         // then
         assertThat(result.get(1L)).extracting(ProjectApplicantResponse::applicationId)
             .containsExactly(103L, 104L, 102L, 101L);
+    }
+
+    @Test
+    @DisplayName("applicantsForBatch는 검색 결과 Map이 비어 있으면 즉시 빈 Map을 반환한다")
+    void applicantsForBatch_빈_Map() {
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(100L).projectIds(List.of(1L)).build();
+        given(searchProjectApplicationsUseCase.searchByProjects(query)).willReturn(Map.of());
+
+        assertThat(sut.applicantsForBatch(query)).isEmpty();
+        verify(getProjectUseCase, never()).findAllByIds(anySet());
+    }
+
+    @Test
+    @DisplayName("applicantsForBatch는 project key만 있고 지원자가 없으면 key와 빈 목록을 보존한다")
+    void applicantsForBatch_빈_지원자_목록() {
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(100L).projectIds(List.of(1L, 2L)).build();
+        Map<Long, List<ProjectApplicationSummaryInfo>> emptyGroups = new LinkedHashMap<>();
+        emptyGroups.put(1L, List.of());
+        emptyGroups.put(2L, List.of());
+        given(searchProjectApplicationsUseCase.searchByProjects(query)).willReturn(emptyGroups);
+
+        Map<Long, List<ProjectApplicantResponse>> result = sut.applicantsForBatch(query);
+
+        assertThat(result.keySet()).containsExactly(1L, 2L);
+        assertThat(result.values()).allMatch(List::isEmpty);
+    }
+
+    @Test
+    @DisplayName("applicantsForBatch는 프로젝트 부가 정보가 누락되어도 지원자 카드를 안전하게 조립한다")
+    void applicantsForBatch_프로젝트_부가정보_누락() {
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(100L).projectIds(List.of(1L)).build();
+        ProjectApplicationSummaryInfo application = applicationSummaryOf(55L, 1L, 7L, 200L);
+        given(searchProjectApplicationsUseCase.searchByProjects(query))
+            .willReturn(Map.of(1L, List.of(application)));
+        given(getProjectUseCase.findAllByIds(Set.of(1L))).willReturn(Map.of());
+        given(getProjectMatchingRoundUseCase.findAllByIds(Set.of(7L)))
+            .willReturn(Map.of(7L, roundInfoOf(7L, MatchingPhase.FIRST)));
+        given(getMemberUseCase.findAllByIds(Set.of(200L))).willReturn(Map.of());
+
+        List<ProjectApplicantResponse> result = sut.applicantsForBatch(query).get(1L);
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).applicant().part()).isNull();
+        verify(getChallengerUseCase, never()).batchGetByMemberIdsAndGisuId(any(), any());
     }
 
     // ============================================================

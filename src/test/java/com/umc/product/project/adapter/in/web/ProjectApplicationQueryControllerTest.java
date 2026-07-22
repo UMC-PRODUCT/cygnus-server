@@ -2,6 +2,7 @@ package com.umc.product.project.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
@@ -45,6 +46,9 @@ class ProjectApplicationQueryControllerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    ProjectApplicationQueryController controller;
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
@@ -140,5 +144,23 @@ class ProjectApplicationQueryControllerTest {
         assertThat(query.matchingRoundId()).isEqualTo(7L);
         assertThat(query.part()).isEqualTo(ChallengerPart.WEB);
         assertThat(query.status()).isEqualTo(ProjectApplicationStatus.SUBMITTED);
+    }
+
+    @Test
+    @DisplayName("내 지원 내역과 지원서 상세 조회는 식별자를 query로 변환한다")
+    void 내_지원내역과_상세조회_query_변환() {
+        MemberPrincipal principal = MemberPrincipal.builder().memberId(TEST_MEMBER_ID).build();
+
+        controller.getMyApplications(principal, 10L, ProjectApplicationStatus.APPROVED);
+        controller.getApplicationDetail(principal, 42L, 500L);
+
+        then(assembler).should().myApplicationsFor(argThat(query ->
+            query.requesterMemberId().equals(TEST_MEMBER_ID)
+                && query.gisuId().equals(10L)
+                && query.status() == ProjectApplicationStatus.APPROVED));
+        then(assembler).should().detailFor(argThat(query ->
+            query.requesterMemberId().equals(TEST_MEMBER_ID)
+                && query.projectId().equals(42L)
+                && query.applicationId().equals(500L)));
     }
 }

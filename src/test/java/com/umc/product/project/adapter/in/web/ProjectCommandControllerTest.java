@@ -1,12 +1,16 @@
 package com.umc.product.project.adapter.in.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,11 +25,17 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.project.adapter.in.web.dto.request.AbortProjectRequest;
+import com.umc.product.project.adapter.in.web.dto.request.AddProjectMemberRequest;
 import com.umc.product.project.adapter.in.web.dto.request.ChangeProjectMemberStatusRequest;
+import com.umc.product.project.adapter.in.web.dto.request.CreateDraftProjectRequest;
+import com.umc.product.project.adapter.in.web.dto.request.TransferProjectOwnershipRequest;
+import com.umc.product.project.adapter.in.web.dto.request.UpdatePartQuotasRequest;
+import com.umc.product.project.adapter.in.web.dto.request.UpdateProjectRequest;
 import com.umc.product.project.application.port.in.command.AbortProjectUseCase;
 import com.umc.product.project.application.port.in.command.AddProjectMemberUseCase;
 import com.umc.product.project.application.port.in.command.ChangeProjectMemberStatusUseCase;
@@ -38,6 +48,7 @@ import com.umc.product.project.application.port.in.command.TransferProjectOwners
 import com.umc.product.project.application.port.in.command.UpdatePartQuotasUseCase;
 import com.umc.product.project.application.port.in.command.UpdateProjectUseCase;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
+import com.umc.product.project.domain.enums.ProjectStatus;
 
 @WebMvcTest(controllers = ProjectCommandController.class)
 @Import(JacksonConfig.class)
@@ -52,6 +63,9 @@ class ProjectCommandControllerTest {
 
     @Autowired
     ObjectMapper objectMapper;
+
+    @Autowired
+    ProjectCommandController controller;
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
@@ -175,5 +189,32 @@ class ProjectCommandControllerTest {
             .andExpect(status().isBadRequest());
 
         then(changeProjectMemberStatusUseCase).should(never()).changeStatus(any());
+    }
+
+    @Test
+    void 프로젝트_생성_수정_제출_소유권_팀원_공개_정원_흐름을_위임한다() {
+        MemberPrincipal principal = MemberPrincipal.builder().memberId(TEST_MEMBER_ID).build();
+        given(createDraftProjectUseCase.create(any())).willReturn(PROJECT_ID);
+        given(updateProjectUseCase.update(any())).willReturn(ProjectStatus.DRAFT);
+        given(transferProjectOwnershipUseCase.transfer(any())).willReturn(ProjectStatus.DRAFT);
+        given(addProjectMemberUseCase.add(any())).willReturn(300L);
+        given(publishProjectUseCase.publish(any())).willReturn(ProjectStatus.IN_PROGRESS);
+
+        assertThat(controller.createDraft(principal, new CreateDraftProjectRequest(1L, null)).projectId())
+            .isEqualTo(PROJECT_ID);
+        assertThat(controller.update(principal, PROJECT_ID,
+            new UpdateProjectRequest("이름", "설명", null, null, null)).status())
+            .isEqualTo(ProjectStatus.DRAFT);
+        assertThat(controller.submit(PROJECT_ID).status()).isEqualTo(ProjectStatus.PENDING_REVIEW);
+        assertThat(controller.transferOwnership(PROJECT_ID,
+            new TransferProjectOwnershipRequest(200L, "양도")).status()).isEqualTo(ProjectStatus.DRAFT);
+        assertThat(controller.addMember(principal, PROJECT_ID,
+            new AddProjectMemberRequest(200L, ChallengerPart.WEB))).isEqualTo(300L);
+        assertThat(controller.publish(principal, PROJECT_ID).status()).isEqualTo(ProjectStatus.IN_PROGRESS);
+        controller.updatePartQuotas(principal, PROJECT_ID,
+            new UpdatePartQuotasRequest(List.of(new UpdatePartQuotasRequest.Entry(ChallengerPart.WEB, 2L))));
+
+        then(submitProjectUseCase).should().submit(any());
+        then(updatePartQuotasUseCase).should().update(any());
     }
 }

@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -40,6 +41,9 @@ class ProjectQueryControllerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    @Autowired
+    ProjectQueryController controller;
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
@@ -75,5 +79,23 @@ class ProjectQueryControllerTest {
             .containsExactly("createdAt", "name");
         assertThat(orders)
             .allMatch(Sort.Order::isAscending);
+    }
+
+    @Test
+    void 상세_팀원_batch_관리목록_초안_조회는_요청자와_식별자를_전달한다() {
+        MemberPrincipal principal = MemberPrincipal.builder().memberId(TEST_MEMBER_ID).build();
+        PageRequest pageable = PageRequest.of(0, 20);
+
+        controller.getDetail(principal, 42L);
+        controller.getMembers(principal, 42L);
+        controller.getBatchMembers(principal, List.of(42L, 43L));
+        controller.searchManaged(principal, 1L, "검색어", pageable);
+        controller.getMyDraft(principal, 1L);
+
+        then(assembler).should().detailFor(42L);
+        then(assembler).should().membersFor(42L);
+        then(assembler).should().listProjectMembers(List.of(42L, 43L), TEST_MEMBER_ID);
+        then(assembler).should().searchManagedFor(any(), eq(TEST_MEMBER_ID));
+        then(assembler).should().draftFor(TEST_MEMBER_ID, 1L);
     }
 }

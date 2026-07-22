@@ -9,7 +9,20 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.umc.product.challenger.application.port.in.command.ManageChallengerUseCase;
+import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerCommand;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.member.application.port.in.command.RegisterEmailMemberUseCase;
 import com.umc.product.member.application.port.in.command.dto.EmailRegisterMemberCommand;
@@ -18,17 +31,9 @@ import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
+import com.umc.product.test.application.port.in.command.dto.CreateSeedChallengerCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedChallengersCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedChallengersResult;
-import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ChallengerSeedServiceTest {
@@ -180,6 +185,66 @@ class ChallengerSeedServiceTest {
 
         // Then
         assertThat(result.gisuId()).isEqualTo(10L);
+    }
+
+    @Test
+    @DisplayName("셀 수량이 0이면 멤버와 챌린저 생성을 모두 생략한다")
+    void 셀_수량_0_처리() {
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuId(9L)).willReturn(List.of(
+            new ChapterWithSchoolsInfo(1L, "서울", List.of(
+                new ChapterWithSchoolsInfo.SchoolInfo(101L, "건국대")
+            ))
+        ));
+
+        SeedChallengersResult result = sut.seed(new SeedChallengersCommand(
+            9L, 0, List.of(ChallengerPart.WEB), null
+        ));
+
+        assertThat(result.perCellSummary()).singleElement()
+            .satisfies(cell -> assertThat(cell.totalFailed()).isZero());
+        verify(registerEmailMemberUseCase, times(0)).batchRegister(any());
+        verify(manageChallengerUseCase, times(0)).createChallengerBulk(any());
+    }
+
+    @Test
+    @DisplayName("멤버 batch가 빈 목록을 반환하면 전원 실패로 집계하고 챌린저 생성을 생략한다")
+    void 빈_멤버_batch_결과() {
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuId(9L)).willReturn(List.of(
+            new ChapterWithSchoolsInfo(1L, "서울", List.of(
+                new ChapterWithSchoolsInfo.SchoolInfo(101L, "건국대")
+            ))
+        ));
+        org.mockito.Mockito.doReturn(List.of())
+            .when(registerEmailMemberUseCase).batchRegister(any());
+
+        SeedChallengersResult result = sut.seed(new SeedChallengersCommand(
+            9L, 2, List.of(ChallengerPart.WEB), null
+        ));
+
+        assertThat(result.perCellSummary()).singleElement().satisfies(cell -> {
+            assertThat(cell.created()).isZero();
+            assertThat(cell.memberFailed()).isEqualTo(2);
+        });
+        verify(manageChallengerUseCase, times(0)).createChallengerBulk(any());
+    }
+
+    @Test
+    @DisplayName("단건 챌린저 생성은 member·gisu·part를 그대로 위임한다")
+    void 단건_챌린저_생성() {
+        given(manageChallengerUseCase.createChallenger(any())).willReturn(100L);
+        ArgumentCaptor<CreateChallengerCommand> captor =
+            ArgumentCaptor.forClass(CreateChallengerCommand.class);
+
+        var result = sut.create(CreateSeedChallengerCommand.of(
+            1L, 9L, ChallengerPart.SPRINGBOOT
+        ));
+
+        verify(manageChallengerUseCase).createChallenger(captor.capture());
+        assertThat(captor.getValue().memberId()).isEqualTo(1L);
+        assertThat(captor.getValue().gisuId()).isEqualTo(9L);
+        assertThat(captor.getValue().part()).isEqualTo(ChallengerPart.SPRINGBOOT);
+        assertThat(result.challengerId()).isEqualTo(100L);
+        assertThat(result.memberId()).isEqualTo(1L);
     }
 
     private static List<Long> nextIds(AtomicLong sequence, int count) {

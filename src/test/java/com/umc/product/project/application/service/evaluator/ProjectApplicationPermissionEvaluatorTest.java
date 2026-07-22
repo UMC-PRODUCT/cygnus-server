@@ -1,6 +1,7 @@
 package com.umc.product.project.application.service.evaluator;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 
 import java.util.List;
@@ -32,6 +33,7 @@ import com.umc.product.project.domain.ProjectApplication;
 import com.umc.product.project.domain.ProjectApplicationForm;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
+import com.umc.product.project.domain.exception.ProjectDomainException;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationPermissionEvaluatorTest {
@@ -67,6 +69,33 @@ class ProjectApplicationPermissionEvaluatorTest {
     @Test
     void supportedResourceType은_PROJECT_APPLICATION을_반환한다() {
         assertThat(sut.supportedResourceType()).isEqualTo(ResourceType.PROJECT_APPLICATION);
+    }
+
+    @Test
+    void 지원하지_않는_권한은_fail_closed한다() {
+        SubjectAttributes subject = subjectWith(APPLICANT_MEMBER_ID, List.of(), List.of());
+        ResourcePermission permission = org.mockito.Mockito.mock(ResourcePermission.class);
+        given(permission.permission()).willReturn(PermissionType.RELEASE);
+
+        assertThat(sut.evaluate(subject, permission)).isFalse();
+    }
+
+    @Test
+    void WRITE_대상_프로젝트가_없으면_not_found() {
+        given(loadProjectPort.findById(PROJECT_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.evaluate(
+            subjectWith(APPLICANT_MEMBER_ID, List.of(), List.of()), writePermission()))
+            .isInstanceOf(ProjectDomainException.class);
+    }
+
+    @Test
+    void READ_대상_지원서가_없으면_not_found() {
+        given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.empty());
+
+        assertThatThrownBy(() -> sut.evaluate(
+            subjectWith(APPLICANT_MEMBER_ID, List.of(), List.of()), readPermission()))
+            .isInstanceOf(ProjectDomainException.class);
     }
 
     // --- WRITE (resourceId = projectId) ---

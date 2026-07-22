@@ -35,6 +35,7 @@ import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
@@ -43,6 +44,7 @@ import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.port.in.command.dto.ApplicationDecisionStatus;
 import com.umc.product.project.application.port.in.command.dto.CancelProjectApplicationCommand;
+import com.umc.product.project.application.port.in.command.dto.CreateDraftProjectApplicationCommand;
 import com.umc.product.project.application.port.in.command.dto.SubmitProjectApplicationCommand;
 import com.umc.product.project.application.port.in.command.dto.UpdateProjectApplicationDraftCommand;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationInfo;
@@ -147,6 +149,199 @@ class ProjectApplicationCommandServiceTest {
             .willReturn(List.of());
         given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(any(), any()))
             .willReturn(Map.of(APPLICANT_MEMBER_ID, challengerWith(APPLICANT_MEMBER_ID, ChallengerPart.WEB)));
+    }
+
+    @Nested
+    class createDraft {
+
+        @Test
+        void 모집중인_파트와_차수에_새_지원서_초안을_생성한다() {
+            ProjectApplicationForm form = applicableForm(999L);
+            ProjectMatchingRound round = acceptingRound(MatchingType.PLAN_DEVELOPER);
+            givenCreateBase(form, round);
+            given(manageFormResponseUseCase.createDraft(any(CreateDraftFormResponseCommand.class)))
+                .willReturn(FORM_RESPONSE_ID);
+            given(saveProjectApplicationPort.save(any(ProjectApplication.class))).willAnswer(invocation -> {
+                ProjectApplication saved = invocation.getArgument(0);
+                ReflectionTestUtils.setField(saved, "id", APPLICATION_ID);
+                return saved;
+            });
+
+            ProjectApplicationInfo result = sut.create(createCommand());
+
+            assertThat(result.applicationId()).isEqualTo(APPLICATION_ID);
+            assertThat(result.status()).isEqualTo(ProjectApplicationStatus.DRAFT);
+            ArgumentCaptor<CreateDraftFormResponseCommand> captor =
+                ArgumentCaptor.forClass(CreateDraftFormResponseCommand.class);
+            then(manageFormResponseUseCase).should().createDraft(captor.capture());
+            assertThat(captor.getValue().formId()).isEqualTo(FORM_ID);
+            assertThat(captor.getValue().respondentMemberId()).isEqualTo(APPLICANT_MEMBER_ID);
+        }
+
+        @Test
+        void 지원폼이_없으면_생성을_거부한다() {
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.empty());
+
+            assertCreateRejected(ProjectErrorCode.APPLICATION_FORM_NOT_FOUND);
+        }
+
+        @Test
+        void 모집중이_아니거나_자기_프로젝트면_생성을_거부한다() {
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID))
+                .willReturn(Optional.of(applicationForm()));
+            assertCreateRejected(ProjectErrorCode.PROJECT_INVALID_STATE);
+
+            ProjectApplicationForm selfForm = applicableForm(APPLICANT_MEMBER_ID);
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(selfForm));
+            assertCreateRejected(ProjectErrorCode.PROJECT_APPLICATION_SELF_APPLY_NOT_ALLOWED);
+        }
+
+        @Test
+        void 모집하지_않는_파트거나_이미_팀원이면_생성을_거부한다() {
+            ProjectApplicationForm form = applicableForm(999L);
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+            given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.WEB))
+                .willReturn(false);
+            assertCreateRejected(ProjectErrorCode.PROJECT_APPLICATION_PART_NOT_ALLOWED);
+
+            given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.WEB))
+                .willReturn(true);
+            given(loadProjectMemberPort.existsByGisuAndMember(1L, APPLICANT_MEMBER_ID)).willReturn(true);
+            assertCreateRejected(ProjectErrorCode.PROJECT_APPLICATION_MEMBER_ALREADY_IN_TEAM);
+        }
+
+        @Test
+        void 닫힌_차수거나_파트와_차수_type이_다르면_생성을_거부한다() {
+            ProjectApplicationForm form = applicableForm(999L);
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+            given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.WEB))
+                .willReturn(true);
+            given(loadProjectMemberPort.existsByGisuAndMember(1L, APPLICANT_MEMBER_ID)).willReturn(false);
+            given(loadProjectMatchingRoundPort.getById(MATCHING_ROUND_ID)).willReturn(openRound());
+            assertCreateRejected(ProjectErrorCode.PROJECT_APPLICATION_ROUND_NOT_OPEN);
+
+            given(loadProjectMatchingRoundPort.getById(MATCHING_ROUND_ID))
+                .willReturn(acceptingRound(MatchingType.PLAN_DESIGN));
+            assertCreateRejected(ProjectErrorCode.PROJECT_APPLICATION_ROUND_TYPE_MISMATCH);
+        }
+
+        @Test
+        void 같은_차수의_DRAFT가_이미_있으면_중복_생성을_거부한다() {
+            ProjectApplicationForm form = applicableForm(999L);
+            ProjectMatchingRound round = acceptingRound(MatchingType.PLAN_DEVELOPER);
+            givenCreateBase(form, round);
+            given(loadProjectApplicationPort.findByProjectIdAndApplicantMemberIdAndRoundIdAndStatus(
+                PROJECT_ID, APPLICANT_MEMBER_ID, MATCHING_ROUND_ID, ProjectApplicationStatus.DRAFT))
+                .willReturn(Optional.of(ProjectApplication.create(
+                    form, FORM_RESPONSE_ID, APPLICANT_MEMBER_ID, round)));
+
+            assertCreateRejected(ProjectErrorCode.PROJECT_APPLICATION_ALREADY_EXISTS);
+            then(manageFormResponseUseCase).should(never()).createDraft(any());
+        }
+
+        @Test
+        void 디자인_파트는_PLAN_DESIGN_차수에_초안을_생성한다() {
+            ProjectApplicationForm form = applicableForm(999L);
+            ProjectMatchingRound round = acceptingRound(MatchingType.PLAN_DESIGN);
+            given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+            given(getChallengerUseCase.getByMemberIdAndGisuId(APPLICANT_MEMBER_ID, 1L))
+                .willReturn(challengerWithPart(ChallengerPart.DESIGN));
+            given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.DESIGN))
+                .willReturn(true);
+            given(loadProjectMemberPort.existsByGisuAndMember(1L, APPLICANT_MEMBER_ID)).willReturn(false);
+            given(loadProjectMatchingRoundPort.getById(MATCHING_ROUND_ID)).willReturn(round);
+            given(loadProjectApplicationPort.findByProjectIdAndApplicantMemberIdAndRoundIdAndStatus(
+                PROJECT_ID, APPLICANT_MEMBER_ID, MATCHING_ROUND_ID, ProjectApplicationStatus.DRAFT))
+                .willReturn(Optional.empty());
+            given(manageFormResponseUseCase.createDraft(any())).willReturn(FORM_RESPONSE_ID);
+            given(saveProjectApplicationPort.save(any())).willAnswer(invocation -> {
+                ProjectApplication saved = invocation.getArgument(0);
+                ReflectionTestUtils.setField(saved, "id", APPLICATION_ID);
+                return saved;
+            });
+
+            assertThat(sut.create(createCommand()).applicationId()).isEqualTo(APPLICATION_ID);
+        }
+    }
+
+    @Test
+    void submit은_닫힌_차수와_동일차수_중복제출을_거부한다() {
+        ProjectApplication closed = applicationWithStatus(ProjectApplicationStatus.DRAFT, openRound());
+        given(loadProjectApplicationPort.findByIdWithDetails(APPLICATION_ID)).willReturn(Optional.of(closed));
+        assertThatThrownBy(() -> sut.submit(submitCommand()))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.PROJECT_APPLICATION_ROUND_NOT_OPEN);
+
+        ProjectApplication duplicated = applicationWithStatus(
+            ProjectApplicationStatus.DRAFT, acceptingRound(MatchingType.PLAN_DESIGN));
+        given(loadProjectApplicationPort.findByIdWithDetails(APPLICATION_ID)).willReturn(Optional.of(duplicated));
+        given(loadProjectApplicationPort.existsByRoundAndApplicantAndStatus(
+            MATCHING_ROUND_ID, APPLICANT_MEMBER_ID, ProjectApplicationStatus.SUBMITTED)).willReturn(true);
+        assertThatThrownBy(() -> sut.submit(submitCommand()))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.PROJECT_APPLICATION_DUPLICATE_SUBMISSION);
+    }
+
+    @Test
+    void SUPER_ADMIN은_빈_지원자_목록에서도_강제_거절할_수_있다() {
+        ProjectApplication application = applicationWithStatus(ProjectApplicationStatus.SUBMITTED);
+        given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.of(application));
+        given(loadProjectApplicationPort.listDecidableByMatchingRoundIdAndProjectId(
+            MATCHING_ROUND_ID, PROJECT_ID)).willReturn(List.of());
+        given(checkChallengerAuthorityUseCase.isSuperAdmin(DECIDER_MEMBER_ID)).willReturn(true);
+        given(saveProjectApplicationPort.save(application)).willReturn(application);
+
+        assertThat(sut.decide(
+            APPLICATION_ID, ApplicationDecisionStatus.REJECTED, "강제 거절", DECIDER_MEMBER_ID).status())
+            .isEqualTo(ProjectApplicationStatus.REJECTED);
+    }
+
+    @Test
+    void 지원_정책이_없으면_거절_결정을_fail_closed한다() {
+        ProjectApplication application = applicationWithStatus(ProjectApplicationStatus.SUBMITTED);
+        given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.of(application));
+        given(loadProjectApplicationPort.listDecidableByMatchingRoundIdAndProjectId(
+            MATCHING_ROUND_ID, PROJECT_ID)).willReturn(List.of());
+        ReflectionTestUtils.setField(sut, "matchingDecisionPolicies", List.of());
+
+        assertThatThrownBy(() -> sut.decide(
+            APPLICATION_ID, ApplicationDecisionStatus.REJECTED, null, DECIDER_MEMBER_ID))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.PROJECT_MATCHING_ROUND_POLICY_NOT_FOUND);
+    }
+
+    @Test
+    void update는_null_ID_미존재_ID_null_답변과_중복_정책을_안전하게_처리한다() {
+        assertThatThrownBy(() -> sut.update(UpdateProjectApplicationDraftCommand.builder()
+            .projectId(PROJECT_ID).applicationId(null).requesterMemberId(APPLICANT_MEMBER_ID)
+            .answers(List.of()).build()))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+
+        given(loadProjectApplicationPort.findByIdWithDetails(APPLICATION_ID)).willReturn(Optional.empty());
+        assertThatThrownBy(() -> sut.update(UpdateProjectApplicationDraftCommand.builder()
+            .projectId(PROJECT_ID).applicationId(APPLICATION_ID).requesterMemberId(APPLICANT_MEMBER_ID)
+            .answers(List.of()).build()))
+            .isInstanceOf(ProjectDomainException.class);
+
+        ProjectApplication application = applicationWithStatus(ProjectApplicationStatus.DRAFT);
+        given(loadProjectApplicationPort.findByIdWithDetails(APPLICATION_ID)).willReturn(Optional.of(application));
+        givenVisibleScope(application);
+        assertThatThrownBy(() -> sut.update(UpdateProjectApplicationDraftCommand.builder()
+            .projectId(PROJECT_ID).applicationId(APPLICATION_ID).requesterMemberId(APPLICANT_MEMBER_ID)
+            .answers(null).build()))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.APPLICATION_FORM_INVALID_QUESTION_ID);
+
+        ProjectApplicationForm form = application.getApplicationForm();
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID))
+            .willReturn(List.of(
+                ProjectApplicationFormPolicy.createForParts(form, WEB_SECTION_ID, Set.of(ChallengerPart.DESIGN)),
+                ProjectApplicationFormPolicy.createForParts(form, WEB_SECTION_ID, Set.of(ChallengerPart.WEB)),
+                ProjectApplicationFormPolicy.createCommon(form, COMMON_SECTION_ID)));
+        assertThat(sut.update(UpdateProjectApplicationDraftCommand.builder()
+            .projectId(PROJECT_ID).applicationId(APPLICATION_ID).requesterMemberId(APPLICANT_MEMBER_ID)
+            .answers(List.of(answerEntry(WEB_QUESTION_ID))).build()).applicationId()).isEqualTo(APPLICATION_ID);
     }
 
     @Nested
@@ -664,6 +859,55 @@ class ProjectApplicationCommandServiceTest {
 
     private ProjectApplication applicationWithStatus(ProjectApplicationStatus status) {
         return applicationWithStatus(status, openRound());
+    }
+
+    private CreateDraftProjectApplicationCommand createCommand() {
+        return CreateDraftProjectApplicationCommand.builder()
+            .projectId(PROJECT_ID)
+            .applicantMemberId(APPLICANT_MEMBER_ID)
+            .matchingRoundId(MATCHING_ROUND_ID)
+            .build();
+    }
+
+    private SubmitProjectApplicationCommand submitCommand() {
+        return SubmitProjectApplicationCommand.builder()
+            .projectId(PROJECT_ID)
+            .applicationId(APPLICATION_ID)
+            .requesterMemberId(APPLICANT_MEMBER_ID)
+            .build();
+    }
+
+    private void assertCreateRejected(ProjectErrorCode errorCode) {
+        assertThatThrownBy(() -> sut.create(createCommand()))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", errorCode);
+    }
+
+    private void givenCreateBase(ProjectApplicationForm form, ProjectMatchingRound round) {
+        given(loadProjectApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(form));
+        given(loadProjectPartQuotaPort.existsByProjectIdAndPart(PROJECT_ID, ChallengerPart.WEB))
+            .willReturn(true);
+        given(loadProjectMemberPort.existsByGisuAndMember(1L, APPLICANT_MEMBER_ID)).willReturn(false);
+        given(loadProjectMatchingRoundPort.getById(MATCHING_ROUND_ID)).willReturn(round);
+        given(loadProjectApplicationPort.findByProjectIdAndApplicantMemberIdAndRoundIdAndStatus(
+            PROJECT_ID, APPLICANT_MEMBER_ID, MATCHING_ROUND_ID, ProjectApplicationStatus.DRAFT))
+            .willReturn(Optional.empty());
+    }
+
+    private ProjectApplicationForm applicableForm(Long ownerMemberId) {
+        ProjectApplicationForm form = applicationForm();
+        ReflectionTestUtils.setField(form.getProject(), "status", com.umc.product.project.domain.enums.ProjectStatus.IN_PROGRESS);
+        ReflectionTestUtils.setField(form.getProject(), "productOwnerMemberId", ownerMemberId);
+        return form;
+    }
+
+    private ProjectMatchingRound acceptingRound(MatchingType matchingType) {
+        ProjectMatchingRound round = ProjectMatchingRound.create(
+            "지원 진행 중 차수", null, matchingType, MatchingPhase.FIRST, 1L,
+            NOW.minusSeconds(3_600), NOW.plusSeconds(3_600), NOW.plusSeconds(7_200)
+        );
+        ReflectionTestUtils.setField(round, "id", MATCHING_ROUND_ID);
+        return round;
     }
 
     private ProjectApplication applicationWithStatus(ProjectApplicationStatus status, ProjectMatchingRound round) {

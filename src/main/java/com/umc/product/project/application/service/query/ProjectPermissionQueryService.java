@@ -88,13 +88,10 @@ public class ProjectPermissionQueryService implements GetProjectPermissionsUseCa
         }
 
         SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
-        Map<Long, Project> projectsById = loadProjectPort.listByIds(uniqueIds).stream()
-            .collect(Collectors.toMap(
-                Project::getId,
-                project -> project,
-                (first, ignored) -> first,
-                LinkedHashMap::new
-            ));
+        Map<Long, Project> projectsById = new LinkedHashMap<>();
+        for (Project project : loadProjectPort.listByIds(uniqueIds)) {
+            projectsById.putIfAbsent(project.getId(), project);
+        }
         Map<Long, ProjectApplicationForm> formsByProjectId =
             loadProjectApplicationFormPort.findAllByProjectIds(uniqueIds);
         Map<Long, List<ProjectPartQuota>> quotasByProjectId =

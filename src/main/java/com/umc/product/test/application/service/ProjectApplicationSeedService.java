@@ -286,7 +286,7 @@ public class ProjectApplicationSeedService implements SeedProjectApplicationsUse
 
         // 최종 상태 무작위 결정: SUBMITTED / APPROVED / REJECTED ≈ 1/3 분포.
         // REJECTED 결정은 매칭 규칙의 최소선발 검증을 통과하는 경우에만 반영된다.
-        int rand = ThreadLocalRandom.current().nextInt(3);
+        int rand = nextDecisionIndex();
         if (rand == 0) {
             return ApplicationOutcome.success("SUBMITTED", applicationId);
         }
@@ -302,6 +302,10 @@ public class ProjectApplicationSeedService implements SeedProjectApplicationsUse
             return ApplicationOutcome.fail("DECIDE", e.toString(), applicationId);
         }
         return ApplicationOutcome.success(decision.name(), applicationId);
+    }
+
+    int nextDecisionIndex() {
+        return ThreadLocalRandom.current().nextInt(3);
     }
 
     /**

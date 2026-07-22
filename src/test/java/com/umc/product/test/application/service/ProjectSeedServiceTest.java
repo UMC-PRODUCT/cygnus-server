@@ -10,8 +10,24 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import com.umc.product.challenger.application.port.in.command.ManageChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -21,18 +37,6 @@ import com.umc.product.project.application.port.in.command.CreateDraftProjectUse
 import com.umc.product.project.application.port.in.command.dto.AddProjectMemberCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedProjectsCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedProjectsResult;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectSeedServiceTest {
@@ -254,6 +258,50 @@ class ProjectSeedServiceTest {
         verify(getGisuUseCase, times(1)).getActiveGisuId();
     }
 
+    @Test
+    @DisplayName("모든 후보가 다른 파트 챌린저이면 PO 후보 없음으로 스킵한다")
+    void PO_후보_없음_스킵() {
+        Long gisuId = 9L;
+        Set<Long> pool = bigPool(13);
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuId(gisuId)).willReturn(List.of(
+            new ChapterWithSchoolsInfo(1L, "서울", List.of(
+                new ChapterWithSchoolsInfo.SchoolInfo(101L, "건국대")
+            ))
+        ));
+        given(getMemberUseCase.listIdsBySchoolIds(Set.of(101L))).willReturn(Map.of(101L, pool));
+        Map<Long, ChallengerInfo> challengers = new java.util.HashMap<>();
+        pool.forEach(memberId -> challengers.put(memberId, challenger(memberId, ChallengerPart.WEB)));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(pool, gisuId)).willReturn(challengers);
+
+        SeedProjectsResult result = sut.seed(new SeedProjectsCommand(1, gisuId));
+
+        assertThat(result.skippedChapters()).singleElement()
+            .satisfies(skipped -> assertThat(skipped.reason()).contains("NO_PO_CANDIDATE"));
+        verify(createDraftProjectUseCase, never()).create(any());
+    }
+
+    @Test
+    @DisplayName("기존 PLAN 챌린저를 PO로 재사용하면 챌린저를 중복 생성하지 않는다")
+    void 기존_PLAN_PO_재사용() {
+        Long gisuId = 9L;
+        Set<Long> pool = bigPool(13);
+        given(getChapterUseCase.getChaptersWithSchoolsByGisuId(gisuId)).willReturn(List.of(
+            new ChapterWithSchoolsInfo(1L, "서울", List.of(
+                new ChapterWithSchoolsInfo.SchoolInfo(101L, "건국대")
+            ))
+        ));
+        given(getMemberUseCase.listIdsBySchoolIds(Set.of(101L))).willReturn(Map.of(101L, pool));
+        Map<Long, ChallengerInfo> challengers = new java.util.HashMap<>();
+        pool.forEach(memberId -> challengers.put(memberId, challenger(memberId, ChallengerPart.PLAN)));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(pool, gisuId)).willReturn(challengers);
+        given(createDraftProjectUseCase.create(any())).willReturn(1000L);
+
+        SeedProjectsResult result = sut.seed(new SeedProjectsCommand(1, gisuId));
+
+        assertThat(result.createdProjectIds()).containsExactly(1000L);
+        verify(manageChallengerUseCase, never()).createChallenger(any());
+    }
+
     private static Set<Long> bigPool(int size) {
         Set<Long> pool = new HashSet<>();
         for (long i = 1; i <= size; i++) {
@@ -268,5 +316,9 @@ class ProjectSeedServiceTest {
             pool.add(i);
         }
         return pool;
+    }
+
+    private static ChallengerInfo challenger(Long memberId, ChallengerPart part) {
+        return ChallengerInfo.builder().memberId(memberId).part(part).build();
     }
 }

@@ -208,9 +208,7 @@ public class ProjectQueryRepository {
     }
 
     private BooleanExpression statusIn(List<ProjectStatus> statuses) {
-        return (statuses != null && !statuses.isEmpty())
-            ? project.status.in(statuses)
-            : null;
+        return project.status.in(statuses);
     }
 
     /**

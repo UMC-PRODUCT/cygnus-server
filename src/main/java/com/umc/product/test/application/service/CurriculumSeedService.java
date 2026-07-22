@@ -1,5 +1,17 @@
 package com.umc.product.test.application.service;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.curriculum.application.port.in.command.ManageCurriculumUseCase;
 import com.umc.product.curriculum.application.port.in.command.ManageOriginalWorkbookMissionUseCase;
@@ -13,18 +25,9 @@ import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.test.application.port.in.command.SeedCurriculumUseCase;
 import com.umc.product.test.application.port.in.command.dto.SeedCurriculumCommand;
 import com.umc.product.test.application.port.in.command.dto.SeedCurriculumResult;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Profile;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 /**
  * Curriculum 시딩 서비스. ADR-017 참조.
@@ -170,9 +173,6 @@ public class CurriculumSeedService implements SeedCurriculumUseCase {
     }
 
     private List<Long> tryCreateOriginalWorkbooksBulk(List<Long> weeklyIds, Counters counters) {
-        if (weeklyIds.isEmpty()) {
-            return List.of();
-        }
         List<CreateOriginalWorkbookCommand> commands = new ArrayList<>(weeklyIds.size());
         for (int i = 0; i < weeklyIds.size(); i++) {
             commands.add(dummyCurriculumFactory.nextOriginalWorkbookCommand(weeklyIds.get(i), i + 1L));

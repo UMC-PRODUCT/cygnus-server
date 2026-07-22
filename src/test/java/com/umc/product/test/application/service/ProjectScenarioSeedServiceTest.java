@@ -7,7 +7,23 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
@@ -33,18 +49,6 @@ import com.umc.product.test.application.port.in.command.dto.SeedProjectScenarios
 import com.umc.product.test.application.port.in.command.dto.SeedProjectScenariosResult.CreatedProject;
 import com.umc.product.test.application.port.in.command.dto.SeedProjectScenariosResult.FailedProject;
 import com.umc.product.test.application.port.in.command.dto.TargetProjectStatus;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicLong;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectScenarioSeedServiceTest {
@@ -338,6 +342,47 @@ class ProjectScenarioSeedServiceTest {
             assertThat(created.partFills().get(1).quota()).isEqualTo(4L);
             assertThat(created.partFills().get(2).quota()).isEqualTo(3L);
         }
+
+        @Test
+        @DisplayName("비활성·이미 선택된 멤버를 제외하고 개별 추가 실패를 해당 파트에 격리한다")
+        void 멤버_필터와_추가_실패_격리() {
+            givenActiveGisu();
+            givenPoIsPlanChallenger(PO_MEMBER_ID);
+            givenPoMemberSchool(PO_MEMBER_ID, SCHOOL_ID);
+            givenCreateDraftReturns(505L);
+            given(upsertProjectApplicationFormUseCase.upsert(any()))
+                .willReturn(applicationFormInfo(505L, 9005L));
+            given(scenarioPartQuotaPolicy.pickQuotas()).willReturn(List.of(
+                Entry.builder().part(ChallengerPart.WEB).quota(1L).build(),
+                Entry.builder().part(ChallengerPart.WEB).quota(1L).build()
+            ));
+            given(getChallengerUseCase.getAllByGisuId(GISU_ID)).willReturn(List.of(
+                challengerInfo(201L, ChallengerPart.WEB),
+                challengerInfo(202L, ChallengerPart.WEB),
+                challengerInfo(203L, ChallengerPart.WEB, ChallengerStatus.GRADUATED)
+            ));
+            given(getMemberUseCase.findAllSchoolIdsByIds(Set.of(201L, 202L)))
+                .willReturn(Map.of(201L, SCHOOL_ID, 202L, SCHOOL_ID));
+            given(addProjectMemberUseCase.add(any()))
+                .willReturn(1L)
+                .willThrow(new RuntimeException("add boom"));
+            sut = spy(sut);
+            doReturn(1L, 1L).when(sut).nextFillCount(1L);
+
+            SeedProjectScenariosResult result = sut.seed(new SeedProjectScenariosCommand(
+                TargetProjectStatus.IN_PROGRESS, 1, List.of(PO_MEMBER_ID)
+            ));
+
+            assertThat(result.createdProjects().get(0).partFills())
+                .extracting(SeedProjectScenariosResult.PartFill::filled)
+                .containsExactly(1L, 0L);
+        }
+
+        @Test
+        @DisplayName("무작위 충원 수는 0부터 quota까지의 범위다")
+        void 무작위_충원_범위() {
+            assertThat(sut.nextFillCount(3L)).isBetween(0L, 3L);
+        }
     }
 
     @Nested
@@ -431,6 +476,64 @@ class ProjectScenarioSeedServiceTest {
     @Nested
     @DisplayName("단계별 실패 격리")
     class FailureIsolation {
+
+        @Test
+        @DisplayName("프로젝트 정보 갱신 실패는 UPDATE 단계로 기록된다")
+        void update_failure_recorded() {
+            givenActiveGisu();
+            givenPoIsPlanChallenger(PO_MEMBER_ID);
+            givenCreateDraftReturns(698L);
+            willThrow(new RuntimeException("update boom"))
+                .given(updateProjectUseCase).update(any());
+
+            SeedProjectScenariosResult result = sut.seed(new SeedProjectScenariosCommand(
+                TargetProjectStatus.DRAFT, 1, List.of(PO_MEMBER_ID)
+            ));
+
+            assertThat(result.failedProjects()).singleElement()
+                .satisfies(failure -> assertThat(failure.failedStep()).isEqualTo("UPDATE"));
+        }
+
+        @Test
+        @DisplayName("지원 폼 생성 실패는 FORM 단계로 기록된다")
+        void form_failure_recorded() {
+            givenActiveGisu();
+            givenPoIsPlanChallenger(PO_MEMBER_ID);
+            givenPoMemberSchool(PO_MEMBER_ID, SCHOOL_ID);
+            givenCreateDraftReturns(699L);
+            given(upsertProjectApplicationFormUseCase.upsert(any()))
+                .willThrow(new RuntimeException("form boom"));
+
+            SeedProjectScenariosResult result = sut.seed(new SeedProjectScenariosCommand(
+                TargetProjectStatus.PENDING_REVIEW, 1, List.of(PO_MEMBER_ID)
+            ));
+
+            assertThat(result.failedProjects()).singleElement()
+                .satisfies(failure -> assertThat(failure.failedStep()).isEqualTo("FORM"));
+        }
+
+        @Test
+        @DisplayName("파트 quota 갱신 실패는 QUOTA 단계로 기록된다")
+        void quota_failure_recorded() {
+            givenActiveGisu();
+            givenPoIsPlanChallenger(PO_MEMBER_ID);
+            givenPoMemberSchool(PO_MEMBER_ID, SCHOOL_ID);
+            givenCreateDraftReturns(699L);
+            given(upsertProjectApplicationFormUseCase.upsert(any()))
+                .willReturn(applicationFormInfo(699L, 9699L));
+            given(scenarioPartQuotaPolicy.pickQuotas()).willReturn(List.of(
+                Entry.builder().part(ChallengerPart.WEB).quota(1L).build()
+            ));
+            willThrow(new RuntimeException("quota boom"))
+                .given(updatePartQuotasUseCase).update(any());
+
+            SeedProjectScenariosResult result = sut.seed(new SeedProjectScenariosCommand(
+                TargetProjectStatus.IN_PROGRESS, 1, List.of(PO_MEMBER_ID)
+            ));
+
+            assertThat(result.failedProjects()).singleElement()
+                .satisfies(failure -> assertThat(failure.failedStep()).isEqualTo("QUOTA"));
+        }
 
         @Test
         @DisplayName("submit 실패 시 reachedStatus=DRAFT, failedStep=SUBMIT으로 failedProjects에 기록된다")

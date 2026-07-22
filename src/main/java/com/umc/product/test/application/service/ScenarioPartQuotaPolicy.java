@@ -1,12 +1,14 @@
 package com.umc.product.test.application.service;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.project.application.port.in.command.dto.UpdatePartQuotasCommand.Entry;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.project.application.port.in.command.dto.UpdatePartQuotasCommand.Entry;
 
 /**
  * IN_PROGRESS 시나리오의 PartQuota 분배 정책.
@@ -56,7 +58,7 @@ public class ScenarioPartQuotaPolicy {
         );
     }
 
-    private long randomInclusive(ThreadLocalRandom random, long min, long max) {
+    long randomInclusive(ThreadLocalRandom random, long min, long max) {
         if (max <= min) {
             return min;
         }

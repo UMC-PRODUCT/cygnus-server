@@ -1,7 +1,9 @@
 package com.umc.product.project.adapter.in.graphql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
@@ -21,6 +23,7 @@ import org.mockito.InOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -40,6 +43,11 @@ import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.project.adapter.in.graphql.dto.MemberBriefGraphQlResponse;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectGraphQlResponse;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectMemberGraphQlResponse;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectSearchGraphQlRequest;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -69,6 +77,9 @@ class ProjectGraphQlControllerTest {
 
     @Autowired
     GraphQlTester graphQlTester;
+
+    @Autowired
+    ProjectGraphQlController controller;
 
     @MockitoBean
     GetProjectUseCase getProjectUseCase;
@@ -322,6 +333,112 @@ class ProjectGraphQlControllerTest {
         then(getProjectApplicationDetailUseCase).should().batchGetDetails(any());
     }
 
+    @Test
+    @DisplayName("projects는 page 생략 시 기본 페이지 조건으로 검색한다")
+    void projects_page_생략_기본값() {
+        ProjectSearchGraphQlRequest input = new ProjectSearchGraphQlRequest(
+            1L, null, null, null, null, null, null);
+        given(searchProjectUseCase.search(any(), eq(REQUESTER_ID)))
+            .willReturn(new PageImpl<>(List.of(projectInfo())));
+
+        var response = controller.projects(new MemberPrincipal(REQUESTER_ID), input, null);
+
+        assertThat(response.content()).hasSize(1);
+        then(checkPermissionUseCase).should().checkOrThrow(
+            REQUESTER_ID, ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.READ));
+    }
+
+    @Test
+    @DisplayName("회원 field resolver는 null과 누락 회원을 안전하게 처리하고 입력 순서를 보존한다")
+    void 회원_field_resolver_null과_누락_처리() {
+        ProjectGraphQlResponse first = projectGraph(42L, 100L, List.of(101L, 102L));
+        ProjectGraphQlResponse second = projectGraph(43L, null, null);
+        given(getMemberUseCase.findAllByIds(any())).willReturn(Map.of(
+            100L, memberInfo(100L),
+            101L, memberInfo(101L),
+            200L, memberInfo(200L)
+        ));
+
+        Map<ProjectGraphQlResponse, MemberBriefGraphQlResponse> owners =
+            controller.productOwnerByProject(List.of(first, second));
+        Map<ProjectGraphQlResponse, List<MemberBriefGraphQlResponse>> coOwners =
+            controller.coProductOwnersByProject(List.of(first, second, first));
+        ProjectMemberGraphQlResponse member = ProjectMemberGraphQlResponse.from(projectMemberInfo(null));
+        ProjectMemberGraphQlResponse missingMember = new ProjectMemberGraphQlResponse(
+            11L, 42L, null, null, ChallengerPart.WEB, false, null, null, ProjectMemberStatus.ACTIVE);
+        Map<ProjectMemberGraphQlResponse, MemberBriefGraphQlResponse> memberResponses =
+            controller.memberByProjectMember(List.of(member, missingMember));
+
+        assertThat(owners.get(first).memberId()).isEqualTo(100L);
+        assertThat(owners.get(second)).isNull();
+        assertThat(coOwners.get(first)).extracting(MemberBriefGraphQlResponse::memberId)
+            .containsExactly(101L);
+        assertThat(coOwners.get(second)).isEmpty();
+        assertThat(memberResponses.get(member).memberId()).isEqualTo(200L);
+        assertThat(memberResponses.get(missingMember)).isNull();
+    }
+
+    @Test
+    @DisplayName("빈 회원 ID 집합은 회원 usecase 호출 없이 빈 resolver 결과를 만든다")
+    void 빈_회원_ID_집합() {
+        ProjectGraphQlResponse project = projectGraph(42L, null, null);
+
+        assertThat(controller.productOwnerByProject(List.of(project)).get(project)).isNull();
+        assertThat(controller.coProductOwnersByProject(List.of(project)).get(project)).isEmpty();
+
+        then(getMemberUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("members resolver는 프로젝트 읽기 권한 거부 시 조회를 중단한다")
+    void members_resolver_권한_거부() {
+        SubjectAttributes subject = subject();
+        ProjectGraphQlResponse project = projectGraph(42L, 100L, List.of());
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(false);
+
+        assertThatThrownBy(() -> controller.membersByProject(List.of(project)))
+            .isInstanceOf(AccessDeniedException.class);
+        then(getProjectMemberUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("null principal은 보안 context의 현재 회원으로 대체한다")
+    void null_principal_현재회원_대체() {
+        given(getProjectUseCase.getById(PROJECT_ID)).willReturn(projectInfo());
+
+        assertThat(controller.project(null, PROJECT_ID).id()).isEqualTo(PROJECT_ID);
+        then(checkPermissionUseCase).should().checkOrThrow(REQUESTER_ID, projectReadPermission(PROJECT_ID));
+    }
+
+    @Test
+    @DisplayName("members resolver는 중복 프로젝트 key의 첫 결과를 보존한다")
+    void members_resolver_중복_key() {
+        SubjectAttributes subject = subject();
+        ProjectGraphQlResponse project = projectGraph(42L, 100L, List.of());
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, projectReadPermission(PROJECT_ID))).willReturn(true);
+        given(getProjectMemberUseCase.listByProjectIds(List.of(PROJECT_ID)))
+            .willReturn(Map.of(PROJECT_ID, List.of(projectMemberInfo(null))));
+
+        Map<ProjectGraphQlResponse, List<ProjectMemberGraphQlResponse>> result =
+            controller.membersByProject(List.of(project, project));
+
+        assertThat(result).hasSize(1);
+        assertThat(result.get(project)).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("application resolver는 applicationId가 없는 멤버를 상세 조회 없이 null로 반환한다")
+    void application_resolver_applicationId_없음() {
+        SubjectAttributes subject = subject();
+        ProjectMemberGraphQlResponse member = ProjectMemberGraphQlResponse.from(projectMemberInfo(null));
+        given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
+
+        assertThat(controller.applicationByProjectMember(List.of(member)).get(member)).isNull();
+        then(getProjectApplicationDetailUseCase).shouldHaveNoInteractions();
+    }
+
     private void assertCommonError(
         List<org.springframework.graphql.ResponseError> errors,
         String path,
@@ -348,6 +465,21 @@ class ProjectGraphQlControllerTest {
             .partQuotas(List.of(ProjectPartQuotaInfo.of(ChallengerPart.WEB, 3L, 1L)))
             .createdAt(Instant.parse("2026-06-01T00:00:00Z"))
             .updatedAt(Instant.parse("2026-06-02T00:00:00Z"))
+            .build();
+    }
+
+    private ProjectGraphQlResponse projectGraph(Long id, Long ownerId, List<Long> coOwnerIds) {
+        return new ProjectGraphQlResponse(
+            id, ProjectStatus.IN_PROGRESS, "프로젝트", null, null, null, null,
+            1L, 7L, ownerId, coOwnerIds, List.of(), null, null);
+    }
+
+    private MemberInfo memberInfo(Long id) {
+        return MemberInfo.builder()
+            .id(id)
+            .nickname("닉네임" + id)
+            .name("이름" + id)
+            .schoolName("학교")
             .build();
     }
 

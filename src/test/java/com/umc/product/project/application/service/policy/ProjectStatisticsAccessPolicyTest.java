@@ -65,6 +65,25 @@ class ProjectStatisticsAccessPolicyTest {
     }
 
     @Test
+    @DisplayName("PO와 보조 PM이 아니면 지부 통계 권한으로 fallback한다")
+    void 프로젝트_통계는_지부_권한으로_fallback한다() {
+        Project project = project(999L);
+        given(loadProjectMemberPort.isActivePlanMember(PROJECT_ID, MEMBER_ID)).willReturn(false);
+        given(getChallengerRoleUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
+
+        assertThat(sut.canReadProjectStatistics(MEMBER_ID, project)).isTrue();
+    }
+
+    @Test
+    @DisplayName("SUPER_ADMIN은 지부 통계를 전역 조회할 수 있다")
+    void SUPER_ADMIN은_지부_통계를_조회할_수_있다() {
+        given(getChallengerRoleUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
+
+        assertThat(sut.canReadChapterStatistics(MEMBER_ID, CHAPTER_ID)).isTrue();
+        verifyNoInteractions(getChapterUseCase);
+    }
+
+    @Test
     @DisplayName("중앙 운영진은 지부 통계를 조회할 수 있다")
     void 중앙_운영진은_지부_통계를_조회할_수_있다() {
         given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID))

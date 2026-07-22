@@ -14,6 +14,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -124,6 +125,25 @@ class ProjectQueryRepositoryTest {
         assertThat(result.getTotalElements()).isEqualTo(3);
         assertThat(result.getTotalPages()).isEqualTo(2);
         assertThat(result.hasNext()).isTrue();
+    }
+
+    @Test
+    void 복수_정렬_조건의_오름차순과_내림차순을_적용한다() {
+        SearchProjectQuery query = SearchProjectQuery.forChallenger(
+            gisuId,
+            null,
+            null,
+            null,
+            null,
+            null,
+            PageRequest.of(0, 20, Sort.by(Sort.Order.asc("name"), Sort.Order.desc("id")))
+        );
+
+        Page<Project> result = sut.search(query);
+
+        assertThat(result.getContent())
+            .extracting(Project::getName)
+            .isSorted();
     }
 
     @Test

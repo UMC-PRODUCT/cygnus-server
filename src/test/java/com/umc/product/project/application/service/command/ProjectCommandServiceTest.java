@@ -36,6 +36,8 @@ import com.umc.product.project.application.port.out.LoadProjectApplicationFormPo
 import com.umc.product.project.application.port.out.LoadProjectPort;
 import com.umc.product.project.application.port.out.SaveProjectPort;
 import com.umc.product.project.domain.Project;
+import com.umc.product.project.domain.ProjectApplication;
+import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
@@ -285,6 +287,25 @@ class ProjectCommandServiceTest {
             Long result = sut.create(command);
 
             assertThat(result).isEqualTo(99L);
+        }
+
+        @Test
+        void SUPER_ADMIN이_다른_PLAN_챌린저를_PO로_지정하면_성공() {
+            var command = CreateDraftProjectCommand.builder()
+                .gisuId(1L).productOwnerMemberId(100L).requesterMemberId(200L).build();
+            given(getGisuUseCase.getById(1L)).willReturn(gisuInfo());
+            given(getChallengerUseCase.getByMemberIdAndGisuId(100L, 1L))
+                .willReturn(challengerInfo(100L, ChallengerPart.PLAN));
+            given(getMemberUseCase.getById(100L)).willReturn(memberInfo(10L));
+            given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(5L, "서울"));
+            given(getChallengerRoleUseCase.isSuperAdmin(200L)).willReturn(true);
+            given(saveProjectPort.save(any())).willAnswer(invocation -> {
+                Project project = invocation.getArgument(0);
+                ReflectionTestUtils.setField(project, "id", 99L);
+                return project;
+            });
+
+            assertThat(sut.create(command)).isEqualTo(99L);
         }
 
         @Test
@@ -727,11 +748,12 @@ class ProjectCommandServiceTest {
             Project project = createProject(ProjectStatus.IN_PROGRESS);
             com.umc.product.project.domain.ProjectMember activeMember =
                 com.umc.product.project.domain.ProjectMember.create(project, 500L, ChallengerPart.WEB, 100L);
+            ProjectApplication application = newProjectApplication(ProjectApplicationStatus.SUBMITTED);
 
             given(loadProjectPort.getById(1L)).willReturn(project);
             given(loadProjectMemberPort.listByProjectId(1L)).willReturn(java.util.List.of(activeMember));
             given(loadProjectApplicationPort.listInProgressByProjectId(1L))
-                .willReturn(java.util.List.of());
+                .willReturn(java.util.List.of(application));
 
             sut.abort(com.umc.product.project.application.port.in.command.dto.AbortProjectCommand.builder()
                 .projectId(1L).requesterMemberId(99L).reason("팀 와해").build());
@@ -741,6 +763,8 @@ class ProjectCommandServiceTest {
             assertThat(activeMember.getStatus())
                 .isEqualTo(com.umc.product.project.domain.enums.ProjectMemberStatus.WITHDRAWN);
             assertThat(activeMember.getStatusChangeReason()).isEqualTo("팀 와해");
+            assertThat(application.getStatus()).isEqualTo(ProjectApplicationStatus.CANCELLED);
+            assertThat(application.getStatusChangeReason()).isEqualTo("팀 와해");
         }
 
         @Test
@@ -764,6 +788,18 @@ class ProjectCommandServiceTest {
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_ABORT_REASON_REQUIRED);
+        }
+    }
+
+    private ProjectApplication newProjectApplication(ProjectApplicationStatus status) {
+        try {
+            var constructor = ProjectApplication.class.getDeclaredConstructor();
+            constructor.setAccessible(true);
+            ProjectApplication application = constructor.newInstance();
+            ReflectionTestUtils.setField(application, "status", status);
+            return application;
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException(exception);
         }
     }
 }

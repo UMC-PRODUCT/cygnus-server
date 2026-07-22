@@ -145,9 +145,7 @@ public class ProjectResponseAssembler {
 
         Set<Long> memberIds = members.stream().map(ProjectMember::getMemberId).collect(Collectors.toSet());
         memberIds.add(info.productOwnerMemberId());
-        Map<Long, MemberInfo> memberMap = memberIds.isEmpty()
-            ? Map.of()
-            : getMemberUseCase.findAllByIds(memberIds);
+        Map<Long, MemberInfo> memberMap = getMemberUseCase.findAllByIds(memberIds);
         Map<ProjectMemberKey, MatchedRoundInfo> matchedRoundMap =
             loadMatchedRoundMap(Set.of(projectId), memberIds);
 
@@ -193,9 +191,7 @@ public class ProjectResponseAssembler {
             projectMembersMap.getOrDefault(projectId, List.of())
                 .forEach(m -> allMemberIds.add(m.getMemberId()));
         });
-        Map<Long, MemberInfo> memberMap = allMemberIds.isEmpty()
-            ? Map.of()
-            : getMemberUseCase.findAllByIds(allMemberIds);
+        Map<Long, MemberInfo> memberMap = getMemberUseCase.findAllByIds(allMemberIds);
         Map<ProjectMemberKey, MatchedRoundInfo> matchedRoundMap =
             loadMatchedRoundMap(validProjects.keySet(), allMemberIds);
 
@@ -316,10 +312,6 @@ public class ProjectResponseAssembler {
         Collection<Long> projectIds,
         Collection<Long> memberIds
     ) {
-        if (projectIds == null || projectIds.isEmpty() || memberIds == null || memberIds.isEmpty()) {
-            return Map.of();
-        }
-
         List<ProjectMemberMatchedRoundInfo> rows = loadProjectApplicationPort
             .listLatestApprovedMatchedRoundsByProjectIdsAndMemberIds(projectIds, memberIds);
         if (rows == null || rows.isEmpty()) {
@@ -349,7 +341,7 @@ public class ProjectResponseAssembler {
         Set<Long> ids = new HashSet<>();
         ids.add(info.productOwnerMemberId());
         ids.addAll(info.coProductOwnerMemberIds());
-        return ids.isEmpty() ? Map.of() : getMemberUseCase.findAllByIds(ids);
+        return getMemberUseCase.findAllByIds(ids);
     }
 
     private MemberBrief toBrief(MemberInfo info) {

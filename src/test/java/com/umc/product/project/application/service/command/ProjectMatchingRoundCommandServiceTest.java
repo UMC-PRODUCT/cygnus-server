@@ -296,6 +296,61 @@ class ProjectMatchingRoundCommandServiceTest {
                 .isEqualTo("PROJECT-0309");
             then(scheduleMatchingRoundDeadlinePort).should(never()).schedule(any());
         }
+
+        @Test
+        @DisplayName("수정 기간이 다른 차수와 겹치면 거부한다")
+        void 수정_기간_중첩_거부() {
+            ProjectMatchingRound current = futureRound(MatchingType.PLAN_DESIGN);
+            given(loadProjectMatchingRoundPort.getById(ROUND_ID)).willReturn(current);
+            given(loadProjectMatchingRoundPort.listOverlappingExceptId(any(), any(), any(), any()))
+                .willReturn(List.of(matchingRound(
+                    2L, MatchingType.PLAN_DESIGN, MatchingPhase.SECOND, 1L,
+                    "2026-05-20T00:00:00Z", "2026-05-21T00:00:00Z", "2026-05-22T00:00:00Z")));
+
+            assertThatThrownBy(() -> sut.update(updateCommand(ROUND_ID)))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting(e -> ((ProjectDomainException) e).getBaseCode())
+                .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_PERIOD_OVERLAPPED);
+        }
+
+        @Test
+        @DisplayName("다음 차수 시작 직전까지 이전 차수 결정 기한이 이어지면 생성할 수 없다")
+        void 다음_차수와_이전_차수_결정기한_간격_부족() {
+            ProjectMatchingRound thirdRound = matchingRound(
+                10L, MatchingType.PLAN_DESIGN, MatchingPhase.THIRD, 1L,
+                "2026-05-20T00:00:00Z", "2026-05-22T00:00:00Z", "2026-05-23T00:00:00Z");
+            CreateProjectMatchingRoundCommand command = createCommand(
+                1L, MatchingType.PLAN_DESIGN, MatchingPhase.SECOND,
+                "2026-05-15T00:00:00Z", "2026-05-17T00:00:00Z", "2026-05-19T23:59:30Z");
+            given(loadProjectMatchingRoundPort.listOverlapping(any(), any(), any())).willReturn(List.of());
+            given(loadProjectMatchingRoundPort.listByChapterId(1L)).willReturn(List.of(thirdRound));
+
+            assertThatThrownBy(() -> sut.create(command))
+                .isInstanceOf(ProjectDomainException.class)
+                .extracting(e -> ((ProjectDomainException) e).getBaseCode())
+                .isEqualTo(ProjectErrorCode.PROJECT_MATCHING_ROUND_PHASE_SEQUENCE_INVALID);
+        }
+
+        @Test
+        @DisplayName("차수 사이 최소 간격을 만족하면 다음 차수를 생성한다")
+        void 차수_최소_간격_충족() {
+            ProjectMatchingRound firstRound = matchingRound(
+                10L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST, 1L,
+                "2026-05-10T00:00:00Z", "2026-05-12T00:00:00Z", "2026-05-13T00:00:00Z");
+            CreateProjectMatchingRoundCommand command = createCommand(
+                1L, MatchingType.PLAN_DESIGN, MatchingPhase.SECOND,
+                "2026-05-13T00:01:00Z", "2026-05-15T00:00:00Z", "2026-05-16T00:00:00Z");
+            ProjectMatchingRound saved = matchingRound(
+                20L, MatchingType.PLAN_DESIGN, MatchingPhase.SECOND, 1L,
+                "2026-05-13T00:01:00Z", "2026-05-15T00:00:00Z", "2026-05-16T00:00:00Z");
+            given(loadProjectMatchingRoundPort.listOverlapping(any(), any(), any())).willReturn(List.of());
+            given(loadProjectMatchingRoundPort.listByChapterId(1L)).willReturn(List.of(firstRound));
+            given(saveProjectMatchingRoundPort.save(any())).willReturn(saved);
+
+            sut.create(command);
+
+            then(saveProjectMatchingRoundPort).should().save(any());
+        }
     }
 
     private CreateProjectMatchingRoundCommand createCommand(Long chapterId) {

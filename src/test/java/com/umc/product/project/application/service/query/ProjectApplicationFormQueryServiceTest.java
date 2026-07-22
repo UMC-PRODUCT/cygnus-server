@@ -19,9 +19,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
@@ -319,6 +321,110 @@ class ProjectApplicationFormQueryServiceTest {
         then(loadApplicationFormPort).should().findAllByProjectIds(List.of(PROJECT_ID, 99L));
     }
 
+    @Test
+    void findAllByProjectIds_폼이_모두_없으면_후속_batch를_호출하지_않는다() {
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(1L, 2L))).willReturn(Map.of());
+
+        assertThat(sut.findAllByProjectIds(List.of(1L, 1L, 2L), 999L)).isEmpty();
+
+        then(getFormUseCase).should(never()).batchGetFormsWithStructure(any());
+    }
+
+    @Test
+    void findByProjectId_SUPER_ADMIN은_전체_폼을_조회한다() {
+        Long requesterMemberId = 999L;
+        Project project = createProject();
+        ProjectApplicationForm applicationForm = createApplicationForm(project);
+        given(loadApplicationFormPort.findByProjectId(PROJECT_ID)).willReturn(Optional.of(applicationForm));
+        given(getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)).willReturn(true);
+        given(getFormUseCase.getFormWithStructure(FORM_ID)).willReturn(buildFormStructure());
+        given(loadPolicyPort.listByApplicationFormId(APPLICATION_FORM_ID)).willReturn(List.of());
+
+        assertThat(sut.findByProjectId(PROJECT_ID, requesterMemberId).orElseThrow().sections()).hasSize(2);
+
+        then(getChallengerRoleUseCase).should(never()).isCentralCoreInGisu(any(), any());
+    }
+
+    @Test
+    void findAllByProjectIds_중앙총괄_지부장_지원자_scope를_기수별로_합성한다() {
+        Long requesterMemberId = 999L;
+        Project centralProject = createProject();
+        Project chapterProject = createProject();
+        ReflectionTestUtils.setField(chapterProject, "id", 43L);
+        ReflectionTestUtils.setField(chapterProject, "gisuId", 2L);
+        ReflectionTestUtils.setField(chapterProject, "chapterId", 8L);
+        ReflectionTestUtils.setField(chapterProject, "productOwnerMemberId", 20L);
+        Project applicantProject = createProject();
+        ReflectionTestUtils.setField(applicantProject, "id", 44L);
+        ReflectionTestUtils.setField(applicantProject, "gisuId", 3L);
+        ReflectionTestUtils.setField(applicantProject, "chapterId", 9L);
+        ReflectionTestUtils.setField(applicantProject, "productOwnerMemberId", 30L);
+        ProjectApplicationForm centralForm = createApplicationForm(centralProject);
+        ProjectApplicationForm chapterForm = createApplicationForm(chapterProject);
+        ReflectionTestUtils.setField(chapterForm, "id", 101L);
+        ProjectApplicationForm applicantForm = createApplicationForm(applicantProject);
+        ReflectionTestUtils.setField(applicantForm, "id", 102L);
+
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(42L, 43L, 44L))).willReturn(Map.of(
+            42L, centralForm, 43L, chapterForm, 44L, applicantForm));
+        given(getChallengerRoleUseCase.findAllByMemberId(requesterMemberId)).willReturn(List.of(
+            role(ChallengerRoleType.CENTRAL_PRESIDENT, GISU_ID, null),
+            role(ChallengerRoleType.CHAPTER_PRESIDENT, 2L, 8L),
+            role(ChallengerRoleType.CHAPTER_PRESIDENT, null, 9L)
+        ));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(requesterMemberId), 3L))
+            .willReturn(Map.of(requesterMemberId, challengerInfoWithPart(ChallengerPart.WEB)));
+        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
+            .willReturn(Map.of(FORM_ID, buildFormStructure()));
+        given(loadPolicyPort.listByApplicationFormIds(Set.of(100L, 101L, 102L))).willReturn(Map.of());
+
+        Map<Long, ApplicationFormInfo> result = sut.findAllByProjectIds(
+            List.of(42L, 43L, 44L), requesterMemberId);
+
+        assertThat(result.keySet()).containsExactly(42L, 43L, 44L);
+        assertThat(result.get(42L).sections()).hasSize(2);
+        assertThat(result.get(43L).sections()).hasSize(2);
+        assertThat(result.get(44L).sections()).isEmpty();
+    }
+
+    @Test
+    void findAllByProjectIds_SUPER_ADMIN은_모든_프로젝트의_전체_폼을_조회한다() {
+        Long requesterMemberId = 999L;
+        Project project = createProject();
+        ReflectionTestUtils.setField(project, "productOwnerMemberId", 20L);
+        ProjectApplicationForm applicationForm = createApplicationForm(project);
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID)))
+            .willReturn(Map.of(PROJECT_ID, applicationForm));
+        given(getChallengerRoleUseCase.findAllByMemberId(requesterMemberId)).willReturn(List.of());
+        given(getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)).willReturn(true);
+        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
+            .willReturn(Map.of(FORM_ID, buildFormStructure()));
+        given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID))).willReturn(Map.of());
+
+        assertThat(sut.findAllByProjectIds(List.of(PROJECT_ID), requesterMemberId)
+            .get(PROJECT_ID).sections()).hasSize(2);
+    }
+
+    @Test
+    void findAllByProjectIds_제한된_기수의_챌린저가_없으면_접근을_거부한다() {
+        Long requesterMemberId = 999L;
+        Project project = createProject();
+        ReflectionTestUtils.setField(project, "productOwnerMemberId", 20L);
+        ProjectApplicationForm applicationForm = createApplicationForm(project);
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID)))
+            .willReturn(Map.of(PROJECT_ID, applicationForm));
+        given(getChallengerRoleUseCase.findAllByMemberId(requesterMemberId)).willReturn(List.of());
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(requesterMemberId), GISU_ID))
+            .willReturn(Map.of());
+        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
+            .willReturn(Map.of(FORM_ID, buildFormStructure()));
+        given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID))).willReturn(Map.of());
+
+        assertThatThrownBy(() -> sut.findAllByProjectIds(List.of(PROJECT_ID), requesterMemberId))
+            .isInstanceOf(ProjectDomainException.class)
+            .hasFieldOrPropertyWithValue("baseCode", ProjectErrorCode.APPLICATION_FORM_ACCESS_NOT_ALLOWED);
+    }
+
     private static <T> T any() {
         return org.mockito.ArgumentMatchers.any();
     }
@@ -354,6 +460,14 @@ class ProjectApplicationFormQueryServiceTest {
             .memberId(0L)
             .gisuId(GISU_ID)
             .part(part)
+            .build();
+    }
+
+    private ChallengerRoleInfo role(ChallengerRoleType type, Long gisuId, Long organizationId) {
+        return ChallengerRoleInfo.builder()
+            .roleType(type)
+            .gisuId(gisuId)
+            .organizationId(organizationId)
             .build();
     }
 

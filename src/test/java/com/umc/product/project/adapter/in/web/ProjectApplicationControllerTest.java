@@ -30,6 +30,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.project.adapter.in.web.dto.request.CreateProjectApplicationRequest;
 import com.umc.product.project.adapter.in.web.dto.request.UpdateApplicationDecisionRequest;
 import com.umc.product.project.application.port.in.command.CancelProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectApplicationUseCase;
@@ -59,6 +60,9 @@ class ProjectApplicationControllerTest {
     @Autowired
     ObjectMapper objectMapper;
 
+    @Autowired
+    ProjectApplicationController controller;
+
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
 
@@ -85,6 +89,24 @@ class ProjectApplicationControllerTest {
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities())
         );
+    }
+
+    @Test
+    void 지원서_초안_생성과_철회는_요청자_정보를_전달한다() {
+        MemberPrincipal principal = MemberPrincipal.builder().memberId(TEST_MEMBER_ID).build();
+        given(createDraftProjectApplicationUseCase.create(any()))
+            .willReturn(ProjectApplicationInfo.of(APPLICATION_ID, ProjectApplicationStatus.DRAFT));
+        given(cancelProjectApplicationUseCase.cancel(any()))
+            .willReturn(ProjectApplicationInfo.of(APPLICATION_ID, ProjectApplicationStatus.CANCELLED));
+
+        assertThat(controller.createDraft(
+            principal, PROJECT_ID, new CreateProjectApplicationRequest(7L)).status())
+            .isEqualTo(ProjectApplicationStatus.DRAFT);
+        assertThat(controller.cancel(principal, APPLICATION_ID, "개인 사정").status())
+            .isEqualTo(ProjectApplicationStatus.CANCELLED);
+
+        then(createDraftProjectApplicationUseCase).should().create(any());
+        then(cancelProjectApplicationUseCase).should().cancel(any());
     }
 
     @Nested

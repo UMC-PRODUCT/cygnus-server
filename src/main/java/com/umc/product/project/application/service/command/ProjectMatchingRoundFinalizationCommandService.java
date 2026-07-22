@@ -202,9 +202,6 @@ public class ProjectMatchingRoundFinalizationCommandService implements
      * 일괄 조회한 뒤 in-memory 로 차감한다.
      */
     private Map<ProjectPartKey, Integer> buildRemainingQuotaMap(Set<ProjectPartKey> keys) {
-        if (keys.isEmpty()) {
-            return Map.of();
-        }
         Set<Long> projectIds = keys.stream()
             .map(ProjectPartKey::projectId)
             .collect(Collectors.toSet());
@@ -343,13 +340,13 @@ public class ProjectMatchingRoundFinalizationCommandService implements
             .collect(Collectors.toSet());
         Map<Long, Map<ChallengerPart, Long>> activeByProject = loadProjectMemberPort
             .countByProjectIdsGroupByProjectIdAndPart(projectIds);
-        Map<ProjectPartKey, Long> plannedByKey = plannedMembers.stream()
-            .filter(member -> projectIds.contains(member.getProject().getId()))
-            .filter(member -> isDeveloperPart(member.getPart()))
-            .collect(Collectors.groupingBy(
-                member -> new ProjectPartKey(member.getProject().getId(), member.getPart()),
-                Collectors.counting()
-            ));
+        Map<ProjectPartKey, Long> plannedByKey = new HashMap<>();
+        for (ProjectMember member : plannedMembers) {
+            if (projectIds.contains(member.getProject().getId()) && isDeveloperPart(member.getPart())) {
+                ProjectPartKey key = new ProjectPartKey(member.getProject().getId(), member.getPart());
+                plannedByKey.merge(key, 1L, Long::sum);
+            }
+        }
 
         Map<ProjectPartKey, Integer> result = new HashMap<>();
         Map<Long, List<ProjectPartQuota>> quotasByProject = loadProjectPartQuotaPort

@@ -11,7 +11,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -145,15 +144,9 @@ public class ProjectApplicationQueryService
             return Map.of();
         }
 
-        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId = queries.stream()
-            .collect(Collectors.toMap(
-                GetProjectApplicationDetailQuery::applicationId,
-                Function.identity(),
-                (left, right) -> left,
-                LinkedHashMap::new
-            ));
-        if (queriesByApplicationId.isEmpty()) {
-            return Map.of();
+        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId = new LinkedHashMap<>();
+        for (GetProjectApplicationDetailQuery query : queries) {
+            queriesByApplicationId.putIfAbsent(query.applicationId(), query);
         }
 
         List<ProjectApplication> applications =
@@ -161,13 +154,10 @@ public class ProjectApplicationQueryService
         validateProjectConsistency(applications, queriesByApplicationId);
         validateMatchingRoundVisibility(applications, queriesByApplicationId);
 
-        Map<Long, ProjectApplication> applicationsById = applications.stream()
-            .collect(Collectors.toMap(
-                ProjectApplication::getId,
-                Function.identity(),
-                (left, right) -> left,
-                LinkedHashMap::new
-            ));
+        Map<Long, ProjectApplication> applicationsById = new LinkedHashMap<>();
+        for (ProjectApplication application : applications) {
+            applicationsById.putIfAbsent(application.getId(), application);
+        }
         Map<GisuMemberKey, ChallengerPart> applicantPartsByKey = resolveApplicantParts(applications);
         Map<Long, List<ProjectApplicationFormPolicy>> policiesByApplicationFormId =
             loadProjectApplicationFormPolicyPort.listByApplicationFormIds(applicationFormIds(applications));
@@ -538,14 +528,13 @@ public class ProjectApplicationQueryService
                 .filter(answer -> answer.fileIds() != null)
                 .flatMap(answer -> answer.fileIds().stream())
                 .collect(Collectors.toSet());
-            Map<String, FileInfo> filesByFileId = applicationFileIds.stream()
-                .filter(allFilesByFileId::containsKey)
-                .collect(Collectors.toMap(
-                    Function.identity(),
-                    allFilesByFileId::get,
-                    (left, right) -> left,
-                    LinkedHashMap::new
-                ));
+            Map<String, FileInfo> filesByFileId = new LinkedHashMap<>();
+            for (String fileId : applicationFileIds) {
+                FileInfo file = allFilesByFileId.get(fileId);
+                if (file != null) {
+                    filesByFileId.put(fileId, file);
+                }
+            }
             result.put(application.getId(), filesByFileId);
         }
         return result;

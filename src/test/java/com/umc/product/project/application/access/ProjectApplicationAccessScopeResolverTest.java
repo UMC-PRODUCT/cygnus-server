@@ -50,6 +50,13 @@ class ProjectApplicationAccessScopeResolverTest {
     @InjectMocks
     ProjectApplicationAccessScopeResolver sut;
 
+    @Test
+    @DisplayName("본인 지원 내역 scope는 호출자 owner로 고정한다")
+    void applicant_scope는_본인으로_제한한다() {
+        assertThat(sut.resolveForApplicant(MEMBER_ID))
+            .isEqualTo(new ProjectApplicationAccessScope.OwnerOnly(MEMBER_ID));
+    }
+
     // --- PO / Sub-PM (프로젝트 단위 권한) ---
 
     private static Project project(Long ownerMemberId, Long gisuId, Long chapterId, Long schoolId) {
@@ -409,5 +416,88 @@ class ProjectApplicationAccessScopeResolverTest {
         // then
         assertThat(result).containsEntry(PROJECT_ID, new None());
         verifyNoInteractions(getChapterUseCase);
+    }
+
+    @Test
+    @DisplayName("projectApplicantLists_batch는 null·빈 프로젝트를 조회 없이 단축한다")
+    void projectApplicantLists_batch_빈_입력() {
+        assertThat(sut.resolveForProjectApplicantLists(MEMBER_ID, null)).isEmpty();
+        assertThat(sut.resolveForProjectApplicantLists(MEMBER_ID, List.of())).isEmpty();
+        verifyNoInteractions(loadProjectMemberPort, getChallengerRoleUseCase, getChapterUseCase);
+    }
+
+    @Test
+    @DisplayName("projectApplicantLists_batch SUPER_ADMIN은 진행 중 차수까지 조회한다")
+    void projectApplicantLists_batch_SUPER_ADMIN() {
+        Project project = project(OWNER_ID, GISU_ID, CHAPTER_ID, SCHOOL_ID);
+        given(loadProjectMemberPort.listProjectIdsByActivePlanMember(Set.of(PROJECT_ID), MEMBER_ID))
+            .willReturn(List.of());
+        given(getChallengerRoleUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
+
+        ProjectScoped scope = (ProjectScoped) sut.resolveForProjectApplicantLists(
+            MEMBER_ID, List.of(project)).get(PROJECT_ID);
+
+        assertThat(scope.includeOngoingMatchingRounds()).isTrue();
+    }
+
+    @Test
+    @DisplayName("projectApplicantLists_batch는 같은 지부의 지부장과 학교 회장단만 허용한다")
+    void projectApplicantLists_batch_지부장과_학교회장단() {
+        Project chapterProject = project(100L, OWNER_ID, GISU_ID, CHAPTER_ID, SCHOOL_ID);
+        Project schoolProject = project(101L, OWNER_ID, GISU_ID, 6L, SCHOOL_ID);
+        Project otherChapterProject = project(102L, OWNER_ID, GISU_ID, OTHER_CHAPTER_ID, SCHOOL_ID);
+        Set<Long> ids = Set.of(100L, 101L, 102L);
+        given(loadProjectMemberPort.listProjectIdsByActivePlanMember(ids, MEMBER_ID)).willReturn(List.of());
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID)).willReturn(List.of(
+            roleInfo(ChallengerRoleType.CHAPTER_PRESIDENT, OrganizationType.CHAPTER, CHAPTER_ID, GISU_ID),
+            roleInfo(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID, GISU_ID)
+        ));
+        given(getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(Set.of(GISU_ID), Set.of(SCHOOL_ID)))
+            .willReturn(Map.of(GISU_ID, Map.of(SCHOOL_ID, new ChapterInfo(6L, "경기"))));
+
+        Map<Long, ProjectApplicationAccessScope> result = sut.resolveForProjectApplicantLists(
+            MEMBER_ID, List.of(chapterProject, schoolProject, otherChapterProject));
+
+        assertThat(result.get(100L)).isEqualTo(new ProjectScoped(100L));
+        assertThat(result.get(101L)).isEqualTo(new ProjectScoped(101L));
+        assertThat(result.get(102L)).isInstanceOf(None.class);
+    }
+
+    @Test
+    @DisplayName("projectApplicantLists_batch는 학교의 지부 매핑이 누락되면 fail-closed한다")
+    void projectApplicantLists_batch_학교_지부_매핑_누락() {
+        Project project = project(OWNER_ID, GISU_ID, CHAPTER_ID, SCHOOL_ID);
+        given(loadProjectMemberPort.listProjectIdsByActivePlanMember(Set.of(PROJECT_ID), MEMBER_ID))
+            .willReturn(List.of());
+        given(getChallengerRoleUseCase.findAllByMemberId(MEMBER_ID)).willReturn(List.of(
+            roleInfo(ChallengerRoleType.SCHOOL_VICE_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID, GISU_ID)
+        ));
+        given(getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(Set.of(GISU_ID), Set.of(SCHOOL_ID)))
+            .willReturn(Map.of());
+
+        assertThat(sut.resolveForProjectApplicantLists(MEMBER_ID, List.of(project)))
+            .containsEntry(PROJECT_ID, new None());
+    }
+
+    @Test
+    @DisplayName("management scope는 SUPER_ADMIN·총괄·지부장·일반 회원을 구분한다")
+    void management_scope_역할_행렬() {
+        given(getChallengerRoleUseCase.isSuperAdmin(1L)).willReturn(true);
+        given(getChallengerRoleUseCase.findAllByMemberId(2L)).willReturn(List.of(
+            roleInfo(ChallengerRoleType.CENTRAL_VICE_PRESIDENT, OrganizationType.CENTRAL, null, GISU_ID)));
+        given(getChallengerRoleUseCase.findAllByMemberId(3L)).willReturn(List.of(
+            roleInfo(ChallengerRoleType.CHAPTER_PRESIDENT, OrganizationType.CHAPTER, CHAPTER_ID, GISU_ID),
+            roleInfo(ChallengerRoleType.CHAPTER_PRESIDENT, OrganizationType.CHAPTER, OTHER_CHAPTER_ID, GISU_ID),
+            roleInfo(ChallengerRoleType.CENTRAL_PRESIDENT, OrganizationType.CENTRAL, null, OTHER_GISU_ID)));
+        given(getChallengerRoleUseCase.findAllByMemberId(4L)).willReturn(List.of());
+
+        assertThat(sut.resolveForManagement(1L, GISU_ID))
+            .isEqualTo(new ProjectApplicationAccessScope.All());
+        assertThat(sut.resolveForManagement(2L, GISU_ID))
+            .isEqualTo(new ProjectApplicationAccessScope.AllInGisu(GISU_ID));
+        assertThat(sut.resolveForManagement(3L, GISU_ID))
+            .isEqualTo(new ProjectApplicationAccessScope.ChapterScoped(
+                List.of(CHAPTER_ID, OTHER_CHAPTER_ID), GISU_ID));
+        assertThat(sut.resolveForManagement(4L, GISU_ID)).isEqualTo(new None());
     }
 }
