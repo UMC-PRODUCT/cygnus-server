@@ -2,20 +2,20 @@
 
 ## OVERVIEW
 
-`notification` owns FCM tokens/topics/outbox, email sending, webhook alarms, event listeners, and notification schedulers.
+`notification` owns FCM tokens and event-driven delivery, email sending, webhook alarms, event listeners, and notification schedulers.
 
 ## STRUCTURE
 
 ```text
 notification/
-├── domain/                         # notification token/outbox models and exceptions
+├── domain/                         # notification token and event models, exceptions
 ├── application/port/in             # FCM, email, webhook UseCases
 ├── application/port/out            # external and persistence ports
-├── application/service             # FCM, outbox, topic, email, webhook services
+├── application/service             # FCM, audience, email, webhook services
 ├── application/service/evaluator   # audience/permission helpers
 ├── adapter/in/aop                  # notification-related aspects
 ├── adapter/in/event                # domain event listeners
-├── adapter/in/scheduler            # outbox/scheduled delivery
+├── adapter/in/scheduler            # scheduled token validation
 ├── adapter/in/web                  # FCM controller
 └── adapter/out                     # external senders and persistence adapters
 ```
@@ -24,9 +24,9 @@ notification/
 
 | Task | Location | Notes |
 |------|----------|-------|
-| FCM API | `adapter/in/web/FcmController.java` | token/topic surface |
-| FCM sending | `FcmService.java`, `FcmOutboxService.java` | direct and outbox delivery |
-| Audience | `FcmAudienceService.java`, `FcmTopicService.java` | target expansion/topic behavior |
+| FCM API | `adapter/in/web/FcmController.java` | installation-bound token surface |
+| FCM sending | `FcmNotificationCommandService.java`, `application/event/Fcm*EventListener.java` | event outbox-backed batch delivery |
+| Audience | `FcmAudienceService.java`, `FcmAudienceResolver.java` | target expansion and token resolution |
 | Email | `SendEmailService.java`, `adapter/out/external/ses/SesEmailAdapter.java` | SES path |
 | Webhooks | `WebhookAlarmService.java`, `Discord/Slack/TelegramWebhookAdapter.java` | external alarm paths |
 | Persistence | `adapter/out/persistentce` | current persistence adapter package name |

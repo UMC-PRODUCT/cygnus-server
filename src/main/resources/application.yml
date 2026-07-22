@@ -439,7 +439,6 @@ app:
 
   fcm:
     enabled: ${FCM_ENABLED:false}
-    outbox-interval-ms: ${FCM_OUTBOX_INTERVAL_MS:60000}
     token-validation-enabled: ${FCM_TOKEN_VALIDATION_ENABLED:true}
     token-validation-interval-ms: ${FCM_TOKEN_VALIDATION_INTERVAL_MS:86400000}
     token-validation-batch-size: ${FCM_TOKEN_VALIDATION_BATCH_SIZE:500}

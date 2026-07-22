@@ -241,9 +241,6 @@
 | 위치 | 레벨 | 무엇을 남기는가 | 판단 |
 | --- | --- | --- | --- |
 | `ServerLifecycleAlarmListener` | INFO | 서버 시작/종료 알림 전송 완료 시간 | 운영 이벤트 |
-| `FcmOutboxEventListener`, `FcmOutboxScheduler` | DEBUG | outbox 즉시/스케줄 처리 시작 | 디버깅용 |
-| `FcmOutboxService` | WARN | deprecated topic outbox 잔여 이벤트 실패 처리 | migration 상태 추적 |
-| `FcmTopicService` | DEBUG | deprecated topic API 호출/비활성화 | 제거 전 디버깅용. 반복 WARN 제거 완료 |
 | `FcmAudienceService` | INFO/WARN/ERROR | FCM 비활성화 skip, 대상 없음, active token 없음, 발송 완료, batch 실패, 성공/실패 수 | title 원문 제거 완료. notification metric 추가 |
 | `FcmTokenDeactivator` | INFO | invalid token 비활성화 tokenId/memberId | 운영 추적용. metric 후보 |
 | `WebhookAlarmAspect` | DEBUG/ERROR | webhook annotation 감지, 처리 오류 | AOP 진단 |

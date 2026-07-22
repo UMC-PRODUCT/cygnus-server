@@ -7,17 +7,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 
-import com.umc.product.notification.adapter.in.scheduler.FcmOutboxScheduler;
 import com.umc.product.notification.adapter.in.scheduler.FcmTokenValidationScheduler;
 
 @DisplayName("Scheduler activation condition")
 class SchedulerActivationConditionTest {
-
-    @Test
-    @DisplayName("FCM outbox scheduler는 FCM 활성화 시에만 등록된다")
-    void fcmOutboxScheduler는_fcm_활성화시에만_등록된다() {
-        assertConditionalOnProperty(FcmOutboxScheduler.class, "app.fcm.enabled");
-    }
 
     @Test
     @DisplayName("FCM 토큰 검증 scheduler는 FCM과 토큰 검증이 모두 활성화된 인스턴스에만 등록된다")

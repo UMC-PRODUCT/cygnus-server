@@ -22,7 +22,6 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.notification.application.port.in.ManageFcmTopicUseCase;
 import com.umc.product.notification.application.port.in.ManageFcmUseCase;
 import com.umc.product.notification.application.port.in.dto.RegisterFcmTokenCommand;
 import com.umc.product.notification.application.port.in.dto.UnregisterFcmTokenCommand;
@@ -42,9 +41,6 @@ class FcmControllerTest {
 
     @MockitoBean
     ManageFcmUseCase manageFcmUseCase;
-
-    @MockitoBean
-    ManageFcmTopicUseCase manageFcmTopicUseCase;
 
     @BeforeEach
     void setUpSecurityContext() {
@@ -145,6 +141,15 @@ class FcmControllerTest {
                       "fcmToken": "token-1"
                     }
                     """))
+            .andExpect(status().isNotFound());
+
+        then(manageFcmUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("legacy topic API는 제공하지 않는다")
+    void legacyTopicApiIsNotExposed() throws Exception {
+        mockMvc.perform(delete("/api/v1/notification/fcm/topics/legacy"))
             .andExpect(status().isNotFound());
 
         then(manageFcmUseCase).shouldHaveNoInteractions();

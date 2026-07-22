@@ -147,14 +147,6 @@
 
 **액션**: 이상적으로는 `@Profile`을 클래스에 두는 것 외에 별도 모듈/소스셋으로 분리 검토. 제거 대상은 아님.
 
-### 5-2. FcmController의 매핑 누락 메서드
-
-- [FcmController.java:41-43](../../src/main/java/com/umc/product/notification/adapter/in/web/FcmController.java#L41-L43)
-- `resubscribeAllMemberLegacyTopics()`는 `@RequestMapping` 계열 어노테이션이 **구현체에 없음**(인터페이스 `FcmControllerApi`에 정의되어 있을 가능성).
-- 인터페이스가 비어있다면 이 메서드는 HTTP로 도달 불가하면서 코드만 남아있음.
-
-**액션**: 의도적이라면 컨트롤러가 아니라 내부 호출용 Service로 분리. (검증 필요)
-
 ---
 
 ## 6. 요약 액션 아이템

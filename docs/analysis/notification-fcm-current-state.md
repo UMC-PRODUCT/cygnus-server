@@ -4,6 +4,8 @@
 작성 범위: `com.umc.product.notification` 패키지 + 관련 global 설정 + Flyway 마이그레이션
 
 > 이 문서는 결정 기록(ADR)이 아니라 **현재 구현 상태에 대한 분석 보고서**다. 후속 변경 결정이 발생하면 그 시점에 별도 ADR을 작성한다.
+>
+> 2026-07-23 참고: 이 문서는 ADR-020 적용 전 상태의 역사적 분석이다. deprecated FCM Outbox/Topic 코드와 endpoint는 ADR-020 구현으로 제거되었다.
 
 ---
 

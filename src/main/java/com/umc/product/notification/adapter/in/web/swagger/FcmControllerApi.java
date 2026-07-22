@@ -42,24 +42,4 @@ public interface FcmControllerApi {
         @Parameter(description = "Firebase Installation ID")
         String installationId
     );
-
-    @Operation(
-        operationId = "FCM-002",
-        summary = "기존 토픽 구독 해제",
-        description = "FCM Topic에 실행 환경 관련 Prefix가 붙기 전에 구독중이던 모든 Legacy Topic을 구독 해제합니다."
-    )
-    @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "레거시 토픽 구독 해제 성공")
-    })
-    void unsubscribeAllMemberLegacyTopics(
-        @Parameter(hidden = true)
-        @CurrentMember MemberPrincipal memberPrincipal
-    );
-
-    @Operation(
-        operationId = "FCM-003",
-        summary = "FCM 토픽 재구독",
-        description = "요청 시점 기준으로 회원이 구독해야 하는 Topic들을 다시 구독처리합니다."
-    )
-    void resubscribeAllMemberLegacyTopics();
 }

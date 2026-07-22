@@ -41,7 +41,7 @@
 | `notice` | `Notice`, `NoticeRead`, `NoticeTarget`, `NoticeVote` | 공지 발송 필요 여부, 발송 시각, 필독 여부, 읽음 기록, 투표 기간 |
 | `survey` | `Form`, `FormResponse`, `Answer` | 폼 발행 상태, 제출/임시저장 응답 수, 제출 시각 |
 | `community` | `Post`, `Comment`, `Scrap`, `Report` | 게시글/댓글/스크랩/신고 활동량 |
-| `notification` | `FcmToken`, `FcmOutbox` | 활성 토큰 수, 발송 대기/성공/실패, 재시도 수 |
+| `notification` | `FcmToken`, FCM 발송 metric | 활성 토큰 수, 발송 성공/실패, 재시도 수 |
 | `audit` | `AuditLog` | 도메인별 운영 행위, 액션, 수행자, 대상, IP, 발생 시각 |
 | `figma`, `llm`, `storage`, `term` | `FigmaWatchedFile`, `FigmaCommentClassification`, `FileMetadata`, `TermConsent` 등 | 동기화 오류, 분류량, 업로드량, 약관 동의 현황 |
 
@@ -233,7 +233,7 @@
 
 | KPI | 산출 기준 | 코드 근거 | 선정 사유 |
 | --- | --- | --- | --- |
-| FCM 발송 실패율 | `FcmOutbox.status = FAILED` / 전체 outbox | `FcmOutbox`, `ProcessFcmOutboxUseCase` | 알림 인프라 문제를 빠르게 감지한다. |
+| FCM 발송 실패율 | `operational.notification.send.total{provider=FCM,operation=SEND_BATCH,result=failure}` / 전체 batch 발송 결과 | `OperationalMetrics`, `FcmSendBatchRequestedEventListener` | 알림 인프라 문제를 빠르게 감지한다. |
 | FCM 활성 토큰 수 | `FcmToken.isActive = true` count | `FcmToken` | 실제 푸시 도달 가능 사용자 풀을 추정한다. |
 | Figma 동기화 실패 파일 수 | `FigmaWatchedFile.enabled = true` and `lastError not null` | `FigmaWatchedFile`, `SyncFigmaCommentsUseCase` | Figma-Discord 운영 자동화 장애를 감지한다. |
 | LLM 호출량/토큰 사용량 | `ChatCompletionResult.promptTokens`, `completionTokens` 합계 | `ChatCompleteUseCase`, `LlmMetrics` | LLM 비용과 rate limit 리스크를 추적한다. |

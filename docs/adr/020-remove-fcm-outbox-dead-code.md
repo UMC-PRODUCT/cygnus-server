@@ -197,15 +197,15 @@ ADR-018의 "FcmOutbox 일반화" 표현이 잘못된 것과 같은 이유. 두 o
   - `resubscribeAllMemberLegacyTopics` 관련 path
 - [ ] `SELECT count(*), status, max(created_at) FROM fcm_outbox GROUP BY status;` 결과 확인
   (모두 FAILED 또는 PROCESSED, 최근 30일 신규 row 없음 검증).
-- [ ] `application-*.yaml` 전체에서 `app.fcm.outbox-interval-ms` 사용처 grep.
-- [ ] 다른 도메인 코드에서 `FcmOutbox*` 또는 `ManageFcmTopicUseCase` import 여부 grep
+- [x] `application-*.yaml` 전체에서 `app.fcm.outbox-interval-ms` 사용처 grep.
+- [x] 다른 도메인 코드에서 `FcmOutbox*` 또는 `ManageFcmTopicUseCase` import 여부 grep
   (현 분석에서는 0건이지만 PR 시점 재확인).
 
 ### Flyway 마이그레이션
 
 ```sql
--- V2026.NN.NN.NN.NN__drop_fcm_outbox.sql
-DROP TABLE IF EXISTS fcm_outbox;
+-- V2026.07.23.03.00__drop_fcm_outbox.sql
+DROP TABLE IF EXISTS public.fcm_outbox;
 ```
 
 기존 마이그레이션(`create_fcm_outbox.sql`, `create_fcm_token_topic.sql`,

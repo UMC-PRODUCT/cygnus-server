@@ -21,7 +21,6 @@
 | maintenance | `MaintenanceStateRefreshScheduler` | `fixedDelay = 10s` | scheduling enabled profile | 다중 인스턴스 점검 상태 동기화를 위한 짧은 polling. 실제 DB 조회는 `MaintenanceStateHolder.refresh()`에 위임한다. |
 | authentication | `EmailVerificationRetentionScheduler` | 매일 03:00 KST | scheduling enabled profile | 만료 인증 세션 회수. 저빈도 정리 잡으로 적절하다. |
 | curriculum | `WorkbookAutoReleaseScheduler` | 매일 00:00 KST | scheduling enabled profile | 워크북 자동 배포. 저빈도 도메인 batch로 적절하다. |
-| notification | `FcmOutboxScheduler` | `app.fcm.outbox-interval-ms` | `app.fcm.enabled=true` | FCM outbox polling. FCM 미사용 환경에서는 scheduler bean 자체를 등록하지 않는다. |
 | notification | `FcmTokenValidationScheduler` | `app.fcm.token-validation-interval-ms` | `app.fcm.enabled=true`, `app.fcm.token-validation-enabled=true` | 오래 검증되지 않은 활성 토큰을 batch dry-run으로 검증한다. 다중 인스턴스에서는 전용 batch 인스턴스 한 곳에서만 활성화한다. |
 | global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.relay-enabled=true` (기본값) | persistent event outbox relay. 중지해도 publisher는 outbox 적재를 계속하며, 외부 broker 전환 전까지 허용되는 polling 작업이다. |
 
