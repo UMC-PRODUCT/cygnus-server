@@ -1,14 +1,14 @@
 # Community Thread 실시간 통신 아키텍처
 
 > 상태: PR #1166 구현 기준
-> 갱신일: 2026-07-21
+> 갱신일: 2026-07-22
 > 범위: Community Thread, Chat engine, STOMP, fan-out, ACK, REST fallback
 
 ## 1. 문서 목적
 
 이 문서는 Community Thread의 생성, 메시지 전송, 실시간 상태 전달, 읽음 처리와 장애 복구가
-Community와 Chat engine 사이에서 어떻게 동작하는지 설명한다. 현재 멤버별 topic을 선택한 이유와
-향후 Thread 공용 topic으로 전환할 때의 변경 범위도 함께 기록한다.
+Community와 Chat engine 사이에서 어떻게 동작하는지 설명한다. 현재 User Destination을 선택한
+이유와 ACTIVE 멤버별 fan-out을 유지하는 이유도 함께 기록한다.
 
 핵심 결정은 다음과 같다.
 
@@ -18,7 +18,7 @@ Community와 Chat engine 사이에서 어떻게 동작하는지 설명한다. �
 - Community는 Thread 메타데이터와 membership 정책을 소유한다.
 - Chat engine은 room, message, reaction, read watermark의 불변식을 소유한다.
 - 실시간 상태는 Outbox commit 이후 at-least-once로 전달한다.
-- 현재는 ACTIVE 멤버를 매번 계산해 멤버별 destination으로 fan-out한다.
+- 현재는 ACTIVE 멤버를 매번 계산해 사용자별 User Destination으로 fan-out한다.
 
 ## 2. `CommunityThread`라는 이름을 사용하는 이유
 
@@ -158,10 +158,12 @@ SockJS/STOMP endpoint는 `/ws`다. CONNECT frame에는 JWT를, 모든 SEND에는
 현재 구독 namespace는 다음과 같다.
 
 ```text
-/topic/community/threads/{threadId}/members/{memberId}/events
-/topic/community/members/{memberId}/events
+/user/queue/community/threads/events
 /user/queue/errors
 ```
+
+정상 상태 event와 ACK는 Community Thread event queue로, recoverable error는 error queue로
+전달한다. SEND destination과 payload는 User Destination 전환 전후가 같다.
 
 ## 6. WebSocket 입력 어댑터 파일 구분
 
@@ -183,15 +185,15 @@ UseCase에 위임한다.
 
 | 파일 | 책임 |
 | --- | --- |
-| `CommunityStompDestinationParser` | 허용된 SEND/SUBSCRIBE 경로와 ID를 엄격하게 파싱 |
+| `CommunityStompDestinationParser` | 허용된 SEND 경로와 ID를 엄격하게 파싱 |
 | `CommunityStompSendAuthorizer` | SEND 전에 ACTIVE membership 검증 |
-| `CommunityStompSubscriptionAuthorizer` | 본인의 topic인지와 ACTIVE membership 검증 |
+| `CommunityStompSubscriptionAuthorizer` | Community가 소유한 exact user destination만 fail-closed 승인 |
 
 ### ACK, error, idempotency와 관측
 
 | 파일 | 책임 |
 | --- | --- |
-| `CommunityStompAckPublisher` | 호출자 topic에 best-effort ACK 전송 |
+| `CommunityStompAckPublisher` | 호출자의 Community Thread event queue에 best-effort ACK 전송 |
 | `CommunityStompErrorMapper` | 예외를 typed WebSocket error로 변환 |
 | `CommunityStompClientMessageIdResolver` | message create payload에서 `clientMessageId` 추출 |
 | `CommunityStompUuid` | canonical lowercase UUID 검증 |
@@ -288,7 +290,7 @@ sequenceDiagram
 
     CS-->>C: mutation result
     C->>B: command.acknowledged
-    B-->>A: 호출자 개인 topic ACK
+    B-->>A: 호출자 user event queue ACK
 
     Note over O,R: transaction commit 이후 비동기 relay
     O->>R: ChatMessageCreatedEvent
@@ -308,21 +310,26 @@ Fan-out은 상태 이벤트 하나를 현재 수신 대상 멤버 각각에게 �
 ```mermaid
 flowchart LR
     Event["message.created 이벤트 1개"] --> Recipients["현재 ACTIVE 멤버 조회"]
-    Recipients --> A["A 개인 Thread topic"]
-    Recipients --> B["B 개인 Thread topic"]
-    Recipients --> C["C 개인 Thread topic"]
+    Recipients --> A["A user event queue"]
+    Recipients --> B["B user event queue"]
+    Recipients --> C["C user event queue"]
 ```
 
-개인별 WebSocket 연결이나 영구 channel을 생성하는 것은 아니다. 사용자는 `/ws` 연결 하나를 유지하고
-논리적인 STOMP destination을 여러 개 구독한다. 비용은 연결 수가 아니라 application이 broker에
-수신자 수만큼 publish하는 데서 발생한다.
+개인별 WebSocket 연결이나 영구 channel을 생성하는 것은 아니다. client는 각 `/ws` session에서
+`/user/queue/community/threads/events`를 한 번 구독한다. Spring User Destination이 principal과
+session에 맞는 실제 broker destination으로 변환한다. 한 회원이 여러 활성 session에서
+구독했다면 모든 session이 같은 사용자 대상 event를 받는다.
 
-### 현재 멤버별 destination을 선택한 근거
+비용은 logical queue 수가 아니라 application이 broker에 수신자 수만큼 publish하는 데서
+발생한다. User Destination은 client-facing 경로를 통합하지만 per-member fan-out을
+제거하지 않는다.
+
+### 현재 멤버별 fan-out을 선택한 근거
 
 1. SUBSCRIBE 이후 강퇴·탈퇴된 사용자의 기존 subscription을 broker가 자동으로 회수하지 못한다.
 2. 서버가 매 event마다 ACTIVE recipient를 계산하면 membership 변경을 즉시 delivery에 반영할 수 있다.
 3. reaction의 `reactedByMe`처럼 수신자마다 다른 read model을 조립할 수 있다.
-4. 초대받은 사용자는 아직 Thread topic을 구독하지 않았으므로 개인 member topic이 필요하다.
+4. 초대받은 사용자도 전역 event queue를 이미 구독했다면 `thread.invited`를 받을 수 있다.
 5. 최대 멤버 수가 100명으로 제한되어 fan-out 상한이 명확하다.
 
 이 방식은 성능 최적화보다 권한 정확성과 현재 read model의 단순성을 우선한 선택이다.
@@ -330,7 +337,7 @@ flowchart LR
 ### 비용 모델
 
 ```text
-멤버별 topic publish 수 = 초당 이벤트 수 × 평균 ACTIVE recipient 수
+멤버별 user destination publish 수 = 초당 이벤트 수 × 평균 ACTIVE recipient 수
 공용 topic publish 수     = 초당 이벤트 수
 ```
 
@@ -461,8 +468,8 @@ read-status REST query를 제공해야 한다.
 client는 `actorMemberId == currentMemberId`인지 보고 자신의 reaction 상태를 갱신한다. REST history는
 계속 `reactedByMe`를 제공해 reconnect 상태를 복구한다.
 
-따라서 `reactedByMe` 하나만으로 멤버별 topic을 영구적으로 유지해야 하는 것은 아니다. 현재 설계의 더
-중요한 근거는 강퇴·탈퇴 이후 기존 shared subscription의 권한 회수 문제다.
+따라서 `reactedByMe` 하나만으로 수신자별 payload와 fan-out을 영구적으로 유지해야 하는 것은 아니다.
+현재 설계의 더 중요한 근거는 강퇴·탈퇴 이후 기존 shared subscription의 권한 회수 문제다.
 
 ## 13. Client 중복 병합 규칙
 
@@ -506,7 +513,7 @@ stateDiagram-v2
 ### 최초 진입
 
 1. REST로 Thread 상세과 최신 message history를 조회한다.
-2. `/ws`에 연결하고 개인 Thread topic과 error queue를 구독한다.
+2. `/ws`에 연결하고 Community Thread event queue와 error queue를 각각 한 번 구독한다.
 3. 구독 완료 직후 최신 message history를 한 번 더 조회한다.
 4. REST 조회와 구독 사이에 발생한 event를 `messageId`로 병합한다.
 
@@ -555,95 +562,52 @@ edit, tombstone, reaction add/remove, read watermark는 같은 목표 상태로 
 
 ## 15. Destination과 전송 경계 관리
 
-향후 topic 변경 비용을 제한하려면 destination 문자열을 controller, service, listener에 퍼뜨리지 않는다.
-destination 생성과 파싱은 전용 경계에서 관리한다.
+향후 transport 변경 비용을 제한하려면 destination 문자열을 controller, service,
+listener에 퍼뜨리지 않는다. client가 구독하는 경로는 다음 두 개다.
 
 ```text
-thread member topic
-/topic/community/threads/{threadId}/members/{memberId}/events
+normal event and ACK
+/user/queue/community/threads/events
 
-member topic
-/topic/community/members/{memberId}/events
-
-future shared thread topic
-/topic/community/threads/{threadId}/events
+recoverable error
+/user/queue/errors
 ```
 
 Thread 상태 relay는 `CommunityThreadRealtimeBroadcastPort`만 호출하고, 실제
-`SimpMessagingTemplate`과 destination 문자열은 adapter가 소유한다. ACK와 error는 Thread 상태
-broadcast와 의미가 다르므로 command reply 경계에서 별도로 다룬다.
+`SimpMessagingTemplate`과 `/queue/community/threads/events` 전송 문자열은 adapter가 소유한다.
+ACK도 같은 user event queue를 사용하지만 state broadcast와 다른 command reply 경계에서
+best-effort로 전송한다. error는 `/user/queue/errors`에서 분리한다.
 
-이 경계를 유지하면 개인 topic에서 공용 topic, STOMP에서 다른 transport로 바뀌어도 application
-service와 도메인 로직의 변경을 줄일 수 있다.
+이 경계를 유지하면 user destination에서 다른 STOMP 구조나 transport로 바뀌어도
+application service와 도메인 로직의 변경을 줄일 수 있다.
 
-## 16. 공용 Thread topic 전환 규모
+## 16. User Destination delivery 의미
 
-현재 개인 destination과 recipient별 payload에 직접 연결된 코드는 production 약 14개 파일, test 약
-14개 파일이다. 핵심 변경 대상은 realtime delivery, broadcast adapter/port, destination parser,
-subscription authorizer와 관련 E2E test다.
+`convertAndSendToUser(memberId.toString(), "/queue/community/threads/events", payload)`는 해당
+principal의 session destination으로 전송한다. Spring의 기본 의미를 유지하므로 한 회원의
+모든 활성 session이 전달 대상이다. client가 구독하는 경로의 `/user`는 서버가 전송할
+때 지정하는 destination suffix에는 포함하지 않는다.
 
-도메인 Entity, Chat command service, DB schema, Outbox와 REST API는 대부분 유지할 수 있다.
+User Destination은 사용자별 전달 경로를 Spring에 위임할 뿐 수신자 선정 정책을 바꾸지
+않는다. message/reaction/read와 lifecycle event는 여전히 현재 ACTIVE recipient별 payload를
+조립해 각 member에게 전송한다. terminal event는 기존과 같이 명시적 audience 규칙을 따른다.
 
-### 단순 경로 전환
+## 17. 구독 인가와 membership 회수
 
-모든 상태를 `/topic/community/threads/{threadId}/events`로 publish한다.
+구독 경로에 threadId가 없으므로 SUBSCRIBE 시점에 개별 Thread membership을 검증하지 않는다.
+Community authorizer는 authenticated principal이 있고 exact event destination인지를 검증한다.
+error queue는 공통 interceptor가 exact path로 허용하고, 다른 `/user/**`와 임의 destination은
+fail-closed로 거부한다.
 
-- backend production 약 3~5개 파일
-- test 약 3~5개 파일
-- 약 1~2일
-- 강퇴된 기존 subscriber의 권한 회수와 개인화 payload 문제를 해결하지 못하므로 권장하지 않는다.
-
-### Hybrid 전환
-
-공통 상태는 Thread topic, 개인 응답은 개인 topic으로 유지한다.
-
-```text
-공용 Thread topic
-- message.created/updated/deleted
-- reaction.changed
-- read.updated
-- thread.updated
-
-개인 topic
-- command.acknowledged
-- error
-- thread.invited
-- kick/leave terminal notification
-```
-
-- backend production 약 8~12개 파일
-- backend test 약 8~12개 파일
-- client 구독과 병합 로직 변경
-- backend 약 3~6일, client와 통합 QA 약 2~4일
-
-### 완전한 공용 topic 전환
-
-ACK/error를 제외한 상태를 공용 topic으로 옮기고 동적 권한 회수까지 보장한다.
-
-- session/subscription registry
-- kick/leave/delete 시 subscription 취소 또는 session 종료
-- 다중 application instance의 session ownership 처리
-- 수신자 공통 canonical event 모델
-- dual-subscribe/dual-publish 배포 전략
-- backend production 약 14~20개 파일
-- backend/E2E test 약 12~20개 파일
-- 전체 약 1.5~3주
-
-이는 realtime transport와 client contract의 중간 규모 리팩터링이며 Community/Chat 전체 재작성은 아니다.
-
-## 17. 안전한 전환 순서
-
-1. 공통 state payload와 viewer-specific REST read model을 분리한다.
-2. 공용 Thread destination과 subscription authorization을 추가한다.
-3. client가 개인·공용 topic을 모두 구독하고 `eventId`로 중복 제거하도록 배포한다.
-4. server가 동일 stable event ID로 dual-publish한다.
-5. 강퇴·탈퇴 subscription 회수와 다중 instance 동작을 검증한다.
-6. 개인 state fan-out을 중단하고 ACK/error/invitation 개인 경로만 유지한다.
-7. 구형 client 종료 뒤 개인 Thread state destination을 제거한다.
+Thread 권한은 SEND authorizer와 event delivery에서 검증한다. relay가 모든 event마다 ACTIVE
+recipient를 다시 계산하므로 kick/leave된 회원은 자신의 전역 event queue 구독을 유지해도
+해당 Thread의 후속 event를 받지 않는다. 단, kick/leave 사실을 알려야 하는 terminal event는
+해당 command의 audience policy에 따라 한 번 전달할 수 있다.
 
 ## 18. Observability와 전환 판단
 
-공용 topic 전환 시점은 접속자 수만으로 정하지 않는다. 다음 값을 함께 본다.
+현재 per-member fan-out의 용량과 안정성은 접속자 수만으로 판단하지 않고 다음 값을
+함께 본다.
 
 - 초당 realtime event 수
 - event당 ACTIVE recipient 수 분포
@@ -656,7 +620,8 @@ ACK/error를 제외한 상태를 공용 topic으로 옮기고 동적 권한 회�
 고정 bucket으로 기록한다. `threadId`, `memberId`, `messageId`, raw destination을 metric tag로 사용하지
 않는다.
 
-다음 상황이 반복되면 Hybrid 또는 공용 topic 전환을 검토한다.
+다음 상황이 반복되면 공통 payload의 broker-side broadcast 분리를 별도 architecture 변경으로
+검토한다.
 
 - fan-out latency가 realtime SLO를 지속해서 초과
 - Outbox backlog가 증가하고 회복되지 않음
@@ -668,9 +633,11 @@ ACK/error를 제외한 상태를 공용 topic으로 옮기고 동적 권한 회�
 ## 19. 현재 결정 요약
 
 현재 Community Thread는 최대 100명의 invitation-only 공간이며, 강퇴·탈퇴 이후 event 접근을 즉시
-차단하고 현재 viewer 기준 read model을 제공하기 위해 멤버별 destination fan-out을 사용한다. 이
-결정은 대규모 fan-out 최적화보다 권한 정확성과 현재 구현의 단순성을 우선한다.
+차단하고 현재 viewer 기준 read model을 제공하기 위해 ACTIVE 멤버별 fan-out을 사용한다.
+client-facing subscription은 `/user/queue/community/threads/events`로 통합하고, 한 사용자의 모든
+활성 session으로 전달한다. 이 결정은 대규모 fan-out 최적화보다 권한 정확성과 현재
+구현의 단순성을 우선한다.
 
 동시에 realtime delivery를 Port와 adapter로 격리하고, client가 REST fallback과 ID 기반 중복 병합을
-수행하도록 계약해 향후 Hybrid 또는 공용 Thread topic 전환이 Community/Chat 핵심 도메인 재작성으로
-확대되지 않게 한다.
+수행하도록 계약해 향후 delivery 전략 변경이 Community/Chat 핵심 도메인 재작성으로 확대되지
+않게 한다.

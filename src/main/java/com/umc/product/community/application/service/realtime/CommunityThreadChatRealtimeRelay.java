@@ -31,8 +31,7 @@ class CommunityThreadChatRealtimeRelay {
             Map<Long, CommunityThreadMessageInfo> messages = delivery.messages(
                 thread.getId(), recipients, event.messageId()
             );
-            delivery.fanOutThreadMembers(
-                thread.getId(),
+            delivery.fanOutMembers(
                 recipients,
                 Operation.MESSAGE_CREATED,
                 memberId -> delivery.envelope(
@@ -55,8 +54,7 @@ class CommunityThreadChatRealtimeRelay {
             Map<Long, CommunityThreadMessageInfo> messages = delivery.messages(
                 thread.getId(), recipients, event.message().messageId()
             );
-            delivery.fanOutThreadMembers(
-                thread.getId(),
+            delivery.fanOutMembers(
                 recipients,
                 Operation.MESSAGE_UPDATED,
                 memberId -> delivery.envelope(
@@ -78,8 +76,7 @@ class CommunityThreadChatRealtimeRelay {
             Map<Long, CommunityThreadMessageInfo> messages = delivery.messages(
                 thread.getId(), recipients, event.message().messageId()
             );
-            delivery.fanOutThreadMembers(
-                thread.getId(),
+            delivery.fanOutMembers(
                 recipients,
                 Operation.MESSAGE_DELETED,
                 memberId -> delivery.envelope(
@@ -101,8 +98,7 @@ class CommunityThreadChatRealtimeRelay {
             Map<Long, CommunityThreadMessageInfo> messages = delivery.messages(
                 thread.getId(), recipients, event.messageId()
             );
-            delivery.fanOutThreadMembers(
-                thread.getId(),
+            delivery.fanOutMembers(
                 recipients,
                 Operation.REACTION_CHANGED,
                 memberId -> reactionEnvelope(event, thread, messages.get(memberId))
@@ -124,8 +120,7 @@ class CommunityThreadChatRealtimeRelay {
                         event.lastReadMessageId()
                     )
                 );
-            delivery.fanOutThreadMembers(
-                thread.getId(),
+            delivery.fanOutMembers(
                 recipients,
                 Operation.READ_UPDATED,
                 ignored -> envelope

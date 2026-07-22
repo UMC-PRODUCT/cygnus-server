@@ -28,11 +28,17 @@ class CommunityThreadWebSocketConsoleTest {
             "/app/community/threads/${threadId}/messages/${messageId}/reactions/add",
             "/app/community/threads/${threadId}/messages/${messageId}/reactions/remove",
             "/app/community/threads/${threadId}/read",
-            "/topic/community/threads/${threadId}/members/${memberId}/events",
-            "/topic/community/members/${memberId}/events",
+            "/user/queue/community/threads/events",
             "/user/queue/errors",
             "x-command-id"
         );
+        assertThat(html)
+            .containsOnlyOnce("subscribe(\"/user/queue/community/threads/events\")")
+            .containsOnlyOnce("subscribe(\"/user/queue/errors\")")
+            .doesNotContain(
+                "/topic/community/threads/",
+                "/topic/community/members/"
+            );
     }
 
     @Test

@@ -131,8 +131,9 @@ aggregate와 Chat aggregate 사이에는 객체 관계나 cross-domain JPA FK를
 - `CONNECT`와 STOMP 1.2 `STOMP` 명령의 JWT 인증
 - `/topic*`, `/queue*`, `/user/**`에 대한 client 직접 발행 차단
 - client inbound의 server-only `MESSAGE` 명령 차단
-- `/user/queue/errors` 외 `/user/**` SUBSCRIBE 차단
-- `/topic*`, `/queue*` SUBSCRIBE를 `StompSubscriptionAuthorizerRegistry`로 위임
+- `/user/queue/errors`는 recoverable error용 exact destination으로 공통 허용
+- 그 외 `/topic*`, `/queue*`, `/user/**` SUBSCRIBE를
+  `StompSubscriptionAuthorizerRegistry`로 위임하고 exact-match 승인이 없으면 차단
 
 Registry는 destination을 지원하는 authorizer가 **정확히 하나이고**, 해당 authorizer가 승인한 경우에만
 구독을 허용한다. authorizer 없음, 거부, 복수 매칭, 인증 주체 없음은 모두 fail-closed 처리한다.
@@ -468,8 +469,9 @@ Issue #1127의 Community thread는 위 결정을 다음과 같이 구체화한�
   report와 `/api/v1/community/admin/thread-message-reports`는 REST에 남기되 message create/edit/
   tombstone, reaction add/remove, read mutation은 REST에 만들지 않는다.
 - `/ws` SockJS/STOMP는 six `/app/community/threads/...` SEND command를 통해 message/reaction/read
-  mutation을 담당한다. subscription은 per-member thread topic, personal member topic,
-  `/user/queue/errors` 세 namespace만 사용하며 공유 thread topic은 금지한다.
+  mutation을 담당한다. subscription은 정상 event와 ACK를 위한
+  `/user/queue/community/threads/events`, recoverable error를 위한 `/user/queue/errors` 두
+  namespace만 사용하며 공용 thread topic은 금지한다.
 - Global WebSocket은 JWT CONNECT, broker-direct SEND 차단, destination registry 위임, typed recoverable
   error와 rate-limit만 제공한다. Community가 subscribe/SEND business permission과 payload를 소유한다.
 
@@ -484,16 +486,16 @@ Issue #1127의 Community thread는 위 결정을 다음과 같이 구체화한�
 /app/community/threads/{threadId}/read
 ```
 
-정확한 subscription namespace는 다음 세 개뿐이다.
+정확한 subscription namespace는 다음 두 개뿐이다.
 
 ```text
-/topic/community/threads/{threadId}/members/{memberId}/events
-/topic/community/members/{memberId}/events
+/user/queue/community/threads/events
 /user/queue/errors
 ```
 
-`/topic/community/threads/{threadId}/events` shared topic, raw `roomId` 경로, message/reaction/read
-REST mutation은 제공하지 않는다.
+공용 thread topic, raw `roomId` 경로, message/reaction/read REST mutation은 제공하지 않는다.
+client는 각 session에서 event queue와 error queue를 한 번씩 구독하며, 한 회원의 여러 활성
+session이 구독하면 모든 session이 같은 사용자 대상 event를 받는다.
 
 ### Commit, relay, and recovery
 
@@ -503,6 +505,10 @@ transaction을 rollback하지 않으며, client는 history/detail/member REST qu
 ACK는 storage acknowledgement가 아닌 caller correlation이며, recoverable error는
 `/user/queue/errors`로 보낸다. CONNECT/protocol/direct-broker-SEND/malformed-SUBSCRIBE 오류만 terminal
 STOMP ERROR로 남긴다.
+
+User Destination 전환은 per-recipient fan-out을 제거하지 않는다. relay는 event마다 현재 ACTIVE
+멤버를 계산해 각 member의 `/user/queue/community/threads/events`로 전송한다. 따라서
+kick/leave 후 기존 session에 구독이 남아 있어도 후속 event의 recipient에서 제외된다.
 
 현재 구현 경로는 `CommunityThreadRealtimeEventListener` →
 `CommunityThreadRealtimeFanOutService` → `CommunityThreadChatRealtimeRelay`/`CommunityThreadLifecycleRealtimeRelay`

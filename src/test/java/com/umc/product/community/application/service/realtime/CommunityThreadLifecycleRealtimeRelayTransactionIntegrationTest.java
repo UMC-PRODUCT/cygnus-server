@@ -89,7 +89,7 @@ class CommunityThreadLifecycleRealtimeRelayTransactionIntegrationTest extends In
             broadcastStarted.countDown();
             race.await(releaseBroadcast, "broadcast release");
             return null;
-        }).given(broadcastPort).broadcastToThreadMember(eq(threadId), eq(20L), any());
+        }).given(broadcastPort).broadcastToMember(eq(20L), any());
 
         Future<?> relay = relayExecutor.submit(() -> relayUseCase.relay(memberLeftEvent(threadId)));
         race.await(broadcastStarted, "broadcast start");
@@ -110,7 +110,7 @@ class CommunityThreadLifecycleRealtimeRelayTransactionIntegrationTest extends In
             .orElseThrow();
         assertThat(rejoined.isActive()).isTrue();
         assertThat(rejoined.getJoinedAt()).isEqualTo(NOW.plusSeconds(60));
-        then(broadcastPort).should().broadcastToThreadMember(eq(threadId), eq(20L), any());
+        then(broadcastPort).should().broadcastToMember(eq(20L), any());
     }
 
     private Long persistLeftMembership() {

@@ -13,26 +13,15 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CommunityThreadRealtimeBroadcastAdapter implements CommunityThreadRealtimeBroadcastPort {
 
-    private static final String THREAD_MEMBER_DESTINATION =
-        "/topic/community/threads/%d/members/%d/events";
-    private static final String MEMBER_DESTINATION = "/topic/community/members/%d/events";
+    private static final String USER_DESTINATION = "/queue/community/threads/events";
 
     private final BroadcastPort broadcastPort;
-
-    @Override
-    public void broadcastToThreadMember(
-        Long threadId,
-        Long memberId,
-        CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload> event
-    ) {
-        broadcastPort.broadcast(THREAD_MEMBER_DESTINATION.formatted(threadId, memberId), event);
-    }
 
     @Override
     public void broadcastToMember(
         Long memberId,
         CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload> event
     ) {
-        broadcastPort.broadcast(MEMBER_DESTINATION.formatted(memberId), event);
+        broadcastPort.broadcastToUser(memberId.toString(), USER_DESTINATION, event);
     }
 }

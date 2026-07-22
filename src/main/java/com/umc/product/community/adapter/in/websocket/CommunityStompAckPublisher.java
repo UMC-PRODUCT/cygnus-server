@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CommunityStompAckPublisher {
 
+    private static final String USER_DESTINATION = "/queue/community/threads/events";
+
     private final BroadcastPort broadcastPort;
 
     public void publish(
@@ -24,10 +26,7 @@ public class CommunityStompAckPublisher {
         CommunityStompEventEnvelope<CommunityCommandAcknowledgement> event =
             CommunityStompEventEnvelope.acknowledged(threadId, acknowledgement);
         try {
-            broadcastPort.broadcast(
-                CommunityStompDestinationParser.memberThreadTopic(threadId, memberId),
-                event
-            );
+            broadcastPort.broadcastToUser(memberId.toString(), USER_DESTINATION, event);
         } catch (RuntimeException exception) {
             log.warn(
                 "[COMMUNITY STOMP ACK BROADCAST FAILED] command={}",

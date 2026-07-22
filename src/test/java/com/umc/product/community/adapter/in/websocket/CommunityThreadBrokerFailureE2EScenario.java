@@ -36,7 +36,6 @@ final class CommunityThreadBrokerFailureE2EScenario {
     }
 
     void verifyRecovery() throws Exception {
-        assertSpoofSubscriptionIsTerminal();
         OutboxRow failedAttempt;
         double retryBefore = outbox.retryCount();
 
@@ -47,12 +46,9 @@ final class CommunityThreadBrokerFailureE2EScenario {
             CommunityThreadStompProbe attacker = connect(topology.appB(), scenario.attacker());
             CommunityThreadE2EHttpClient http = http(topology.appB())
         ) {
-            owner.subscribe(threadTopic(scenario.owner()), RECEIPT_TIMEOUT);
-            member.subscribe(threadTopic(scenario.member()), RECEIPT_TIMEOUT);
-            attacker.subscribe(
-                CommunityThreadE2EProtocol.personalTopic(scenario.attacker().memberId()),
-                RECEIPT_TIMEOUT
-            );
+            owner.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT);
+            member.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT);
+            attacker.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT);
             topology.pauseRelay();
 
             // when: app B REST invite는 DOWN 상태에서도 commit되고 app A outbox publish만 실패한다.
@@ -81,7 +77,7 @@ final class CommunityThreadBrokerFailureE2EScenario {
             resumeIfPaused();
         }
 
-        // then: reconnect 후 같은 eventId가 personal topic에 전달되고 outbox가 PUBLISHED 된다.
+        // then: reconnect 후 같은 eventId가 user queue에 전달되고 outbox가 PUBLISHED 된다.
         verifyReconnectPublishesStableEvent(failedAttempt);
     }
 
@@ -123,15 +119,15 @@ final class CommunityThreadBrokerFailureE2EScenario {
             CommunityThreadStompProbe owner = connect(topology.appA(), scenario.owner());
             CommunityThreadStompProbe attacker = connect(topology.appB(), scenario.attacker())
         ) {
-            owner.subscribe(threadTopic(scenario.owner()), RECEIPT_TIMEOUT);
-            BlockingQueue<StompFrame> personalFrames = attacker.subscribe(
-                CommunityThreadE2EProtocol.personalTopic(scenario.attacker().memberId()),
+            owner.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT);
+            BlockingQueue<StompFrame> attackerFrames = attacker.subscribe(
+                CommunityThreadE2EProtocol.userEvents(),
                 RECEIPT_TIMEOUT
             );
             outbox.makePublishable(failedAttempt.eventId());
             topology.relayOutbox();
 
-            JsonNode event = awaiter.awaitType(personalFrames, "thread.invited", EVENT_TIMEOUT);
+            JsonNode event = awaiter.awaitType(attackerFrames, "thread.invited", EVENT_TIMEOUT);
             assertThat(event.path("eventId").asText()).isEqualTo(failedAttempt.eventId().toString());
             assertThat(event.at("/payload/thread/threadId").asText())
                 .isEqualTo(scenario.threadId().toString());
@@ -158,16 +154,6 @@ final class CommunityThreadBrokerFailureE2EScenario {
         );
     }
 
-    private void assertSpoofSubscriptionIsTerminal() throws Exception {
-        try (CommunityThreadStompProbe attacker = connect(topology.appB(), scenario.attacker())) {
-            attacker.subscribeExpectingTerminalError(threadTopic(scenario.member()));
-            JsonNode error = objectMapper.readTree(
-                attacker.awaitTerminalError(EVENT_TIMEOUT).payload()
-            );
-            assertThat(error.path("code").asText()).isEqualTo("SECURITY-0004");
-        }
-    }
-
     private CommunityThreadStompProbe connect(
         CommunityThreadTwoInstanceTopology.AppInstance app,
         Actor actor
@@ -177,10 +163,6 @@ final class CommunityThreadBrokerFailureE2EScenario {
 
     private CommunityThreadE2EHttpClient http(CommunityThreadTwoInstanceTopology.AppInstance app) {
         return new CommunityThreadE2EHttpClient(app.port(), objectMapper);
-    }
-
-    private String threadTopic(Actor actor) {
-        return CommunityThreadE2EProtocol.threadTopic(scenario.threadId(), actor.memberId());
     }
 
     private void resumeIfPaused() throws InterruptedException {

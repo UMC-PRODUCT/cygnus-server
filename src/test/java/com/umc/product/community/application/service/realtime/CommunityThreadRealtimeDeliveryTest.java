@@ -66,15 +66,14 @@ class CommunityThreadRealtimeDeliveryTest {
     void partialFailureAttemptsEveryRecipientBeforeRethrow() {
         CommunityThreadRealtimeEvent<?> event = event();
         willAnswer(invocation -> {
-            Long memberId = invocation.getArgument(1);
+            Long memberId = invocation.getArgument(0);
             if (Long.valueOf(20L).equals(memberId)) {
                 throw new IllegalStateException("broker unavailable");
             }
             return null;
-        }).given(broadcastPort).broadcastToThreadMember(eq(11L), any(Long.class), eq(event));
+        }).given(broadcastPort).broadcastToMember(any(Long.class), eq(event));
 
-        assertThatThrownBy(() -> sut.fanOutThreadMembers(
-            11L,
+        assertThatThrownBy(() -> sut.fanOutMembers(
             List.of(10L, 20L, 30L),
             Operation.MESSAGE_CREATED,
             ignored -> event
@@ -82,9 +81,9 @@ class CommunityThreadRealtimeDeliveryTest {
             .isInstanceOf(IllegalStateException.class)
             .satisfies(exception -> assertThat(exception.getSuppressed()).hasSize(1));
 
-        then(broadcastPort).should().broadcastToThreadMember(11L, 10L, event);
-        then(broadcastPort).should().broadcastToThreadMember(11L, 20L, event);
-        then(broadcastPort).should().broadcastToThreadMember(11L, 30L, event);
+        then(broadcastPort).should().broadcastToMember(10L, event);
+        then(broadcastPort).should().broadcastToMember(20L, event);
+        then(broadcastPort).should().broadcastToMember(30L, event);
         then(metrics).should().recordBroadcastFailure(
             Operation.MESSAGE_CREATED,
             Reason.BROKER_UNAVAILABLE
@@ -97,15 +96,13 @@ class CommunityThreadRealtimeDeliveryTest {
     void allRecipientsReceiveTheSameStableEventId() {
         CommunityThreadRealtimeEvent<?> event = event();
 
-        sut.fanOutThreadMembers(
-            11L,
+        sut.fanOutMembers(
             List.of(10L, 20L),
             Operation.READ_UPDATED,
             ignored -> event
         );
 
-        then(broadcastPort).should(times(2)).broadcastToThreadMember(
-            eq(11L),
+        then(broadcastPort).should(times(2)).broadcastToMember(
             any(Long.class),
             eventCaptor.capture()
         );

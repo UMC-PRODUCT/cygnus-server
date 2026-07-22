@@ -78,7 +78,7 @@ class CommunityThreadTwoInstanceRelayE2ETest {
     }
 
     @Test
-    @DisplayName("초대·소유권 이전·leave·kick·soft delete lifecycle과 stale 격리를 검증한다")
+    @DisplayName("공통 user queue에서 초대·leave·kick 대상과 stale 격리를 검증한다")
     void exercisesMembershipAndSoftDeleteLifecycle() throws Exception {
         new CommunityThreadLifecycleE2EScenario(topology, scenario, objectMapper).run();
     }

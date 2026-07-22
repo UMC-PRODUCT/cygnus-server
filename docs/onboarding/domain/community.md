@@ -69,23 +69,27 @@ admin path는 반드시 `/api/v1/community/admin/...`이어야 하며 top-level 
 /app/community/threads/{threadId}/read
 ```
 
-구독은 다음 세 namespace만 허용한다. thread topic은 member ID를 포함하며 subscribe 시점에
-authenticated principal과 ACTIVE membership을 검증한다.
+구독은 다음 두 user destination만 허용한다.
 
 ```text
-/topic/community/threads/{threadId}/members/{memberId}/events
-/topic/community/members/{memberId}/events
+/user/queue/community/threads/events
 /user/queue/errors
 ```
 
-공유 `/topic/community/threads/{threadId}/events`는 사용하지 않는다. kick 이후 shared subscription이
-남아 event leak으로 이어질 수 있다.
+event queue는 정상 상태 event와 caller ACK를 모두 전달하고 error queue는 recoverable error만
+전달한다. client는 각 session에서 두 queue를 한 번씩 구독하고 event의 `threadId`와
+`type`으로 분류한다. 한 회원의 여러 활성 session이 같은 user destination을 구독하면
+모든 session이 전달 대상이다.
+
+공용 Thread topic은 사용하지 않는다. event마다 ACTIVE 멤버를 다시 계산해 사용자별로
+fan-out하므로 kick/leave 후 stale subscription이 남아도 후속 event를 받지 않는다.
 
 ## Realtime와 복구
 
 Chat generic message/reaction/read event는 Community facade가 thread payload로 바꾸고, invite·role·
 member·thread lifecycle event는 Community가 만든다. 각 state event는 stable `eventId`, typed payload,
-string `threadId`, `occurredAt`를 가진다. caller ACK는 self topic에 best-effort로만 전송하며 storage
+string `threadId`, `occurredAt`를 가진다. caller ACK는 같은 Community Thread event queue에
+best-effort로만 전송하며 storage
 ack로 간주하지 않는다.
 
 실제 변환 경로는 `CommunityThreadRealtimeEventListener` →

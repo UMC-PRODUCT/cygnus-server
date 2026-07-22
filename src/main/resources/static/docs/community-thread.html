@@ -319,14 +319,6 @@
                     Access token
                     <input id="access-token" type="password" autocomplete="off" placeholder="Bearer를 제외한 JWT">
                 </label>
-                <label>
-                    Member ID
-                    <input id="member-id" inputmode="numeric" placeholder="예: 10">
-                </label>
-                <label>
-                    Thread ID
-                    <input id="thread-id" inputmode="numeric" placeholder="예: 100">
-                </label>
             </div>
             <p class="hint">CONNECT header: Authorization: Bearer &lt;access-token&gt;</p>
             <div class="actions">
@@ -340,6 +332,10 @@
         <div class="card">
             <h2>2. Command 전송</h2>
             <div class="field-grid">
+                <label class="wide">
+                    Thread ID
+                    <input id="thread-id" inputmode="numeric" placeholder="예: 100">
+                </label>
                 <label class="wide">
                     Command
                     <select id="command-type">
@@ -384,8 +380,7 @@
                     <thead><tr><th>용도</th><th>Destination</th></tr></thead>
                     <tbody>
                     <tr><td>native 연결</td><td><code>/ws/websocket</code></td></tr>
-                    <tr><td>Thread event + ACK</td><td><code>/topic/community/threads/{threadId}/members/{memberId}/events</code></td></tr>
-                    <tr><td>개인 lifecycle event</td><td><code>/topic/community/members/{memberId}/events</code></td></tr>
+                    <tr><td>Thread event + ACK</td><td><code>/user/queue/community/threads/events</code></td></tr>
                     <tr><td>recoverable error</td><td><code>/user/queue/errors</code></td></tr>
                     </tbody>
                 </table>
@@ -419,7 +414,7 @@
             </details>
             <details>
                 <summary>ACK와 error</summary>
-                <pre>// Thread member topic의 ACK payload
+                <pre>// /user/queue/community/threads/events의 ACK payload
 {
   "commandId": "UUID",
   "command": "MESSAGE_CREATE",
@@ -461,7 +456,6 @@
         const elements = {
             wsUrl: document.getElementById("ws-url"),
             accessToken: document.getElementById("access-token"),
-            memberId: document.getElementById("member-id"),
             threadId: document.getElementById("thread-id"),
             status: document.getElementById("connection-status"),
             connect: document.getElementById("connect-button"),
@@ -613,8 +607,6 @@
 
             const url = elements.wsUrl.value.trim();
             const token = normalizeToken();
-            positiveId(elements.memberId.value, "Member ID");
-            positiveId(elements.threadId.value, "Thread ID");
             if (!/^wss?:\/\//.test(url)) {
                 throw new Error("Native WebSocket URL은 ws:// 또는 wss://로 시작해야 합니다.");
             }
@@ -772,11 +764,8 @@
         }
 
         function subscribeAll() {
-            const memberId = positiveId(elements.memberId.value, "Member ID");
-            const threadId = positiveId(elements.threadId.value, "Thread ID");
             unsubscribeAll();
-            subscribe(`/topic/community/threads/${threadId}/members/${memberId}/events`);
-            subscribe(`/topic/community/members/${memberId}/events`);
+            subscribe("/user/queue/community/threads/events");
             subscribe("/user/queue/errors");
         }
 

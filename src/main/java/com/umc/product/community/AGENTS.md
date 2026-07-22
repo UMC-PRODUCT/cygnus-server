@@ -89,7 +89,7 @@ Admin surface도 `/api/v1/community/admin/...` 아래에만 둔다. `/api/v1/adm
 
 연결 endpoint는 `/ws`이며 native CONNECT의 `Authorization: Bearer <access-token>`와 각 SEND의
 canonical lowercase UUID `x-command-id`를 요구한다. 외부 relay 환경에서도 application은
-`BroadcastPort`와 per-member destination을 사용한다.
+`BroadcastPort`의 user destination 전송과 per-member fan-out을 사용한다.
 
 허용된 SEND destination은 다음 여섯 가지다.
 
@@ -102,23 +102,24 @@ canonical lowercase UUID `x-command-id`를 요구한다. 외부 relay 환경에�
 /app/community/threads/{threadId}/read
 ```
 
-구독 destination은 authenticated principal과 path member ID가 같은지 확인한 뒤 다음 namespace만
-허용한다.
+구독 destination은 authenticated principal이 있을 때 다음 exact user destination만 허용한다.
 
 ```text
-/topic/community/threads/{threadId}/members/{memberId}/events
-/topic/community/members/{memberId}/events
+/user/queue/community/threads/events
 /user/queue/errors
 ```
 
-공유 `/topic/community/threads/{threadId}/events`는 만들지 않는다. 구독 시점의 ACTIVE membership
-검증을 우회해 kick 이후 stale subscription이 남을 수 있기 때문이다.
+event queue는 정상 상태 event와 ACK를 모두 전달하고 error queue는 recoverable error만
+전달한다. 한 회원의 여러 session이 event queue를 구독하면 모든 session이 수신한다.
+공용 Thread topic은 만들지 않고, event마다 ACTIVE recipient를 다시 계산하는 per-member
+fan-out을 유지해 kick/leave 후 stale subscription으로의 후속 event 유출을 막는다.
 
 ## EVENTS, ACK, AND RECOVERY
 
 모든 state event는 stable `eventId`, `type`, string `threadId`, `occurredAt`, typed payload를 갖는다.
 Chat generic message/reaction/read event는 Community facade가 consumer payload로 변환하고, lifecycle
-event는 Community가 직접 만든다. caller ACK는 self member topic으로만 best-effort 전송하며
+event는 Community가 직접 만든다. caller ACK는 `/user/queue/community/threads/events`로만
+best-effort 전송하며
 `commandId`, command type, affected IDs, optional `clientMessageId`, `deduplicated`를 포함한다.
 
 envelope는 `application/port/in/realtime/dto/CommunityThreadRealtimeEvent`와

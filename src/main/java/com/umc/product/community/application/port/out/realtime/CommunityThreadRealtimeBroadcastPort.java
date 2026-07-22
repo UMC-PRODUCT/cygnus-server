@@ -5,12 +5,6 @@ import com.umc.product.community.application.port.in.realtime.dto.CommunityThrea
 
 public interface CommunityThreadRealtimeBroadcastPort {
 
-    void broadcastToThreadMember(
-        Long threadId,
-        Long memberId,
-        CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload> event
-    );
-
     void broadcastToMember(
         Long memberId,
         CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload> event

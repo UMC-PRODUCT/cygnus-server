@@ -28,26 +28,18 @@ class CommunityThreadRealtimeBroadcastAdapterTest {
     CommunityThreadRealtimeBroadcastAdapter sut;
 
     @Test
-    @DisplayName("thread event는 공유 topic이 아닌 member별 topic으로 전달한다")
-    void threadEventUsesPerMemberDestination() {
-        CommunityThreadRealtimeEvent<?> event = event();
-
-        sut.broadcastToThreadMember(11L, 20L, event);
-
-        then(broadcastPort).should().broadcast(
-            "/topic/community/threads/11/members/20/events",
-            event
-        );
-    }
-
-    @Test
-    @DisplayName("invite event는 초대 대상의 personal topic으로 전달한다")
-    void inviteEventUsesPersonalDestination() {
+    @DisplayName("모든 정상 event는 대상 member의 Community thread user queue로 전달한다")
+    void eventUsesCommunityThreadUserDestination() {
         CommunityThreadRealtimeEvent<?> event = event();
 
         sut.broadcastToMember(20L, event);
 
-        then(broadcastPort).should().broadcast("/topic/community/members/20/events", event);
+        then(broadcastPort).should().broadcastToUser(
+            "20",
+            "/queue/community/threads/events",
+            event
+        );
+        then(broadcastPort).shouldHaveNoMoreInteractions();
     }
 
     private CommunityThreadRealtimeEvent<?> event() {

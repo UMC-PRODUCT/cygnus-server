@@ -103,17 +103,22 @@ create의 `clientMessageId`는 canonical UUID이며 thread/sender와 함께 저�
 
 ## 5. Subscription namespace
 
-다음 세 subscription namespace만 지원한다.
+다음 두 user destination만 지원한다.
 
 ```text
-/topic/community/threads/{threadId}/members/{memberId}/events
-/topic/community/members/{memberId}/events
+/user/queue/community/threads/events
 /user/queue/errors
 ```
 
-thread subscription path의 `{memberId}`는 authenticated principal과 같아야 하고 ACTIVE Community
-membership 및 non-deleted thread를 동시에 만족해야 한다. personal topic도 자기 member ID만 허용한다.
-공유 `/topic/community/threads/{threadId}/events`는 사용하지 않는다.
+`/user/queue/community/threads/events`는 `command.acknowledged`와 모든 Community Thread 상태
+event를 전달한다. client는 `type`과 `threadId`로 event를 분류한다. Spring User
+Destination이 authenticated principal의 실제 session destination으로 변환하므로 path에
+`memberId`를 넣지 않는다. 한 회원이 여러 session으로 접속하면 각 session이 이 queue를
+구독했을 때 모두 같은 사용자 대상 event를 받는다.
+
+공용 Thread topic은 사용하지 않는다. 서버는 event마다 현재 ACTIVE 멤버를 수신자로
+다시 계산하고 사용자별로 fan-out하므로, 강퇴·탈퇴 후 이전 session의 구독이
+남아 있어도 후속 event는 전달되지 않는다.
 
 ## 6. Event와 ACK
 
@@ -128,7 +133,8 @@ thread.invited         thread.updated       thread.deleted
 member.kicked          member.left
 ```
 
-`command.acknowledged`는 caller의 personal member topic으로 best-effort 전송하며 `commandId`, command,
+`command.acknowledged`는 caller의 `/user/queue/community/threads/events`로 best-effort 전송하며
+`commandId`, command,
 affected IDs, nullable `messageId`/`clientMessageId`, `deduplicated`를 포함한다. state 저장의 ACK로
 간주하지 않는다. command 처리 후 commit된 경우에만 전송하며 state event와 순서는 보장하지 않는다.
 

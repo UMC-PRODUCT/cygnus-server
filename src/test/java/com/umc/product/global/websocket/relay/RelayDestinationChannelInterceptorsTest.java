@@ -20,20 +20,20 @@ import com.umc.product.global.config.WebSocketBrokerProperties;
 @DisplayName("RelayDestinationChannelInterceptors")
 class RelayDestinationChannelInterceptorsTest {
 
-    private static final String PUBLIC_THREAD_DESTINATION =
-        "/topic/community/threads/12/members/41/events";
-    private static final String PUBLIC_MEMBER_DESTINATION =
-        "/topic/community/members/41/events";
+    private static final String PUBLIC_USER_DESTINATION =
+        "/topic/__internal/user-destination";
+    private static final String PUBLIC_USER_REGISTRY =
+        "/topic/__internal/user-registry";
     private static final MessageChannel UNUSED_CHANNEL = (message, timeout) -> true;
 
     private final RelayDestinationCodec codec = new RelayDestinationCodec();
 
     @Test
-    @DisplayName("relay SUBSCRIBE는 공개 경로만 broker key로 바꾸고 receipt, id, native header와 payload를 보존한다")
+    @DisplayName("relay SUBSCRIBE는 user system 경로를 broker key로 바꾸고 header와 payload를 보존한다")
     void translateRelaySubscribeToBroker() {
         byte[] payload = new byte[]{1, 2, 3};
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
-        accessor.setDestination(PUBLIC_THREAD_DESTINATION);
+        accessor.setDestination(PUBLIC_USER_DESTINATION);
         accessor.setSubscriptionId("subscription-7");
         accessor.setReceipt("receipt-9");
         accessor.setNativeHeader("x-correlation-id", "correlation-11");
@@ -43,9 +43,9 @@ class RelayDestinationChannelInterceptorsTest {
         StompHeaderAccessor translatedAccessor = StompHeaderAccessor.wrap(translated);
 
         assertThat(translatedAccessor.getDestination())
-            .isEqualTo(codec.toBroker(PUBLIC_THREAD_DESTINATION));
+            .isEqualTo(codec.toBroker(PUBLIC_USER_DESTINATION));
         assertThat(translatedAccessor.getFirstNativeHeader("destination"))
-            .isEqualTo(codec.toBroker(PUBLIC_THREAD_DESTINATION));
+            .isEqualTo(codec.toBroker(PUBLIC_USER_DESTINATION));
         assertThat(translatedAccessor.getReceipt()).isEqualTo("receipt-9");
         assertThat(translatedAccessor.getSubscriptionId()).isEqualTo("subscription-7");
         assertThat(translatedAccessor.getFirstNativeHeader("id")).isEqualTo("subscription-7");
@@ -55,11 +55,11 @@ class RelayDestinationChannelInterceptorsTest {
     }
 
     @Test
-    @DisplayName("application broker SEND는 공개 경로만 broker key로 바꾸고 headers와 payload를 보존한다")
+    @DisplayName("application broker SEND는 user registry 경로를 broker key로 바꾸고 header와 payload를 보존한다")
     void translateApplicationSendToBroker() {
         Object payload = new Object();
         SimpMessageHeaderAccessor accessor = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
-        accessor.setDestination(PUBLIC_MEMBER_DESTINATION);
+        accessor.setDestination(PUBLIC_USER_REGISTRY);
         accessor.setNativeHeader("x-event-type", "INVITED");
         Message<Object> message = MessageBuilder.createMessage(payload, accessor.getMessageHeaders());
 
@@ -67,9 +67,9 @@ class RelayDestinationChannelInterceptorsTest {
         StompHeaderAccessor translatedAccessor = StompHeaderAccessor.wrap(translated);
 
         assertThat(translatedAccessor.getDestination())
-            .isEqualTo(codec.toBroker(PUBLIC_MEMBER_DESTINATION));
+            .isEqualTo(codec.toBroker(PUBLIC_USER_REGISTRY));
         assertThat(translatedAccessor.getFirstNativeHeader("destination"))
-            .isEqualTo(codec.toBroker(PUBLIC_MEMBER_DESTINATION));
+            .isEqualTo(codec.toBroker(PUBLIC_USER_REGISTRY));
         assertThat(translatedAccessor.getFirstNativeHeader("x-event-type")).isEqualTo("INVITED");
         assertThat(translated.getPayload()).isSameAs(payload);
         assertThat(MessageHeaderAccessor.getAccessor(translated, MessageHeaderAccessor.class))
@@ -77,11 +77,11 @@ class RelayDestinationChannelInterceptorsTest {
     }
 
     @Test
-    @DisplayName("broker MESSAGE는 공개 경로만 복원하고 subscription, native header와 payload를 보존한다")
+    @DisplayName("broker MESSAGE는 user system 공개 경로를 복원하고 header와 payload를 보존한다")
     void restoreBrokerMessageForClient() {
         byte[] payload = new byte[]{4, 5, 6};
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.MESSAGE);
-        accessor.setDestination(codec.toBroker(PUBLIC_THREAD_DESTINATION));
+        accessor.setDestination(codec.toBroker(PUBLIC_USER_DESTINATION));
         accessor.setSubscriptionId("subscription-17");
         accessor.setMessageId("message-19");
         accessor.setNativeHeader("x-correlation-id", "correlation-23");
@@ -90,9 +90,9 @@ class RelayDestinationChannelInterceptorsTest {
         Message<?> translated = relayInterceptors().fromBroker().preSend(message, UNUSED_CHANNEL);
         StompHeaderAccessor translatedAccessor = StompHeaderAccessor.wrap(translated);
 
-        assertThat(translatedAccessor.getDestination()).isEqualTo(PUBLIC_THREAD_DESTINATION);
+        assertThat(translatedAccessor.getDestination()).isEqualTo(PUBLIC_USER_DESTINATION);
         assertThat(translatedAccessor.getFirstNativeHeader("destination"))
-            .isEqualTo(PUBLIC_THREAD_DESTINATION);
+            .isEqualTo(PUBLIC_USER_DESTINATION);
         assertThat(translatedAccessor.getSubscriptionId()).isEqualTo("subscription-17");
         assertThat(translatedAccessor.getFirstNativeHeader("subscription"))
             .isEqualTo("subscription-17");
@@ -100,6 +100,21 @@ class RelayDestinationChannelInterceptorsTest {
         assertThat(translatedAccessor.getFirstNativeHeader("x-correlation-id"))
             .isEqualTo("correlation-23");
         assertThat(translated.getPayload()).isSameAs(payload);
+    }
+
+    @Test
+    @DisplayName("relay mode에서 해석된 Community user session queue를 broker key로 가역 변환한다")
+    void translateResolvedCommunityUserQueue() {
+        String publicDestination = "/queue/community/threads/events-usersession-7";
+        Message<byte[]> message = stompMessage(StompCommand.SUBSCRIBE, publicDestination);
+
+        Message<?> translated = relayInterceptors().toBroker().preSend(message, UNUSED_CHANNEL);
+
+        assertThat(SimpMessageHeaderAccessor.getDestination(translated.getHeaders()))
+            .isEqualTo("/queue/community.threads.events-usersession-7");
+        Message<?> restored = relayInterceptors().fromBroker().preSend(translated, UNUSED_CHANNEL);
+        assertThat(SimpMessageHeaderAccessor.getDestination(restored.getHeaders()))
+            .isEqualTo(publicDestination);
     }
 
     @Test
@@ -139,11 +154,11 @@ class RelayDestinationChannelInterceptorsTest {
         );
         Message<byte[]> publicMessage = stompMessage(
             StompCommand.SUBSCRIBE,
-            PUBLIC_THREAD_DESTINATION
+            PUBLIC_USER_DESTINATION
         );
         Message<byte[]> internalMessage = stompMessage(
             StompCommand.MESSAGE,
-            codec.toBroker(PUBLIC_THREAD_DESTINATION)
+            codec.toBroker(PUBLIC_USER_DESTINATION)
         );
 
         assertThat(simpleInterceptors.toBroker().preSend(publicMessage, UNUSED_CHANNEL))

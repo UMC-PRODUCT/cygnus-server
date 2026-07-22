@@ -10,12 +10,8 @@ final class CommunityThreadE2EProtocol {
     private CommunityThreadE2EProtocol() {
     }
 
-    static String threadTopic(Long threadId, Long memberId) {
-        return "/topic/community/threads/%d/members/%d/events".formatted(threadId, memberId);
-    }
-
-    static String personalTopic(Long memberId) {
-        return "/topic/community/members/%d/events".formatted(memberId);
+    static String userEvents() {
+        return "/user/queue/community/threads/events";
     }
 
     static String messages(Long threadId) {

@@ -25,13 +25,6 @@ final class CommunityStompDestinationParser {
     private static final Pattern READ_UPDATE = Pattern.compile(
         "^/app/community/threads/" + POSITIVE_ID + "/read$"
     );
-    private static final Pattern THREAD_SUBSCRIPTION = Pattern.compile(
-        "^/topic/community/threads/" + POSITIVE_ID + "/members/" + POSITIVE_ID + "/events$"
-    );
-    private static final Pattern PERSONAL_SUBSCRIPTION = Pattern.compile(
-        "^/topic/community/members/" + POSITIVE_ID + "/events$"
-    );
-
     private CommunityStompDestinationParser() {
     }
 
@@ -67,38 +60,6 @@ final class CommunityStompDestinationParser {
         return matchSend(READ_UPDATE, destination, CommunityStompCommandType.READ_UPDATE);
     }
 
-    static Optional<SubscriptionDestination> parseSubscription(String destination) {
-        if (destination == null) {
-            return Optional.empty();
-        }
-
-        Matcher threadMatcher = THREAD_SUBSCRIPTION.matcher(destination);
-        if (threadMatcher.matches()) {
-            try {
-                return Optional.of(new ThreadSubscription(
-                    Long.parseLong(threadMatcher.group(1)),
-                    Long.parseLong(threadMatcher.group(2))
-                ));
-            } catch (NumberFormatException ignored) {
-                return Optional.empty();
-            }
-        }
-
-        Matcher personalMatcher = PERSONAL_SUBSCRIPTION.matcher(destination);
-        if (personalMatcher.matches()) {
-            try {
-                return Optional.of(new PersonalSubscription(Long.parseLong(personalMatcher.group(1))));
-            } catch (NumberFormatException ignored) {
-                return Optional.empty();
-            }
-        }
-        return Optional.empty();
-    }
-
-    static String memberThreadTopic(Long threadId, Long memberId) {
-        return "/topic/community/threads/%d/members/%d/events".formatted(threadId, memberId);
-    }
-
     private static Optional<SendDestination> matchSend(
         Pattern pattern,
         String destination,
@@ -124,12 +85,4 @@ final class CommunityStompDestinationParser {
     ) {
     }
 
-    sealed interface SubscriptionDestination permits ThreadSubscription, PersonalSubscription {
-    }
-
-    record ThreadSubscription(Long threadId, Long memberId) implements SubscriptionDestination {
-    }
-
-    record PersonalSubscription(Long memberId) implements SubscriptionDestination {
-    }
 }

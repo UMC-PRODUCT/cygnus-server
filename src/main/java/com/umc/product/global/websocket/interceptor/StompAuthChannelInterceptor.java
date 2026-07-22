@@ -36,8 +36,9 @@ import lombok.extern.slf4j.Slf4j;
  * broadcast 는 서버만 수행하며 클라이언트의 broker 직접 발행은 허용하지 않는다.
  *
  * <p><b>SUBSCRIBE 인가:</b><br>
- * broker destination 구독은 공통 registry를 통해 해당 경로를 소유한 소비 도메인 authorizer에 위임한다.
- * 지원하는 authorizer가 없거나 둘 이상이거나 인가에 실패하면 fail-closed 처리한다.
+ * broker destination과 공통 오류 queue 이외의 user destination 구독은 공통 registry를 통해 해당 경로를
+ * 소유한 소비 도메인 authorizer에 위임한다. 지원하는 authorizer가 없거나 둘 이상이거나 인가에 실패하면
+ * fail-closed 처리한다.
  *
  * @see <a href="file:../../../../../../../../../docs/adr/011-inquiry-domain-with-websocket-stomp.md">ADR-011</a>
  */
@@ -87,7 +88,10 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (StompCommand.SUBSCRIBE.equals(command)
             && isUserDestination(destination)
             && !USER_ERROR_DESTINATION.equals(destination)) {
-            throw new CommonException(CommonErrorCode.SECURITY_WEBSOCKET_INVALID_DESTINATION);
+            Long memberId = extractMemberId(accessor.getUser());
+            if (!subscriptionAuthorizerRegistry.isAuthorized(memberId, destination)) {
+                throw new CommonException(CommonErrorCode.SECURITY_WEBSOCKET_INVALID_DESTINATION);
+            }
         }
 
         if (StompCommand.SUBSCRIBE.equals(command) && isBrokerDestination(destination)) {

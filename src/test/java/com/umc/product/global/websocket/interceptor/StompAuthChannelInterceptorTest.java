@@ -193,6 +193,16 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
+    @DisplayName("소비 도메인 authorizer가 승인한 user destination SUBSCRIBE는 통과된다")
+    void subscribe_to_authorized_user_destination_passes() {
+        String destination = "/user/queue/community/threads/events";
+        given(subscriptionAuthorizerRegistry.isAuthorized(10L, destination)).willReturn(true);
+        Message<byte[]> message = authenticatedStompMessage(StompCommand.SUBSCRIBE, destination, 10L);
+
+        assertThat(sut.preSend(message, null)).isSameAs(message);
+    }
+
+    @Test
     @DisplayName("오류 queue 외 사용자 destination SUBSCRIBE는 거부된다")
     void subscribe_to_unknown_user_destination_throws() {
         Message<byte[]> message = authenticatedStompMessage(StompCommand.SUBSCRIBE, "/user/queue/other", 10L);

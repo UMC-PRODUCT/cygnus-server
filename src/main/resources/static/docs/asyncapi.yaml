@@ -119,18 +119,13 @@ channels:
       updateRead:
         $ref: "#/components/messages/UpdateReadCommand"
 
-  threadMemberEvents:
-    address: /topic/community/threads/{threadId}/members/{memberId}/events
-    title: Thread member event
+  communityThreadEvents:
+    address: /user/queue/community/threads/events
+    title: 개인화된 Community Thread event
     description: |
-      인증 principal과 `{memberId}`가 같고 ACTIVE membership이며 삭제되지 않은 thread에서만
-      구독할 수 있습니다. ACK와 message/reaction/read/thread/member state event를 전달합니다.
-      relay 특성상 같은 `eventId`가 중복 전달될 수 있습니다.
-    parameters:
-      threadId:
-        $ref: "#/components/parameters/threadId"
-      memberId:
-        $ref: "#/components/parameters/memberId"
+      인증 principal의 Spring User Destination입니다. 클라이언트는 연결 후 한 번 구독하며
+      `threadId`와 `type`으로 이벤트를 분류합니다. ACK와 message/reaction/read/thread/member
+      lifecycle event를 전달하고, relay 특성상 같은 `eventId`가 중복 전달될 수 있습니다.
     messages:
       commandAcknowledged:
         $ref: "#/components/messages/CommandAcknowledgedEvent"
@@ -152,15 +147,6 @@ channels:
         $ref: "#/components/messages/MemberKickedEvent"
       memberLeft:
         $ref: "#/components/messages/MemberLeftEvent"
-
-  personalMemberEvents:
-    address: /topic/community/members/{memberId}/events
-    title: 개인 lifecycle event
-    description: 인증 principal 자신의 member ID로만 구독할 수 있습니다.
-    parameters:
-      memberId:
-        $ref: "#/components/parameters/memberId"
-    messages:
       threadInvited:
         $ref: "#/components/messages/ThreadInvitedEvent"
 
@@ -243,36 +229,27 @@ operations:
     tags:
       - $ref: "#/components/tags/command"
 
-  sendThreadMemberEvents:
+  sendCommunityThreadEvents:
     action: send
-    title: Thread event와 ACK 전달
-    summary: 서버가 ACTIVE thread member의 개인화된 topic으로 event를 보냅니다.
+    title: 개인화된 Community Thread event와 ACK 전달
+    summary: 서버가 인증 회원의 단일 User Destination으로 event를 보냅니다.
     description: |
       state event는 transaction commit 이후 at-least-once로 전달됩니다. `eventId`로 중복을 제거해야
       하며 ACK와 state event의 상대적 순서는 보장되지 않습니다.
     channel:
-      $ref: "#/channels/threadMemberEvents"
+      $ref: "#/channels/communityThreadEvents"
     messages:
-      - $ref: "#/channels/threadMemberEvents/messages/commandAcknowledged"
-      - $ref: "#/channels/threadMemberEvents/messages/messageCreated"
-      - $ref: "#/channels/threadMemberEvents/messages/messageUpdated"
-      - $ref: "#/channels/threadMemberEvents/messages/messageDeleted"
-      - $ref: "#/channels/threadMemberEvents/messages/reactionChanged"
-      - $ref: "#/channels/threadMemberEvents/messages/readUpdated"
-      - $ref: "#/channels/threadMemberEvents/messages/threadUpdated"
-      - $ref: "#/channels/threadMemberEvents/messages/threadDeleted"
-      - $ref: "#/channels/threadMemberEvents/messages/memberKicked"
-      - $ref: "#/channels/threadMemberEvents/messages/memberLeft"
-    tags:
-      - $ref: "#/components/tags/event"
-
-  sendPersonalMemberEvents:
-    action: send
-    title: 개인 lifecycle event 전달
-    channel:
-      $ref: "#/channels/personalMemberEvents"
-    messages:
-      - $ref: "#/channels/personalMemberEvents/messages/threadInvited"
+      - $ref: "#/channels/communityThreadEvents/messages/commandAcknowledged"
+      - $ref: "#/channels/communityThreadEvents/messages/messageCreated"
+      - $ref: "#/channels/communityThreadEvents/messages/messageUpdated"
+      - $ref: "#/channels/communityThreadEvents/messages/messageDeleted"
+      - $ref: "#/channels/communityThreadEvents/messages/reactionChanged"
+      - $ref: "#/channels/communityThreadEvents/messages/readUpdated"
+      - $ref: "#/channels/communityThreadEvents/messages/threadUpdated"
+      - $ref: "#/channels/communityThreadEvents/messages/threadDeleted"
+      - $ref: "#/channels/communityThreadEvents/messages/memberKicked"
+      - $ref: "#/channels/communityThreadEvents/messages/memberLeft"
+      - $ref: "#/channels/communityThreadEvents/messages/threadInvited"
     tags:
       - $ref: "#/components/tags/event"
 
@@ -314,11 +291,6 @@ components:
       description: Chat message ID. 양의 십진수 문자열입니다.
       examples:
         - "1234"
-    memberId:
-      description: Member ID. 양의 십진수 문자열입니다.
-      examples:
-        - "42"
-
   messages:
     CreateMessageCommand:
       name: CreateMessageCommand

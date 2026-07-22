@@ -99,8 +99,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         sut.relay(event);
 
         ArgumentCaptor<Long> memberCaptor = ArgumentCaptor.forClass(Long.class);
-        then(broadcastPort).should(times(2)).broadcastToThreadMember(
-            eq(11L),
+        then(broadcastPort).should(times(2)).broadcastToMember(
             memberCaptor.capture(),
             eventCaptor.capture()
         );
@@ -128,8 +127,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         sut.relay(event);
 
         ArgumentCaptor<Long> memberCaptor = ArgumentCaptor.forClass(Long.class);
-        then(broadcastPort).should(times(3)).broadcastToThreadMember(
-            eq(11L),
+        then(broadcastPort).should(times(3)).broadcastToMember(
             memberCaptor.capture(),
             eventCaptor.capture()
         );
@@ -192,13 +190,13 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         then(loadMemberPort).should().findByThreadIdAndMemberIdForUpdate(11L, 20L);
         then(loadMemberPort).shouldHaveNoMoreInteractions();
         then(broadcastPort).should(times(3))
-            .broadcastToThreadMember(eq(11L), any(Long.class), any());
+            .broadcastToMember(any(Long.class), any());
         then(metrics).should().recordFanOut(Operation.MEMBER_LEFT, Outcome.SUCCESS, 3);
     }
 
     @Test
-    @DisplayName("thread.invited는 초대 대상마다 personal destination과 viewer별 summary를 사용한다")
-    void threadInvitedUsesPersonalDestinations() {
+    @DisplayName("thread.invited는 초대 대상마다 user destination과 viewer별 summary를 사용한다")
+    void threadInvitedUsesUserDestinations() {
         CommunityThread thread = thread();
         given(loadThreadPort.findById(11L)).willReturn(Optional.of(thread));
         given(threadQueryPort.listActiveMemberIdsByThreadId(11L, 101))

@@ -43,8 +43,7 @@ class CommunityThreadAsyncApiDocumentationTest {
         String document = resource(DOCUMENT_RESOURCE);
 
         assertThat(document).contains(
-            "/topic/community/threads/{threadId}/members/{memberId}/events",
-            "/topic/community/members/{memberId}/events",
+            "/user/queue/community/threads/events",
             "/user/queue/errors",
             "command.acknowledged",
             "message.created",
@@ -58,7 +57,12 @@ class CommunityThreadAsyncApiDocumentationTest {
             "member.kicked",
             "member.left",
             "CommandErrorPayload:"
-        ).doesNotContain("chatRoomId", "roomId");
+        ).doesNotContain(
+            "/topic/community/threads/{threadId}/members/{memberId}/events",
+            "/topic/community/members/{memberId}/events",
+            "chatRoomId",
+            "roomId"
+        );
     }
 
     @Test

@@ -2,7 +2,6 @@ package com.umc.product.community.application.service.realtime;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.times;
@@ -117,8 +116,7 @@ class CommunityThreadChatRealtimeRelayTest {
         sut.relay(event);
 
         ArgumentCaptor<Long> memberCaptor = ArgumentCaptor.forClass(Long.class);
-        then(broadcastPort).should(times(2)).broadcastToThreadMember(
-            eq(11L),
+        then(broadcastPort).should(times(2)).broadcastToMember(
             memberCaptor.capture(),
             eventCaptor.capture()
         );
@@ -171,8 +169,7 @@ class CommunityThreadChatRealtimeRelayTest {
         then(getMessageForRecipientsUseCase).should().getMessageForRecipients(
             new CommunityThreadMessageRecipientsQuery(11L, 900L, List.of(10L, 20L))
         );
-        then(broadcastPort).should(times(2)).broadcastToThreadMember(
-            eq(11L),
+        then(broadcastPort).should(times(2)).broadcastToMember(
             any(Long.class),
             eventCaptor.capture()
         );

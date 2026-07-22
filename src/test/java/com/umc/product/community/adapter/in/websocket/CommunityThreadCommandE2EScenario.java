@@ -7,6 +7,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.TimeUnit;
+
+import org.springframework.messaging.simp.user.SimpUser;
+import org.springframework.messaging.simp.user.SimpUserRegistry;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,13 +45,17 @@ final class CommunityThreadCommandE2EScenario {
     void run() throws Exception {
         try (
             CommunityThreadStompProbe owner = connect(topology.appA(), scenario.owner());
+            CommunityThreadStompProbe ownerMirror = connect(topology.appB(), scenario.owner());
             CommunityThreadStompProbe member = connect(topology.appB(), scenario.member())
         ) {
             Channels channels = new Channels(
-                owner.subscribe(threadTopic(scenario.owner()), RECEIPT_TIMEOUT),
-                member.subscribe(threadTopic(scenario.member()), RECEIPT_TIMEOUT),
+                owner.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT),
+                ownerMirror.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT),
+                member.subscribe(CommunityThreadE2EProtocol.userEvents(), RECEIPT_TIMEOUT),
                 owner.subscribe("/user/queue/errors", RECEIPT_TIMEOUT)
             );
+            awaitUserRegistry(scenario.owner().memberId(), 2);
+            awaitUserRegistry(scenario.member().memberId(), 1);
 
             Long baseMessageId = createAndVerifyIdempotency(owner, channels);
             Long replyMessageId = createReplyWithMention(member, channels, baseMessageId);
@@ -78,6 +86,7 @@ final class CommunityThreadCommandE2EScenario {
         UUID createCommandId = UUID.randomUUID();
         owner.send(CommunityThreadE2EProtocol.messages(scenario.threadId()), createCommandId, body);
         assertAck(channels.ownerFrames(), createCommandId, "MESSAGE_CREATE", false);
+        assertAck(channels.ownerMirrorFrames(), createCommandId, "MESSAGE_CREATE", false);
         topology.relayOutbox();
 
         // then: app B member가 state event를 받고 caller는 correlated ACK를 받는다.
@@ -92,6 +101,13 @@ final class CommunityThreadCommandE2EScenario {
         Long messageId = message.path("messageId").asLong();
         assertThat(messageId).isPositive();
         assertThat(message.path("clientMessageId").asText()).isEqualTo(clientMessageId.toString());
+        JsonNode mirrored = awaiter.awaitMessage(
+            channels.ownerMirrorFrames(),
+            "message.created",
+            BASE_CONTENT,
+            EVENT_TIMEOUT
+        );
+        assertThat(mirrored.at("/payload/message/messageId").asLong()).isEqualTo(messageId);
 
         UUID retryCommandId = UUID.randomUUID();
         owner.send(CommunityThreadE2EProtocol.messages(scenario.threadId()), retryCommandId, body);
@@ -195,12 +211,29 @@ final class CommunityThreadCommandE2EScenario {
         return CommunityThreadStompProbe.connect(app.port(), actor.accessToken(), objectMapper);
     }
 
-    private String threadTopic(Actor actor) {
-        return CommunityThreadE2EProtocol.threadTopic(scenario.threadId(), actor.memberId());
+    private void awaitUserRegistry(Long memberId, int expectedSessionCount)
+        throws InterruptedException {
+        SimpUserRegistry registry = topology.appA().context().getBean(SimpUserRegistry.class);
+        long deadline = System.nanoTime() + EVENT_TIMEOUT.toNanos();
+        do {
+            SimpUser user = registry.getUser(memberId.toString());
+            if (user != null && user.getSessions().size() >= expectedSessionCount) {
+                return;
+            }
+            TimeUnit.MILLISECONDS.sleep(50);
+        } while (System.nanoTime() < deadline);
+
+        SimpUser user = registry.getUser(memberId.toString());
+        int actualSessionCount = user == null ? 0 : user.getSessions().size();
+        throw new AssertionError(
+            "multi-server user registry가 제한 시간 안에 수렴하지 않았습니다: memberId=%d, expected=%d, actual=%d"
+                .formatted(memberId, expectedSessionCount, actualSessionCount)
+        );
     }
 
     private record Channels(
         BlockingQueue<StompFrame> ownerFrames,
+        BlockingQueue<StompFrame> ownerMirrorFrames,
         BlockingQueue<StompFrame> memberFrames,
         BlockingQueue<StompFrame> ownerErrors
     ) {

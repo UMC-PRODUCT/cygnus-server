@@ -49,16 +49,15 @@ final class CommunityThreadLifecycleE2EScenario {
                 objectMapper
             )
         ) {
-            BlockingQueue<StompFrame> ownerFrames = subscribeThread(owner, scenario.owner());
-            BlockingQueue<StompFrame> memberFrames = subscribeThread(member, scenario.member());
-            BlockingQueue<StompFrame> personalFrames = attacker.subscribe(
-                CommunityThreadE2EProtocol.personalTopic(scenario.attacker().memberId()),
+            BlockingQueue<StompFrame> ownerFrames = subscribeEvents(owner);
+            BlockingQueue<StompFrame> memberFrames = subscribeEvents(member);
+            BlockingQueue<StompFrame> attackerFrames = attacker.subscribe(
+                CommunityThreadE2EProtocol.userEvents(),
                 RECEIPT_TIMEOUT
             );
 
             // given/when: app B REST에서 제3의 멤버를 초대하고 소유권을 이전한다.
-            inviteAndTransfer(http, personalFrames);
-            BlockingQueue<StompFrame> attackerFrames = subscribeThread(attacker, scenario.attacker());
+            inviteAndTransfer(http, ownerFrames, memberFrames, attackerFrames);
 
             // then: leave/kick terminal event 이후 기존 subscription에는 state가 누출되지 않는다.
             leaveFormerOwner(http, ownerFrames, attackerFrames);
@@ -75,7 +74,9 @@ final class CommunityThreadLifecycleE2EScenario {
 
     private void inviteAndTransfer(
         CommunityThreadE2EHttpClient http,
-        BlockingQueue<StompFrame> personalFrames
+        BlockingQueue<StompFrame> ownerFrames,
+        BlockingQueue<StompFrame> memberFrames,
+        BlockingQueue<StompFrame> attackerFrames
     ) throws Exception {
         JsonNode invitation = http.invite(
             scenario.threadId(),
@@ -85,10 +86,12 @@ final class CommunityThreadLifecycleE2EScenario {
         topology.relayOutbox();
         assertThat(invitation.at("/invitedMembers/0/memberId").asText())
             .isEqualTo(scenario.attacker().memberId().toString());
-        JsonNode invited = awaiter.awaitType(personalFrames, "thread.invited", EVENT_TIMEOUT);
+        JsonNode invited = awaiter.awaitType(attackerFrames, "thread.invited", EVENT_TIMEOUT);
         assertThat(invited.at("/payload/thread/threadId").asText())
             .isEqualTo(scenario.threadId().toString());
         assertNoRawRoomId(invited);
+        awaiter.assertNoType(ownerFrames, "thread.invited", NO_LEAK_WINDOW);
+        awaiter.assertNoType(memberFrames, "thread.invited", NO_LEAK_WINDOW);
 
         JsonNode transferred = http.transferOwnership(
             scenario.threadId(),
@@ -158,26 +161,12 @@ final class CommunityThreadLifecycleE2EScenario {
         assertThat(terminal.at("/payload/memberId").asLong()).isEqualTo(scenario.member().memberId());
         memberFrames.clear();
 
-        assertKickedMemberCannotResubscribe();
         UUID commandId = sendMessage(attacker, SECOND_CONTENT);
         awaiter.awaitAck(attackerFrames, commandId, EVENT_TIMEOUT);
         topology.relayOutbox();
         awaiter.awaitMessage(attackerFrames, "message.created", SECOND_CONTENT, EVENT_TIMEOUT);
         awaiter.assertNoType(memberFrames, "message.created", NO_LEAK_WINDOW);
         awaiter.assertNoType(ownerFrames, "message.created", NO_LEAK_WINDOW);
-    }
-
-    private void assertKickedMemberCannotResubscribe() throws Exception {
-        try (CommunityThreadStompProbe kicked = connect(topology.appB(), scenario.member())) {
-            kicked.subscribeExpectingTerminalError(
-                CommunityThreadE2EProtocol.threadTopic(
-                    scenario.threadId(),
-                    scenario.member().memberId()
-                )
-            );
-            JsonNode error = objectMapper.readTree(kicked.awaitTerminalError(EVENT_TIMEOUT).payload());
-            assertThat(error.path("code").asText()).isEqualTo("SECURITY-0004");
-        }
     }
 
     private void verifySoftDeleteRetainsChatRows(
@@ -233,12 +222,10 @@ final class CommunityThreadLifecycleE2EScenario {
         return commandId;
     }
 
-    private BlockingQueue<StompFrame> subscribeThread(
-        CommunityThreadStompProbe probe,
-        Actor actor
-    ) throws InterruptedException {
+    private BlockingQueue<StompFrame> subscribeEvents(CommunityThreadStompProbe probe)
+        throws InterruptedException {
         return probe.subscribe(
-            CommunityThreadE2EProtocol.threadTopic(scenario.threadId(), actor.memberId()),
+            CommunityThreadE2EProtocol.userEvents(),
             RECEIPT_TIMEOUT
         );
     }

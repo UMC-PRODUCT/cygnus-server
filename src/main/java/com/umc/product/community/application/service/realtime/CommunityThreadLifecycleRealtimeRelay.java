@@ -26,8 +26,7 @@ class CommunityThreadLifecycleRealtimeRelay {
     private final LoadCommunityThreadMemberPort loadMemberPort;
 
     void relay(CommunityThreadInvitedEvent event) {
-        delivery.activeThread(event.threadId()).ifPresent(thread -> delivery.fanOutPersonalMembers(
-            thread.getId(),
+        delivery.activeThread(event.threadId()).ifPresent(thread -> delivery.fanOutMembers(
             delivery.currentlyActiveRecipients(thread.getId(), event.invitedMemberIds()),
             Operation.THREAD_INVITED,
             memberId -> delivery.envelope(
@@ -63,8 +62,7 @@ class CommunityThreadLifecycleRealtimeRelay {
                         thread.getUpdatedAt()
                     )
                 );
-            delivery.fanOutThreadMembers(
-                thread.getId(),
+            delivery.fanOutMembers(
                 recipients,
                 Operation.THREAD_UPDATED,
                 ignored -> envelope
@@ -85,8 +83,7 @@ class CommunityThreadLifecycleRealtimeRelay {
                     event.occurredAt()
                 )
             );
-        delivery.fanOutThreadMembers(
-            event.threadId(),
+        delivery.fanOutMembers(
             recipients,
             Operation.THREAD_DELETED,
             ignored -> envelope
@@ -106,8 +103,7 @@ class CommunityThreadLifecycleRealtimeRelay {
                     recipients.size() - 1L
                 )
             );
-        delivery.fanOutThreadMembers(
-            event.threadId(),
+        delivery.fanOutMembers(
             recipients,
             Operation.MEMBER_KICKED,
             ignored -> envelope
@@ -138,8 +134,7 @@ class CommunityThreadLifecycleRealtimeRelay {
                     recipients.size() - 1L
                 )
             );
-        delivery.fanOutThreadMembers(
-            event.threadId(),
+        delivery.fanOutMembers(
             recipients,
             Operation.MEMBER_LEFT,
             ignored -> envelope

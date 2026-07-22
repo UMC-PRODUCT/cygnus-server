@@ -131,30 +131,18 @@ class CommunityThreadRealtimeDelivery {
         return CommunityThreadRealtimeEvent.of(eventId, type, threadId, occurredAt, payload);
     }
 
-    void fanOutThreadMembers(
-        Long threadId,
+    void fanOutMembers(
         List<Long> recipients,
         Operation operation,
         Function<Long, CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload>> eventFactory
     ) {
-        fanOut(threadId, recipients, operation, eventFactory, false);
-    }
-
-    void fanOutPersonalMembers(
-        Long threadId,
-        List<Long> recipients,
-        Operation operation,
-        Function<Long, CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload>> eventFactory
-    ) {
-        fanOut(threadId, recipients, operation, eventFactory, true);
+        fanOut(recipients, operation, eventFactory);
     }
 
     private void fanOut(
-        Long threadId,
         List<Long> recipients,
         Operation operation,
-        Function<Long, CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload>> eventFactory,
-        boolean personal
+        Function<Long, CommunityThreadRealtimeEvent<? extends CommunityThreadRealtimePayload>> eventFactory
     ) {
         List<RuntimeException> failures = new ArrayList<>();
         for (Long memberId : recipients) {
@@ -166,11 +154,7 @@ class CommunityThreadRealtimeDelivery {
                 continue;
             }
             try {
-                if (personal) {
-                    broadcastPort.broadcastToMember(memberId, event);
-                } else {
-                    broadcastPort.broadcastToThreadMember(threadId, memberId, event);
-                }
+                broadcastPort.broadcastToMember(memberId, event);
             } catch (RuntimeException exception) {
                 metrics.recordBroadcastFailure(operation, Reason.BROKER_UNAVAILABLE);
                 failures.add(exception);
