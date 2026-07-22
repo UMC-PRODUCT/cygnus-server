@@ -69,25 +69,28 @@ DELETE /test/seed/projects     (gisu 단위 정리)
 - HTTP 왕복 × N + 엔티티마다 전체 도메인 검증 → O(N)이라 수만~수십만 행에서 매우 느리다.
 - 시딩 트래픽이 측정 대상(SUT) 앱을 직접 때려 부하 테스트 조건을 오염시킨다. 시딩과 측정은 분리돼야 한다.
 
-**승계 방식은 "손으로 쓴 SQL"이 아니라 "API가 만든 golden baseline을 덤프해 재사용"한다.**
+**승계 방식은 "생성기(코드)가 원천, 데이터 파일은 캐시"다.**
+
+> (2026-07-22 개정) 초안의 `pg_dump --data-only` 승계(`SEED_STRATEGY=sql`)는 **폐기**했다.
+> 벌크 생성 경로 없이는 10만+ baseline 을 굽는 것 자체가 api 시더로는 비현실적이고,
+> 덤프 아티팩트는 캐시일 뿐 원천이 될 수 없어서다. 대체는 아래 `bulk`.
 
 ```
-[1회] api 시딩(도메인 정합 baseline) → pg_dump --data-only → seed-baseline.sql (아티팩트 보관)
-[반복] psql < seed-baseline.sql → 빠르고 결정적, SUT 안 건드림
+[생성] seeder 프로파일 Spring 벌크 시더 — 골격(기수·학교·역할)은 use case 경유,
+       대량(멤버·챌린저·공지·상벌점·스케줄)은 JdbcTemplate 배치
+       (엔티티가 전부 GenerationType.IDENTITY 라 Hibernate 배치 인서트가 무력화되므로 JPA saveAll 은 배제)
+[캐시] RDS snapshot(rds.tf snapshot_identifier) — destroy/apply 사이클을 넘길 때 복원
 ```
-
-- API 시더가 진실의 원천이므로 리뷰의 "SQL 적재" 약점(도메인 우회 → schema/domain 변경 취약)이 완화된다. 스키마 변경 시 API로 재시딩해 덤프만 재생성.
-- 이 레포는 Flyway가 스키마를 관리하므로 덤프는 **`--data-only`**로 뜨고(스키마 제외), 복원 시 FK 순서는 `--disable-triggers`(또는 `session_replication_role`)로 처리한다.
 
 **전략별 동작 계층이 다르다** — prepare-data.sh 과설계를 피하기 위한 핵심 구분:
 
 | 전략 | 계층 | 위치 | v1 |
 |------|------|------|----|
 | `api` | apply 이후 | `prepare-data.sh` → SeedController | ✅ 구현 |
-| `sql` | apply 이후 | `prepare-data.sh` → `psql < seed-baseline.sql` | 후속 |
+| `bulk` | apply 이후 | `prepare-data.sh` → SUT EC2 에서 `seeder` 프로파일 컨테이너 1회 실행 | 후속 |
 | `snapshot` | **apply 시점** | `rds.tf`의 `snapshot_identifier` (prepare-data.sh 아님) | 후속 |
 
-`api`/`sql`은 prepare-data.sh의 `SEED_STRATEGY` 스위치로 드롭인 교체 가능. `snapshot`은 RDS 생성 시점 문제라 Terraform(`rds.tf`)에서 다룬다.
+`api`/`bulk`는 prepare-data.sh의 `SEED_STRATEGY` 스위치로 드롭인 교체 가능. `snapshot`은 RDS 생성 시점 문제라 Terraform(`rds.tf`)에서 다룬다.
 
 ---
 
@@ -213,7 +216,7 @@ test -f loadtest/k6/script.js
     ```
     - **각 스텝은 얇게**: "어느 엔드포인트를, 어떤 순서로, 어떤 ID를 다음으로 넘기는지"만 담는다. **도메인 규칙은 SeedController/SeedService(Java)에 남긴다.** 스텝에 도메인 지식을 넣으면 이중 관리가 되므로 금지.
     - 변경 지점 분리: API 계약 변경 → 해당 도메인 스텝만 수정 / 도메인 규칙 변경 → Java만 (스텝 대개 무변경).
-  - `sql`(후속 자리만): `psql < seed-baseline.sql`. baseline은 `api` 시딩 결과를 `pg_dump --data-only`로 굳힌 아티팩트. **도메인 스텝을 손대지 않고 덤프만 재생성.**
+  - `bulk`(후속): SUT EC2 에서 앱 이미지를 `seeder` 프로파일로 1회 실행해 대규모 적재 (4.1절 개정 참조). ~~`sql`(pg_dump 승계)~~ 는 폐기.
   - `snapshot`은 여기 아님 — RDS 생성 시점이라 `rds.tf`의 `snapshot_identifier`로 다룸(후속).
   - 주의: 6개 도메인을 bash로 오케스트레이션하면 JSON 스레딩/에러 처리가 지저분해질 수 있다. v1은 bash + `jq`로 충분하되, ID 전달이 복잡해지면 작은 스크립트 언어 이관을 후속으로 연다.
 
@@ -263,5 +266,5 @@ terraform -chdir=infra/terraform/envs/load-test destroy   # plan -destroy로 대
 
 - SSM Parameter Store 재도입(후속 PR)
 - S3 backend + DynamoDB/lockfile(후속)
-- 대량 데이터 승계(4.1절): `api` golden baseline → `pg_dump --data-only`(seed-baseline.sql) → `SEED_STRATEGY=sql`로 복원. schema 변경 시 덤프 재생성. `snapshot`은 `rds.tf`의 `snapshot_identifier`로 별도 처리.
+- 대량 데이터 승계(4.1절 개정): `seeder` 프로파일 Spring 벌크 시더(`SEED_STRATEGY=bulk`) + RDS snapshot 캐시. ~~pg_dump sql 전략~~ 은 폐기.
 - ~~generic registry 인증 지원 여부~~ → **결정: ECR 전용화(generic/public 제거).** 필요 시 후속 재도입.

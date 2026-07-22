@@ -133,7 +133,7 @@ read-heavy 또는 N+1 위험이 의심되는 도메인. Phase 1 으로 baseline 
 
 - **테스트 대상 환경은 staging 을 1순위, local 은 보조** — staging 은 운영과 동일한 PostgreSQL 18 + 동일 인스턴스 사이즈 가정. local 은 docker-compose 의 PostgreSQL 로 빠른 반복 측정에만 사용.
 - **production 직접 부하 테스트 금지** — 본 ADR 의 어떤 시나리오도 production 을 대상으로 자동 실행되지 않는다. soak/stress 가 production 에 필요하다고 판단되면 별도 ADR 로 정한다.
-- **테스트 데이터 시딩** — 시딩은 `loadtest/scripts/prepare-data.sh` 가 유일하게 소유한다(k6 는 시딩하지 않음). v1 은 도메인 가드를 통과하는 SeedController API(`/test/seed/*`)를 순서대로 호출해 `loadtest/k6/data/seed.json` 을 산출한다. 대용량 반복 실행 비용이 커지면 이 API 결과를 `pg_dump --data-only` 로 굳혀 `SEED_STRATEGY=sql` 로 복원한다(schema 는 Flyway 관리). RDS snapshot 복원은 계층이 달라 `rds.tf` 의 `snapshot_identifier` 로 다룬다. 상세: `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md`.
+- **테스트 데이터 시딩** — 시딩은 `loadtest/scripts/prepare-data.sh` 가 유일하게 소유한다(k6 는 시딩하지 않음). v1 은 도메인 가드를 통과하는 SeedController API(`/test/seed/*`)를 순서대로 호출해 `loadtest/k6/data/seed.json` 을 산출한다. 대용량(10만+ 행)은 앱 이미지의 `seeder` 프로파일로 도는 Spring 벌크 시더(`SEED_STRATEGY=bulk`, JdbcTemplate 배치)가 담당한다 — 파일 아티팩트는 캐시일 뿐 원천이 아니므로 `pg_dump` 기반 sql 전략은 폐기했다. RDS snapshot 복원은 계층이 달라 `rds.tf` 의 `snapshot_identifier` 로 다룬다(반복 실행 가속 캐시). 상세: `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md`.
 - **인증 토큰** — 부하 전용 access token 발급(TEST-007, `@Public`)을 `loadtest/k6/lib/auth.js` 가 VU 단위로 캐시해 재사용한다. "로그인 자체 성능" 을 재는 시나리오는 실제 로그인 API 를 호출하는 별도 시나리오로 둔다.
 
 ## Alternatives Considered

@@ -2,9 +2,8 @@
 set -euo pipefail
 
 # 데이터 준비의 "유일한 소유자". k6 는 시딩하지 않는다.
-# SEED_STRATEGY 로 방식을 고른다. v1 은 api 만 구현한다.
-#   api      : SeedController(/test/seed/*)를 순서대로 호출해 seed.json 산출 (기본)
-#   sql      : (후속) api 결과를 pg_dump --data-only 로 굳힌 seed-baseline.sql 복원
+# SEED_STRATEGY 로 방식을 고른다.
+#   api      : SeedController(/test/seed/*)를 순서대로 호출해 seed.json 산출 (기본, smoke·소규모)
 #   snapshot : 여기 아님 — RDS 생성 시점이라 rds.tf 의 snapshot_identifier 로 다룬다
 #
 # 사용법: loadtest/scripts/prepare-data.sh
@@ -129,7 +128,7 @@ seed_api() {
   # 홈 화면의 일정·공지·상벌점 데이터 채우기 (best-effort — 실패해도 seed.json 은 정상 산출)
   seed_home_data "$gisu_id" "$admin_member_id" "$admin_challenger_id" "$participants" "$challenger_ids_json"
 
-  # seed.json — 전략(api/sql) 무관 동일 스키마. k6 는 gisuId·memberIds 만 쓴다.
+  # seed.json — 전략 무관 동일 스키마. k6 는 gisuId·memberIds 만 쓴다.
   # memberIds 는 챌린저 등록 성공 멤버만 담는다 (schedules/me 403 방지).
   printf '%s\n' "${challenger_member_ids[@]}" \
     | jq -R . \
@@ -204,26 +203,17 @@ seed_home_data() {
   echo "[api] 상벌점 ${granted}건 부여"
 }
 
-seed_sql() {
-  echo "[sql] (후속) psql < seed-baseline.sql 로 복원. baseline 은 api 결과를 pg_dump --data-only 로 굳힌 아티팩트." >&2
-  echo "[sql] v1 에서는 미구현. SEED_STRATEGY=api 를 사용하세요." >&2
-  exit 1
-}
-
 case "$SEED_STRATEGY" in
 api)
   BASE_URL="$(resolve_base_url)"
   seed_api
-  ;;
-sql)
-  seed_sql
   ;;
 snapshot)
   echo "snapshot 전략은 prepare-data.sh 가 아니라 rds.tf 의 snapshot_identifier 로 다룹니다." >&2
   exit 1
   ;;
 *)
-  echo "알 수 없는 SEED_STRATEGY: $SEED_STRATEGY (api|sql|snapshot)" >&2
+  echo "알 수 없는 SEED_STRATEGY: $SEED_STRATEGY (api|snapshot)" >&2
   exit 1
   ;;
 esac
