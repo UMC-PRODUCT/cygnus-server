@@ -21,7 +21,6 @@
 | `infra/terraform/versions.tf` | Terraform CLI와 AWS provider 버전 범위를 고정한다. |
 | `infra/terraform/providers.tf` | AWS provider region/profile/default tags를 정의한다. |
 | `infra/terraform/backend.example.hcl` | S3 remote state와 DynamoDB lock 설정 예시를 제공한다. 실제 backend 값은 운영 계정에 맞게 별도 파일로 관리한다. |
-| `infra/terraform/backend.load-test.example.hcl` | 부하 테스트 전용 S3 remote state와 DynamoDB lock 설정 예시를 제공한다. |
 | `scripts/aws-infra-inventory.sh` | readonly profile로 VPC, subnet, SG, route table, ALB, ASG, RDS 등 현재 AWS 리소스 정보를 수집한다. secret 값과 user-data 원문은 출력하지 않는다. |
 | `docs/infra/aws-current-inventory.md` | inventory 결과를 사람이 검토할 수 있게 요약하고, import 대상과 운영 리스크를 기록한다. |
 
@@ -105,15 +104,7 @@
 | `infra/terraform/envs/prod/terraform.tfvars.example` | prod 실행에 필요한 비밀이 아닌 값과 목적별 secret ARN 입력 예시를 제공한다. 실제 secret 값은 넣지 않는다. |
 | `infra/terraform/envs/prod/imports.tf` | 기존 prod 리소스를 Terraform state로 가져오기 위한 import block을 둔다. |
 | `infra/terraform/envs/prod/moved.tf` | Terraform resource address 변경 시 state 이동 기록을 남긴다. 운영 리소스 rename은 moved block으로 추적한다. |
-| `infra/terraform/envs/load-test/backend.tf` | 부하 테스트 전용 state의 S3 backend를 선언한다. shared/dev/prod와 다른 key를 사용한다. |
-| `infra/terraform/envs/load-test/main.tf` | 부하 테스트 전용 VPC, SUT, generator, monitoring, RDS를 한 root에서 조립하기 위한 공통 data/local을 정의한다. |
-| `infra/terraform/envs/load-test/network.tf` | 운영 VPC를 재사용하지 않는 독립 VPC, public subnet, RDS subnet, route table, security group을 생성한다. |
-| `infra/terraform/envs/load-test/alb.tf` | generator가 운영과 같은 ALB 진입 경로로 SUT에 요청하도록 부하 테스트 전용 ALB와 target group을 생성한다. |
-| `infra/terraform/envs/load-test/compute.tf` | SUT, k6 generator, monitoring EC2와 user-data template 연결을 관리한다. |
-| `infra/terraform/envs/load-test/rds.tf` | destroy 가능한 ephemeral PostgreSQL RDS와 DB subnet group을 생성한다. |
-| `infra/terraform/envs/load-test/iam.tf` | SUT EC2가 ECR과 SSM Parameter Store, 선택적 KMS key에 접근하기 위한 최소 IAM role/policy를 관리한다. |
-| `infra/terraform/envs/load-test/terraform.tfvars.example` | 부하 테스트 실행에 필요한 비밀이 아닌 값, SSM parameter path/name, instance/RDS 크기 예시를 제공한다. |
-| `infra/terraform/envs/load-test/user-data/*.tftpl` | SUT, generator, monitoring EC2 bootstrap을 정의한다. 앱 env는 SSM Parameter Store에서 런타임에 내려받는다. |
+| `loadtest/terraform/*` | 부하 테스트 env은 배포 env가 아니라 ephemeral 테스트 리그(local backend·self-contained·ECR pull·로컬 `load-test.env` 주입)라 `infra/terraform`에서 분리했다. 파일 구성·실행은 `loadtest/README.md`, 설계 근거는 `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md` 참조. |
 
 주의: 같은 VPC, ALB, Route53 record를 둘 이상의 Terraform state가 동시에 소유하면 안 된다. dev/prod root를 분리해 구현하는 경우 shared 리소스 소유자를 먼저 정하고, 다른 root는 remote state output 또는 data source로만 참조한다. `load-test`는 이 충돌을 피하기 위해 shared VPC/ALB/RDS를 참조하지 않고 독립 리소스를 만든다.
 
@@ -282,43 +273,15 @@ prod 적용 전에는 변경 범위, RDS 영향, ASG rolling refresh 여부를 �
 
 ## 부하 테스트 환경 생성과 정리
 
-부하 테스트는 shared/dev/prod state와 분리된 `infra/terraform/envs/load-test` root에서 실행한다. 이 root는 운영 VPC, 운영 ALB, 운영 RDS를 재사용하지 않고 테스트 전용 VPC와 SUT, k6 generator, monitoring, RDS를 생성한다. 테스트가 끝나면 `terraform destroy`로 전체를 정리한다.
+부하 테스트 env은 배포 env와 분리된 `loadtest/terraform`(local backend·self-contained)에서 실행한다. 운영 VPC/ALB/RDS를 재사용하지 않고 테스트 전용 VPC·SUT·k6 generator·monitoring·RDS를 만들고, 끝나면 destroy로 전체를 정리한다.
 
-```bash
-cd infra/terraform/envs/load-test
-cp terraform.tfvars.example terraform.tfvars
-terraform init -backend-config=../../backend.load-test.hcl
-terraform plan -var-file=terraform.tfvars -out=tfplan
-terraform apply tfplan
-```
+v1 기준 주요 사항:
 
-`terraform.tfvars`에는 secret 원문을 넣지 않는다. 앱 부팅에 필요한 env는 SSM Parameter Store path 아래에 저장하고, Terraform에는 path/name과 선택적 KMS key ARN만 넣는다.
+- **backend**: local (S3 아님). `terraform -chdir=loadtest/terraform init` 만으로 시작한다.
+- **secret**: SSM Parameter Store가 아니라 로컬 `load-test.env` 파일을 base64로 SUT app.env에 주입한다. `terraform.tfvars`에는 `app_env_file_path = "./load-test.env"` 경로만 둔다.
+- **registry**: ECR 전용(generic/public 미지원). SUT IAM role은 ECR pull 권한만 갖는다.
 
-```hcl
-aws_region  = "ap-northeast-2"
-aws_profile = "umcproduct-admin"
-environment = "load-test"
-
-app_image                               = "137809407320.dkr.ecr.ap-northeast-2.amazonaws.com/umc-product-server:development-latest"
-app_env_ssm_parameter_path              = "/umc-product/load-test/runtime"
-registry_type                           = "ecr"
-registry_credentials_ssm_parameter_name = ""
-ssm_kms_key_arn                         = ""
-```
-
-apply 후에는 output으로 받은 ALB URL, Grafana URL, generator SSH 명령을 사용한다.
-
-```bash
-terraform output sut_app_url
-terraform output grafana_url
-terraform output generator_ssh
-```
-
-테스트 종료 후 비용과 테스트 데이터를 남기지 않도록 같은 root에서 destroy한다.
-
-```bash
-terraform destroy -var-file=terraform.tfvars
-```
+실행 순서(로컬 값 준비 → init/plan/apply → 시딩 → k6 → destroy)와 명령은 `loadtest/README.md`를 따른다. 설계 근거는 `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md`.
 
 ## 기존 인프라 import 절차
 
@@ -530,10 +493,6 @@ terraform init -backend=false
 terraform validate
 
 cd ../prod
-terraform init -backend=false
-terraform validate
-
-cd ../load-test
 terraform init -backend=false
 terraform validate
 ```
