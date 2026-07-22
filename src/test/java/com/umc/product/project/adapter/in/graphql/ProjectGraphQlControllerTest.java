@@ -174,7 +174,7 @@ class ProjectGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   projects(input: { gisuId: 1 }, page: { size: 101 }) {
-                    totalElements
+                    pageInfo { totalElements }
                   }
                 }
                 """)

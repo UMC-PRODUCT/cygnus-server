@@ -1,11 +1,7 @@
 """Member 검색 결과 페이지."""
 type MemberPage {
   content: [MemberSearchResult!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
+  pageInfo: PageInfo!
 }
 
 """검색에 필요한 Member 정보와 Challenger projection을 함께 제공하는 응답."""

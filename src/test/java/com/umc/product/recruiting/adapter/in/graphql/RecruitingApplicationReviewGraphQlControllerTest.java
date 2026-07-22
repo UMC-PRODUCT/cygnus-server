@@ -75,11 +75,12 @@ class RecruitingApplicationReviewGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   recruitingRoundApplications(
-                    roundId: 20,
-                    input: {statuses: [SUBMITTED, INTERVIEW_ASSIGNED], tracks: [PLAN, DESIGN], page: 1, size: 10}
+                    roundId: 20
+                    input: {statuses: [SUBMITTED, INTERVIEW_ASSIGNED], tracks: [PLAN, DESIGN]}
+                    page: {page: 1, size: 10}
                   ) {
                     content { applicationId documentEvaluatedByMe }
-                    totalElements
+                    pageInfo { totalElements }
                   }
                 }
                 """)
@@ -87,7 +88,7 @@ class RecruitingApplicationReviewGraphQlControllerTest {
             .path("recruitingRoundApplications.content[0].applicationId")
             .entity(String.class)
             .isEqualTo("30")
-            .path("recruitingRoundApplications.totalElements")
+            .path("recruitingRoundApplications.pageInfo.totalElements")
             .entity(Long.class)
             .isEqualTo(11L);
 

@@ -6,8 +6,8 @@ Recruiting의 공개·운영 조회, command 요청, 지원서 및 전형 응답
 
 | 파일 | 내용 |
 |---|---|
-| `request.graphqls` | Recruiting `Query`, `Mutation`, 모든 input |
-| `response.graphqls` | season, round, application, evaluation, Form projection과 enum |
+| `request.graphqls` | Recruiting `Query`, `Mutation`, 모든 input. Paging은 `PageInput` 참조 |
+| `response.graphqls` | season, round, application, evaluation, `PageInfo`, Form projection과 enum |
 
 ## 주요 관계
 

@@ -43,6 +43,7 @@ extend type Query {
   recruitingRoundApplications(
     roundId: ID!
     input: RecruitingApplicationSearchInput
+    page: PageInput
   ): RecruitingApplicationReviewPage!
   """운영자가 지원서 답변을 포함한 review 상세를 조회한다."""
   recruitingRoundApplication(roundId: ID!, applicationId: ID!): RecruitingApplicationReviewDetail!
@@ -349,8 +350,6 @@ input UpsertRecruitingFormOptionInput {
 input RecruitingApplicationSearchInput {
   statuses: [RecruitingApplicationStatus!]
   tracks: [ChallengerTrack!]
-  page: Int
-  size: Int
 }
 
 """Recruiting round 평가자 지정 입력."""

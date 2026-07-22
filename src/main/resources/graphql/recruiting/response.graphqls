@@ -316,11 +316,7 @@ type RecruitingPublicRound {
 """운영자용 Recruiting 지원서 review 페이지."""
 type RecruitingApplicationReviewPage {
   content: [RecruitingApplicationReview!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
+  pageInfo: PageInfo!
 }
 
 """운영자 심사 목록에 표시하는 Recruiting 지원자 정보."""

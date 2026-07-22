@@ -6,8 +6,8 @@ Member 도메인의 표준 조회 operation과 canonical `Member` 응답을 제�
 
 | 파일 | 내용 |
 |---|---|
-| `request.graphqls` | `me`, `member`, `members`, `memberSearch`와 검색 input |
-| `response.graphqls` | `Member`, 검색 page, Challenger projection |
+| `request.graphqls` | `me`, `member`, `members`, `memberSearch`와 검색 input. Paging은 `PageInput` 참조 |
+| `response.graphqls` | `Member`, `pageInfo: PageInfo`를 포함한 검색 page, Challenger projection |
 
 ## 관계
 

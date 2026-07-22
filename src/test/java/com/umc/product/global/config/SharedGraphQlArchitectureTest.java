@@ -21,11 +21,13 @@ class SharedGraphQlArchitectureTest {
 
     private static final Path GRAPHQL_SCHEMA_ROOT = Path.of("src/main/resources/graphql");
     private static final Pattern DECLARATION_PATTERN = Pattern.compile(
-        "(?m)^\\s*(scalar|enum|interface|type)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b"
+        "(?m)^\\s*(scalar|enum|input|interface|type)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b"
     );
     private static final Map<String, String> PROVIDER_DECLARATION_OWNERS = Map.ofEntries(
         Map.entry("scalar Long", "shared/scalars.graphqls"),
         Map.entry("scalar Instant", "shared/scalars.graphqls"),
+        Map.entry("input PageInput", "shared/pagination.graphqls"),
+        Map.entry("type PageInfo", "shared/pagination.graphqls"),
         Map.entry("enum ChallengerPart", "challenger/output.graphqls"),
         Map.entry("enum ChallengerTrack", "challenger/output.graphqls"),
         Map.entry("enum ChallengerStatus", "challenger/output.graphqls"),

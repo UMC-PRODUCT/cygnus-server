@@ -24,11 +24,11 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.global.graphql.dto.PageGraphQlRequest;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.adapter.in.graphql.dto.MemberChallengerGraphQlResponse;
-import com.umc.product.member.adapter.in.graphql.dto.MemberPageGraphQlRequest;
 import com.umc.product.member.adapter.in.graphql.dto.MemberPageGraphQlResponse;
 import com.umc.product.member.adapter.in.graphql.dto.MemberSearchChallengerGraphQlResponse;
 import com.umc.product.member.adapter.in.graphql.dto.MemberSearchGraphQlRequest;
@@ -97,10 +97,10 @@ public class MemberGraphQlController {
     @QueryMapping
     public MemberPageGraphQlResponse memberSearch(
         @Argument MemberSearchGraphQlRequest input,
-        @Argument MemberPageGraphQlRequest page
+        @Argument PageGraphQlRequest page
     ) {
         Long requesterMemberId = currentMemberId();
-        Pageable pageable = (page == null ? new MemberPageGraphQlRequest(null, null) : page).toPageable();
+        Pageable pageable = PageGraphQlRequest.defaultIfNull(page).toPageableWithMaxOffset(10_000L);
         return MemberPageGraphQlResponse.from(
             searchMemberUseCase.searchByV2ForGraphQl(input.toQuery(), requesterMemberId, pageable).page()
         );

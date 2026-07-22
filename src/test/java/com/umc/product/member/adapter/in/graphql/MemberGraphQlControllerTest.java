@@ -293,11 +293,13 @@ class MemberGraphQlControllerTest {
                         challengerStatus
                       }
                     }
-                    page
-                    size
-                    totalElements
-                    totalPages
-                    hasNext
+                    pageInfo {
+                      page
+                      size
+                      totalElements
+                      totalPages
+                      hasNext
+                    }
                   }
                 }
                 """)
@@ -323,11 +325,11 @@ class MemberGraphQlControllerTest {
             .path("memberSearch.content[0].challengerRecords[0].part").entity(String.class).isEqualTo("NODEJS")
             .path("memberSearch.content[0].challengerRecords[0].challengerStatus")
                 .entity(String.class).isEqualTo("GRADUATED")
-            .path("memberSearch.page").entity(Integer.class).isEqualTo(1)
-            .path("memberSearch.size").entity(Integer.class).isEqualTo(2)
-            .path("memberSearch.totalElements").entity(Long.class).isEqualTo(5L)
-            .path("memberSearch.totalPages").entity(Integer.class).isEqualTo(3)
-            .path("memberSearch.hasNext").entity(Boolean.class).isEqualTo(true)
+            .path("memberSearch.pageInfo.page").entity(Integer.class).isEqualTo(1)
+            .path("memberSearch.pageInfo.size").entity(Integer.class).isEqualTo(2)
+            .path("memberSearch.pageInfo.totalElements").entity(Long.class).isEqualTo(5L)
+            .path("memberSearch.pageInfo.totalPages").entity(Integer.class).isEqualTo(3)
+            .path("memberSearch.pageInfo.hasNext").entity(Boolean.class).isEqualTo(true)
             .path("memberSearch").entity(Object.class)
                 .satisfies(data -> assertThat(data.toString()).doesNotContain("member2@example.com"));
 
@@ -422,21 +424,23 @@ class MemberGraphQlControllerTest {
                 query {
                   memberSearch(input: { keyword: "kim" }) {
                     content { memberId }
-                    page
-                    size
-                    totalElements
-                    totalPages
-                    hasNext
+                    pageInfo {
+                      page
+                      size
+                      totalElements
+                      totalPages
+                      hasNext
+                    }
                   }
                 }
                 """)
             .execute()
             .path("memberSearch.content").entityList(Object.class).hasSize(0)
-            .path("memberSearch.page").entity(Integer.class).isEqualTo(0)
-            .path("memberSearch.size").entity(Integer.class).isEqualTo(20)
-            .path("memberSearch.totalElements").entity(Long.class).isEqualTo(0L)
-            .path("memberSearch.totalPages").entity(Integer.class).isEqualTo(0)
-            .path("memberSearch.hasNext").entity(Boolean.class).isEqualTo(false);
+            .path("memberSearch.pageInfo.page").entity(Integer.class).isEqualTo(0)
+            .path("memberSearch.pageInfo.size").entity(Integer.class).isEqualTo(20)
+            .path("memberSearch.pageInfo.totalElements").entity(Long.class).isEqualTo(0L)
+            .path("memberSearch.pageInfo.totalPages").entity(Integer.class).isEqualTo(0)
+            .path("memberSearch.pageInfo.hasNext").entity(Boolean.class).isEqualTo(false);
 
         then(searchMemberUseCase).should().searchByV2ForGraphQl(query, REQUESTER_ID, pageable);
     }
@@ -470,12 +474,12 @@ class MemberGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   memberSearch(input: { keyword: "kim" }, page: { page: 100, size: 100 }) {
-                    totalElements
+                    pageInfo { totalElements }
                   }
                 }
                 """)
             .execute()
-            .path("memberSearch.totalElements").entity(Long.class).isEqualTo(0L);
+            .path("memberSearch.pageInfo.totalElements").entity(Long.class).isEqualTo(0L);
 
         then(searchMemberUseCase).should().searchByV2ForGraphQl(query, REQUESTER_ID, pageable);
     }
@@ -497,7 +501,7 @@ class MemberGraphQlControllerTest {
 
         graphQlTester.document("""
                 query {
-                  memberSearch(input: { keyword: "kim" }) { totalElements }
+                  memberSearch(input: { keyword: "kim" }) { pageInfo { totalElements } }
                 }
                 """)
             .execute()
@@ -516,7 +520,7 @@ class MemberGraphQlControllerTest {
     void memberSearch는_잘못된_part_enum을_실행_전에_거부한다() {
         graphQlTester.document("""
                 query {
-                  memberSearch(input: { part: INVALID_PART }) { totalElements }
+                  memberSearch(input: { part: INVALID_PART }) { pageInfo { totalElements } }
                 }
                 """)
             .execute()
@@ -531,7 +535,7 @@ class MemberGraphQlControllerTest {
     void memberSearch는_숫자가_아닌_ID를_실행_전에_거부한다() {
         graphQlTester.document("""
                 query {
-                  memberSearch(input: { gisuId: "invalid-id" }) { totalElements }
+                  memberSearch(input: { gisuId: "invalid-id" }) { pageInfo { totalElements } }
                 }
                 """)
             .execute()
@@ -682,11 +686,13 @@ class MemberGraphQlControllerTest {
                         }
                       }
                     }
-                    page
-                    size
-                    totalElements
-                    totalPages
-                    hasNext
+                    pageInfo {
+                      page
+                      size
+                      totalElements
+                      totalPages
+                      hasNext
+                    }
                   }
                 }
                 """)
@@ -731,11 +737,11 @@ class MemberGraphQlControllerTest {
             .path("memberSearch.content[2].school").valueIsNull()
             .path("memberSearch.content[2].currentChallenger").valueIsNull()
             .path("memberSearch.content[3].school").valueIsNull()
-            .path("memberSearch.page").entity(Integer.class).isEqualTo(0)
-            .path("memberSearch.size").entity(Integer.class).isEqualTo(20)
-            .path("memberSearch.totalElements").entity(Long.class).isEqualTo(4L)
-            .path("memberSearch.totalPages").entity(Integer.class).isEqualTo(1)
-            .path("memberSearch.hasNext").entity(Boolean.class).isEqualTo(false)
+            .path("memberSearch.pageInfo.page").entity(Integer.class).isEqualTo(0)
+            .path("memberSearch.pageInfo.size").entity(Integer.class).isEqualTo(20)
+            .path("memberSearch.pageInfo.totalElements").entity(Long.class).isEqualTo(4L)
+            .path("memberSearch.pageInfo.totalPages").entity(Integer.class).isEqualTo(1)
+            .path("memberSearch.pageInfo.hasNext").entity(Boolean.class).isEqualTo(false)
             .path("memberSearch").entity(Object.class)
                 .satisfies(data -> assertThat(data.toString()).doesNotContain("member2@example.com"));
 
@@ -967,7 +973,7 @@ class MemberGraphQlControllerTest {
     private void assertInvalidMemberPage(String pageInput) {
         graphQlTester.document("""
                 query {
-                  memberSearch(input: { keyword: "kim" }, page: { %s }) { totalElements }
+                  memberSearch(input: { keyword: "kim" }, page: { %s }) { pageInfo { totalElements } }
                 }
                 """.formatted(pageInput))
             .execute()

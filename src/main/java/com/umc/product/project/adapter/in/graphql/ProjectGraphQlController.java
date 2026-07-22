@@ -23,6 +23,7 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.global.graphql.dto.PageGraphQlRequest;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -33,9 +34,9 @@ import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGrap
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectMemberGraphQlResponse;
-import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlRequest;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectSearchGraphQlRequest;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectSort;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -76,7 +77,8 @@ public class ProjectGraphQlController {
     public ProjectPageGraphQlResponse projects(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument ProjectSearchGraphQlRequest input,
-        @Argument ProjectPageGraphQlRequest page
+        @Argument PageGraphQlRequest page,
+        @Argument List<ProjectSort> sort
     ) {
         Long requesterMemberId = currentMemberId(memberPrincipal);
         checkPermissionUseCase.checkOrThrow(
@@ -84,7 +86,7 @@ public class ProjectGraphQlController {
             ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.READ)
         );
 
-        Pageable pageable = (page == null ? new ProjectPageGraphQlRequest(null, null, null) : page).toPageable();
+        Pageable pageable = PageGraphQlRequest.defaultIfNull(page).toPageable(ProjectSort.toSpringSort(sort));
         SearchProjectQuery query = input.toQuery(pageable);
         return ProjectPageGraphQlResponse.from(searchProjectUseCase.search(query, requesterMemberId));
     }

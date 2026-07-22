@@ -25,6 +25,7 @@ Spring GraphQL은 `src/main/resources/graphql/**/*.graphqls`를 하나의 runtim
 |---|---|
 | `schema.graphqls` | 빈 기술 root `Query`, `Mutation` |
 | `shared/scalars.graphqls` | owner가 없는 transport scalar |
+| `shared/pagination.graphqls` | 표준 `PageInput`, `PageInfo` platform contract |
 | `challenger/output.graphqls` | Challenger enum |
 | `form/output.graphqls` | Form 표준 output |
 | `{domain}/request.graphqls` | root operation과 input |
@@ -113,6 +114,7 @@ query ProjectMembers($projectId: ID!) {
 ## 구현 규칙
 
 - API 설명은 GraphQL description(`"""..."""`)으로 작성한다.
+- Offset pagination은 `PageInput`을 받고 domain page의 `pageInfo: PageInfo!`로 metadata를 반환한다.
 - 외부 도메인 ID field에는 대상 owner와 resource를 설명한다.
 - resolver는 application inbound use case만 호출한다.
 - nested collection은 batch use case, `@BatchMapping`, DataLoader로 N+1을 방지한다.

@@ -8,7 +8,7 @@ GraphQL SDL의 소유권과 도메인 간 관계를 설명한다. 실행 계약�
 ```mermaid
 flowchart TB
   Root["schema.graphqls<br/>Query / Mutation root"] --> Loader["Spring GraphQL schema loader"]
-  Shared["shared<br/>Long / Instant"] --> Loader
+  Shared["shared<br/>Long / Instant / Pagination"] --> Loader
   Challenger["challenger<br/>part / track / status"] --> Loader
   Form["form<br/>Form standard output"] --> Loader
   Member["member<br/>request / response"] --> Loader

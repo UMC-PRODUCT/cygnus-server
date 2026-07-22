@@ -27,15 +27,15 @@ class GraphQlExecutionConfigTest {
     @DisplayName("memberSearch는 기본 page.size 비용을 포함한 설정 한도에서 실행된다")
     void memberSearch는_기본_page_size_비용을_포함한_설정_한도에서_실행된다() throws IOException {
         AtomicInteger dataFetcherInvocations = new AtomicInteger();
-        ExecutionResult result = actualGraphQl(dataFetcherInvocations, 22).execute("""
+        ExecutionResult result = actualGraphQl(dataFetcherInvocations, 23).execute("""
             query {
-              memberSearch(input: { keyword: "kim" }) { page }
+              memberSearch(input: { keyword: "kim" }) { pageInfo { page } }
             }
             """);
 
         assertThat(result.getErrors()).isEmpty();
         Map<String, Object> data = result.getData();
-        assertThat(data).isEqualTo(Map.of("memberSearch", Map.of("page", 0)));
+        assertThat(data).isEqualTo(Map.of("memberSearch", Map.of("pageInfo", Map.of("page", 0))));
         assertThat(dataFetcherInvocations.get()).isEqualTo(1);
     }
 
@@ -59,8 +59,8 @@ class GraphQlExecutionConfigTest {
         AtomicInteger dataFetcherInvocations = new AtomicInteger();
         ExecutionResult result = actualGraphQl(dataFetcherInvocations, 203).execute("""
             query {
-              first: memberSearch(input: { keyword: "kim" }, page: { size: 100 }) { page }
-              second: memberSearch(input: { keyword: "lee" }, page: { size: 100 }) { page }
+              first: memberSearch(input: { keyword: "kim" }, page: { size: 100 }) { pageInfo { page } }
+              second: memberSearch(input: { keyword: "lee" }, page: { size: 100 }) { pageInfo { page } }
             }
             """);
 
@@ -72,9 +72,9 @@ class GraphQlExecutionConfigTest {
     @DisplayName("size 1은 정확한 복잡도 한도에서 실행된다")
     void size_1은_정확한_복잡도_한도에서_실행된다() throws IOException {
         AtomicInteger dataFetcherInvocations = new AtomicInteger();
-        ExecutionResult result = actualGraphQl(dataFetcherInvocations, 3).execute("""
+        ExecutionResult result = actualGraphQl(dataFetcherInvocations, 4).execute("""
             query {
-              memberSearch(input: { keyword: "kim" }, page: { size: 1 }) { page }
+              memberSearch(input: { keyword: "kim" }, page: { size: 1 }) { pageInfo { page } }
             }
             """);
 
@@ -88,7 +88,7 @@ class GraphQlExecutionConfigTest {
         AtomicInteger dataFetcherInvocations = new AtomicInteger();
         ExecutionResult result = actualGraphQl(dataFetcherInvocations, 3).execute("""
             query {
-              memberSearch(input: { keyword: "kim" }, page: { size: 100 }) { page }
+              memberSearch(input: { keyword: "kim" }, page: { size: 100 }) { pageInfo { page } }
             }
             """);
 
@@ -102,7 +102,7 @@ class GraphQlExecutionConfigTest {
         AtomicInteger dataFetcherInvocations = new AtomicInteger();
         ExecutionResult result = actualGraphQl(dataFetcherInvocations, 22).execute("""
             query {
-              memberSearch(input: { keyword: "kim" }, page: { size: 101 }) { page }
+              memberSearch(input: { keyword: "kim" }, page: { size: 101 }) { pageInfo { page } }
             }
             """);
 
@@ -150,7 +150,7 @@ class GraphQlExecutionConfigTest {
             .configureRuntimeWiring(builder -> builder.type("Query", type -> {
                 type.dataFetcher("memberSearch", environment -> {
                     dataFetcherInvocations.incrementAndGet();
-                    return Map.of("page", 0);
+                    return Map.of("pageInfo", Map.of("page", 0));
                 });
                 type.dataFetcher("me", environment -> {
                     dataFetcherInvocations.incrementAndGet();
@@ -197,7 +197,7 @@ class GraphQlExecutionConfigTest {
             .field(field -> field.name("keyword").type(Scalars.GraphQLString))
             .build();
         GraphQLInputObjectType pageInputType = GraphQLInputObjectType.newInputObject()
-            .name("MemberPageInput")
+            .name("PageInput")
             .field(field -> field.name("page").type(Scalars.GraphQLInt))
             .field(field -> field.name("size").type(Scalars.GraphQLInt))
             .build();

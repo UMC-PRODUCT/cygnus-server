@@ -18,6 +18,8 @@ import graphql.analysis.MaxQueryComplexityInstrumentation;
 import graphql.analysis.MaxQueryDepthInstrumentation;
 import graphql.schema.GraphQLEnumType;
 import graphql.schema.GraphQLFieldDefinition;
+import graphql.schema.GraphQLInputObjectField;
+import graphql.schema.GraphQLInputObjectType;
 import graphql.schema.GraphQLList;
 import graphql.schema.GraphQLNamedType;
 import graphql.schema.GraphQLNonNull;
@@ -44,6 +46,24 @@ class GraphQlRuntimeWiringConfigTest {
         assertThat(graphQlSource.schema().getType("RecruitingApplicationForm")).isNotNull();
         assertThat(graphQlSource.schema().getType("Long")).isInstanceOf(GraphQLScalarType.class);
         assertThat(graphQlSource.schema().getType("Instant")).isInstanceOf(GraphQLScalarType.class);
+        assertThat(graphQlSource.schema().getType("PageInput")).isInstanceOf(GraphQLInputObjectType.class);
+        assertThat(graphQlSource.schema().getType("PageInfo")).isInstanceOf(GraphQLObjectType.class);
+    }
+
+    @Test
+    @DisplayName("공통 pagination 계약은 도메인 page type의 metadata를 제공한다")
+    void sharedPaginationContractProvidesDomainPageMetadata() throws IOException {
+        GraphQlSource graphQlSource = graphQlSource(schemaResources());
+
+        assertInputFieldNames((GraphQLInputObjectType) graphQlSource.schema().getType("PageInput"), "page", "size");
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("PageInfo"),
+            "page", "size", "totalElements", "totalPages", "hasNext");
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("MemberPage"),
+            "content", "pageInfo");
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("ProjectPage"),
+            "content", "pageInfo");
+        assertFieldNames((GraphQLObjectType) graphQlSource.schema().getType("RecruitingApplicationReviewPage"),
+            "content", "pageInfo");
     }
 
     @Test
@@ -209,6 +229,12 @@ class GraphQlRuntimeWiringConfigTest {
     private void assertFieldNames(graphql.schema.GraphQLFieldsContainer type, String... fieldNames) {
         assertThat(type.getFieldDefinitions())
             .extracting(GraphQLFieldDefinition::getName)
+            .containsExactly(fieldNames);
+    }
+
+    private void assertInputFieldNames(GraphQLInputObjectType type, String... fieldNames) {
+        assertThat(type.getFieldDefinitions())
+            .extracting(GraphQLInputObjectField::getName)
             .containsExactly(fieldNames);
     }
 

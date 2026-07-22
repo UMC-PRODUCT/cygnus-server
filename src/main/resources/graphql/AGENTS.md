@@ -9,7 +9,7 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 | Task | Location | Notes |
 |------|----------|-------|
 | Contract guide | `README.md` | ownership, composition, direct reference/projection/snapshot rules |
-| Technical root/shared | `schema.graphqls`, `shared/` | root types and transport scalars only |
+| Technical root/shared | `schema.graphqls`, `shared/` | root types, transport scalars, platform contracts |
 | Challenger output | `challenger/output.graphqls` | challenger-owned enums |
 | Form output | `form/output.graphqls` | canonical form structure and enums |
 | Domain contracts | `{domain}/request.graphqls`, `{domain}/response.graphqls` | root/input and output declarations |
@@ -22,7 +22,7 @@ This directory contains Spring GraphQL schema contracts for the pilot GraphQL AP
 
 - Schema changes must be mirrored in `*GraphQlController` and `*GraphQlResponse` DTOs.
 - Treat all `*.graphqls` files as one runtime schema; each directory remains the provider domain's standard IDL.
-- Keep `shared` limited to ownerless transport primitives. Business enums and object types belong to their provider domain.
+- Keep `shared` limited to ownerless transport primitives and explicitly standardized platform contracts. Business enums and object types belong to their provider domain.
 - Put root operations and inputs in `request.graphqls`; put outputs and enums in `response.graphqls` or `output.graphqls`.
 - Reference provider types directly only when semantics are unchanged. Filtered, enriched, or snapshot data belongs to a consumer-owned type and converter.
 - Document external IDs and transformed fields with GraphQL descriptions and update the owning directory's `README.md`.

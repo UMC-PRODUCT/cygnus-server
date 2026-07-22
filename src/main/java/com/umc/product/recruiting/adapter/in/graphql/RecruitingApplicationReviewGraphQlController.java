@@ -5,6 +5,7 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 
+import com.umc.product.global.graphql.dto.PageGraphQlRequest;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationReviewDetailGraphQlResponse;
@@ -25,14 +26,19 @@ public class RecruitingApplicationReviewGraphQlController {
     public RecruitingApplicationReviewPageGraphQlResponse recruitingRoundApplications(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long roundId,
-        @Argument RecruitingApplicationSearchGraphQlRequest input
+        @Argument RecruitingApplicationSearchGraphQlRequest input,
+        @Argument PageGraphQlRequest page
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         RecruitingApplicationSearchGraphQlRequest actualInput = input == null
-            ? new RecruitingApplicationSearchGraphQlRequest(null, null, null, null)
+            ? new RecruitingApplicationSearchGraphQlRequest(null, null)
             : input;
         return RecruitingApplicationReviewPageGraphQlResponse.from(
-            searchApplicationUseCase.search(actualInput.toQuery(roundId, requesterMemberId))
+            searchApplicationUseCase.search(actualInput.toQuery(
+                roundId,
+                requesterMemberId,
+                PageGraphQlRequest.defaultIfNull(page).toPageable()
+            ))
         );
     }
 

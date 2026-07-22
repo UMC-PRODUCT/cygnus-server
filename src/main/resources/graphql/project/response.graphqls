@@ -1,11 +1,7 @@
 """Project 검색 결과 페이지."""
 type ProjectPage {
   content: [Project!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
+  pageInfo: PageInfo!
 }
 
 """Project 도메인이 표준으로 제공하는 프로젝트 응답."""

@@ -8,7 +8,7 @@
 | 경로 | 소유 계약 |
 |---|---|
 | `schema.graphqls` | 도메인 extension을 조립하기 위한 기술 root `Query`, `Mutation` |
-| `shared/` | `Long`, `Instant`처럼 비즈니스 소유자가 없는 transport scalar |
+| `shared/` | transport scalar와 pagination 같은 platform contract |
 | `challenger/` | Challenger 도메인이 제공하는 part, track, status enum |
 | `form/` | Form 도메인이 제공하는 표준 form 구조 |
 | `member/` | Member 조회 요청과 표준 Member 응답 |

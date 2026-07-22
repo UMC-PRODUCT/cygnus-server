@@ -6,8 +6,8 @@ Project 조회 요청과 Project가 외부에 제공하는 표준 응답을 소�
 
 | 파일 | 내용 |
 |---|---|
-| `request.graphqls` | `project`, `projects`와 검색·페이지 input |
-| `response.graphqls` | Project, 소속 Member, 지원서, 지원 Form projection |
+| `request.graphqls` | `project`, `projects`와 검색·정렬 input. Paging은 `PageInput` 참조 |
+| `response.graphqls` | Project, `pageInfo: PageInfo`, 소속 Member, 지원서, 지원 Form projection |
 
 ## 외부 도메인 관계
 
