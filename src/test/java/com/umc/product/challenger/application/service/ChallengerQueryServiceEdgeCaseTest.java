@@ -317,6 +317,7 @@ class ChallengerQueryServiceEdgeCaseTest {
             given(loadChallengerPort.findLatestPerMember()).willReturn(List.of(challenger));
 
             assertThat(sut.listBasicByMemberIdsAndGisuId(Set.of(MEMBER_ID), GISU_ID)).hasSize(1);
+            assertThat(sut.listBasicByGisuId(GISU_ID)).hasSize(1);
             assertThat(sut.listByChapterId(9L)).hasSize(1);
             assertThat(sut.getAllByGisuIdWithoutChallengerPoints(GISU_ID)).hasSize(1);
             assertThat(sut.getAllLatestGisuPerMemberWithoutChallengerPoints()).hasSize(1);

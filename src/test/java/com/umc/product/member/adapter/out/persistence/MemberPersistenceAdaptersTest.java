@@ -23,6 +23,8 @@ import org.springframework.data.domain.Pageable;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
+import com.umc.product.member.application.port.out.dto.MemberInvitationCandidatePage;
+import com.umc.product.member.application.port.out.dto.SearchMemberInvitationCondition;
 import com.umc.product.member.domain.Member;
 import com.umc.product.member.domain.MemberProfile;
 import com.umc.product.member.domain.MemberSystemRole;
@@ -110,11 +112,16 @@ class MemberPersistenceAdaptersTest {
         given(memberQueryRepository.searchBy(query, pageable)).willReturn(challengers);
         given(memberQueryRepository.searchMemberIdsBy(query, pageable)).willReturn(memberIds);
         given(memberQueryRepository.searchMemberIdsBy(query, scope, pageable)).willReturn(memberIds);
+        SearchMemberInvitationCondition invitationCondition =
+            new SearchMemberInvitationCondition(null, Set.of(), 0, 20);
+        MemberInvitationCandidatePage invitationPage = new MemberInvitationCandidatePage(List.of(), 0L);
+        given(memberQueryRepository.searchInvitationCandidates(invitationCondition)).willReturn(invitationPage);
         given(memberJpaRepository.findIdsCursor(10L, pageable)).willReturn(List.of(11L));
 
         assertThat(memberAdapter.search(query, pageable)).isSameAs(challengers);
         assertThat(memberAdapter.searchMemberIds(query, pageable)).isSameAs(memberIds);
         assertThat(memberAdapter.searchMemberIds(query, scope, pageable)).isSameAs(memberIds);
+        assertThat(memberAdapter.search(invitationCondition)).isSameAs(invitationPage);
         assertThat(memberAdapter.findAllIdsCursor(10L, pageable)).containsExactly(11L);
     }
 

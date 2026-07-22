@@ -3,10 +3,13 @@ package com.umc.product.member.application.port.in.query.dto;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import com.umc.product.member.application.port.out.dto.MemberInvitationCandidatePage;
 
 @DisplayName("SearchMemberInvitationQuery")
 class SearchMemberInvitationQueryTest {
@@ -47,6 +50,26 @@ class SearchMemberInvitationQueryTest {
 
         // when / then
         assertThatThrownBy(() -> new SearchMemberInvitationQuery(keyword, Set.of(), 0, 20))
+            .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("공백 검색어와 null 제외 목록은 빈 조건으로 정규화한다")
+    void 공백과_null_입력을_정규화한다() {
+        SearchMemberInvitationQuery query = new SearchMemberInvitationQuery(" \t ", null, 0, 100);
+
+        assertThat(query.keyword()).isNull();
+        assertThat(query.excludedMemberIds()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("초대 검색 결과의 음수 페이지 정보와 전체 개수를 거부한다")
+    void 검색_결과의_음수_메타데이터를_거부한다() {
+        assertThatThrownBy(() -> new MemberInvitationSearchResult(List.of(), -1, 0L))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new MemberInvitationSearchResult(List.of(), null, -1L))
+            .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> new MemberInvitationCandidatePage(List.of(), -1L))
             .isInstanceOf(IllegalArgumentException.class);
     }
 }

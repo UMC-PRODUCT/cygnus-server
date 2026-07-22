@@ -362,6 +362,10 @@ class MemberQueryRepositoryTest {
             inactive.getId(),
             Long.MAX_VALUE
         ));
+        var unfilteredPage = sut.searchInvitationCandidates(new SearchMemberInvitationCondition(
+            " ", Set.of(), 0, 10
+        ));
+        Set<Long> emptyActiveMemberIds = sut.findActiveMemberIds(Set.of());
 
         // then
         assertThat(firstPage.items())
@@ -377,6 +381,11 @@ class MemberQueryRepositoryTest {
             withoutChallenger.getId(),
             withChallenger.getId()
         );
+        assertThat(unfilteredPage.items())
+            .extracting(candidate -> candidate.memberId())
+            .containsExactly(blocked.getId(), withoutChallenger.getId(), withChallenger.getId());
+        assertThat(unfilteredPage.total()).isEqualTo(3L);
+        assertThat(emptyActiveMemberIds).isEmpty();
     }
 
     private School persistSchool(String name) {
