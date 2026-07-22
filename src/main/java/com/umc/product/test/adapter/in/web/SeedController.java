@@ -17,6 +17,8 @@ import com.umc.product.test.adapter.in.web.dto.CreateSeedMemberRequest;
 import com.umc.product.test.adapter.in.web.dto.CreateSeedMemberResponse;
 import com.umc.product.test.adapter.in.web.dto.DeleteSeedProjectDataRequest;
 import com.umc.product.test.adapter.in.web.dto.DeleteSeedProjectDataResponse;
+import com.umc.product.test.adapter.in.web.dto.SeedChallengerPointsRequest;
+import com.umc.product.test.adapter.in.web.dto.SeedChallengerPointsResponse;
 import com.umc.product.test.adapter.in.web.dto.SeedChallengersRequest;
 import com.umc.product.test.adapter.in.web.dto.SeedChallengersResponse;
 import com.umc.product.test.adapter.in.web.dto.SeedCurriculumRequest;
@@ -35,6 +37,7 @@ import com.umc.product.test.application.port.in.command.CreateSeedChallengerRole
 import com.umc.product.test.application.port.in.command.CreateSeedChallengerUseCase;
 import com.umc.product.test.application.port.in.command.CreateSeedMemberUseCase;
 import com.umc.product.test.application.port.in.command.DeleteSeedProjectDataUseCase;
+import com.umc.product.test.application.port.in.command.SeedChallengerPointsUseCase;
 import com.umc.product.test.application.port.in.command.SeedChallengersUseCase;
 import com.umc.product.test.application.port.in.command.SeedCurriculumUseCase;
 import com.umc.product.test.application.port.in.command.SeedMembersUseCase;
@@ -77,6 +80,7 @@ public class SeedController {
     private final SeedProjectApplicationsUseCase seedProjectApplicationsUseCase;
     private final SeedCurriculumUseCase seedCurriculumUseCase;
     private final SeedNoticeUseCase seedNoticeUseCase;
+    private final SeedChallengerPointsUseCase seedChallengerPointsUseCase;
 
     @Operation(
         operationId = "SEED-001",
@@ -274,5 +278,23 @@ public class SeedController {
         return SeedProjectApplicationsResponse.from(
             seedProjectApplicationsUseCase.seed(request.toCommand())
         );
+    }
+
+    @Operation(
+        operationId = "SEED-007",
+        summary = "챌린저 상벌점 벌크 시딩",
+        description = """
+            챌린저 ID 목록을 받아 각 챌린저에게 countPerChallenger 건씩 상벌점을 부여합니다.
+            타입은 상점 3종 + 벌점 2종(BLOG_CHALLENGE, PEER_REVIEW_SUBMISSION, BEST_WORKBOOK_V2,
+            STUDY_LATE, NO_WORKBOOK_MISSION)을 순환하며 섞어 부여해 홈 화면 challengerHistory 에
+            상점/벌점이 함께 보이도록 만듭니다. 대상 챌린저는 활동 중이거나 수료 상태여야 합니다.
+            부여 방식은 단일 트랜잭션 벌크(grantChallengerPointBulk)라 건당 API 호출보다 빠릅니다.
+            """
+    )
+    @PostMapping("/challenger-points")
+    public SeedChallengerPointsResponse seedChallengerPoints(
+        @RequestBody @Valid SeedChallengerPointsRequest request
+    ) {
+        return SeedChallengerPointsResponse.from(seedChallengerPointsUseCase.seed(request.toCommand()));
     }
 }
