@@ -9,9 +9,10 @@
 | `envs/shared` | `umc-product-server/shared/terraform.tfstate` | VPC, subnet, route table, internet gateway, VPC endpoint, security group, ALB, listener/rule, target group, Route53 record |
 | `envs/dev` | `umc-product-server/dev/terraform.tfstate` | dev ASG, dev launch template, dev EC2 instance profile, dev IAM role/policy |
 | `envs/prod` | `umc-product-server/prod/terraform.tfstate` | prod ASG, prod launch template, prod EC2 instance profile, prod IAM role/policy, RDS instance, DB subnet group |
-| `envs/load-test` | `umc-product-server/load-test/terraform.tfstate` | 부하 테스트 전용 VPC, SUT EC2, k6 generator, monitoring EC2, ALB, RDS |
 
-shared 리소스는 dev/prod root에서 다시 선언하지 않는다. dev/prod는 shared remote state output 또는 data source로만 참조한다. `load-test`는 운영 리소스와 ownership 충돌이 나지 않도록 독립 root로 생성하고 테스트 종료 후 destroy한다.
+shared 리소스는 dev/prod root에서 다시 선언하지 않는다. dev/prod는 shared remote state output 또는 data source로만 참조한다.
+
+> 부하 테스트 환경은 배포 env가 아니라 ephemeral 테스트 리그(local backend·self-contained)라 `infra/terraform`에서 분리해 `loadtest/terraform/`에 둔다. 실행/구성은 `loadtest/README.md` 참조.
 
 ## Profile Policy
 
@@ -26,7 +27,6 @@ shared 리소스는 dev/prod root에서 다시 선언하지 않는다. dev/prod�
 - 애플리케이션은 secret backend를 직접 알지 않고 환경변수만 읽는다.
 - dev 기본값은 `local_env_file`이다. 공유 dev가 필요할 때만 SSM Parameter Store Standard 또는 Secrets Manager를 선택한다.
 - prod는 Secrets Manager를 사용하되 하나의 거대한 runtime secret으로 합치지 않는다.
-- load-test는 SSM Parameter Store path/name과 선택적 KMS key ARN만 Terraform 변수로 받는다.
 - JWT는 access, refresh, OAuth verification, email verification 용도별 key ring을 분리한다.
 - KMS key는 prod 환경 단위로 공유할 수 있지만, JWT signing secret 자체를 용도 간 공유하지 않는다.
 
@@ -37,9 +37,8 @@ shared 리소스는 dev/prod root에서 다시 선언하지 않는다. dev/prod�
 - `backend.shared.example.hcl`
 - `backend.dev.example.hcl`
 - `backend.prod.example.hcl`
-- `backend.load-test.example.hcl`
 
-실행자는 운영 계정의 state bucket/table에 맞춰 로컬 또는 CI secret에서 `backend.shared.hcl`, `backend.dev.hcl`, `backend.prod.hcl`, `backend.load-test.hcl`을 준비한다.
+실행자는 운영 계정의 state bucket/table에 맞춰 로컬 또는 CI secret에서 `backend.shared.hcl`, `backend.dev.hcl`, `backend.prod.hcl`을 준비한다. (load-test는 local backend라 별도 준비가 없다.)
 
 ## Validate
 
@@ -57,11 +56,9 @@ terraform validate
 cd ../prod
 terraform init -backend=false
 terraform validate
-
-cd ../load-test
-terraform init -backend=false
-terraform validate
 ```
+
+부하 테스트 환경 검증은 `loadtest/terraform`에서 한다: `terraform -chdir=loadtest/terraform init -backend=false && terraform -chdir=loadtest/terraform validate`.
 
 전체 포맷 확인은 아래 명령을 사용한다.
 
@@ -94,17 +91,9 @@ terraform plan -var-file=terraform.tfvars -out=tfplan
 terraform apply tfplan
 ```
 
-부하 테스트 환경은 운영 state와 별도로 만들고 테스트 종료 후 제거한다.
+부하 테스트 환경은 `infra/terraform`이 아니라 `loadtest/terraform`(local backend)에서 실행한다. 순서와 명령은 `loadtest/README.md`를 따른다.
 
-```bash
-cd infra/terraform/envs/load-test
-terraform init -backend-config=../../backend.load-test.hcl
-terraform plan -var-file=terraform.tfvars -out=tfplan
-terraform apply tfplan
-terraform destroy -var-file=terraform.tfvars
-```
-
-shared/dev/prod plan에서 관리 URL이 `api.university.neordinary.com`, `dev.api.university.neordinary.com` 범위를 벗어나거나 의도하지 않은 destroy/replace가 보이면 적용하지 않는다. `load-test`는 운영 도메인을 만들지 않고 output의 ALB DNS만 사용한다.
+shared/dev/prod plan에서 관리 URL이 `api.university.neordinary.com`, `dev.api.university.neordinary.com` 범위를 벗어나거나 의도하지 않은 destroy/replace가 보이면 적용하지 않는다.
 
 shared ALB import 후 첫 plan에서는 아래 변경이 의도된 것인지 확인한다.
 
