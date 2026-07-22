@@ -1,7 +1,10 @@
 import org.gradle.api.GradleException
 import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.testing.Test
+import org.gradle.testing.jacoco.tasks.JacocoCoverageVerification
 import org.gradle.testing.jacoco.tasks.JacocoReport
+
+import java.math.BigDecimal
 
 val snippetsDir = layout.buildDirectory.dir("generated-snippets")
 val generatedQuerydslDir = layout.buildDirectory.dir("generated/querydsl")
@@ -13,6 +16,14 @@ val generatedQuerydslClassPaths = providers.provider {
         generatedSource.relativeTo(generatedSourceRoot).invariantSeparatorsPath
             .removeSuffix(".java") + ".class"
     }.toSet()
+}
+val mainSourceSet = extensions.getByType<SourceSetContainer>().named("main")
+val jacocoProductionClassDirectories = mainSourceSet.map { sourceSet ->
+    sourceSet.output.classesDirs.files.map { classesDirectory ->
+        fileTree(classesDirectory) {
+            exclude { details -> details.relativePath.pathString in generatedQuerydslClassPaths.get() }
+        }
+    }
 }
 
 val checkDuplicateFlywayMigrationVersions by tasks.registering {
@@ -96,15 +107,33 @@ tasks.named<Test>("test") {
 
 tasks.named<JacocoReport>("jacocoTestReport") {
     dependsOn(tasks.named("test"))
-    classDirectories.setFrom(
-        classDirectories.files.map { classesDirectory ->
-            fileTree(classesDirectory) {
-                exclude { details -> details.relativePath.pathString in generatedQuerydslClassPaths.get() }
-            }
-        }
-    )
+    classDirectories.setFrom(jacocoProductionClassDirectories)
     reports {
         xml.required.set(true)
         html.required.set(true)
     }
+}
+
+tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
+    dependsOn(tasks.named("test"))
+    classDirectories.setFrom(jacocoProductionClassDirectories)
+    violationRules {
+        rule {
+            element = "BUNDLE"
+            limit {
+                counter = "LINE"
+                value = "COVEREDRATIO"
+                minimum = BigDecimal.ONE
+            }
+            limit {
+                counter = "CLASS"
+                value = "COVEREDRATIO"
+                minimum = BigDecimal.ONE
+            }
+        }
+    }
+}
+
+tasks.named("check") {
+    dependsOn(tasks.named("jacocoTestCoverageVerification"))
 }

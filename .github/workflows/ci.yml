@@ -146,7 +146,7 @@ jobs:
 
       - name: 🧪 테스트 실행
         id: test
-        run: ./gradlew test
+        run: ./gradlew test jacocoTestCoverageVerification
         continue-on-error: true
 
       - name: 📊 테스트 결과 배포
