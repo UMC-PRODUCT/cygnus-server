@@ -4,6 +4,7 @@ import static com.umc.product.support.fixture.ChallengerUnitFixture.챌린저;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
@@ -67,8 +68,8 @@ class ChallengerApplicationResidualTest {
             .pointValue(7)
             .description("조정")
             .build());
-        assertThat(active.getChallengerPoints()).singleElement()
-            .satisfies(saved -> assertThat(saved.getPointValue()).isEqualTo(7.0));
+        then(fixture.savePointPort).should().save(argThat(saved ->
+            saved.getChallengerId().equals(2L) && saved.getPointValue() == 7.0));
 
         fixture.sut.deleteChallengerPoint(new DeleteChallengerPointCommand(100L));
         then(fixture.savePointPort).should().delete(point);
@@ -89,8 +90,8 @@ class ChallengerApplicationResidualTest {
 
         fixture.sut.grantChallengerPointBulk(commands);
 
-        assertThat(challenger.getChallengerPoints()).hasSize(2);
-        then(fixture.saveChallengerPort).should().saveAll(List.of(challenger));
+        then(fixture.savePointPort).should().saveAll(argThat(points ->
+            points.size() == 2 && points.stream().allMatch(point -> point.getChallengerId().equals(1L))));
     }
 
     @Test

@@ -69,12 +69,14 @@ class ChallengerPersistenceResidualTest {
         given(repository.findById(100L)).willReturn(Optional.of(point));
         given(repository.findById(200L)).willReturn(Optional.empty());
         given(repository.save(point)).willReturn(point);
+        given(repository.saveAll(points)).willReturn(points);
 
         assertThat(sut.findByChallengerIdIn(Set.of(1L))).isSameAs(points);
         assertThat(sut.findById(100L)).contains(point);
         assertThat(sut.getById(100L)).isSameAs(point);
         assertThatThrownBy(() -> sut.getById(200L)).isInstanceOf(ChallengerDomainException.class);
         assertThat(sut.save(point)).isSameAs(point);
+        assertThat(sut.saveAll(points)).isSameAs(points);
         sut.delete(point);
         then(repository).should().delete(point);
     }

@@ -980,7 +980,13 @@ class MemberGraphQlControllerTest {
     void batch_조회_중복_key를_처리한다() {
         MemberGraphQlResponse member = MemberGraphQlResponse.publicFrom(memberInfo(REQUESTER_ID));
         MemberChallengerGraphQlResponse challenger = new MemberChallengerGraphQlResponse(
-            100L, REQUESTER_ID, 20L, ChallengerPart.SPRINGBOOT, ChallengerStatus.ACTIVE);
+            100L,
+            REQUESTER_ID,
+            20L,
+            ChallengerPart.SPRINGBOOT,
+            List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
+            ChallengerStatus.ACTIVE
+        );
         MemberSearchResultGraphQlResponse searchMember = new MemberSearchResultGraphQlResponse(
             2L, "검색회원", "검색", null, 10L, null, null, false, List.of());
         MemberSearchChallengerGraphQlResponse searchChallenger = new MemberSearchChallengerGraphQlResponse(

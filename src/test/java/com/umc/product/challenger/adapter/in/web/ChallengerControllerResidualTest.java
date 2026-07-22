@@ -36,6 +36,7 @@ import com.umc.product.challenger.application.port.in.query.SearchChallengerUseC
 import com.umc.product.challenger.application.port.in.query.dto.GlobalSearchChallengerCursorResult;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.security.MemberPrincipal;
 
 @DisplayName("Challenger Controller 정상 흐름")
@@ -65,8 +66,18 @@ class ChallengerControllerResidualTest {
             given(assembler.fromChallengerId(20L)).willReturn(secondResponse);
 
             var result = controller.bulkCreateChallenger(List.of(
-                new CreateChallengerInfoRequest(1L, ChallengerPart.SPRINGBOOT, 9L),
-                new CreateChallengerInfoRequest(2L, ChallengerPart.WEB, 9L)
+                new CreateChallengerInfoRequest(
+                    1L,
+                    ChallengerPart.SPRINGBOOT,
+                    List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
+                    9L
+                ),
+                new CreateChallengerInfoRequest(
+                    2L,
+                    ChallengerPart.WEB,
+                    List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
+                    9L
+                )
             ));
 
             assertThat(result).containsExactly(firstResponse, secondResponse);

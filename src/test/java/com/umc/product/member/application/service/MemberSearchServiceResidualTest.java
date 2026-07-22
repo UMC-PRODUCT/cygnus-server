@@ -18,6 +18,7 @@ import com.umc.product.challenger.application.port.in.query.CheckChallengerHisto
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.challenger.domain.Challenger;
+import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info.PrimaryChallenger;
 import com.umc.product.member.application.port.out.SearchMemberPort;
@@ -42,7 +43,12 @@ class MemberSearchServiceResidualTest {
     void 활성_기수_챌린저의_빈_입력을_처리한다() {
         Map<Long, ChallengerBasicInfo> emptyContent = ReflectionTestUtils.invokeMethod(
             sut, "loadActiveGisuChallengerByMemberId", List.of(), 20L);
-        Challenger missingMember = Challenger.builder().memberId(null).gisuId(20L).build();
+        Challenger missingMember = Challenger.builder()
+            .memberId(1L)
+            .part(ChallengerPart.SPRINGBOOT)
+            .gisuId(20L)
+            .build();
+        ReflectionTestUtils.setField(missingMember, "memberId", null);
         Map<Long, ChallengerBasicInfo> nullMembers = ReflectionTestUtils.invokeMethod(
             sut, "loadActiveGisuChallengerByMemberId", List.of(missingMember), 20L);
 

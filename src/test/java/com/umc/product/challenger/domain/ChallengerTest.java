@@ -121,6 +121,30 @@ class ChallengerTest {
     }
 
     @Test
+    @DisplayName("null 트랙은 기존 챌린저에 추가할 수 없다")
+    void null_트랙_추가를_거부한다() {
+        assertThatThrownBy(() -> challenger.addTrack(null))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("추가할 트랙은 null일 수 없습니다.");
+    }
+
+    @Test
+    @DisplayName("생성 트랙 목록에는 null을 포함할 수 없다")
+    void null_트랙을_포함한_생성을_거부한다() {
+        List<ChallengerTrack> tracks = new ArrayList<>();
+        tracks.add(ChallengerTrack.PLAN);
+        tracks.add(null);
+
+        assertThatThrownBy(() -> Challenger.builder()
+            .memberId(1L)
+            .tracks(tracks)
+            .gisuId(9L)
+            .build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessage("트랙 목록에 null을 포함할 수 없습니다.");
+    }
+
+    @Test
     @DisplayName("파트와 트랙이 모두 없으면 챌린저를 생성할 수 없다")
     void 파트와_트랙이_모두_없으면_챌린저를_생성할_수_없다() {
         assertThatThrownBy(() -> Challenger.builder()
