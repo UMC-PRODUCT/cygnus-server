@@ -15,10 +15,10 @@
 
 ## Tone By Surface
 
-### Public Blog And Product Pages
+### Public Product Pages
 
 - 기본 톤은 친근한 `~요`를 사용한다.
-- 사용자가 읽는 블로그, 릴리즈 노트, 댓글, 공유, 로그인 문구는 부드럽고 짧게 쓴다.
+- 사용자가 읽는 릴리즈 노트, 공유, 로그인 문구는 부드럽고 짧게 쓴다.
 - 큰 제목, 버튼, 메뉴, 라벨에는 마침표를 쓰지 않는다.
 
 ### Backoffice

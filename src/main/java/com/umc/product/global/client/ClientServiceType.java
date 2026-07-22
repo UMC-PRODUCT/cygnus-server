@@ -5,6 +5,5 @@ public enum ClientServiceType {
     ANDROID_APP,
     UMC_WEBSITE,
     UMC_BACKOFFICE,
-    UMC_TECH_BLOG,
     UNKNOWN
 }

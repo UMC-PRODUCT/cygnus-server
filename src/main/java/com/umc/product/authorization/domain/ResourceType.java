@@ -60,14 +60,6 @@ public enum ResourceType {
     COMMUNITY_COMMENT("community_comment", "커뮤니티 게시글에 대한 댓글",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
 
-    // 블로그 도메인
-    BLOG_CONTENT("blog_content", "블로그 콘텐츠",
-        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
-    BLOG_SERIES("blog_series", "블로그 시리즈",
-        Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
-    BLOG_COMMENT("blog_comment", "블로그 댓글",
-        Set.of(PermissionType.EDIT, PermissionType.DELETE)),
-
     // UMC 모집 관련
     RECRUITMENT("recruitment", "모집",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE,
