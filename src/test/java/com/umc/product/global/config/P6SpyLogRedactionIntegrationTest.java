@@ -2,6 +2,8 @@ package com.umc.product.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,6 +18,7 @@ import com.p6spy.engine.logging.P6LogFactory;
 import com.p6spy.engine.spy.P6ModuleManager;
 import com.p6spy.engine.spy.P6SpyFactory;
 import com.p6spy.engine.spy.appender.Slf4JLogger;
+import com.umc.product.maintenance.adapter.out.persistence.MaintenanceWindowRepository;
 import com.umc.product.support.IntegrationTestSupport;
 
 import ch.qos.logback.classic.Level;
@@ -33,6 +36,9 @@ class P6SpyLogRedactionIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    MaintenanceWindowRepository maintenanceWindowRepository;
 
     @Test
     @DisplayName("실제 PostgreSQL INSERT와 SELECT 로그는 바인딩 값을 노출하지 않는다")
@@ -71,6 +77,37 @@ class P6SpyLogRedactionIntegrationTest extends IntegrationTestSupport {
                 .doesNotContain(PROBE_EMAIL, PROBE_KEY);
         } finally {
             jdbcTemplate.execute("drop table if exists sql_redaction_probe");
+            p6spyLogger.detachAppender(appender);
+            appender.stop();
+            p6spyLogger.setLevel(previousLevel);
+            p6spyLogger.setAdditive(previousAdditive);
+        }
+    }
+
+    @Test
+    @DisplayName("명시적인 제외 tag가 붙은 maintenance polling SQL은 P6Spy 로그에 남지 않는다")
+    void 명시적인_제외_tag가_붙은_maintenance_polling_SQL은_P6Spy_로그에_남지_않는다() {
+        ch.qos.logback.classic.Logger p6spyLogger =
+            (ch.qos.logback.classic.Logger)LoggerFactory.getLogger("p6spy");
+        Level previousLevel = p6spyLogger.getLevel();
+        boolean previousAdditive = p6spyLogger.isAdditive();
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        p6spyLogger.addAppender(appender);
+        p6spyLogger.setLevel(Level.INFO);
+        p6spyLogger.setAdditive(false);
+
+        try {
+            jdbcTemplate.queryForObject("select 1 as p6spy_visible_probe", Integer.class);
+            maintenanceWindowRepository.findActiveAt(Instant.now());
+
+            String formattedSql = appender.list.stream()
+                .map(ILoggingEvent::getFormattedMessage)
+                .reduce("", (left, right) -> left + "\n" + right);
+            assertThat(formattedSql)
+                .contains("p6spy_visible_probe")
+                .doesNotContain("maintenance_window");
+        } finally {
             p6spyLogger.detachAppender(appender);
             appender.stop();
             p6spyLogger.setLevel(previousLevel);

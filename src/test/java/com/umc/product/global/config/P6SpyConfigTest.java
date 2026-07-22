@@ -13,6 +13,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.jpa.repository.Query;
 
 import com.umc.product.global.event.adapter.out.persistence.EventOutboxJpaRepository;
+import com.umc.product.maintenance.adapter.out.persistence.MaintenanceWindowRepository;
 
 class P6SpyConfigTest {
 
@@ -119,6 +120,21 @@ class P6SpyConfigTest {
         assertThat(logFilter.matcher(pollingSql).matches()).isFalse();
         assertThat(logFilter.matcher(pollingSql.replace("/* p6spy:exclude */", "")).matches()).isTrue();
         assertThat(logFilter.matcher("select * from member where id = ?").matches()).isTrue();
+    }
+
+    @Test
+    @DisplayName("P6Spy는 명시적인 제외 tag가 붙은 maintenance 상태 조회 SQL만 로그에서 제외한다")
+    void P6Spy는_명시적인_제외_tag가_붙은_maintenance_상태_조회_SQL만_로그에서_제외한다()
+        throws NoSuchMethodException {
+        Pattern logFilter = loadSqlLogFilter();
+        Query maintenanceQuery = MaintenanceWindowRepository.class
+            .getMethod("findActiveAt", Instant.class)
+            .getAnnotation(Query.class);
+        String maintenanceSql = maintenanceQuery.value();
+
+        assertThat(maintenanceSql).contains("/* p6spy:exclude */");
+        assertThat(logFilter.matcher(maintenanceSql).matches()).isFalse();
+        assertThat(logFilter.matcher(maintenanceSql.replace("/* p6spy:exclude */", "")).matches()).isTrue();
     }
 
     private Pattern loadSqlLogFilter() {
