@@ -59,6 +59,10 @@ public enum FormErrorCode implements BaseCode {
         "폼이 수정되었어요. 아래 질문의 답변을 다시 확인해주세요."),
     FORM_RESPONSE_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "FORM-0042",
         "이 응답이 방금 다른 곳에서 수정됐어요. 새로고침 후 다시 시도해주세요."),
+    FORM_RESPONSE_NOT_IN_FORM(HttpStatus.BAD_REQUEST, "FORM-0043",
+        "요청한 응답이 이 폼에 속해 있지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    FORM_RESPONSE_NOT_SUBMITTED(HttpStatus.BAD_REQUEST, "FORM-0044",
+        "아직 제출되지 않은 응답이 포함되어 있어요. 제출된 응답으로 다시 시도해주세요."),
     ;
 
     private final HttpStatus httpStatus;
