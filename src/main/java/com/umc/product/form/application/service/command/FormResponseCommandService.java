@@ -140,10 +140,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (command.allowedQuestionIds() != null) {
             validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
         }
-        validateAllRequiredAnsweredOnPath(
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(
+            command.formId(),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+        validateAllRequiredAnsweredWithVisited(
             command.formId(),
             answeredQuestionIds,
-            extractSingleSelectedOptionIds(command.answers()),
+            visitedSectionIds,
             command.requiredQuestionIds()
         );
 
@@ -305,10 +309,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         if (command.allowedQuestionIds() != null) {
             validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
         }
-        validateAllRequiredAnsweredOnPath(
+        Set<Long> visitedSectionIds = resolveVisitedSectionIds(
+            existing.getForm().getId(),
+            extractSingleSelectedOptionIds(command.answers())
+        );
+        validateAllRequiredAnsweredWithVisited(
             existing.getForm().getId(),
             answeredQuestionIds,
-            extractSingleSelectedOptionIds(command.answers()),
+            visitedSectionIds,
             command.requiredQuestionIds()
         );
 
