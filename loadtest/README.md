@@ -12,6 +12,9 @@
 cp loadtest/terraform/terraform.tfvars.example loadtest/terraform/terraform.tfvars  # key_name, allowed_cidr, app_image 등
 cp loadtest/terraform/load-test.env.example    loadtest/terraform/load-test.env    # Notion 공유 secret
 
+# 0.5) 앱 이미지 빌드 + ECR push (tfvars 의 app_image 로. SUT 기본이 arm64 라 플랫폼 자동 처리)
+loadtest/scripts/push-app-image.sh
+
 # 1) 인프라 생성 (로컬 state — S3 backend 불필요)
 terraform -chdir=loadtest/terraform init
 terraform -chdir=loadtest/terraform apply
@@ -66,4 +69,4 @@ SSH 키가 기본 키가 아니면 `SSH_KEY=~/.ssh/umc-loadtest.pem` 을 명령 
 
 - **PROFILE** = 부하 유형(smoke/load/stress/soak), **SCENARIO** = 업무 시나리오(home/project-read…). `run-k6.sh` 가 둘을 넘기고 `script.js` 가 곱해서 고른다.
 - 인프라 변경(user-data 등)은 `terraform apply` 가 인스턴스를 교체해 반영하고, k6 스크립트 변경은 `run-k6.sh` 의 rsync 로 반영된다(인스턴스 재생성 불필요).
-- 앱 이미지 빌드/푸시는 `scripts/build-app-image.sh` — SUT 와 bulk 시더가 이 이미지를 ECR 에서 pull 한다.
+- 앱 이미지: 빌드는 `scripts/build-app-image.sh`(범용), **ECR push 까지는 `loadtest/scripts/push-app-image.sh`** — SUT 와 bulk 시더가 이 이미지를 pull 한다.
