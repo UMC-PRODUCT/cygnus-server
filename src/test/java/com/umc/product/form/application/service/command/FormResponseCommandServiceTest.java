@@ -1717,7 +1717,7 @@ class   FormResponseCommandServiceTest {
         FormSection section = section(1L, 1L);
         Question qCurrent = questionInSection(10L, QuestionType.SCHEDULE, false, section);
         // 저장된 답변은 SHORT_TEXT 였는데 이후 SCHEDULE 로 type 이 바뀐 상황
-        Answer textAnswer = Answer.create(draft, qCurrent, QuestionType.SHORT_TEXT, "저장된 텍스트", null);
+        Answer textAnswer = Answer.create(draft, qCurrent, QuestionType.SHORT_TEXT, "저장된 텍스트", null, null);
         ReflectionTestUtils.setField(textAnswer, "id", 1000L);
 
         given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
@@ -1740,7 +1740,7 @@ class   FormResponseCommandServiceTest {
         FormSection section = section(1L, 1L);
         Question qFile = questionInSection(10L, QuestionType.FILE, false, section);
         Answer fileAnswer = Answer.create(
-            draft, qFile, QuestionType.FILE, null, Set.of("file-missing")
+            draft, qFile, QuestionType.FILE, null, Set.of("file-missing"), null
         );
         ReflectionTestUtils.setField(fileAnswer, "id", 1000L);
 
@@ -1769,7 +1769,7 @@ class   FormResponseCommandServiceTest {
         Answer radioAnswer = answer(draft, qRadio);
         ReflectionTestUtils.setField(radioAnswer, "id", 1000L);
         // Q20 은 draft 시점 SHORT_TEXT 였으나 이후 FILE 로 type 변경됨
-        Answer textAnswer = Answer.create(draft, qCurrentFile, QuestionType.SHORT_TEXT, "텍스트", null);
+        Answer textAnswer = Answer.create(draft, qCurrentFile, QuestionType.SHORT_TEXT, "텍스트", null, null);
         ReflectionTestUtils.setField(textAnswer, "id", 1001L);
 
         QuestionOption removed = QuestionOption.create("삭제된 옵션", 1L, false);
@@ -1895,7 +1895,7 @@ class   FormResponseCommandServiceTest {
         Question qCurrent = questionInSection(10L, QuestionType.LONG_TEXT, false, section);
         // 저장 시점 SHORT_TEXT, 이후 LONG_TEXT 로 변경된 상황
         Answer textAnswer = Answer.create(
-            anonymousDraft, qCurrent, QuestionType.SHORT_TEXT, "저장된 텍스트", null
+            anonymousDraft, qCurrent, QuestionType.SHORT_TEXT, "저장된 텍스트", null, null
         );
         ReflectionTestUtils.setField(textAnswer, "id", 1000L);
 
@@ -1959,6 +1959,6 @@ class   FormResponseCommandServiceTest {
             case SHORT_TEXT, LONG_TEXT, PORTFOLIO -> "답변";
             default -> null;
         };
-        return Answer.create(formResponse, question, type, textValue, null);
+        return Answer.create(formResponse, question, type, textValue, null, null);
     }
 }

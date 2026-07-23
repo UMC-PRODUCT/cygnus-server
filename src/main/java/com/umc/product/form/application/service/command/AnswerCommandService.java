@@ -67,7 +67,8 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer answer = Answer.create(
             draft, question, question.getType(),
             command.textValue(),
-            toFileIdSet(command.fileIds())
+            toFileIdSet(command.fileIds()),
+            toTimeSet(command.times())
         );
         Answer saved = saveAnswerPort.save(answer);
 
@@ -93,11 +94,14 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
 
-        // 2. Answer 의 textValue / fileIds 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
+        // 2. Answer 의 textValue / fileIds / times 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
         Set<String> requestedFileIds = command.fileIds() == null
             ? null  // null = keep
             : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
-        existing.update(command.textValue(), requestedFileIds);
+        Set<Instant> requestedTimes = command.times() == null
+            ? null
+            : new HashSet<>(command.times());
+        existing.update(command.textValue(), requestedFileIds, requestedTimes);
         saveAnswerPort.save(existing);
 
         // 3. 새 AnswerChoice 저장 (객관식인 경우)
@@ -135,7 +139,8 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer answer = Answer.create(
             draft, question, question.getType(),
             command.textValue(),
-            toFileIdSet(command.fileIds())
+            toFileIdSet(command.fileIds()),
+            toTimeSet(command.times())
         );
         Answer saved = saveAnswerPort.save(answer);
 
@@ -161,11 +166,14 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
 
-        // 2. Answer 의 textValue / fileIds 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
+        // 2. Answer 의 textValue / fileIds / times 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
         Set<String> requestedFileIds = command.fileIds() == null
             ? null  // null = keep
             : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
-        existing.update(command.textValue(), requestedFileIds);
+        Set<Instant> requestedTimes = command.times() == null
+            ? null
+            : new HashSet<>(command.times());
+        existing.update(command.textValue(), requestedFileIds, requestedTimes);
         saveAnswerPort.save(existing);
 
         // 3. 새 AnswerChoice 저장 (객관식인 경우)
@@ -376,6 +384,16 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             return null;
         }
         return new HashSet<>(fileIds);
+    }
+
+    /**
+     * times List를 Set 으로 변환. null 또는 비어있으면 null 반환 (Answer.times 도 null 허용 컬럼).
+     */
+    private static Set<Instant> toTimeSet(List<Instant> times) {
+        if (times == null || times.isEmpty()) {
+            return null;
+        }
+        return new HashSet<>(times);
     }
 
     /**

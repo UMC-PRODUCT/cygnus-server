@@ -1078,12 +1078,16 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             Set<String> fileIdSet = (answerCmd.fileIds() == null || answerCmd.fileIds().isEmpty())
                 ? null
                 : new HashSet<>(answerCmd.fileIds());
+            Set<Instant> timeSet = (answerCmd.times() == null || answerCmd.times().isEmpty())
+                ? null
+                : new HashSet<>(answerCmd.times());
             Answer answer = Answer.create(
                 formResponse,
                 question,
                 question.getType(),
                 answerCmd.textValue(),
-                fileIdSet
+                fileIdSet,
+                timeSet
             );
 
             List<QuestionOption> selectedOptions = new ArrayList<>();
