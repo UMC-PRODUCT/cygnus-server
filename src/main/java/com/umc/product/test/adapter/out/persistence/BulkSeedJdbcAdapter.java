@@ -152,12 +152,15 @@ public class BulkSeedJdbcAdapter implements BulkSeedPort {
 
     @Override
     public void finalizeBulkLoad() {
+        // 명시 id 로 적재하면 identity 시퀀스가 뒤처진 채 남는다 — 동기화하지 않으면 이후
+        // 앱 경유 INSERT(api 시더·실제 command API)가 중복 키로 터진다.
         for (String table : IDENTITY_SYNC_TABLES) {
             jdbcTemplate.queryForObject(
                 "SELECT setval(pg_get_serial_sequence('%s', 'id'), (SELECT COALESCE(MAX(id), 1) FROM %s))"
                     .formatted(table, table),
                 Long.class);
         }
+        // 갓 적재한 테이블은 통계가 비어 플래너가 엉뚱한 실행 계획을 고를 수 있다 — 측정 전에 ANALYZE.
         for (String table : ANALYZE_TABLES) {
             jdbcTemplate.execute("ANALYZE " + table);
         }

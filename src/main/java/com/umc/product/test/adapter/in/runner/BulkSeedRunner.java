@@ -45,7 +45,11 @@ public class BulkSeedRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        // 컨텍스트 완성(DataSource·Flyway·JPA 초기화) 직후 1회 호출된다.
+        // 웹서버가 없으므로(web-application-type=none) 이 메서드가 리턴하면 JVM 이 자연 종료된다
+        // — "부팅 → 시딩 → 종료"의 일회성 배치가 별도 스크립트 없이 완성되는 이유.
         if (Arrays.asList(environment.getActiveProfiles()).contains("prod")) {
+            // @Profile("seeder") 만으로도 평소엔 빈이 안 뜨지만, 실수로 prod 와 같이 켜는 경우까지 차단한다.
             throw new IllegalStateException("seeder 프로파일은 prod 와 함께 활성화할 수 없습니다");
         }
 

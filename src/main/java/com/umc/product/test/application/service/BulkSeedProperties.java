@@ -5,7 +5,10 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.context.annotation.Profile;
 
 /**
- * 벌크 시더 설정 (seeder 프로파일 전용). 실행 시 --app.bulk-seed.* 인자로 덮어쓴다.
+ * 벌크 시더 설정 (seeder 프로파일 전용). 실행 시 환경변수(APP_BULK_SEED_*)나 --app.bulk-seed.* 인자로 덮어쓴다.
+ * <p>
+ * 수치를 0 으로 주면 해당 데이터 모양은 생략된다 — 시나리오별로 필요 없는 모양을 끄는 손잡이.
+ * (예: 공지가 필요 없는 시나리오면 notice-global-count=0)
  *
  * @param memberCount        생성할 멤버(=챌린저) 수
  * @param pointsPerChallenger 챌린저당 상벌점 수

@@ -45,6 +45,16 @@ import lombok.extern.slf4j.Slf4j;
  * </ul>
  * 빈 DB(또는 골격만 있는 DB)를 전제한다 — 같은 seed 로 재실행하면 email unique 충돌로 실패한다(의도:
  * 이중 시딩으로 측정 조건이 오염되는 것을 막는다).
+ * <p>
+ * <b>시나리오별 픽스처가 아니라 "공유 월드"를 만든다.</b> 부하 시나리오마다 데이터셋을 따로 굽지 않고,
+ * 모든 읽기 시나리오가 공유하는 baseline 세계(멤버·챌린저·상벌점·스케줄·공지)를 한 번에 적재한다 —
+ * 운영 DB 복사본 하나로 모든 시나리오를 돌리는 실무 관행과 같은 구조이고, snapshot 캐시(Tier 3)가
+ * 데이터셋 하나만 얼리면 되는 것도 이 덕분이다. 시나리오별 차이는 두 손잡이로 흡수한다:
+ * <ol>
+ *   <li>규모 조절 — app.bulk-seed.* 수치를 0 으로 주면 그 데이터 모양은 생략된다.</li>
+ *   <li>세계 확장 — 새 시나리오가 새 모양(예: 프로젝트)을 요구하면 seedXxx 단계를 여기에 추가한다.
+ *       확장 절차는 loadtest/README.md "새 시나리오 추가 (확장 가이드)" 참조.</li>
+ * </ol>
  */
 @Slf4j
 @Service
@@ -92,6 +102,10 @@ public class BulkSeedService implements SeedBulkDataUseCase {
         Random rng = new Random(command.randomSeed());
         int memberCount = command.memberCount();
 
+        // 적재 순서: 스케줄 → 공지 → 멤버(+챌린저·상벌점·참여).
+        // 참여(participant) 행이 스케줄 id 를 참조하므로 스케줄이 먼저다.
+        // 스케줄·공지의 author 는 "첫 벌크 멤버" id 인데 아직 없어도 된다 — author_member_id 는
+        // 도메인 규칙상 ID 참조(FK 제약 없음)이고 같은 트랜잭션 안에서 곧 적재된다.
         int scheduleCount = seedSchedules(base, command, memberCount);
         seedNotices(base, command, gisuId);
         seedMembersWithActivity(base, command, gisuId, schoolIds, rng, scheduleCount);
@@ -119,6 +133,9 @@ public class BulkSeedService implements SeedBulkDataUseCase {
 
     /** 이번 달에 스케줄을 분산 생성한다. k6 홈 시나리오가 "이번 달" 범위로 조회하는 것과 짝. */
     private int seedSchedules(BulkSeedBaseIds base, SeedBulkDataCommand command, int memberCount) {
+        if (command.schedulesPerMember() <= 0) {
+            return 0; // 스케줄 모양 생략 (properties 0 계약)
+        }
         int scheduleCount = Math.max(4, (int) Math.ceil(
             (double) memberCount * command.schedulesPerMember() / PARTICIPANTS_PER_SCHEDULE));
         YearMonth month = YearMonth.now(ZoneOffset.UTC);
@@ -174,6 +191,8 @@ public class BulkSeedService implements SeedBulkDataUseCase {
         Random rng,
         int scheduleCount
     ) {
+        // 정렬된 학교 목록의 앞 TOP_SCHOOL_COUNT 개를 "대형 학교"로 지정해 멤버 절반을 몰아준다(스큐).
+        // 학교가 그보다 적으면 rest 를 top 으로 재사용해 빈 리스트 인덱싱을 피한다.
         List<Long> topSchools = schoolIds.subList(0, Math.min(TOP_SCHOOL_COUNT, schoolIds.size()));
         List<Long> restSchools = schoolIds.size() > topSchools.size()
             ? schoolIds.subList(topSchools.size(), schoolIds.size())
@@ -186,6 +205,7 @@ public class BulkSeedService implements SeedBulkDataUseCase {
             new ArrayList<>(CHUNK_SIZE * command.schedulesPerMember());
 
         for (int i = 0; i < command.memberCount(); i++) {
+            // 멤버 i 번째 ↔ 챌린저 i 번째가 1:1 로 짝이다 — 같은 오프셋을 서로 다른 base 에 더한다.
             long memberId = base.memberMaxId() + 1 + i;
             long challengerId = base.challengerMaxId() + 1 + i;
             Long schoolId = rng.nextDouble() < TOP_SCHOOL_SHARE
