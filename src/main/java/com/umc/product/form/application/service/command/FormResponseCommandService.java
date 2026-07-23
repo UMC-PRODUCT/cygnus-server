@@ -1052,11 +1052,23 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
                     }
                 }
             }
-            case SCHEDULE ->
-                // 후속 PR 에서 지원
-                throw new UnsupportedOperationException(
-                    "Question type " + type + " is not supported yet");
+            case SCHEDULE -> {
+                List<Instant> times = answerCommand.times();
+                if (times == null || times.isEmpty()) {
+                    throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+                }
+                for (Instant t : times) {
+                    if (!isAlignedToSlot(t)) {
+                        throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+                    }
+                }
+            }
         }
+    }
+
+    // 15분 = 900초. 슬롯 시작은 초 단위로 900의 배수이며 나노초 부분은 0.
+    private static boolean isAlignedToSlot(Instant t) {
+        return t.getEpochSecond() % 900 == 0 && t.getNano() == 0;
     }
 
     private void validateOptionBelongsToQuestion(Long optionId, Long questionId) {

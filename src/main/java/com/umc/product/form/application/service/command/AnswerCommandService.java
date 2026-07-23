@@ -62,7 +62,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.ANSWER_ALREADY_EXISTS);
         }
 
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         Answer answer = Answer.create(
             draft, question, question.getType(),
@@ -89,7 +89,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerAndDraftAsOwner(command.answerId(), command.requesterMemberId());
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
@@ -134,7 +134,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.ANSWER_ALREADY_EXISTS);
         }
 
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         Answer answer = Answer.create(
             draft, question, question.getType(),
@@ -161,7 +161,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerAndDraftAsAnonymous(command.answerId(), command.responseAccessKey());
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
@@ -321,7 +321,8 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Question question,
         String textValue,
         List<Long> selectedOptionIds,
-        List<String> fileIds
+        List<String> fileIds,
+        List<Instant> times
     ) {
         switch (question.getType()) {
             case SHORT_TEXT, LONG_TEXT -> {
@@ -363,11 +364,22 @@ public class AnswerCommandService implements ManageAnswerUseCase {
                     }
                 }
             }
-            case SCHEDULE ->
-                // 후속 PR 에서 지원
-                throw new UnsupportedOperationException(
-                    "Question type " + question.getType() + " is not supported yet");
+            case SCHEDULE -> {
+                if (times == null || times.isEmpty()) {
+                    throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+                }
+                for (Instant t : times) {
+                    if (!isAlignedToSlot(t)) {
+                        throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+                    }
+                }
+            }
         }
+    }
+
+    // 15분 = 900초. 슬롯 시작은 초 단위로 900의 배수이며 나노초 부분은 0.
+    private static boolean isAlignedToSlot(Instant t) {
+        return t.getEpochSecond() % 900 == 0 && t.getNano() == 0;
     }
 
     private void validateOptionBelongsToQuestion(Long optionId, Long questionId) {

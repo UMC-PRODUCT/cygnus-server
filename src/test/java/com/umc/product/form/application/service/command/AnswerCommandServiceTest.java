@@ -6,6 +6,8 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
@@ -495,6 +497,174 @@ class AnswerCommandServiceTest {
             .build());
 
         then(saveAnswerPort).should().deleteByAnswerId(ANSWER_ID);
+    }
+
+    // ============================================================
+    //          SCHEDULE 답변 검증 — 기명/익명 공용
+    // ============================================================
+
+    @Test
+    @DisplayName("createAnswer: SCHEDULE 질문에 15분 배수 Instant 목록이면 저장")
+    void createAnswer_SCHEDULE_15분_배수_저장() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Question question = scheduleQuestion(draft.getForm());
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+        given(saveAnswerPort.save(any(Answer.class))).willAnswer(inv -> {
+            Answer saved = inv.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", ANSWER_ID);
+            return saved;
+        });
+
+        Long result = sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(List.of(
+                Instant.parse("2026-08-01T10:00:00Z"),
+                Instant.parse("2026-08-01T10:15:00Z"),
+                Instant.parse("2026-08-01T11:45:00Z")
+            ))
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ANSWER_ID);
+    }
+
+    @Test
+    @DisplayName("createAnswer: SCHEDULE 질문에 15분 배수 아닌 Instant 있으면 INVALID_ANSWER_FORMAT")
+    void createAnswer_SCHEDULE_15분_배수_아님_거부() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Question question = scheduleQuestion(draft.getForm());
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(List.of(
+                Instant.parse("2026-08-01T10:00:00Z"),
+                Instant.parse("2026-08-01T10:07:00Z")
+            ))
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnswer: SCHEDULE 질문에 나노초 잔여값 있으면 INVALID_ANSWER_FORMAT")
+    void createAnswer_SCHEDULE_나노초_잔여_거부() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Question question = scheduleQuestion(draft.getForm());
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(List.of(Instant.parse("2026-08-01T10:00:00.001Z")))
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnswer: SCHEDULE 질문에 times null 이면 INVALID_ANSWER_FORMAT")
+    void createAnswer_SCHEDULE_times_null_거부() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Question question = scheduleQuestion(draft.getForm());
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(null)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnswer: SCHEDULE 질문에 times empty 면 INVALID_ANSWER_FORMAT")
+    void createAnswer_SCHEDULE_times_empty_거부() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Question question = scheduleQuestion(draft.getForm());
+
+        given(loadFormResponsePort.findById(FORM_RESPONSE_ID)).willReturn(Optional.of(draft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+
+        assertThatThrownBy(() -> sut.createAnswer(CreateAnswerCommand.builder()
+            .formResponseId(FORM_RESPONSE_ID)
+            .questionId(QUESTION_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(List.of())
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("createAnonymousAnswer: SCHEDULE 질문에 15분 배수 Instant 면 저장 (익명 대칭)")
+    void createAnonymousAnswer_SCHEDULE_저장() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Question question = scheduleQuestion(anonymousDraft.getForm());
+
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+        given(loadFormResponsePort.findDraftByAccessKeyHash(KEY_HASH))
+            .willReturn(Optional.of(anonymousDraft));
+        given(loadQuestionPort.findById(QUESTION_ID)).willReturn(Optional.of(question));
+        given(loadAnswerPort.existsByFormResponseIdAndQuestionId(FORM_RESPONSE_ID, QUESTION_ID))
+            .willReturn(false);
+        given(saveAnswerPort.save(any(Answer.class))).willAnswer(inv -> {
+            Answer saved = inv.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", ANSWER_ID);
+            return saved;
+        });
+
+        Long result = sut.createAnonymousAnswer(CreateAnonymousAnswerCommand.builder()
+            .responseAccessKey(RAW_KEY)
+            .questionId(QUESTION_ID)
+            .times(List.of(Instant.parse("2026-08-01T10:00:00Z")))
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(result).isEqualTo(ANSWER_ID);
+    }
+
+    private Question scheduleQuestion(Form form) {
+        FormSection section = FormSection.create(form, "섹션", null, 1L);
+        Question question = Question.create("일정 선택", QuestionType.SCHEDULE, false, 1L);
+        question.assignTo(section);
+        ReflectionTestUtils.setField(question, "id", QUESTION_ID);
+        return question;
     }
 
     private FormResponse namedDraft(Long memberId) {
