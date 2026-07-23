@@ -6,7 +6,10 @@
 
 ## PR별 검증 문서
 
-- [PR #1171 도메인 테스트 검증 목록](pr-1171-domain-test-coverage.md): `member`, `challenger`, `authentication`, `authorization`, `organization` 커버리지 보강
+- [PR #1171 도메인 테스트 검증 목록](pr-1171-domain-test-coverage.md): 전체 production package의
+  coverage 결과와 계층·도메인별 edge case 요약
+- [PR #1171 신규 테스트 전체 목록](pr-1171-test-case-catalog.md): PR에서 새로 추가한 JUnit source
+  test 1,678개를 파일·method·검증 상황별로 정리한 전체 catalog
 
 | 도메인 | 테스트 파일 수 | 테스트 케이스 수 | 문서 |
 |---|---:|---:|---|
@@ -34,7 +37,8 @@
 | Test Seed | 11 | 58 | [test.md](test.md) |
 
 - 문서화된 23개 도메인 행 합계: 테스트 파일 293개, 테스트 케이스 1,741개
-- 최신 전체 실행 합계: Task 12 격리 JUnit XML snapshot 기준 446 suites, 2,172 tests, failures 0, errors 0, skipped 40
+- PR #1171 최신 전체 실행 합계: 5,002 tests, failures 0, errors 0, skipped 40
+- PR #1171 신규 source test 합계: 417개 파일, 1,678개 JUnit test method
 
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
 

@@ -23,6 +23,17 @@
 QueryDSL 제외 대상은 `build/generated/querydsl`에서 실제 생성된 source와 일치하는 class뿐이다. DTO,
 configuration, exception, application root, 공통 package와 production seed package는 제외하지 않았다.
 
+### 신규 테스트별 전체 목록
+
+이 PR에서 새로 추가한 JUnit source test는 417개 파일의 1,678개 method다. `@ParameterizedTest`는
+한 source method가 여러 runtime invocation으로 확장되므로 전체 실행 5,002건과 구분해 집계했다.
+
+- [PR #1171 신규 테스트 전체 목록](pr-1171-test-case-catalog.md)
+- 각 항목은 source line, JUnit annotation 유형, method 이름, `@DisplayName` 기반 검증 상황,
+  parameter source를 포함한다.
+- 기존 test method에 assertion이나 fixture만 보강한 경우는 중복 집계하지 않고, PR diff에서 test
+  annotation이 새로 추가된 method만 목록화했다.
+
 ## 2. Production package별 coverage
 
 | Production package | 테스트 건수 | ignored | Line | Class | Branch |
