@@ -104,7 +104,7 @@
 | `infra/terraform/envs/prod/terraform.tfvars.example` | prod 실행에 필요한 비밀이 아닌 값과 목적별 secret ARN 입력 예시를 제공한다. 실제 secret 값은 넣지 않는다. |
 | `infra/terraform/envs/prod/imports.tf` | 기존 prod 리소스를 Terraform state로 가져오기 위한 import block을 둔다. |
 | `infra/terraform/envs/prod/moved.tf` | Terraform resource address 변경 시 state 이동 기록을 남긴다. 운영 리소스 rename은 moved block으로 추적한다. |
-| `loadtest/terraform/*` | 부하 테스트 env은 배포 env가 아니라 ephemeral 테스트 리그(local backend·self-contained·ECR pull·로컬 `load-test.env` 주입)라 `infra/terraform`에서 분리했다. 파일 구성·실행은 `loadtest/README.md`, 설계 근거는 `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md` 참조. |
+| `loadtest/terraform/*` | 부하 테스트 env은 배포 env가 아니라 ephemeral 테스트 리그(local backend·self-contained·ECR pull·로컬 `load-test.env` 주입)라 `infra/terraform`에서 분리했다. 파일 구성·실행은 `loadtest/README.md` 참조. |
 
 주의: 같은 VPC, ALB, Route53 record를 둘 이상의 Terraform state가 동시에 소유하면 안 된다. dev/prod root를 분리해 구현하는 경우 shared 리소스 소유자를 먼저 정하고, 다른 root는 remote state output 또는 data source로만 참조한다. `load-test`는 이 충돌을 피하기 위해 shared VPC/ALB/RDS를 참조하지 않고 독립 리소스를 만든다.
 
@@ -281,7 +281,7 @@ v1 기준 주요 사항:
 - **secret**: SSM Parameter Store가 아니라 로컬 `load-test.env` 파일을 base64로 SUT app.env에 주입한다. `terraform.tfvars`에는 `app_env_file_path = "./load-test.env"` 경로만 둔다.
 - **registry**: ECR 전용(generic/public 미지원). SUT IAM role은 ECR pull 권한만 갖는다.
 
-실행 순서(로컬 값 준비 → init/plan/apply → 시딩 → k6 → destroy)와 명령은 `loadtest/README.md`를 따른다. 설계 근거는 `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md`.
+실행 순서(로컬 값 준비 → init/plan/apply → 시딩 → k6 → destroy)와 명령은 `loadtest/README.md`를 따른다.
 
 ## 기존 인프라 import 절차
 

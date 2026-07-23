@@ -1,117 +1,69 @@
-# loadtest — 부하 테스트 (시작점)
+# 부하 테스트 가이드
 
-부하 테스트에 필요한 건 여기서부터 본다. 실행 코드와 인프라(Terraform)까지 전부 이 폴더 아래에 있다.
+실행 코드(k6)·인프라(Terraform)·시딩 스크립트가 전부 이 폴더에 있다.
+전략적 배경(도구 선택·시나리오 우선순위)은 `docs/adr/013` 참조. 실행 결과·분석은 `docs/loadtest/` 에 쌓는다.
 
-## 어디에 뭐가 있나
+## 빠른 시작
 
-| 위치 | 역할 |
-|------|------|
-| `loadtest/k6/` | k6 실행 코드 (script.js, config, lib, scenarios, data). 상세는 `loadtest/k6/README.md` |
-| `loadtest/scripts/` | 실행 글루 — `sync-k6.sh`(업로드) · `run-k6.sh`(원격 실행) · `prepare-data.sh`(시딩) |
-| `loadtest/terraform/` | 인프라(SUT·generator·monitoring·RDS·ALB). load-test는 배포 env가 아니라 ephemeral 테스트 리그(local backend·self-contained)라 배포 env와 분리해 실행 코드와 함께 둔다 |
-| `docs/adr/013-...` | 전략(도구 선택·시나리오 매핑·도메인 우선순위) |
-| `docs/superpowers/plans/2026-07-22-load-test-v1-simplification.md` | v1 구현 계획·트레이드오프 |
-| `docs/loadtest/` | (실행 결과·분석 문서 — 결과가 쌓이면 여기) |
-
-> 앱 이미지 빌드/푸시는 `scripts/build-app-image.sh` (범용 스크립트라 `scripts/`에 있음). SUT는 이 이미지를 ECR에서 pull 한다.
-
-## 전체 흐름
-
-```
-[1] terraform apply         인프라 생성 (SUT+generator+monitoring+RDS)
-[2] prepare-data.sh         SUT DB 시딩 → loadtest/k6/data/seed.json 산출
-[3] run-k6.sh               k6 스크립트 sync 후 generator에서 원격 실행
-[4] Grafana                 결과 확인 (monitoring EC2)
-[5] terraform destroy       통째 정리 (비용/데이터)
-```
-
-## 직접 폴더에 들어갈 필요 없다 — 전부 repo 루트에서
-
-Terraform은 `-chdir`로, 스크립트는 내부에서 `git rev-parse`로 루트를 찾으므로 `cd` 하지 않아도 된다.
+전부 repo 루트에서 실행한다 (Terraform 은 `-chdir`, 스크립트는 내부에서 루트를 찾는다).
 
 ```bash
-# 0) 최초 1회: 로컬 값/시크릿 파일 준비 (커밋 금지)
-cd loadtest/terraform
-cp terraform.tfvars.example terraform.tfvars   # key_name, allowed_cidr, app_image, git_repo_url, aws_profile 채우기
-cp load-test.env.example   load-test.env       # Notion 공유 secret 채우기
-cd -                                            # 루트로 복귀
+# 0) 최초 1회: 로컬 값/시크릿 준비 (커밋 금지)
+cp loadtest/terraform/terraform.tfvars.example loadtest/terraform/terraform.tfvars  # key_name, allowed_cidr, app_image 등
+cp loadtest/terraform/load-test.env.example    loadtest/terraform/load-test.env    # Notion 공유 secret
 
-# 1) 인프라 (로컬 state — S3 backend 불필요)
+# 1) 인프라 생성 (로컬 state — S3 backend 불필요)
 terraform -chdir=loadtest/terraform init
-terraform -chdir=loadtest/terraform plan
 terraform -chdir=loadtest/terraform apply
 
-# 2) 시딩 (데이터 준비의 유일한 소유자)
-loadtest/scripts/prepare-data.sh                      # Tier 1: api (smoke·소규모)
-SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh   # Tier 2: bulk (10만+, seeder 프로파일)
+# 2) 시딩 → loadtest/k6/data/seed.json 산출
+loadtest/scripts/prepare-data.sh                      # 소규모 (smoke·개발, 기본 30명)
+SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh   # 대규모 (10만+, 아래 "시딩" 참조)
 
 # 3) 실행: run-k6.sh <profile> <scenario> <rate> [duration]
-loadtest/scripts/run-k6.sh smoke  health-check 1   1m     # 시딩 불필요
-loadtest/scripts/run-k6.sh load   project-read 300 10m
+loadtest/scripts/run-k6.sh smoke health-check 1   1m    # 시딩 불필요
+loadtest/scripts/run-k6.sh smoke home         1   1m    # seed.json 필요
+loadtest/scripts/run-k6.sh load  home         300 10m
 
-# 4) 정리 (plan -destroy로 대상 확인 후)
+# 4) 결과 확인: Grafana
+terraform -chdir=loadtest/terraform output grafana_url
+terraform -chdir=loadtest/terraform output -raw grafana_admin_password
+
+# 5) 정리 (비용! 데이터도 같이 사라진다)
 terraform -chdir=loadtest/terraform destroy
 ```
 
-SSH 키가 기본 키가 아니면 `SSH_KEY=~/.ssh/umc-loadtest.pem loadtest/scripts/run-k6.sh ...` 처럼 넘긴다.
+SSH 키가 기본 키가 아니면 `SSH_KEY=~/.ssh/umc-loadtest.pem` 을 명령 앞에 붙인다 (run-k6.sh·bulk 시딩 공통).
 
-## 시딩 전략 (Tier)
+## 시딩 — 3가지 방법
 
-원칙: **생성기(코드)가 원천, 데이터 파일(snapshot)은 캐시.** source of truth 는 항상 시더다.
+원칙: **시더(코드)가 원천, snapshot 은 캐시.**
 
-| Tier | 방식 | 언제 | 실행 |
-|------|------|------|------|
-| **1 (기본)** | api 시더 (SeedController) | smoke·개발·소규모(~수천). 매 run 신선, 스키마 자동 대응 | `loadtest/scripts/prepare-data.sh` |
-| **2 (대규모)** | bulk 시더 (`seeder` 프로파일, JDBC 배치) | 10만+ 행. 결정적(seed 고정)·학교 스큐 반영 | `SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh` |
-| **3 (opt-in 캐시)** | snapshot 복원 | 같은 대규모 데이터로 자주 반복할 때 | tfvars 에 `db_snapshot_identifier` 지정 후 `apply` |
+| 방법 | 언제 | 실행 |
+|------|------|------|
+| **api** (기본) | smoke·소규모(~수천). 도메인 가드를 통과해 스키마 변경에 안전 | `loadtest/scripts/prepare-data.sh` |
+| **bulk** | 10만+ 행. SUT EC2 에서 앱 이미지를 `seeder` 프로파일로 1회 실행 → JDBC 배치 적재 | `SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh` |
+| **snapshot** (캐시) | 같은 대규모 데이터로 자주 반복할 때 | tfvars 에 `db_snapshot_identifier` 지정 후 `apply` |
 
-운영 규칙:
+알아둘 것:
 
-1. 평소엔 **Tier 1(api)** — 도메인 가드를 통과하는 정확한 baseline. 스키마 바뀌어도 도메인 코드+Flyway 가 같이 움직여 그냥 동작한다.
-2. 10만+ 가 필요하면 **Tier 2(bulk)** — SUT EC2 에서 앱 이미지를 `seeder` 프로파일로 1회 실행해 JDBC 배치로 직접 적재한다(`BulkSeedService`). `BULK_MEMBER_COUNT`·`BULK_RANDOM_SEED` 로 제어하고, 같은 seed 면 같은 데이터가 나온다(실행 간 비교 가능). **빈 DB 전제** — 재실행은 destroy/apply 후에.
-3. **Tier 3 은 bulk 로 구운 DB 를 얼린 캐시.** 굽기:
-   ```bash
-   # db_snapshot_identifier 를 비운 채 빈 RDS 로 시작
-   terraform -chdir=loadtest/terraform apply
-   SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh
-   aws rds create-db-snapshot \
-     --db-instance-identifier umc-loadtest-pg \
-     --db-snapshot-identifier umc-loadtest-<migration_version>-<yyyymmdd>
-   # → 출력된 snapshot id 를 tfvars 의 db_snapshot_identifier 에 넣는다. 이후 apply 는 즉시 복원(시딩 0).
-   ```
-4. **재굽기 트리거 = 스키마(Flyway 마이그레이션) 또는 시드 모양 변경.** snapshot 이름에 마이그레이션 버전을 박아 stale 을 감지한다. bulk 시더의 SQL(`BulkSeedJdbcAdapter`)은 도메인 가드를 우회하므로 스키마 변경 PR 에서 함께 검토한다.
-5. **캐시(snapshot)는 절대 유일 수단이 아니다.** 시더(api·bulk)가 항상 fallback 이자 재굽기 재료다. 얼린 캐시는 스키마 변경 비용을 떠안기 때문.
+- bulk 는 **결정적**이다 — 같은 `BULK_RANDOM_SEED`(기본 42)면 같은 데이터가 나와 실행 간 비교가 가능하다. 규모는 `BULK_MEMBER_COUNT`(기본 100000).
+- bulk 는 **빈 DB 전제** — 재실행은 destroy/apply(또는 snapshot 복원) 후에. 같은 DB 에 두 번 돌리면 email unique 로 실패한다(의도).
+- snapshot 굽기: 빈 RDS → bulk 시딩 → `aws rds create-db-snapshot` → 나온 id 를 tfvars 에 넣으면 이후 apply 는 즉시 복원. **스키마(Flyway)나 시드 모양이 바뀌면 다시 굽는다** — snapshot 이름에 마이그레이션 버전을 박아 stale 을 감지한다.
+- k6 는 시딩하지 않는다. `seed.json` 을 읽기만 한다.
 
-## 새 시나리오 추가 (확장 가이드)
+## 확장 — 새 시나리오 추가
 
-확장은 3계층에서 일어나고, 필요한 곳만 건드린다:
+1. **k6 시나리오 (항상)** — `loadtest/k6/scenarios/<profile>/<이름>.js` 에 `requiresSeed` 와 default 함수를 만들고 `script.js` 의 REGISTRY 에 한 줄 등록. 상세는 `loadtest/k6/README.md`.
+2. **시드 데이터가 더 필요하면 (규모로 분기)**
+   - 소규모 → SeedController 에 이미 있는지 확인 (SEED-001~007: 멤버·챌린저·역할·프로젝트·지원서·커리큘럼·공지·상벌점). 없으면 SEED-007 패턴을 복제해 시드 API 를 만들고 `prepare-data.sh` 에 호출 스텝을 추가한다. **도메인 지식은 Java(SeedService)에, bash 는 호출 순서만.**
+   - 대규모 → `BulkSeedService` 에 seedXxx 단계를 추가한다. 새 테이블당 3곳: ① Row record(`port/out/dto`) ② 포트 메서드 + `BulkSeedJdbcAdapter` SQL ③ 서비스 생성 로직(기존 `rng` 재사용 — 결정성 유지). `ANALYZE_TABLES` 와 Result 카운트도 같이 갱신.
+3. **k6 가 고를 대상 ID 가 더 필요하면** — seed.json 의 `targets` 를 채우고 `lib/data.js` 에 pick 함수를 추가한다 (`pickProjectId` 참조). **api/bulk 두 시더가 같은 seed.json 스키마를 산출해야 한다는 것이 유일한 계약.**
 
-```
-[k6 시나리오]  scenarios/<profile>/<name>.js + script.js REGISTRY 한 줄   ← 항상
-[시드 데이터]  기존 데이터로 충분하면 없음 → 부족하면 api/bulk 확장        ← 필요할 때만
-[seed.json]   k6 가 고를 대상 ID 가 더 필요하면 targets 에 추가           ← 필요할 때만
-```
+주의: 벌크 시더는 시나리오별 픽스처가 아니라 모든 시나리오가 공유하는 **"공유 월드" 하나**를 굽는다. 필요 없는 데이터 모양은 `app.bulk-seed.*` 수치 0 으로 끄고, 새 모양은 월드에 추가한다. `BulkSeedJdbcAdapter` 의 SQL 은 스키마 강결합(속도를 위한 의도)이라 **Flyway 마이그레이션 PR 에서 같이 검토**한다.
 
-1. **k6 시나리오 (항상)** — `loadtest/k6/README.md` "시나리오 추가" 참조. smoke 에서 검증한 뒤 `scenarios/load/` 로 복사해 튜닝한다 (프로파일별 파일 분리는 의도 — tier 마다 혼합 비율을 다르게 가져가기 위함).
+## 개념 한 줄
 
-2. **시드 데이터 (분기)**
-   - **기존 seed.json(memberIds)으로 충분** → 할 일 없음. `requiresSeed = true` 만 켠다.
-   - **새 도메인 데이터, 소규모** → SeedController 에 이미 있는지 먼저 확인 (SEED-001~007: 멤버·챌린저·역할·프로젝트·지원서·커리큘럼·공지·상벌점). 없으면 **SEED-007 이 표준 템플릿**: UseCase+Command/Result → `{도메인}SeedService`(`@Profile("!prod")`+`app.seed.enabled` 이중 가드) → Request/Response → 엔드포인트 → 테스트. 그 뒤 `prepare-data.sh` 에 **얇은 스텝** 추가 — 도메인 지식은 Java(SeedService)에 두고, bash 는 호출 순서·ID 핸드오프만 담는다.
-   - **10만+ 대규모** → bulk 시더 확장. 새 테이블당 정확히 3곳:
-     1. `test/application/port/out/dto/Seed{X}Row` — 행 record
-     2. `BulkSeedPort` 메서드 + `BulkSeedJdbcAdapter` INSERT SQL — 다른 행이 FK 로 참조하면 명시 id 부여 + `IDENTITY_SYNC_TABLES` 등록, 아니면 id 생략(identity 기본값)
-     3. `BulkSeedService` 에 생성 단계 — RNG 는 기존 `rng` 를 재사용(결정성 유지), 규모 파라미터는 `SeedBulkDataCommand` + `BulkSeedProperties` 에 추가
-     마지막으로 `ANALYZE_TABLES` 에 테이블을, `SeedBulkDataResult` 에 카운트를 추가한다.
-
-3. **seed.json 계약** — 스키마는 api/bulk 공용이고 k6 는 어느 시더가 만들었는지 모른다. 대상 ID 가 더 필요하면 `targets` 를 채우고 `lib/data.js` 에 pick 함수를 추가한다 (`pickProjectId` 참조). **두 시더가 같은 스키마를 산출해야 한다는 것이 유일한 계약.**
-
-설계 트레이드오프 (알고 확장할 것):
-
-- `BulkSeedJdbcAdapter` 의 SQL 은 도메인 가드를 우회한 스키마 강결합 — 속도를 위한 의도된 선택. Flyway 마이그레이션 PR 에서 함께 검토한다(위 재굽기 규칙 4). 어긋나면 시더가 즉시 실패하므로 조용히 썩지는 않는다.
-- 시나리오 데이터 모양이 3~4개 이상 쌓이면 `BulkSeedService` 를 시나리오별 단계 객체로 분리한다. 그 전의 선제 추상화는 금지 (두 번째 대규모 시나리오가 실제로 생길 때 한다).
-
-## 개념 한 줄 정리
-
-- **PROFILE** = 부하 유형(smoke/load/stress/soak), **SCENARIO** = 업무 시나리오(health-check/project-read…). `run-k6.sh`가 둘을 generator의 `run-umc-k6`로 넘기고, `script.js`가 곱해서 고른다.
-- **시딩은 k6가 아니라 `prepare-data.sh`가 한다.** k6는 `seed.json`을 읽기만 한다.
-- 인프라 변경(user-data 등)은 `terraform apply`가 인스턴스를 교체해 반영하고, k6 스크립트 변경은 `run-k6.sh`의 rsync로 반영한다(인스턴스 재생성 불필요).
+- **PROFILE** = 부하 유형(smoke/load/stress/soak), **SCENARIO** = 업무 시나리오(home/project-read…). `run-k6.sh` 가 둘을 넘기고 `script.js` 가 곱해서 고른다.
+- 인프라 변경(user-data 등)은 `terraform apply` 가 인스턴스를 교체해 반영하고, k6 스크립트 변경은 `run-k6.sh` 의 rsync 로 반영된다(인스턴스 재생성 불필요).
+- 앱 이미지 빌드/푸시는 `scripts/build-app-image.sh` — SUT 와 bulk 시더가 이 이미지를 ECR 에서 pull 한다.
