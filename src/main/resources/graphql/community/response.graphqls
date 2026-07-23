@@ -1,0 +1,56 @@
+type CommunityPostPage {
+  content: [CommunityPost!]!
+  pageInfo: PageInfo!
+}
+
+type CommunityPost {
+  postId: ID!
+  title: String!
+  content: String!
+  category: CommunityPostCategory!
+  authorMemberId: ID
+  author: MemberPublic
+  authorChallengerId: ID
+  authorChallenger: Challenger
+  lightning: CommunityLightning
+  createdAt: Instant!
+  commentCount: Int!
+  likeCount: Int!
+  viewer: CommunityPostViewer!
+  comments: [CommunityComment!]!
+}
+
+type CommunityLightning {
+  meetAt: Instant!
+  location: String!
+  maxParticipants: Int!
+  openChatUrl: String!
+}
+
+type CommunityPostViewer {
+  liked: Boolean!
+  scrapped: Boolean!
+  scrapCount: Int!
+}
+
+type CommunityComment {
+  commentId: ID!
+  postId: ID!
+  challengerId: ID
+  challenger: Challenger
+  content: String!
+  createdAt: Instant!
+  author: Boolean!
+}
+
+enum CommunityPostCategory {
+  LIGHTNING
+  QUESTION
+  FREE
+}
+
+enum MyCommunityPostKind {
+  AUTHORED
+  COMMENTED
+  SCRAPPED
+}

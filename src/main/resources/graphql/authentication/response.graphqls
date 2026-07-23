@@ -1,0 +1,12 @@
+type MemberOAuth {
+  memberOAuthId: ID!
+  memberId: ID!
+  member: MemberPublic!
+  provider: OAuthProvider!
+}
+
+enum OAuthProvider {
+  GOOGLE
+  APPLE
+  KAKAO
+}

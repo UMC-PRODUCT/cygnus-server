@@ -1,0 +1,39 @@
+type ChatRoomSummary {
+  roomId: ID!
+  room: ChatRoom!
+  lastMessage: ChatMessage
+  unreadCount: Long!
+}
+
+type ChatRoom {
+  roomId: ID!
+  createdAt: Instant!
+  pinnedMessage: ChatMessage
+  members: [MemberPublic!]!
+  messages(after: ID, first: Int = 30): ChatMessageConnection!
+}
+
+type ChatMessageConnection {
+  content: [ChatMessage!]!
+  nextCursor: ID
+  hasNext: Boolean!
+}
+
+type ChatMessage {
+  messageId: ID!
+  roomId: ID!
+  senderMemberId: ID
+  sender: MemberPublic
+  contentType: ChatMessageContentType!
+  content: String
+  fileIds: [String!]!
+  createdAt: Instant!
+  replyToMessageId: ID
+}
+
+enum ChatMessageContentType {
+  TEXT
+  IMAGE
+  FILE
+  SYSTEM
+}

@@ -13,6 +13,21 @@ extend type Query {
   schools: [School!]!
   """School 식별자로 표준 School 응답을 조회한다."""
   school(id: ID!): School!
+  """현재 사용자가 관리할 수 있는 StudyGroup을 cursor 이후부터 조회한다."""
+  managedStudyGroups(cursor: ID, size: Int = 20): [StudyGroup!]!
+  """권한이 있는 StudyGroup의 상세 resource를 조회한다."""
+  studyGroup(id: ID!): StudyGroup!
+  """현재 UMC PRODUCT 조직도를 조회한다."""
+  umcProductOrganizationChart: UmcProductOrganizationChart!
+  """UMC PRODUCT 멤버를 조건과 페이지로 조회한다."""
+  umcProductMembers(
+    filter: UmcProductMemberFilter
+    page: PageInput
+  ): UmcProductMemberPage!
+  """UMC PRODUCT 멤버 식별자로 상세 resource를 조회한다."""
+  umcProductMember(id: ID!): UmcProductMember!
+  """UMC PRODUCT Squad 목록을 조회한다."""
+  umcProductSquads(filter: UmcProductSquadFilter): [UmcProductSquad!]!
 }
 
 """Gisu 조직도 검색 조건."""
@@ -23,4 +38,17 @@ input GisuOrganizationInput {
   generations: [ID!]
   """활성 상태 필터."""
   active: Boolean
+}
+
+input UmcProductMemberFilter {
+  chapterId: ID
+  leadershipRole: UmcProductLeadershipRole
+  position: UmcProductPosition
+  squadId: ID
+  activeOn: LocalDate
+}
+
+input UmcProductSquadFilter {
+  active: Boolean
+  activeOn: LocalDate
 }

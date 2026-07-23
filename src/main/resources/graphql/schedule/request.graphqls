@@ -1,0 +1,11 @@
+extend type Query {
+  mySchedules(filter: ScheduleFilter!): [Schedule!]!
+  schedule(id: ID!): Schedule
+  myScheduleCapabilities: ScheduleCapabilities!
+}
+
+input ScheduleFilter {
+  from: Instant!
+  to: Instant!
+  attendanceRequired: Boolean
+}

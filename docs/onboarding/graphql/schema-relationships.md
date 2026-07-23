@@ -58,6 +58,41 @@ projection이기도 하다. 즉 provider contract는 **계약 소유권**, consu
 `ChallengerPart`와 `QuestionType`은 각각 Challenger와 Form이 소유한다. 모든 선언은 runtime에서 전역
 GraphQL type namespace를 공유한다.
 
+## 전체 도메인 연결
+
+```mermaid
+flowchart LR
+  Member["MemberPublic"] --> Organization["School / Gisu"]
+  Challenger --> Member
+  Challenger --> Organization
+  StudyGroup --> Member
+  StudyGroup --> Organization
+  Schedule --> Member
+  Notice --> Member
+  Notice --> Organization
+  Blog --> Member
+  Community --> Member
+  Community --> Challenger
+  Chat --> Member
+  Curriculum --> Challenger
+  Curriculum --> Member
+  Certificate --> Organization
+  Audit --> Member
+  Authorization --> Organization
+  Authentication --> Member
+  Feedback --> Form
+  Project --> Form
+  Project --> Member
+  Recruiting --> Form
+  Recruiting --> Member
+  Recruiting --> Organization
+  Analytics -. "scope ID" .-> Organization
+```
+
+화살표는 Java aggregate 참조가 아니라 GraphQL relation resolver가 provider Query UseCase를 호출한다는
+뜻이다. Notification, Storage, Term, Maintenance는 외부 resource relation 없이 자체 command 또는
+lifecycle을 제공하고, Documentation은 정적 error catalog를 제공한다.
+
 ## 관계 종류
 
 | 종류 | 조건 | 예시 |
@@ -106,6 +141,10 @@ canonical type이다. `MemberPrivate`는 별도 회원 resource가 아니라 `Me
 열리는 권한 그룹이다.
 `MemberSummary`, `MemberBrief`, `GisuChapter`처럼 조회 경로나 persistence 관계를 type 이름으로 복제하지
 않는다. 관계에 독립적인 속성과 lifecycle이 생길 때만 edge type을 도입한다.
+
+`StudyGroup.mentors`, `Schedule.participants`, `ChatRoom.members`처럼 다른 도메인의 사람을 표현하는
+field는 모두 `MemberPublic`을 참조한다. email과 status는 어느 경로에서도 별도 요약 type으로 복제하지
+않고 `MemberPublic.private` resolver가 본인 여부를 판단한다.
 
 ## Recruiting Resource 관계
 

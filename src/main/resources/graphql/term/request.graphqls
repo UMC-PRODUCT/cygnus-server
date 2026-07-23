@@ -1,0 +1,25 @@
+extend type Query {
+  """현재 활성 약관을 조회한다."""
+  terms: [Term!]!
+  """약관 식별자로 약관을 조회한다."""
+  term(id: ID!): Term
+  """약관 종류의 최신 활성 약관을 조회한다."""
+  termByType(type: TermType!): Term
+  """현재 Member가 동의한 약관을 조회한다."""
+  myAgreedTerms: [Term!]!
+  """현재 Member의 필수 약관 재동의 상태를 조회한다."""
+  myRequiredTermConsentStatus: RequiredTermConsentStatus!
+}
+
+extend type Mutation {
+  """현재 Member의 약관 동의 상태를 저장한다."""
+  setTermConsent(termId: ID!, agreed: Boolean!): RequiredTermConsentStatus!
+  """관리 권한으로 새 약관 version을 생성한다."""
+  createTerm(input: CreateTermInput!): Term!
+}
+
+input CreateTermInput {
+  link: String!
+  mandatory: Boolean!
+  type: TermType!
+}

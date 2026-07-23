@@ -1,0 +1,63 @@
+type Certificate {
+  certificateId: ID!
+  serialNumber: String!
+  template: CertificateTemplate!
+  issuer: CertificateIssuer!
+  status: CertificateStatus!
+  recipientName: String!
+  gisuId: ID!
+  gisu: Gisu
+  gisuGeneration: Long!
+  meritTitle: String
+  issuedAt: Instant!
+  expiresAt: Instant
+  download: CertificateDownload!
+}
+
+type CertificateDownload {
+  certificateId: ID!
+  serialNumber: String!
+  downloadUrl: String!
+  expiresAt: Instant!
+}
+
+type CertificateVerification {
+  valid: Boolean!
+  status: String!
+  template: CertificateTemplate
+  issuer: CertificateIssuer
+  gisuGeneration: Long
+  recipientName: String
+  issuedAt: Instant
+  expiresAt: Instant
+}
+
+enum CertificateStatus {
+  ISSUED
+  REVOKED
+  EXPIRED
+}
+
+enum CertificateIssuer {
+  UNIVERSITY_MAKEUS_CHALLENGE
+  NEORDINARY
+}
+
+enum CertificateTemplate {
+  UMC_COURSE_COMPLETION
+  UMC_COURSE_MERIT
+  UMC_DEMO_DAY_GRAND_PRIZE
+  UMC_DEMO_DAY_FIRST_PRIZE
+  UMC_DEMO_DAY_SECOND_PRIZE
+  UMC_DEMO_DAY_PARTICIPATION_PRIZE
+  UMC_DEMO_DAY_AWS_SPECIAL_PRIZE
+  UMC_DEMO_DAY_BEST_CHALLENGER
+  UMC_HACKATHON_CERTIFICATION_OF_COMPLETION
+  UMC_HACKATHON_GRAND_PRIZE
+  UMC_HACKATHON_FIRST_PRIZE
+  UMC_HACKATHON_SECOND_PRIZE
+  NEORDINARY_HACKATHON_GRAND_PRIZE
+  NEORDINARY_HACKATHON_FIRST_PRIZE
+  NEORDINARY_HACKATHON_SECOND_PRIZE
+  NEORDINARY_HACKATHON_CERTIFICATION_OF_COMPLETION
+}

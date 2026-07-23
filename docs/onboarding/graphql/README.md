@@ -4,10 +4,19 @@ UMC PRODUCT 서버의 GraphQL pilot 실행 방법과 IDL 관리 원칙을 설명
 
 ## 현재 범위
 
-- `organization`: Gisu, Chapter, School 조회
-- `member`: `MemberPublic` 조회·검색, 본인 `MemberPrivate`, 학교·Challenger nested field
-- `project`: Project 조회와 `MemberPublic`·지원서·지원 Form nested field
-- `recruiting`: canonical Season/Round/Application 조회와 lifecycle mutation
+GraphQL public contract는 application inbound port가 있는 23개 도메인에 적용한다.
+
+| 분류 | 도메인 |
+|---|---|
+| Identity·Access | Authentication, Authorization, Member, Challenger |
+| Organization·Operation | Organization, Schedule, Curriculum, Analytics, Audit |
+| Content·Communication | Blog, Community, Notice, Chat, Notification |
+| Product workflow | Form, Feedback, Project, Recruiting |
+| Platform resource | Storage, Term, Certificate, Maintenance, Documentation |
+
+`common`, `global`은 runtime/shared layer이고, `llm`은 내부 port이다. 구현된 inbound use case가 없는
+`figma`, `survey`와 개발 전용 `test`는 public GraphQL IDL에서 제외한다. 이 분류는
+`GraphQlDomainCoverageTest`가 검증한다.
 
 상세 문서는 다음을 참고한다.
 
@@ -120,6 +129,8 @@ query ProjectMembers($projectId: ID!) {
 - nested collection은 batch use case, `@BatchMapping`, DataLoader로 N+1을 방지한다.
 - 권한에 따라 값이 없을 수 있는 field는 nullable 계약과 fail-closed resolver를 함께 설계한다.
 - schema, DTO, converter, resolver, README, architecture test를 같은 변경에서 맞춘다.
+- OAuth redirect/token 교환, binary download, WebSocket, webhook, email 같은 transport protocol은
+  해당 REST/WebSocket adapter를 유지하고 GraphQL resource로 억지로 변환하지 않는다.
 - 공개 field 삭제, type 변경, nullability 강화, enum value 삭제는 breaking change다.
 
 ```bash

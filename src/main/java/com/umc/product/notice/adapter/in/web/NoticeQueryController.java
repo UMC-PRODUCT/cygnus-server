@@ -1,5 +1,17 @@
 package com.umc.product.notice.adapter.in.web;
 
+import org.springdoc.core.annotations.ParameterObject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
@@ -7,7 +19,7 @@ import com.umc.product.global.response.CursorResponse;
 import com.umc.product.global.response.PageResponse;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
-import com.umc.product.notice.adapter.in.web.assembler.NoticeViewerInfoAssembler;
+import com.umc.product.notice.adapter.in.NoticeViewerInfoAssembler;
 import com.umc.product.notice.adapter.in.web.dto.request.GetNoticeStatusRequest;
 import com.umc.product.notice.adapter.in.web.dto.response.query.GetNoticeDetailResponse;
 import com.umc.product.notice.adapter.in.web.dto.response.query.GetNoticeReadStatusResponse;
@@ -22,19 +34,9 @@ import com.umc.product.notice.application.port.in.query.dto.NoticeReadStatusSumm
 import com.umc.product.notice.application.port.in.query.dto.NoticeSummary;
 import com.umc.product.notice.application.port.in.query.dto.NoticeViewerInfo;
 import com.umc.product.notice.domain.NoticeClassification;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springdoc.core.annotations.ParameterObject;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.web.PageableDefault;
-import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 @Validated
 @RestController

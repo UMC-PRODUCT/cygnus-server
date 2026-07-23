@@ -3,3 +3,9 @@ scalar Long
 
 """ISO-8601 UTC instant value."""
 scalar Instant
+
+"""ISO-8601 calendar date without a time zone."""
+scalar LocalDate
+
+"""ISO-8601 local date-time without a time zone."""
+scalar LocalDateTime

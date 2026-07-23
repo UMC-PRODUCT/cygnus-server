@@ -18,6 +18,6 @@ public class ErrorCodeCatalogController {
 
     @GetMapping
     public ErrorCodeCatalogResponse getErrorCodeCatalog() {
-        return getErrorCodeCatalogUseCase.getErrorCodeCatalog();
+        return ErrorCodeCatalogResponse.from(getErrorCodeCatalogUseCase.getErrorCodeCatalog());
     }
 }

@@ -1,0 +1,20 @@
+extend type Query {
+  """Challenger 식별자로 활동 resource를 조회한다."""
+  challenger(id: ID!): Challenger
+  """현재 Member의 전체 기수 Challenger 이력을 조회한다."""
+  myChallengers: [Challenger!]!
+  """조건에 맞는 Challenger를 페이지로 검색한다."""
+  challengers(filter: ChallengerFilter, page: PageInput): ChallengerPage!
+}
+
+input ChallengerFilter {
+  challengerId: ID
+  name: String
+  nickname: String
+  keyword: String
+  schoolId: ID
+  chapterId: ID
+  part: ChallengerPart
+  gisuId: ID
+  statuses: [ChallengerStatus!]
+}

@@ -14,8 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogItemResponse;
-import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogResponse;
+import com.umc.product.documentation.application.port.in.dto.ErrorCodeCatalogInfo;
 
 @DisplayName("ErrorCodeCatalogQueryService")
 class ErrorCodeCatalogQueryServiceTest {
@@ -25,7 +24,7 @@ class ErrorCodeCatalogQueryServiceTest {
     @Test
     @DisplayName("생성된 ErrorCode v1 manifest를 classpath에서 읽는다")
     void 생성된_ErrorCode_v1_manifest를_classpath에서_읽는다() {
-        ErrorCodeCatalogResponse catalog = service.getErrorCodeCatalog();
+        ErrorCodeCatalogInfo catalog = service.getErrorCodeCatalog();
 
         assertThat(catalog.schemaVersion()).isEqualTo(1);
         assertThat(catalog.service()).isEqualTo("umc-product-server");
@@ -44,9 +43,9 @@ class ErrorCodeCatalogQueryServiceTest {
     @Test
     @DisplayName("metadata 선언이 없으면 optional field 기본값을 manifest에 반영한다")
     void metadata_선언이_없으면_optional_field_기본값을_manifest에_반영한다() {
-        ErrorCodeCatalogResponse catalog = service.getErrorCodeCatalog();
+        ErrorCodeCatalogInfo catalog = service.getErrorCodeCatalog();
 
-        ErrorCodeCatalogItemResponse item = catalog.items().stream()
+        ErrorCodeCatalogInfo.Item item = catalog.items().stream()
             .filter(candidate -> "DOCS-0001".equals(candidate.code()))
             .findFirst()
             .orElseThrow();
@@ -65,22 +64,22 @@ class ErrorCodeCatalogQueryServiceTest {
     @DisplayName("생성된 ErrorCode manifest를 한 번만 읽고 캐싱한다")
     void 생성된_ErrorCode_manifest를_한_번만_읽고_캐싱한다() throws Exception {
         ObjectMapper objectMapper = mock(ObjectMapper.class);
-        ErrorCodeCatalogResponse response = new ErrorCodeCatalogResponse(
+        ErrorCodeCatalogInfo response = new ErrorCodeCatalogInfo(
             1,
             "umc-product-server",
             null,
             0,
             List.of()
         );
-        given(objectMapper.readValue(any(InputStream.class), eq(ErrorCodeCatalogResponse.class)))
+        given(objectMapper.readValue(any(InputStream.class), eq(ErrorCodeCatalogInfo.class)))
             .willReturn(response);
         ErrorCodeCatalogQueryService cachedService = new ErrorCodeCatalogQueryService(objectMapper);
 
-        ErrorCodeCatalogResponse first = cachedService.getErrorCodeCatalog();
-        ErrorCodeCatalogResponse second = cachedService.getErrorCodeCatalog();
+        ErrorCodeCatalogInfo first = cachedService.getErrorCodeCatalog();
+        ErrorCodeCatalogInfo second = cachedService.getErrorCodeCatalog();
 
         assertThat(first).isSameAs(response);
         assertThat(second).isSameAs(response);
-        verify(objectMapper).readValue(any(InputStream.class), eq(ErrorCodeCatalogResponse.class));
+        verify(objectMapper).readValue(any(InputStream.class), eq(ErrorCodeCatalogInfo.class));
     }
 }

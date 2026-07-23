@@ -1,0 +1,22 @@
+type Term {
+  id: ID!
+  type: TermType!
+  typeDescription: String
+  link: String!
+  mandatory: Boolean!
+  version: Long
+  createdAt: Instant
+  updatedAt: Instant
+}
+
+type RequiredTermConsentStatus {
+  needsReconsent: Boolean!
+  missingRequiredTerms: [Term!]!
+}
+
+enum TermType {
+  SERVICE
+  PRIVACY
+  MARKETING
+  LOCATION
+}

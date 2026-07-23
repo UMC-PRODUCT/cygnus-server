@@ -1,0 +1,12 @@
+extend type Query {
+  """중앙 운영 권한으로 감사 로그를 검색한다."""
+  auditLogs(filter: AuditLogFilter, page: PageInput): AuditLogPage!
+}
+
+input AuditLogFilter {
+  domain: AuditDomain
+  action: AuditAction
+  actorMemberId: ID
+  from: Instant
+  to: Instant
+}

@@ -1,0 +1,6 @@
+extend type Query {
+  """소비 도메인이 보유한 chat room ID 집합의 요약을 조회한다."""
+  chatRooms(ids: [ID!]!): [ChatRoomSummary!]!
+  """현재 Member가 참여한 chat room을 조회한다."""
+  chatRoom(id: ID!): ChatRoom
+}

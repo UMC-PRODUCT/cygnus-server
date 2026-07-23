@@ -1,0 +1,21 @@
+extend type Query {
+  """현재 Member의 audience에 맞는 활성 Feedback template을 조회한다."""
+  feedbackTemplate(context: UserFeedbackContext!): UserFeedbackTemplate
+}
+
+extend type Mutation {
+  """현재 Member의 Feedback 응답을 제출한다."""
+  submitFeedback(input: SubmitFeedbackInput!): FeedbackSubmission!
+}
+
+input SubmitFeedbackInput {
+  templateId: ID!
+  answers: [FeedbackAnswerInput!]!
+}
+
+input FeedbackAnswerInput {
+  questionId: ID!
+  textValue: String
+  selectedOptionIds: [ID!]
+  fileIds: [String!]
+}

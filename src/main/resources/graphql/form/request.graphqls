@@ -1,0 +1,7 @@
+extend type Query {
+  """
+  Form provider가 소유한 표준 구조를 조회한다.
+  게시 전 Form은 생성자에게만 반환한다.
+  """
+  form(id: ID!): Form
+}

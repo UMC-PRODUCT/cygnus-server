@@ -1,0 +1,10 @@
+extend type Query {
+  """특정 Gisu와 Part의 curriculum을 조회한다."""
+  curriculum(gisuId: ID!, part: ChallengerPart!, weekNo: Long): Curriculum
+  """현재 Member의 특정 Gisu curriculum 진행 상황을 조회한다."""
+  myCurriculum(gisuId: ID!): Curriculum
+  """원본 workbook resource를 조회한다."""
+  originalWorkbook(id: ID!): OriginalWorkbook
+  """Challenger에게 배포된 workbook resource를 조회한다."""
+  challengerWorkbook(id: ID!): ChallengerWorkbook
+}

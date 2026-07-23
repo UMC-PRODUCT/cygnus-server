@@ -1,7 +1,11 @@
 # Form GraphQL Contract
 
-Form aggregate의 표준 구조를 `output.graphqls`로 제공한다. 현재 Form 자체 root operation은 없고
-Project와 Recruiting이 use case를 통해 읽은 뒤 각자의 공개 계약으로 제공한다.
+Form aggregate의 표준 구조를 provider contract로 제공한다.
+
+- `form(id)`은 section, question, option을 포함한 표준 Form 구조를 반환한다.
+- draft는 생성자에게만 반환하고, 게시된 Form은 인증 회원이 조회할 수 있다.
+- Form 응답의 접근 권한과 lifecycle은 Feedback, Recruiting, Project 등 consumer가 자기 projection에서 제공한다.
+- consumer 전용 상태나 식별자는 Form 타입에 추가하지 않고 해당 도메인의 field에 둔다.
 
 ## 구조
 

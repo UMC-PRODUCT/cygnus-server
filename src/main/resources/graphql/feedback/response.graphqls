@@ -1,0 +1,22 @@
+type UserFeedbackTemplate {
+  templateId: ID!
+  context: UserFeedbackContext!
+  targetType: UserFeedbackTargetType!
+  form: Form!
+}
+
+type FeedbackSubmission {
+  formResponseId: ID!
+}
+
+enum UserFeedbackContext {
+  APPLICATION_SUBMITTED
+  MATCHING_COMPLETED
+  APPLICATION_MONITORING
+}
+
+enum UserFeedbackTargetType {
+  NEW_CHALLENGER
+  EXPERIENCED_CHALLENGER
+  ADMIN
+}

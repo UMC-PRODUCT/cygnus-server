@@ -7,8 +7,8 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogResponse;
 import com.umc.product.documentation.application.port.in.GetErrorCodeCatalogUseCase;
+import com.umc.product.documentation.application.port.in.dto.ErrorCodeCatalogInfo;
 import com.umc.product.documentation.domain.DocumentationDomainException;
 import com.umc.product.documentation.domain.DocumentationErrorCode;
 
@@ -22,11 +22,11 @@ public class ErrorCodeCatalogQueryService implements GetErrorCodeCatalogUseCase 
 
     private final ObjectMapper objectMapper;
 
-    private volatile ErrorCodeCatalogResponse cachedCatalog;
+    private volatile ErrorCodeCatalogInfo cachedCatalog;
 
     @Override
-    public ErrorCodeCatalogResponse getErrorCodeCatalog() {
-        ErrorCodeCatalogResponse snapshot = cachedCatalog;
+    public ErrorCodeCatalogInfo getErrorCodeCatalog() {
+        ErrorCodeCatalogInfo snapshot = cachedCatalog;
         if (snapshot == null) {
             synchronized (this) {
                 snapshot = cachedCatalog;
@@ -40,10 +40,10 @@ public class ErrorCodeCatalogQueryService implements GetErrorCodeCatalogUseCase 
         return snapshot;
     }
 
-    private ErrorCodeCatalogResponse loadCatalog() {
+    private ErrorCodeCatalogInfo loadCatalog() {
         ClassPathResource resource = new ClassPathResource(CATALOG_RESOURCE_PATH);
         try (InputStream inputStream = resource.getInputStream()) {
-            return objectMapper.readValue(inputStream, ErrorCodeCatalogResponse.class);
+            return objectMapper.readValue(inputStream, ErrorCodeCatalogInfo.class);
         } catch (IOException exception) {
             throw new DocumentationDomainException(
                 DocumentationErrorCode.ERROR_CODE_CATALOG_UNAVAILABLE,

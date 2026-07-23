@@ -1,0 +1,14 @@
+"""회원과 연결된 FCM 설치 식별자."""
+type FcmInstallation {
+  installationId: String!
+}
+
+type FcmInstallationDeletedPayload {
+  deletedInstallationId: String!
+}
+
+"""비동기로 접수된 FCM 발송 요청."""
+type FcmNotificationRequest {
+  requestId: ID!
+  queuedAt: Instant!
+}

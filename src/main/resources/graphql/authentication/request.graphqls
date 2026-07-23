@@ -1,0 +1,6 @@
+extend type Query {
+  """현재 회원이 연결한 OAuth 계정 목록을 조회한다."""
+  myOAuthConnections: [MemberOAuth!]!
+  """이메일 자격증명을 새로 사용할 수 있는지 확인한다."""
+  credentialEmailAvailable(email: String!): Boolean!
+}

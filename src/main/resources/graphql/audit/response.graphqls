@@ -1,0 +1,69 @@
+type AuditLogPage {
+  content: [AuditLog!]!
+  pageInfo: PageInfo!
+}
+
+type AuditLog {
+  id: ID!
+  domain: AuditDomain!
+  action: AuditAction!
+  targetType: String
+  targetId: String
+  actorMemberId: ID
+  actor: MemberPublic
+  description: String
+  details: String
+  ipAddress: String
+  createdAt: Instant!
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  REJECT
+  CHECK
+  SUBMIT
+  REGISTER
+  WITHDRAW
+  LOGIN
+  LINK
+  UNLINK
+  ACCESS_DENIED
+  PUBLISH
+  CANCEL
+  REMIND
+  REORDER
+  FINALIZE
+}
+
+enum AuditDomain {
+  COMMON
+  AUTHENTICATION
+  AUTHORIZATION
+  MEMBER
+  CHALLENGER
+  ORGANIZATION
+  CURRICULUM
+  SCHEDULE
+  COMMUNITY
+  NOTICE
+  FCM
+  FORM
+  RECRUITMENT
+  TERMS
+  EMAIL
+  STORAGE
+  WEBHOOK
+  AUDIT_LOG
+  PROJECT
+  LLM
+  ANALYTICS
+  CHAT
+  MAINTENANCE
+  FEEDBACK
+  BLOG
+  DOCUMENTATION
+  CERTIFICATE
+}

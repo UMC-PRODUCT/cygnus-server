@@ -1,0 +1,16 @@
+extend type Query {
+  """현재 Member에게 발급된 인증서를 조회한다."""
+  myCertificates: [Certificate!]!
+  """공개 serial number로 인증서 진위를 확인한다."""
+  certificateVerification(serialNumber: String!): CertificateVerification!
+}
+
+extend type Mutation {
+  """현재 Member가 발급 가능한 인증서를 발급한다."""
+  issueCertificate(input: IssueCertificateInput!): Certificate!
+}
+
+input IssueCertificateInput {
+  template: CertificateTemplate!
+  gisuId: ID!
+}

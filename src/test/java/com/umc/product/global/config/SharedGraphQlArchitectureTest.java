@@ -26,6 +26,8 @@ class SharedGraphQlArchitectureTest {
     private static final Map<String, String> PROVIDER_DECLARATION_OWNERS = Map.ofEntries(
         Map.entry("scalar Long", "shared/scalars.graphqls"),
         Map.entry("scalar Instant", "shared/scalars.graphqls"),
+        Map.entry("scalar LocalDate", "shared/scalars.graphqls"),
+        Map.entry("scalar LocalDateTime", "shared/scalars.graphqls"),
         Map.entry("input PageInput", "shared/pagination.graphqls"),
         Map.entry("type PageInfo", "shared/pagination.graphqls"),
         Map.entry("enum ChallengerPart", "challenger/output.graphqls"),

@@ -1,0 +1,24 @@
+extend type Query {
+  blogContents(
+    type: BlogContentType
+    seriesSlug: String
+    hashtagSlug: String
+    after: ID
+    first: Int = 20
+    sort: BlogContentSort = PUBLISHED_AT_DESC
+  ): BlogContentConnection!
+  blogContent(type: BlogContentType!, slug: String!): BlogContent
+  blogSeriesList(
+    type: BlogContentType
+    after: ID
+    first: Int = 20
+    sort: BlogSeriesSort = CREATED_AT_DESC
+  ): BlogSeriesConnection!
+  blogSeries(type: BlogContentType!, slug: String!): BlogSeries
+  blogHashtags(
+    type: BlogContentType
+    query: String
+    after: ID
+    first: Int = 20
+  ): BlogHashtagConnection!
+}

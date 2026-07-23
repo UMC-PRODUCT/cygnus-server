@@ -46,6 +46,8 @@ class GraphQlRuntimeWiringConfigTest {
         assertThat(graphQlSource.schema().getType("RecruitingApplicationForm")).isNotNull();
         assertThat(graphQlSource.schema().getType("Long")).isInstanceOf(GraphQLScalarType.class);
         assertThat(graphQlSource.schema().getType("Instant")).isInstanceOf(GraphQLScalarType.class);
+        assertThat(graphQlSource.schema().getType("LocalDate")).isInstanceOf(GraphQLScalarType.class);
+        assertThat(graphQlSource.schema().getType("LocalDateTime")).isInstanceOf(GraphQLScalarType.class);
         assertThat(graphQlSource.schema().getType("PageInput")).isInstanceOf(GraphQLInputObjectType.class);
         assertThat(graphQlSource.schema().getType("PageInfo")).isInstanceOf(GraphQLObjectType.class);
     }

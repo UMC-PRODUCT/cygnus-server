@@ -1,0 +1,32 @@
+type ErrorCodeCatalog {
+  schemaVersion: Int!
+  service: String!
+  generatedAt: String
+  totalCount: Int!
+  items: [ErrorCodeCatalogItem!]!
+}
+
+type ErrorCodeCatalogItem {
+  sequence: Int!
+  domain: String!
+  code: String!
+  name: String!
+  httpStatus: Int!
+  httpStatusName: String!
+  message: String!
+  description: String
+  clientAction: String
+  retryable: Boolean
+  severity: String
+  deprecated: Boolean!
+  replacementCode: String
+  owners: [String!]!
+  tags: [String!]!
+  source: ErrorCodeCatalogSource!
+}
+
+type ErrorCodeCatalogSource {
+  enumName: String!
+  file: String!
+  line: Int!
+}

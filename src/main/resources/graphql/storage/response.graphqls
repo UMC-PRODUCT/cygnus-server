@@ -1,0 +1,31 @@
+type FileUpload {
+  fileId: String!
+  uploadUrl: String!
+  uploadMethod: String!
+  headers: [FileUploadHeader!]!
+  expiresAt: LocalDateTime!
+}
+
+type FileUploadHeader {
+  name: String!
+  value: String!
+}
+
+type FileOperationPayload {
+  fileId: String!
+}
+
+enum FileCategory {
+  PROFILE_IMAGE
+  POST_IMAGE
+  POST_ATTACHMENT
+  NOTICE_ATTACHMENT
+  WORKBOOK_SUBMISSION
+  SCHOOL_LOGO
+  PORTFOLIO
+  CERTIFICATE
+  PROJECT_THUMBNAIL
+  PROJECT_LOGO
+  UMC_PRODUCT_PROFILE_IMAGE
+  ETC
+}

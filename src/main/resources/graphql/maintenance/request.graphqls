@@ -1,0 +1,24 @@
+extend type Query {
+  """현재 서비스 점검 상태를 조회한다."""
+  maintenanceStatus: MaintenanceStatus!
+  """SUPER_ADMIN이 전체 점검 window를 조회한다."""
+  maintenanceWindows: [MaintenanceWindow!]!
+  """SUPER_ADMIN이 점검 window 단건을 조회한다."""
+  maintenanceWindow(id: ID!): MaintenanceWindow
+}
+
+extend type Mutation {
+  """SUPER_ADMIN이 점검 window를 생성한다."""
+  startMaintenance(input: StartMaintenanceInput!): MaintenanceWindow!
+  """SUPER_ADMIN이 점검 window를 즉시 종료한다."""
+  endMaintenance(id: ID!): MaintenanceWindow!
+}
+
+input StartMaintenanceInput {
+  scope: MaintenanceScope!
+  targetDomains: [MaintenanceDomain!]!
+  startAt: Instant!
+  endAt: Instant!
+  title: String!
+  message: String!
+}

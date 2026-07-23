@@ -1,0 +1,15 @@
+extend type Mutation {
+  """파일 binary를 직접 전송하기 전에 signed upload 정보를 준비한다."""
+  prepareFileUpload(input: PrepareFileUploadInput!): FileUpload!
+  """외부 storage에 업로드한 파일을 사용 가능한 상태로 확정한다."""
+  confirmFileUpload(fileId: String!): FileOperationPayload!
+  """현재 Member가 소유한 파일을 삭제한다."""
+  deleteFile(fileId: String!): FileOperationPayload!
+}
+
+input PrepareFileUploadInput {
+  fileName: String!
+  contentType: String!
+  fileSize: Long!
+  category: FileCategory!
+}

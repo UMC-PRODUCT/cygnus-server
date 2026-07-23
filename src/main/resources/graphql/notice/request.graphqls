@@ -1,0 +1,13 @@
+extend type Query {
+  notices(filter: NoticeFilter!, page: PageInput): NoticePage!
+  notice(id: ID!): Notice
+}
+
+input NoticeFilter {
+  gisuId: ID!
+  chapterId: ID
+  schoolId: ID
+  part: ChallengerPart
+  tab: NoticeTab!
+  keyword: String
+}

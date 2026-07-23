@@ -1,6 +1,12 @@
 # Challenger GraphQL Contract
 
-Challenger 활동 분류와 lifecycle enum의 표준 output 계약을 제공한다. 현재 독립 root operation은 없다.
+`Challenger`는 Member가 특정 Gisu에서 수행한 활동 resource다. `memberId`와 `gisuId`는 각각
+`MemberPublic`, Organization `Gisu`를 참조하고 `points`는 Challenger aggregate가 소유한다.
+
+검색 filter의 School과 Chapter는 Challenger에 저장된 객체 관계가 아니라 Member/Organization
+소속을 기준으로 계산하는 조건이다.
+
+Challenger 활동 분류와 lifecycle enum 및 resource의 표준 output 계약을 제공한다.
 
 | 선언 | 나타내는 값 | 주요 소비 도메인 |
 |---|---|---|

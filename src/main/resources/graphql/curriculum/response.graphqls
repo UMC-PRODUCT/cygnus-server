@@ -1,0 +1,102 @@
+type Curriculum {
+  curriculumId: ID!
+  title: String!
+  weeks: [WeeklyCurriculum!]!
+}
+
+type WeeklyCurriculum {
+  weeklyCurriculumId: ID!
+  weekNo: Long!
+  title: String!
+  extra: Boolean!
+  startsAt: Instant!
+  endsAt: Instant!
+  workbooks: [OriginalWorkbook!]!
+}
+
+type OriginalWorkbook {
+  originalWorkbookId: ID!
+  title: String!
+  description: String
+  url: String
+  content: String
+  type: OriginalWorkbookType!
+  status: OriginalWorkbookStatus
+  releasedAt: Instant
+  releasedMemberId: ID
+  releasedMember: MemberPublic
+  missions: [WorkbookMission!]!
+  challengerWorkbookId: ID
+  challengerWorkbook: ChallengerWorkbook
+}
+
+type WorkbookMission {
+  originalWorkbookMissionId: ID!
+  title: String!
+  description: String
+  missionType: CurriculumMissionType!
+  necessary: Boolean!
+  submission: MissionSubmission
+}
+
+type ChallengerWorkbook {
+  challengerWorkbookId: ID!
+  originalWorkbookId: ID!
+  originalWorkbook: OriginalWorkbook
+  receivedStudyGroupId: ID
+  challengerId: ID!
+  challenger: Challenger
+  excused: Boolean!
+  excusedReason: String
+  content: String
+  bestWorkbook: Boolean!
+  submissions: [MissionSubmission!]!
+}
+
+type MissionSubmission {
+  missionSubmissionId: ID!
+  originalWorkbookMissionId: ID
+  submittedAsType: CurriculumMissionType!
+  submittedContent: String
+  submittedAt: Instant!
+  lastEditedAt: Instant!
+  status: CurriculumSubmissionStatus
+  feedbacks: [MissionFeedback!]!
+}
+
+type MissionFeedback {
+  missionFeedbackId: ID!
+  reviewerMemberId: ID!
+  reviewer: MemberPublic!
+  content: String!
+  feedbackResult: CurriculumFeedbackResult!
+}
+
+enum OriginalWorkbookType {
+  MAIN
+  EXTRA
+}
+
+enum OriginalWorkbookStatus {
+  DRAFT
+  READY
+  RELEASED
+}
+
+enum CurriculumMissionType {
+  LINK
+  MEMO
+  PLAIN
+}
+
+enum CurriculumSubmissionStatus {
+  PENDING
+  PASS
+  FAIL
+  LATE
+}
+
+enum CurriculumFeedbackResult {
+  PASS
+  FAIL
+}

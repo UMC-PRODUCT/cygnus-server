@@ -1,0 +1,41 @@
+extend type Mutation {
+  """현재 회원의 기기 설치와 FCM token을 등록하거나 갱신한다."""
+  registerFcmInstallation(input: RegisterFcmInstallationInput!): FcmInstallation!
+  """현재 회원의 기기 설치를 해제한다."""
+  unregisterFcmInstallation(installationId: String!): FcmInstallationDeletedPayload!
+  """운영진 권한 범위의 대상에게 FCM 알림 발송을 요청한다."""
+  requestFcmNotification(input: RequestFcmNotificationInput!): FcmNotificationRequest!
+}
+
+input RegisterFcmInstallationInput {
+  installationId: String!
+  fcmToken: String!
+  platform: String
+  appVersion: String
+}
+
+input RequestFcmNotificationInput {
+  target: FcmNotificationTargetInput!
+  message: FcmNotificationMessageInput!
+}
+
+input FcmNotificationTargetInput {
+  memberIds: [ID!]
+  gisuId: ID
+  chapterId: ID
+  schoolId: ID
+  parts: [ChallengerPart!]
+}
+
+input FcmNotificationMessageInput {
+  title: String!
+  body: String!
+  data: [KeyValueInput!]
+  imageUrl: String
+  deepLink: String
+}
+
+input KeyValueInput {
+  key: String!
+  value: String!
+}

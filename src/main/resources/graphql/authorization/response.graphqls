@@ -1,0 +1,83 @@
+type ChallengerRole {
+  id: ID!
+  challengerId: ID!
+  roleType: ChallengerRoleType!
+  organizationType: OrganizationType!
+  organizationId: ID!
+  responsiblePart: ChallengerPart
+  gisuId: ID!
+  gisu: Gisu
+}
+
+type ResourcePermission {
+  resourceType: ResourceType!
+  resourceId: ID!
+  grants: [PermissionGrant!]!
+}
+
+type PermissionGrant {
+  permission: PermissionType!
+  allowed: Boolean!
+}
+
+enum ChallengerRoleType {
+  CENTRAL_PRESIDENT
+  CENTRAL_VICE_PRESIDENT
+  CENTRAL_OPERATING_TEAM_MEMBER
+  CENTRAL_EDUCATION_TEAM_MEMBER
+  CHAPTER_PRESIDENT
+  SCHOOL_PRESIDENT
+  SCHOOL_VICE_PRESIDENT
+  SCHOOL_PART_LEADER
+  SCHOOL_ETC_ADMIN
+}
+
+enum OrganizationType {
+  CENTRAL
+  CHAPTER
+  SCHOOL
+}
+
+enum PermissionType {
+  READ
+  WRITE
+  EDIT
+  DELETE
+  FORCE_DELETE
+  APPROVE
+  CHECK
+  MANAGE
+  RELEASE
+}
+
+enum ResourceType {
+  AUDIT
+  SCHEDULE
+  ATTENDANCE
+  ATTENDANCE_SHEET
+  ATTENDANCE_RECORD
+  NOTICE
+  CURRICULUM
+  WORKBOOK_SUBMISSION
+  ORIGINAL_WORKBOOK
+  GISU
+  CHAPTER
+  SCHOOL
+  STUDY_GROUP
+  COMMUNITY_POST
+  COMMUNITY_COMMENT
+  BLOG_CONTENT
+  BLOG_SERIES
+  BLOG_COMMENT
+  RECRUITMENT
+  MEMBER
+  ANALYTICS
+  TERM
+  CHALLENGER
+  CHALLENGER_ROLE
+  CHALLENGER_POINT
+  CHALLENGER_RECORD
+  FCM
+  PROJECT
+  PROJECT_APPLICATION
+}

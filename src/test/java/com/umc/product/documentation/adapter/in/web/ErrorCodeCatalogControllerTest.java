@@ -16,10 +16,8 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogItemResponse;
-import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogResponse;
-import com.umc.product.documentation.adapter.in.web.dto.response.ErrorCodeCatalogSourceResponse;
 import com.umc.product.documentation.application.port.in.GetErrorCodeCatalogUseCase;
+import com.umc.product.documentation.application.port.in.dto.ErrorCodeCatalogInfo;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 
@@ -41,12 +39,12 @@ class ErrorCodeCatalogControllerTest {
     @Test
     @DisplayName("GET /api/v1/docs/error-codes 에러 코드 목록을 ApiResponse로 반환한다")
     void 에러_코드_목록을_ApiResponse로_반환한다() throws Exception {
-        given(getErrorCodeCatalogUseCase.getErrorCodeCatalog()).willReturn(new ErrorCodeCatalogResponse(
+        given(getErrorCodeCatalogUseCase.getErrorCodeCatalog()).willReturn(new ErrorCodeCatalogInfo(
             1,
             "umc-product-server",
             null,
             1,
-            List.of(new ErrorCodeCatalogItemResponse(
+            List.of(new ErrorCodeCatalogInfo.Item(
                 1,
                 "documentation",
                 "DOCS-0001",
@@ -62,7 +60,7 @@ class ErrorCodeCatalogControllerTest {
                 null,
                 List.of(),
                 List.of(),
-                new ErrorCodeCatalogSourceResponse(
+                new ErrorCodeCatalogInfo.Source(
                     "DocumentationErrorCode",
                     "src/main/java/com/umc/product/documentation/domain/DocumentationErrorCode.java",
                     23

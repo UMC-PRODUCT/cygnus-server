@@ -9,12 +9,27 @@
 |---|---|
 | `schema.graphqls` | 도메인 extension을 조립하기 위한 기술 root `Query`, `Mutation` |
 | `shared/` | transport scalar와 pagination 같은 platform contract |
-| `challenger/` | Challenger 도메인이 제공하는 part, track, status enum |
-| `form/` | Form 도메인이 제공하는 표준 form 구조 |
-| `member/` | Member 조회 요청과 표준 `MemberPublic`, `MemberPrivate` 응답 |
-| `organization/` | Gisu, Chapter, School 조회 요청과 표준 응답 |
-| `project/` | Project 조회 요청과 Project 전용 응답 projection |
-| `recruiting/` | Recruiting 요청과 Recruiting 전용 응답 projection |
+| `analytics/` | 운영 범위 기반 dashboard read model |
+| `audit/` | 감사 로그와 actor 관계 |
+| `authentication/` | OAuth 연결 조회와 credential 가용성 |
+| `authorization/` | ChallengerRole과 resource permission 판정 |
+| `blog/`, `community/`, `notice/` | 게시 resource, 작성자, 댓글과 viewer 상태 |
+| `certificate/` | 인증서 조회·발급·검증과 download |
+| `challenger/` | Challenger resource와 part, track, status enum |
+| `chat/` | consumer-owned room 식별자 기반 채팅 조회 |
+| `curriculum/` | curriculum, workbook, mission, submission |
+| `documentation/` | client error code catalog |
+| `feedback/` | Feedback consumer projection과 제출 |
+| `form/` | Form engine의 표준 form provider contract |
+| `maintenance/` | 점검 상태와 admin lifecycle |
+| `member/` | 표준 `MemberPublic`, 본인 전용 `MemberPrivate` |
+| `notification/` | FCM installation과 비동기 발송 command |
+| `organization/` | Gisu, Chapter, School, StudyGroup, UMC PRODUCT 조직 |
+| `project/` | Project resource와 Project 전용 Form projection |
+| `recruiting/` | canonical Season, Round, Application resource |
+| `schedule/` | 일정, 참여자와 권한 capability |
+| `storage/` | upload 준비·확정·삭제 command |
+| `term/` | 약관 조회·동의·관리 |
 
 각 도메인의 `request.graphqls`는 root operation과 input을, `response.graphqls` 또는
 `output.graphqls`는 도메인이 제공하는 output과 enum을 소유한다. 조회나 입력 계약이 없는 도메인은
@@ -40,6 +55,20 @@
 Spring GraphQL은 `classpath*:graphql/**/*.graphqls`를 모두 읽는다. 따라서 모든 root operation은
 `extend type Query` 또는 `extend type Mutation`으로 선언하고, 이름이 같은 type을 여러 파일에서
 재선언하지 않는다.
+
+## 공개 계약 제외
+
+다음 top-level package는 public GraphQL API 도메인이 아니다.
+
+| package | 제외 이유 |
+|---|---|
+| `common`, `global` | domain resource가 아닌 공통 모델과 runtime infrastructure |
+| `llm` | 다른 application service가 호출하는 내부 port이며 직접 client API가 아님 |
+| `figma`, `survey` | 현재 구현된 inbound use case가 없는 예약 package |
+| `test` | 개발·검증 전용 transport |
+
+`GraphQlDomainCoverageTest`가 모든 top-level package를 공개 계약 또는 위 제외 목록 중 하나로
+분류하도록 강제한다.
 
 ## 문서화 규칙
 

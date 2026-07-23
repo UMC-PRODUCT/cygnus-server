@@ -1,5 +1,20 @@
 # Organization GraphQL Contract
 
+Organization은 `Gisu`, `Chapter`, `School`, `StudyGroup`과 UMC PRODUCT 내부 조직 resource의
+provider contract를 소유한다.
+
+| field | 관계 | 의미 |
+|---|---|---|
+| `Gisu.chapters`, `Gisu.schools` | Gisu 편성 | 기수별 조직 구성 |
+| `Chapter.schools` | Chapter 편성 | 해당 지부에 참여한 학교 |
+| `StudyGroup.gisu` | `StudyGroup.gisuId -> Gisu.id` | 스터디가 운영되는 기수 |
+| `StudyGroup.mentors`, `members` | Member 참조 | 현재 그룹의 파트장과 스터디원 |
+| `UmcProductMember.member` | `memberId -> MemberPublic` | Member 도메인이 소유한 공개 identity |
+| `UmcProductOrganizationChart` | Chapter·Squad | 현재 활성 UMC PRODUCT 조직 |
+
+UMC PRODUCT의 Chapter는 UMC 기수 편성용 `Chapter`와 의미가 다르므로
+`UmcProductChapter`라는 Organization 내부 resource로 구분한다.
+
 Gisu, Chapter, School의 표준 조회 operation과 canonical 응답을 제공한다.
 
 ## 파일

@@ -109,6 +109,7 @@ batch Query UseCase에 전달한다. 서로 다른 권한을 가진 parent가 �
 | Query 또는 field | 정책 |
 | --- | --- |
 | `gisu`, `activeGisu`, `chapters`, `chapter`, `schools`, `school` | 공개 organization 조회 |
+| `umcProductOrganizationChart`, `umcProductMembers`, `umcProductMember`, `umcProductSquads` | 공개 UMC PRODUCT 조직 조회 |
 | `me` | 로그인한 본인 |
 | `member`, `members` | 대상별 `MEMBER READ` |
 | `memberSearch` | application query가 요청자의 조회 scope를 제한 |
@@ -122,6 +123,16 @@ batch Query UseCase에 전달한다. 서로 다른 권한을 가진 parent가 �
 | `RecruitingRound.management` | 해당 season의 Recruitment `READ`, 그 외 `null` |
 | `RecruitingApplication.private` | 지원자 본인 또는 올바른 credential, 그 외 `null` |
 | `RecruitingApplication.review` | Recruitment 운영자 또는 해당 round 평가자, 그 외 `null` |
+| `form` | 인증 필요, draft는 생성자에게만 반환 |
+| `managedStudyGroups` | 인증 회원의 application scope로 목록 제한 |
+| `studyGroup` | 대상별 `STUDY_GROUP READ` |
+| `adminAnalytics` | `ANALYTICS READ`; nested field는 허용된 root source에서만 실행 |
+| `auditLogs` | `AUDIT READ` |
+| `notice`, `notices` | 인증 및 Notice application scope, 상세는 `NOTICE READ` |
+| `myOAuthConnections`, `myCertificates`, `myCurriculum`, `chatRooms`, `mySchedules` | 인증한 본인 context |
+| Storage·Notification mutation | 인증 회원, 관리자 FCM 요청은 `FCM WRITE` 추가 검사 |
+| Maintenance admin query·mutation | `SUPER_ADMIN` policy |
+| `errorCodeCatalog`, 공개 약관·인증서 검증 | 공개 조회 |
 
 Project와 Recruiting이 canonical `MemberPublic`을 반환해도 Member private 정책은 바뀌지 않는다. Field 접근
 범위 차이를 `MemberSummary` 같은 별도 type으로 우회하지 않고 Member 소유 resolver에서 일관되게 판정한다.

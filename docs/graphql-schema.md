@@ -10,11 +10,14 @@ GraphQL pilot은 `src/main/resources/graphql` 아래의 도메인 IDL을 하나�
 flowchart TD
   Schema["Unified GraphQL Schema"] --> Query
   Schema --> Mutation
-  Query --> Member["me / member / members / memberSearch"]
-  Query --> Organization["gisu / chapter / school"]
-  Query --> Project["project / projects"]
-  Query --> Recruiting["5 Recruiting resource queries"]
-  Mutation --> RecruitingMutation["25 Recruiting lifecycle commands"]
+  Query --> Identity["Authentication / Authorization / Member / Challenger"]
+  Query --> Operation["Organization / Schedule / Curriculum / Analytics / Audit"]
+  Query --> Content["Blog / Community / Notice / Chat"]
+  Query --> Workflow["Form / Feedback / Project / Recruiting"]
+  Query --> Platform["Term / Certificate / Maintenance / Documentation"]
+  Mutation --> ResourceMutation["Feedback / Recruiting / Notification / Storage / Term / Certificate / Maintenance"]
+  ResourceMutation --> Async["FCM request / signed upload"]
+  ResourceMutation --> Lifecycle["Recruiting / Maintenance / Term"]
 ```
 
 ## Domain 관계
@@ -29,7 +32,10 @@ classDiagram
   class Gisu
   class Chapter
   class School
+  class StudyGroup
+  class UmcProductMember
   class Form
+  class FeedbackTemplate
   class Project
   class ProjectApplicationForm {
     <<Project projection>>
@@ -55,6 +61,15 @@ classDiagram
   class RecruitingApplicationReview {
     <<reviewer group>>
   }
+  class Schedule
+  class Notice
+  class BlogContent
+  class CommunityPost
+  class ChatRoom
+  class Curriculum
+  class Certificate
+  class AuditLog
+  class AdminAnalytics
 
   MemberPublic --> MemberPrivate : private
   MemberSearchEdge --> MemberPublic : member
@@ -63,6 +78,10 @@ classDiagram
   Gisu --> Chapter : chapters
   Gisu --> School : schools
   Chapter --> School : schools
+  StudyGroup --> Gisu : gisu
+  StudyGroup --> MemberPublic : mentors / members
+  UmcProductMember --> MemberPublic : member
+  FeedbackTemplate --> Form : form
   Project --> MemberPublic : owners / members
   Project --> ProjectApplicant : application snapshot
   Form ..> ProjectApplicationForm : converter
@@ -77,6 +96,20 @@ classDiagram
   RecruitingApplication --> RecruitingApplicationReview : review
   RecruitingRoundManagement --> MemberPublic : evaluators
   RecruitingApplicationReview --> MemberPublic : applicant
+  Schedule --> MemberPublic : author / participants
+  Notice --> MemberPublic : author
+  Notice --> Gisu : target.gisu
+  Notice --> Chapter : target.chapter
+  Notice --> School : target.school
+  BlogContent --> MemberPublic : author
+  CommunityPost --> MemberPublic : author
+  ChatRoom --> MemberPublic : members
+  Curriculum --> MemberPublic : reviewers
+  Certificate --> Gisu : gisu
+  AuditLog --> MemberPublic : actor
+  AdminAnalytics ..> Gisu : scope
+  AdminAnalytics ..> Chapter : scope
+  AdminAnalytics ..> School : scope
 ```
 
 Provider resource를 그대로 노출할 때는 canonical type을 직접 참조한다. 소비 문맥에서 구조를

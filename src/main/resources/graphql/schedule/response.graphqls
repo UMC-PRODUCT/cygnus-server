@@ -1,0 +1,67 @@
+type Schedule {
+  scheduleId: ID!
+  name: String!
+  description: String
+  tags: [ScheduleTag!]!
+  authorMemberId: ID!
+  author: MemberPublic!
+  startsAt: Instant!
+  endsAt: Instant!
+  online: Boolean!
+  location: ScheduleLocation
+  attendanceChecked: Boolean!
+  attendancePolicy: ScheduleAttendancePolicy
+  participants: [MemberPublic!]!
+  viewer: ScheduleViewer!
+}
+
+type ScheduleLocation {
+  latitude: Float!
+  longitude: Float!
+  locationName: String
+}
+
+type ScheduleAttendancePolicy {
+  checkInStartAt: Instant!
+  onTimeEndAt: Instant!
+  lateEndAt: Instant!
+}
+
+type ScheduleViewer {
+  participant: Boolean!
+  attendanceStatus: AttendanceStatus
+}
+
+type ScheduleCapabilities {
+  canCreateSchedule: Boolean!
+  canCreateAttendanceRequiredSchedule: Boolean!
+  maxParticipantCount: Int!
+}
+
+enum ScheduleTag {
+  LEADERSHIP
+  STUDY
+  DUES
+  MEETING
+  NETWORKING
+  HACKATHON
+  PROJECT
+  PRESENTATION
+  WORKSHOP
+  RETROSPECTIVE
+  AFTER_PARTY
+  ORIENTATION
+  GENERAL
+}
+
+enum AttendanceStatus {
+  PRESENT_PENDING
+  LATE_PENDING
+  EXCUSED_PENDING
+  ABSENT
+  PRESENT
+  LATE
+  EXCUSED
+  ABSENT_EXCUSE_PENDING
+  LATE_EXCUSE_PENDING
+}

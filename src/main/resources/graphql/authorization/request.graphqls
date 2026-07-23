@@ -1,0 +1,14 @@
+extend type Query {
+  """현재 Member가 가진 Challenger 운영 역할을 조회한다."""
+  myChallengerRoles(gisuId: ID): [ChallengerRole!]!
+  """운영 역할 식별자로 역할을 조회한다."""
+  challengerRole(id: ID!): ChallengerRole
+  """현재 Member가 여러 resource에 가진 권한을 일괄 판정한다."""
+  resourcePermissions(input: [ResourcePermissionInput!]!): [ResourcePermission!]!
+}
+
+input ResourcePermissionInput {
+  resourceType: ResourceType!
+  resourceIds: [ID!]!
+  permissionTypes: [PermissionType!]!
+}

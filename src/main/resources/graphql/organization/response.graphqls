@@ -50,3 +50,119 @@ enum SchoolLinkType {
   YOUTUBE
   INSTAGRAM
 }
+
+"""기수 안에서 운영되는 파트별 StudyGroup."""
+type StudyGroup {
+  groupId: ID!
+  name: String!
+  gisu: Gisu!
+  part: ChallengerPart!
+  createdAt: Instant!
+  mentors: [MemberPublic!]!
+  members: [MemberPublic!]!
+}
+
+"""현재 UMC PRODUCT 조직 구성."""
+type UmcProductOrganizationChart {
+  chapters: [UmcProductChapter!]!
+  squads: [UmcProductSquad!]!
+}
+
+type UmcProductChapter {
+  chapterId: ID!
+  code: String!
+  name: String!
+  description: String
+  sortOrder: Int!
+  active: Boolean!
+}
+
+type UmcProductSquad {
+  squadId: ID!
+  code: String!
+  name: String!
+  description: String
+  startDate: LocalDate!
+  endDate: LocalDate
+  sortOrder: Int!
+  active: Boolean!
+}
+
+type UmcProductMemberPage {
+  content: [UmcProductMember!]!
+  pageInfo: PageInfo!
+}
+
+type UmcProductMember {
+  umcProductMemberId: ID!
+  member: MemberPublic!
+  introduction: String
+  umcProductProfileImageId: String
+  umcProductProfileImageUrl: String
+  activityPeriods: [UmcProductMemberActivityPeriod!]!
+  chapterMemberships: [UmcProductChapterMembership!]!
+  productLeaderships: [UmcProductLeadership!]!
+  squadParticipations: [UmcProductSquadParticipation!]!
+}
+
+type UmcProductMemberActivityPeriod {
+  activityPeriodId: ID!
+  startDate: LocalDate!
+  endDate: LocalDate
+}
+
+type UmcProductChapterMembership {
+  chapterMembershipId: ID!
+  activityPeriodId: ID!
+  chapter: UmcProductChapter!
+  position: UmcProductPosition!
+  positionName: String!
+  responsibilityTitle: String
+  responsibilityDescription: String
+  startDate: LocalDate!
+  endDate: LocalDate
+}
+
+type UmcProductLeadership {
+  leadershipId: ID!
+  activityPeriodId: ID!
+  role: UmcProductLeadershipRole!
+  roleName: String!
+  startDate: LocalDate!
+  endDate: LocalDate
+}
+
+type UmcProductSquadParticipation {
+  squadParticipantId: ID!
+  activityPeriodId: ID!
+  squad: UmcProductSquad!
+  role: UmcProductSquadRole!
+  roleName: String!
+  position: UmcProductPosition!
+  positionName: String!
+  responsibilityTitle: String
+  responsibilityDescription: String
+  startDate: LocalDate!
+  endDate: LocalDate
+}
+
+enum UmcProductPosition {
+  UNSPECIFIED
+  PRODUCT_OWNER
+  PRODUCT_DESIGNER
+  IOS_DEVELOPER
+  ANDROID_DEVELOPER
+  WEB_DEVELOPER
+  SERVER_DEVELOPER
+  ETC
+}
+
+enum UmcProductSquadRole {
+  MEMBER
+  SQUAD_LEAD
+}
+
+enum UmcProductLeadershipRole {
+  UMC_PRODUCT_VICE_LEAD
+  UMC_PRODUCT_LEAD
+}

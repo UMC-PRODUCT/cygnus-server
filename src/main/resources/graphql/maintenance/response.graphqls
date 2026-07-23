@@ -1,0 +1,37 @@
+type MaintenanceStatus {
+  inMaintenance: Boolean!
+  current: MaintenanceWindow
+  upcoming: MaintenanceWindow
+}
+
+type MaintenanceWindow {
+  id: ID!
+  scope: MaintenanceScope!
+  targetDomains: [MaintenanceDomain!]!
+  startAt: Instant!
+  endAt: Instant!
+  title: String!
+  message: String!
+  forcedEndedAt: Instant
+  forcedEndedBy: ID
+  createdBy: ID!
+  createdAt: Instant!
+}
+
+enum MaintenanceScope {
+  FULL
+  PER_DOMAIN
+}
+
+enum MaintenanceDomain {
+  CHALLENGER
+  PROJECT
+  SCHEDULE
+  NOTICE
+  COMMUNITY
+  ORGANIZATION
+  NOTIFICATION
+  MEMBER
+  STORAGE
+  AUTHORIZATION
+}

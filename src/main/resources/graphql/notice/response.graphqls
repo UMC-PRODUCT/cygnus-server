@@ -1,0 +1,75 @@
+type NoticePage {
+  content: [Notice!]!
+  pageInfo: PageInfo!
+}
+
+type Notice {
+  id: ID!
+  title: String!
+  content: String!
+  authorMemberId: ID!
+  author: MemberPublic!
+  mustRead: Boolean!
+  target: NoticeTarget!
+  viewCount: Long!
+  createdAt: Instant!
+  vote: NoticeVote
+  images: [NoticeImage!]!
+  links: [NoticeLink!]!
+}
+
+type NoticeTarget {
+  gisuId: ID
+  gisu: Gisu
+  chapterId: ID
+  chapter: Chapter
+  schoolId: ID
+  school: School
+  parts: [ChallengerPart!]!
+  tab: NoticeTab!
+}
+
+type NoticeImage {
+  id: ID!
+  url: String!
+  displayOrder: Int!
+}
+
+type NoticeLink {
+  id: ID!
+  url: String!
+  displayOrder: Int!
+}
+
+type NoticeVote {
+  voteId: ID!
+  title: String!
+  anonymous: Boolean!
+  allowMultipleChoice: Boolean!
+  status: NoticeVoteStatus!
+  startsAt: Instant!
+  endsAtExclusive: Instant!
+  totalParticipants: Long!
+  options: [NoticeVoteOption!]!
+  mySelectedOptionIds: [ID!]!
+}
+
+type NoticeVoteOption {
+  optionId: ID!
+  content: String!
+  voteCount: Long!
+  voteRate: Float!
+}
+
+enum NoticeTab {
+  CHALLENGER
+  CENTRAL_MEMBER
+  SCHOOL_CORE
+  SCHOOL_PART_LEADER
+}
+
+enum NoticeVoteStatus {
+  NOT_STARTED
+  OPEN
+  CLOSED
+}

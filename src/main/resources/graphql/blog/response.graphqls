@@ -1,0 +1,127 @@
+type BlogContentConnection {
+  content: [BlogContent!]!
+  nextCursor: ID
+  hasNext: Boolean!
+}
+
+type BlogSeriesConnection {
+  content: [BlogSeries!]!
+  nextCursor: ID
+  hasNext: Boolean!
+}
+
+type BlogHashtagConnection {
+  content: [BlogHashtag!]!
+  nextCursor: ID
+  hasNext: Boolean!
+}
+
+type BlogCommentConnection {
+  content: [BlogComment!]!
+  nextCursor: ID
+  hasNext: Boolean!
+}
+
+type BlogContent {
+  id: ID!
+  type: BlogContentType!
+  slug: String!
+  title: String!
+  summary: String
+  thumbnailUrl: String
+  content: String
+  status: BlogContentStatus!
+  author: MemberPublic!
+  publishedAt: Instant
+  updatedAt: Instant!
+  canonicalPath: String!
+  seoTitle: String
+  seoDescription: String
+  ogImageUrl: String
+  series: [BlogSeries!]!
+  hashtags: [BlogHashtag!]!
+  viewer: BlogContentViewer!
+  comments(after: ID, first: Int = 20, sort: BlogCommentSort = CREATED_AT_DESC): BlogCommentConnection!
+}
+
+type BlogContentViewer {
+  liked: Boolean!
+  likeCount: Int!
+  canEdit: Boolean!
+  canDelete: Boolean!
+}
+
+type BlogSeries {
+  id: ID!
+  type: BlogContentType!
+  slug: String!
+  title: String!
+  description: String
+  thumbnailUrl: String
+  author: MemberPublic!
+  contentCount: Int!
+  updatedAt: Instant!
+  canonicalPath: String!
+  seoTitle: String
+  seoDescription: String
+  ogImageUrl: String
+  canEdit: Boolean!
+  canDelete: Boolean!
+  contents(after: ID, first: Int = 20): BlogContentConnection!
+}
+
+type BlogHashtag {
+  id: ID!
+  name: String!
+  slug: String!
+  contentCount: Int!
+  contents(type: BlogContentType, after: ID, first: Int = 20): BlogContentConnection!
+}
+
+type BlogComment {
+  id: ID!
+  author: MemberPublic
+  content: String!
+  createdAt: Instant!
+  likedByMe: Boolean!
+  likeCount: Int!
+  deletionType: BlogCommentDeletionType!
+  canReply: Boolean!
+  canEdit: Boolean!
+  canDelete: Boolean!
+  replies: [BlogComment!]!
+}
+
+enum BlogContentType {
+  ENGINEERING
+  DESIGN
+  PRODUCT
+  RELEASE
+}
+
+enum BlogContentStatus {
+  DRAFT
+  PUBLISHED
+  DELETED
+}
+
+enum BlogCommentDeletionType {
+  NONE
+  USER_DELETED
+  ADMIN_DELETED
+}
+
+enum BlogContentSort {
+  PUBLISHED_AT_DESC
+  PUBLISHED_AT_ASC
+}
+
+enum BlogSeriesSort {
+  CREATED_AT_DESC
+  CREATED_AT_ASC
+}
+
+enum BlogCommentSort {
+  CREATED_AT_DESC
+  CREATED_AT_ASC
+}

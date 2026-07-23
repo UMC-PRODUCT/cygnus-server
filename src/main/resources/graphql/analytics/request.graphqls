@@ -1,0 +1,27 @@
+extend type Query {
+  """운영진에게 허용된 범위의 분석 resource를 조회한다."""
+  adminAnalytics(input: AdminAnalyticsInput = {}): AdminAnalytics!
+}
+
+"""운영진 분석 범위를 좁히는 조건."""
+input AdminAnalyticsInput {
+  gisuId: ID
+  chapterId: ID
+  schoolId: ID
+  """위험군으로 분류할 누적 점수 상한. 기본값은 -8이다."""
+  riskThreshold: Int = -8
+}
+
+"""학교 분석 목록 조건."""
+input AdminAnalyticsSchoolFilter {
+  search: String
+  sort: AdminAnalyticsSchoolSort = RISK_CHALLENGER_COUNT_DESC
+}
+
+enum AdminAnalyticsSchoolSort {
+  RISK_CHALLENGER_COUNT_DESC
+  ACTIVE_CHALLENGER_COUNT_DESC
+  SCHOOL_NAME_ASC
+  AVERAGE_POINT_SUM_ASC
+  AVERAGE_POINT_SUM_DESC
+}

@@ -1,0 +1,134 @@
+"""선택된 운영 범위에서 계산하는 분석 resource."""
+type AdminAnalytics {
+  context: AdminAnalyticsContext!
+  summary: AdminAnalyticsSummary!
+  actionQueue: AdminAnalyticsActionQueue!
+  riskChallengers(page: PageInput): AdminRiskChallengerPage!
+  schools(filter: AdminAnalyticsSchoolFilter, page: PageInput): AdminSchoolAnalyticsPage!
+}
+
+type AdminAnalyticsContext {
+  roleType: AdminAnalyticsRoleType!
+  gisuId: ID
+  chapterId: ID
+  schoolId: ID
+  responsiblePart: ChallengerPart
+  scopeType: AdminAnalyticsScopeType!
+}
+
+type AdminAnalyticsSummary {
+  activeChallengerCount: Long!
+  newMemberCountThisWeek: Long!
+  newMemberDeltaPercent: Float!
+  activeSchoolCount: Long!
+  activeChapterCount: Long!
+  monthlyPointSum: AdminAnalyticsPointSum!
+  challengerStatusDistribution: [AdminAnalyticsStatusCount!]!
+}
+
+type AdminAnalyticsPointSum {
+  positive: Long!
+  negative: Long!
+}
+
+type AdminAnalyticsStatusCount {
+  status: ChallengerStatus!
+  count: Long!
+}
+
+type AdminAnalyticsActionQueue {
+  pendingAttendanceDecisionCount: Long!
+  newRiskMemberCountThisWeek: Long!
+  upcomingGraduationCount: Long!
+}
+
+type AdminRiskChallengerPage {
+  content: [AdminRiskChallenger!]!
+  pageInfo: PageInfo!
+}
+
+type AdminRiskChallenger {
+  challengerId: ID!
+  memberId: ID!
+  name: String!
+  schoolName: String!
+  part: ChallengerPart!
+  pointSum: Float!
+  latestNegativePoint: AdminLatestNegativePoint
+}
+
+type AdminLatestNegativePoint {
+  pointType: AdminAnalyticsPointType!
+  createdAt: Instant!
+  score: Float!
+}
+
+type AdminSchoolAnalyticsPage {
+  content: [AdminSchoolAnalytics!]!
+  pageInfo: PageInfo!
+}
+
+type AdminSchoolAnalytics {
+  schoolId: ID!
+  schoolName: String!
+  chapterId: ID!
+  chapterName: String!
+  activeChallengerCount: Long!
+  president: AdminAnalyticsStaff
+  vicePresident: AdminAnalyticsStaff
+  partLeaderRatio: AdminAnalyticsPartLeaderRatio!
+  averagePointSum: Float!
+  riskChallengerCount: Long!
+  newMemberCountThisWeek: Long!
+}
+
+type AdminAnalyticsStaff {
+  challengerId: ID!
+  name: String!
+}
+
+type AdminAnalyticsPartLeaderRatio {
+  assigned: Long!
+  totalRunningParts: Long!
+}
+
+enum AdminAnalyticsRoleType {
+  SUPER_ADMIN
+  CENTRAL_PRESIDENT
+  CENTRAL_VICE_PRESIDENT
+  CENTRAL_OPERATING_TEAM_MEMBER
+  CENTRAL_EDUCATION_TEAM_MEMBER
+  CHAPTER_PRESIDENT
+  SCHOOL_PRESIDENT
+  SCHOOL_VICE_PRESIDENT
+  SCHOOL_PART_LEADER
+  SCHOOL_ETC_ADMIN
+}
+
+enum AdminAnalyticsScopeType {
+  CENTRAL
+  CHAPTER
+  SCHOOL
+  SCHOOL_PART
+}
+
+enum AdminAnalyticsPointType {
+  BEST_WORKBOOK
+  WARNING
+  OUT
+  CUSTOM
+  BLOG_CHALLENGE
+  BEST_WORKBOOK_V2
+  UMC_EVENT_REVIEW
+  PEER_REVIEW_SUBMISSION
+  NO_WORKBOOK_MISSION
+  STUDY_LATE
+  STUDY_ABSENT
+  EVENT_LATE
+  EVENT_EARLY_LEAVE
+  EVENT_LATE_CANCEL
+  EVENT_NO_SHOW
+  PART_LEAD_FEEDBACK_LATE
+  SCHOOL_CORE_MEETING_ABSENT
+  SCHOOL_CORE_TASK_NOT_COMPLETED
+}

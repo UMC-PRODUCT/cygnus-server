@@ -3,6 +3,9 @@ package com.umc.product.global.config;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
@@ -36,19 +39,130 @@ public class GraphQlRuntimeWiringConfig {
         .coercing(new InstantCoercing())
         .build();
 
+    private static final GraphQLScalarType LOCAL_DATE_SCALAR = GraphQLScalarType.newScalar()
+        .name("LocalDate")
+        .description("ISO-8601 calendar date without a time zone")
+        .coercing(new LocalDateCoercing())
+        .build();
+
+    private static final GraphQLScalarType LOCAL_DATE_TIME_SCALAR = GraphQLScalarType.newScalar()
+        .name("LocalDateTime")
+        .description("ISO-8601 local date-time without a time zone")
+        .coercing(new LocalDateTimeCoercing())
+        .build();
+
     @Bean
     public RuntimeWiringConfigurer graphQlRuntimeWiringConfigurer() {
         return this::configure;
     }
 
     public void configure(graphql.schema.idl.RuntimeWiring.Builder builder) {
-        builder.scalar(LONG_SCALAR).scalar(INSTANT_SCALAR);
+        builder.scalar(LONG_SCALAR)
+            .scalar(INSTANT_SCALAR)
+            .scalar(LOCAL_DATE_SCALAR)
+            .scalar(LOCAL_DATE_TIME_SCALAR);
+    }
+
+    private abstract static class IsoTemporalCoercing<T> implements Coercing<T, String> {
+
+        private final Class<T> temporalType;
+        private final String scalarName;
+
+        private IsoTemporalCoercing(Class<T> temporalType, String scalarName) {
+            this.temporalType = temporalType;
+            this.scalarName = scalarName;
+        }
+
+        @Override
+        public String serialize(Object dataFetcherResult, GraphQLContext graphQlContext, Locale locale)
+            throws CoercingSerializeException {
+            if (temporalType.isInstance(dataFetcherResult)) {
+                return format(temporalType.cast(dataFetcherResult));
+            }
+            throw new CoercingSerializeException(scalarName + " scalar requires " + temporalType.getName());
+        }
+
+        @Override
+        public T parseValue(Object input, GraphQLContext graphQlContext, Locale locale)
+            throws CoercingParseValueException {
+            if (!(input instanceof String value)) {
+                throw new CoercingParseValueException(scalarName + " scalar requires an ISO-8601 string");
+            }
+            try {
+                return parse(value);
+            } catch (DateTimeParseException exception) {
+                throw new CoercingParseValueException(scalarName + " scalar cannot parse value", exception);
+            }
+        }
+
+        @Override
+        public T parseLiteral(
+            Value<?> input,
+            CoercedVariables variables,
+            GraphQLContext graphQlContext,
+            Locale locale
+        ) throws CoercingParseLiteralException {
+            if (!(input instanceof StringValue value)) {
+                throw new CoercingParseLiteralException(scalarName + " scalar requires an ISO-8601 string literal");
+            }
+            try {
+                return parse(value.getValue());
+            } catch (DateTimeParseException exception) {
+                throw new CoercingParseLiteralException(scalarName + " scalar cannot parse literal", exception);
+            }
+        }
+
+        @Override
+        public Value<?> valueToLiteral(Object input, GraphQLContext graphQlContext, Locale locale) {
+            if (temporalType.isInstance(input)) {
+                return new StringValue(format(temporalType.cast(input)));
+            }
+            throw new CoercingSerializeException(scalarName + " scalar requires " + temporalType.getName());
+        }
+
+        protected abstract T parse(String value);
+
+        protected abstract String format(T value);
+    }
+
+    private static class LocalDateCoercing extends IsoTemporalCoercing<LocalDate> {
+
+        private LocalDateCoercing() {
+            super(LocalDate.class, "LocalDate");
+        }
+
+        @Override
+        protected LocalDate parse(String value) {
+            return LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE);
+        }
+
+        @Override
+        protected String format(LocalDate value) {
+            return value.format(DateTimeFormatter.ISO_LOCAL_DATE);
+        }
+    }
+
+    private static class LocalDateTimeCoercing extends IsoTemporalCoercing<LocalDateTime> {
+
+        private LocalDateTimeCoercing() {
+            super(LocalDateTime.class, "LocalDateTime");
+        }
+
+        @Override
+        protected LocalDateTime parse(String value) {
+            return LocalDateTime.parse(value, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        }
+
+        @Override
+        protected String format(LocalDateTime value) {
+            return value.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        }
     }
 
     private static class InstantCoercing implements Coercing<Instant, String> {
 
         @Override
-        public String serialize(Object dataFetcherResult, GraphQLContext graphQLContext, Locale locale)
+        public String serialize(Object dataFetcherResult, GraphQLContext graphQlContext, Locale locale)
             throws CoercingSerializeException {
             if (dataFetcherResult instanceof Instant instant) {
                 return instant.toString();
@@ -57,7 +171,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Instant parseValue(Object input, GraphQLContext graphQLContext, Locale locale)
+        public Instant parseValue(Object input, GraphQLContext graphQlContext, Locale locale)
             throws CoercingParseValueException {
             if (!(input instanceof String value)) {
                 throw new CoercingParseValueException("Instant scalar requires an ISO-8601 string");
@@ -73,7 +187,7 @@ public class GraphQlRuntimeWiringConfig {
         public Instant parseLiteral(
             Value<?> input,
             CoercedVariables variables,
-            GraphQLContext graphQLContext,
+            GraphQLContext graphQlContext,
             Locale locale
         ) throws CoercingParseLiteralException {
             if (!(input instanceof StringValue value)) {
@@ -87,7 +201,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Value<?> valueToLiteral(Object input, GraphQLContext graphQLContext, Locale locale) {
+        public Value<?> valueToLiteral(Object input, GraphQLContext graphQlContext, Locale locale) {
             if (input instanceof Instant instant) {
                 return new StringValue(instant.toString());
             }
@@ -98,7 +212,7 @@ public class GraphQlRuntimeWiringConfig {
     private static class LongCoercing implements Coercing<Long, Long> {
 
         @Override
-        public Long serialize(Object dataFetcherResult, GraphQLContext graphQLContext, Locale locale)
+        public Long serialize(Object dataFetcherResult, GraphQLContext graphQlContext, Locale locale)
             throws CoercingSerializeException {
             try {
                 return toLong(dataFetcherResult);
@@ -108,7 +222,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Long parseValue(Object input, GraphQLContext graphQLContext, Locale locale)
+        public Long parseValue(Object input, GraphQLContext graphQlContext, Locale locale)
             throws CoercingParseValueException {
             try {
                 return toLong(input);
@@ -121,7 +235,7 @@ public class GraphQlRuntimeWiringConfig {
         public Long parseLiteral(
             Value<?> input,
             CoercedVariables variables,
-            GraphQLContext graphQLContext,
+            GraphQLContext graphQlContext,
             Locale locale
         ) throws CoercingParseLiteralException {
             try {
@@ -138,7 +252,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Value<?> valueToLiteral(Object input, GraphQLContext graphQLContext, Locale locale) {
+        public Value<?> valueToLiteral(Object input, GraphQLContext graphQlContext, Locale locale) {
             return new IntValue(BigInteger.valueOf(toLong(input)));
         }
 

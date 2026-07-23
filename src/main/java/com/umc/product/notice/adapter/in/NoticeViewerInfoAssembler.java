@@ -1,4 +1,4 @@
-package com.umc.product.notice.adapter.in.web.assembler;
+package com.umc.product.notice.adapter.in;
 
 import java.util.Comparator;
 import java.util.HashSet;

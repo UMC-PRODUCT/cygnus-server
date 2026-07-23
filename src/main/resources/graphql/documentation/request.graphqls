@@ -1,0 +1,4 @@
+extend type Query {
+  """클라이언트가 처리할 수 있는 서버 error code catalog를 조회한다."""
+  errorCodeCatalog: ErrorCodeCatalog!
+}

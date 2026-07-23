@@ -1,0 +1,47 @@
+type ChallengerPage {
+  content: [Challenger!]!
+  pageInfo: PageInfo!
+}
+
+type Challenger {
+  challengerId: ID!
+  memberId: ID!
+  member: MemberPublic!
+  gisuId: ID!
+  gisu: Gisu!
+  part: ChallengerPart!
+  tracks: [ChallengerTrack!]!
+  points: [ChallengerPoint!]!
+  totalPoints: Float!
+  status: ChallengerStatus!
+}
+
+type ChallengerPoint {
+  id: ID!
+  challengerId: ID!
+  pointType: ChallengerPointType!
+  point: Float!
+  description: String
+  createdAt: Instant!
+}
+
+enum ChallengerPointType {
+  BEST_WORKBOOK
+  WARNING
+  OUT
+  CUSTOM
+  BLOG_CHALLENGE
+  BEST_WORKBOOK_V2
+  UMC_EVENT_REVIEW
+  PEER_REVIEW_SUBMISSION
+  NO_WORKBOOK_MISSION
+  STUDY_LATE
+  STUDY_ABSENT
+  EVENT_LATE
+  EVENT_EARLY_LEAVE
+  EVENT_LATE_CANCEL
+  EVENT_NO_SHOW
+  PART_LEAD_FEEDBACK_LATE
+  SCHOOL_CORE_MEETING_ABSENT
+  SCHOOL_CORE_TASK_NOT_COMPLETED
+}
