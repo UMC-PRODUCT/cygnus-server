@@ -194,6 +194,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
     private FormResponse loadDraft(Long formResponseId) {
         FormResponse formResponse = loadFormResponsePort.findById(formResponseId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
+        requirePublished(formResponse);
         if (formResponse.getStatus() != FormResponseStatus.DRAFT) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
@@ -230,6 +231,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerPort.findById(answerId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.ANSWER_NOT_FOUND));
         FormResponse draft = existing.getFormResponse();
+        requirePublished(draft);
         if (draft.getStatus() != FormResponseStatus.DRAFT) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
@@ -253,6 +255,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        requirePublished(draft);
         if (draft.getRespondentMemberId() != null) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
@@ -273,6 +276,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerPort.findById(answerId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
         FormResponse draft = existing.getFormResponse();
+        requirePublished(draft);
         if (draft.getStatus() != FormResponseStatus.DRAFT
             || draft.getRespondentMemberId() != null) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
@@ -294,6 +298,12 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
         }
         return question;
+    }
+
+    private static void requirePublished(FormResponse formResponse) {
+        if (!formResponse.getForm().isPublished()) {
+            throw new FormDomainException(FormErrorCode.FORM_NOT_PUBLISHED);
+        }
     }
 
     /**

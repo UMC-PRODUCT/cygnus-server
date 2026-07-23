@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>UMC PRODUCT Realtime API</title>
+    <link href="/umc-logo.svg" rel="icon" type="image/svg+xml">
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/@asyncapi/react-component@3.1.4/styles/default.min.css"
+    >
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Inter, Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --header-height: 56px;
+            --border: #e5e7eb;
+            --muted: #667085;
+            --surface: #ffffff;
+            --surface-subtle: #f8fafc;
+            --accent: #0f766e;
+        }
+
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0;
+            min-height: 100%;
+            background: var(--surface-subtle);
+        }
+
+        .docs-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            min-height: var(--header-height);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border);
+            background: rgba(255, 255, 255, .96);
+            backdrop-filter: blur(12px);
+        }
+
+        .brand, .docs-links {
+            display: flex;
+            align-items: center;
+        }
+
+        .brand { gap: 10px; }
+        .brand img { width: 28px; height: 28px; }
+
+        .brand-copy strong {
+            display: block;
+            color: #101828;
+            font-size: 14px;
+            line-height: 1.2;
+        }
+
+        .brand-copy span {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .docs-links {
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .docs-links a {
+            padding: 7px 10px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #344054;
+            background: var(--surface);
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        .docs-links a.primary {
+            border-color: var(--accent);
+            color: white;
+            background: var(--accent);
+        }
+
+        #asyncapi {
+            min-height: calc(100vh - var(--header-height));
+            background: var(--surface);
+        }
+
+        .loading {
+            display: grid;
+            min-height: calc(100vh - var(--header-height));
+            place-items: center;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        @media (max-width: 720px) {
+            .docs-header { align-items: flex-start; }
+            .brand-copy span { display: none; }
+            .docs-links { gap: 5px; }
+            .docs-links a { padding: 6px 8px; }
+        }
+    </style>
+</head>
+<body>
+<header class="docs-header">
+    <div class="brand">
+        <img src="/umc-logo.svg" alt="UMC PRODUCT">
+        <div class="brand-copy">
+            <strong>Realtime API</strong>
+            <span>Community Thread · WebSocket / STOMP 1.2</span>
+        </div>
+    </div>
+    <nav class="docs-links" aria-label="API 문서 이동">
+        <a href="/docs">REST API</a>
+        <a href="/docs/community-thread.html">테스트 콘솔</a>
+        <a href="/docs/asyncapi.yaml" download>원본 YAML</a>
+        <a class="primary" href="https://www.asyncapi.com/docs" target="_blank" rel="noreferrer">AsyncAPI</a>
+    </nav>
+</header>
+<main id="asyncapi">
+    <div class="loading">Realtime API 명세를 불러오는 중입니다.</div>
+</main>
+
+<script src="https://unpkg.com/@asyncapi/react-component@3.1.4/browser/standalone/index.js"></script>
+<script>
+    AsyncApiStandalone.render({
+        schema: {
+            url: "/docs/asyncapi.yaml",
+            options: {method: "GET"}
+        },
+        config: {
+            schemaID: "umc-product-community-thread-realtime-api",
+            show: {
+                sidebar: true,
+                info: true,
+                servers: true,
+                operations: true,
+                messages: true,
+                schemas: true,
+                errors: true
+            }
+        }
+    }, document.getElementById("asyncapi"));
+</script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 # Notification 테스트 케이스
 
-- 테스트 파일: 17개
-- 테스트 케이스: 61개 (`@Test` 60 + `@ParameterizedTest` 1)
+- 테스트 파일: 29개
+- 테스트 케이스: 93개 (`@Test` 92 + `@ParameterizedTest` 1)
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 - source of truth: `src/test/java/com/umc/product/notification`의 현재 파일과 JUnit test annotation
 

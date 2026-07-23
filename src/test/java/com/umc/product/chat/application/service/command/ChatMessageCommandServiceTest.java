@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 
 import java.time.Instant;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,7 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
-import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
+import com.umc.product.chat.application.port.in.command.UpdateChatReadUseCase;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
@@ -59,6 +61,8 @@ class ChatMessageCommandServiceTest {
     @Mock
     ChatRoomAccessPolicy chatRoomAccessPolicy;
     @Mock
+    UpdateChatReadUseCase updateChatReadUseCase;
+    @Mock
     DomainEventPublisher domainEventPublisher;
 
     @InjectMocks
@@ -85,6 +89,10 @@ class ChatMessageCommandServiceTest {
         // 방 row 락을 잡은 뒤 저장한다(동시 전송 직렬화)
         then(loadChatRoomPort).should().getByIdForUpdate(1L);
         then(saveChatMessagePort).should().save(any(ChatMessage.class));
+        InOrder lockOrder = inOrder(loadChatRoomPort, chatRoomAccessPolicy, saveChatMessagePort);
+        lockOrder.verify(loadChatRoomPort).getByIdForUpdate(1L);
+        lockOrder.verify(chatRoomAccessPolicy).verifyMember(1L, 10L);
+        lockOrder.verify(saveChatMessagePort).save(any(ChatMessage.class));
         // 발신자 읽음 위치는 원자 단조 갱신으로 처리한다
         then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 100L);
 
@@ -260,64 +268,6 @@ class ChatMessageCommandServiceTest {
         then(chatAttachmentPolicy).shouldHaveNoInteractions();
         then(saveChatMessagePort).shouldHaveNoInteractions();
         then(domainEventPublisher).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("방 멤버가 아니면 전송할 수 없고 저장/발행하지 않는다")
-    void send_notMember() {
-        SendChatMessageCommand command =
-            new SendChatMessageCommand(1L, 10L, MessageContentType.TEXT, "안녕", null);
-        willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
-
-        assertThatThrownBy(() -> sut.send(command))
-            .isInstanceOf(ChatDomainException.class)
-            .extracting(e -> ((ChatDomainException) e).getBaseCode())
-            .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
-
-        then(saveChatMessagePort).shouldHaveNoInteractions();
-        then(domainEventPublisher).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("읽음 처리 시 클라이언트가 확인한 메시지 id로 읽음 위치를 원자 단조 갱신한다")
-    void markRead() {
-        given(loadChatMessagePort.getByIdAndRoomId(40L, 1L))
-            .willReturn(ChatMessage.create(1L, 20L, MessageContentType.TEXT, "확인한 메시지", null));
-
-        sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L));
-
-        then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
-        then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 40L);
-    }
-
-    @Test
-    @DisplayName("확인한 메시지가 해당 방에 없으면 읽음 위치를 갱신하지 않는다")
-    void markRead_messageNotFound() {
-        willThrow(new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND))
-            .given(loadChatMessagePort).getByIdAndRoomId(40L, 1L);
-
-        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L)))
-            .isInstanceOf(ChatDomainException.class)
-            .extracting(e -> ((ChatDomainException) e).getBaseCode())
-            .isEqualTo(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND);
-
-        then(saveChatMemberPort).shouldHaveNoInteractions();
-    }
-
-    @Test
-    @DisplayName("읽음 처리 요청자가 방 멤버가 아니면 예외를 던지고 최신 메시지 조회/갱신을 하지 않는다")
-    void markRead_notMember() {
-        willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
-
-        assertThatThrownBy(() -> sut.markRead(MarkChatRoomReadCommand.of(1L, 10L, 40L)))
-            .isInstanceOf(ChatDomainException.class)
-            .extracting(e -> ((ChatDomainException) e).getBaseCode())
-            .isEqualTo(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
-
-        then(loadChatMessagePort).shouldHaveNoInteractions();
-        then(saveChatMemberPort).shouldHaveNoInteractions();
     }
 
     private FileMetadataInfo fileMetadataInfo(String fileId, String extension, String contentType) {

@@ -101,7 +101,9 @@ Proposed
 12. **Chat engine 과 소비 도메인의 실시간 책임을 분리한다.** 상세 책임과 consumer 구현 계약은 [ADR-026](./026-separate-chat-engine-consumer-realtime-responsibilities.md)을 따른다. Chat engine 은 외부 STOMP destination 을 직접 제공하지 않고 chat 도메인 이벤트만 발행한다.
     - 실제 topic, broadcast, resource → roomId 매핑과 접근 규칙은 inquiry/community 같은 소비 도메인이 소유한다.
     - 공통 `StompAuthChannelInterceptor` 는 `/topic`, `/queue` 로 시작하는 SUBSCRIBE 를 `StompSubscriptionAuthorizerRegistry` 에 위임한다. 지원 authorizer 가 없거나 둘 이상이거나 인가에 실패하면 fail-closed 처리한다.
-    - `/user/queue/errors` 는 공통 오류 수신 경로로만 허용한다. 그 외 `/user/**` SUBSCRIBE 와 모든 `/user/**` 직접 SEND 는 차단한다.
+    - `/user/queue/errors` 는 공통 오류 수신 경로로 exact 허용한다. 그 외 `/user/**` SUBSCRIBE 는
+      `StompSubscriptionAuthorizerRegistry`의 exact-match 승인을 요구하고, 모든 `/user/**` 직접 SEND 는
+      차단한다. Community Thread user destination 결정은 [ADR-026](./026-separate-chat-engine-consumer-realtime-responsibilities.md)을 따른다.
     - `/app/**` SEND 는 소비 도메인의 inbound adapter 가 받고, 해당 adapter 가 호출하는 UseCase 에서 resource 매핑과 전송 권한을 검증한다. 공통 registry 가 소비 도메인의 SEND 정책을 대신하지 않는다.
     - STOMP 1.0/1.1 `CONNECT` 와 STOMP 1.2 `STOMP` 연결 명령은 모두 동일하게 JWT 를 검증한다.
     - 서버 전용 `MESSAGE` 명령이 client inbound 로 들어오면 destination 과 관계없이 거부한다.

@@ -47,6 +47,8 @@ public enum FormErrorCode implements BaseCode {
         "제출 범위가 올바르지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
     INVALID_NEXT_SECTION_SELF_LOOP(HttpStatus.BAD_REQUEST, "FORM-0037",
         "조건부 섹션 이동은 자기 자신을 대상으로 할 수 없어요. 이동 대상 섹션을 다시 선택해주세요."),
+    FORM_INVALID_TRANSITION(HttpStatus.CONFLICT, "FORM-0038", "현재 폼 상태에서는 할 수 없는 작업이에요."),
+    FORM_HAS_RESPONSES(HttpStatus.CONFLICT, "FORM-0039", "응답이 있는 폼은 초안 상태로 되돌릴 수 없어요."),
     ;
 
     private final HttpStatus httpStatus;

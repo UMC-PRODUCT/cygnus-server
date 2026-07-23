@@ -10,11 +10,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
+import com.umc.product.member.application.port.out.dto.SearchMemberInvitationCondition;
 import com.umc.product.member.domain.Member;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.PersistenceAdapterTest;
@@ -277,6 +280,51 @@ class MemberQueryRepositoryTest {
             .extracting(Challenger::getId)
             .doesNotContain(denied.getId());
         assertThat(memberIds.getContent()).containsExactly(allowedMember.getId());
+    }
+
+    @Test
+    @DisplayName("초대 후보는 Challenger 이력과 무관하게 활성 회원만 제외 목록과 이름으로 페이지한다")
+    void 초대_후보는_활성_회원_기준으로_페이지한다() {
+        // given
+        School school = persistSchool("초대대학교");
+        Member blocked = persistMember("검색가", "blocked", "blocked@test.com", school.getId());
+        Member withoutChallenger = persistMember("검색나", "none", "invite-none@test.com", school.getId());
+        Member withChallenger = persistMember("검색다", "history", "invite-history@test.com", school.getId());
+        Member inactive = persistMember("검색라", "inactive", "invite-inactive@test.com", school.getId());
+        ReflectionTestUtils.setField(inactive, "status", MemberStatus.INACTIVE);
+        persistChallenger(withChallenger.getId(), ChallengerPart.WEB, 9L);
+        em.flush();
+        em.clear();
+
+        // when
+        var firstPage = sut.searchInvitationCandidates(new SearchMemberInvitationCondition(
+            "검색", Set.of(blocked.getId()), 0, 1
+        ));
+        var secondPage = sut.searchInvitationCandidates(new SearchMemberInvitationCondition(
+            "검색", Set.of(blocked.getId()), 1, 1
+        ));
+        Set<Long> activeMemberIds = sut.findActiveMemberIds(Set.of(
+            blocked.getId(),
+            withoutChallenger.getId(),
+            withChallenger.getId(),
+            inactive.getId(),
+            Long.MAX_VALUE
+        ));
+
+        // then
+        assertThat(firstPage.items())
+            .extracting(candidate -> candidate.memberId())
+            .containsExactly(withoutChallenger.getId());
+        assertThat(firstPage.total()).isEqualTo(2L);
+        assertThat(secondPage.items())
+            .extracting(candidate -> candidate.memberId())
+            .containsExactly(withChallenger.getId());
+        assertThat(secondPage.total()).isEqualTo(2L);
+        assertThat(activeMemberIds).containsExactlyInAnyOrder(
+            blocked.getId(),
+            withoutChallenger.getId(),
+            withChallenger.getId()
+        );
     }
 
     private School persistSchool(String name) {

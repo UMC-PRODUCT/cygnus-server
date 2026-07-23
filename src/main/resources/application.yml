@@ -418,6 +418,22 @@ app:
       maximum-size: ${API_RATE_LIMIT_CACHE_MAXIMUM_SIZE:100000}
       expire-after-access: ${API_RATE_LIMIT_CACHE_EXPIRE_AFTER_ACCESS:PT10M}
 
+  websocket:
+    broker:
+      mode: ${WEBSOCKET_BROKER_MODE:simple}
+      relay:
+        host: ${WEBSOCKET_BROKER_RELAY_HOST:}
+        port: ${WEBSOCKET_BROKER_RELAY_PORT:}
+        tls-enabled: ${WEBSOCKET_BROKER_RELAY_TLS_ENABLED:true}
+        virtual-host: ${WEBSOCKET_BROKER_RELAY_VIRTUAL_HOST:}
+        system-login: ${WEBSOCKET_BROKER_RELAY_SYSTEM_LOGIN:}
+        system-password: ${WEBSOCKET_BROKER_RELAY_SYSTEM_PASSWORD:}
+        client-login: ${WEBSOCKET_BROKER_RELAY_CLIENT_LOGIN:}
+        client-password: ${WEBSOCKET_BROKER_RELAY_CLIENT_PASSWORD:}
+        system-heartbeat-send-interval: ${WEBSOCKET_BROKER_RELAY_HEARTBEAT_SEND_INTERVAL:PT10S}
+        system-heartbeat-receive-interval: ${WEBSOCKET_BROKER_RELAY_HEARTBEAT_RECEIVE_INTERVAL:PT10S}
+        startup-timeout: ${WEBSOCKET_BROKER_RELAY_STARTUP_TIMEOUT:PT5S}
+
   event-outbox:
     relay-enabled: ${EVENT_OUTBOX_RELAY_ENABLED:true}
     poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
@@ -434,7 +450,11 @@ app:
   fcm:
     enabled: ${FCM_ENABLED:false}
     outbox-interval-ms: ${FCM_OUTBOX_INTERVAL_MS:60000}
-    firebase-configuration: ${FIREBASE_CONFIGURATION}
+    token-validation-enabled: ${FCM_TOKEN_VALIDATION_ENABLED:true}
+    token-validation-interval-ms: ${FCM_TOKEN_VALIDATION_INTERVAL_MS:86400000}
+    token-validation-batch-size: ${FCM_TOKEN_VALIDATION_BATCH_SIZE:500}
+    token-validation-stale-duration: ${FCM_TOKEN_VALIDATION_STALE_DURATION:P30D}
+    firebase-configuration: ${FIREBASE_CONFIGURATION:}
 
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}
@@ -631,3 +651,8 @@ decorator:
   datasource:
     p6spy:
       enable-logging: ${P6SPY_ENABLE_LOGGING:true}
+
+app:
+  websocket:
+    broker:
+      mode: ${WEBSOCKET_BROKER_MODE:simple}

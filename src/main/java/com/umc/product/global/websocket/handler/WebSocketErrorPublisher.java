@@ -4,11 +4,8 @@ import org.springframework.context.event.EventListener;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Component;
 
-import com.umc.product.global.response.ApiResponse;
-import com.umc.product.global.response.code.BaseCode;
-
 /**
- * WebSocket 세션 사용자에게 ApiResponse 형식의 에러 메시지를 전송한다.
+ * WebSocket 세션 사용자에게 command correlation을 포함한 typed 에러 메시지를 전송한다.
  */
 @Component
 public class WebSocketErrorPublisher {
@@ -26,16 +23,10 @@ public class WebSocketErrorPublisher {
      */
     @EventListener
     public void sendErrorToUser(WebSocketErrorEvent event) {
-        sendErrorToUser(event.userName(), event.errorCode());
-    }
-
-    private void sendErrorToUser(String userName, BaseCode errorCode) {
-        ApiResponse<Object> response = ApiResponse.onFailure(
-            errorCode.getCode(),
-            errorCode.getMessage(),
-            null
+        messagingTemplate.convertAndSendToUser(
+            event.userName(),
+            USER_ERROR_DESTINATION,
+            WebSocketErrorPayload.from(event)
         );
-
-        messagingTemplate.convertAndSendToUser(userName, USER_ERROR_DESTINATION, response);
     }
 }

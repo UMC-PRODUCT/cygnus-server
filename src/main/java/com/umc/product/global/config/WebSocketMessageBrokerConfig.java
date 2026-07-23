@@ -1,9 +1,14 @@
 package com.umc.product.global.config;
 
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import org.springframework.core.env.Environment;
 import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
+import org.springframework.messaging.simp.config.SimpleBrokerRegistration;
+import org.springframework.messaging.simp.config.StompBrokerRelayRegistration;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -17,6 +22,7 @@ import com.umc.product.global.websocket.interceptor.StompPrincipalInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketInboundMetricInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketOutboundMetricInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketRateLimitInterceptor;
+import com.umc.product.global.websocket.relay.RelayDestinationChannelInterceptors;
 
 import io.micrometer.context.ContextSnapshot;
 import io.micrometer.context.ContextSnapshotFactory;
@@ -26,8 +32,13 @@ import lombok.RequiredArgsConstructor;
 
 @Configuration
 @EnableWebSocketMessageBroker
+@EnableConfigurationProperties(WebSocketBrokerProperties.class)
+@Import(StompSendAuthorizationConfig.class)
 @RequiredArgsConstructor
 public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfigurer {
+
+    private static final String USER_DESTINATION_BROADCAST = "/topic/__internal.user-destination";
+    private static final String USER_REGISTRY_BROADCAST = "/topic/__internal.user-registry";
 
     private final StompPrincipalInterceptor stompPrincipalInterceptor;
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
@@ -38,6 +49,9 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
     private final ApiResponseStompErrorHandler apiResponseStompErrorHandler;
     private final ObservationRegistry observationRegistry;
     private final ContextSnapshotFactory snapshotFactory;
+    private final WebSocketBrokerProperties brokerProperties;
+    private final Environment environment;
+    private final RelayDestinationChannelInterceptors relayDestinationChannelInterceptors;
 
     @Bean
     public ThreadPoolTaskScheduler webSocketHeartbeatScheduler() {
@@ -57,20 +71,56 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // TODO: simple broker는 인스턴스 메모리 기반이므로 다중 인스턴스 배포 전 외부 broker relay 또는 분산 BroadcastPort로 교체해야 함
-        registry.enableSimpleBroker("/topic", "/queue")
-            .setHeartbeatValue(new long[]{4000, 4000})
-            .setTaskScheduler(webSocketHeartbeatScheduler());
+        WebSocketBrokerPropertiesValidator.validate(brokerProperties, environment);
+        ThreadPoolTaskScheduler heartbeatScheduler = webSocketHeartbeatScheduler();
+        registry.configureBrokerChannel()
+            .interceptors(relayDestinationChannelInterceptors.toBroker());
+
+        switch (brokerProperties.mode()) {
+            case SIMPLE -> configureSimpleBroker(registry, heartbeatScheduler);
+            case RELAY -> configureRelayBroker(registry, heartbeatScheduler, brokerProperties.relay());
+        }
         registry.setApplicationDestinationPrefixes("/app");
+    }
+
+    private void configureSimpleBroker(
+        MessageBrokerRegistry registry,
+        ThreadPoolTaskScheduler heartbeatScheduler
+    ) {
+        SimpleBrokerRegistration registration = registry.enableSimpleBroker("/topic", "/queue");
+        registration.setHeartbeatValue(new long[]{4000, 4000});
+        registration.setTaskScheduler(heartbeatScheduler);
+    }
+
+    private void configureRelayBroker(
+        MessageBrokerRegistry registry,
+        ThreadPoolTaskScheduler heartbeatScheduler,
+        WebSocketBrokerProperties.Relay relay
+    ) {
+        StompBrokerRelayRegistration registration = registry.enableStompBrokerRelay("/topic", "/queue");
+        registration.setRelayHost(relay.host());
+        registration.setRelayPort(relay.resolvedPort());
+        registration.setVirtualHost(relay.virtualHost());
+        registration.setSystemLogin(relay.systemLogin());
+        registration.setSystemPasscode(relay.systemPassword());
+        registration.setClientLogin(relay.clientLogin());
+        registration.setClientPasscode(relay.clientPassword());
+        registration.setTcpClient(StompRelayTcpClientFactory.create(relay));
+        registration.setSystemHeartbeatSendInterval(relay.systemHeartbeatSendInterval().toMillis());
+        registration.setSystemHeartbeatReceiveInterval(relay.systemHeartbeatReceiveInterval().toMillis());
+        registration.setTaskScheduler(heartbeatScheduler);
+        registration.setUserDestinationBroadcast(USER_DESTINATION_BROADCAST);
+        registration.setUserRegistryBroadcast(USER_REGISTRY_BROADCAST);
     }
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
         registration.interceptors(
             stompPrincipalInterceptor,
+            webSocketRateLimitInterceptor,
             stompAuthChannelInterceptor,
             webSocketInboundMetricInterceptor,
-            webSocketRateLimitInterceptor
+            relayDestinationChannelInterceptors.toBroker()
         );
         registration.taskExecutor()
             .corePoolSize(32)
@@ -104,7 +154,10 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
 
     @Override
     public void configureClientOutboundChannel(ChannelRegistration registration) {
-        registration.interceptors(webSocketOutboundMetricInterceptor);
+        registration.interceptors(
+            relayDestinationChannelInterceptors.fromBroker(),
+            webSocketOutboundMetricInterceptor
+        );
         registration.taskExecutor(webSocketOutboundExecutor());
     }
 }

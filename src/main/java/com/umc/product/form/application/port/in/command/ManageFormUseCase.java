@@ -1,8 +1,10 @@
 package com.umc.product.form.application.port.in.command;
 
+import com.umc.product.form.application.port.in.command.dto.CloseFormCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
+import com.umc.product.form.application.port.in.command.dto.UnpublishFormCommand;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
 
 /**
@@ -37,6 +39,12 @@ public interface ManageFormUseCase {
      * 이미 PUBLISHED인 폼을 다시 발행하면 FORM_ALREADY_PUBLISHED 예외.
      */
     void publishForm(PublishFormCommand command);
+
+    /** 응답이 없는 PUBLISHED 폼을 DRAFT로 되돌린다. */
+    void unpublishForm(UnpublishFormCommand command);
+
+    /** PUBLISHED 폼의 응답 수집을 영구 종료한다. */
+    void closeForm(CloseFormCommand command);
 
     /**
      * 폼과 연관 구조(섹션/질문/옵션/응답/답변) 전부 cascade 삭제.

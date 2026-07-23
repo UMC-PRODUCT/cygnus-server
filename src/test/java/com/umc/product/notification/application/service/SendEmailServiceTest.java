@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
@@ -20,14 +21,17 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
 
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.event.application.port.out.dto.OutboxPublishResult;
 import com.umc.product.global.event.domain.EventOutboxStatus;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
+import com.umc.product.notification.application.port.in.dto.SendHtmlEmailCommand;
 import com.umc.product.notification.application.port.in.dto.SendTemplateEmailCommand;
 import com.umc.product.notification.application.port.in.dto.TemplateEmailRequestInfo;
 import com.umc.product.notification.application.port.out.SendEmailPort;
+import com.umc.product.notification.application.port.out.dto.EmailMessage;
 import com.umc.product.notification.domain.EmailTemplateType;
 import com.umc.product.notification.domain.TemplateEmailRequestedEvent;
 
@@ -104,4 +108,28 @@ class SendEmailServiceTest {
         ));
     }
 
+    @Test
+    @DisplayName("HTML 이메일은 지정한 Thymeleaf template과 변수로 렌더링해 발송한다")
+    void testCase002() {
+        given(templateEngine.process(eq("email/recruiting-interview-availability"), any(Context.class)))
+            .willReturn("<html>면접 일정</html>");
+
+        service.sendHtmlEmail(new SendHtmlEmailCommand(
+            "applicant@example.org",
+            "면접 일정 요청",
+            "email/recruiting-interview-availability",
+            Map.of("applicantName", "지원자")
+        ));
+
+        ArgumentCaptor<Context> contextCaptor = ArgumentCaptor.forClass(Context.class);
+        then(templateEngine).should().process(
+            eq("email/recruiting-interview-availability"),
+            contextCaptor.capture()
+        );
+        assertThat(contextCaptor.getValue().getVariable("applicantName")).isEqualTo("지원자");
+        ArgumentCaptor<EmailMessage> messageCaptor = ArgumentCaptor.forClass(EmailMessage.class);
+        then(sendEmailPort).should().send(messageCaptor.capture());
+        assertThat(messageCaptor.getValue().htmlBody()).isEqualTo("<html>면접 일정</html>");
+        assertThat(messageCaptor.getValue().subject()).isEqualTo("면접 일정 요청");
+    }
 }

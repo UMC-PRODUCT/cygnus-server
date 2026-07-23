@@ -29,6 +29,7 @@ import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicI
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
@@ -78,7 +79,14 @@ class MemberSearchServiceV2Test {
         ChallengerPart part,
         ChallengerStatus status
     ) {
-        return new ChallengerBasicInfo(id, memberId, gisuId, part, status);
+        return new ChallengerBasicInfo(
+            id,
+            memberId,
+            gisuId,
+            part,
+            List.of(ChallengerTrack.from(part)),
+            status
+        );
     }
 
     private GisuInfo gisu(Long gisuId, Long generation, boolean active) {

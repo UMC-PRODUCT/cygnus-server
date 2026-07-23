@@ -31,6 +31,8 @@ public interface LoadFormResponsePort {
 
     boolean existsByFormIdAndMemberId(Long formId, Long memberId);
 
+    boolean existsByFormId(Long formId);
+
     List<Long> findIdsByFormIdAndStatus(Long formId, FormResponseStatus status);
 
     long countSubmittedByFormId(Long formId);

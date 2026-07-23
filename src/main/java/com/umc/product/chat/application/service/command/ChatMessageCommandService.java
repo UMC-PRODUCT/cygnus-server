@@ -9,8 +9,10 @@ import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
 import com.umc.product.chat.application.port.in.command.SendChatMessageUseCase;
+import com.umc.product.chat.application.port.in.command.UpdateChatReadUseCase;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.command.dto.SendChatMessageCommand;
+import com.umc.product.chat.application.port.in.command.dto.UpdateChatReadCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
@@ -39,26 +41,25 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
     private final GetFileUseCase getFileUseCase;
     private final ChatAttachmentPolicy chatAttachmentPolicy;
     private final ChatRoomAccessPolicy chatRoomAccessPolicy;
+    private final UpdateChatReadUseCase updateChatReadUseCase;
     private final DomainEventPublisher domainEventPublisher;
 
     /**
      * 메시지를 저장하고 생성 이벤트를 발행한다.
      * <p>
      * broadcast 및 문의 상태 전환은 이 이벤트를 수신하는 다른 컴포넌트가 처리한다. chat은 알지 못한다. 이벤트 발행은 {@link DomainEventPublisher} 한 곳에만 위임하며,
-     * outbox 적재 / 인메모리 발행 분기는 어댑터 구성(app.event-outbox.enabled)이 결정한다.
+     * 이벤트는 원 트랜잭션의 outbox에 저장된다.
      */
     @Override
     public ChatMessageInfo send(SendChatMessageCommand command) {
         validate(command);
 
-        // 방 멤버만 전송 가능
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
-        validateReplyTarget(command);
-        validateAttachments(command);
-
         // 같은 방의 동시 전송을 직렬화한다(방 row 락). insert 이전에 락을 잡아야 방 안에서 message id 배정
         // 순서가 commit 순서와 일치하고, 그 결과 읽음 watermark(id 기준)가 안전해진다.
         loadChatRoomPort.getByIdForUpdate(command.roomId());
+        chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
+        validateReplyTarget(command);
+        validateAttachments(command);
 
         ChatMessage saved = saveChatMessagePort.save(ChatMessage.create(
             command.roomId(),
@@ -78,11 +79,11 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
 
     @Override
     public void markRead(MarkChatRoomReadCommand command) {
-        // 방 멤버만 읽음 처리 가능(원자 갱신은 비멤버면 no-op이라 여기서 명시적으로 검증한다).
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.memberId());
-        loadChatMessagePort.getByIdAndRoomId(command.lastSeenMessageId(), command.roomId());
-        saveChatMemberPort.bumpLastReadMessageId(
-            command.roomId(), command.memberId(), command.lastSeenMessageId());
+        updateChatReadUseCase.update(new UpdateChatReadCommand(
+            command.roomId(),
+            command.memberId(),
+            command.lastSeenMessageId()
+        ));
     }
 
     private void validate(SendChatMessageCommand command) {

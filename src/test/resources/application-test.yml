@@ -67,6 +67,9 @@ app:
   event-outbox:
     retention:
       enabled: false
+  websocket:
+    broker:
+      mode: simple
   observability:
     tracing:
       enabled: false

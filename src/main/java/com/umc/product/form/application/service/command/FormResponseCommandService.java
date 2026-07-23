@@ -118,17 +118,24 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
             .findSubmittedByFormIdAndRespondentMemberId(command.formId(), command.respondentMemberId())
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
 
+        validateSubmitScope(command.formId(), command.allowedQuestionIds(), command.requiredQuestionIds());
         validateAnswers(command.formId(), command.answers());
+        Set<Long> answeredQuestionIds = extractQuestionIds(command.answers());
+        if (command.allowedQuestionIds() != null) {
+            validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
+        }
         validateAllRequiredAnsweredOnPath(
             command.formId(),
-            extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            answeredQuestionIds,
+            extractSingleSelectedOptionIds(command.answers()),
+            command.requiredQuestionIds()
         );
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
         List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
         saveAnswers(data);
+        saveEmptyAnswersForUnanswered(existing, command.allowedQuestionIds(), answeredQuestionIds);
 
         existing.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(existing);
@@ -243,17 +250,28 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     public void updateAnonymousResponse(UpdateAnonymousFormResponseCommand command) {
         FormResponse existing = loadSubmittedAsAnonymous(command.responseAccessKey());
 
+        validateSubmitScope(
+            existing.getForm().getId(),
+            command.allowedQuestionIds(),
+            command.requiredQuestionIds()
+        );
         validateAnswers(existing.getForm().getId(), command.answers());
+        Set<Long> answeredQuestionIds = extractQuestionIds(command.answers());
+        if (command.allowedQuestionIds() != null) {
+            validateAnsweredQuestionsAllowed(command.allowedQuestionIds(), answeredQuestionIds);
+        }
         validateAllRequiredAnsweredOnPath(
             existing.getForm().getId(),
-            extractQuestionIds(command.answers()),
-            extractSingleSelectedOptionIds(command.answers())
+            answeredQuestionIds,
+            extractSingleSelectedOptionIds(command.answers()),
+            command.requiredQuestionIds()
         );
 
         saveAnswerPort.deleteAllByFormResponseId(existing.getId());
 
         List<AnswerWithOptions> data = buildAnswerData(existing, command.answers());
         saveAnswers(data);
+        saveEmptyAnswersForUnanswered(existing, command.allowedQuestionIds(), answeredQuestionIds);
 
         existing.updateLastSavedAt(Instant.now());
         saveFormResponsePort.save(existing);
@@ -342,6 +360,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private FormResponse loadDraft(Long formResponseId) {
         FormResponse formResponse = loadFormResponsePort.findById(formResponseId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_FOUND));
+        requirePublished(formResponse.getForm());
         if (formResponse.getStatus() != FormResponseStatus.DRAFT) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_NOT_DRAFT);
         }
@@ -367,6 +386,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse draft = loadFormResponsePort.findDraftByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        requirePublished(draft.getForm());
         if (draft.getRespondentMemberId() != null) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
@@ -392,6 +412,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
         String hash = secureTokenGenerator.sha256Hex(rawAccessKey);
         FormResponse response = loadFormResponsePort.findSubmittedByAccessKeyHash(hash)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN));
+        requirePublished(response.getForm());
         if (response.getRespondentMemberId() != null) {
             throw new FormDomainException(FormErrorCode.FORM_RESPONSE_FORBIDDEN);
         }
@@ -429,10 +450,14 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
     private Form loadPublishedForm(Long formId) {
         Form form = loadFormPort.findById(formId)
             .orElseThrow(() -> new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+        requirePublished(form);
+        return form;
+    }
+
+    private static void requirePublished(Form form) {
         if (!form.isPublished()) {
             throw new FormDomainException(FormErrorCode.FORM_NOT_PUBLISHED);
         }
-        return form;
     }
 
     private void validateDuplicateResponsePolicy(Form form, Long respondentMemberId) {

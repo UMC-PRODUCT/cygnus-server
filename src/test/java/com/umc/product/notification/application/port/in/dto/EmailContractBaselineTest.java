@@ -2,6 +2,8 @@ package com.umc.product.notification.application.port.in.dto;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Map;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -20,17 +22,19 @@ class EmailContractBaselineTest {
         );
 
     @Test
-    @DisplayName("기존 HTML 이메일 command는 수신자·제목·본문 계약을 유지한다")
+    @DisplayName("기존 HTML 이메일 command는 수신자·제목·템플릿 변수 계약을 유지한다")
     void testCase001() {
         SendHtmlEmailCommand command = new SendHtmlEmailCommand(
             "receiver@test.umc.local",
             "제목",
-            "<p>본문</p>"
+            "verification-email",
+            Map.of("verificationCode", "123456")
         );
 
         assertThat(command.to()).isEqualTo("receiver@test.umc.local");
         assertThat(command.subject()).isEqualTo("제목");
-        assertThat(command.htmlContent()).isEqualTo("<p>본문</p>");
+        assertThat(command.templateName()).isEqualTo("verification-email");
+        assertThat(command.variables()).containsEntry("verificationCode", "123456");
     }
 
     @Test

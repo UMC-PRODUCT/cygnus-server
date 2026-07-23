@@ -3,6 +3,7 @@ package com.umc.product.maintenance.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Optional;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -40,5 +41,14 @@ class MaintenanceDomainTest {
             .contains(MaintenanceDomain.PROJECT);
         assertThat(MaintenanceDomain.fromUri("/api/v1/project/matching-rounds"))
             .contains(MaintenanceDomain.PROJECT);
+    }
+
+    @Test
+    @DisplayName("community 와 posts URI 모두 COMMUNITY 로 매칭")
+    void community_매칭() {
+        assertThat(MaintenanceDomain.fromUri("/api/v1/community/threads/1"))
+            .contains(MaintenanceDomain.COMMUNITY);
+        assertThat(MaintenanceDomain.fromUri("/api/v1/posts/1"))
+            .contains(MaintenanceDomain.COMMUNITY);
     }
 }

@@ -45,6 +45,7 @@ public class EventOutboxRelayService {
     private final EventPayloadDeserializer deserializer;
     private final ApplicationEventPublisher eventPublisher;
     private final Tracer tracer;
+    private final EventOutboxRelayMetrics relayMetrics;
     private final TransactionTemplate transactionTemplate;
     private final int batchSize;
     private final int maxAttempts;
@@ -57,6 +58,7 @@ public class EventOutboxRelayService {
         ApplicationEventPublisher eventPublisher,
         PlatformTransactionManager transactionManager,
         ObjectProvider<Tracer> tracerProvider,
+        EventOutboxRelayMetrics relayMetrics,
         @Value("${app.event-outbox.batch-size:100}") int batchSize,
         @Value("${app.event-outbox.max-attempts:5}") int maxAttempts
     ) {
@@ -67,6 +69,7 @@ public class EventOutboxRelayService {
             eventPublisher,
             transactionManager,
             tracerProvider.getIfAvailable(() -> Tracer.NOOP),
+            relayMetrics,
             batchSize,
             maxAttempts
         );
@@ -82,11 +85,36 @@ public class EventOutboxRelayService {
         int batchSize,
         int maxAttempts
     ) {
+        this(
+            loadEventOutboxPort,
+            saveEventOutboxPort,
+            deserializer,
+            eventPublisher,
+            transactionManager,
+            tracer,
+            EventOutboxRelayMetrics.noOp(),
+            batchSize,
+            maxAttempts
+        );
+    }
+
+    EventOutboxRelayService(
+        LoadEventOutboxPort loadEventOutboxPort,
+        SaveEventOutboxPort saveEventOutboxPort,
+        EventPayloadDeserializer deserializer,
+        ApplicationEventPublisher eventPublisher,
+        PlatformTransactionManager transactionManager,
+        Tracer tracer,
+        EventOutboxRelayMetrics relayMetrics,
+        int batchSize,
+        int maxAttempts
+    ) {
         this.loadEventOutboxPort = loadEventOutboxPort;
         this.saveEventOutboxPort = saveEventOutboxPort;
         this.deserializer = deserializer;
         this.eventPublisher = eventPublisher;
         this.tracer = tracer;
+        this.relayMetrics = relayMetrics;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
         this.transactionTemplate.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         this.batchSize = batchSize;
@@ -193,6 +221,7 @@ public class EventOutboxRelayService {
             );
             saveEventOutboxPort.save(outbox);
         });
+        relayMetrics.recordFailure(outbox.getStatus());
     }
 
     private Instant nextAttemptAt(EventOutbox outbox) {

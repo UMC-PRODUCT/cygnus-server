@@ -53,7 +53,8 @@ public record FormWithStructureInfo(
         Long optionId,
         String content,
         Long orderNo,
-        boolean isOther
+        boolean isOther,
+        Long nextSectionId
     ) {
     }
 }

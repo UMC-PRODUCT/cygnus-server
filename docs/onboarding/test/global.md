@@ -1,7 +1,7 @@
 # Global 테스트 케이스
 
-- 테스트 파일: 86개
-- 테스트 케이스: 320개 (`@Test` 317 + `@ParameterizedTest` 2 + `@RepeatedTest` 1)
+- 테스트 파일: 102개
+- 테스트 케이스: 387개 (`@Test` 382 + `@ParameterizedTest` 4 + `@RepeatedTest` 1)
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 - 문서 범위: 아래 목록은 architecture와 운영에 영향이 큰 대표 계약을 추적한다. 전체 테스트 목록의
   source of truth는 `src/test/java/com/umc/product/global`이며, 파일/케이스 개수는 각각 `rg --files`와

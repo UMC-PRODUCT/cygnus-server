@@ -3,6 +3,7 @@ package com.umc.product.chat.application.service.query;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -11,6 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.CheckChatMessageReadUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessageForViewersUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessageRoomUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessageUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
 import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
@@ -18,12 +22,17 @@ import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import com.umc.product.chat.application.port.in.query.dto.CheckChatMessageReadQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessageForViewersQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessageQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessageRoomQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
 import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.exception.ChatDomainException;
+import com.umc.product.chat.domain.exception.ChatErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,12 +41,16 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ChatMessageQueryService implements
     GetChatMessagesUseCase,
+    GetChatMessageUseCase,
+    GetChatMessageForViewersUseCase,
+    GetChatMessageRoomUseCase,
     ListChatRoomSummariesUseCase,
     CheckChatMessageReadUseCase {
 
     private final LoadChatMessagePort loadChatMessagePort;
     private final LoadChatMemberPort loadChatMemberPort;
     private final ChatRoomAccessPolicy chatRoomAccessPolicy;
+    private final ChatMessageInfoAssembler chatMessageInfoAssembler;
 
     /**
      * 방 메시지 내역을 최신순 커서 페이지네이션으로 조회한다. (size + 1 조회 후 hasNext 판별)
@@ -54,11 +67,32 @@ public class ChatMessageQueryService implements
         List<ChatMessage> page = hasNext ? rows.subList(0, query.size()) : rows;
         Long nextCursor = hasNext && !page.isEmpty() ? page.get(page.size() - 1).getId() : null;
 
-        List<ChatMessageInfo> content = page.stream()
-            .map(ChatMessageInfo::from)
-            .toList();
+        List<ChatMessageInfo> content = chatMessageInfoAssembler.assemble(page, query.memberId());
 
         return new ChatMessageCursorResult(content, nextCursor, hasNext);
+    }
+
+    @Override
+    public ChatMessageInfo getMessage(GetChatMessageQuery query) {
+        chatRoomAccessPolicy.verifyMember(query.roomId(), query.memberId());
+        ChatMessage message = loadChatMessagePort.getByIdAndRoomId(query.messageId(), query.roomId());
+        return chatMessageInfoAssembler.assemble(message, query.memberId());
+    }
+
+    @Override
+    public Map<Long, ChatMessageInfo> getMessageForViewers(GetChatMessageForViewersQuery query) {
+        if (query.viewerMemberIds().isEmpty()) {
+            return Map.of();
+        }
+
+        verifyViewers(query.roomId(), query.viewerMemberIds());
+        ChatMessage message = loadChatMessagePort.getByIdAndRoomId(query.messageId(), query.roomId());
+        return chatMessageInfoAssembler.assembleForViewers(message, query.viewerMemberIds());
+    }
+
+    @Override
+    public Long getRoomId(GetChatMessageRoomQuery query) {
+        return loadChatMessagePort.getById(query.messageId()).getRoomId();
     }
 
     /**
@@ -118,5 +152,14 @@ public class ChatMessageQueryService implements
     private boolean isReadByTarget(ChatMessage message, ChatMember targetMember) {
         Long lastReadMessageId = targetMember.getLastReadMessageId();
         return lastReadMessageId != null && lastReadMessageId >= message.getId();
+    }
+
+    private void verifyViewers(Long roomId, List<Long> viewerMemberIds) {
+        Set<Long> roomMemberIds = loadChatMemberPort.listByRoomId(roomId).stream()
+            .map(ChatMember::getMemberId)
+            .collect(Collectors.toSet());
+        if (!roomMemberIds.containsAll(viewerMemberIds)) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
+        }
     }
 }
