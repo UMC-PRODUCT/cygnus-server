@@ -54,6 +54,16 @@ public class TermConsentPersistenceAdapter implements LoadTermConsentPort, SaveT
     }
 
     @Override
+    public boolean saveIfAbsent(TermConsent termConsent) {
+        return repository.insertIfAbsent(
+            termConsent.getMemberId(),
+            termConsent.getTermId(),
+            termConsent.getTermType().name(),
+            termConsent.getAgreedAt()
+        ) == 1;
+    }
+
+    @Override
     public void delete(TermConsent termConsent) {
         repository.delete(termConsent);
     }

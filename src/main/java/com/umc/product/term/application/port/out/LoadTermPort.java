@@ -13,6 +13,11 @@ public interface LoadTermPort {
     Optional<Term> findById(Long id);
 
     /**
+     * 재동의 검증과 저장이 끝날 때까지 약관 비활성화와 직렬화되도록 shared lock으로 조회합니다.
+     */
+    Optional<Term> findByIdWithSharedLock(Long id);
+
+    /**
      * 특정 타입의 활성화된 약관을 조회합니다. 여러 개일 경우 가장 최신 것을 반환합니다.
      */
     Optional<Term> findActiveByType(TermType type);

@@ -1,5 +1,9 @@
 package com.umc.product.global.config;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -9,11 +13,13 @@ import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.messaging.simp.config.SimpleBrokerRegistration;
 import org.springframework.messaging.simp.config.StompBrokerRelayRegistration;
+import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
+import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
 import com.umc.product.global.websocket.handler.ApiResponseStompErrorHandler;
 import com.umc.product.global.websocket.interceptor.ShutdownAwareHandshakeInterceptor;
@@ -23,6 +29,8 @@ import com.umc.product.global.websocket.interceptor.WebSocketInboundMetricInterc
 import com.umc.product.global.websocket.interceptor.WebSocketOutboundMetricInterceptor;
 import com.umc.product.global.websocket.interceptor.WebSocketRateLimitInterceptor;
 import com.umc.product.global.websocket.relay.RelayDestinationChannelInterceptors;
+import com.umc.product.global.websocket.session.AccessTokenWebSocketSessionRegistry;
+import com.umc.product.term.adapter.in.websocket.TermConsentStompInterceptor;
 
 import io.micrometer.context.ContextSnapshot;
 import io.micrometer.context.ContextSnapshotFactory;
@@ -42,6 +50,7 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
 
     private final StompPrincipalInterceptor stompPrincipalInterceptor;
     private final StompAuthChannelInterceptor stompAuthChannelInterceptor;
+    private final ObjectProvider<TermConsentStompInterceptor> termConsentStompInterceptorProvider;
     private final WebSocketRateLimitInterceptor webSocketRateLimitInterceptor;
     private final WebSocketInboundMetricInterceptor webSocketInboundMetricInterceptor;
     private final WebSocketOutboundMetricInterceptor webSocketOutboundMetricInterceptor;
@@ -52,6 +61,7 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
     private final WebSocketBrokerProperties brokerProperties;
     private final Environment environment;
     private final RelayDestinationChannelInterceptors relayDestinationChannelInterceptors;
+    private final ObjectProvider<AccessTokenWebSocketSessionRegistry> accessTokenWebSocketSessionRegistryProvider;
 
     @Bean
     public ThreadPoolTaskScheduler webSocketHeartbeatScheduler() {
@@ -115,17 +125,45 @@ public class WebSocketMessageBrokerConfig implements WebSocketMessageBrokerConfi
 
     @Override
     public void configureClientInboundChannel(ChannelRegistration registration) {
-        registration.interceptors(
-            stompPrincipalInterceptor,
-            webSocketRateLimitInterceptor,
-            stompAuthChannelInterceptor,
-            webSocketInboundMetricInterceptor,
-            relayDestinationChannelInterceptors.toBroker()
-        );
+        List<ChannelInterceptor> interceptors = new ArrayList<>();
+        interceptors.add(stompPrincipalInterceptor);
+        interceptors.add(webSocketRateLimitInterceptor);
+        TermConsentStompInterceptor termConsentInterceptor = termConsentStompInterceptorProvider.getIfAvailable();
+        requireEnforcementComponent(termConsentInterceptor, "TermConsentStompInterceptor");
+        if (termConsentInterceptor != null) {
+            interceptors.add(termConsentInterceptor);
+        }
+        interceptors.add(stompAuthChannelInterceptor);
+        interceptors.add(webSocketInboundMetricInterceptor);
+        interceptors.add(relayDestinationChannelInterceptors.toBroker());
+        registration.interceptors(interceptors.toArray(ChannelInterceptor[]::new));
         registration.taskExecutor()
             .corePoolSize(32)
             .maxPoolSize(32)
             .queueCapacity(2048);
+    }
+
+    @Override
+    public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
+        AccessTokenWebSocketSessionRegistry sessionRegistry =
+            accessTokenWebSocketSessionRegistryProvider.getIfAvailable();
+        requireEnforcementComponent(sessionRegistry, "AccessTokenWebSocketSessionRegistry");
+        if (sessionRegistry != null) {
+            registration.addDecoratorFactory(sessionRegistry.decoratorFactory());
+        }
+    }
+
+    private void requireEnforcementComponent(Object component, String componentName) {
+        boolean enforcementEnabled = Boolean.TRUE.equals(environment.getProperty(
+            "app.terms.reconsent.enabled",
+            Boolean.class,
+            false
+        ));
+        if (enforcementEnabled && component == null) {
+            throw new IllegalStateException(
+                "약관 재동의 강제가 활성화되었지만 %s 빈이 없습니다.".formatted(componentName)
+            );
+        }
     }
 
     @Bean

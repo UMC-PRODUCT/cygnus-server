@@ -36,7 +36,7 @@ class GetRequiredTermConsentStatusUseCaseTest {
 
     @Test
     @DisplayName("현재 활성 필수 약관 중 미동의 약관을 반환한다")
-    void 현재_활성_필수_약관_중_미동의_약관을_반환한다() {
+    void returnMissingActiveRequiredTerms() {
         // given
         Term serviceTerm = createTerm(1L, TermType.SERVICE);
         Term privacyTerm = createTerm(2L, TermType.PRIVACY);
@@ -53,12 +53,11 @@ class GetRequiredTermConsentStatusUseCaseTest {
         assertThat(result.missingRequiredTerms())
             .extracting(term -> term.id())
             .containsExactly(2L);
-        assertThat(result.agreedRequiredTermIds()).containsExactly(1L);
     }
 
     @Test
     @DisplayName("현재 활성 필수 약관을 모두 동의한 경우 재동의가 필요하지 않다")
-    void 현재_활성_필수_약관을_모두_동의한_경우_재동의가_필요하지_않다() {
+    void returnNoReconsentWhenAllRequiredTermsAgreed() {
         // given
         Term serviceTerm = createTerm(1L, TermType.SERVICE);
         Term privacyTerm = createTerm(2L, TermType.PRIVACY);
@@ -74,7 +73,6 @@ class GetRequiredTermConsentStatusUseCaseTest {
         // then
         assertThat(result.needsReconsent()).isFalse();
         assertThat(result.missingRequiredTerms()).isEmpty();
-        assertThat(result.agreedRequiredTermIds()).containsExactly(1L, 2L);
     }
 
     private TermConsent createConsent(Long memberId, Term term) {

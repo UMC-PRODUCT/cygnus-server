@@ -168,15 +168,35 @@ Expected: PASS.
 
 **Commit 1:** `feat: add term consent enforcement filter`
 
-- JWT 인증 이후 실행되는 `TermConsentEnforcementFilter` 추가
-- `CurrentMember` 기반 memberId 추출 대신 `SecurityContextHolder`의 `MemberPrincipal` 사용
-- allowlist는 설정 프로퍼티로 시작하되 기본값을 코드에 둔다
+- 모든 일반·SSO·refresh·개발용 AccessToken 발급 경로에 `requiredTermsAgreed` boolean snapshot을 포함한다. claim이 없는 기존 토큰은 동의 완료로 간주한다.
+- `ParsedAccessToken`이 client context, 약관 snapshot, 만료 시각을 한 번에 반환하고 HTTP와 STOMP가 동일 파싱 결과를 사용한다.
+- `TERMS_RECONSENT_ENFORCEMENT_ENABLED=false`를 기본값으로 두고 claim은 항상 발급하되 실제 차단만 feature flag로 제어한다.
+- REST는 JWT → maintenance → term consent → 인가 순서로 실행한다. 약관 조회·재동의·token renew·logout·본인 탈퇴·health/error/documentation만 method/path가 일치할 때 우회한다.
+- GraphQL은 resolver 전용 interceptor에서 `extensions.code=TERMS-0012`, `extensions.httpStatus=403`으로 차단한다.
+- STOMP는 CONNECT/STOMP/SEND/SUBSCRIBE를 검사하고 기존 ERROR frame 형식을 사용한다. 연결은 AccessToken 만료 시 종료해 재연결을 요구한다.
+- 재동의 전용 UseCase는 활성 필수 약관만 받고 그 외에는 `TERMS-0013`으로 거부한다. `ON CONFLICT DO NOTHING`으로 반복·동시 요청을 멱등 처리한다.
+
+REST 우회 계약은 다음과 같이 고정한다.
+
+| Method | Path |
+|---|---|
+| `GET` | `/api/v1/terms`, `/api/v1/terms/**` |
+| `POST` | `/api/v1/terms/agreements`, `/api/v1/auth/token/renew`, `/api/v1/auth/logout`, `/api/v1/auth/sso/logout` |
+| `DELETE` | `/api/v1/member` |
+| 모든 method | `/actuator/health`, `/actuator/health/**`, `/error` |
+| 모든 method | `/docs`, `/docs/**`, `/docs-json`, `/docs-json/**`, `/webjars/markdown-it/**`, `/umc-logo.svg` |
+
+`/graphql`, `/graphiql`, `/graphiql/**`, `/ws/**`는 REST 우회가 아니라 채널 전용 처리기로 넘기는 경로다.
 
 **Commit 2:** `test: cover term consent enforcement filter`
 
-- 미인증 요청은 필터가 우회
-- 인증 요청 중 약관 조회/재동의 제출은 우회
-- 인증 요청 중 일반 API는 `RECONSENT_REQUIRED`로 차단
+- 일반·SSO·refresh 토큰의 true/false snapshot과 client context, 구형 token 호환성을 검증한다.
+- REST의 정확한 method/path allowlist, unrelated `@Public` 쓰기 차단, GraphQL resolver 미호출, STOMP ERROR frame과 token 만료 종료를 검증한다.
+- 활성 필수 약관 성공, 비활성·선택 약관 거부, 반복·동시 요청의 단일 consent/log 저장을 검증한다.
+
+### 클라이언트 복구 계약
+
+`TERMS-0012`를 받으면 `GET /api/v1/terms/consent-status/me`로 누락 약관을 조회하고, 각 약관을 `POST /api/v1/terms/agreements`로 동의한 뒤 기존 token renew API를 호출한다. 재동의 전 AccessToken은 boolean snapshot이 `false`이므로 저장 완료 후에도 계속 차단되며 새 AccessToken으로 반드시 교체해야 한다. 새 필수 약관 활성화는 AccessToken TTL인 최대 1시간까지 기존 token에 반영되지 않을 수 있다.
 
 ### PR 4: 선택 동의와 운영 메타데이터 확장
 

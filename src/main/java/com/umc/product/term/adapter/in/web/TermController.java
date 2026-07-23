@@ -18,10 +18,10 @@ import com.umc.product.term.adapter.in.web.dto.request.CreateTermRequest;
 import com.umc.product.term.adapter.in.web.dto.response.ActiveTermsResponse;
 import com.umc.product.term.adapter.in.web.dto.response.RequiredTermConsentStatusResponse;
 import com.umc.product.term.adapter.in.web.dto.response.TermResponse;
-import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
 import com.umc.product.term.application.port.in.command.ManageTermUseCase;
+import com.umc.product.term.application.port.in.command.SubmitRequiredTermReconsentUseCase;
 import com.umc.product.term.application.port.in.command.dto.CreateTermCommand;
-import com.umc.product.term.application.port.in.command.dto.CreateTermConsentCommand;
+import com.umc.product.term.application.port.in.command.dto.SubmitRequiredTermReconsentCommand;
 import com.umc.product.term.application.port.in.query.GetRequiredTermConsentStatusUseCase;
 import com.umc.product.term.application.port.in.query.GetTermUseCase;
 import com.umc.product.term.domain.enums.TermType;
@@ -40,7 +40,7 @@ public class TermController {
     private final GetTermUseCase getTermUseCase;
     private final GetRequiredTermConsentStatusUseCase getRequiredTermConsentStatusUseCase;
     private final ManageTermUseCase manageTermUseCase;
-    private final ManageTermAgreementUseCase manageTermAgreementUseCase;
+    private final SubmitRequiredTermReconsentUseCase submitRequiredTermReconsentUseCase;
 
     @GetMapping
     @Public
@@ -72,18 +72,17 @@ public class TermController {
     }
 
     @PostMapping("agreements")
-    @Operation(summary = "[TERM-002] 내 약관 동의 저장")
+    @Operation(
+        operationId = "TERM-002",
+        summary = "내 필수 약관 재동의 저장",
+        description = "누락된 활성 필수 약관에 동의합니다. 모든 동의 완료 후 token renew API를 호출해 새 AccessToken으로 교체해야 합니다."
+    )
     void createMyTermAgreement(
         @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody CreateTermAgreementRequest request
     ) {
-        Long memberId = memberPrincipal.getMemberId();
-        manageTermAgreementUseCase.createTermConsent(
-            CreateTermConsentCommand.builder()
-                .memberId(memberId)
-                .termId(request.termsId())
-                .isAgreed(request.isAgreed())
-                .build()
+        submitRequiredTermReconsentUseCase.submitRequiredTermReconsent(
+            SubmitRequiredTermReconsentCommand.of(memberPrincipal.getMemberId(), request.termsId())
         );
     }
 

@@ -6,17 +6,11 @@ import com.umc.product.term.domain.Term;
 
 public record RequiredTermConsentStatusInfo(
     boolean needsReconsent,
-    List<TermInfo> missingRequiredTerms,
-    List<Long> agreedRequiredTermIds
+    List<TermInfo> missingRequiredTerms
 ) {
 
     public RequiredTermConsentStatusInfo {
         missingRequiredTerms = List.copyOf(missingRequiredTerms);
-        agreedRequiredTermIds = List.copyOf(agreedRequiredTermIds);
-    }
-
-    public RequiredTermConsentStatusInfo(boolean needsReconsent, List<TermInfo> missingRequiredTerms) {
-        this(needsReconsent, missingRequiredTerms, List.of());
     }
 
     public static RequiredTermConsentStatusInfo fromMissingTerms(List<Term> missingRequiredTerms) {
@@ -26,24 +20,7 @@ public record RequiredTermConsentStatusInfo(
 
         return new RequiredTermConsentStatusInfo(
             !missingTermInfos.isEmpty(),
-            missingTermInfos,
-            List.of()
-        );
-    }
-
-    public static RequiredTermConsentStatusInfo fromRequiredTerms(
-        List<Term> requiredTerms,
-        List<Long> agreedRequiredTermIds
-    ) {
-        List<TermInfo> missingTermInfos = requiredTerms.stream()
-            .filter(term -> !agreedRequiredTermIds.contains(term.getId()))
-            .map(TermInfo::from)
-            .toList();
-
-        return new RequiredTermConsentStatusInfo(
-            !missingTermInfos.isEmpty(),
-            missingTermInfos,
-            agreedRequiredTermIds
+            missingTermInfos
         );
     }
 }

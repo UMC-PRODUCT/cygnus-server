@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -106,7 +107,7 @@ class SsoFlowIntegrationTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("browser login 후 authorization code를 발급하고 PKCE verifier로 token을 교환한다")
-    void browser_login_authorization_code_token_exchange_성공() throws Exception {
+    void browserLoginAuthorizationCodeTokenExchange() throws Exception {
         // given
         Member member = activeMemberWithCredential();
         Instant loginExpiresAt = Instant.now().plusSeconds(3600);
@@ -119,7 +120,8 @@ class SsoFlowIntegrationTest extends IntegrationTestSupport {
             anyList(),
             eq(ClientType.WEB),
             argThat(BACKOFFICE_DEV_CONTEXT::equals),
-            eq(3600L)
+            anyBoolean(),
+            any(java.time.Duration.class)
         )).willReturn(ACCESS_TOKEN);
         given(jwtTokenProvider.createRefreshToken(eq(member.getId()), argThat(BACKOFFICE_DEV_CONTEXT::equals)))
             .willReturn(REFRESH_TOKEN);
@@ -204,7 +206,7 @@ class SsoFlowIntegrationTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("Kakao SSO 로그인 기존 회원은 SSO 쿠키로 authorization code를 발급하고 token을 교환한다")
-    void kakao_sso_login_authorization_code_token_exchange_성공() throws Exception {
+    void kakaoSsoLoginAuthorizationCodeTokenExchange() throws Exception {
         // given
         Member member = activeMemberWithOAuth(OAuthProvider.KAKAO, "kakao-provider-id");
         Instant loginExpiresAt = Instant.now().plusSeconds(3600);
@@ -219,7 +221,8 @@ class SsoFlowIntegrationTest extends IntegrationTestSupport {
             anyList(),
             eq(ClientType.WEB),
             argThat(BACKOFFICE_DEV_CONTEXT::equals),
-            eq(3600L)
+            anyBoolean(),
+            any(java.time.Duration.class)
         )).willReturn(ACCESS_TOKEN);
         given(jwtTokenProvider.createRefreshToken(eq(member.getId()), argThat(BACKOFFICE_DEV_CONTEXT::equals)))
             .willReturn(REFRESH_TOKEN);
@@ -287,7 +290,7 @@ class SsoFlowIntegrationTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("Google SSO 로그인 신규 회원은 쿠키 없이 가입 필요 응답에서 멈춘다")
-    void google_sso_login_신규회원_register_required() throws Exception {
+    void googleSsoLoginRegisterRequired() throws Exception {
         // given
         given(oAuthTokenVerificationAdapter.verify(OAuthProvider.GOOGLE, "google-id-token"))
             .willReturn(new OAuthAttributes(OAuthProvider.GOOGLE, "google-provider-id", "new-social@test.com"));

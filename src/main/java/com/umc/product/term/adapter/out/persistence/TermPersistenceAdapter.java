@@ -25,6 +25,11 @@ public class TermPersistenceAdapter implements LoadTermPort, SaveTermPort {
     }
 
     @Override
+    public Optional<Term> findByIdWithSharedLock(Long id) {
+        return repository.findByIdWithSharedLock(id);
+    }
+
+    @Override
     public Optional<Term> findActiveByType(TermType type) {
         return queryRepository.findActiveByType(type);
     }

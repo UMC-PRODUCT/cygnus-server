@@ -36,6 +36,7 @@ import com.umc.product.notification.domain.WebhookPlatform;
 import com.umc.product.storage.adapter.in.web.dto.FileResponse;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
+import com.umc.product.term.application.port.in.query.GetRequiredTermConsentStatusUseCase;
 import com.umc.product.test.dto.FcmTestSendRequest;
 import com.umc.product.test.dto.TestAopAlarmResponse;
 
@@ -61,6 +62,7 @@ public class TestController {
     private final GetFileUseCase getFileUseCase;
     private final SendEmailUseCase sendEmailUseCase;
     private final SendNotificationToAudienceUseCase sendNotificationToAudienceUseCase;
+    private final GetRequiredTermConsentStatusUseCase getRequiredTermConsentStatusUseCase;
 
     /**
      * 파일 정보 및 접근 URL을 조회합니다.
@@ -166,11 +168,19 @@ public class TestController {
         @RequestParam Long memberId,
         @RequestParam(required = false) Long expirationInMinutes
     ) {
-        return expirationInMinutes == null ?
-            // null이면 기본값
-            jwtTokenProvider.createAccessToken(memberId, null) :
-            // 받았으면 해당 시간으로 만료하기
-            jwtTokenProvider.createAccessToken(memberId, null, expirationInMinutes * 60);
+        boolean requiredTermsAgreed = !getRequiredTermConsentStatusUseCase
+            .getRequiredTermConsentStatus(memberId)
+            .needsReconsent();
+        if (expirationInMinutes == null) {
+            return jwtTokenProvider.createAccessToken(memberId, List.of(), null, requiredTermsAgreed);
+        }
+
+        return jwtTokenProvider.createAccessToken(
+            memberId,
+            List.of(),
+            requiredTermsAgreed,
+            expirationInMinutes * 60
+        );
     }
 
     @Operation(operationId = "TEST-008", summary = "RefreshToken 발급")

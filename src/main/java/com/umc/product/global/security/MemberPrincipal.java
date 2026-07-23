@@ -1,8 +1,8 @@
 package com.umc.product.global.security;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 
 import org.springframework.security.core.AuthenticatedPrincipal;
 import org.springframework.security.core.GrantedAuthority;
@@ -24,7 +24,7 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
 
     private final ClientContextClaims clientContextClaims;
     private final boolean requiredTermsAgreed;
-    private final List<Long> agreedRequiredTermIds;
+    private final Instant accessTokenExpiresAt;
 
     @Builder
     public MemberPrincipal(
@@ -32,15 +32,13 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
         ClientType clientType,
         ClientContextClaims clientContextClaims,
         Boolean requiredTermsAgreed,
-        List<Long> agreedRequiredTermIds
+        Instant accessTokenExpiresAt
     ) {
         this.memberId = memberId;
         this.clientType = clientType;
         this.clientContextClaims = clientContextClaims == null ? ClientContextClaims.empty() : clientContextClaims;
         this.requiredTermsAgreed = requiredTermsAgreed == null || requiredTermsAgreed;
-        this.agreedRequiredTermIds = agreedRequiredTermIds == null
-            ? List.of()
-            : List.copyOf(agreedRequiredTermIds);
+        this.accessTokenExpiresAt = accessTokenExpiresAt;
     }
 
     public MemberPrincipal(Long memberId) {
@@ -48,11 +46,11 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
     }
 
     public MemberPrincipal(Long memberId, ClientType clientType) {
-        this(memberId, clientType, ClientContextClaims.empty(), true, List.of());
+        this(memberId, clientType, ClientContextClaims.empty(), true, null);
     }
 
     public MemberPrincipal(Long memberId, ClientType clientType, ClientContextClaims clientContextClaims) {
-        this(memberId, clientType, clientContextClaims, true, List.of());
+        this(memberId, clientType, clientContextClaims, true, null);
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -66,12 +64,14 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
 
     @Override
     public String toString() {
-        return "MemberPrincipal{" +
-                "memberId=" + memberId +
-                ", clientType=" + clientType +
-                ", clientContextClaims=" + clientContextClaims +
-                ", requiredTermsAgreed=" + requiredTermsAgreed +
-                ", agreedRequiredTermIds=" + agreedRequiredTermIds +
-                '}';
+        return "MemberPrincipal{memberId=%s, clientType=%s, clientContextClaims=%s, "
+            + "requiredTermsAgreed=%s, accessTokenExpiresAt=%s}"
+            .formatted(
+                memberId,
+                clientType,
+                clientContextClaims,
+                requiredTermsAgreed,
+                accessTokenExpiresAt
+            );
     }
 }

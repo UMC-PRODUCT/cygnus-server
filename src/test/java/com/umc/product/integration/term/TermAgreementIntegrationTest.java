@@ -4,6 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +20,9 @@ import com.umc.product.support.IntegrationTestSupport;
 import com.umc.product.support.fixture.MemberFixture;
 import com.umc.product.support.fixture.TermFixture;
 import com.umc.product.term.application.port.in.command.ManageTermAgreementUseCase;
+import com.umc.product.term.application.port.in.command.SubmitRequiredTermReconsentUseCase;
 import com.umc.product.term.application.port.in.command.dto.CreateTermConsentCommand;
+import com.umc.product.term.application.port.in.command.dto.SubmitRequiredTermReconsentCommand;
 import com.umc.product.term.application.port.in.query.GetTermAgreementUseCase;
 import com.umc.product.term.application.port.in.query.dto.TermInfo;
 import com.umc.product.term.application.port.out.LoadTermConsentPort;
@@ -37,6 +46,9 @@ class TermAgreementIntegrationTest extends IntegrationTestSupport {
     private ManageTermAgreementUseCase manageTermAgreementUseCase;
 
     @Autowired
+    private SubmitRequiredTermReconsentUseCase submitRequiredTermReconsentUseCase;
+
+    @Autowired
     private GetTermAgreementUseCase getTermAgreementUseCase;
 
     @Autowired
@@ -49,7 +61,7 @@ class TermAgreementIntegrationTest extends IntegrationTestSupport {
     private TermFixture termFixture;
 
     @Test
-    void 회원이_약관에_동의하면_동의_정보가_저장되고_조회된다() {
+    void saveAndReadTermConsent() {
         // given
         Member member = memberFixture.일반("길동");
         Term term = termFixture.필수_약관(TermType.SERVICE);
@@ -75,7 +87,7 @@ class TermAgreementIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    void 동일_약관에_중복_동의하면_TERMS_CONSENT_ALREADY_EXISTS_예외가_발생한다() {
+    void rejectDuplicatedGeneralTermConsent() {
         // given
         Member member = memberFixture.일반("이몽룡");
         Term term = termFixture.필수_약관(TermType.PRIVACY);
@@ -95,7 +107,7 @@ class TermAgreementIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    void 같은_타입의_새_약관에는_재동의할_수_있다() {
+    void allowNewTermOfSameType() {
         // given
         Member member = memberFixture.일반("변사또");
         Term oldTerm = termFixture.필수_약관(TermType.SERVICE);
@@ -119,7 +131,7 @@ class TermAgreementIntegrationTest extends IntegrationTestSupport {
     }
 
     @Test
-    void 존재하지_않는_약관_ID로_동의를_시도하면_TERMS_NOT_FOUND_예외가_발생한다() {
+    void rejectNonexistentTerm() {
         // given
         Member member = memberFixture.일반("성춘향");
         Long nonExistentTermId = 9_999L;
@@ -135,5 +147,49 @@ class TermAgreementIntegrationTest extends IntegrationTestSupport {
             .isInstanceOf(TermDomainException.class)
             .extracting("baseCode")
             .isEqualTo(TermErrorCode.TERMS_NOT_FOUND);
+    }
+
+    @Test
+    void saveSingleConsentAndLogUnderConcurrentReconsent() throws Exception {
+        Member member = memberFixture.일반("홍길동");
+        Term term = termFixture.필수_약관(TermType.SERVICE);
+        SubmitRequiredTermReconsentCommand command =
+            SubmitRequiredTermReconsentCommand.of(member.getId(), term.getId());
+        int concurrency = 8;
+        CountDownLatch ready = new CountDownLatch(concurrency);
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(concurrency);
+
+        try {
+            List<Future<Void>> futures = IntStream.range(0, concurrency)
+                .mapToObj(ignored -> executor.submit((Callable<Void>) () -> {
+                    ready.countDown();
+                    if (!start.await(5, TimeUnit.SECONDS)) {
+                        throw new IllegalStateException("재동의 동시 실행 시작 신호를 받지 못했습니다.");
+                    }
+                    submitRequiredTermReconsentUseCase.submitRequiredTermReconsent(command);
+                    return null;
+                }))
+                .toList();
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            for (Future<Void> future : futures) {
+                future.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertThat(loadTermConsentPort.listByMemberIdAndTermIds(member.getId(), List.of(term.getId())))
+            .hasSize(1);
+        Long logCount = entityManager.createQuery("""
+                SELECT COUNT(log)
+                FROM TermConsentLog log
+                WHERE log.memberId = :memberId AND log.termId = :termId
+                """, Long.class)
+            .setParameter("memberId", member.getId())
+            .setParameter("termId", term.getId())
+            .getSingleResult();
+        assertThat(logCount).isEqualTo(1L);
     }
 }

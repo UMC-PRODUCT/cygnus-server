@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +24,9 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.common.domain.enums.ClientType;
+import com.umc.product.global.client.ClientContextClaims;
+import com.umc.product.global.client.ClientEnvironment;
+import com.umc.product.global.client.ClientServiceType;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.ParsedAccessToken;
@@ -43,8 +47,21 @@ class StompPrincipalInterceptorTest {
     @Test
     @DisplayName("유효한 JWT 토큰으로 CONNECT 시 Principal이 설정된다")
     void connect_with_valid_token_sets_principal() {
+        ClientContextClaims clientContext = ClientContextClaims.of(
+            "website",
+            ClientServiceType.UMC_WEBSITE,
+            ClientEnvironment.PROD
+        );
+        Instant expiresAt = Instant.parse("2026-07-23T01:00:00Z");
         when(jwtTokenProvider.parseAndValidateAccessToken("valid-token"))
-            .thenReturn(new ParsedAccessToken(1L, List.of("USER"), ClientType.ANDROID));
+            .thenReturn(new ParsedAccessToken(
+                1L,
+                List.of("USER"),
+                ClientType.ANDROID,
+                clientContext,
+                false,
+                expiresAt
+            ));
 
         Message<?> result = sut.preSend(connectMessage("Bearer valid-token"), channel);
 
@@ -53,6 +70,9 @@ class StompPrincipalInterceptorTest {
         MemberPrincipal principal = (MemberPrincipal) auth.getPrincipal();
         assertThat(principal.getMemberId()).isEqualTo(1L);
         assertThat(principal.getClientType()).isEqualTo(ClientType.ANDROID);
+        assertThat(principal.getClientContextClaims()).isEqualTo(clientContext);
+        assertThat(principal.isRequiredTermsAgreed()).isFalse();
+        assertThat(principal.getAccessTokenExpiresAt()).isEqualTo(expiresAt);
     }
 
     @Test

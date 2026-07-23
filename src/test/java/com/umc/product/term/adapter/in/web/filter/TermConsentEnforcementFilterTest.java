@@ -1,14 +1,15 @@
 package com.umc.product.term.adapter.in.web.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
-import java.util.List;
+import java.nio.charset.StandardCharsets;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockFilterChain;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
@@ -16,16 +17,17 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.global.response.ApiErrorResponseWriter;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.global.security.util.SecurityEndpoint;
+import com.umc.product.term.config.TermConsentEnforcementProperties;
 
 import jakarta.servlet.ServletException;
 
 class TermConsentEnforcementFilterTest {
 
-    private final ApiErrorResponseWriter errorResponseWriter =
-        new ApiErrorResponseWriter(new ObjectMapper());
+    private final OperationalMetrics operationalMetrics = mock(OperationalMetrics.class);
+    private final ApiErrorResponseWriter errorResponseWriter = new ApiErrorResponseWriter(new ObjectMapper());
 
     @AfterEach
     void tearDown() {
@@ -33,139 +35,123 @@ class TermConsentEnforcementFilterTest {
     }
 
     @Test
-    @DisplayName("재동의가 필요한 인증 사용자의 일반 API 요청을 차단한다")
-    void 재동의가_필요한_인증_사용자의_일반_API_요청을_차단한다() throws ServletException, IOException {
-        // given
-        authenticate(100L, false);
-        TermConsentEnforcementFilter sut = newFilter();
+    @DisplayName("재동의가 필요한 인증 사용자의 일반 API 요청을 403으로 차단한다")
+    void blockGeneralApi() throws ServletException, IOException {
+        authenticate(false);
 
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/member");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
+        MockHttpServletResponse response = perform(enabledFilter(), "GET", "/api/v1/member/profile");
 
-        // when
-        sut.doFilter(request, response, filterChain);
-
-        // then
         assertThat(response.getStatus()).isEqualTo(403);
-        assertThat(response.getContentAsString()).contains("TERMS-0012");
+        assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8)).contains("TERMS-0012");
+        then(operationalMetrics).should()
+            .recordSecurityEvent("terms", "reconsent_enforcement", "blocked_rest");
     }
 
     @Test
-    @DisplayName("재동의 상태 조회 API는 차단하지 않는다")
-    void 재동의_상태_조회_API는_차단하지_않는다() throws ServletException, IOException {
-        // given
-        authenticate(100L, false);
-        TermConsentEnforcementFilter sut = newFilter();
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/terms/consent-status/me");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
+    @DisplayName("약관 조회와 재동의 제출은 정확한 HTTP method와 path에서만 허용한다")
+    void allowExactTermFlowEndpoints() throws ServletException, IOException {
+        authenticate(false);
 
-        // when
-        sut.doFilter(request, response, filterChain);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(filterChain.getRequest()).isSameAs(request);
+        assertPassed(perform(enabledFilter(), "GET", "/api/v1/terms"));
+        assertPassed(perform(enabledFilter(), "GET", "/api/v1/terms/consent-status/me"));
+        assertPassed(perform(enabledFilter(), "POST", "/api/v1/terms/agreements"));
+        assertBlocked(perform(enabledFilter(), "POST", "/api/v1/terms"));
     }
 
     @Test
-    @DisplayName("재동의 제출 API는 재동의 필요 상태여도 차단하지 않는다")
-    void 재동의_제출_API는_재동의_필요_상태여도_차단하지_않는다() throws ServletException, IOException {
-        // given
-        authenticate(100L, false);
-        TermConsentEnforcementFilter sut = newFilter();
-        MockHttpServletRequest request = new MockHttpServletRequest("POST", "/api/v1/terms/agreements");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
+    @DisplayName("token renew와 logout 경로만 복구 흐름에서 허용한다")
+    void allowTokenRecoveryEndpoints() throws ServletException, IOException {
+        authenticate(false);
 
-        // when
-        sut.doFilter(request, response, filterChain);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(filterChain.getRequest()).isSameAs(request);
+        assertPassed(perform(enabledFilter(), "POST", "/api/v1/auth/token/renew"));
+        assertPassed(perform(enabledFilter(), "POST", "/api/v1/auth/logout"));
+        assertPassed(perform(enabledFilter(), "POST", "/api/v1/auth/sso/logout"));
+        assertBlocked(perform(enabledFilter(), "GET", "/api/v1/auth/token/renew"));
     }
 
     @Test
-    @DisplayName("컨텍스트 경로가 포함되어도 허용 API를 차단하지 않는다")
-    void 컨텍스트_경로가_포함되어도_허용_API를_차단하지_않는다() throws ServletException, IOException {
-        // given
-        authenticate(100L, false);
-        TermConsentEnforcementFilter sut = newFilter();
+    @DisplayName("본인 탈퇴만 허용하고 관리자 회원 삭제는 차단한다")
+    void allowOnlySelfWithdrawal() throws ServletException, IOException {
+        authenticate(false);
+
+        assertPassed(perform(enabledFilter(), "DELETE", "/api/v1/member"));
+        assertBlocked(perform(enabledFilter(), "DELETE", "/api/v1/member/admin/100"));
+        assertBlocked(perform(enabledFilter(), "DELETE", "/api/v1/member/100"));
+    }
+
+    @Test
+    @DisplayName("Public 쓰기 API는 약관 복구 allowlist가 아니면 차단한다")
+    void blockUnrelatedPublicWriteEndpoint() throws ServletException, IOException {
+        authenticate(false);
+
+        assertBlocked(perform(enabledFilter(), "POST", "/api/v1/recruiting/applications/anonymous"));
+    }
+
+    @Test
+    @DisplayName("GraphQL과 WebSocket은 채널 전용 인터셉터로 넘긴다")
+    void handOffChannelEndpoints() throws ServletException, IOException {
+        authenticate(false);
+
+        assertPassed(perform(enabledFilter(), "POST", "/graphql"));
+        assertPassed(perform(enabledFilter(), "GET", "/ws/info"));
+        assertPassed(perform(enabledFilter(), "GET", "/docs/asyncapi"));
+    }
+
+    @Test
+    @DisplayName("운영 상태 확인용 health만 허용하고 다른 actuator endpoint는 차단한다")
+    void allowOnlyActuatorHealth() throws ServletException, IOException {
+        authenticate(false);
+
+        assertPassed(perform(enabledFilter(), "GET", "/actuator/health"));
+        assertPassed(perform(enabledFilter(), "GET", "/actuator/health/liveness"));
+        assertBlocked(perform(enabledFilter(), "GET", "/actuator/prometheus"));
+    }
+
+    @Test
+    @DisplayName("컨텍스트 경로를 제거한 애플리케이션 경로로 allowlist를 검사한다")
+    void normalizeContextPath() throws ServletException, IOException {
+        authenticate(false);
         MockHttpServletRequest request = new MockHttpServletRequest("POST", "/app/api/v1/terms/agreements");
         request.setContextPath("/app");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
 
-        // when
-        sut.doFilter(request, response, filterChain);
+        MockHttpServletResponse response = perform(enabledFilter(), request);
 
-        // then
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(filterChain.getRequest()).isSameAs(request);
+        assertPassed(response);
     }
 
     @Test
-    @DisplayName("Public 엔드포인트는 재동의 필요 상태여도 차단하지 않는다")
-    void Public_엔드포인트는_재동의_필요_상태여도_차단하지_않는다() throws ServletException, IOException {
-        // given
-        authenticate(100L, false);
-        TermConsentEnforcementFilter sut = newFilter(List.of(
-            SecurityEndpoint.of(HttpMethod.GET, "/api/v1/public/**")
-        ));
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/public/resource");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
+    @DisplayName("feature flag 비활성, 익명, 동의 완료 요청은 필터 체인을 호출한다")
+    void passNonEnforcedRequests() throws ServletException, IOException {
+        authenticate(false);
+        assertPassed(perform(disabledFilter(), "GET", "/api/v1/member/profile"));
 
-        // when
-        sut.doFilter(request, response, filterChain);
+        SecurityContextHolder.clearContext();
+        assertPassed(perform(enabledFilter(), "GET", "/api/v1/member/profile"));
 
-        // then
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(filterChain.getRequest()).isSameAs(request);
+        authenticate(true);
+        assertPassed(perform(enabledFilter(), "GET", "/api/v1/member/profile"));
     }
 
-    @Test
-    @DisplayName("공용 인프라 엔드포인트는 재동의 필요 상태여도 차단하지 않는다")
-    void 공용_인프라_엔드포인트는_재동의_필요_상태여도_차단하지_않는다() throws ServletException, IOException {
-        // given
-        authenticate(100L, false);
-        TermConsentEnforcementFilter sut = newFilter();
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/swagger-ui.html");
-        MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
-
-        // when
-        sut.doFilter(request, response, filterChain);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(filterChain.getRequest()).isSameAs(request);
+    private MockHttpServletResponse perform(
+        TermConsentEnforcementFilter filter,
+        String method,
+        String path
+    ) throws ServletException, IOException {
+        return perform(filter, new MockHttpServletRequest(method, path));
     }
 
-    @Test
-    @DisplayName("필수 약관을 모두 동의한 인증 사용자의 요청은 통과한다")
-    void 필수_약관을_모두_동의한_인증_사용자의_요청은_통과한다() throws ServletException, IOException {
-        // given
-        authenticate(100L, true);
-        TermConsentEnforcementFilter sut = newFilter();
-
-        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/member");
+    private MockHttpServletResponse perform(
+        TermConsentEnforcementFilter filter,
+        MockHttpServletRequest request
+    ) throws ServletException, IOException {
         MockHttpServletResponse response = new MockHttpServletResponse();
-        MockFilterChain filterChain = new MockFilterChain();
-
-        // when
-        sut.doFilter(request, response, filterChain);
-
-        // then
-        assertThat(response.getStatus()).isEqualTo(200);
-        assertThat(filterChain.getRequest()).isSameAs(request);
+        filter.doFilter(request, response, new MockFilterChain());
+        return response;
     }
 
-    private void authenticate(Long memberId, boolean requiredTermsAgreed) {
+    private void authenticate(boolean requiredTermsAgreed) {
         MemberPrincipal principal = MemberPrincipal.builder()
-            .memberId(memberId)
+            .memberId(100L)
             .requiredTermsAgreed(requiredTermsAgreed)
             .build();
         SecurityContextHolder.getContext().setAuthentication(
@@ -173,14 +159,28 @@ class TermConsentEnforcementFilterTest {
         );
     }
 
-    private TermConsentEnforcementFilter newFilter() {
-        return newFilter(List.of());
+    private TermConsentEnforcementFilter enabledFilter() {
+        return new TermConsentEnforcementFilter(
+            new TermConsentEnforcementProperties(true),
+            operationalMetrics,
+            errorResponseWriter
+        );
     }
 
-    private TermConsentEnforcementFilter newFilter(List<SecurityEndpoint> publicEndpoints) {
+    private TermConsentEnforcementFilter disabledFilter() {
         return new TermConsentEnforcementFilter(
-            errorResponseWriter,
-            publicEndpoints
+            new TermConsentEnforcementProperties(false),
+            operationalMetrics,
+            errorResponseWriter
         );
+    }
+
+    private void assertPassed(MockHttpServletResponse response) {
+        assertThat(response.getStatus()).isEqualTo(200);
+    }
+
+    private void assertBlocked(MockHttpServletResponse response) {
+        assertThat(response.getStatus()).isEqualTo(403);
+        assertThat(new String(response.getContentAsByteArray(), StandardCharsets.UTF_8)).contains("TERMS-0012");
     }
 }

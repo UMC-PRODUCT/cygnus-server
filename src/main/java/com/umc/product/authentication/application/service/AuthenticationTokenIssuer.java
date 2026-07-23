@@ -34,8 +34,7 @@ public class AuthenticationTokenIssuer {
             memberId,
             Collections.emptyList(),
             clientType,
-            !requiredTermConsentStatus.needsReconsent(),
-            requiredTermConsentStatus.agreedRequiredTermIds()
+            !requiredTermConsentStatus.needsReconsent()
         );
         String refreshToken = jwtTokenProvider.createRefreshToken(memberId);
         RefreshTokenClaims claims = jwtTokenProvider.parseRefreshToken(refreshToken);
@@ -60,12 +59,15 @@ public class AuthenticationTokenIssuer {
         Duration accessTokenTtl
     ) {
         long expiresIn = accessTokenTtl.toSeconds();
+        RequiredTermConsentStatusInfo requiredTermConsentStatus =
+            getRequiredTermConsentStatusUseCase.getRequiredTermConsentStatus(memberId);
         String accessToken = jwtTokenProvider.createAccessToken(
             memberId,
             Collections.emptyList(),
             clientType,
             clientContext,
-            expiresIn
+            !requiredTermConsentStatus.needsReconsent(),
+            accessTokenTtl
         );
         String refreshToken = jwtTokenProvider.createRefreshToken(memberId, clientContext);
         RefreshTokenClaims claims = jwtTokenProvider.parseRefreshToken(refreshToken);

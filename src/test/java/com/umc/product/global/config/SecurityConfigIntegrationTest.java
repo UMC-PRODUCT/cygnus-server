@@ -1,6 +1,6 @@
 package com.umc.product.global.config;
 
-import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
@@ -77,10 +77,9 @@ class SecurityConfigIntegrationTest extends IntegrationTestSupport {
     @DisplayName("인증된 요청이어도 Swagger UI 경로는 접근할 수 없다")
     void authenticatedRequestCannotAccessSwaggerUi() throws Exception {
         String token = "swagger-block-token";
-        given(jwtTokenProvider.validateAccessToken(token)).willReturn(true);
-        given(jwtTokenProvider.parseAccessToken(token)).willReturn(1L);
-        given(jwtTokenProvider.getRolesFromAccessToken(token)).willReturn(List.of("USER"));
-        given(jwtTokenProvider.getClientTypeFromAccessToken(token)).willReturn(null);
+        willReturn(new com.umc.product.global.security.ParsedAccessToken(1L, List.of("USER"), null))
+            .given(jwtTokenProvider)
+            .parseAndValidateAccessToken(token);
 
         mockMvc.perform(get("/swagger-ui/index.html")
                 .header("Authorization", "Bearer " + token))
@@ -91,10 +90,9 @@ class SecurityConfigIntegrationTest extends IntegrationTestSupport {
     @DisplayName("인증된 요청이어도 기존 OpenAPI JSON 경로는 접근할 수 없다")
     void authenticatedRequestCannotAccessDefaultOpenApiJson() throws Exception {
         String token = "swagger-api-docs-block-token";
-        given(jwtTokenProvider.validateAccessToken(token)).willReturn(true);
-        given(jwtTokenProvider.parseAccessToken(token)).willReturn(1L);
-        given(jwtTokenProvider.getRolesFromAccessToken(token)).willReturn(List.of("USER"));
-        given(jwtTokenProvider.getClientTypeFromAccessToken(token)).willReturn(null);
+        willReturn(new com.umc.product.global.security.ParsedAccessToken(1L, List.of("USER"), null))
+            .given(jwtTokenProvider)
+            .parseAndValidateAccessToken(token);
 
         mockMvc.perform(get("/v3/api-docs")
                 .header("Authorization", "Bearer " + token))

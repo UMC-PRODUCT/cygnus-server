@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "service": "umc-product-server",
   "generatedAt": null,
-  "totalCount": 564,
+  "totalCount": 566,
   "items": [
     {
       "sequence": 1,
@@ -12410,6 +12410,50 @@
         "enumName": "TermErrorCode",
         "file": "src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java",
         "line": 26
+      }
+    },
+    {
+      "sequence": 565,
+      "domain": "term",
+      "code": "TERMS-0012",
+      "name": "TERMS_RECONSENT_REQUIRED",
+      "httpStatus": 403,
+      "httpStatusName": "FORBIDDEN",
+      "message": "변경된 필수 약관에 동의해주세요.",
+      "description": null,
+      "clientAction": null,
+      "retryable": null,
+      "severity": null,
+      "deprecated": false,
+      "replacementCode": null,
+      "owners": [],
+      "tags": [],
+      "source": {
+        "enumName": "TermErrorCode",
+        "file": "src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java",
+        "line": 28
+      }
+    },
+    {
+      "sequence": 566,
+      "domain": "term",
+      "code": "TERMS-0013",
+      "name": "INVALID_RECONSENT_TERM",
+      "httpStatus": 400,
+      "httpStatusName": "BAD_REQUEST",
+      "message": "활성화된 필수 약관만 재동의할 수 있어요.",
+      "description": null,
+      "clientAction": null,
+      "retryable": null,
+      "severity": null,
+      "deprecated": false,
+      "replacementCode": null,
+      "owners": [],
+      "tags": [],
+      "source": {
+        "enumName": "TermErrorCode",
+        "file": "src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java",
+        "line": 29
       }
     }
   ]

@@ -94,6 +94,10 @@ final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
     }
 
     void relayOutbox() {
+        if (!relayPaused) {
+            requireInitiallyAvailable(appA);
+            requireInitiallyAvailable(appB);
+        }
         appA.context().getBean(EventOutboxRelayService.class).relay();
     }
 

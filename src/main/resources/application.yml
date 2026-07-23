@@ -291,6 +291,10 @@ app:
   # spring.profiles.active 가 콤마 구분 다중 profile 일 수 있으므로 운영자가 단일 라벨을 명시적으로 override 가능.
   environment: ${APP_ENVIRONMENT:${SPRING_PROFILES_ACTIVE:local}}
 
+  terms:
+    reconsent:
+      enabled: ${TERMS_RECONSENT_ENFORCEMENT_ENABLED:false}
+
   graphql:
     timeout: ${GRAPHQL_TIMEOUT:5s}
     max-depth: ${GRAPHQL_MAX_DEPTH:15}

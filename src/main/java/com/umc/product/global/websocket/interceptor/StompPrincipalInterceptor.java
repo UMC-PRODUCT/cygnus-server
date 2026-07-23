@@ -50,6 +50,9 @@ public class StompPrincipalInterceptor implements ChannelInterceptor {
         MemberPrincipal principal = MemberPrincipal.builder()
             .memberId(parsed.memberId())
             .clientType(parsed.clientType())
+            .clientContextClaims(parsed.clientContextClaims())
+            .requiredTermsAgreed(parsed.requiredTermsAgreed())
+            .accessTokenExpiresAt(parsed.expiresAt())
             .build();
         List<SimpleGrantedAuthority> authorities = parsed.roles().stream()
             .map(role -> new SimpleGrantedAuthority("ROLE_" + role))

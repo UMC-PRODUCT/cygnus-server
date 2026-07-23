@@ -62,7 +62,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("REGISTER 로 발급한 토큰은 REGISTER 로 파싱 시 이메일을 반환한다")
-    void purpose_일치_REGISTER_정상_파싱() {
+    void parseRegisterPurposeToken() {
         // given
         String token = provider.createEmailVerificationToken(EMAIL, EmailVerificationPurpose.REGISTER);
 
@@ -75,7 +75,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("PASSWORD_RESET 로 발급한 토큰은 PASSWORD_RESET 로 파싱 시 이메일을 반환한다")
-    void purpose_일치_PASSWORD_RESET_정상_파싱() {
+    void parsePasswordResetPurposeToken() {
         // given
         String token = provider.createEmailVerificationToken(EMAIL, EmailVerificationPurpose.PASSWORD_RESET);
 
@@ -101,7 +101,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("REGISTER 토큰을 PASSWORD_RESET 로 파싱하면 INVALID_EMAIL_VERIFICATION 예외를 던진다")
-    void cross_purpose_REGISTER_to_RESET_거부() {
+    void rejectRegisterTokenForPasswordReset() {
         // given
         String token = provider.createEmailVerificationToken(EMAIL, EmailVerificationPurpose.REGISTER);
 
@@ -115,7 +115,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("PASSWORD_RESET 토큰을 REGISTER 로 파싱하면 INVALID_EMAIL_VERIFICATION 예외를 던진다")
-    void cross_purpose_RESET_to_REGISTER_거부() {
+    void rejectPasswordResetTokenForRegister() {
         // given
         String token = provider.createEmailVerificationToken(EMAIL, EmailVerificationPurpose.PASSWORD_RESET);
 
@@ -128,32 +128,30 @@ class JwtTokenProviderEmailVerificationTest {
     }
 
     @Test
-    @DisplayName("AccessToken 에 필수 약관 동의 완료 여부와 동의한 약관 ID를 claim 으로 저장하고 파싱한다")
-    void access_token_required_terms_agreed_claim_파싱() {
+    @DisplayName("AccessToken에 필수 약관 동의 완료 여부를 claim으로 저장하고 한 번에 파싱한다")
+    void parseRequiredTermsAgreedClaim() {
         // given
-        String token = provider.createAccessToken(1L, List.of(), null, false, List.of(10L, 20L));
+        String token = provider.createAccessToken(1L, List.of(), null, false);
 
         // when
-        boolean agreed = provider.hasRequiredTermsAgreed(token);
-        List<Long> agreedRequiredTermIds = provider.getAgreedRequiredTermIdsFromAccessToken(token);
+        ParsedAccessToken parsed = provider.parseAndValidateAccessToken(token);
 
         // then
-        assertThat(agreed).isFalse();
-        assertThat(agreedRequiredTermIds).containsExactly(10L, 20L);
+        assertThat(parsed.requiredTermsAgreed()).isFalse();
+        assertThat(parsed.expiresAt()).isNotNull();
     }
 
     @Test
     @DisplayName("필수 약관 claim 이 없는 기존 AccessToken 은 하위 호환을 위해 동의 완료로 간주한다")
-    void access_token_required_terms_claim_없으면_동의완료로_간주() {
+    void defaultMissingRequiredTermsClaimToAgreed() {
         // given
         String token = provider.createAccessToken(1L, List.of());
 
         // when
-        boolean agreed = provider.hasRequiredTermsAgreed(token);
+        ParsedAccessToken parsed = provider.parseAndValidateAccessToken(token);
 
         // then
-        assertThat(agreed).isTrue();
-        assertThat(provider.getAgreedRequiredTermIdsFromAccessToken(token)).isEmpty();
+        assertThat(parsed.requiredTermsAgreed()).isTrue();
     }
 
     @Test
@@ -186,7 +184,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("RefreshToken 발급 시 jti와 만료시각을 포함하고 파싱 결과로 반환한다")
-    void refresh_token_claims_파싱() {
+    void parseRefreshTokenClaims() {
         // given
         Long memberId = 10L;
         String token = provider.createRefreshToken(memberId);
@@ -202,7 +200,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("AccessToken과 RefreshToken은 SSO client context claim을 포함하고 다시 파싱할 수 있다")
-    void sso_client_context_claims_파싱() {
+    void parseSsoClientContextClaims() {
         // given
         Long memberId = 10L;
         ClientContextClaims clientContext = ClientContextClaims.of(
@@ -217,18 +215,22 @@ class JwtTokenProviderEmailVerificationTest {
             List.of("USER"),
             ClientType.WEB,
             clientContext,
-            3600L
+            false,
+            java.time.Duration.ofHours(1)
         );
         String refreshToken = provider.createRefreshToken(memberId, clientContext);
 
         // then
-        assertThat(provider.getClientContextClaimsFromAccessToken(accessToken)).isEqualTo(clientContext);
+        ParsedAccessToken parsed = provider.parseAndValidateAccessToken(accessToken);
+        assertThat(parsed.clientContextClaims()).isEqualTo(clientContext);
+        assertThat(parsed.requiredTermsAgreed()).isFalse();
+        assertThat(parsed.expiresAt()).isNotNull();
         assertThat(provider.parseRefreshToken(refreshToken).clientContext()).isEqualTo(clientContext);
     }
 
     @Test
     @DisplayName("SSO login token은 전용 secret으로 서명하고 파싱한다")
-    void sso_login_token_전용_secret_정상_파싱() {
+    void parseSsoLoginTokenWithDedicatedSecret() {
         // given
         Long memberId = 10L;
         Instant expiresAt = Instant.now().plusSeconds(3600);
@@ -245,7 +247,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("SSO login token secret이 AccessToken secret과 같으면 생성자에서 거부한다")
-    void sso_login_token_secret_access_token_secret_중복_거부() {
+    void rejectDuplicatedSsoAndAccessTokenSecrets() {
         // when & then
         assertThatThrownBy(() -> new JwtTokenProvider(
             ACCESS_TOKEN_SECRET,
@@ -265,7 +267,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("typ 이 SSO_LOGIN 인 토큰은 AccessToken secret으로 서명되어도 access token으로 거부한다")
-    void typ_SSO_LOGIN_access_token_거부() {
+    void rejectSsoLoginTypeAsAccessToken() {
         // given
         String token = createSsoLoginTypedTokenSignedWithAccessSecret();
 
@@ -282,7 +284,7 @@ class JwtTokenProviderEmailVerificationTest {
 
     @Test
     @DisplayName("OAuth verification secret으로 서명된 SSO login token은 거부한다")
-    void sso_login_token_oauth_verification_secret_분리() {
+    void rejectSsoLoginTokenSignedWithOAuthSecret() {
         // given
         String token = createSsoLoginTypedTokenSignedWithSecret(OAUTH_VERIFICATION_TOKEN_SECRET);
 

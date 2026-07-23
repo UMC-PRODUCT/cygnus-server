@@ -687,4 +687,6 @@
 | 562 | term | `TERMS-0009` | `TERM_ID_REQUIRED` | 400 BAD_REQUEST | 약관을 선택해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java:23` |
 | 563 | term | `TERMS-0010` | `MANDATORY_TERMS_NOT_AGREED` | 400 BAD_REQUEST | 필수 약관에 모두 동의해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java:24` |
 | 564 | term | `TERMS-0011` | `TERM_PERMISSION_DENIED` | 403 FORBIDDEN | 약관을 관리할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java:26` |
+| 565 | term | `TERMS-0012` | `TERMS_RECONSENT_REQUIRED` | 403 FORBIDDEN | 변경된 필수 약관에 동의해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java:28` |
+| 566 | term | `TERMS-0013` | `INVALID_RECONSENT_TERM` | 400 BAD_REQUEST | 활성화된 필수 약관만 재동의할 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/term/domain/exception/TermErrorCode.java:29` |
 

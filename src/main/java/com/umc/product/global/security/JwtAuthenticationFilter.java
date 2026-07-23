@@ -12,8 +12,6 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
-import com.umc.product.common.domain.enums.ClientType;
-import com.umc.product.global.client.ClientContextClaims;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -40,41 +38,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         if (token != null) {
             try {
-                if (jwtTokenProvider.validateAccessToken(token)) {
-                    Long memberId = jwtTokenProvider.parseAccessToken(token);
-                    List<String> roles = jwtTokenProvider.getRolesFromAccessToken(token);
-                    // clientType 은 도입 이전 토큰이나 claim 누락 토큰에서는 null 일 수 있다.
-                    ClientType clientType = jwtTokenProvider.getClientTypeFromAccessToken(token);
-                    ClientContextClaims clientContextClaims = jwtTokenProvider.getClientContextClaimsFromAccessToken(token);
-                    boolean requiredTermsAgreed = jwtTokenProvider.hasRequiredTermsAgreed(token);
-                    List<Long> agreedRequiredTermIds =
-                        jwtTokenProvider.getAgreedRequiredTermIdsFromAccessToken(token);
+                ParsedAccessToken parsedToken = jwtTokenProvider.parseAndValidateAccessToken(token);
 
-                    // ADR-016: 모든 요청은 LoggingInterceptor 가 api_request_completed JSON 라인에
-                    // userId(=memberId) 를 MDC 로 포함하므로 인증 한 줄 텍스트 로그는 중복이다.
-                    // 토큰 검증 흐름 디버깅이 필요한 경우에만 보이도록 DEBUG 로 강등.
-                    log.debug("JWT authenticated: memberId={}", memberId);
+                // ADR-016: 모든 요청은 LoggingInterceptor 가 api_request_completed JSON 라인에
+                // userId(=memberId) 를 MDC 로 포함하므로 인증 한 줄 텍스트 로그는 중복이다.
+                // 토큰 검증 흐름 디버깅이 필요한 경우에만 보이도록 DEBUG 로 강등.
+                log.debug("JWT authenticated: memberId={}", parsedToken.memberId());
 
-                    MemberPrincipal memberPrincipal = MemberPrincipal.builder()
-                        .memberId(memberId)
-                        .clientType(clientType)
-                        .clientContextClaims(clientContextClaims)
-                        .requiredTermsAgreed(requiredTermsAgreed)
-                        .agreedRequiredTermIds(agreedRequiredTermIds)
-                        .build();
+                MemberPrincipal memberPrincipal = MemberPrincipal.builder()
+                    .memberId(parsedToken.memberId())
+                    .clientType(parsedToken.clientType())
+                    .clientContextClaims(parsedToken.clientContextClaims())
+                    .requiredTermsAgreed(parsedToken.requiredTermsAgreed())
+                    .accessTokenExpiresAt(parsedToken.expiresAt())
+                    .build();
 
-                    List<SimpleGrantedAuthority> authorities = roles.stream()
-                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                        .toList();
+                List<SimpleGrantedAuthority> authorities = parsedToken.roles().stream()
+                    .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                    .toList();
 
-                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        memberPrincipal,
-                        null,
-                        authorities
-                    );
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                    memberPrincipal,
+                    null,
+                    authorities
+                );
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             } catch (AuthenticationDomainException e) {
                 // JwtAuthenticationFilter는 ExceptionTranslationFilter보다 앞에 있어서
                 // 예외를 던지면 AuthenticationEntryPoint가 처리하지 못함

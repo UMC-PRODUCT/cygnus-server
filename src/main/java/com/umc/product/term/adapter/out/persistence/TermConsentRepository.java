@@ -1,14 +1,31 @@
 package com.umc.product.term.adapter.out.persistence;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.umc.product.term.domain.TermConsent;
 import com.umc.product.term.domain.enums.TermType;
 
 public interface TermConsentRepository extends JpaRepository<TermConsent, Long> {
+
+    @Modifying
+    @Query(value = """
+        INSERT INTO term_consent (member_id, term_id, term_type, agreed_at, created_at, updated_at)
+        VALUES (:memberId, :termId, :termType, :agreedAt, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        ON CONFLICT (member_id, term_id) DO NOTHING
+        """, nativeQuery = true)
+    int insertIfAbsent(
+        @Param("memberId") Long memberId,
+        @Param("termId") Long termId,
+        @Param("termType") String termType,
+        @Param("agreedAt") Instant agreedAt
+    );
 
     /**
      * 회원 ID로 동의한 약관 목록을 조회합니다.

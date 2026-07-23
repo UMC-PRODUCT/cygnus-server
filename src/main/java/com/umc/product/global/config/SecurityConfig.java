@@ -28,16 +28,17 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
+import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.global.response.ApiErrorResponseWriter;
 import com.umc.product.global.security.ApiAccessDeniedHandler;
 import com.umc.product.global.security.ApiAuthenticationEntryPoint;
 import com.umc.product.global.security.JwtAuthenticationFilter;
 import com.umc.product.global.security.util.PublicEndpointCollector;
-import com.umc.product.global.security.util.SecurityEndpoint;
 import com.umc.product.maintenance.adapter.in.web.filter.MaintenanceFilter;
 import com.umc.product.maintenance.application.port.out.MaintenanceBypassPolicy;
 import com.umc.product.maintenance.application.service.MaintenanceStateHolder;
 import com.umc.product.term.adapter.in.web.filter.TermConsentEnforcementFilter;
+import com.umc.product.term.config.TermConsentEnforcementProperties;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -78,10 +79,11 @@ public class SecurityConfig {
      */
     @Bean
     public TermConsentEnforcementFilter termConsentEnforcementFilter(
-        ApiErrorResponseWriter errorResponseWriter,
-        RequestMappingHandlerMapping requestMappingHandlerMapping
+        TermConsentEnforcementProperties properties,
+        OperationalMetrics operationalMetrics,
+        ApiErrorResponseWriter errorResponseWriter
     ) {
-        return new TermConsentEnforcementFilter(errorResponseWriter, requestMappingHandlerMapping);
+        return new TermConsentEnforcementFilter(properties, operationalMetrics, errorResponseWriter);
     }
 
     /**
@@ -94,21 +96,8 @@ public class SecurityConfig {
         MaintenanceFilter maintenanceFilter,
         TermConsentEnforcementFilter termConsentEnforcementFilter
     ) throws Exception {
-        List<SecurityEndpoint> publicEndpoints = PublicEndpointCollector
+        List<PublicEndpointCollector.EndpointMatcher> publicEndpoints = PublicEndpointCollector
             .collectPublicEndpoints(requestMappingHandlerMapping);
-
-        // ✅ 디버깅 로그
-        System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-        System.out.println("🔓 Public Endpoints 수집 결과:");
-        if (publicEndpoints.isEmpty()) {
-            System.out.println("  ⚠️  수집된 엔드포인트가 없습니다!");
-        } else {
-            publicEndpoints.forEach(endpoint -> {
-                String method = endpoint.method() != null ? endpoint.method().name() : "ALL";
-                System.out.println("  ✅ " + method + " " + endpoint.pattern());
-            });
-        }
-        System.out.println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
         http
             .cors(Customizer.withDefaults())
@@ -125,7 +114,7 @@ public class SecurityConfig {
                 auth.requestMatchers(SecurityPathConfig.securityPermitAllPaths()).permitAll();
 
                 // @Public 어노테이션이 달린 엔드포인트 (HTTP 메서드 포함)
-                for (SecurityEndpoint endpoint : publicEndpoints) {
+                for (PublicEndpointCollector.EndpointMatcher endpoint : publicEndpoints) {
                     if (endpoint.method() != null) {
                         auth.requestMatchers(endpoint.method(), endpoint.pattern()).permitAll();
                     } else {

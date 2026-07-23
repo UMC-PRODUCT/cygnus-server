@@ -1,9 +1,7 @@
 package com.umc.product.support;
 
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.BDDMockito.given;
-
-import java.util.List;
+import static org.mockito.Mockito.lenient;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +17,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.ParsedAccessToken;
 import com.umc.product.storage.application.port.out.StoragePort;
 import com.umc.product.support.isolation.DatabaseIsolation;
 
@@ -132,8 +131,16 @@ public abstract class IntegrationTestSupport {
     protected StoragePort storagePort;
 
     @BeforeEach
-    void setUpDefaultJwtTermClaims() {
-        given(jwtTokenProvider.hasRequiredTermsAgreed(anyString())).willReturn(true);
-        given(jwtTokenProvider.getAgreedRequiredTermIdsFromAccessToken(anyString())).willReturn(List.of());
+    void setUpJwtCompatibilityStubs() {
+        lenient().when(jwtTokenProvider.parseAndValidateAccessToken(anyString()))
+            .thenAnswer(invocation -> {
+                String token = invocation.getArgument(0);
+                return new ParsedAccessToken(
+                    jwtTokenProvider.parseAccessToken(token),
+                    jwtTokenProvider.getRolesFromAccessToken(token),
+                    jwtTokenProvider.getClientTypeFromAccessToken(token)
+                );
+            });
     }
+
 }

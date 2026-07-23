@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.ParsedAccessToken;
 import com.umc.product.member.application.port.out.SaveMemberPort;
 import com.umc.product.member.domain.Member;
 import com.umc.product.organization.domain.Chapter;
@@ -102,14 +103,13 @@ class CommunityPostCommentHttpE2ETest {
         ));
         challengerFixture.챌린저(member.getId(), ChallengerPart.SPRINGBOOT, gisu.getId());
 
-        given(jwtTokenProvider.validateAccessToken(TOKEN)).willReturn(true);
-        given(jwtTokenProvider.parseAccessToken(TOKEN)).willReturn(member.getId());
-        given(jwtTokenProvider.getRolesFromAccessToken(TOKEN)).willReturn(List.of());
+        given(jwtTokenProvider.parseAndValidateAccessToken(TOKEN))
+            .willReturn(new ParsedAccessToken(member.getId(), List.of(), null));
     }
 
     @Test
     @DisplayName("실제 RANDOM_PORT HTTP에서 게시글·상세·좋아요·스크랩·댓글 흐름이 이어진다")
-    void 실제_HTTP에서_게시글_상세_좋아요_스크랩_댓글_흐름이_이어진다() {
+    void completePostAndCommentFlowOverActualHttp() {
         // when: 실제 포트로 게시글을 생성한다.
         JsonNode created = resultOf(exchange(
             "/api/v1/posts",

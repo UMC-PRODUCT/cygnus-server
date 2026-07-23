@@ -25,7 +25,8 @@ public enum TermErrorCode implements BaseCode {
 
     TERM_PERMISSION_DENIED(HttpStatus.FORBIDDEN, "TERMS-0011",
         "약관을 관리할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."),
-    TERMS_RECONSENT_REQUIRED(HttpStatus.FORBIDDEN, "TERMS-0012", "변경된 필수 약관에 동의해주세요.");
+    TERMS_RECONSENT_REQUIRED(HttpStatus.FORBIDDEN, "TERMS-0012", "변경된 필수 약관에 동의해주세요."),
+    INVALID_RECONSENT_TERM(HttpStatus.BAD_REQUEST, "TERMS-0013", "활성화된 필수 약관만 재동의할 수 있어요.");
 
     private final HttpStatus httpStatus;
     private final String code;

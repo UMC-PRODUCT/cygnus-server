@@ -40,14 +40,14 @@ public class RequiredTermConsentStatusQueryService implements GetRequiredTermCon
         List<Long> requiredTermIds = requiredTerms.stream()
             .map(Term::getId)
             .toList();
-        Set<Long> agreedTermIdSet = loadTermConsentPort.listByMemberIdAndTermIds(memberId, requiredTermIds)
+        Set<Long> agreedTermIds = loadTermConsentPort.listByMemberIdAndTermIds(memberId, requiredTermIds)
             .stream()
             .map(TermConsent::getTermId)
             .collect(Collectors.toSet());
-        List<Long> agreedRequiredTermIds = requiredTermIds.stream()
-            .filter(agreedTermIdSet::contains)
+        List<Term> missingRequiredTerms = requiredTerms.stream()
+            .filter(term -> !agreedTermIds.contains(term.getId()))
             .toList();
 
-        return RequiredTermConsentStatusInfo.fromRequiredTerms(requiredTerms, agreedRequiredTermIds);
+        return RequiredTermConsentStatusInfo.fromMissingTerms(missingRequiredTerms);
     }
 }

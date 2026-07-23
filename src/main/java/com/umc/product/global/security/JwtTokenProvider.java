@@ -45,7 +45,6 @@ public class JwtTokenProvider {
     private static final String TOKEN_TYPE_KEY = "typ";
     private static final String AUTHENTICATION_METHOD_KEY = "authenticationMethod";
     private static final String REQUIRED_TERMS_AGREED_KEY = "requiredTermsAgreed";
-    private static final String AGREED_REQUIRED_TERM_IDS_KEY = "agreedRequiredTermIds";
     private final SecretKey accessTokenSecret;
     private final SecretKey refreshTokenSecret;
     private final SecretKey oAuthVerificationTokenSecret;
@@ -194,7 +193,6 @@ public class JwtTokenProvider {
             clientType,
             null,
             null,
-            null,
             accessTokenValidityInMilliseconds
         );
     }
@@ -205,23 +203,12 @@ public class JwtTokenProvider {
         ClientType clientType,
         boolean requiredTermsAgreed
     ) {
-        return createAccessToken(memberId, roles, clientType, requiredTermsAgreed, List.of());
-    }
-
-    public String createAccessToken(
-        Long memberId,
-        List<String> roles,
-        ClientType clientType,
-        boolean requiredTermsAgreed,
-        List<Long> agreedRequiredTermIds
-    ) {
         return createAccessTokenInternal(
             memberId,
             roles,
             clientType,
             null,
             requiredTermsAgreed,
-            agreedRequiredTermIds,
             accessTokenValidityInMilliseconds
         );
     }
@@ -249,8 +236,25 @@ public class JwtTokenProvider {
             clientType,
             clientContext,
             null,
-            null,
             expiresInSeconds * 1000
+        );
+    }
+
+    public String createAccessToken(
+        Long memberId,
+        List<String> roles,
+        ClientType clientType,
+        ClientContextClaims clientContext,
+        boolean requiredTermsAgreed,
+        Duration expiresIn
+    ) {
+        return createAccessTokenInternal(
+            memberId,
+            roles,
+            clientType,
+            clientContext,
+            requiredTermsAgreed,
+            expiresIn.toMillis()
         );
     }
 
@@ -260,7 +264,6 @@ public class JwtTokenProvider {
         ClientType clientType,
         ClientContextClaims clientContext,
         Boolean requiredTermsAgreed,
-        List<Long> agreedRequiredTermIds,
         long validityInMilliseconds
     ) {
         Date now = new Date();
@@ -280,24 +283,35 @@ public class JwtTokenProvider {
         if (requiredTermsAgreed != null) {
             builder.claim(REQUIRED_TERMS_AGREED_KEY, requiredTermsAgreed);
         }
-        if (agreedRequiredTermIds != null) {
-            builder.claim(AGREED_REQUIRED_TERM_IDS_KEY, agreedRequiredTermIds);
-        }
 
         return builder.compact();
     }
 
     public String createAccessToken(Long memberId, List<String> roles, Long expiresInSeconds) {
-        Date now = new Date();
-        Date validityDate = new Date(now.getTime() + expiresInSeconds * 1000);
+        return createAccessTokenInternal(
+            memberId,
+            roles,
+            null,
+            null,
+            null,
+            expiresInSeconds * 1000
+        );
+    }
 
-        return Jwts.builder()
-            .subject(String.valueOf(memberId)) // 사용자 식별자 (ID)
-            .claim(AUTHORITIES_KEY, roles)     // 권한 정보 저장
-            .issuedAt(now)
-            .expiration(validityDate)
-            .signWith(accessTokenSecret)
-            .compact();
+    public String createAccessToken(
+        Long memberId,
+        List<String> roles,
+        boolean requiredTermsAgreed,
+        Long expiresInSeconds
+    ) {
+        return createAccessTokenInternal(
+            memberId,
+            roles,
+            null,
+            null,
+            requiredTermsAgreed,
+            expiresInSeconds * 1000
+        );
     }
 
     // 2. Refresh Token 생성
@@ -368,33 +382,7 @@ public class JwtTokenProvider {
     }
 
     /**
-     * AccessToken 에서 필수 약관 동의 완료 여부를 추출한다.
-     * <p>
-     * claim 도입 이전에 발급된 토큰에는 값이 없으므로 하위 호환을 위해 동의 완료로 간주한다.
-     * 실제 최신 상태는 로그인/토큰 재발급 시점에 다시 계산해 새 AccessToken claim 으로 반영한다.
-     */
-    public boolean hasRequiredTermsAgreed(String token) {
-        Claims claims = parseAccessTokenClaims(token);
-        Boolean requiredTermsAgreed = claims.get(REQUIRED_TERMS_AGREED_KEY, Boolean.class);
-        return requiredTermsAgreed == null || requiredTermsAgreed;
-    }
-
-    public List<Long> getAgreedRequiredTermIdsFromAccessToken(String token) {
-        Claims claims = parseAccessTokenClaims(token);
-        Object agreedRequiredTermIds = claims.get(AGREED_REQUIRED_TERM_IDS_KEY);
-        if (agreedRequiredTermIds instanceof List<?> ids) {
-            return ids.stream()
-                .filter(Number.class::isInstance)
-                .map(Number.class::cast)
-                .map(Number::longValue)
-                .toList();
-        }
-        return Collections.emptyList();
-    }
-
-    /**
-     * JWT 서명 검증(HMAC-SHA)을 요청당 1회로 한정하여 memberId, roles, clientType을 반환한다. clientType claim이 없거나 알 수 없는 값이면 null을
-     * 반환한다.
+     * JWT 서명 검증(HMAC-SHA)을 요청당 1회로 한정하여 인증과 약관 차단에 필요한 AccessToken claim을 반환한다.
      */
     @SuppressWarnings("unchecked")
     public ParsedAccessToken parseAndValidateAccessToken(String token) {
@@ -415,7 +403,17 @@ public class JwtTokenProvider {
                 }
             }
 
-            return new ParsedAccessToken(memberId, roles, clientType);
+            Boolean requiredTermsAgreed = claims.get(REQUIRED_TERMS_AGREED_KEY, Boolean.class);
+            Instant expiresAt = claims.getExpiration().toInstant();
+
+            return new ParsedAccessToken(
+                memberId,
+                roles,
+                clientType,
+                getClientContextClaims(claims),
+                requiredTermsAgreed == null || requiredTermsAgreed,
+                expiresAt
+            );
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.info("잘못된 JWT 서명입니다.");
             throw new AuthenticationDomainException(AuthenticationErrorCode.WRONG_JWT_SIGNATURE);

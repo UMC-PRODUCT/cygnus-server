@@ -36,12 +36,16 @@ Accepted
 3. 중복 동의 검사는 `memberId + termType`이 아니라 `memberId + termId` 기준으로 수행한다. 이렇게 해야 같은 `TermType`의 새 약관 재동의를 저장할 수 있다.
 4. 동의 약관 조회는 저장된 `termId`로 원본 약관을 조회한다. 현재 활성 약관으로 재해석하지 않는다.
 5. 이메일 회원가입도 OAuth 회원가입과 동일하게 `ManageTermAgreementUseCase`를 통해 동의 정보를 저장한다.
+6. AccessToken 발급 시점에 현재 활성 필수 약관 충족 여부를 `requiredTermsAgreed` boolean snapshot claim으로 저장한다. 약관 ID 목록은 토큰에 넣지 않는다.
+7. 재동의 차단은 REST, GraphQL, STOMP에 동일하게 적용하되 `app.terms.reconsent.enabled` feature flag로 실제 차단만 제어한다. claim은 flag와 무관하게 항상 발급한다.
+8. 재동의 저장은 회원가입 동의와 분리된 UseCase로 처리한다. 대상 약관 row를 shared lock으로 조회해 활성 상태 검증과 비활성화를 직렬화하고, `member_id + term_id` unique index와 `INSERT ... ON CONFLICT DO NOTHING`으로 반복·동시 요청을 멱등 처리한다. 실제 신규 row가 저장된 경우에만 법적 동의 로그를 남긴다.
+9. 토큰은 동의 상태의 snapshot이므로 재동의 완료 후에도 기존 AccessToken은 갱신하지 않는다. 클라이언트는 기존 token renew API로 새 AccessToken을 받아야 한다.
 
 ### 단계적 진행 / PR 분할
 
 - **Phase 1 (이 PR / 본 ADR)**: 이메일 회원가입 동의 저장 누락 수정, `term_consent`/`term_consent_log.term_id` 추가, 신규 동의 저장과 조회를 `termId` 기준으로 전환한다.
 - **Phase 2 (별도 PR)**: 현재 활성 필수 약관 대비 회원의 미동의 상태를 계산하는 Query UseCase를 추가한다.
-- **Phase 3 (별도 PR)**: JWT 인증 이후 Controller 진입 전 재동의 미완료 사용자를 제한하는 필터 또는 인터셉터를 추가하고, 재동의/약관 조회/로그아웃/탈퇴 등 예외 API allowlist를 구성한다.
+- **Phase 3 (PR #917)**: JWT 인증 이후 REST·GraphQL·STOMP에서 재동의 미완료 사용자를 제한하고, 명시적 복구 API allowlist와 feature flag를 구성한다. WebSocket session은 AccessToken 만료 시 종료한다.
 - **Phase 4 (별도 PR)**: 선택 약관 철회, 마케팅 수신 동의 처리 결과 통지, 관리자용 약관 변경 메타데이터를 확장한다.
 
 ## Alternatives Considered
@@ -115,11 +119,13 @@ Accepted
 
 - 기존 데이터는 과거 실제 동의 약관 ID를 완벽히 복구할 수 없다. 마이그레이션은 같은 타입의 활성 약관을 우선 매핑하고, 없으면 최신 약관을 사용한다.
 - `term_consent` row 수가 약관 버전이 늘어날수록 증가한다.
-- 재동의 차단 필터를 도입하기 전까지는 저장 모델만 보강되고 실제 API 제한은 발생하지 않는다.
+- 새 필수 약관 활성화 직전에 발급된 AccessToken은 현재 TTL인 최대 1시간 동안 이전 동의 snapshot을 유지할 수 있다. 요청마다 DB를 조회하지 않는 대신 이 지연을 수용한다.
+- 분산 캐시나 authority version을 도입하지 않으므로 즉시 강제 재검증은 이번 범위에 포함하지 않는다.
 
 ### Neutral / Trade-offs
 
 - `Term`에 명시적 `version` 컬럼을 바로 추가하지 않고 `termId`를 버전 식별자로 사용한다. 운영자에게 사람이 읽는 버전명을 제공하는 기능은 Phase 4에서 별도 확장한다.
+- `TERMS_RECONSENT_ENFORCEMENT_ENABLED` 기본값은 `false`다. 클라이언트가 `TERMS-0012` 복구 흐름을 배포한 후 환경별로 활성화한다.
 
 ## Implementation Notes
 
@@ -130,6 +136,7 @@ Accepted
 3. **어댑터 (out)** (`...adapter.out.persistence.*`): `TermRepository`, `TermConsentRepository`, `TermPersistenceAdapter`, `TermConsentPersistenceAdapter`에 `termId` 기반 조회를 추가한다.
 4. **DB / 마이그레이션** (`src/main/resources/db/migration/V*__*.sql`): `term_consent.term_id`, `term_consent_log.term_id`를 추가하고 기존 row를 backfill한다.
 5. **테스트** (`src/test/...`): 이메일 회원가입 동의 저장 테스트, `termId` 기반 중복/조회 테스트를 추가 또는 갱신한다.
+6. **채널별 강제**: REST filter는 JWT와 maintenance 다음에 동작하고, GraphQL `WebGraphQlInterceptor`와 STOMP `ChannelInterceptor`는 resolver/message 처리 전에 같은 snapshot을 검사한다.
 
 ### 롤백 시 주의할 점
 
