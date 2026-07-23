@@ -96,9 +96,6 @@ class EventOutboxAtomicInsertJpaRepositoryTest {
         assertThat(loaded.getAttempts()).isZero();
         assertThat(loaded.getVersion()).isZero();
         assertThat(loaded.getCreatedAt()).isNotNull().isEqualTo(loaded.getUpdatedAt());
-        System.out.println(
-            "TODO3_DB_ATOMIC_INSERT inserted=1 duplicateInserted=0 rowCount=1 status=PENDING attempts=0 version=0"
-        );
     }
 
     private record TestEvent(UUID eventId, Instant occurredAt) implements DomainEvent {

@@ -69,7 +69,7 @@ class SendVerificationEmailOutboxFlowTest {
 
     @Test
     @DisplayName("이메일 인증 세션 생성 시 SendVerificationEmailEvent가 event outbox로 저장된다")
-    void send_verification_email_event_outbox_저장() {
+    void testCase001() {
         FakeSaveEventOutboxPort saveEventOutboxPort = new FakeSaveEventOutboxPort();
         AuthenticationService service = new AuthenticationService(
             loadEmailVerificationPort,

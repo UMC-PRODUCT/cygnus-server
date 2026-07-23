@@ -23,7 +23,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("기존 record 계약은 traceparent와 초기 pending 상태를 보존한다")
-    void record_기존_계약_보존() {
+    void testCase001() {
         TestEvent event = TestEvent.create("test.created");
         String traceparent = "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01";
 
@@ -41,7 +41,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("기존 payload 전용 record overload를 유지한다")
-    void record_payload_전용_overload_보존() {
+    void testCase002() {
         TestEvent event = TestEvent.create("test.created");
 
         EventOutbox outbox = EventOutbox.record(event, "{}");
@@ -51,7 +51,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("멱등 예약 factory는 availableAt을 microsecond로 절삭해 초기 시각으로 기록한다")
-    void recordOnce_availableAt_microsecond_절삭() {
+    void testCase003() {
         TestEvent event = TestEvent.create("test.created");
         Instant availableAt = Instant.parse("2026-07-18T00:00:00.123456789Z");
 
@@ -71,7 +71,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("처리 시작으로 nextAttemptAt이 바뀌어도 availableAt은 바뀌지 않는다")
-    void availableAt_불변() {
+    void testCase004() {
         Instant availableAt = Instant.parse("2026-07-18T00:00:00.123456789Z");
         EventOutbox outbox = EventOutbox.record(
             TestEvent.create("test.created"),
@@ -89,7 +89,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("멱등 예약 factory는 null event를 거부한다")
-    void recordOnce_null_event_거부() {
+    void testCase005() {
         Instant availableAt = Instant.parse("2026-07-18T00:00:00Z");
 
         assertThatThrownBy(() -> EventOutbox.record(null, "{}", VALID_FINGERPRINT, availableAt))
@@ -100,7 +100,7 @@ class EventOutboxTest {
     @ParameterizedTest(name = "[{index}] fingerprint={0}")
     @MethodSource("invalidFingerprints")
     @DisplayName("멱등 예약 factory는 64자 소문자 16진수가 아닌 fingerprint를 거부한다")
-    void recordOnce_fingerprint_검증(String fingerprint) {
+    void testCase006(String fingerprint) {
         TestEvent event = TestEvent.create("test.created");
         Instant availableAt = Instant.parse("2026-07-18T00:00:00Z");
 
@@ -111,7 +111,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("멱등 예약 factory는 null availableAt을 거부한다")
-    void recordOnce_null_availableAt_거부() {
+    void testCase007() {
         TestEvent event = TestEvent.create("test.created");
 
         assertThatThrownBy(() -> EventOutbox.record(event, "{}", VALID_FINGERPRINT, null))
@@ -121,7 +121,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("payload는 비어 있을 수 없다")
-    void payload_검증() {
+    void testCase008() {
         TestEvent event = TestEvent.create("test.created");
 
         assertThatThrownBy(() -> EventOutbox.record(event, " "))
@@ -131,7 +131,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("발행 성공 시 published 상태와 시간을 기록한다")
-    void 발행_성공() {
+    void testCase009() {
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created"), "{}");
 
         outbox.markPublished();
@@ -142,7 +142,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("처리 시작 시 processing 상태와 lease 만료 시간을 기록한다")
-    void 처리_시작() {
+    void testCase010() {
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created"), "{}");
         Instant leaseUntil = Instant.parse("2026-05-21T00:05:00Z");
 
@@ -154,7 +154,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("발행 실패 시 attempts를 증가시키고 다음 시도 시간을 기록한다")
-    void 발행_실패_재시도() {
+    void testCase011() {
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created"), "{}");
         Instant nextAttemptAt = Instant.parse("2026-05-21T00:00:10Z");
 
@@ -164,11 +164,12 @@ class EventOutboxTest {
         assertThat(outbox.getAttempts()).isEqualTo(1);
         assertThat(outbox.getNextAttemptAt()).isEqualTo(nextAttemptAt);
         assertThat(outbox.getLastError()).isEqualTo("temporary failure");
+        assertThat(outbox.getSanitizedLastError()).isNull();
     }
 
     @Test
     @DisplayName("최대 시도 횟수에 도달하면 failed 상태로 전환한다")
-    void 최대_시도_횟수_도달() {
+    void testCase012() {
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created"), "{}");
         Instant nextAttemptAt = Instant.parse("2026-05-21T00:00:10Z");
 
@@ -182,7 +183,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("pending 상태 정보는 nextAttemptAt만 노출한다")
-    void statusInfo_pending_시각_분리() {
+    void testCase013() {
         EventOutbox outbox = EventOutbox.record(
             TestEvent.create("test.created"),
             "{}",
@@ -199,7 +200,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("processing 상태 정보는 leaseUntil만 노출한다")
-    void statusInfo_processing_시각_분리() {
+    void testCase014() {
         EventOutbox outbox = EventOutbox.record(
             TestEvent.create("test.created"),
             "{}",
@@ -217,12 +218,16 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("종료 상태 정보는 nextAttemptAt과 leaseUntil을 노출하지 않는다")
-    void statusInfo_terminal_시각_미노출() {
+    void testCase015() {
         EventOutbox published = EventOutbox.record(TestEvent.create("test.published"), "{}");
         EventOutbox failed = EventOutbox.record(TestEvent.create("test.failed"), "{}");
         published.markPublished();
         failed.markPublished();
-        failed.recordFailure("EVENT-OUTBOX-0002", Instant.parse("2026-07-18T00:01:00Z"), 1);
+        failed.recordSanitizedFailure(
+            "EVENT-OUTBOX-0002",
+            Instant.parse("2026-07-18T00:01:00Z"),
+            1
+        );
 
         Stream<EventOutboxStatusInfo> infos = Stream.of(published, failed).map(EventOutboxStatusInfo::from);
 
@@ -235,13 +240,14 @@ class EventOutboxTest {
         assertThat(EventOutboxStatusInfo.from(failed).status()).isEqualTo(EventOutboxStatus.FAILED);
         assertThat(EventOutboxStatusInfo.from(failed).publishedAt()).isNull();
         assertThat(EventOutboxStatusInfo.from(failed).failureCode()).isEqualTo("EVENT-OUTBOX-0002");
+        assertThat(failed.getSanitizedLastError()).isEqualTo("EVENT-OUTBOX-0002");
     }
 
     @Test
     @DisplayName("상태 정보는 legacy raw 오류 문구를 failureCode로 노출하지 않는다")
-    void statusInfo_legacy_raw_error_미노출() {
+    void testCase016() {
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.failed"), "{}");
-        outbox.recordFailure("recipient=user@example.com", Instant.parse("2026-07-18T00:01:00Z"), 1);
+        outbox.recordFailure("ApplicantNameException", Instant.parse("2026-07-18T00:01:00Z"), 1);
 
         EventOutboxStatusInfo info = EventOutboxStatusInfo.from(outbox);
 
@@ -250,7 +256,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("발행 결과는 pending 실행 시각만 노출한다")
-    void publishResult_pending_시각_노출() {
+    void testCase017() {
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created"), "{}");
 
         OutboxPublishResult result = OutboxPublishResult.from(outbox, false);
@@ -263,7 +269,7 @@ class EventOutboxTest {
 
     @Test
     @DisplayName("멱등 충돌 예외는 stable event outbox error code를 사용한다")
-    void idempotencyConflict_stable_error_code() {
+    void testCase018() {
         OutboxIdempotencyConflictException exception = new OutboxIdempotencyConflictException();
 
         assertThat(exception.getBaseCode()).isEqualTo(EventOutboxErrorCode.IDEMPOTENCY_CONFLICT);

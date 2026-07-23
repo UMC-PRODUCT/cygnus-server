@@ -18,7 +18,7 @@ public enum EmailErrorCode implements BaseCode {
     EMAIL_TEMPLATE_VARIABLE_INVALID(HttpStatus.BAD_REQUEST, "EMAIL-0009", "이메일 템플릿 변수 값이 올바르지 않아요."),
     EMAIL_TEMPLATE_ACTION_URL_INVALID(HttpStatus.BAD_REQUEST, "EMAIL-0010", "이메일 링크가 올바르지 않아요."),
     EMAIL_TEMPLATE_ACTION_ORIGIN_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "EMAIL-0011", "이메일 링크 도메인이 허용되지 않았어요."),
-    ;
+    EMAIL_TEMPLATE_REQUEST_INVALID(HttpStatus.BAD_REQUEST, "EMAIL-0012", "이메일 요청 정보가 올바르지 않아요.");
 
     private final HttpStatus httpStatus;
     private final String code;

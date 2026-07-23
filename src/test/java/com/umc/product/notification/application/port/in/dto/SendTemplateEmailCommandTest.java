@@ -21,7 +21,7 @@ class SendTemplateEmailCommandTest {
 
     @Test
     @DisplayName("template email command는 공개 입력만 소유하고 문자열과 map을 snapshot한다")
-    void 공개_입력과_불변_snapshot을_보장한다() {
+    void testCase001() {
         Map<String, String> variables = new LinkedHashMap<>();
         variables.put(" applicantName ", " 지원자 ");
 
@@ -42,7 +42,7 @@ class SendTemplateEmailCommandTest {
 
     @Test
     @DisplayName("rendering control 변수는 stable EMAIL code로 거부한다")
-    void rendering_control_변수를_거부한다() {
+    void testCase002() {
         EmailTemplateCatalog catalog = new EmailTemplateCatalog(List.of("https://university.neordinary.com"));
 
         for (String renderingControlKey : List.of("subject", "templateResourcePath", "htmlContent")) {
@@ -64,7 +64,7 @@ class SendTemplateEmailCommandTest {
 
     @Test
     @DisplayName("null map은 command 단계에서 NPE가 아니라 catalog가 명시적 오류로 처리할 수 있다")
-    void null_map을_보존한다() {
+    void testCase003() {
         SendTemplateEmailCommand command = new SendTemplateEmailCommand(
             UUID.randomUUID(), "recipient@test.umc.local", EmailTemplateType.RECRUITMENT_FINAL_FAILED, null, null
         );

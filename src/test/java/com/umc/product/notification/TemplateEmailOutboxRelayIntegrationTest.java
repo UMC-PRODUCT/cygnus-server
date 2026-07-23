@@ -1,6 +1,7 @@
 package com.umc.product.notification;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
@@ -8,6 +9,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -25,9 +28,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.umc.product.global.event.adapter.in.scheduler.EventOutboxPoller;
-import com.umc.product.global.event.adapter.out.persistence.EventOutboxJpaRepository;
+import com.umc.product.global.event.application.port.in.command.RedactEventOutboxPayloadUseCase;
 import com.umc.product.global.event.application.service.EventOutboxRelayService;
 import com.umc.product.global.event.domain.EventOutboxStatus;
+import com.umc.product.global.event.domain.OutboxIdempotencyConflictException;
 import com.umc.product.notification.application.port.in.SendEmailUseCase;
 import com.umc.product.notification.application.port.in.dto.SendTemplateEmailCommand;
 import com.umc.product.notification.application.port.in.dto.TemplateEmailRequestInfo;
@@ -55,7 +59,7 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
     private EventOutboxRelayService relayService;
 
     @Autowired
-    private EventOutboxJpaRepository repository;
+    private RedactEventOutboxPayloadUseCase redactEventOutboxPayloadUseCase;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -68,7 +72,7 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("due 요청은 transaction 밖에서 한 번 발송하고 PUBLISHED·중복 무발송을 보장한다")
-    void due_요청을_한번_발송하고_중복은_재발송하지_않는다() {
+    void testCase001() {
         AtomicBoolean transactionActive = new AtomicBoolean(true);
         doAnswer(invocation -> {
             transactionActive.set(TransactionSynchronizationManager.isActualTransactionActive());
@@ -98,17 +102,11 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
         assertThat(message.subject()).contains("서류 전형 합격");
         assertThat(message.htmlBody()).contains(RAW_VARIABLE, "면접 가능 시간 제출하기");
         assertThat(applicationContext.getBeansOfType(EventOutboxPoller.class)).isEmpty();
-        System.out.printf(
-            "TODO7_RELAY_SUCCESS status=PUBLISHED sends=1 duplicate=%s transactionActive=%s from=%s%n",
-            duplicate.deduplicated(),
-            transactionActive.get(),
-            message.fromAddress()
-        );
     }
 
     @Test
     @DisplayName("future 요청은 발송하지 않고 PENDING으로 유지한다")
-    void future_요청은_due_이전까지_발송하지_않는다() {
+    void testCase002() {
         SendTemplateEmailCommand command = command(
             UUID.fromString("70000000-0000-0000-0000-000000000102"),
             Instant.now().plusSeconds(3_600)
@@ -123,7 +121,7 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
 
     @Test
     @DisplayName("provider 실패는 stable code와 backoff를 기록하고 다음 due relay에서 성공한다")
-    void provider_실패를_backoff_후_재시도해_성공한다() {
+    void testCase003() {
         EmailDomainException failure = failure();
         doThrow(failure).doNothing().when(sendEmailPort).send(any(EmailMessage.class));
         SendTemplateEmailCommand command = command(
@@ -144,12 +142,11 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
         assertThat(state(command.eventId()).status()).isEqualTo("PUBLISHED");
         assertThat(piiInLastErrorCount()).isZero();
         verify(sendEmailPort, times(2)).send(any(EmailMessage.class));
-        System.out.println("TODO7_RELAY_RETRY first=PENDING attempts=1 lastError=EMAIL-0005 retry=PUBLISHED");
     }
 
     @Test
     @DisplayName("provider가 최대 횟수까지 실패하면 PII 없이 FAILED로 종료한다")
-    void provider_최대_실패는_FAILED로_종료한다() {
+    void testCase004() {
         doThrow(failure()).when(sendEmailPort).send(any(EmailMessage.class));
         SendTemplateEmailCommand command = command(
             UUID.fromString("70000000-0000-0000-0000-000000000104"),
@@ -168,7 +165,88 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
         assertThat(state.lastError()).isEqualTo("EMAIL-0005");
         assertThat(piiInLastErrorCount()).isZero();
         verify(sendEmailPort, times(2)).send(any(EmailMessage.class));
-        System.out.println("TODO7_RELAY_MAX status=FAILED attempts=2 lastError=EMAIL-0005 pii=false");
+    }
+
+    @Test
+    @DisplayName("provider 영구 실패는 한 번만 호출하고 즉시 FAILED로 종료한다")
+    void testCase005() {
+        EmailDomainException permanentFailure = new EmailDomainException(
+            EmailErrorCode.EMAIL_SEND_FAILED,
+            false,
+            new IllegalStateException(RAW_EMAIL + " " + RAW_VARIABLE)
+        );
+        doThrow(permanentFailure).when(sendEmailPort).send(any(EmailMessage.class));
+        SendTemplateEmailCommand command = command(
+            UUID.fromString("70000000-0000-0000-0000-000000000105"),
+            Instant.now().minusSeconds(1)
+        );
+
+        sendEmailUseCase.requestTemplateEmail(command);
+        relayService.relay();
+        relayService.relay();
+
+        OutboxState state = state(command.eventId());
+        assertThat(state.status()).isEqualTo("FAILED");
+        assertThat(state.attempts()).isOne();
+        assertThat(state.lastError()).isEqualTo("EMAIL-0005");
+        assertThat(piiInLastErrorCount()).isZero();
+        verify(sendEmailPort, times(1)).send(any(EmailMessage.class));
+    }
+
+    @Test
+    @DisplayName("PUBLISHED payload 정리 후에도 동일 요청은 dedupe하고 불일치는 conflict로 유지한다")
+    void testCase006() {
+        Instant now = Instant.parse("2026-07-23T00:00:00Z");
+        Instant availableAt = Instant.now().minusSeconds(1);
+        SendTemplateEmailCommand command = command(
+            UUID.fromString("70000000-0000-0000-0000-000000000106"),
+            availableAt
+        );
+        sendEmailUseCase.requestTemplateEmail(command);
+        relayService.relay();
+        jdbcTemplate.update(
+            "UPDATE event_outbox SET published_at = ?, traceparent = ? WHERE event_id = ?",
+            Timestamp.from(now.minus(Duration.ofHours(24))),
+            "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01",
+            command.eventId()
+        );
+        TombstoneState before = tombstoneState(command.eventId());
+
+        int redacted = redactEventOutboxPayloadUseCase.redactExpiredPayloads(
+            now,
+            Duration.ofHours(24),
+            Duration.ofDays(30),
+            500,
+            20
+        );
+        TemplateEmailRequestInfo duplicate = sendEmailUseCase.requestTemplateEmail(command);
+        SendTemplateEmailCommand conflicting = new SendTemplateEmailCommand(
+            command.eventId(),
+            RAW_EMAIL,
+            command.templateType(),
+            Map.of(
+                "applicantName", RAW_VARIABLE + "-변경",
+                "contactSnapshot", "contact@university.neordinary.com",
+                "actionUrl", "https://university.neordinary.com/interview?slot=1"
+            ),
+            availableAt
+        );
+
+        assertThatThrownBy(() -> sendEmailUseCase.requestTemplateEmail(conflicting))
+            .isInstanceOf(OutboxIdempotencyConflictException.class);
+        TombstoneState after = tombstoneState(command.eventId());
+        assertThat(redacted).isOne();
+        assertThat(duplicate.deduplicated()).isTrue();
+        assertThat(duplicate.status()).isEqualTo(EventOutboxStatus.PUBLISHED);
+        assertThat(after.payload()).isEqualTo("{}");
+        assertThat(after.traceparent()).isNull();
+        assertThat(after.payloadRedactedAt()).isEqualTo(now);
+        assertThat(after.status()).isEqualTo(before.status());
+        assertThat(after.eventClass()).isEqualTo(before.eventClass());
+        assertThat(after.eventType()).isEqualTo(before.eventType());
+        assertThat(after.payloadFingerprint()).isEqualTo(before.payloadFingerprint());
+        assertThat(after.availableAt()).isEqualTo(before.availableAt());
+        verify(sendEmailPort, times(1)).send(any(EmailMessage.class));
     }
 
     private SendTemplateEmailCommand command(UUID eventId, Instant availableAt) {
@@ -221,6 +299,42 @@ class TemplateEmailOutboxRelayIntegrationTest extends IntegrationTestSupport {
         );
     }
 
+    private TombstoneState tombstoneState(UUID eventId) {
+        return jdbcTemplate.queryForObject(
+            """
+                SELECT status, event_class, event_type, payload_fingerprint, available_at,
+                       payload::text, traceparent, payload_redacted_at
+                FROM event_outbox
+                WHERE event_id = ?
+                """,
+            (resultSet, rowNumber) -> new TombstoneState(
+                resultSet.getString("status"),
+                resultSet.getString("event_class"),
+                resultSet.getString("event_type"),
+                resultSet.getString("payload_fingerprint"),
+                resultSet.getTimestamp("available_at").toInstant(),
+                resultSet.getString("payload"),
+                resultSet.getString("traceparent"),
+                resultSet.getTimestamp("payload_redacted_at") == null
+                    ? null
+                    : resultSet.getTimestamp("payload_redacted_at").toInstant()
+            ),
+            eventId
+        );
+    }
+
     private record OutboxState(String status, int attempts, String lastError, Instant nextAttemptAt) {
+    }
+
+    private record TombstoneState(
+        String status,
+        String eventClass,
+        String eventType,
+        String payloadFingerprint,
+        Instant availableAt,
+        String payload,
+        String traceparent,
+        Instant payloadRedactedAt
+    ) {
     }
 }

@@ -30,6 +30,10 @@ import lombok.NoArgsConstructor;
 public class EventOutbox extends BaseEntity {
 
     private static final Pattern PAYLOAD_FINGERPRINT_PATTERN = Pattern.compile("[0-9a-f]{64}");
+    private static final Pattern SAFE_FAILURE_IDENTIFIER_PATTERN = Pattern.compile(
+        "[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\\d{3,4}"
+            + "|(?:[a-zA-Z_$][\\w$]*\\.)+[A-Za-z_$][\\w$]*"
+    );
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -71,12 +75,19 @@ public class EventOutbox extends BaseEntity {
     @Column(name = "last_error")
     private String lastError;
 
+    @Column(name = "sanitized_last_error")
+    private String sanitizedLastError;
+
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    // 발행 시점(원 요청 trace 컨텍스트)의 W3C traceparent. relay span link 복원에 사용한다. 없을 수 있음.
+    // 발행 시점(원 요청 trace 컨텍스트)의 W3C traceparent.
+    // relay span link 복원에 사용하며 없을 수 있다.
     @Column(name = "traceparent", length = 64)
     private String traceparent;
+
+    @Column(name = "payload_redacted_at")
+    private Instant payloadRedactedAt;
 
     private EventOutbox(
         DomainEvent event,
@@ -163,6 +174,7 @@ public class EventOutbox extends BaseEntity {
         this.status = EventOutboxStatus.PUBLISHED;
         this.publishedAt = Instant.now();
         this.lastError = null;
+        this.sanitizedLastError = null;
     }
 
     public void markProcessing(Instant leaseUntil) {
@@ -174,11 +186,45 @@ public class EventOutbox extends BaseEntity {
     }
 
     public void recordFailure(String errorMessage, Instant nextAttemptAt, int maxAttempts) {
+        recordFailure(errorMessage, nextAttemptAt, maxAttempts, true);
+    }
+
+    public void recordFailure(String errorMessage, Instant nextAttemptAt, int maxAttempts, boolean retryable) {
+        applyFailure(errorMessage, nextAttemptAt, maxAttempts, retryable, false);
+    }
+
+    public void recordSanitizedFailure(String failureIdentifier, Instant nextAttemptAt, int maxAttempts) {
+        recordSanitizedFailure(failureIdentifier, nextAttemptAt, maxAttempts, true);
+    }
+
+    public void recordSanitizedFailure(
+        String failureIdentifier,
+        Instant nextAttemptAt,
+        int maxAttempts,
+        boolean retryable
+    ) {
+        if (
+            failureIdentifier == null
+                || !SAFE_FAILURE_IDENTIFIER_PATTERN.matcher(failureIdentifier).matches()
+        ) {
+            throw new IllegalArgumentException("안전한 outbox 실패 식별자 형식이 아닙니다.");
+        }
+        applyFailure(failureIdentifier, nextAttemptAt, maxAttempts, retryable, true);
+    }
+
+    private void applyFailure(
+        String errorMessage,
+        Instant nextAttemptAt,
+        int maxAttempts,
+        boolean retryable,
+        boolean sanitized
+    ) {
         this.attempts++;
         this.lastError = errorMessage;
+        this.sanitizedLastError = sanitized ? errorMessage : null;
         this.publishedAt = null;
         this.nextAttemptAt = nextAttemptAt;
-        if (this.attempts >= maxAttempts) {
+        if (!retryable || this.attempts >= maxAttempts) {
             this.status = EventOutboxStatus.FAILED;
             return;
         }

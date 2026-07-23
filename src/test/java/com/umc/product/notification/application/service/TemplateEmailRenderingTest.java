@@ -54,7 +54,7 @@ class TemplateEmailRenderingTest {
 
     @Test
     @DisplayName("4종 채용 메일이 실제 Thymeleaf로 UTF-8 preview를 만든다")
-    void 네_종류_템플릿을_실제_렌더링한다() throws IOException {
+    void testCase001() throws IOException {
         Files.createDirectories(PREVIEW_DIRECTORY);
 
         for (EmailTemplateType type : EmailTemplateType.values()) {
@@ -75,7 +75,7 @@ class TemplateEmailRenderingTest {
 
     @Test
     @DisplayName("동적 값은 HTML/Thymeleaf injection 없이 text와 href로 escape된다")
-    void 동적_값을_escape한다() {
+    void testCase002() {
         Map<String, String> values = new LinkedHashMap<>();
         values.put("applicantName", "<script>alert(1)</script> ${th:text}");
         String rendered = render(EmailTemplateType.RECRUITMENT_FINAL_FAILED, values);
@@ -90,7 +90,7 @@ class TemplateEmailRenderingTest {
 
     @Test
     @DisplayName("서류 합격 메일만 정확히 하나의 CTA를 갖고 나머지는 CTA가 없다")
-    void cta_개수를_검증한다() {
+    void testCase003() {
         String documentPassed = render(
             EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST,
             values(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST)
@@ -107,6 +107,42 @@ class TemplateEmailRenderingTest {
             String rendered = render(type, values(type));
             assertThat(rendered).doesNotContain("면접 가능 시간 제출하기");
         }
+    }
+
+    @Test
+    @DisplayName("공통 shell과 component fragment는 중복 document 종료 없이 분리되어 있다")
+    void testCase004() throws IOException {
+        String shell = readTemplate("email/recruitment/shell.html");
+        String fragments = readTemplate("email/recruitment/fragments.html");
+
+        assertThat(shell)
+            .contains("th:fragment=\"email-shell(title, content)\"")
+            .contains("@media screen and (max-width: 480px)");
+        assertThat(fragments)
+            .contains("th:fragment=\"data-row(label, value)\"")
+            .contains("th:fragment=\"cta(url)\"")
+            .contains("th:fragment=\"footer\"")
+            .doesNotContain("email-shell(content)")
+            .doesNotContain("@media screen");
+        assertThat(count(shell, "</html>")).isOne();
+        assertThat(count(fragments, "</html>")).isOne();
+    }
+
+    @Test
+    @DisplayName("기존 인증 메일도 실제 렌더링 후 University와 약관 링크를 유지한다")
+    void testCase005() {
+        Context context = new Context(Locale.KOREAN);
+        context.setVariable("verificationToken", "123456");
+
+        String rendered = templateEngine.process("email/verification", context);
+
+        assertThat(rendered)
+            .contains("123456")
+            .contains("href=\"https://university.neordinary.com\"")
+            .contains("개인정보 처리방침")
+            .contains("서비스 이용약관")
+            .contains(PRIVACY_URL)
+            .doesNotContain("th:text=");
     }
 
     private String render(EmailTemplateType type, Map<String, String> values) {
@@ -136,9 +172,20 @@ class TemplateEmailRenderingTest {
             .doesNotContain("tracking")
             .doesNotContain("@font-face")
             .doesNotContain("<script")
+            .doesNotContain("안내된 연락처")
+            .contains("color: #707878")
+            .contains("display: inline-block; padding: 13px 4px;")
             .contains("https://university.neordinary.com")
             .contains(PRIVACY_URL);
+        assertThat(count(rendered, "display: inline-block; padding: 13px 4px;")).isEqualTo(3);
         assertThat(rendered.getBytes(StandardCharsets.UTF_8)).isNotEmpty();
+    }
+
+    private String readTemplate(String resourcePath) throws IOException {
+        try (var input = getClass().getClassLoader().getResourceAsStream("templates/" + resourcePath)) {
+            assertThat(input).as(resourcePath).isNotNull();
+            return new String(input.readAllBytes(), StandardCharsets.UTF_8);
+        }
     }
 
     private void assertTypeCopy(EmailTemplateType type, String rendered) {

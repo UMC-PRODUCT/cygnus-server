@@ -20,6 +20,7 @@ import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxRelayPolicy;
+import com.umc.product.global.event.domain.OutboxDispatchFailure;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.global.observability.ObservabilityErrorSanitizer;
@@ -184,7 +185,12 @@ public class EventOutboxRelayService {
 
     private void recordFailure(EventOutbox outbox, RuntimeException exception) {
         transactionTemplate.executeWithoutResult(status -> {
-            outbox.recordFailure(failureCode(exception), nextAttemptAt(outbox), maxAttempts);
+            outbox.recordSanitizedFailure(
+                failureCode(exception),
+                nextAttemptAt(outbox),
+                maxAttempts,
+                !(exception instanceof OutboxDispatchFailure failure) || failure.retryable()
+            );
             saveEventOutboxPort.save(outbox);
         });
     }

@@ -116,7 +116,8 @@ Firebase API를 호출하는 batch 발송 이벤트는 `NON_TRANSACTIONAL`이 �
 
 | 상황 | Outbox 결과 | 주의사항 |
 | --- | --- | --- |
-| listener가 `RuntimeException`을 던짐 | `PENDING` 재시도, 최대 횟수 도달 시 `FAILED` | relay가 예외를 관찰할 수 있어야 한다. |
+| 일반/알 수 없는 `RuntimeException`을 던짐 | `PENDING` 재시도, 최대 횟수 도달 시 `FAILED` | 기존 호환성을 위해 retryable로 취급한다. |
+| listener가 `OutboxDispatchFailure(retryable=false)`를 던짐 | attempts를 1 증가시키고 즉시 `FAILED` | 명확한 영구 오류를 동일하게 반복하지 않는다. |
 | 외부 API가 부분 실패를 반환했지만 listener가 정상 반환 | `PUBLISHED` | 실패 token을 결과값으로만 삼키면 자동 재시도되지 않는다. |
 | `NON_TRANSACTIONAL` 외부 호출은 성공했지만 `PUBLISHED` 저장 실패 | lease 만료 후 재시도 가능 | 외부 side effect가 중복 실행될 수 있으므로 consumer 멱등성이 필요하다. |
 | worker가 `PROCESSING` 중 종료 | lease 만료 후 재claim | 다른 worker가 같은 이벤트를 이어서 처리한다. |
@@ -166,8 +167,9 @@ dedupe하지 않고 항상 conflict로 처리한다.
 
 상태 조회는 event ID, status, attempts, immutable `availableAt`, 상태에 맞는 시간 하나, 안전한
 failure code, `publishedAt`만 반환한다. `PENDING`은 `nextAttemptAt`만, `PROCESSING`은 `leaseUntil`만
-채우며 `PUBLISHED`와 `FAILED`는 둘 다 `null`이다. `OutboxPublishResult`도 `PENDING`일 때만
-`nextAttemptAt`을 반환한다. payload·수신자·template variables·원문 오류는 응답에 포함하지 않는다.
+채우며 `PUBLISHED`와 `FAILED`는 둘 다 `null`이다. `OutboxPublishResult`는 도메인에서 canonicalize한
+`availableAt`을 반환하고 `PENDING`일 때만 `nextAttemptAt`을 반환한다. payload·수신자·template
+variables·원문 오류는 응답에 포함하지 않는다.
 
 ## claim-one relay와 실패 기록
 
@@ -180,8 +182,35 @@ batch 뒤쪽 row의 lease가 먼저 만료되는 것을 막는다. `NON_TRANSACT
 
 실패 저장값은 PII-safe하고 안정적인 식별자만 사용한다. `BusinessException`은
 `baseCode.code`(예: `EMAIL-0005`)를, 그 밖의 예외는 fully-qualified exception class name을
-`lastError`에 기록한다. raw exception message, 이메일 주소, template 변수와 payload는 DB나 로그에
-남기지 않는다.
+`lastError`와 `sanitizedLastError`에 같은 값으로 기록한다. 상태 응답은 두 값이 일치할 때만
+후자를 사용하므로 raw exception message는 노출되지 않는다. 신규
+template-email 경로는 provider cause를 dispatch 경계에서 제거하고 이메일 주소·template 변수를
+애플리케이션 로그와 trace span error에도 남기지 않는다. 다른 event listener가 직접 남기는
+로그·span의 민감정보 처리는 해당 listener의 책임이다. relay가 발송 요청을 복원하려면 outbox
+`payload`에 이메일 주소와 template 변수가 terminal retention 시점까지 일시 저장된다.
+
+알 수 없는 `RuntimeException`과 `retryable=true` 실패는 기존 bounded backoff를 적용한다. 이메일
+provider의 throttling·HTTP 5xx·상태 미확인 client/runtime 오류는 retryable이고, 그 밖의 명확한
+HTTP 4xx는 non-retryable이다.
+
+## Terminal payload retention
+
+공용 retention scheduler는 terminal row 자체를 삭제하지 않고 payload만 비식별화한다.
+
+- `PUBLISHED`: `published_at`으로부터 24시간이 지난 payload를 정리한다.
+- `FAILED`: 마지막 `updated_at`으로부터 30일이 지난 payload를 정리한다.
+- `PENDING`과 `PROCESSING`은 발행 복원에 필요하므로 정리하지 않는다.
+- 정리 시 `payload='{}'`, `traceparent=NULL`, `payload_redacted_at=now`로 바꾼다.
+- `event_id`, event class/type, fingerprint, 상태·attempts·시각과 현재 `last_error`가
+  `sanitized_last_error` 사본과 일치하는 code/예외 class는 멱등성 tombstone으로 영구 보존한다.
+- 이전 버전의 자유 형식 값과 rolling deploy 중 구버전 writer가 덮어쓴 불일치 값은 문자열 모양과
+  관계없이 payload 정리 시 두 컬럼 모두 `NULL`로 바꾼다.
+
+대상은 `(terminal time, id)` 순서로 `FOR UPDATE SKIP LOCKED`를 사용해 고르고, 기본 1시간 주기,
+batch 500건, 실행당 최대 20 batch로 처리한다. 정리 후에도 동일 identity 재요청은
+`deduplicated=true`, 다른 identity는 `EVENT-OUTBOX-0001` conflict다. 운영 metric job name은
+`event_outbox_payload_retention`이며 처리 건수와 성공·실패만 기록하고 ID와 payload를 tag나 로그에
+넣지 않는다.
 
 ## 보장 범위와 한계
 

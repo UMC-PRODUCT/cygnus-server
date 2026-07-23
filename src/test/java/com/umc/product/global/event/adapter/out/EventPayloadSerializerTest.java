@@ -24,7 +24,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("도메인 이벤트를 JSON payload로 직렬화한다")
-    void serialize() {
+    void testCase001() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
         TestEvent event = TestEvent.create("test.created", "hello");
 
@@ -36,7 +36,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("직렬화 실패 시 eventType을 포함한 예외를 던진다")
-    void serialize_실패() throws Exception {
+    void testCase002() throws Exception {
         ObjectMapper objectMapper = mock(ObjectMapper.class);
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");
@@ -50,7 +50,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("canonical tree 생성 실패도 eventType을 포함한 예외로 매핑한다")
-    void serializeWithFingerprint_트리_생성_실패() throws Exception {
+    void testCase003() throws Exception {
         ObjectMapper objectMapper = mock(ObjectMapper.class);
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");
@@ -64,7 +64,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("null 이벤트의 기존 payload와 typed 결과를 유지한다")
-    void serialize_null_event() {
+    void testCase004() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
 
         EventPayloadSerializer.SerializationResult result = serializer.serializeWithFingerprint(null);
@@ -76,7 +76,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("메타데이터와 Map 삽입 순서가 달라도 동일한 fingerprint를 반환한다")
-    void serializeWithFingerprint_메타데이터와_map_순서_무관() {
+    void testCase005() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         Instant firstOccurredAt = Instant.parse("2026-07-18T00:00:00Z");
@@ -111,7 +111,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("typed serialization 결과의 full payload를 기존 deserializer로 복원한다")
-    void serializeWithFingerprint_full_payload_round_trip() {
+    void testCase006() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         EventPayloadDeserializer deserializer = new EventPayloadDeserializer(objectMapper);
@@ -130,7 +130,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("nested metadata key의 값이 달라지면 fingerprint가 달라진다")
-    void serializeWithFingerprint_nested_metadata_key_보존() {
+    void testCase007() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
 
         String first = fingerprint(serializer, detailsWith("nested-event-a", List.of("first", "second"), null, 1));
@@ -141,7 +141,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("nested array 순서가 달라지면 fingerprint가 달라진다")
-    void serializeWithFingerprint_array_order() {
+    void testCase008() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
 
         String first = fingerprint(serializer, detailsWith("nested-event", List.of("first", "second"), null, 1));
@@ -152,7 +152,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("null 값이 달라지면 fingerprint가 달라진다")
-    void serializeWithFingerprint_null_value() {
+    void testCase009() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
 
         String first = fingerprint(serializer, detailsWith("nested-event", List.of("first", "second"), null, 1));
@@ -163,7 +163,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("정수와 소수 표현이 달라지면 fingerprint가 달라진다")
-    void serializeWithFingerprint_number_representation() {
+    void testCase010() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
 
         String first = fingerprint(serializer, detailsWith("nested-event", List.of("first", "second"), null, 1));
@@ -174,7 +174,7 @@ class EventPayloadSerializerTest {
 
     @Test
     @DisplayName("Unicode와 HTML-like 문자열 값이 달라지면 fingerprint가 달라진다")
-    void serializeWithFingerprint_unicode_value() {
+    void testCase011() {
         EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
         Map<String, Object> firstDetails = detailsWith("nested-event", List.of("first", "second"), null, 1);
         Map<String, Object> secondDetails = detailsWith("nested-event", List.of("first", "second"), null, 1);

@@ -3,72 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
-    <style>
-        @media screen and (max-width: 480px) {
-            .email-outer-cell {
-                padding-left: 16px !important;
-                padding-right: 16px !important;
-            }
-
-            .email-main {
-                min-width: 0 !important;
-            }
-
-            .email-content {
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-            }
-        }
-    </style>
+    <title>UMC 이메일 공통 컴포넌트</title>
 </head>
-<body th:fragment="email-shell(content)"
-      style="margin: 0; padding: 0; width: 100%; background-color: #f7f8fa; color: #161919; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif; -webkit-text-size-adjust: 100%;">
-<style>
-    @media screen and (max-width: 480px) {
-        .email-outer-cell {
-            padding-left: 16px !important;
-            padding-right: 16px !important;
-        }
-
-        .email-main {
-            min-width: 0 !important;
-        }
-
-        .email-content {
-            padding-left: 0 !important;
-            padding-right: 0 !important;
-        }
-    }
-</style>
-<table border="0" cellpadding="0" cellspacing="0" class="email-outer" role="presentation"
-       style="width: 100%; padding: 0; margin: 0 auto; border-collapse: collapse; background-color: #f7f8fa;">
-    <tr>
-        <td align="center" class="email-outer-cell" style="padding: 0 30px 40px;">
-            <table border="0" cellpadding="0" cellspacing="0" class="email-main" role="presentation"
-                   style="width: 100%; max-width: 620px; min-width: 300px; margin: 0 auto; border-collapse: collapse; background-color: #ffffff;">
-                <tr>
-                    <td aria-hidden="true" class="email-banner" data-email-banner="empty"
-                        style="height: 44px; line-height: 0; font-size: 0; padding: 0;">&nbsp;</td>
-                </tr>
-                <tr>
-                    <td class="email-content"
-                        style="padding: 0 0 44px; overflow-wrap: anywhere; word-break: keep-all;"
-                        th:insert="${content}"></td>
-                </tr>
-                <tr>
-                    <td th:replace="~{email/recruitment/fragments :: footer}"></td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</table>
-</body>
-</html>
-
-<th:block th:fragment="data-row(label, value)">
-    <tr>
+<body>
+<table border="0" cellpadding="0" cellspacing="0" role="presentation">
+    <tbody>
+    <tr th:fragment="data-row(label, value)">
         <td style="padding: 0 0 16px; overflow-wrap: anywhere; word-break: keep-all;">
-            <p style="margin: 0; color: #747c7c; font-size: 13px; font-weight: 700; line-height: 20px; word-break: keep-all;">
+            <p style="margin: 0; color: #707878; font-size: 13px; font-weight: 700; line-height: 20px; word-break: keep-all;">
                 <span th:text="${label}">일정</span>
             </p>
             <p style="margin: 2px 0 0; color: #161919; font-size: 16px; font-weight: 400; line-height: 28px; overflow-wrap: anywhere; word-break: keep-all;">
@@ -76,28 +18,31 @@
             </p>
         </td>
     </tr>
-</th:block>
-
-<a th:fragment="cta(url)" th:href="${url}"
-   style="display: inline-block; padding: 12px 20px; border-radius: 4px; background-color: #0b6b64; color: #ffffff; font-size: 14px; font-weight: 700; line-height: 20px; text-decoration: none;">면접 가능 시간 제출하기</a>
-
-<td th:fragment="footer" align="center"
-    style="padding: 0 0 28px; color: #747c7c; font-size: 12px; font-weight: 400; line-height: 18px; overflow-wrap: anywhere; word-break: keep-all;">
-    <div style="height: 0.5px; line-height: 0; font-size: 0; margin: 0 0 24px; background-color: #dcdee3;">&nbsp;</div>
-    <p style="margin: 0 0 18px; color: #747c7c; font-size: 12px; line-height: 18px;">
-        본 메일은 UMC 채용 전형 안내를 위해 발송되었습니다.<br>
-        문의가 필요하시면 안내된 연락처로 연락해 주세요.
-    </p>
-    <p style="margin: 0 0 18px; font-size: 12px; line-height: 18px;">
-        <a href="https://university.neordinary.com"
-           style="color: #4f5757; font-size: 12px; line-height: 18px; text-decoration: none;">홈페이지</a>
-        <span style="color: #dcdee3;">&nbsp;|&nbsp;</span>
-        <a href="https://makeus-challenge.notion.site/2b4b57f4596b80d683ecd6f15f0b0f7c?source=copy_link"
-           style="color: #4f5757; font-size: 12px; line-height: 18px; text-decoration: none;">개인정보 처리방침</a>
-        <span style="color: #dcdee3;">&nbsp;|&nbsp;</span>
-        <a href="https://makeus-challenge.notion.site/2b4b57f4596b80d683ecd6f15f0b0f7c?source=copy_link"
-           style="color: #4f5757; font-size: 12px; line-height: 18px; text-decoration: none;">서비스 이용약관</a>
-    </p>
-    <p style="margin: 0; color: #747c7c; font-size: 12px; line-height: 18px;">© 2026 University MakeUs Challenge. <span style="white-space: nowrap;">All rights reserved.</span></p>
-</td>
+    <tr>
+        <td th:fragment="footer" align="center"
+            style="padding: 0 0 28px; color: #707878; font-size: 12px; font-weight: 400; line-height: 18px; overflow-wrap: anywhere; word-break: keep-all;">
+            <div style="height: 0.5px; line-height: 0; font-size: 0; margin: 0 0 24px; background-color: #dcdee3;">&nbsp;</div>
+            <p style="margin: 0 0 5px; color: #707878; font-size: 12px; line-height: 18px;">
+                본 메일은 UMC 채용 전형 안내를 위해 발송되었습니다.
+            </p>
+            <p style="margin: 0 0 5px; font-size: 12px; line-height: 18px;">
+                <a href="https://university.neordinary.com"
+                   style="display: inline-block; padding: 13px 4px; color: #4f5757; font-size: 12px; line-height: 18px; text-decoration: none;">홈페이지</a>
+                <span style="color: #dcdee3;">&nbsp;|&nbsp;</span>
+                <a href="https://makeus-challenge.notion.site/2b4b57f4596b80d683ecd6f15f0b0f7c?source=copy_link"
+                   style="display: inline-block; padding: 13px 4px; color: #4f5757; font-size: 12px; line-height: 18px; text-decoration: none;">개인정보 처리방침</a>
+                <span style="color: #dcdee3;">&nbsp;|&nbsp;</span>
+                <a href="https://makeus-challenge.notion.site/2b4b57f4596b80d683ecd6f15f0b0f7c?source=copy_link"
+                   style="display: inline-block; padding: 13px 4px; color: #4f5757; font-size: 12px; line-height: 18px; text-decoration: none;">서비스 이용약관</a>
+            </p>
+            <p style="margin: 0; color: #707878; font-size: 12px; line-height: 18px;">© 2026 University MakeUs Challenge. <span style="white-space: nowrap;">All rights reserved.</span></p>
+        </td>
+    </tr>
+    </tbody>
+</table>
+<p>
+    <a th:fragment="cta(url)" th:href="${url}"
+       style="display: inline-block; padding: 12px 20px; border-radius: 4px; background-color: #0b6b64; color: #ffffff; font-size: 14px; font-weight: 700; line-height: 20px; text-decoration: none;">면접 가능 시간 제출하기</a>
+</p>
+</body>
 </html>

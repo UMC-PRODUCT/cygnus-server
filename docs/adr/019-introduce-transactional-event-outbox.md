@@ -100,8 +100,9 @@ ADR-018 본문에 "Phase 2는 `FcmOutbox` 패턴을 일반화한다"라고 적�
 1. **신규 어댑터 추가**: `global/event/adapter/out/OutboxDomainEventPublisher`가
    `DomainEventPublisher`를 구현한다. `publish(event)` 호출 시 외부 큐에 보내지 않고 outbox
    테이블에 INSERT만 수행한다.
-2. **기존 어댑터(`SpringDomainEventPublisher`)는 유지한다.** 두 어댑터 중 어느 쪽을 활성화할지는
-   `app.event-outbox.enabled` feature flag로 선택한다. 점진 롤아웃 + 즉시 롤백 가능.
+2. **publisher 선택 feature flag는 더 이상 사용하지 않는다.** 현재는 ADR-026에 따라
+   `OutboxDomainEventPublisher`만 활성화한다. `app.event-outbox.relay-enabled`는 publisher를
+   바꾸지 않고 poller의 claim만 중단한다.
 3. **Listener 코드는 변경하지 않는다.** Poller가 outbox row를 처리할 때 내부적으로 Spring
    `ApplicationEventPublisher.publishEvent(event)`로 디스패치하므로, 기존 `@TransactionalEventListener`
    리스너들이 그대로 받아 처리한다. 단, `AFTER_COMMIT` 단계 의미가 더 이상 필요하지 않으므로
@@ -310,7 +311,7 @@ CREATE INDEX idx_event_outbox_publishable
     ON event_outbox(next_attempt_at, id)
     WHERE status IN ('PENDING', 'PROCESSING');
 
--- cleanup scheduler를 도입할 때 status/published_at 인덱스를 추가로 검토한다.
+-- terminal payload retention은 status별 partial index를 별도 concurrent migration으로 추가한다.
 ```
 
 ### Poller 동시성 및 transaction 경계
@@ -354,32 +355,43 @@ listener side effect의 성공은 이 상태에 반영되지 않는다.
 - `attempts >= app.event-outbox.max-attempts` 도달 시 `FAILED` 상태로 마킹하고 알람.
 - 운영 중 정책 변경이 잦을 것이므로 상수가 아닌 `app.event-outbox.*` 프로퍼티로 노출.
 
-### Cleanup 정책
+### Terminal payload retention 정책
 
-- PUBLISHED row는 24시간 후 별도 Scheduler가 DELETE (또는 archive 테이블로 이관).
-- FAILED row는 영구 보존 (운영자 수동 처리 대상).
-- 정책은 `app.event-outbox.cleanup.*` 프로퍼티로 조정.
+- PUBLISHED payload는 `published_at` 기준 24시간 후 비식별화한다.
+- FAILED payload는 마지막 `updated_at` 기준 30일 후 비식별화한다.
+- row를 삭제하지 않고 `payload='{}'`, `traceparent=NULL`, `payload_redacted_at=now`로 갱신한다.
+- event identity, fingerprint, 상태·시각과 `sanitized_last_error` 사본이 현재 `last_error`와 일치하는
+  안정적인 code/예외 class는 멱등성 tombstone으로 영구 보존한다. 이전 버전의 자유 형식 값이나
+  rolling deploy 중 구버전 writer가 덮어쓴 값은 사본과 일치하지 않으므로 payload 정리 시 두 값을
+  모두 `NULL`로 바꾼다.
+- PENDING/PROCESSING payload는 relay 복원에 필요하므로 정리하지 않는다.
+- 정책은 `app.event-outbox.retention.*` 프로퍼티로 조정한다.
 
 ### Feature Flag 및 롤아웃
 
 ```yaml
 app:
   event-outbox:
-    enabled: true         # 기본 OutboxDomainEventPublisher 활성
+    relay-enabled: true   # false면 저장은 유지하고 poller claim만 중단
     poll-interval-ms: 1000
     batch-size: 100
     max-attempts: 5
-    cleanup:
-      published-retention-hours: 24
-      run-interval-minutes: 60
+    retention:
+      enabled: true
+      interval: PT1H
+      published-payload-retention: PT24H
+      failed-payload-retention: P30D
+      batch-size: 500
+      max-batches-per-run: 20
 ```
 
 활성화 및 롤백 절차:
 
 1. 애플리케이션 시작 전 Flyway가 Outbox 테이블과 polling index migration을 적용한다.
-2. 기본값 `enabled=true`로 `OutboxDomainEventPublisher`와 poller를 활성화한다.
+2. `OutboxDomainEventPublisher`는 항상 사용하고 기본값 `relay-enabled=true`로 poller를 활성화한다.
 3. PENDING 적체, FAILED row, polling lag와 DB 부하를 감시한다.
-4. 회귀 시 `EVENT_OUTBOX_ENABLED=false`로 `SpringDomainEventPublisher`에 롤백한다.
+4. 회귀 시 `EVENT_OUTBOX_RELAY_ENABLED=false`로 새 claim만 중단한다. 이때 이벤트는 outbox에 계속
+   저장되며, 원인 해결 후 relay를 다시 켜 적체 row를 처리한다.
 
 ### 모니터링 메트릭 (Prometheus)
 
@@ -392,7 +404,7 @@ app:
 
 1. PR 1: outbox 엔티티 + 마이그레이션 + 포트 정의 (실제 동작 없음, 인프라만)
 2. PR 2: `OutboxDomainEventPublisher` + poller + relay service (feature flag off)
-3. PR 3: cleanup 스케줄러 + 모니터링 메트릭
+3. PR 3: terminal payload retention 스케줄러 + 모니터링 메트릭
 4. PR 4: feature flag on 전환 + 운영 가이드 문서
 
 각 PR은 독립적 머지 + 롤백 가능하도록 설계한다.

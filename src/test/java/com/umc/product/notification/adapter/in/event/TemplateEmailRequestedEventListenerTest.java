@@ -27,7 +27,7 @@ class TemplateEmailRequestedEventListenerTest {
 
     @Test
     @DisplayName("Spring event dispatch는 호출 thread에서 transaction 없이 동기 완료된다")
-    void spring_event_dispatch가_동기로_완료된다() {
+    void testCase001() {
         try (AnnotationConfigApplicationContext context =
                  new AnnotationConfigApplicationContext(ListenerTestConfiguration.class)) {
             ObservingDeliverTemplateEmailUseCase useCase =
@@ -44,7 +44,7 @@ class TemplateEmailRequestedEventListenerTest {
 
     @Test
     @DisplayName("Spring event dispatch는 listener 예외를 호출자에게 그대로 전파한다")
-    void spring_event_dispatch가_listener_예외를_전파한다() {
+    void testCase002() {
         try (AnnotationConfigApplicationContext context =
                  new AnnotationConfigApplicationContext(ListenerTestConfiguration.class)) {
             ObservingDeliverTemplateEmailUseCase useCase =

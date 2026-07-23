@@ -27,7 +27,7 @@ class SesEmailConfigTest {
 
     @Test
     @DisplayName("timeout 미지정 시 api call 30초와 attempt 10초 기본값을 binding한다")
-    void SES_timeout_기본값을_binding한다() {
+    void testCase001() {
         contextRunner.run(context -> {
             assertThat(context).hasNotFailed();
             SesProperties properties = context.getBean(SesProperties.class);
@@ -38,7 +38,7 @@ class SesEmailConfigTest {
 
     @Test
     @DisplayName("설정된 positive timeout을 binding하고 AWS override configuration에 적용한다")
-    void SES_timeout을_AWS_client_override에_적용한다() {
+    void testCase002() {
         contextRunner
             .withPropertyValues(
                 "app.notification.email.ses.api-call-timeout=PT20S",
@@ -59,7 +59,7 @@ class SesEmailConfigTest {
 
     @Test
     @DisplayName("0 이하 api call timeout은 configuration validation에서 거부한다")
-    void positive_api_call_timeout을_강제한다() {
+    void testCase003() {
         contextRunner
             .withPropertyValues("app.notification.email.ses.api-call-timeout=PT0S")
             .run(context -> assertThat(context).hasFailed());
@@ -67,7 +67,7 @@ class SesEmailConfigTest {
 
     @Test
     @DisplayName("0 이하 api call attempt timeout은 configuration validation에서 거부한다")
-    void positive_api_call_attempt_timeout을_강제한다() {
+    void testCase004() {
         contextRunner
             .withPropertyValues("app.notification.email.ses.api-call-attempt-timeout=PT0S")
             .run(context -> assertThat(context).hasFailed());
@@ -75,7 +75,7 @@ class SesEmailConfigTest {
 
     @Test
     @DisplayName("attempt timeout이 call timeout보다 크면 configuration validation에서 거부한다")
-    void attempt_timeout은_call_timeout을_초과할_수_없다() {
+    void testCase005() {
         contextRunner
             .withPropertyValues(
                 "app.notification.email.ses.api-call-timeout=PT5S",
@@ -85,12 +85,20 @@ class SesEmailConfigTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"PT5M", "PT6M"})
-    @DisplayName("processing lease 이상의 api call timeout은 configuration startup에서 거부한다")
-    void api_call_timeout은_processing_lease보다_짧아야_한다(String apiCallTimeout) {
+    @ValueSource(strings = {"PT4M30.001S", "PT5M", "PT6M"})
+    @DisplayName("processing lease의 30초 완료 여유를 침범하는 timeout은 startup에서 거부한다")
+    void testCase006(String apiCallTimeout) {
         contextRunner
             .withPropertyValues("app.notification.email.ses.api-call-timeout=" + apiCallTimeout)
             .run(context -> assertThat(context).hasFailed());
+    }
+
+    @Test
+    @DisplayName("processing lease보다 정확히 30초 짧은 timeout은 허용한다")
+    void testCase007() {
+        contextRunner
+            .withPropertyValues("app.notification.email.ses.api-call-timeout=PT4M30S")
+            .run(context -> assertThat(context).hasNotFailed());
     }
 
     @Configuration(proxyBeanMethods = false)

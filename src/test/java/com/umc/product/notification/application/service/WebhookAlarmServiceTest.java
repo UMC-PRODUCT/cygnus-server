@@ -39,7 +39,7 @@ class WebhookAlarmServiceTest {
 
     @Test
     @DisplayName("sendBuffered는 외부 웹훅을 즉시 호출하지 않고 이벤트를 발행한다")
-    void sendBuffered는_웹훅을_즉시_호출하지_않고_이벤트를_발행한다() {
+    void testCase001() {
         given(sendWebhookPort.platform()).willReturn(WebhookPlatform.TELEGRAM);
         given(environment.getActiveProfiles()).willReturn(new String[0]);
         CapturingDomainEventPublisher eventPublisher = new CapturingDomainEventPublisher();
@@ -83,6 +83,7 @@ class WebhookAlarmServiceTest {
                 event.eventId(),
                 EventOutboxStatus.PENDING,
                 false,
+                availableAt.truncatedTo(ChronoUnit.MICROS),
                 availableAt.truncatedTo(ChronoUnit.MICROS)
             );
         }

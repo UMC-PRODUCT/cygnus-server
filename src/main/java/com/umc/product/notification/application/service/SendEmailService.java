@@ -1,7 +1,6 @@
 package com.umc.product.notification.application.service;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -73,12 +72,11 @@ public class SendEmailService implements SendEmailUseCase {
             validated.variables()
         );
         OutboxPublishResult result = domainEventPublisher.publishOnce(event, validated.availableAt());
-        Instant availableAt = validated.availableAt().truncatedTo(ChronoUnit.MICROS);
         return new TemplateEmailRequestInfo(
             result.eventId(),
             result.status(),
             result.deduplicated(),
-            availableAt,
+            result.availableAt(),
             result.nextAttemptAt()
         );
     }

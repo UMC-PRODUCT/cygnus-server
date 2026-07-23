@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<html lang="ko" xmlns:th="http://www.thymeleaf.org"
+      th:replace="~{email/recruitment/shell :: email-shell('최종 전형 결과를 안내드립니다', ~{::email-content})}">
 <head>
     <meta charset="UTF-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>최종 전형 결과를 안내드립니다</title>
 </head>
-<body th:replace="~{email/recruitment/fragments :: email-shell(~{::email-content})}">
+<body>
 <th:block th:fragment="email-content">
     <h1 style="margin: 0 0 28px; color: #161919; font-size: 26px; font-weight: 800; line-height: 38px; letter-spacing: -0.02em; overflow-wrap: anywhere; word-break: keep-all;">
         최종 전형 결과를 안내드립니다.

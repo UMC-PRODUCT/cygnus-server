@@ -16,7 +16,7 @@
 | Surface/page | `--email-surface-page` | `#f7f8fa` | 메일 바깥 여백 |
 | Text/primary | `--email-text-primary` | `#161919` | 제목·본문 |
 | Text/secondary | `--email-text-secondary` | `#4f5757` | 설명·문의 |
-| Text/tertiary | `--email-text-tertiary` | `#747c7c` | footer·보조 문구 |
+| Text/tertiary | `--email-text-tertiary` | `#707878` | footer·보조 문구 |
 | Border/divider | `--email-border-divider` | `#dcdee3` | 0.5px 구분선 |
 | Accent/action | `--email-accent-action` | `#0b6b64` | CTA·주요 링크 |
 | Accent/action-hover | `--email-accent-action-hover` | `#09564f` | 지원 가능한 hover |
@@ -87,7 +87,7 @@
 
 - **Structure**: divider → 안내 문구 → 홈페이지/개인정보/이용약관 links → copyright.
 - **Variants**: 네 template 공통.
-- **Spacing**: 24px top/bottom, 12px/18px text.
+- **Spacing**: 24px top/bottom, 12px/18px text. 각 footer link는 `inline-block`과 13px 세로 padding으로 최소 44px hit area를 갖는다.
 - **States**: static.
 - **Accessibility**: 설명적인 link text와 충분한 대비.
 - **Motion**: 없음.
@@ -121,4 +121,4 @@
 
 | Item | Location | Why accepted | Owner / Exit |
 |---|---|---|---|
-| 이메일 client별 CSS media-query 편차 | `email/recruitment/fragments.html` | 320px fallback은 inline base + 좁은 viewport override를 함께 제공한다. | Notification, 실제 Gmail/Outlook matrix가 추가되면 재검증 |
+| 이메일 client별 CSS media-query 편차 | `email/recruitment/shell.html` | 320px fallback은 inline base + 좁은 viewport override를 함께 제공한다. | Notification, 실제 Gmail/Outlook matrix가 추가되면 재검증 |

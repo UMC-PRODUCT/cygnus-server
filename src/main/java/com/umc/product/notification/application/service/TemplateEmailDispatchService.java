@@ -37,7 +37,10 @@ public class TemplateEmailDispatchService implements DeliverTemplateEmailUseCase
         try {
             sendEmailPort.send(message);
         } catch (EmailDomainException exception) {
-            throw exception;
+            throw new EmailDomainException(
+                (EmailErrorCode) exception.getBaseCode(),
+                exception.retryable()
+            );
         } catch (RuntimeException exception) {
             throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED);
         }

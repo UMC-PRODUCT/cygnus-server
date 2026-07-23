@@ -43,8 +43,10 @@ public record SesProperties(
         if (apiCallTimeout.compareTo(Duration.ZERO) <= 0) {
             throw new IllegalArgumentException("SES api call timeout은 0보다 커야 합니다.");
         }
-        if (apiCallTimeout.compareTo(EventOutboxRelayPolicy.PROCESSING_LEASE) >= 0) {
-            throw new IllegalArgumentException("SES api call timeout은 outbox processing lease보다 짧아야 합니다.");
+        if (apiCallTimeout.compareTo(EventOutboxRelayPolicy.MAX_EXTERNAL_CALL_TIMEOUT) > 0) {
+            throw new IllegalArgumentException(
+                "SES api call timeout은 outbox processing lease보다 최소 30초 짧아야 합니다."
+            );
         }
         if (apiCallAttemptTimeout.compareTo(Duration.ZERO) <= 0) {
             throw new IllegalArgumentException("SES api call attempt timeout은 0보다 커야 합니다.");

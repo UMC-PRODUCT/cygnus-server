@@ -32,7 +32,10 @@ trim/복사한 뒤 검증한다. 정의되지 않은 key, 누락·null·blank �
 | `RECRUITMENT_FINAL_PASSED` | `applicantName`, `acceptedTrack` | `[UMC] 최종 합격을 축하드립니다` | `email/recruitment/final-passed` |
 | `RECRUITMENT_FINAL_FAILED` | `applicantName` | `[UMC] 최종 전형 결과를 안내드립니다` | `email/recruitment/final-failed` |
 
-수신자 최대 길이는 320자이고 변수 한도는 `applicantName` 100, `contactSnapshot` 2,000,
+수신자는 최대 254자의 단일 ASCII dot-atom mailbox만 허용한다. CR/LF·제어문자·내부 공백·주소
+구분자·display-name·복수 `@`·비정상 local/domain label은 거부한다. Punycode domain은 허용하지만
+quoted local part와 국제화 local part는 v1 범위 밖이다. 변수 한도는 `applicantName` 100,
+`contactSnapshot` 2,000,
 `actionUrl` 2,048, `interviewDate` 50, `interviewTime` 100, `location` 500,
 `acceptedTrack` 100자다. 1번 템플릿만 `actionUrl` CTA(“면접 가능 시간 제출하기”)를 가지며,
 4번은 내부 판정 사유를 받거나 표시하지 않는다.
@@ -52,8 +55,9 @@ port로 계산한 origin이 `app.notification.email.template.allowed-action-orig
 `javascript:` scheme은 거부한다. 개인정보 처리방침·서비스 이용약관 링크는 기존 verification
 template의 검증된 Notion URL을 재사용한다.
 
-템플릿은 30px 좌우 gutter, 620px max/300px min content table, 44px banner/주요 간격,
-26px·38px·800 title, 16px body, `#dcdee3` 0.5px divider, 중앙 12px/18px footer를 사용한다.
+템플릿은 30px 좌우 gutter, 620px max/300px min content table, 44px banner/주요 간격을 사용하고
+320px에서는 gutter 16px와 `min-width:0` media rule로 가로 overflow를 막는다. title은
+26px/38px/800, body는 16px, divider는 `#dcdee3` 0.5px, footer는 중앙 12px/18px을 사용한다.
 banner row는 빈 상태를 유지하며 `<img>`/`src`, 당근 자산, tracking pixel, 외부 font를 추가하지
 않는다. 동적 문자열은 `th:text`/`th:href`로 escape한다.
 
@@ -74,8 +78,9 @@ SES 성공 시 정상 반환하여 outbox가 `PUBLISHED`가 되고, 실패 시 `
 `EmailDomainException` code를 relay가 `last_error`에 기록해 retry/backoff를 적용한다. SES 외부
 호출 중에는 DB transaction을 유지하지 않는다. 공용 relay의
 `EventOutboxRelayPolicy.PROCESSING_LEASE`는 `PT5M`이며, SES 설정은
-`0 < apiCallAttemptTimeout <= apiCallTimeout < PT5M` invariant를 따른다. 따라서
-`apiCallTimeout=PT5M` 또는 `PT6M`은 configuration startup에서 거부된다.
+`0 < apiCallAttemptTimeout <= apiCallTimeout <= PT4M30S` invariant를 따른다. 따라서 processing
+lease 완료 전에 최소 30초를 확보하며 `apiCallTimeout=PT4M31S` 이상은 configuration startup에서
+거부된다.
 
 신규 template-email dispatch의 Thymeleaf 렌더링/provider 경계에서 발생한 raw cause는
 `EMAIL-0004`(render) 또는 `EMAIL-0005`(send)의 cause-less `EmailDomainException`으로 변환한다.
@@ -83,9 +88,18 @@ SES 성공 시 정상 반환하여 outbox가 `PUBLISHED`가 되고, 실패 시 `
 않고 stable code만 전달한다. 이는 기존 verification async 경로의 전체 오류 처리 계약을
 일반화하거나 변경하는 설명이 아니다.
 
-SES v2 client timeout은 `apiCallTimeout=PT30S`, `apiCallAttemptTimeout=PT10S` 기본값이며
-`apiCallAttemptTimeout <= apiCallTimeout`을 검증한다. 이 한 호출이 5분 processing lease보다
-짧게 끝나도록 설정해 lease fencing과 재시도 경계를 유지한다.
+SES throttling·HTTP 5xx와 상태를 판별할 수 없는 client/runtime 오류는 retryable이다. 그 밖의
+명확한 HTTP 4xx는 non-retryable이며 첫 실패에서 attempts를 증가시키고 즉시 `FAILED`로 전환한다.
+알 수 없는 listener `RuntimeException`은 기존 호환성을 위해 retryable이다. 어느 경우든 외부 cause는
+dispatch 경계에서 제거하고 `EMAIL-0005`와 retryable 여부만 공용 relay에 전달한다.
+
+template-email outbox payload에는 수신자와 template 변수가 발송 복원을 위해 일시 저장된다.
+`PUBLISHED`는 24시간, `FAILED`는 30일 후 `payload='{}'`와 `traceparent=NULL`로 정리하며 event ID,
+fingerprint, 상태·시각·안정적인 `last_error` tombstone은 영구 보존한다. 이메일 주소와 변수는 로그,
+span error, `last_error`, 상태 응답에는 노출하지 않는다.
+신규 relay writer는 검증된 값을 `sanitized_last_error`에 같은 값으로 함께 기록한다. 이전 버전의
+자유 형식 `last_error`와 rolling deploy 중 구버전 writer가 나중에 덮어쓴 값은 사본과 일치하지
+않으므로 상태 응답에서 숨기고 terminal payload 정리와 함께 두 값을 `NULL`로 바꾼다.
 
 기존 인증 메일 `SendEmailService.sendVerificationEmail()`의 `@Async("emailTaskExecutor")`와
 Authentication event 경로는 그대로 유지한다. 신규 template-email 동기 경로를 추가한 것이며

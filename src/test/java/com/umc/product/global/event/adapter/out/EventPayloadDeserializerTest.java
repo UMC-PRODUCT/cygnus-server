@@ -19,7 +19,7 @@ class EventPayloadDeserializerTest {
 
     @Test
     @DisplayName("eventClass와 payload로 DomainEvent를 복원한다")
-    void deserialize() {
+    void testCase001() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         EventPayloadDeserializer deserializer = new EventPayloadDeserializer(objectMapper);
@@ -38,7 +38,7 @@ class EventPayloadDeserializerTest {
 
     @Test
     @DisplayName("eventClass가 DomainEvent 타입이 아니면 예외를 던진다")
-    void domain_event_타입_아님() {
+    void testCase002() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadDeserializer deserializer = new EventPayloadDeserializer(objectMapper);
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created", "hello"), "{}");
@@ -51,7 +51,7 @@ class EventPayloadDeserializerTest {
 
     @Test
     @DisplayName("eventClass를 찾을 수 없으면 예외를 던진다")
-    void event_class_없음() {
+    void testCase003() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadDeserializer deserializer = new EventPayloadDeserializer(objectMapper);
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created", "hello"), "{}");
@@ -64,7 +64,7 @@ class EventPayloadDeserializerTest {
 
     @Test
     @DisplayName("payload JSON을 복원할 수 없으면 예외를 던진다")
-    void payload_복원_실패() {
+    void testCase004() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadDeserializer deserializer = new EventPayloadDeserializer(objectMapper);
         EventOutbox outbox = EventOutbox.record(TestEvent.create("test.created", "hello"), "{}");

@@ -218,6 +218,7 @@ class SendEmailServiceProxyTest {
                 event.eventId(),
                 EventOutboxStatus.PENDING,
                 false,
+                availableAt.truncatedTo(ChronoUnit.MICROS),
                 availableAt.truncatedTo(ChronoUnit.MICROS)
             );
         }

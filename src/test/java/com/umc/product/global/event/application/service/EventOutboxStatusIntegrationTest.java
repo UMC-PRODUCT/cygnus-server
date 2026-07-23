@@ -9,6 +9,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.TestPropertySource;
 
 import com.umc.product.global.event.adapter.out.persistence.EventOutboxJpaRepository;
@@ -21,6 +22,8 @@ import com.umc.product.global.event.domain.EventOutboxErrorCode;
 import com.umc.product.global.event.domain.EventOutboxNotFoundException;
 import com.umc.product.global.event.domain.EventOutboxStatus;
 import com.umc.product.support.IntegrationTestSupport;
+
+import jakarta.persistence.EntityManager;
 
 @DisplayName("EventOutbox generic status query 통합")
 @TestPropertySource(properties = "app.event-outbox.relay-enabled=false")
@@ -36,6 +39,12 @@ class EventOutboxStatusIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private EventOutboxJpaRepository repository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     @DisplayName("모든 lifecycle 상태를 eventId로 조회하며 상태별 시각만 노출한다")
@@ -56,7 +65,7 @@ class EventOutboxStatusIntegrationTest extends IntegrationTestSupport {
         published.markPublished();
         repository.saveAndFlush(published);
         EventOutbox failed = repository.findByEventId(failedId).orElseThrow();
-        failed.recordFailure("EMAIL-DELIVERY-0001", AVAILABLE_AT.plusSeconds(60), 1);
+        failed.recordSanitizedFailure("EMAIL-DELIVERY-0001", AVAILABLE_AT.plusSeconds(60), 1);
         repository.saveAndFlush(failed);
 
         EventOutboxStatusInfo pendingInfo = getEventOutboxStatusUseCase.getByEventId(pendingId);
@@ -80,9 +89,16 @@ class EventOutboxStatusIntegrationTest extends IntegrationTestSupport {
         assertThat(failedInfo.nextAttemptAt()).isNull();
         assertThat(failedInfo.leaseUntil()).isNull();
         assertThat(failedInfo.failureCode()).isEqualTo("EMAIL-DELIVERY-0001");
-        System.out.println(
-            "TODO3_STATUS_LIFECYCLE statuses=PENDING,PROCESSING,PUBLISHED,FAILED statusTimesVerified=true"
+
+        jdbcTemplate.update(
+            "UPDATE event_outbox SET last_error = ? WHERE event_id = ?",
+            "ApplicantNameException",
+            failedId
         );
+        entityManager.clear();
+
+        EventOutboxStatusInfo mixedVersionInfo = getEventOutboxStatusUseCase.getByEventId(failedId);
+        assertThat(mixedVersionInfo.failureCode()).isNull();
     }
 
     @Test
@@ -102,7 +118,6 @@ class EventOutboxStatusIntegrationTest extends IntegrationTestSupport {
             "payloadFingerprint"
         );
         assertThat(serialized).contains("\"eventId\"", "\"status\"", "\"availableAt\"");
-        System.out.println("TODO3_STATUS_SERIALIZATION payloadExposed=false businessMarkerExposed=false");
     }
 
     @Test

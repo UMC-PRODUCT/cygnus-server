@@ -28,7 +28,7 @@ class OutboxDomainEventPublisherTest {
 
     @Test
     @DisplayName("publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다")
-    void publish_저장() {
+    void testCase001() {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
             savePort,
@@ -47,6 +47,9 @@ class OutboxDomainEventPublisherTest {
         assertThat(outbox.getEventClass()).isEqualTo(TestEvent.class.getName());
         assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
         assertThat(outbox.getAttempts()).isZero();
+        assertThat(outbox.getPayloadFingerprint()).matches("[0-9a-f]{64}");
+        assertThat(outbox.getAvailableAt()).isNotNull();
+        assertThat(outbox.getNextAttemptAt()).isEqualTo(outbox.getAvailableAt());
         assertThat(outbox.getPayload()).contains(
             "\"eventId\":\"" + event.eventId() + "\"",
             "\"occurredAt\":",
@@ -57,7 +60,7 @@ class OutboxDomainEventPublisherTest {
 
     @Test
     @DisplayName("publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다")
-    void publishAll_저장() {
+    void testCase002() {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
             savePort,
@@ -76,12 +79,18 @@ class OutboxDomainEventPublisherTest {
         assertThat(savePort.saved)
             .extracting(EventOutbox::getStatus)
             .containsOnly(EventOutboxStatus.PENDING);
+        assertThat(savePort.saved)
+            .allSatisfy(outbox -> {
+                assertThat(outbox.getPayloadFingerprint()).matches("[0-9a-f]{64}");
+                assertThat(outbox.getAvailableAt()).isNotNull();
+                assertThat(outbox.getNextAttemptAt()).isEqualTo(outbox.getAvailableAt());
+            });
         assertThat(savePort.saveAllCalled).isTrue();
     }
 
     @Test
     @DisplayName("활성 span이 있으면 현재 trace의 W3C traceparent를 outbox에 캡처해 저장한다")
-    void publish_traceparent_캡처() {
+    void testCase003() {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         SimpleTracer tracer = new SimpleTracer();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
@@ -106,7 +115,7 @@ class OutboxDomainEventPublisherTest {
 
     @Test
     @DisplayName("활성 span이 없으면 traceparent를 null로 저장한다")
-    void publish_활성_span_없음_traceparent_null() {
+    void testCase004() {
         FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
         OutboxDomainEventPublisher publisher = new OutboxDomainEventPublisher(
             savePort,

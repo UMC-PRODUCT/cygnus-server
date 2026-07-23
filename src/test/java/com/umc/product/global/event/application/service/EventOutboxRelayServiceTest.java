@@ -21,6 +21,7 @@ import com.umc.product.global.event.application.service.EventOutboxRelayTestFixt
 import com.umc.product.global.event.application.service.EventOutboxRelayTestFixtures.TestEvent;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxStatus;
+import com.umc.product.global.event.domain.OutboxDispatchFailure;
 
 import io.micrometer.tracing.Tracer;
 
@@ -29,7 +30,7 @@ class EventOutboxRelayServiceTest {
 
     @Test
     @DisplayName("publishable outbox를 DomainEvent로 복원해 Spring event bus로 발행하고 published 처리한다")
-    void relay_성공() {
+    void testCase001() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");
@@ -59,7 +60,7 @@ class EventOutboxRelayServiceTest {
 
     @Test
     @DisplayName("각 listener 완료 후 다음 outbox 한 건만 claim한다")
-    void relay_claims_one_row_immediately_before_dispatch() {
+    void testCase002() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         NonTransactionalTestEvent firstEvent = NonTransactionalTestEvent.create("test.external.created", "first");
@@ -94,7 +95,7 @@ class EventOutboxRelayServiceTest {
 
     @Test
     @DisplayName("이벤트 복원 또는 발행 실패 시 별도 상태 저장 트랜잭션에서 attempts를 증가시키고 pending으로 남긴다")
-    void relay_실패_재시도() {
+    void testCase003() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");
@@ -129,7 +130,7 @@ class EventOutboxRelayServiceTest {
 
     @Test
     @DisplayName("최대 재시도 횟수에 도달하면 failed 상태로 저장한다")
-    void relay_최대_재시도_도달() {
+    void testCase004() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");
@@ -156,5 +157,44 @@ class EventOutboxRelayServiceTest {
         assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED);
         assertThat(outbox.getAttempts()).isEqualTo(2);
         assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.FAILED);
+    }
+
+    @Test
+    @DisplayName("재시도 불가능한 listener 실패는 첫 시도에서 failed 상태로 저장한다")
+    void testCase005() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        TestEvent event = TestEvent.create("test.created", "hello");
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        FakeLoadEventOutboxPort loadPort = new FakeLoadEventOutboxPort(List.of(outbox));
+        FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
+        ApplicationEventPublisher publisher = ignored -> {
+            throw new NonRetryableFailure();
+        };
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            loadPort,
+            savePort,
+            new EventPayloadDeserializer(objectMapper),
+            publisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            100,
+            5
+        );
+
+        relayService.relay();
+
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED);
+        assertThat(outbox.getAttempts()).isOne();
+        assertThat(outbox.getLastError()).isEqualTo(NonRetryableFailure.class.getName());
+        assertThat(savePort.savedStatuses).contains(EventOutboxStatus.PROCESSING, EventOutboxStatus.FAILED);
+    }
+
+    private static final class NonRetryableFailure extends RuntimeException implements OutboxDispatchFailure {
+
+        @Override
+        public boolean retryable() {
+            return false;
+        }
     }
 }

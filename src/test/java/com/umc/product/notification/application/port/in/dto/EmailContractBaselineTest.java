@@ -21,7 +21,7 @@ class EmailContractBaselineTest {
 
     @Test
     @DisplayName("기존 HTML 이메일 command는 수신자·제목·본문 계약을 유지한다")
-    void 기존_html_이메일_command_계약을_유지한다() {
+    void testCase001() {
         SendHtmlEmailCommand command = new SendHtmlEmailCommand(
             "receiver@test.umc.local",
             "제목",
@@ -35,7 +35,7 @@ class EmailContractBaselineTest {
 
     @Test
     @DisplayName("기존 verification 이메일 발신자 설정 binding은 유지한다")
-    void 기존_verification_이메일_발신자_설정_binding을_유지한다() {
+    void testCase002() {
         contextRunner.run(context -> {
             EmailSenderProperties properties = context.getBean(EmailSenderProperties.class);
 

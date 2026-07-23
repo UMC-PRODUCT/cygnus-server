@@ -71,6 +71,9 @@ spring:
     baseline-version: 2026.02.25.01.30
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
     out-of-order: ${FLYWAY_OUT_OF_ORDER:false}
+    postgresql:
+      # CREATE INDEX CONCURRENTLY migration이 transactional advisory lock을 기다리지 않도록 session lock을 사용한다.
+      transactional-lock: false
 
   jpa:
     hibernate:
@@ -420,6 +423,13 @@ app:
     poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${EVENT_OUTBOX_BATCH_SIZE:100}
     max-attempts: ${EVENT_OUTBOX_MAX_ATTEMPTS:5}
+    retention:
+      enabled: ${EVENT_OUTBOX_RETENTION_ENABLED:true}
+      interval: ${EVENT_OUTBOX_RETENTION_INTERVAL:PT1H}
+      published-payload-retention: ${EVENT_OUTBOX_PUBLISHED_PAYLOAD_RETENTION:PT24H}
+      failed-payload-retention: ${EVENT_OUTBOX_FAILED_PAYLOAD_RETENTION:P30D}
+      batch-size: ${EVENT_OUTBOX_RETENTION_BATCH_SIZE:500}
+      max-batches-per-run: ${EVENT_OUTBOX_RETENTION_MAX_BATCHES_PER_RUN:20}
 
   fcm:
     enabled: ${FCM_ENABLED:false}

@@ -26,7 +26,7 @@ class EventOutboxRelayTracingTest {
 
     @Test
     @DisplayName("저장된 traceparent가 있으면 relay 처리 span에 원 요청 trace로의 span link를 부착한다")
-    void relay_span_link_부착() {
+    void testCase001() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");
@@ -62,7 +62,7 @@ class EventOutboxRelayTracingTest {
 
     @Test
     @DisplayName("traceparent가 없으면 link 없이 relay 처리 span만 생성하고 정상 발행한다")
-    void relay_traceparent_없음_link_미부착() {
+    void testCase002() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         TestEvent event = TestEvent.create("test.created", "hello");

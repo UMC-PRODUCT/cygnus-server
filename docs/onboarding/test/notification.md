@@ -1,19 +1,19 @@
 # Notification 테스트 케이스
 
 - 테스트 파일: 17개
-- 테스트 케이스: 50개 (`@Test` 49 + `@ParameterizedTest` 1)
+- 테스트 케이스: 61개 (`@Test` 60 + `@ParameterizedTest` 1)
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 - source of truth: `src/test/java/com/umc/product/notification`의 현재 파일과 JUnit test annotation
 
 | 카테고리 | 파일 수 | 케이스 수 |
 |---|---:|---:|
-| UseCase / Application Service | 9 | 27 |
+| UseCase / Application Service | 9 | 32 |
 | Port / DTO | 2 | 5 |
 | Domain | 1 | 3 |
 | Event Adapter | 2 | 3 |
-| External Adapter | 2 | 8 |
-| Integration | 1 | 4 |
-| 합계 | 17 | 50 |
+| External Adapter | 2 | 12 |
+| Integration | 1 | 6 |
+| 합계 | 17 | 61 |
 
 ## Issue #1147 template-email 신규 계약 map
 
@@ -31,12 +31,12 @@
 
 | 테스트 클래스 | 위치 | 검증 목적 |
 |---|---|---|
-| `EmailTemplateCatalogTest` | [`application/service/EmailTemplateCatalogTest.java`](../../../src/test/java/com/umc/product/notification/application/service/EmailTemplateCatalogTest.java) | 4 catalog의 exact required keys·subject·resource path, 길이 경계, blank/null/추가 key와 안전하지 않은 URL/origin 거부를 검증한다. |
-| `EmailTemplatePropertiesBindingTest` | [`application/service/EmailTemplatePropertiesBindingTest.java`](../../../src/test/java/com/umc/product/notification/application/service/EmailTemplatePropertiesBindingTest.java) | 기본 서비스 origin과 allowlist binding/immutable list를 검증한다. |
+| `EmailTemplateCatalogTest` | [`application/service/EmailTemplateCatalogTest.java`](../../../src/test/java/com/umc/product/notification/application/service/EmailTemplateCatalogTest.java) | 4 catalog의 exact required keys·subject·resource path, 254자 ASCII dot-atom mailbox, blank/null/추가 key와 안전하지 않은 URL/origin 거부를 검증한다. |
+| `EmailTemplatePropertiesBindingTest` | [`application/service/EmailTemplatePropertiesBindingTest.java`](../../../src/test/java/com/umc/product/notification/application/service/EmailTemplatePropertiesBindingTest.java) | 실제 `application.yml`과 `application-test.yml`을 읽어 production/test allowlist와 immutable list를 검증한다. |
 | `SendEmailServiceTest` | [`application/service/SendEmailServiceTest.java`](../../../src/test/java/com/umc/product/notification/application/service/SendEmailServiceTest.java) | template-email request가 검증된 snapshot을 `publishOnce`에 전달하고 `NON_TRANSACTIONAL` event/응답을 반환하는지 검증한다. |
 | `SendEmailServiceProxyTest` | [`application/service/SendEmailServiceProxyTest.java`](../../../src/test/java/com/umc/product/notification/application/service/SendEmailServiceProxyTest.java) | 실제 Spring proxy에서 template request가 호출 thread의 read-write transaction 안에서 publish되고, 기존 verification 발송이 `emailTaskExecutor`에서 호출 반환 후 비동기로 실행되는지 검증한다. |
 | `TemplateEmailDispatchServiceTest` | [`application/service/TemplateEmailDispatchServiceTest.java`](../../../src/test/java/com/umc/product/notification/application/service/TemplateEmailDispatchServiceTest.java) | catalog subject/path로 Thymeleaf를 렌더링해 UTF-8 `EmailMessage`를 동기 전송하고 render/send 실패를 PII 없는 `EMAIL-*` 예외로 변환하는지 검증한다. |
-| `TemplateEmailRenderingTest` | [`application/service/TemplateEmailRenderingTest.java`](../../../src/test/java/com/umc/product/notification/application/service/TemplateEmailRenderingTest.java) | 4 HTML preview를 실제 SpringTemplateEngine으로 생성하며 unresolved expression, `<img>`, 당근/tracking/external font, 미 escape 동적 값이 없는지와 1번 CTA만 존재하는지를 검증한다. |
+| `TemplateEmailRenderingTest` | [`application/service/TemplateEmailRenderingTest.java`](../../../src/test/java/com/umc/product/notification/application/service/TemplateEmailRenderingTest.java) | 4 HTML preview와 기존 verification template을 실제 SpringTemplateEngine으로 렌더링해 shell/component 분리, footer URL·44px hit area, unresolved expression, 외부 자산, escape와 CTA 개수를 검증한다. |
 | `FcmOutboxServiceTest` | [`application/service/FcmOutboxServiceTest.java`](../../../src/test/java/com/umc/product/notification/application/service/FcmOutboxServiceTest.java) | 기존 FCM outbox SUBSCRIBE/UNSUBSCRIBE 비활성화와 pending 없음/복수 pending 처리를 검증한다. |
 | `FcmServiceTest` | [`application/service/FcmServiceTest.java`](../../../src/test/java/com/umc/product/notification/application/service/FcmServiceTest.java) | 신규·동일·다중 기기 FCM token 등록과 활성화를 검증한다. |
 | `WebhookAlarmServiceTest` | [`application/service/WebhookAlarmServiceTest.java`](../../../src/test/java/com/umc/product/notification/application/service/WebhookAlarmServiceTest.java) | webhook alarm 요청이 대상 platform event로만 발행되고 직접 외부 전송하지 않는지 검증한다. |
@@ -53,14 +53,14 @@
 
 | 테스트 클래스 | 위치 | 검증 목적 |
 |---|---|---|
-| `SesEmailAdapterTest` | [`adapter/out/external/ses/SesEmailAdapterTest.java`](../../../src/test/java/com/umc/product/notification/adapter/out/external/ses/SesEmailAdapterTest.java) | SES v2 요청의 UTF-8 subject/body, from/to/configuration set과 provider 실패의 `EMAIL-0005`·PII-safe log를 검증한다. |
-| `SesEmailConfigTest` | [`adapter/out/external/ses/SesEmailConfigTest.java`](../../../src/test/java/com/umc/product/notification/adapter/out/external/ses/SesEmailConfigTest.java) | 기본 `PT30S`/`PT10S` binding과 AWS client override, 0 이하·`attempt timeout > call timeout` 거부, `apiCallTimeout < PT5M` invariant를 검증한다. `@ParameterizedTest`로 `PT5M`과 `PT6M` startup 거부를 고정한다. |
+| `SesEmailAdapterTest` | [`adapter/out/external/ses/SesEmailAdapterTest.java`](../../../src/test/java/com/umc/product/notification/adapter/out/external/ses/SesEmailAdapterTest.java) | SES v2 요청의 UTF-8 subject/body, from/to/configuration set과 4xx non-retryable·throttling/5xx/runtime retryable 분류, cause-less `EMAIL-0005`·PII-safe log를 검증한다. |
+| `SesEmailConfigTest` | [`adapter/out/external/ses/SesEmailConfigTest.java`](../../../src/test/java/com/umc/product/notification/adapter/out/external/ses/SesEmailConfigTest.java) | 기본 `PT30S`/`PT10S` binding과 AWS client override, 0 이하·`attempt timeout > call timeout` 거부, 최대 `PT4M30S` 완료 여유 경계를 검증한다. `@ParameterizedTest`로 `PT4M30.001S`·`PT5M`·`PT6M` startup 거부를 고정한다. |
 
 ### Integration
 
 | 테스트 클래스 | 위치 | 검증 목적 |
 |---|---|---|
-| `TemplateEmailOutboxRelayIntegrationTest` | [`TemplateEmailOutboxRelayIntegrationTest.java`](../../../src/test/java/com/umc/product/notification/TemplateEmailOutboxRelayIntegrationTest.java) | scheduler를 끈 실제 context에서 due 요청은 SES 1회·`PUBLISHED`, future 요청은 미호출·`PENDING`, provider 실패는 `EMAIL-0005`/backoff/retry/최종 `FAILED`, 동일 ID는 중복 row 없이 dedupe, listener transaction inactive를 검증한다. |
+| `TemplateEmailOutboxRelayIntegrationTest` | [`TemplateEmailOutboxRelayIntegrationTest.java`](../../../src/test/java/com/umc/product/notification/TemplateEmailOutboxRelayIntegrationTest.java) | scheduler를 끈 실제 context에서 due/future, retryable backoff·최종 실패, non-retryable 즉시 실패, payload redaction 뒤 동일 identity dedupe·불일치 conflict와 listener transaction inactive를 검증한다. |
 
 ## 실패 관찰 가능성·timeout 경계
 
@@ -70,11 +70,10 @@
   `EMAIL-0005`와 PII-safe log를 별도로 검증한다.
 - 공용 relay 경계의 [`EventOutboxRelayFailureSanitizationJdbcIntegrationTest`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayFailureSanitizationJdbcIntegrationTest.java)는
   실제 PostgreSQL에서 provider business failure의 `EMAIL-0005`와 일반 runtime failure의 예외 class만
-  `last_error`에 남기고 raw PII를 DB/log에 기록하지 않는지 검증한다. 이 범위에는 직접 error-span E2E
-  테스트가 없으므로 해당 테스트가 있다고 전제하지 않는다.
-- `EventOutboxRelayPolicy.PROCESSING_LEASE`는 `PT5M`이고 SES `apiCallTimeout`은 반드시 그보다 짧아야
-  한다. 따라서 `PT5M`·`PT6M` 설정은 startup에서 거부되며, `apiCallAttemptTimeout`도 양수이고
-  `apiCallTimeout` 이하이어야 한다.
+  `last_error`에 남기고 raw PII를 DB/log에 기록하지 않는지 검증한다. 직접 error span은
+  [`EventOutboxRelayTemplateEmailTracingTest`](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayTemplateEmailTracingTest.java)가 cause와 PII 비노출을 고정한다.
+- `EventOutboxRelayPolicy.PROCESSING_LEASE`는 `PT5M`이고 SES `apiCallTimeout`은 최대 `PT4M30S`다.
+  `apiCallAttemptTimeout`도 양수이고 `apiCallTimeout` 이하이어야 한다.
 
 ## 기존 FCM·웹훅 회귀 범위
 

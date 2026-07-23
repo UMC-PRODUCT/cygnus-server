@@ -29,7 +29,7 @@ class EventOutboxRelayLeaseFencingTest {
 
     @Test
     @DisplayName("non-transactional listener 성공 후 published 저장이 실패하면 재시도 대상(PENDING)으로 남긴다")
-    void relay_published_저장_실패_재시도() {
+    void testCase001() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         NonTransactionalTestEvent event = NonTransactionalTestEvent.create("test.external.created", "hello");
@@ -65,7 +65,7 @@ class EventOutboxRelayLeaseFencingTest {
 
     @Test
     @DisplayName("lease 소유권을 잃은 worker는 published 상태 저장 실패를 재시도로 덮어쓰지 않는다")
-    void relay_optimistic_lock_failure_does_not_overwrite_new_owner() {
+    void testCase002() {
         ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
         NonTransactionalTestEvent event = NonTransactionalTestEvent.create("test.external.created", "hello");

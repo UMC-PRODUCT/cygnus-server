@@ -50,12 +50,23 @@ public class SesEmailAdapter implements SendEmailPort {
             String awsErrorCode = e.awsErrorDetails() != null ? e.awsErrorDetails().errorCode() : null;
             log.warn("SES 발송 실패: recipientPresent={}, awsErrorCode={}, errorClass={}",
                 hasRecipient(message.to()), awsErrorCode, e.getClass().getName());
-            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED, isRetryable(e));
         } catch (RuntimeException e) {
             log.warn("SES 발송 중 예기치 못한 예외: recipientPresent={}, errorClass={}",
                 hasRecipient(message.to()), e.getClass().getName());
             throw new EmailDomainException(EmailErrorCode.EMAIL_SEND_FAILED);
         }
+    }
+
+    private boolean isRetryable(SesV2Exception exception) {
+        int statusCode = exception.statusCode();
+        if (exception.isThrottlingException() || statusCode == 429) {
+            return true;
+        }
+        if (statusCode >= 400 && statusCode < 500) {
+            return false;
+        }
+        return statusCode <= 0 || statusCode >= 500 || exception.isRetryableException();
     }
 
     private SendEmailRequest buildRequest(EmailMessage message) {

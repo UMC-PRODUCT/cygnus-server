@@ -25,9 +25,11 @@ import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import software.amazon.awssdk.services.sesv2.SesV2Client;
+import software.amazon.awssdk.services.sesv2.model.InternalServiceErrorException;
 import software.amazon.awssdk.services.sesv2.model.MessageRejectedException;
 import software.amazon.awssdk.services.sesv2.model.SendEmailRequest;
 import software.amazon.awssdk.services.sesv2.model.SendEmailResponse;
+import software.amazon.awssdk.services.sesv2.model.TooManyRequestsException;
 
 @DisplayName("AWS SES v2 이메일 adapter")
 @ExtendWith(MockitoExtension.class)
@@ -55,7 +57,7 @@ class SesEmailAdapterTest {
 
     @Test
     @DisplayName("UTF-8 subject·HTML·from과 configuration set으로 SES를 호출한다")
-    void UTF8_메일_요청을_SES에_전달한다() {
+    void testCase001() {
         given(sesV2Client.sendEmail(any(SendEmailRequest.class)))
             .willReturn(SendEmailResponse.builder().messageId("message-id").build());
         EmailMessage message = new EmailMessage(
@@ -82,9 +84,10 @@ class SesEmailAdapterTest {
 
     @Test
     @DisplayName("SES provider 실패는 PII 없는 EMAIL send code로 변환한다")
-    void SES_실패를_PII_없는_도메인_예외로_변환한다() {
+    void testCase002() {
         MessageRejectedException failure = MessageRejectedException.builder()
             .message(RAW_PII)
+            .statusCode(400)
             .build();
         given(sesV2Client.sendEmail(any(SendEmailRequest.class))).willThrow(failure);
         EmailMessage message = new EmailMessage(
@@ -110,6 +113,7 @@ class SesEmailAdapterTest {
                     assertThat(emailException.getCause())
                         .as("telemetry error에 도달 가능한 raw provider cause")
                         .isNull();
+                    assertThat(emailException.retryable()).isFalse();
                 });
         } finally {
             logger.detachAppender(appender);
@@ -119,5 +123,71 @@ class SesEmailAdapterTest {
             assertThat(event.getFormattedMessage()).doesNotContain(RAW_PII, "applicant@test.umc.local");
             assertThat(event.getThrowableProxy()).isNull();
         });
+    }
+
+    @Test
+    @DisplayName("SES 5xx 실패는 PII 없는 재시도 가능 오류로 변환한다")
+    void testCase003() {
+        InternalServiceErrorException failure = InternalServiceErrorException.builder()
+            .message(RAW_PII)
+            .statusCode(500)
+            .build();
+        given(sesV2Client.sendEmail(any(SendEmailRequest.class))).willThrow(failure);
+        EmailMessage message = new EmailMessage(
+            "noreply@test.umc.local",
+            "UMC 테스트",
+            "applicant@test.umc.local",
+            "제목",
+            "민감한 지원 정보"
+        );
+
+        assertThatThrownBy(() -> adapter.send(message))
+            .isInstanceOf(EmailDomainException.class)
+            .satisfies(exception -> {
+                EmailDomainException emailException = (EmailDomainException) exception;
+                assertThat(emailException.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_SEND_FAILED);
+                assertThat(emailException.retryable()).isTrue();
+                assertThat(emailException.getCause()).isNull();
+            });
+    }
+
+    @Test
+    @DisplayName("SES throttling 실패는 재시도 가능 오류로 변환한다")
+    void testCase004() {
+        TooManyRequestsException failure = TooManyRequestsException.builder()
+            .message(RAW_PII)
+            .statusCode(429)
+            .build();
+        given(sesV2Client.sendEmail(any(SendEmailRequest.class))).willThrow(failure);
+
+        assertRetryableCauseLessFailure();
+    }
+
+    @Test
+    @DisplayName("상태를 알 수 없는 runtime 실패는 재시도 가능 오류로 변환한다")
+    void testCase005() {
+        given(sesV2Client.sendEmail(any(SendEmailRequest.class)))
+            .willThrow(new IllegalStateException(RAW_PII));
+
+        assertRetryableCauseLessFailure();
+    }
+
+    private void assertRetryableCauseLessFailure() {
+        EmailMessage message = new EmailMessage(
+            "noreply@test.umc.local",
+            "UMC 테스트",
+            "applicant@test.umc.local",
+            "제목",
+            "민감한 지원 정보"
+        );
+
+        assertThatThrownBy(() -> adapter.send(message))
+            .isInstanceOf(EmailDomainException.class)
+            .satisfies(exception -> {
+                EmailDomainException emailException = (EmailDomainException) exception;
+                assertThat(emailException.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_SEND_FAILED);
+                assertThat(emailException.retryable()).isTrue();
+                assertThat(emailException.getCause()).isNull();
+            });
     }
 }

@@ -89,12 +89,6 @@ class EventOutboxPublishOnceIntegrationTest extends IntegrationTestSupport {
         assertThat(stored.getPayloadFingerprint()).matches("[0-9a-f]{64}");
         assertThat(stored.getAvailableAt()).isEqualTo(AVAILABLE_AT.truncatedTo(ChronoUnit.MICROS));
         assertThat(stored.getPayload()).contains("original");
-        System.out.printf(
-            "TODO3_DB_CONCURRENCY rowCount=%d firstWriters=%d deduplicated=%d exceptions=0%n",
-            persistedRows,
-            firstWriters,
-            deduplicated
-        );
     }
 
     @Test
@@ -129,7 +123,6 @@ class EventOutboxPublishOnceIntegrationTest extends IntegrationTestSupport {
         );
 
         assertConflictPreservesOriginal(original, conflicting, AVAILABLE_AT);
-        System.out.println("TODO3_DB_CONFLICT variant=eventClass rowCount=1 unchanged=true");
     }
 
     @Test
@@ -139,7 +132,6 @@ class EventOutboxPublishOnceIntegrationTest extends IntegrationTestSupport {
         TestEvent conflicting = event(OCCURRED_AT, "test.changed", "original");
 
         assertConflictPreservesOriginal(original, conflicting, AVAILABLE_AT);
-        System.out.println("TODO3_DB_CONFLICT variant=eventType rowCount=1 unchanged=true");
     }
 
     @Test
@@ -149,7 +141,6 @@ class EventOutboxPublishOnceIntegrationTest extends IntegrationTestSupport {
         TestEvent conflicting = event(OCCURRED_AT, "test.created", "changed");
 
         assertConflictPreservesOriginal(original, conflicting, AVAILABLE_AT);
-        System.out.println("TODO3_DB_CONFLICT variant=nestedBusinessValue rowCount=1 unchanged=true");
     }
 
     @Test
@@ -162,7 +153,6 @@ class EventOutboxPublishOnceIntegrationTest extends IntegrationTestSupport {
             original,
             AVAILABLE_AT.plus(1, ChronoUnit.MICROS)
         );
-        System.out.println("TODO3_DB_CONFLICT variant=availableAtMicros rowCount=1 unchanged=true");
     }
 
     @Test
@@ -177,7 +167,6 @@ class EventOutboxPublishOnceIntegrationTest extends IntegrationTestSupport {
 
         assertThat(rowCount(EVENT_ID)).isOne();
         assertThat(PersistedSnapshot.from(repository.findByEventId(EVENT_ID).orElseThrow())).isEqualTo(before);
-        System.out.println("TODO3_DB_CONFLICT variant=legacyNullIdentity rowCount=1 unchanged=true");
     }
 
     private void assertConflictPreservesOriginal(

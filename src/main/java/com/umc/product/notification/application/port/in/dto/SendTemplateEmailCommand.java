@@ -22,12 +22,15 @@ public record SendTemplateEmailCommand(
 ) {
 
     public SendTemplateEmailCommand {
-        recipient = stripOrNull(recipient);
+        recipient = normalizeRecipient(recipient);
         variables = snapshot(variables);
     }
 
-    public String to() {
-        return recipient;
+    private static String normalizeRecipient(String value) {
+        if (value != null && value.chars().anyMatch(Character::isISOControl)) {
+            throw new EmailDomainException(EmailErrorCode.EMAIL_RECIPIENT_INVALID);
+        }
+        return stripOrNull(value);
     }
 
     private static String stripOrNull(String value) {

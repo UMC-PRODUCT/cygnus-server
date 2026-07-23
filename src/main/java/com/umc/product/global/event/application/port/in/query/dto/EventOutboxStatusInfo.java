@@ -1,8 +1,8 @@
 package com.umc.product.global.event.application.port.in.query.dto;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxStatus;
@@ -18,11 +18,6 @@ public record EventOutboxStatusInfo(
     Instant publishedAt
 ) {
 
-    private static final Pattern SAFE_FAILURE_CODE_PATTERN = Pattern.compile(
-        "[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)*-\\d{3,4}"
-            + "|(?:[a-zA-Z_$][\\w$]*\\.)*[A-Za-z_$][\\w$]*(?:Exception|Error)"
-    );
-
     public static EventOutboxStatusInfo from(EventOutbox outbox) {
         StatusTimes statusTimes = switch (outbox.getStatus()) {
             case PENDING -> new StatusTimes(outbox.getNextAttemptAt(), null);
@@ -36,16 +31,16 @@ public record EventOutboxStatusInfo(
             outbox.getAvailableAt(),
             statusTimes.nextAttemptAt(),
             statusTimes.leaseUntil(),
-            safeFailureCode(outbox.getLastError()),
+            safeFailureCode(outbox),
             outbox.getPublishedAt()
         );
     }
 
-    private static String safeFailureCode(String lastError) {
-        if (lastError == null || !SAFE_FAILURE_CODE_PATTERN.matcher(lastError).matches()) {
+    private static String safeFailureCode(EventOutbox outbox) {
+        if (!Objects.equals(outbox.getLastError(), outbox.getSanitizedLastError())) {
             return null;
         }
-        return lastError;
+        return outbox.getSanitizedLastError();
     }
 
     private record StatusTimes(Instant nextAttemptAt, Instant leaseUntil) {

@@ -64,6 +64,9 @@ logging:
 
 app:
   base-url: http://localhost:8080
+  event-outbox:
+    retention:
+      enabled: false
   observability:
     tracing:
       enabled: false

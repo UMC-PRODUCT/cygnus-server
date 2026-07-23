@@ -36,7 +36,7 @@ class TemplateEmailDispatchServiceTest {
 
     @Test
     @DisplayName("catalog의 제목과 resource path로 실제 Thymeleaf 본문을 렌더링해 동기로 발송한다")
-    void catalog_템플릿을_실제로_렌더링해_동기로_발송한다() {
+    void testCase001() {
         SendEmailPort sendEmailPort = mock(SendEmailPort.class);
         TemplateEmailDispatchService service = service(templateEngine(), sendEmailPort);
 
@@ -63,7 +63,7 @@ class TemplateEmailDispatchServiceTest {
 
     @Test
     @DisplayName("렌더링 실패는 PII 없는 안정적인 EMAIL render code로 전파한다")
-    void 렌더링_실패를_PII_없는_도메인_예외로_변환한다() {
+    void testCase002() {
         TemplateEngine failingTemplateEngine = mock(TemplateEngine.class);
         given(failingTemplateEngine.process(any(String.class), any())).willThrow(new IllegalStateException(RAW_PII));
         TemplateEmailDispatchService service = service(failingTemplateEngine, mock(SendEmailPort.class));
@@ -86,7 +86,7 @@ class TemplateEmailDispatchServiceTest {
 
     @Test
     @DisplayName("provider runtime 실패는 PII 없는 EMAIL send code로 전파한다")
-    void provider_실패를_PII_없는_도메인_예외로_변환한다() {
+    void testCase003() {
         TemplateEngine templateEngine = mock(TemplateEngine.class);
         given(templateEngine.process(any(String.class), any())).willReturn("<html>본문</html>");
         SendEmailPort sendEmailPort = mock(SendEmailPort.class);
@@ -106,6 +106,33 @@ class TemplateEmailDispatchServiceTest {
                 assertThat(emailException.getCause())
                     .as("telemetry error에 도달 가능한 raw provider cause")
                     .isNull();
+            });
+    }
+
+    @Test
+    @DisplayName("provider 도메인 오류도 cause를 제거하고 재시도 여부만 보존한다")
+    void testCase004() {
+        TemplateEngine templateEngine = mock(TemplateEngine.class);
+        given(templateEngine.process(any(String.class), any())).willReturn("<html>본문</html>");
+        SendEmailPort sendEmailPort = mock(SendEmailPort.class);
+        willThrow(new EmailDomainException(
+            EmailErrorCode.EMAIL_SEND_FAILED,
+            false,
+            new IllegalStateException(RAW_PII)
+        )).given(sendEmailPort).send(any(EmailMessage.class));
+        TemplateEmailDispatchService service = service(templateEngine, sendEmailPort);
+
+        assertThatThrownBy(() -> service.deliver(event(
+            EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+            Map.of("applicantName", "민감한 지원 정보")
+        )))
+            .isInstanceOf(EmailDomainException.class)
+            .satisfies(exception -> {
+                EmailDomainException emailException = (EmailDomainException) exception;
+                assertThat(emailException.getBaseCode()).isEqualTo(EmailErrorCode.EMAIL_SEND_FAILED);
+                assertThat(emailException.retryable()).isFalse();
+                assertThat(emailException.getCause()).isNull();
+                assertThat(String.valueOf(emailException.getMessage())).doesNotContain(RAW_PII);
             });
     }
 

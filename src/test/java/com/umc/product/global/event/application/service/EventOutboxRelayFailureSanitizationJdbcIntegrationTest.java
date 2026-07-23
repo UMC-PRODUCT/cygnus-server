@@ -98,9 +98,11 @@ class EventOutboxRelayFailureSanitizationJdbcIntegrationTest extends Integration
         assertThat(businessState.status()).isEqualTo("PENDING");
         assertThat(businessState.attempts()).isEqualTo(1);
         assertThat(businessState.lastError()).isEqualTo("EMAIL-0005");
+        assertThat(businessState.sanitizedLastError()).isEqualTo("EMAIL-0005");
         assertThat(runtimeState.status()).isEqualTo("PENDING");
         assertThat(runtimeState.attempts()).isEqualTo(1);
         assertThat(runtimeState.lastError()).isEqualTo(RuntimeException.class.getName());
+        assertThat(runtimeState.sanitizedLastError()).isEqualTo(RuntimeException.class.getName());
         assertThat(businessState.nextAttemptAt()).isAfter(Instant.now());
         assertThat(runtimeState.nextAttemptAt()).isAfter(Instant.now());
         assertThat(rawFailureFragmentCount(jdbcTemplate)).isZero();
@@ -110,7 +112,7 @@ class EventOutboxRelayFailureSanitizationJdbcIntegrationTest extends Integration
     private FailureState failureState(JdbcTemplate jdbcTemplate, UUID eventId) {
         return jdbcTemplate.queryForObject(
             """
-                SELECT status, attempts, last_error, next_attempt_at
+                SELECT status, attempts, last_error, sanitized_last_error, next_attempt_at
                 FROM event_outbox
                 WHERE event_id = ?
                 """,
@@ -118,6 +120,7 @@ class EventOutboxRelayFailureSanitizationJdbcIntegrationTest extends Integration
                 resultSet.getString("status"),
                 resultSet.getInt("attempts"),
                 resultSet.getString("last_error"),
+                resultSet.getString("sanitized_last_error"),
                 resultSet.getTimestamp("next_attempt_at").toInstant()
             ),
             eventId
@@ -155,6 +158,7 @@ class EventOutboxRelayFailureSanitizationJdbcIntegrationTest extends Integration
         String status,
         int attempts,
         String lastError,
+        String sanitizedLastError,
         Instant nextAttemptAt
     ) {
     }

@@ -62,7 +62,7 @@ class SendEmailServiceTest {
 
     @Test
     @DisplayName("template email 요청은 검증된 불변 event를 publishOnce하고 outbox 결과를 반환한다")
-    void template_email_요청을_outbox에_한번_기록한다() {
+    void testCase001() {
         SendTemplateEmailCommand command = new SendTemplateEmailCommand(
             EVENT_ID,
             " applicant@test.umc.local ",
@@ -76,6 +76,7 @@ class SendEmailServiceTest {
                 EVENT_ID,
                 EventOutboxStatus.PENDING,
                 false,
+                normalizedAvailableAt,
                 normalizedAvailableAt
             ));
         Instant beforeRequest = Instant.now();

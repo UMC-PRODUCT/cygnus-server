@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,15 @@ import com.umc.product.notification.domain.exception.EmailErrorCode;
 @Component
 public class EmailTemplateCatalog {
 
-    private static final int MAX_RECIPIENT_LENGTH = 320;
+    private static final int MAX_RECIPIENT_LENGTH = 254;
+    private static final int MAX_LOCAL_PART_LENGTH = 64;
+    private static final int MAX_DOMAIN_LENGTH = 253;
+    private static final Pattern LOCAL_PART_PATTERN = Pattern.compile(
+        "[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\\.[A-Za-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+    );
+    private static final Pattern DOMAIN_LABEL_PATTERN = Pattern.compile(
+        "[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?"
+    );
     private static final Map<String, Integer> VARIABLE_LIMITS = Map.of(
         "applicantName", 100,
         "contactSnapshot", 2_000,
@@ -61,8 +70,8 @@ public class EmailTemplateCatalog {
     }
 
     public SendTemplateEmailCommand validate(SendTemplateEmailCommand command) {
-        if (command == null) {
-            throw emailError(EmailErrorCode.EMAIL_TEMPLATE_VARIABLES_INVALID);
+        if (command == null || command.eventId() == null || command.availableAt() == null) {
+            throw emailError(EmailErrorCode.EMAIL_TEMPLATE_REQUEST_INVALID);
         }
         TemplateDefinition definition = definitionOrThrow(command.templateType());
         validateRecipient(command.recipient());
@@ -78,9 +87,35 @@ public class EmailTemplateCatalog {
     }
 
     private void validateRecipient(String recipient) {
-        if (recipient == null || recipient.isBlank() || recipient.length() > MAX_RECIPIENT_LENGTH) {
+        if (!isValidRecipient(recipient)) {
             throw emailError(EmailErrorCode.EMAIL_RECIPIENT_INVALID);
         }
+    }
+
+    private boolean isValidRecipient(String recipient) {
+        if (recipient == null || recipient.isBlank() || recipient.length() > MAX_RECIPIENT_LENGTH) {
+            return false;
+        }
+        if (!recipient.chars().allMatch(character -> character > 0 && character <= 0x7F)) {
+            return false;
+        }
+        int separator = recipient.indexOf('@');
+        if (separator <= 0 || separator != recipient.lastIndexOf('@') || separator == recipient.length() - 1) {
+            return false;
+        }
+        String localPart = recipient.substring(0, separator);
+        String domain = recipient.substring(separator + 1);
+        if (localPart.length() > MAX_LOCAL_PART_LENGTH || domain.length() > MAX_DOMAIN_LENGTH
+            || !LOCAL_PART_PATTERN.matcher(localPart).matches()) {
+            return false;
+        }
+        String[] labels = domain.split("\\.", -1);
+        for (String label : labels) {
+            if (label.length() > 63 || !DOMAIN_LABEL_PATTERN.matcher(label).matches()) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void validateVariables(TemplateDefinition definition, Map<String, String> variables) {
@@ -122,7 +157,10 @@ public class EmailTemplateCatalog {
     }
 
     private Set<String> normalizeAllowedOrigins(List<String> origins) {
-        return (origins == null || origins.isEmpty() ? List.of(EmailTemplateProperties.SERVICE_ORIGIN) : origins).stream()
+        List<String> configuredOrigins = origins == null || origins.isEmpty()
+            ? List.of(EmailTemplateProperties.SERVICE_ORIGIN)
+            : origins;
+        return configuredOrigins.stream()
             .map(origin -> {
                 if (origin == null || origin.isBlank()) {
                     throw new IllegalArgumentException("allowed action origin must not be blank");

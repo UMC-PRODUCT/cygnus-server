@@ -36,16 +36,19 @@ class EmailTemplateCatalogTest {
 
     @Test
     @DisplayName("4종 템플릿은 catalog가 제목·경로·정확한 필수 키를 소유한다")
-    void catalog가_템플릿_메타데이터를_소유한다() {
-        assertThat(catalog.requiredVariableKeys(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST))
+    void testCase001() {
+        assertThat(catalog.requiredVariableKeys(
+            EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST))
             .containsExactlyInAnyOrder("applicantName", "contactSnapshot", "actionUrl");
         assertThat(catalog.subject(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST))
             .isEqualTo("[UMC] 서류 전형 합격 및 면접 가능 시간 제출 안내");
-        assertThat(catalog.templateResourcePath(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST))
+        assertThat(catalog.templateResourcePath(
+            EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST))
             .isEqualTo("email/recruitment/document-passed-interview-availability-request");
 
         assertThat(catalog.requiredVariableKeys(EmailTemplateType.RECRUITMENT_INTERVIEW_CONFIRMATION))
-            .containsExactlyInAnyOrder("applicantName", "interviewDate", "interviewTime", "location", "contactSnapshot");
+            .containsExactlyInAnyOrder(
+                "applicantName", "interviewDate", "interviewTime", "location", "contactSnapshot");
         assertThat(catalog.subject(EmailTemplateType.RECRUITMENT_INTERVIEW_CONFIRMATION))
             .isEqualTo("[UMC] 면접 일정이 확정되었습니다");
 
@@ -62,7 +65,7 @@ class EmailTemplateCatalogTest {
 
     @Test
     @DisplayName("각 템플릿의 최소 정상 요청은 허용하고 값은 strip된 snapshot으로 보존한다")
-    void 최소_정상_요청을_허용한다() {
+    void testCase002() {
         for (EmailTemplateType type : EmailTemplateType.values()) {
             SendTemplateEmailCommand command = command(type, values(type));
 
@@ -76,7 +79,7 @@ class EmailTemplateCatalogTest {
 
     @Test
     @DisplayName("URL은 허용 origin의 path·query·fragment를 포함할 수 있다")
-    void action_url_정상_origin_검증() {
+    void testCase003() {
         SendTemplateEmailCommand command = command(
             EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST,
             values(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST)
@@ -96,7 +99,7 @@ class EmailTemplateCatalogTest {
 
     @Test
     @DisplayName("누락·추가·null·blank 변수는 명시적인 EMAIL 오류로 거부한다")
-    void 변수_schema_위반을_거부한다() {
+    void testCase004() {
         Map<String, String> missing = values(EmailTemplateType.RECRUITMENT_FINAL_PASSED);
         missing.remove("acceptedTrack");
         assertEmailError(() -> catalog.validate(command(EmailTemplateType.RECRUITMENT_FINAL_PASSED, missing)),
@@ -119,8 +122,28 @@ class EmailTemplateCatalogTest {
     }
 
     @Test
+    @DisplayName("null command·event ID·availableAt은 안정적인 EMAIL 요청 오류로 거부한다")
+    void testCase005() {
+        assertEmailError(() -> catalog.validate(null), EmailErrorCode.EMAIL_TEMPLATE_REQUEST_INVALID);
+        assertEmailError(() -> catalog.validate(new SendTemplateEmailCommand(
+            null,
+            "receiver@test.local",
+            EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+            Map.of("applicantName", "지원자"),
+            AVAILABLE_AT
+        )), EmailErrorCode.EMAIL_TEMPLATE_REQUEST_INVALID);
+        assertEmailError(() -> catalog.validate(new SendTemplateEmailCommand(
+            UUID.randomUUID(),
+            "receiver@test.local",
+            EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+            Map.of("applicantName", "지원자"),
+            null
+        )), EmailErrorCode.EMAIL_TEMPLATE_REQUEST_INVALID);
+    }
+
+    @Test
     @DisplayName("malicious URL 변형은 exact origin 정책으로 거부한다")
-    void action_url_공격_변형을_거부한다() {
+    void testCase006() {
         assertActionUrlRejected("https://university.neordinary.com.evil.test/path",
             EmailErrorCode.EMAIL_TEMPLATE_ACTION_ORIGIN_NOT_ALLOWED);
         assertActionUrlRejected("https://user@university.neordinary.com/path",
@@ -132,12 +155,15 @@ class EmailTemplateCatalogTest {
 
     @Test
     @DisplayName("수신자와 각 변수의 최대 길이 경계를 검증한다")
-    void 길이_경계를_검증한다() {
+    void testCase007() {
+        String longestLocalPart = "a".repeat(64);
+        String longestDomain = "b".repeat(63) + "." + "c".repeat(63) + "." + "d".repeat(61);
+        String maximumRecipient = longestLocalPart + "@" + longestDomain;
         assertThat(catalog.validate(new SendTemplateEmailCommand(
-            UUID.randomUUID(), "a".repeat(320), EmailTemplateType.RECRUITMENT_FINAL_FAILED,
-            Map.of("applicantName", "지원자"), AVAILABLE_AT)).recipient()).hasSize(320);
+            UUID.randomUUID(), maximumRecipient, EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+            Map.of("applicantName", "지원자"), AVAILABLE_AT)).recipient()).hasSize(254);
         assertEmailError(() -> catalog.validate(new SendTemplateEmailCommand(
-            UUID.randomUUID(), "a".repeat(321), EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+            UUID.randomUUID(), maximumRecipient + "e", EmailTemplateType.RECRUITMENT_FINAL_FAILED,
             Map.of("applicantName", "지원자"), AVAILABLE_AT)), EmailErrorCode.EMAIL_RECIPIENT_INVALID);
         assertVariableLength(EmailTemplateType.RECRUITMENT_FINAL_FAILED, "applicantName", 100);
         assertVariableLength(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST,
@@ -154,8 +180,48 @@ class EmailTemplateCatalogTest {
     }
 
     @Test
+    @DisplayName("수신자는 단일 ASCII dot-atom mailbox만 허용한다")
+    void testCase008() {
+        assertThat(catalog.validate(new SendTemplateEmailCommand(
+            UUID.randomUUID(),
+            "user.name+recruit@xn--9d0b4b.example",
+            EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+            Map.of("applicantName", "지원자"),
+            AVAILABLE_AT
+        )).recipient()).isEqualTo("user.name+recruit@xn--9d0b4b.example");
+
+        for (String invalid : List.of(
+            "not-an-email",
+            "first@example.com,second@example.com",
+            "first@example.com;second@example.com",
+            "Name <user@example.com>",
+            "\"user\"@example.com",
+            "user@@example.com",
+            ".user@example.com",
+            "user..name@example.com",
+            "user@-example.com",
+            "user@example-.com",
+            "user@exam ple.com",
+            "user@exam\tple.com",
+            "user@exam\u0007ple.com",
+            "\r\nuser@example.com",
+            "user@example.com\n",
+            "user@example.com\r\nBcc:evil@example.com",
+            "사용자@example.com"
+        )) {
+            assertEmailError(() -> catalog.validate(new SendTemplateEmailCommand(
+                UUID.randomUUID(),
+                invalid,
+                EmailTemplateType.RECRUITMENT_FINAL_FAILED,
+                Map.of("applicantName", "지원자"),
+                AVAILABLE_AT
+            )), EmailErrorCode.EMAIL_RECIPIENT_INVALID);
+        }
+    }
+
+    @Test
     @DisplayName("외부 map 변경과 catalog key set 변경은 snapshot에 영향을 주지 않는다")
-    void map_snapshot은_불변이다() {
+    void testCase009() {
         Map<String, String> values = new LinkedHashMap<>(values(EmailTemplateType.RECRUITMENT_FINAL_FAILED));
         SendTemplateEmailCommand command = command(EmailTemplateType.RECRUITMENT_FINAL_FAILED, values);
         values.put("reason", "mutated");
@@ -163,12 +229,14 @@ class EmailTemplateCatalogTest {
         assertThat(command.variables()).doesNotContainKey("reason");
         assertThatThrownBy(() -> command.variables().put("reason", "mutated"))
             .isInstanceOf(UnsupportedOperationException.class);
-        assertThatThrownBy(() -> catalog.requiredVariableKeys(EmailTemplateType.RECRUITMENT_FINAL_FAILED).add("reason"))
+        assertThatThrownBy(() -> catalog.requiredVariableKeys(
+            EmailTemplateType.RECRUITMENT_FINAL_FAILED).add("reason"))
             .isInstanceOf(UnsupportedOperationException.class);
     }
 
     private void assertActionUrlRejected(String actionUrl, EmailErrorCode expected) {
-        Map<String, String> values = values(EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST);
+        Map<String, String> values = values(
+            EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST);
         values.put("actionUrl", actionUrl);
         assertEmailError(() -> catalog.validate(command(
             EmailTemplateType.RECRUITMENT_DOCUMENT_PASSED_INTERVIEW_AVAILABILITY_REQUEST, values)),
@@ -178,15 +246,22 @@ class EmailTemplateCatalogTest {
     private void assertVariableLength(EmailTemplateType type, String key, int maxLength) {
         Map<String, String> values = values(type);
         String actionPrefix = "https://university.neordinary.com/";
-        String value = key.equals("actionUrl") ? actionPrefix + "a".repeat(maxLength - actionPrefix.length()) : "a".repeat(maxLength);
+        String value = key.equals("actionUrl")
+            ? actionPrefix + "a".repeat(maxLength - actionPrefix.length())
+            : "a".repeat(maxLength);
         values.put(key, value);
         assertThat(catalog.validate(command(type, values)).variables().get(key)).hasSize(maxLength);
         values.put(key, value + "a");
-        assertEmailError(() -> catalog.validate(command(type, values)), EmailErrorCode.EMAIL_TEMPLATE_VARIABLE_INVALID);
+        assertEmailError(
+            () -> catalog.validate(command(type, values)),
+            EmailErrorCode.EMAIL_TEMPLATE_VARIABLE_INVALID
+        );
     }
 
     private SendTemplateEmailCommand command(EmailTemplateType type, Map<String, String> variables) {
-        return new SendTemplateEmailCommand(UUID.randomUUID(), " applicant@test.umc.local ", type, variables, AVAILABLE_AT);
+        return new SendTemplateEmailCommand(
+            UUID.randomUUID(), " applicant@test.umc.local ", type, variables, AVAILABLE_AT
+        );
     }
 
     private Map<String, String> values(EmailTemplateType type) {

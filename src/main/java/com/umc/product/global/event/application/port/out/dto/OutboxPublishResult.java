@@ -10,6 +10,7 @@ public record OutboxPublishResult(
     UUID eventId,
     EventOutboxStatus status,
     boolean deduplicated,
+    Instant availableAt,
     Instant nextAttemptAt
 ) {
 
@@ -22,6 +23,7 @@ public record OutboxPublishResult(
             outbox.getEventId(),
             outbox.getStatus(),
             deduplicated,
+            outbox.getAvailableAt(),
             nextAttemptAt
         );
     }
