@@ -1,0 +1,92 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "curriculum-1.0",
+  "namespace": "curriculum",
+  "policyVersion": "1.0.0",
+  "moduleId": "curriculum-resource",
+  "statements": [
+    {
+      "id": "original-workbook.manage-release.active-central",
+      "effect": "ALLOW",
+      "actions": [
+        "original-workbook:manage",
+        "original-workbook:release"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralMember"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "original-workbook.manage-release.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "original-workbook:manage",
+        "original-workbook:release"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "workbook-submission.read.active-school-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "workbook-submission:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "workbook-submission.read.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "workbook-submission:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

@@ -1,8 +1,15 @@
 package com.umc.product.chat.application.policy;
 
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Component;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
+import com.umc.product.chat.application.authorization.ChatPolicyAuthorizationService;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
+import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.exception.ChatDomainException;
 import com.umc.product.chat.domain.exception.ChatErrorCode;
 
@@ -19,13 +26,58 @@ import lombok.RequiredArgsConstructor;
 public class ChatRoomAccessPolicy {
 
     private final LoadChatMemberPort loadChatMemberPort;
+    private final ChatPolicyAuthorizationService policyAuthorizationService;
 
     /**
      * 멤버가 해당 방의 참여자인지 검증한다. 참여자가 아니면 {@link ChatErrorCode#CHAT_ROOM_ACCESS_DENIED} 예외를 던진다.
      */
     public void verifyMember(Long roomId, Long memberId) {
-        if (!loadChatMemberPort.existsByRoomIdAndMemberId(roomId, memberId)) {
+        verifyMember(ChatPolicyAction.ROOM_READ, roomId, memberId);
+    }
+
+    public void verifyMember(ChatPolicyAction action, Long roomId, Long memberId) {
+        if (!hasAccess(action, roomId, memberId)) {
             throw new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
         }
+    }
+
+    public boolean hasAccess(ChatPolicyAction action, Long roomId, Long memberId) {
+        boolean roomMember = loadChatMemberPort.existsByRoomIdAndMemberId(roomId, memberId);
+        return policyAuthorizationService.evaluate(action, roomMember, false, false);
+    }
+
+    public void verifyMessageMutation(
+        ChatPolicyAction action,
+        Long roomId,
+        Long memberId,
+        boolean messageAuthor,
+        boolean moderator
+    ) {
+        boolean roomMember = loadChatMemberPort.existsByRoomIdAndMemberId(roomId, memberId);
+        if (!policyAuthorizationService.evaluate(
+            action,
+            roomMember,
+            messageAuthor,
+            moderator)) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN);
+        }
+    }
+
+    public void verifyAllMembers(
+        ChatPolicyAction action,
+        Long roomId,
+        Collection<Long> memberIds
+    ) {
+        Set<Long> roomMemberIds = loadChatMemberPort.listByRoomId(roomId).stream()
+            .map(ChatMember::getMemberId)
+            .collect(Collectors.toUnmodifiableSet());
+        boolean allRoomMembers = roomMemberIds.containsAll(memberIds);
+        if (!policyAuthorizationService.evaluate(action, allRoomMembers, false, false)) {
+            throw new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED);
+        }
+    }
+
+    public boolean authorizeDerivedMembership(ChatPolicyAction action, boolean roomMember) {
+        return policyAuthorizationService.evaluate(action, roomMember, false, false);
     }
 }

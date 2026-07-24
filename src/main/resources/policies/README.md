@@ -5,6 +5,12 @@
 resource manifest가 classpath 위치를 선언하며, 같은 위치의 resource가 없거나 둘 이상이면
 애플리케이션 시작을 실패시킨다.
 
+`domain-coverage.json`은 production 최상위 도메인이 JSON policy 관리 대상인지, 인증 경계인지,
+내부 전용 또는 인프라인지를 빠짐없이 분류한다. `POLICY_MANAGED` 도메인의 `migrationStatus`는
+`PLANNED`, `SHADOW`, `ENFORCED` 중 하나이며, 나머지 분류는 `EXEMPT`만 사용할 수 있다. 이 문서는
+runtime decision을 만들지는 않지만 CI가 신규 도메인과 누락된 authorization migration을 추적하는
+기준이다.
+
 ## 계약의 우선순위
 
 `schema/`의 JSON Schema는 편집기 자동완성, 사람이 보는 문서 구조, 얕은 정적 검사를 위한
@@ -27,7 +33,16 @@ policies/
 ├── README.md
 ├── schema/1.0/
 │   ├── policy-bundle.schema.json
-│   └── policy-module.schema.json
+│   ├── policy-module.schema.json
+│   └── domain-coverage.schema.json
+├── domain-coverage.json
+├── {policy-managed-domain}/
+│   ├── README.md
+│   ├── bundle.json
+│   ├── *.policy.json
+│   ├── expected-differences.json
+│   ├── generated/{namespace}-policy-artifacts.md
+│   └── rollout/enforcement-receipts.json
 ├── project/
 │   ├── bundle.json
 │   ├── project-resource.policy.json
@@ -40,13 +55,16 @@ policies/
 │   ├── generated/project-policy-artifacts.md
 │   └── rollout/enforcement-receipts.json
 └── form/
+    ├── README.md
+    ├── bundle.json
+    ├── form-resource.policy.json
     └── form.policy.json
 ```
 
-`form/form.policy.json`은 Form 도메인이 물리적으로 소유한다. 현재 pilot에서는 이 module이
-`project-1.0` context와 `project-form:*` action을 사용하므로 Project bundle이 logical resource
-`form.policy.json`으로 import한다. 물리적 소유 경로와 평가 context namespace는 서로 다른
-개념이다. Form이 독립 context schema와 bundle을 갖게 되면 별도의 migration으로 분리해야 한다.
+`form/bundle.json`과 `form/form-resource.policy.json`은 독립 `form-1.0` target 계약이다.
+`form/form.policy.json`은 현재 pilot에서 `project-1.0` context와 `project-form:*` action을
+사용하는 transitional module이며 Project bundle이 logical resource `form.policy.json`으로
+import한다. 물리적 소유 경로와 평가 context namespace는 서로 다른 개념이다.
 
 Project의 logical filename과 실제 classpath path 매핑은 production의
 `ProjectPolicyResourceManifest` 한 곳에서만 선언한다. 예를 들면 bundle에 적는
@@ -274,9 +292,9 @@ Generated artifact의 `Raw Policy Source SHA-256`은 각 logical resource의 원
 
 ## Compile, load와 보안 경계
 
-Project bundle은 Spring component 생성 시 한 번 compile되어 immutable 객체로 공유된다. Runtime
+모든 등록 bundle은 Spring startup에서 한 번 compile되어 immutable registry로 공유된다. Runtime
 hot reload는 없다. 고정 manifest의 resource를 classpath에서 정확히 하나씩 읽고, 다음 pipeline을
-통과하지 못하면 startup이 실패한다.
+통과하지 못하면 전체 registry 생성과 startup이 실패한다.
 
 ```text
 고정 classpath load
@@ -319,9 +337,17 @@ Classpath 경로는 production manifest에 상수로 고정한다. 외부 입력
 
 ## Generated artifact, shadow 비교와 rollout
 
-`project/generated/project-policy-artifacts.md`는 source policy와 runtime surface catalog에서 생성한
-검토 산출물이다. 직접 수정하지 않는다. 다음 명령이 stale source, runtime catalog, package entry를
-검증한다.
+각 namespace의 `generated/{namespace}-policy-artifacts.md`는 source policy와 runtime surface
+catalog에서 생성한 검토 산출물이다. 직접 수정하지 않는다. 공용 artifact와 domain coverage는
+다음 테스트가 검증한다.
+
+```bash
+./gradlew test \
+  --tests '*CommonPolicyArtifactTest' \
+  --tests '*PolicyDomainCoverageTest'
+```
+
+Project는 bootJar 안의 package entry까지 검증하는 전용 task를 추가로 유지한다.
 
 ```bash
 ./gradlew verifyProjectPolicyArtifacts
@@ -342,10 +368,9 @@ Target decision을 허용하거나 HTTP 응답을 변경하는 allowlist가 아�
 3. Bundle과 모든 module의 envelope version이 일치하는지 확인하고 권장 governance에 따라
    `policyVersion`을 결정한다.
 4. Policy/compiler/context 단위 테스트를 RED에서 시작해 GREEN으로 만든다.
-5. `./gradlew generateProjectPolicyArtifacts`로 review artifact를 생성하고 권한 확대·축소 및
-   fingerprint/raw SHA 변경을 검토한다.
-6. `./gradlew verifyProjectPolicyArtifacts verifyPackagedProjectPolicyArtifacts`로 source와 bootJar를
-   검증한다.
+5. namespace review artifact를 재생성하고 권한 확대·축소 및 fingerprint/raw SHA 변경을 검토한다.
+6. `CommonPolicyArtifactTest`, `PolicyDomainCoverageTest`를 실행한다. Project 변경이면
+   `verifyProjectPolicyArtifacts`, `verifyPackagedProjectPolicyArtifacts`도 실행한다.
 7. 전체 test, Spotless, Checkstyle, Asciidoctor를 통과시킨다.
 8. Target matrix와 artifact identity를 승인받은 뒤 rollout runbook의 SHADOW/ENFORCE wave를 따른다.
 

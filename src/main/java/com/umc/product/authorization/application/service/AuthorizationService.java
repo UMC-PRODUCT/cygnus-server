@@ -204,9 +204,12 @@ public class AuthorizationService implements CheckPermissionUseCase {
 
     private SubjectAttributes loadFreshSubject(Long memberId) {
         if (getGisuUseCase != null) {
-            MemberInfo memberInfo = getMemberUseCase.getById(memberId);
-            SubjectPolicyFacts facts = loadPolicyFacts(memberId, memberInfo.schoolId());
-            return facts.toSubjectAttributes(memberId, memberInfo.schoolId(), listSystemRoles(memberId));
+            if (!getMemberUseCase.existsById(memberId)) {
+                throw new MemberDomainException(MemberErrorCode.MEMBER_NOT_FOUND);
+            }
+            Long schoolId = getMemberUseCase.findAllSchoolIdsByIds(Set.of(memberId)).get(memberId);
+            SubjectPolicyFacts facts = loadPolicyFacts(memberId, schoolId);
+            return facts.toSubjectAttributes(memberId, schoolId, listSystemRoles(memberId));
         }
 
         // 사용자가 활동한 모든 기수를 확인
@@ -252,7 +255,7 @@ public class AuthorizationService implements CheckPermissionUseCase {
         return facts.toSubjectAttributes(cached.memberId(), cached.schoolId(), cached.systemRoles());
     }
 
-    private SubjectPolicyFacts loadPolicyFacts(long memberId, long memberSchoolId) {
+    private SubjectPolicyFacts loadPolicyFacts(long memberId, Long memberSchoolId) {
         Instant evaluatedAt = clock.instant();
         List<ChallengerRolePolicyInfo> roles = policyRoles(memberId);
         List<ChallengerPolicyInfo> challengers = getChallengerUseCase.listPolicyFactsByMemberId(memberId);
@@ -270,7 +273,9 @@ public class AuthorizationService implements CheckPermissionUseCase {
             .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
             .map(ChallengerRolePolicyInfo::organizationId)
             .collect(Collectors.toCollection(LinkedHashSet::new));
-        schoolIds.add(memberSchoolId);
+        if (memberSchoolId != null) {
+            schoolIds.add(memberSchoolId);
+        }
         Map<SchoolChapterKey, Long> chapters = new LinkedHashMap<>();
         if (!gisuIds.isEmpty()) {
             getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(gisuIds, schoolIds)
@@ -285,6 +290,9 @@ public class AuthorizationService implements CheckPermissionUseCase {
                 role.gisuId(), gisu.startAt(), gisu.endAt());
         }).toList();
         List<ChallengerPolicyFact> challengerFacts = challengers.stream().map(challenger -> {
+            if (memberSchoolId == null) {
+                throw policyEvaluationFailure();
+            }
             GisuInfo gisu = requireGisu(gisus, challenger.gisuId());
             Long chapterId = chapters.get(new SchoolChapterKey(challenger.gisuId(), memberSchoolId));
             if (chapterId == null) {

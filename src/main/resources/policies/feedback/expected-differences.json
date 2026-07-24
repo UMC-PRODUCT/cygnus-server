@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "feedback",
+  "differences": [
+    {
+      "id": "feedback.expired-central-member",
+      "actions": [
+        "feedback-template:resolve",
+        "feedback-response:submit"
+      ],
+      "contextPredicate": "legacy target Gisu central member role is expired at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY_OR_LOWER_TARGET_TYPE",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "FeedbackTargetPolicyTest#deniesExpiredCentralMember",
+      "owner": "feedback"
+    }
+  ]
+}

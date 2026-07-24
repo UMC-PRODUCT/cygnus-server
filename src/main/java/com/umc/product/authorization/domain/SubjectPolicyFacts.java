@@ -24,13 +24,13 @@ public record SubjectPolicyFacts(
         chapterIdByGisuAndSchool = Map.copyOf(chapterIdByGisuAndSchool);
     }
 
-    public SubjectAttributes toSubjectAttributes(long memberId, long schoolId) {
+    public SubjectAttributes toSubjectAttributes(long memberId, Long schoolId) {
         return toSubjectAttributes(memberId, schoolId, Set.of());
     }
 
     public SubjectAttributes toSubjectAttributes(
         long memberId,
-        long schoolId,
+        Long schoolId,
         Set<SystemRoleType> systemRoles
     ) {
         return SubjectAttributes.builder()
@@ -45,6 +45,46 @@ public record SubjectPolicyFacts(
             .systemRoles(systemRoles)
             .policyFacts(this)
             .build();
+    }
+
+    public AuthorizationSubjectSnapshot toAuthorizationSubjectSnapshot(
+        long memberId,
+        Long schoolId,
+        Set<SystemRoleType> systemRoles
+    ) {
+        List<AuthorizationRoleTuple> roleTuples = roles.stream()
+            .map(role -> new AuthorizationRoleTuple(
+                role.roleType(),
+                role.organizationType(),
+                role.organizationId(),
+                role.responsiblePart(),
+                role.gisuId(),
+                role.gisuStartAt(),
+                role.gisuEndAt()))
+            .toList();
+        List<AuthorizationChallengerTuple> challengerTuples = challengers.stream()
+            .map(challenger -> new AuthorizationChallengerTuple(
+                challenger.challengerId(),
+                challenger.gisuId(),
+                challenger.chapterId(),
+                challenger.part(),
+                challenger.gisuStartAt(),
+                challenger.gisuEndAt()))
+            .toList();
+        Map<AuthorizationSchoolChapterKey, Long> chapters = chapterIdByGisuAndSchool.entrySet().stream()
+            .collect(java.util.stream.Collectors.toUnmodifiableMap(
+                entry -> new AuthorizationSchoolChapterKey(
+                    entry.getKey().gisuId(),
+                    entry.getKey().schoolId()),
+                Map.Entry::getValue));
+        return AuthorizationSubjectSnapshot.member(
+            memberId,
+            schoolId,
+            evaluatedAt,
+            systemRoles,
+            roleTuples,
+            challengerTuples,
+            chapters);
     }
 
     public record RolePolicyFact(

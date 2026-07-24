@@ -1,0 +1,127 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "chat-1.0",
+  "namespace": "chat",
+  "policyVersion": "1.0.0",
+  "moduleId": "chat-resource",
+  "statements": [
+    {
+      "id": "chat.room-member",
+      "effect": "ALLOW",
+      "actions": [
+        "chat-room:read",
+        "chat-room-summary:read",
+        "chat-message:create",
+        "chat-message:read",
+        "chat-reaction:update",
+        "chat-read:update",
+        "chat-read-status:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.isRoomMember"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "chat.message-author-update",
+      "effect": "ALLOW",
+      "actions": [
+        "chat-message:update"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isRoomMember"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isMessageAuthor"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "chat.message-author-or-moderator-delete",
+      "effect": "ALLOW",
+      "actions": [
+        "chat-message:delete"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isRoomMember"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "ANY",
+            "conditions": [
+              {
+                "type": "PREDICATE",
+                "operator": "EQ",
+                "left": {
+                  "type": "ATTRIBUTE",
+                  "name": "relation.isMessageAuthor"
+                },
+                "right": {
+                  "type": "BOOLEAN",
+                  "value": true
+                }
+              },
+              {
+                "type": "PREDICATE",
+                "operator": "EQ",
+                "left": {
+                  "type": "ATTRIBUTE",
+                  "name": "relation.isModerator"
+                },
+                "right": {
+                  "type": "BOOLEAN",
+                  "value": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcomes": []
+    }
+  ]
+}

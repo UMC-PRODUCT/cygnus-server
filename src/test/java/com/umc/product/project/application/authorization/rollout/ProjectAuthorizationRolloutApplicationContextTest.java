@@ -18,9 +18,11 @@ import org.springframework.core.io.ClassPathResource;
 
 import com.umc.product.authorization.application.port.in.policy.CompilePolicyBundleUseCase;
 import com.umc.product.authorization.application.port.in.policy.EvaluatePolicyUseCase;
+import com.umc.product.authorization.application.service.policy.CompiledPolicyRegistry;
 import com.umc.product.authorization.application.service.policy.PolicyEvaluationService;
 import com.umc.product.authorization.application.service.policy.PolicySemanticCompiler;
 import com.umc.product.project.application.authorization.ProjectPolicyAction;
+import com.umc.product.project.application.authorization.ProjectPolicyBundleContributor;
 import com.umc.product.project.application.authorization.ProjectPolicyBundleLoader;
 import com.umc.product.project.application.authorization.rollout.legacy.LegacyProjectAuthorizationAdapter;
 import com.umc.product.project.application.authorization.rollout.target.TargetProjectAuthorizationAdapter;
@@ -246,6 +248,8 @@ class ProjectAuthorizationRolloutApplicationContextTest {
         return new ApplicationContextRunner()
             .withUserConfiguration(
                 ProjectAuthorizationRolloutSpringConfiguration.class,
+                CompiledPolicyRegistry.class,
+                ProjectPolicyBundleContributor.class,
                 ProjectPolicyBundleLoader.class,
                 LegacyProjectAuthorizationAdapter.class,
                 TargetProjectAuthorizationAdapter.class,

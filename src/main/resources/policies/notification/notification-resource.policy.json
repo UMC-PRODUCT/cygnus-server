@@ -1,0 +1,70 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "notification-1.0",
+  "namespace": "notification",
+  "policyVersion": "1.0.0",
+  "moduleId": "notification-resource",
+  "statements": [
+    {
+      "id": "notification.send-fcm.active-central-core",
+      "effect": "ALLOW",
+      "actions": [
+        "notification:send-fcm"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "notification.delete-token.active-central-core",
+      "effect": "ALLOW",
+      "actions": [
+        "notification:delete-token"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "notification.delete-token.owner",
+      "effect": "ALLOW",
+      "actions": [
+        "notification:delete-token"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.isTokenOwner"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

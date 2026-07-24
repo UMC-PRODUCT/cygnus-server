@@ -1,0 +1,15 @@
+{
+  "$schema": "urn:umc:authorization:policy-bundle:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "analytics-1.0",
+  "namespace": "analytics",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "modules": [
+    {
+      "id": "analytics-resource",
+      "resource": "analytics-resource.policy.json"
+    }
+  ]
+}

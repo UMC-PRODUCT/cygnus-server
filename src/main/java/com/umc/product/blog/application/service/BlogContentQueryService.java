@@ -5,7 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.blog.application.authorization.BlogPolicyAuthorizationService;
 import com.umc.product.blog.application.port.in.query.GetBlogContentUseCase;
 import com.umc.product.blog.application.port.in.query.dto.BlogContentCursorInfo;
 import com.umc.product.blog.application.port.in.query.dto.BlogContentInfo;
@@ -33,7 +33,7 @@ public class BlogContentQueryService implements GetBlogContentUseCase {
     private final LoadBlogContentPort loadBlogContentPort;
     private final LoadBlogSeoPort loadBlogSeoPort;
     private final BlogContentInfoAssembler contentInfoAssembler;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final BlogPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public BlogContentCursorInfo getPublicContents(BlogContentListQuery query) {
@@ -96,6 +96,6 @@ public class BlogContentQueryService implements GetBlogContentUseCase {
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return memberId != null && getChallengerRoleUseCase.isSuperAdmin(memberId);
+        return policyAuthorizationService.isSuperAdminViewer(memberId);
     }
 }

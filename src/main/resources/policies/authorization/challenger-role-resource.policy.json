@@ -1,0 +1,51 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "authorization-1.0",
+  "namespace": "authorization",
+  "policyVersion": "1.0.0",
+  "moduleId": "challenger-role-resource",
+  "statements": [
+    {
+      "id": "challenger-role.read.authenticated",
+      "effect": "ALLOW",
+      "actions": [
+        "challenger-role:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "subject.authenticated"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "challenger-role.manage.active-central-core",
+      "effect": "ALLOW",
+      "actions": [
+        "challenger-role:create",
+        "challenger-role:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

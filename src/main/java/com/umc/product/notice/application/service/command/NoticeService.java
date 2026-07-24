@@ -12,9 +12,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.notice.application.authorization.NoticePolicyAuthorizationService;
 import com.umc.product.notice.application.port.in.command.ManageNoticeContentUseCase;
 import com.umc.product.notice.application.port.in.command.ManageNoticeUseCase;
 import com.umc.product.notice.application.port.in.command.dto.CreateNoticeCommand;
@@ -28,8 +28,6 @@ import com.umc.product.notice.application.port.out.SaveNoticeReadPort;
 import com.umc.product.notice.application.port.out.SaveNoticeTargetPort;
 import com.umc.product.notice.domain.Notice;
 import com.umc.product.notice.domain.NoticeTarget;
-import com.umc.product.notice.domain.NoticeTargetInfo;
-import com.umc.product.notice.domain.enums.NoticeTargetPattern;
 import com.umc.product.notice.domain.exception.NoticeDomainException;
 import com.umc.product.notice.domain.exception.NoticeErrorCode;
 import com.umc.product.notification.application.port.in.RequestFcmNotificationUseCase;
@@ -60,7 +58,7 @@ public class NoticeService implements ManageNoticeUseCase {
     private final SaveNoticeReadPort saveNoticeReadPort;
 
     // 도메인 외부 UseCase
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final NoticePolicyAuthorizationService policyAuthorizationService;
     private final GetChallengerUseCase getChallengerUseCase;
     private final ManageNoticeContentUseCase manageNoticeContentUseCase;
     private final RequestFcmNotificationUseCase requestFcmNotificationUseCase;
@@ -86,7 +84,7 @@ public class NoticeService implements ManageNoticeUseCase {
     )
     @Override
     public Long createNotice(CreateNoticeCommand command) {
-        if (!validateNoticeWritePermission(command.targetInfo(), command.memberId())) {
+        if (!policyAuthorizationService.evaluateCreate(command.memberId(), command.targetInfo())) {
             throw new NoticeDomainException(NoticeErrorCode.NO_WRITE_PERMISSION);
         }
 
@@ -217,21 +215,4 @@ public class NoticeService implements ManageNoticeUseCase {
             .orElseThrow(() -> new NoticeDomainException(NoticeErrorCode.NOTICE_NOT_FOUND));
     }
 
-    /**
-     * 공지 작성 권한이 있는지 검증함
-     */
-    private boolean validateNoticeWritePermission(NoticeTargetInfo noticeTargetInfo, Long authorMemberId) {
-        NoticeTargetPattern pattern = NoticeTargetPattern.from(noticeTargetInfo);
-
-        // 일반 권한 검증을 먼저 수행한다.
-        // - 구조적으로 불가능한 대상 조합(예: 지부+학교 동시 지정)은 여기서 INVALID_TARGET_SETTING 예외로
-        //   차단된다(슈퍼어드민에게도 동일 적용).
-        // - 권한을 충족하면 그대로 통과하므로, 일반적인 성공 케이스에서는 추가 역할 조회가 발생하지 않는다.
-        if (pattern.validatePermission(noticeTargetInfo, authorMemberId, getChallengerRoleUseCase)) {
-            return true;
-        }
-
-        // 권한이 부족한 경우에 한해, 슈퍼어드민이면 모든 카테고리 작성을 허용한다.
-        return getChallengerRoleUseCase.isSuperAdmin(authorMemberId);
-    }
 }

@@ -16,6 +16,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
+import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
@@ -38,6 +40,8 @@ class ChatRoomQueryServiceTest {
     LoadChatMemberPort loadChatMemberPort;
     @Mock
     LoadChatMessagePort loadChatMessagePort;
+    @Mock
+    ChatRoomAccessPolicy chatRoomAccessPolicy;
 
     @InjectMocks
     ChatRoomQueryService sut;
@@ -53,7 +57,6 @@ class ChatRoomQueryServiceTest {
         ReflectionTestUtils.setField(room, "createdAt", createdAt);
         ReflectionTestUtils.setField(pinnedMessage, "createdAt", pinnedMessageCreatedAt);
 
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 10L)).willReturn(true);
         given(loadChatRoomPort.getById(1L)).willReturn(room);
         given(loadChatMemberPort.listByRoomId(1L))
             .willReturn(List.of(member(1L, 10L), member(1L, 20L)));
@@ -80,7 +83,6 @@ class ChatRoomQueryServiceTest {
     @DisplayName("고정 메시지가 없으면 채팅방 상세 정보의 고정 메시지는 null이다")
     void getById_withoutPinnedMessage() {
         ChatRoom room = room(1L);
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 10L)).willReturn(true);
         given(loadChatRoomPort.getById(1L)).willReturn(room);
         given(loadChatMemberPort.listByRoomId(1L)).willReturn(List.of(member(1L, 10L)));
 
@@ -93,7 +95,10 @@ class ChatRoomQueryServiceTest {
     @Test
     @DisplayName("방 멤버가 아니면 채팅방 상세 정보를 조회하지 않고 접근 거부 예외를 던진다")
     void getById_accessDenied() {
-        given(loadChatMemberPort.existsByRoomIdAndMemberId(1L, 99L)).willReturn(false);
+        org.mockito.BDDMockito.willThrow(
+            new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
+            .given(chatRoomAccessPolicy)
+            .verifyMember(ChatPolicyAction.ROOM_READ, 1L, 99L);
 
         assertThatThrownBy(() -> sut.getById(1L, 99L))
             .isInstanceOf(ChatDomainException.class)

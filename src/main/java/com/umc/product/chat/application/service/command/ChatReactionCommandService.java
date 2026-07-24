@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatReactionPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.ManageChatMessageReactionUseCase;
@@ -50,7 +51,10 @@ public class ChatReactionCommandService implements ManageChatMessageReactionUseC
     private ChatReactionMutationResult change(ChangeChatMessageReactionCommand command, boolean add) {
         chatReactionPolicy.validate(command.emoji());
         loadChatRoomPort.getByIdForUpdate(command.roomId());
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.memberId());
+        chatRoomAccessPolicy.verifyMember(
+            ChatPolicyAction.REACTION_UPDATE,
+            command.roomId(),
+            command.memberId());
         ChatMessage message = loadChatMessagePort.getByIdAndRoomId(command.messageId(), command.roomId());
         if (message.isDeleted() || message.getContentType() == MessageContentType.SYSTEM) {
             throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_REACTION_NOT_ALLOWED);

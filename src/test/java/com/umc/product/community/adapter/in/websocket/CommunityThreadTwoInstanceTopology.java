@@ -1,6 +1,5 @@
 package com.umc.product.community.adapter.in.websocket;
 
-import java.nio.file.Path;
 import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -11,20 +10,15 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.DockerImageName;
 
 import com.umc.product.UmcProductApplication;
 import com.umc.product.global.event.application.service.EventOutboxRelayService;
 import com.umc.product.global.websocket.relay.StompBrokerRelayMonitor;
+import com.umc.product.support.PostgisTestImageResolver;
 
 final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
 
-    private static final String POSTGIS_IMAGE_PROPERTY = "umc.test.postgis.image";
-    private static final String POSTGIS_IMAGE_ENV = "UMC_TEST_POSTGIS_IMAGE";
-    private static final String POSTGIS_IMAGE = "postgis/postgis:18-3.6";
-    private static final String ARM64_POSTGIS_IMAGE = "umc-product-postgis-test:18.2-postgis";
-    private static final Path ARM64_POSTGIS_DOCKERFILE = Path.of("docker/test/postgis/Dockerfile");
     private static final DockerImageName RABBITMQ_IMAGE = DockerImageName.parse("rabbitmq:4.1-management");
     private static final int STOMP_PORT = 61613;
     private static final String BROKER_USER = "relay-e2e";
@@ -41,7 +35,7 @@ final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
         "community-thread-e2e-sso-key-material-20260718";
     private static final Duration RELAY_TRANSITION_TIMEOUT = Duration.ofSeconds(30);
 
-    private final PostgreSQLContainer<?> postgis = new PostgreSQLContainer<>(postgisImage())
+    private final PostgreSQLContainer<?> postgis = new PostgreSQLContainer<>(PostgisTestImageResolver.resolve())
         .withDatabaseName("community_thread_two_instance")
         .withUsername("community_e2e")
         .withPassword("community_e2e_password");
@@ -223,27 +217,6 @@ final class CommunityThreadTwoInstanceTopology implements AutoCloseable {
         if (app != null) {
             app.context().close();
         }
-    }
-
-    private static DockerImageName postgisImage() {
-        String configured = System.getProperty(POSTGIS_IMAGE_PROPERTY);
-        if (configured == null || configured.isBlank()) {
-            configured = System.getenv(POSTGIS_IMAGE_ENV);
-        }
-        if (configured != null && !configured.isBlank()) {
-            return postgresCompatible(configured.trim());
-        }
-        if ("aarch64".equals(System.getProperty("os.arch")) || "arm64".equals(System.getProperty("os.arch"))) {
-            String image = new ImageFromDockerfile(ARM64_POSTGIS_IMAGE, false)
-                .withDockerfile(ARM64_POSTGIS_DOCKERFILE)
-                .get();
-            return postgresCompatible(image);
-        }
-        return postgresCompatible(POSTGIS_IMAGE);
-    }
-
-    private static DockerImageName postgresCompatible(String image) {
-        return DockerImageName.parse(image).asCompatibleSubstituteFor("postgres");
     }
 
     record AppInstance(

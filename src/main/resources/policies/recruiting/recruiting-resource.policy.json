@@ -1,0 +1,303 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "recruiting-1.0",
+  "namespace": "recruiting",
+  "policyVersion": "1.0.0",
+  "moduleId": "recruiting-resource",
+  "statements": [
+    {
+      "id": "recruiting.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:operate-school",
+        "recruiting:manage-all",
+        "recruiting-season:create",
+        "recruiting-application:decide",
+        "recruiting-registration:manage",
+        "recruiting-summary:read",
+        "recruiting:export"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.operate.unspecified-central",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:operate-school"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeAnyCentralCore"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.operate.unspecified-school",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:operate-school"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeAnySchoolCore"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.operate.target-central",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:operate-school"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralCoreInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.operate.target-school",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:operate-school"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeSchoolCoreForTarget"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.manage.unspecified-central",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:manage-all"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeAnyCentralCore"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.manage.target-central",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting:manage-all"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralCoreInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.target-school-operator",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting-season:create",
+        "recruiting-application:decide"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolCoreForTarget"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "recruiting.target-central-operator",
+      "effect": "ALLOW",
+      "actions": [
+        "recruiting-season:create",
+        "recruiting-application:decide",
+        "recruiting-registration:manage",
+        "recruiting-summary:read",
+        "recruiting:export"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCoreInTargetGisu"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

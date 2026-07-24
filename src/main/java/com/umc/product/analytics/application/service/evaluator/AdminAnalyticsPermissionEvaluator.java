@@ -2,15 +2,21 @@ package com.umc.product.analytics.application.service.evaluator;
 
 import org.springframework.stereotype.Component;
 
+import com.umc.product.analytics.application.authorization.AnalyticsPolicyAction;
+import com.umc.product.analytics.application.authorization.AnalyticsPolicyAuthorizationService;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
+@RequiredArgsConstructor
 public class AdminAnalyticsPermissionEvaluator implements ResourcePermissionEvaluator {
+
+    private final AnalyticsPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public ResourceType supportedResourceType() {
@@ -23,14 +29,8 @@ public class AdminAnalyticsPermissionEvaluator implements ResourcePermissionEval
             return false;
         }
 
-        if (subjectAttributes.toAuthoritySnapshot().isSuperAdmin()) {
-            return true;
-        }
-
-        return subjectAttributes.roleAttributes().stream()
-            .map(role -> role.roleType())
-            .anyMatch(roleType -> roleType.isAtLeastCentralMember()
-                || roleType == ChallengerRoleType.CHAPTER_PRESIDENT
-                || roleType.isAtLeastSchoolAdmin());
+        return policyAuthorizationService.evaluate(
+            AnalyticsPolicyAction.READ_DASHBOARD,
+            subjectAttributes);
     }
 }

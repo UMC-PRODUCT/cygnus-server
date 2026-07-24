@@ -35,6 +35,13 @@ public record SubjectAttributes(
         return AuthoritySnapshot.from(this);
     }
 
+    public AuthorizationSubjectSnapshot toAuthorizationSubjectSnapshot() {
+        if (memberId == null || policyFacts == null) {
+            throw new IllegalStateException("공용 policy subject snapshot을 만들기 위한 fact가 없습니다.");
+        }
+        return policyFacts.toAuthorizationSubjectSnapshot(memberId, schoolId, systemRoles);
+    }
+
     @Builder
     public record GisuChallengerInfo(
         Long gisuId,

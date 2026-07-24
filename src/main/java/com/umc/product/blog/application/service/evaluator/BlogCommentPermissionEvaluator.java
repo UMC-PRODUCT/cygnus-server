@@ -7,6 +7,8 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.blog.application.authorization.BlogPolicyAction;
+import com.umc.product.blog.application.authorization.BlogPolicyAuthorizationService;
 import com.umc.product.blog.application.port.out.LoadBlogCommentPort;
 import com.umc.product.blog.domain.BlogComment;
 
@@ -19,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BlogCommentPermissionEvaluator implements ResourcePermissionEvaluator {
 
     private final LoadBlogCommentPort loadBlogCommentPort;
+    private final BlogPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public ResourceType supportedResourceType() {
@@ -39,8 +42,14 @@ public class BlogCommentPermissionEvaluator implements ResourcePermissionEvaluat
         }
 
         return switch (permission) {
-            case EDIT -> isAuthor(subjectAttributes.memberId(), comment);
-            case DELETE -> isAuthor(subjectAttributes.memberId(), comment) || isSuperAdmin(subjectAttributes);
+            case EDIT -> evaluate(
+                BlogPolicyAction.COMMENT_UPDATE,
+                subjectAttributes,
+                comment);
+            case DELETE -> evaluate(
+                BlogPolicyAction.COMMENT_DELETE,
+                subjectAttributes,
+                comment);
             default -> {
                 log.warn("BlogCommentPermissionEvaluator에서 지원하지 않는 PermissionType: {}", permission);
                 yield false;
@@ -54,7 +63,14 @@ public class BlogCommentPermissionEvaluator implements ResourcePermissionEvaluat
             && comment.getAuthorMemberId().equals(memberId);
     }
 
-    private boolean isSuperAdmin(SubjectAttributes subjectAttributes) {
-        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin();
+    private boolean evaluate(
+        BlogPolicyAction action,
+        SubjectAttributes subjectAttributes,
+        BlogComment comment
+    ) {
+        return policyAuthorizationService.evaluate(
+            action,
+            subjectAttributes,
+            isAuthor(subjectAttributes.memberId(), comment));
     }
 }

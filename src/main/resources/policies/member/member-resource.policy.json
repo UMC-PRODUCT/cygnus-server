@@ -1,0 +1,50 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "member-1.0",
+  "namespace": "member",
+  "policyVersion": "1.0.0",
+  "moduleId": "member-resource",
+  "statements": [
+    {
+      "id": "member.read.challenger",
+      "effect": "ALLOW",
+      "actions": [
+        "member:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.challenger"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "member.delete.active-central-core",
+      "effect": "ALLOW",
+      "actions": [
+        "member:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

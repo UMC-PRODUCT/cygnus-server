@@ -1,0 +1,15 @@
+{
+  "$schema": "urn:umc:authorization:policy-bundle:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "storage-1.0",
+  "namespace": "storage",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "modules": [
+    {
+      "id": "storage-resource",
+      "resource": "storage-resource.policy.json"
+    }
+  ]
+}

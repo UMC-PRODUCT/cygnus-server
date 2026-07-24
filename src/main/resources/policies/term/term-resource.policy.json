@@ -1,0 +1,30 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "term-1.0",
+  "namespace": "term",
+  "policyVersion": "1.0.0",
+  "moduleId": "term-resource",
+  "statements": [
+    {
+      "id": "term.create.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "term:create"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

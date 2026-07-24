@@ -3,6 +3,7 @@ package com.umc.product.chat.application.service.command;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.UpdateChatReadUseCase;
 import com.umc.product.chat.application.port.in.command.dto.ChatReadMutationResult;
@@ -32,7 +33,10 @@ public class ChatReadCommandService implements UpdateChatReadUseCase {
     @Override
     public ChatReadMutationResult update(UpdateChatReadCommand command) {
         loadChatRoomPort.getByIdForUpdate(command.roomId());
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.memberId());
+        chatRoomAccessPolicy.verifyMember(
+            ChatPolicyAction.READ_UPDATE,
+            command.roomId(),
+            command.memberId());
         loadChatMessagePort.getByIdAndRoomId(command.lastReadMessageId(), command.roomId());
         ChatMember member = loadChatMemberPort.getByRoomIdAndMemberId(command.roomId(), command.memberId());
 

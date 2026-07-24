@@ -62,9 +62,7 @@ public class PolicyEvaluationService implements EvaluatePolicyUseCase {
 
         List<CompiledPolicyStatement> matchedAllow = new ArrayList<>();
         List<CompiledPolicyStatement> matchedDeny = new ArrayList<>();
-        bundle.modules().stream()
-                .flatMap(module -> module.statements().stream())
-                .filter(statement -> statement.actions().contains(request.actionId()))
+        bundle.statementsForAction(request.actionId())
                 .forEach(statement -> match(statement, request.attributes(), matchedAllow, matchedDeny));
         matchedAllow.sort(Comparator.comparing(CompiledPolicyStatement::id));
         matchedDeny.sort(Comparator.comparing(CompiledPolicyStatement::id));

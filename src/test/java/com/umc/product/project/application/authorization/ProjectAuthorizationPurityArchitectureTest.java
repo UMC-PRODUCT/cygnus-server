@@ -27,6 +27,7 @@ class ProjectAuthorizationPurityArchitectureTest {
         "ProjectAuthorizationResourceSnapshotFactory.java",
         "ProjectExpectedDifferenceFacts.java",
         "ProjectPolicyRelationResolver.java",
+        "ProjectPolicySubjectSnapshot.java",
         "ProjectPolicySubjectSnapshotLoader.java"
     );
 

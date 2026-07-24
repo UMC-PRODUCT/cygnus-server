@@ -1,0 +1,327 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "feedback-1.0",
+  "namespace": "feedback",
+  "policyVersion": "1.0.0",
+  "moduleId": "feedback-resource",
+  "statements": [
+    {
+      "id": "feedback.resolve.admin",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-template:resolve"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralMemberInTargetGisu"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": [
+        {
+          "key": "feedback.targetType",
+          "value": {
+            "type": "ENUM",
+            "value": "ADMIN"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feedback.resolve.experienced-history",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-template:resolve"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeChallengerInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.hasPreviousGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": [
+        {
+          "key": "feedback.targetType",
+          "value": {
+            "type": "ENUM",
+            "value": "EXPERIENCED_CHALLENGER"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feedback.resolve.experienced-generation-ten-plan",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-template:resolve"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.generationTenPlanChallenger"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": [
+        {
+          "key": "feedback.targetType",
+          "value": {
+            "type": "ENUM",
+            "value": "EXPERIENCED_CHALLENGER"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feedback.resolve.new-challenger",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-template:resolve"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeChallengerInTargetGisu"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": [
+        {
+          "key": "feedback.targetType",
+          "value": {
+            "type": "ENUM",
+            "value": "NEW_CHALLENGER"
+          }
+        }
+      ]
+    },
+    {
+      "id": "feedback.submit.admin",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-response:submit"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralMemberInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.feedback.targetType"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "ADMIN"
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "feedback.submit.experienced",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-response:submit"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralMemberInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeChallengerInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "ANY",
+            "conditions": [
+              {
+                "type": "PREDICATE",
+                "operator": "EQ",
+                "left": {
+                  "type": "ATTRIBUTE",
+                  "name": "relation.hasPreviousGisu"
+                },
+                "right": {
+                  "type": "BOOLEAN",
+                  "value": true
+                }
+              },
+              {
+                "type": "PREDICATE",
+                "operator": "EQ",
+                "left": {
+                  "type": "ATTRIBUTE",
+                  "name": "relation.generationTenPlanChallenger"
+                },
+                "right": {
+                  "type": "BOOLEAN",
+                  "value": true
+                }
+              }
+            ]
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.feedback.targetType"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "EXPERIENCED_CHALLENGER"
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "feedback.submit.new-challenger",
+      "effect": "ALLOW",
+      "actions": [
+        "feedback-response:submit"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeCentralMemberInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeChallengerInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.hasPreviousGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.generationTenPlanChallenger"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.feedback.targetType"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "NEW_CHALLENGER"
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    }
+  ]
+}

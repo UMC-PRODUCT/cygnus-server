@@ -16,8 +16,9 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
@@ -31,7 +32,7 @@ class RecruitingCsvExportServiceTest {
     LoadRecruitingApplicationPort loadApplicationPort;
 
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    RecruitingPolicyAuthorizationService policyAuthorizationService;
 
     @InjectMocks
     RecruitingCsvExportService sut;
@@ -40,7 +41,7 @@ class RecruitingCsvExportServiceTest {
     @DisplayName("CSV는 정확한 헤더와 마스킹 이메일만 포함한다")
     void exportSummaryCsvUsesExactHeaderAndMaskedEmail() {
         // Given
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        allowCsvExport();
         given(loadApplicationPort.searchSummaryRows(1L, 10L, null)).willReturn(List.of(row()));
 
         // When
@@ -59,7 +60,7 @@ class RecruitingCsvExportServiceTest {
     @DisplayName("CSV는 spreadsheet 수식으로 해석되는 셀 접두사를 중화하고 RFC4180 escaping을 유지한다")
     void exportSummaryCsvNeutralizesFormulaPrefixesAndPreservesRfc4180Escaping() {
         // Given
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        allowCsvExport();
         given(loadApplicationPort.searchSummaryRows(1L, 10L, null)).willReturn(List.of(
             row("=formula@umc.test"),
             row("+formula@umc.test"),
@@ -89,9 +90,6 @@ class RecruitingCsvExportServiceTest {
     @Test
     @DisplayName("다른 기수의 중앙 총괄단은 CSV를 export할 수 없다")
     void rejectCsvExportForCentralCoreFromDifferentGisu() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(false);
-
         assertThatThrownBy(() -> sut.exportSummaryCsv(1L, 10L, 99L))
             .isInstanceOf(com.umc.product.recruiting.domain.exception.RecruitingDomainException.class);
         then(loadApplicationPort).shouldHaveNoInteractions();
@@ -99,6 +97,14 @@ class RecruitingCsvExportServiceTest {
 
     private RecruitingApplicationSummaryRow row() {
         return row("applicant@umc.test");
+    }
+
+    private void allowCsvExport() {
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.CSV_EXPORT,
+            99L,
+            1L,
+            null)).willReturn(true);
     }
 
     private RecruitingApplicationSummaryRow row(String applicantEmail) {

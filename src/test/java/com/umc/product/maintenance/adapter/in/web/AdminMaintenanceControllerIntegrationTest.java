@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.maintenance.adapter.in.web.dto.request.StartMaintenanceRequest;
 import com.umc.product.maintenance.domain.MaintenanceScope;
 import com.umc.product.member.adapter.out.persistence.MemberSystemRoleJpaRepository;
@@ -35,6 +36,9 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
     @Autowired
     MemberSystemRoleJpaRepository memberSystemRoleJpaRepository;
 
+    @Autowired
+    EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
+
     private String superAdminToken;
     private String normalUserToken;
 
@@ -42,6 +46,7 @@ class AdminMaintenanceControllerIntegrationTest extends IntegrationTestSupport {
     void setUpAuth() {
         Long superAdminMemberId = setUpSuperAdmin();
         Long normalMemberId = memberFixture.일반("normal-user").getId();
+        evictAuthoritySnapshotCacheUseCase.evictByMemberIds(List.of(superAdminMemberId, normalMemberId));
 
         superAdminToken = "super-admin-token";
         given(jwtTokenProvider.validateAccessToken(superAdminToken)).willReturn(true);

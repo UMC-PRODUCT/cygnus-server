@@ -1,0 +1,79 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "organization-1.0",
+  "namespace": "organization",
+  "policyVersion": "1.0.0",
+  "moduleId": "organization-resource",
+  "statements": [
+    {
+      "id": "organization.structure.active-central-core",
+      "effect": "ALLOW",
+      "actions": [
+        "gisu:create",
+        "gisu:update",
+        "gisu:delete",
+        "chapter:create",
+        "chapter:delete",
+        "school:create",
+        "school:update",
+        "school:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "study-group.read.active-school-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "study-group:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolAdminForSubjectSchool"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "study-group.manage.active-school-core",
+      "effect": "ALLOW",
+      "actions": [
+        "study-group:create",
+        "study-group:update",
+        "study-group:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolCoreForSubjectSchool"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

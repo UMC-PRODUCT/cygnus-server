@@ -1,9 +1,8 @@
 package com.umc.product.challenger.application.service.evaluator;
 
 import static org.assertj.core.api.Assertions.assertThat;
-
-import java.util.List;
-import java.util.Set;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -14,12 +13,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
-import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.challenger.application.authorization.ChallengerPolicyAction;
+import com.umc.product.challenger.application.authorization.ChallengerPolicyAuthorizationService;
 import com.umc.product.challenger.application.port.in.query.GetChallengerPointUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 
 @ExtendWith(MockitoExtension.class)
@@ -35,6 +33,8 @@ class ChallengerPointPermissionEvaluatorTest {
 
     @Mock
     GetChallengerPointUseCase getChallengerPointUseCase;
+    @Mock
+    ChallengerPolicyAuthorizationService policyAuthorizationService;
 
     @Test
     @DisplayName("상벌점 삭제 권한은 기존 호환성을 위해 중앙 총괄단의 다른 기수 역할도 인정한다")
@@ -42,21 +42,13 @@ class ChallengerPointPermissionEvaluatorTest {
         ChallengerPointPermissionEvaluator sut = new ChallengerPointPermissionEvaluator(
             getChallengerUseCase,
             getMemberUseCase,
-            getChallengerPointUseCase
+            getChallengerPointUseCase,
+            policyAuthorizationService
         );
-        SubjectAttributes subject = SubjectAttributes.builder()
-            .memberId(1L)
-            .schoolId(30L)
-            .gisuChallengerInfos(List.of())
-            .roleAttributes(List.of(new RoleAttribute(
-                ChallengerRoleType.CENTRAL_VICE_PRESIDENT,
-                OrganizationType.CENTRAL,
-                null,
-                null,
-                9L
-            )))
-            .systemRoles(Set.of())
-            .build();
+        SubjectAttributes subject = SubjectAttributes.builder().memberId(1L).build();
+        given(policyAuthorizationService.evaluate(
+            ChallengerPolicyAction.POINT_DELETE,
+            subject)).willReturn(true);
 
         boolean result = sut.evaluate(
             subject,
@@ -64,5 +56,7 @@ class ChallengerPointPermissionEvaluatorTest {
         );
 
         assertThat(result).isTrue();
+        then(policyAuthorizationService).should()
+            .evaluate(ChallengerPolicyAction.POINT_DELETE, subject);
     }
 }

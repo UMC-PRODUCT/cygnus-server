@@ -5,7 +5,8 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingDocumentCommand;
@@ -28,7 +29,7 @@ public class RecruitingDecisionCommandService implements
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final SaveRecruitingApplicationPort saveApplicationPort;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final RecruitingPolicyAuthorizationService policyAuthorizationService;
     private final RecruitingConcurrencyLockService concurrencyLockService;
     private final RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
 
@@ -88,13 +89,12 @@ public class RecruitingDecisionCommandService implements
     private void validateDecisionPermission(Long memberId, RecruitingApplication application) {
         Long gisuId = application.getRound().getSeason().getGisuId();
         Long schoolId = application.getRound().getSeason().getSchoolId();
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(memberId, gisuId)) {
-            return;
-        }
-        if (getChallengerRoleUseCase.isSchoolCoreInGisu(memberId, gisuId, schoolId)) {
-            return;
-        }
-        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+        if (policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.APPLICATION_DECIDE,
+            memberId,
+            gisuId,
+            schoolId
+        )) {
             return;
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_FINAL_DECISION_FORBIDDEN);

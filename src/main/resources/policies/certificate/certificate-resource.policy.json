@@ -1,0 +1,52 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "certificate-1.0",
+  "namespace": "certificate",
+  "policyVersion": "1.0.0",
+  "moduleId": "certificate-resource",
+  "statements": [
+    {
+      "id": "certificate.manage.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "certificate:issue-admin",
+        "certificate:revoke"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "certificate.manage.active-central-core-in-target-gisu",
+      "effect": "ALLOW",
+      "actions": [
+        "certificate:issue-admin",
+        "certificate:revoke"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCoreInTargetGisu"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

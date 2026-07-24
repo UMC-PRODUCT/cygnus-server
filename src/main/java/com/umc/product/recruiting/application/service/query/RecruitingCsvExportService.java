@@ -5,8 +5,9 @@ import java.nio.charset.StandardCharsets;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.global.util.EmailMasker;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
@@ -36,7 +37,7 @@ public class RecruitingCsvExportService implements ExportRecruitingCsvUseCase {
     );
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final RecruitingPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public byte[] exportSummaryCsv(Long gisuId, Long schoolId, Long requesterMemberId) {
@@ -66,8 +67,12 @@ public class RecruitingCsvExportService implements ExportRecruitingCsvUseCase {
     }
 
     private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, gisuId)
-            || getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
+        if (policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.CSV_EXPORT,
+            requesterMemberId,
+            gisuId,
+            null
+        )) {
             return;
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SUMMARY_ACCESS_DENIED);

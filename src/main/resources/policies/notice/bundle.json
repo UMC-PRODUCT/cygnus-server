@@ -1,0 +1,15 @@
+{
+  "$schema": "urn:umc:authorization:policy-bundle:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "notice-1.0",
+  "namespace": "notice",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "modules": [
+    {
+      "id": "notice-resource",
+      "resource": "notice-resource.policy.json"
+    }
+  ]
+}

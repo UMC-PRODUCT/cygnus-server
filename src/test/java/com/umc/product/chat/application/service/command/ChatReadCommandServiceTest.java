@@ -14,6 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.dto.ChatReadMutationResult;
 import com.umc.product.chat.application.port.in.command.dto.UpdateChatReadCommand;
@@ -70,7 +71,8 @@ class ChatReadCommandServiceTest {
             saveChatMemberPort
         );
         order.verify(loadChatRoomPort).getByIdForUpdate(1L);
-        order.verify(chatRoomAccessPolicy).verifyMember(1L, 10L);
+        order.verify(chatRoomAccessPolicy)
+            .verifyMember(ChatPolicyAction.READ_UPDATE, 1L, 10L);
         order.verify(loadChatMessagePort).getByIdAndRoomId(40L, 1L);
         order.verify(loadChatMemberPort).getByRoomIdAndMemberId(1L, 10L);
         order.verify(saveChatMemberPort).bumpLastReadMessageId(1L, 10L, 40L);

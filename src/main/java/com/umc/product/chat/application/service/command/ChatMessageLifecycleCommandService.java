@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatMessagePayloadFingerprint;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.policy.CommunityChatMessagePolicy;
@@ -64,7 +65,10 @@ public class ChatMessageLifecycleCommandService implements
         communityChatMessagePolicy.validateCreate(command);
         String payloadFingerprint = ChatMessagePayloadFingerprint.from(command);
         loadChatRoomPort.getByIdForUpdate(command.roomId());
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
+        chatRoomAccessPolicy.verifyMember(
+            ChatPolicyAction.MESSAGE_CREATE,
+            command.roomId(),
+            command.senderMemberId());
         validateReply(command.roomId(), command.replyToMessageId());
         validateMentions(command.roomId(), command.mentionedMemberIds());
 
@@ -107,11 +111,13 @@ public class ChatMessageLifecycleCommandService implements
     public ChatMessageMutationResult edit(EditChatMessageCommand command) {
         communityChatMessagePolicy.validateEdit(command.content());
         loadChatRoomPort.getByIdForUpdate(command.roomId());
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.editorMemberId());
         ChatMessage message = loadChatMessagePort.getByIdAndRoomId(command.messageId(), command.roomId());
-        if (!message.isAuthoredBy(command.editorMemberId())) {
-            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN);
-        }
+        chatRoomAccessPolicy.verifyMessageMutation(
+            ChatPolicyAction.MESSAGE_UPDATE,
+            command.roomId(),
+            command.editorMemberId(),
+            message.isAuthoredBy(command.editorMemberId()),
+            false);
         if (!message.editContent(command.content())) {
             return new ChatMessageMutationResult(
                 chatMessageInfoAssembler.assemble(message, command.editorMemberId()),
@@ -131,11 +137,13 @@ public class ChatMessageLifecycleCommandService implements
     @Override
     public ChatMessageMutationResult tombstone(TombstoneChatMessageCommand command) {
         loadChatRoomPort.getByIdForUpdate(command.roomId());
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.requesterMemberId());
         ChatMessage message = loadChatMessagePort.getByIdAndRoomId(command.messageId(), command.roomId());
-        if (!message.isAuthoredBy(command.requesterMemberId()) && !command.moderator()) {
-            throw new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN);
-        }
+        chatRoomAccessPolicy.verifyMessageMutation(
+            ChatPolicyAction.MESSAGE_DELETE,
+            command.roomId(),
+            command.requesterMemberId(),
+            message.isAuthoredBy(command.requesterMemberId()),
+            command.moderator());
         if (!message.tombstone()) {
             return new ChatMessageMutationResult(
                 chatMessageInfoAssembler.assemble(message, command.requesterMemberId()),

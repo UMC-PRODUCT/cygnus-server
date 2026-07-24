@@ -1,0 +1,15 @@
+{
+  "$schema": "urn:umc:authorization:policy-bundle:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "maintenance-1.0",
+  "namespace": "maintenance",
+  "policyVersion": "1.0.0",
+  "defaultEffect": "DENY",
+  "combiningAlgorithm": "DENY_OVERRIDES",
+  "modules": [
+    {
+      "id": "maintenance-resource",
+      "resource": "maintenance-resource.policy.json"
+    }
+  ]
+}

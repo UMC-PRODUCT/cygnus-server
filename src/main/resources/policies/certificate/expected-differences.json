@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "certificate",
+  "differences": [
+    {
+      "id": "certificate.expired-central-core-denied",
+      "actions": [
+        "certificate:issue-admin",
+        "certificate:revoke"
+      ],
+      "contextPredicate": "target Gisu central-core role exists but is outside [gisu.startAt, gisu.endAt), and subject is not SUPER_ADMIN",
+      "legacyEffect": "ALLOW",
+      "targetEffect": "DENY",
+      "reason": "연결된 Gisu의 [startAt, endAt) 밖인 ChallengerRole 권한을 제거한다."
+    }
+  ]
+}

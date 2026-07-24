@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "member",
+  "differences": [
+    {
+      "id": "member.expired-central-core-delete",
+      "actions": [
+        "member:delete"
+      ],
+      "contextPredicate": "legacy central-core role exists and no central-core role is active at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "MemberTargetPolicyTest#deniesExpiredCentralCore",
+      "owner": "member"
+    }
+  ]
+}

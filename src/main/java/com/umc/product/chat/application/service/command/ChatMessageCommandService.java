@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
@@ -57,7 +58,10 @@ public class ChatMessageCommandService implements SendChatMessageUseCase, MarkCh
         // 같은 방의 동시 전송을 직렬화한다(방 row 락). insert 이전에 락을 잡아야 방 안에서 message id 배정
         // 순서가 commit 순서와 일치하고, 그 결과 읽음 watermark(id 기준)가 안전해진다.
         loadChatRoomPort.getByIdForUpdate(command.roomId());
-        chatRoomAccessPolicy.verifyMember(command.roomId(), command.senderMemberId());
+        chatRoomAccessPolicy.verifyMember(
+            ChatPolicyAction.MESSAGE_CREATE,
+            command.roomId(),
+            command.senderMemberId());
         validateReplyTarget(command);
         validateAttachments(command);
 

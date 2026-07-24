@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "curriculum",
+  "differences": [
+    {
+      "id": "curriculum.expired-staff",
+      "actions": [
+        "original-workbook:manage",
+        "original-workbook:release",
+        "workbook-submission:read"
+      ],
+      "contextPredicate": "legacy matching staff role exists and every matching role is expired at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "CurriculumTargetPolicyTest#deniesExpiredStaff",
+      "owner": "curriculum"
+    }
+  ]
+}

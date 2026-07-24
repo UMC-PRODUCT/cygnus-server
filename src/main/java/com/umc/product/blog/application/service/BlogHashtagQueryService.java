@@ -6,7 +6,7 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.blog.application.authorization.BlogPolicyAuthorizationService;
 import com.umc.product.blog.application.port.in.query.GetBlogHashtagUseCase;
 import com.umc.product.blog.application.port.in.query.dto.BlogContentCursorInfo;
 import com.umc.product.blog.application.port.in.query.dto.BlogHashtagCursorInfo;
@@ -34,7 +34,7 @@ public class BlogHashtagQueryService implements GetBlogHashtagUseCase {
     private final LoadBlogHashtagPort loadBlogHashtagPort;
     private final LoadBlogContentPort loadBlogContentPort;
     private final BlogContentInfoAssembler contentInfoAssembler;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final BlogPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public BlogHashtagCursorInfo getPublicHashtags(String typeValue, String q, Long cursor, int requestedSize,
@@ -105,6 +105,6 @@ public class BlogHashtagQueryService implements GetBlogHashtagUseCase {
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return memberId != null && getChallengerRoleUseCase.isSuperAdmin(memberId);
+        return policyAuthorizationService.isSuperAdminViewer(memberId);
     }
 }

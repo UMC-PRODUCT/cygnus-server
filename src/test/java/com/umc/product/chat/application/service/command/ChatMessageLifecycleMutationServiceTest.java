@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.policy.CommunityChatMessagePolicy;
 import com.umc.product.chat.application.port.in.command.dto.ChatMessageMutationResult;
@@ -117,6 +118,15 @@ class ChatMessageLifecycleMutationServiceTest {
     void edit_notAuthor() {
         ChatMessage message = message(MessageContentType.TEXT, "본문", List.of(), null);
         given(loadChatMessagePort.getByIdAndRoomId(100L, 1L)).willReturn(message);
+        org.mockito.BDDMockito.willThrow(
+            new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN))
+            .given(chatRoomAccessPolicy)
+            .verifyMessageMutation(
+                ChatPolicyAction.MESSAGE_UPDATE,
+                1L,
+                20L,
+                false,
+                false);
 
         assertThatThrownBy(() -> sut.edit(new EditChatMessageCommand(1L, 100L, 20L, "수정")))
             .isInstanceOf(ChatDomainException.class)

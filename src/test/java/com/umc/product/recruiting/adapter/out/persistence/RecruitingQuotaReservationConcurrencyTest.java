@@ -23,6 +23,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.command.AddChallengerTrackUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.service.command.RecruitingRegistrationCommandService;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
@@ -72,12 +74,19 @@ class RecruitingQuotaReservationConcurrencyTest {
     AddChallengerTrackUseCase addChallengerTrackUseCase;
     @MockitoBean
     GetChallengerRoleUseCase getChallengerRoleUseCase;
+    @MockitoBean
+    RecruitingPolicyAuthorizationService policyAuthorizationService;
 
     @Test
     @DisplayName("PostgreSQL에서 quota 1자리 병렬 READY 요청은 하나만 성공한다")
     void onlyOneConcurrentReadyWinsLastSeat() throws Exception {
         ReservationFixture fixture = persistFixture();
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(EXECUTOR_MEMBER_ID, fixture.gisuId()))
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.REGISTRATION_MANAGE,
+            EXECUTOR_MEMBER_ID,
+            fixture.gisuId(),
+            null
+        ))
             .willReturn(true);
         CountDownLatch workersReady = new CountDownLatch(2);
         CountDownLatch start = new CountDownLatch(1);

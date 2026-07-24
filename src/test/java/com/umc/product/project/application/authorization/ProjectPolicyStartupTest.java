@@ -6,6 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import com.umc.product.authorization.application.service.policy.CompiledPolicyRegistry;
 import com.umc.product.authorization.application.service.policy.PolicySemanticCompiler;
 
 class ProjectPolicyStartupTest {
@@ -14,11 +15,16 @@ class ProjectPolicyStartupTest {
     @DisplayName("Spring startup에서 Project target bundle을 eager compile한다")
     void eagerlyCompilesTargetBundleAtStartup() {
         try (AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext()) {
-            context.register(PolicySemanticCompiler.class, ProjectPolicyBundleLoader.class);
+            context.register(
+                PolicySemanticCompiler.class,
+                CompiledPolicyRegistry.class,
+                ProjectPolicyBundleContributor.class,
+                ProjectPolicyBundleLoader.class);
             context.refresh();
 
             ProjectPolicyBundleLoader loader = context.getBean(ProjectPolicyBundleLoader.class);
             assertThat(loader.compiled().value().policyFingerprint()).matches("[0-9a-f]{64}");
+            assertThat(context.getBean(CompiledPolicyRegistry.class).bundles()).hasSize(1);
         }
     }
 

@@ -3,10 +3,11 @@ package com.umc.product.recruiting.application.service.command;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.command.AddChallengerTrackUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.AddChallengerTrackCommand;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
@@ -36,7 +37,7 @@ public class RecruitingRegistrationCommandService implements
     private final SaveRecruitingApplicationPort saveApplicationPort;
     private final LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     private final AddChallengerTrackUseCase addChallengerTrackUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final RecruitingPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public void prepareRegistration(PrepareRecruitingRegistrationCommand command) {
@@ -85,10 +86,12 @@ public class RecruitingRegistrationCommandService implements
     }
 
     private void validateCentralCore(Long executorMemberId, Long gisuId) {
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(executorMemberId, gisuId)) {
-            return;
-        }
-        if (getChallengerRoleUseCase.isSuperAdmin(executorMemberId)) {
+        if (policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.REGISTRATION_MANAGE,
+            executorMemberId,
+            gisuId,
+            null
+        )) {
             return;
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_REGISTRATION_FORBIDDEN);

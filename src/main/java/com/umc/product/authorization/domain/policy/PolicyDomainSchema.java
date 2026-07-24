@@ -42,6 +42,12 @@ public final class PolicyDomainSchema {
         return Optional.ofNullable(outcomes.get(name));
     }
 
+    public List<ActionSchema> actions() {
+        return actions.values().stream()
+            .sorted(java.util.Comparator.comparing(ActionSchema::actionId))
+            .toList();
+    }
+
     private void validateActionContracts() {
         for (ActionSchema action : actions.values()) {
             for (String attribute : action.allowedAttributes()) {

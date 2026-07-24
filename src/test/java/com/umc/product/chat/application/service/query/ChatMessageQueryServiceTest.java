@@ -19,6 +19,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
@@ -83,7 +84,7 @@ class ChatMessageQueryServiceTest {
     @DisplayName("요청자가 방 멤버가 아니면 메시지를 조회하지 않고 접근 거부 예외를 던진다")
     void getMessages_accessDenied() {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(chatRoomAccessPolicy).verifyMember(ChatPolicyAction.MESSAGE_READ, 1L, 10L);
 
         assertThatThrownBy(() -> sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2)))
             .isInstanceOf(ChatDomainException.class)
@@ -117,7 +118,8 @@ class ChatMessageQueryServiceTest {
         ChatMessageInfo result = sut.getMessage(new GetChatMessageQuery(1L, 10L, 30L));
 
         assertThat(result).isSameAs(info);
-        then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
+        then(chatRoomAccessPolicy).should()
+            .verifyMember(ChatPolicyAction.MESSAGE_READ, 1L, 10L);
     }
 
     @Test
@@ -181,7 +183,7 @@ class ChatMessageQueryServiceTest {
     @DisplayName("요청자가 방 멤버가 아니면 읽음 여부를 조회하지 않고 접근 거부 예외를 던진다")
     void checkRead_requesterAccessDenied() {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(chatRoomAccessPolicy).verifyMember(ChatPolicyAction.READ_STATUS, 1L, 10L);
 
         assertThatThrownBy(() -> sut.checkRead(new CheckChatMessageReadQuery(1L, 20L, 10L, 30L)))
             .isInstanceOf(ChatDomainException.class)

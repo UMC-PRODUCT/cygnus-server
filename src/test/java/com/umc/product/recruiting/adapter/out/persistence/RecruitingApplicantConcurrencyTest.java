@@ -2,6 +2,7 @@ package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 
 import java.time.Clock;
@@ -27,6 +28,8 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus;
@@ -99,6 +102,8 @@ class RecruitingApplicantConcurrencyTest {
     @MockitoBean
     GetChallengerRoleUseCase getChallengerRoleUseCase;
     @MockitoBean
+    RecruitingPolicyAuthorizationService policyAuthorizationService;
+    @MockitoBean
     RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
     @MockitoBean
     GetTermUseCase getTermUseCase;
@@ -132,7 +137,12 @@ class RecruitingApplicantConcurrencyTest {
     @DisplayName("같은 기수 지원자를 다른 학교에서 동시에 최종 합격시켜도 하나만 성공한다")
     void onlyOneConcurrentFinalPassAcrossSchoolsSucceeds() throws Exception {
         DecisionFixture fixture = persistDecisionFixture();
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(DECIDER_MEMBER_ID, DECISION_GISU_ID))
+        given(policyAuthorizationService.evaluateMember(
+            any(RecruitingPolicyAction.class),
+            anyLong(),
+            any(),
+            any()
+        ))
             .willReturn(true);
 
         List<Boolean> outcomes = race(

@@ -22,7 +22,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionOperations;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.certificate.application.authorization.CertificatePolicyAction;
+import com.umc.product.certificate.application.authorization.CertificatePolicyAuthorizationService;
 import com.umc.product.certificate.application.port.in.command.dto.AdminIssueCertificateCommand;
 import com.umc.product.certificate.application.port.in.command.dto.CertificateIssueInfo;
 import com.umc.product.certificate.application.port.in.command.dto.IssueCertificateCommand;
@@ -70,7 +71,7 @@ class CertificateCommandServiceTest {
     CertificateIssueContextResolver contextResolver;
 
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    CertificatePolicyAuthorizationService policyAuthorizationService;
 
     @Test
     @DisplayName("기존 유효 인증서가 있으면 새 PDF를 만들지 않고 기존 인증서를 반환한다")
@@ -160,7 +161,10 @@ class CertificateCommandServiceTest {
             .gisuId(7L)
             .build();
         byte[] pdfBytes = "pdf-content".getBytes(StandardCharsets.UTF_8);
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
+        given(policyAuthorizationService.canManage(
+            99L,
+            7L,
+            CertificatePolicyAction.ISSUE_ADMIN)).willReturn(true);
         given(contextResolver.resolveAdmin(command)).willReturn(meritTemplateContext());
         given(loadCertificatePort.findValidByScope(
             CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE,
@@ -203,7 +207,10 @@ class CertificateCommandServiceTest {
             .reissue(true)
             .build();
         Certificate existing = certificate("UMC-MRT-20260601-EXISTING");
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
+        given(policyAuthorizationService.canManage(
+            99L,
+            7L,
+            CertificatePolicyAction.ISSUE_ADMIN)).willReturn(true);
         given(contextResolver.resolveAdmin(command)).willReturn(meritTemplateContext());
         given(loadCertificatePort.findValidByScope(
             CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE,
@@ -239,7 +246,10 @@ class CertificateCommandServiceTest {
             .build();
         Certificate existing = certificate("UMC-MRT-20260601-EXISTING");
         byte[] pdfBytes = "pdf-content".getBytes(StandardCharsets.UTF_8);
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
+        given(policyAuthorizationService.canManage(
+            99L,
+            7L,
+            CertificatePolicyAction.ISSUE_ADMIN)).willReturn(true);
         given(contextResolver.resolveAdmin(command)).willReturn(meritTemplateContext());
         given(loadCertificatePort.findValidByScope(
             CertificateTemplate.UMC_DEMO_DAY_FIRST_PRIZE,
@@ -349,7 +359,7 @@ class CertificateCommandServiceTest {
             renderCertificatePdfPort,
             serialNumberGenerator,
             contextResolver,
-            getChallengerRoleUseCase,
+            policyAuthorizationService,
             new CertificateProperties("/api/v1/certificates/verify/{serialNumber}"),
             TransactionOperations.withoutTransaction(),
             Clock.fixed(NOW, ZoneOffset.UTC)

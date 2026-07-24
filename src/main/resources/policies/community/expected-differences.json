@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "community",
+  "differences": [
+    {
+      "id": "community.expired-central-delete",
+      "actions": [
+        "community-post:delete",
+        "community-comment:delete"
+      ],
+      "contextPredicate": "requester is not author and legacy matching central core role is expired at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "CommunityTargetPolicyTest#deniesExpiredCentralCore",
+      "owner": "community"
+    }
+  ]
+}

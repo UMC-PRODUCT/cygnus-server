@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "notice",
+  "differences": [
+    {
+      "id": "notice.expired-staff",
+      "actions": [
+        "notice:read",
+        "notice:create",
+        "notice:read-recipients",
+        "notice:check-recipients"
+      ],
+      "contextPredicate": "legacy matching staff role exists and every matching role is expired at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "NoticeTargetPolicyTest#deniesExpiredStaff",
+      "owner": "notice"
+    }
+  ]
+}

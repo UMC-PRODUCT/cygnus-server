@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
@@ -67,6 +68,9 @@ class ChatRoomSummaryQueryServiceTest {
         List<Long> ownedRoomIds = List.of(1L, 2L, 3L);
         given(loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(10L, ownedRoomIds))
             .willReturn(List.of(1L, 2L, 3L));
+        given(chatRoomAccessPolicy.authorizeDerivedMembership(
+            ChatPolicyAction.ROOM_SUMMARY_READ,
+            true)).willReturn(true);
         given(loadChatMessagePort.listLatestPerRoom(List.of(1L, 2L, 3L)))
             .willReturn(List.of(message(100L, 1L), message(90L, 2L)));
         given(loadChatMessagePort.countUnreadByRooms(10L, List.of(1L, 2L, 3L)))
@@ -91,6 +95,9 @@ class ChatRoomSummaryQueryServiceTest {
         List<Long> inquiryRoomIds = List.of(1L);
         given(loadChatMemberPort.listRoomIdsByMemberIdAndRoomIdIn(10L, inquiryRoomIds))
             .willReturn(List.of(1L));
+        given(chatRoomAccessPolicy.authorizeDerivedMembership(
+            ChatPolicyAction.ROOM_SUMMARY_READ,
+            true)).willReturn(true);
         given(loadChatMessagePort.listLatestPerRoom(List.of(1L)))
             .willReturn(List.of(message(100L, 1L)));
         given(loadChatMessagePort.countUnreadByRooms(10L, List.of(1L)))

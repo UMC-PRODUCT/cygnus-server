@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatReactionPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.dto.ChangeChatMessageReactionCommand;
@@ -84,7 +85,8 @@ class ChatReactionCommandServiceTest {
             saveChatMessageReactionPort
         );
         order.verify(loadChatRoomPort).getByIdForUpdate(1L);
-        order.verify(chatRoomAccessPolicy).verifyMember(1L, 10L);
+        order.verify(chatRoomAccessPolicy)
+            .verifyMember(ChatPolicyAction.REACTION_UPDATE, 1L, 10L);
         order.verify(loadChatMessagePort).getByIdAndRoomId(100L, 1L);
         order.verify(saveChatMessageReactionPort).addIfAbsent(100L, 10L, "👍");
     }

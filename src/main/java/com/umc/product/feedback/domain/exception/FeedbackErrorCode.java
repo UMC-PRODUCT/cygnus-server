@@ -13,6 +13,7 @@ public enum FeedbackErrorCode implements BaseCode {
 
     // UserFeedback
     USER_FEEDBACK_TEMPLATE_NOT_FOUND(HttpStatus.NOT_FOUND, "FEEDBACK-0001", "피드백 양식을 찾을 수 없어요. 양식을 다시 선택해주세요."),
+    USER_FEEDBACK_RESPONSE_FORBIDDEN(HttpStatus.FORBIDDEN, "FEEDBACK-0002", "해당 피드백 양식에 응답할 권한이 없어요."),
 
     ;
 

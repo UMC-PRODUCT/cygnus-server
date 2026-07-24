@@ -14,7 +14,8 @@ import org.springframework.transaction.support.TransactionOperations;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.certificate.application.authorization.CertificatePolicyAction;
+import com.umc.product.certificate.application.authorization.CertificatePolicyAuthorizationService;
 import com.umc.product.certificate.application.port.in.command.AdminIssueCertificateUseCase;
 import com.umc.product.certificate.application.port.in.command.IssueCertificateUseCase;
 import com.umc.product.certificate.application.port.in.command.RevokeCertificateUseCase;
@@ -61,7 +62,7 @@ public class CertificateCommandService implements
     private final RenderCertificatePdfPort renderCertificatePdfPort;
     private final CertificateSerialNumberGenerator serialNumberGenerator;
     private final CertificateIssueContextResolver contextResolver;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final CertificatePolicyAuthorizationService policyAuthorizationService;
     private final CertificateProperties certificateProperties;
     private final TransactionOperations transactionOperations;
     private final Clock clock;
@@ -88,7 +89,10 @@ public class CertificateCommandService implements
         description = "'운영진이 인증서를 발급했습니다.'"
     )
     public CertificateIssueInfo issueByAdmin(AdminIssueCertificateCommand command) {
-        validateAdmin(command.requesterMemberId(), command.gisuId());
+        validateAdmin(
+            command.requesterMemberId(),
+            command.gisuId(),
+            CertificatePolicyAction.ISSUE_ADMIN);
         CertificateIssueContext context = contextResolver.resolveAdmin(command);
         return issue(context, command.reissue());
     }
@@ -104,7 +108,10 @@ public class CertificateCommandService implements
     @Transactional
     public void revoke(RevokeCertificateCommand command) {
         Certificate certificate = loadCertificatePort.getById(command.certificateId());
-        validateAdmin(command.requesterMemberId(), certificate.getGisuId());
+        validateAdmin(
+            command.requesterMemberId(),
+            certificate.getGisuId(),
+            CertificatePolicyAction.REVOKE);
         certificate.revoke(command.requesterMemberId(), Instant.now(clock), command.reason());
         saveCertificatePort.save(certificate);
     }
@@ -263,9 +270,12 @@ public class CertificateCommandService implements
         throw new CertificateException(CertificateErrorCode.CERTIFICATE_SERIAL_GENERATION_FAILED);
     }
 
-    private void validateAdmin(Long memberId, Long gisuId) {
-        if (getChallengerRoleUseCase.isSuperAdmin(memberId)
-            || getChallengerRoleUseCase.isCentralCoreInGisu(memberId, gisuId)) {
+    private void validateAdmin(
+        Long memberId,
+        Long gisuId,
+        CertificatePolicyAction action
+    ) {
+        if (policyAuthorizationService.canManage(memberId, gisuId, action)) {
             return;
         }
         throw new CertificateException(CertificateErrorCode.CERTIFICATE_ISSUE_FORBIDDEN);

@@ -10,8 +10,9 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
@@ -47,7 +48,7 @@ public class RecruitingSeasonCommandService implements
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     private final SaveRecruitingSeasonTrackQuotaPort saveQuotaPort;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final RecruitingPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public Long createSeason(CreateRecruitingSeasonCommand command) {
@@ -62,18 +63,12 @@ public class RecruitingSeasonCommandService implements
     }
 
     private void validateSeasonCreationPermission(CreateRecruitingSeasonCommand command) {
-        Long requesterMemberId = command.requesterMemberId();
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, command.gisuId())) {
-            return;
-        }
-        if (getChallengerRoleUseCase.isSchoolCoreInGisu(
-            requesterMemberId,
+        if (policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.SEASON_CREATE,
+            command.requesterMemberId(),
             command.gisuId(),
             command.schoolId()
         )) {
-            return;
-        }
-        if (getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
             return;
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SEASON_CREATION_FORBIDDEN);

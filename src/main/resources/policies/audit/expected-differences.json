@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "audit",
+  "differences": [
+    {
+      "id": "audit.expired-central-role-denied",
+      "action": "audit-log:list",
+      "contextPredicate": "legacy central role exists and no active central role exists at evaluatedAt",
+      "legacyEffect": "ALLOW",
+      "targetEffect": "DENY",
+      "reason": "연결된 Gisu의 [startAt, endAt) 밖인 ChallengerRole 권한을 제거한다."
+    }
+  ]
+}

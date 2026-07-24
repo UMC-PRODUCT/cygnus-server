@@ -2,6 +2,8 @@ package com.umc.product.storage.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
@@ -24,7 +26,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.storage.application.authorization.StoragePolicyAuthorizationService;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
 import com.umc.product.storage.application.port.in.command.dto.FileUploadInfo;
 import com.umc.product.storage.application.port.in.command.dto.PrepareFileUploadCommand;
@@ -51,7 +53,7 @@ class FileCommandServiceUnitTest {
     SaveFileMetadataPort saveFileMetadataPort;
 
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    StoragePolicyAuthorizationService policyAuthorizationService;
 
     @InjectMocks
     FileCommandService sut;
@@ -63,6 +65,8 @@ class FileCommandServiceUnitTest {
             anyString(),
             anyString()
         )).thenCallRealMethod();
+        lenient().when(policyAuthorizationService.canDelete(anyLong(), any()))
+            .thenAnswer(invocation -> invocation.getArgument(0).equals(invocation.getArgument(1)));
     }
 
     @Test
@@ -220,7 +224,7 @@ class FileCommandServiceUnitTest {
         // given
         FileMetadata metadata = uploadedFile("file-id", 1L);
         given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
-        given(getChallengerRoleUseCase.isSuperAdmin(2L)).willReturn(true);
+        given(policyAuthorizationService.canDelete(2L, 1L)).willReturn(true);
 
         // when
         sut.deleteFile(deleteCommand("file-id", 2L));
@@ -236,7 +240,7 @@ class FileCommandServiceUnitTest {
         // given
         FileMetadata metadata = uploadedFile("file-id", 1L);
         given(loadFileMetadataPort.findByFileId("file-id")).willReturn(Optional.of(metadata));
-        given(getChallengerRoleUseCase.isSuperAdmin(2L)).willReturn(false);
+        given(policyAuthorizationService.canDelete(2L, 1L)).willReturn(false);
 
         // when & then
         assertThatThrownBy(() -> sut.deleteFile(deleteCommand("file-id", 2L)))

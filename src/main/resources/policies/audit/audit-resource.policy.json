@@ -1,0 +1,30 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "audit-1.0",
+  "namespace": "audit",
+  "policyVersion": "1.0.0",
+  "moduleId": "audit-resource",
+  "statements": [
+    {
+      "id": "audit-log.list.active-central-member",
+      "effect": "ALLOW",
+      "actions": [
+        "audit-log:list"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralMember"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "notification",
+  "differences": [
+    {
+      "id": "notification.expired-central-core-denied",
+      "actions": [
+        "notification:send-fcm",
+        "notification:delete-token"
+      ],
+      "contextPredicate": "legacy central-core role exists, no active central-core role exists at evaluatedAt, and token ownership does not independently allow",
+      "legacyEffect": "ALLOW",
+      "targetEffect": "DENY",
+      "reason": "연결된 Gisu의 [startAt, endAt) 밖인 ChallengerRole 권한을 제거한다."
+    }
+  ]
+}

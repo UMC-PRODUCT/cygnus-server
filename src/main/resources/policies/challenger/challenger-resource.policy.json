@@ -1,0 +1,97 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "challenger-1.0",
+  "namespace": "challenger",
+  "policyVersion": "1.0.0",
+  "moduleId": "challenger-resource",
+  "statements": [
+    {
+      "id": "challenger.school-core",
+      "effect": "ALLOW",
+      "actions": [
+        "challenger:create",
+        "challenger-record:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "challenger.central-core",
+      "effect": "ALLOW",
+      "actions": [
+        "challenger:update",
+        "challenger:delete",
+        "challenger-point:delete",
+        "challenger-record:create",
+        "challenger-record:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "challenger-point.target-gisu-central",
+      "effect": "ALLOW",
+      "actions": [
+        "challenger-point:create",
+        "challenger-point:update"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralMemberInTargetGisu"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "challenger-point.target-school-core",
+      "effect": "ALLOW",
+      "actions": [
+        "challenger-point:create",
+        "challenger-point:update"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolCoreForTarget"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

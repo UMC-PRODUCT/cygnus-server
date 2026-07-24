@@ -17,12 +17,12 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessageForViewersQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
-import com.umc.product.chat.domain.ChatMember;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.exception.ChatDomainException;
@@ -52,8 +52,6 @@ class ChatMessageAudienceQueryServiceTest {
         Map<Long, ChatMessageInfo> expected = new LinkedHashMap<>();
         expected.put(10L, ChatMessageInfo.from(message));
         expected.put(20L, ChatMessageInfo.from(message));
-        given(loadChatMemberPort.listByRoomId(1L))
-            .willReturn(List.of(ChatMember.of(1L, 10L), ChatMember.of(1L, 20L)));
         given(loadChatMessagePort.getByIdAndRoomId(100L, 1L)).willReturn(message);
         given(chatMessageInfoAssembler.assembleForViewers(message, viewers)).willReturn(expected);
 
@@ -62,7 +60,8 @@ class ChatMessageAudienceQueryServiceTest {
         );
 
         assertThat(result).isSameAs(expected);
-        then(loadChatMemberPort).should().listByRoomId(1L);
+        then(chatRoomAccessPolicy).should()
+            .verifyAllMembers(ChatPolicyAction.MESSAGE_READ, 1L, viewers);
         then(loadChatMessagePort).should().getByIdAndRoomId(100L, 1L);
         then(chatMessageInfoAssembler).should().assembleForViewers(message, viewers);
     }
@@ -70,7 +69,10 @@ class ChatMessageAudienceQueryServiceTest {
     @Test
     @DisplayName("viewer 중 한 명이라도 Chat room 멤버가 아니면 메시지 조회 전에 접근을 거절한다")
     void getMessageForViewers_rejectsUnauthorizedViewerBeforeMessageRead() {
-        given(loadChatMemberPort.listByRoomId(1L)).willReturn(List.of(ChatMember.of(1L, 10L)));
+        org.mockito.BDDMockito.willThrow(
+            new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
+            .given(chatRoomAccessPolicy)
+            .verifyAllMembers(ChatPolicyAction.MESSAGE_READ, 1L, List.of(10L, 20L));
 
         assertThatThrownBy(() -> sut.getMessageForViewers(
             new GetChatMessageForViewersQuery(1L, 100L, List.of(10L, 20L))

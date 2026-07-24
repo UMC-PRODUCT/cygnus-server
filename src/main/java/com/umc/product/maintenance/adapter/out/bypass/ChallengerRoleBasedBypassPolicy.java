@@ -2,7 +2,7 @@ package com.umc.product.maintenance.adapter.out.bypass;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.maintenance.application.authorization.MaintenancePolicyAuthorizationService;
 import com.umc.product.maintenance.application.port.out.MaintenanceBypassPolicy;
 
 import lombok.RequiredArgsConstructor;
@@ -16,13 +16,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ChallengerRoleBasedBypassPolicy implements MaintenanceBypassPolicy {
 
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final MaintenancePolicyAuthorizationService authorizationService;
 
     @Override
     public boolean shouldBypass(Long memberId) {
         if (memberId == null) {
             return false;
         }
-        return getChallengerRoleUseCase.isSuperAdmin(memberId);
+        return authorizationService.canBypass(memberId);
     }
 }

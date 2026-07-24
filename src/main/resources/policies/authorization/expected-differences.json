@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "authorization",
+  "differences": [
+    {
+      "id": "authorization.expired-central-role",
+      "actions": [
+        "challenger-role:create",
+        "challenger-role:delete"
+      ],
+      "contextPredicate": "legacy central-core role exists and no central-core role is active at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "AuthorizationTargetPolicyTest#deniesExpiredCentralCore",
+      "owner": "authorization"
+    }
+  ]
+}

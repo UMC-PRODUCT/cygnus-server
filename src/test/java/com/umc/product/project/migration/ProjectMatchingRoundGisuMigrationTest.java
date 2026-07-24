@@ -19,22 +19,20 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.utility.DockerImageName;
+
+import com.umc.product.support.PostgisTestImageResolver;
 
 class ProjectMatchingRoundGisuMigrationTest {
 
     private static final String PREVIOUS_VERSION = "2026.07.03.00.00";
     private static final String NEW_VERSION = "2026.07.13.21.20";
-    private static final DockerImageName POSTGIS_IMAGE = DockerImageName
-        .parse("umc-product-postgis-test:18.2-postgis")
-        .asCompatibleSubstituteFor("postgres");
     private static final AtomicInteger DATABASE_SEQUENCE = new AtomicInteger();
 
     private static PostgreSQLContainer<?> postgres;
 
     @BeforeAll
     static void startPostgres() {
-        postgres = new PostgreSQLContainer<>(POSTGIS_IMAGE);
+        postgres = new PostgreSQLContainer<>(PostgisTestImageResolver.resolve());
         postgres.start();
     }
 

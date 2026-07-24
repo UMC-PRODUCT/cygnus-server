@@ -3,6 +3,7 @@ package com.umc.product.notification.application.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.notification.application.authorization.NotificationTokenPolicyAuthorizationService;
 import com.umc.product.notification.application.port.in.ManageFcmUseCase;
 import com.umc.product.notification.application.port.in.dto.RegisterFcmTokenCommand;
 import com.umc.product.notification.application.port.in.dto.UnregisterFcmTokenCommand;
@@ -20,6 +21,7 @@ public class FcmService implements ManageFcmUseCase {
 
     private final LoadFcmPort loadFcmPort;
     private final SaveFcmPort saveFcmPort;
+    private final NotificationTokenPolicyAuthorizationService tokenAuthorizationService;
 
     @Override
     @Transactional
@@ -46,7 +48,7 @@ public class FcmService implements ManageFcmUseCase {
     @Transactional
     public void unregisterFcmToken(UnregisterFcmTokenCommand command) {
         loadFcmPort.findByInstallationIdForUpdate(command.installationId())
-            .filter(token -> token.belongsTo(command.memberId()))
+            .filter(token -> tokenAuthorizationService.canDelete(token.belongsTo(command.memberId())))
             .ifPresent(token -> {
                 token.deactivate();
                 saveFcmPort.save(token);

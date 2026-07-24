@@ -1,0 +1,138 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "form-1.0",
+  "namespace": "form",
+  "policyVersion": "1.0.0",
+  "moduleId": "form-resource",
+  "statements": [
+    {
+      "id": "form.usage-owner",
+      "effect": "ALLOW",
+      "actions": [
+        "form:read",
+        "form:create",
+        "form:update",
+        "form:publish",
+        "form:close",
+        "form:delete",
+        "form-structure:manage"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.usageOwnerAuthorized"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "form.response.consumer-create",
+      "effect": "ALLOW",
+      "actions": [
+        "form-response:create"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.consumerAuthorized"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "form.response.respondent",
+      "effect": "ALLOW",
+      "actions": [
+        "form-response:read",
+        "form-response:update",
+        "form-response:submit",
+        "form-response:delete",
+        "form-answer:manage"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "MEMBER"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isRespondent"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "form.response.capability",
+      "effect": "ALLOW",
+      "actions": [
+        "form-response:read",
+        "form-response:update",
+        "form-response:submit",
+        "form-response:delete",
+        "form-answer:manage"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "subject.kind"
+            },
+            "right": {
+              "type": "ENUM",
+              "value": "CAPABILITY"
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.capabilityBoundToResponse"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    }
+  ]
+}

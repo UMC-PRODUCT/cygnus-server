@@ -1,0 +1,94 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "analytics-1.0",
+  "namespace": "analytics",
+  "policyVersion": "1.0.0",
+  "moduleId": "analytics-resource",
+  "statements": [
+    {
+      "id": "analytics.read.active-super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "analytics:read-dashboard",
+        "analytics:read-school"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSuperAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "analytics.read.active-central-member",
+      "effect": "ALLOW",
+      "actions": [
+        "analytics:read-dashboard",
+        "analytics:read-school"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralMember"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "analytics.read.active-chapter-president",
+      "effect": "ALLOW",
+      "actions": [
+        "analytics:read-dashboard",
+        "analytics:read-school"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeChapterPresident"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "analytics.read.active-school-operator",
+      "effect": "ALLOW",
+      "actions": [
+        "analytics:read-dashboard",
+        "analytics:read-school"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeSchoolOperator"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

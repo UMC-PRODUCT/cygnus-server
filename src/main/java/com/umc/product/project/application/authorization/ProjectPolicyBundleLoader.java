@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.in.policy.CompilePolicyBundleUseCase;
 import com.umc.product.authorization.application.port.in.policy.PolicyBundleCompilationRequest;
+import com.umc.product.authorization.application.service.policy.CompiledPolicyRegistry;
 import com.umc.product.authorization.domain.policy.CompiledPolicyBundle;
 
 @Component
@@ -20,6 +21,10 @@ public class ProjectPolicyBundleLoader {
     private final ProjectCompiledPolicyBundle compiled;
 
     @Autowired
+    public ProjectPolicyBundleLoader(CompiledPolicyRegistry registry) {
+        this.compiled = new ProjectCompiledPolicyBundle(registry.require("project"));
+    }
+
     public ProjectPolicyBundleLoader(CompilePolicyBundleUseCase compiler) {
         this(compiler, Thread.currentThread().getContextClassLoader());
     }

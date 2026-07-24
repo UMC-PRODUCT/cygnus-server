@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "1.0",
+  "domains": [
+    {
+      "namespace": "analytics",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "운영진 대시보드 effect와 조회 scope를 정책으로 관리한다."
+    },
+    {
+      "namespace": "audit",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "감사 로그 조회의 active 중앙 운영진 정책을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "authentication",
+      "classification": "AUTHENTICATION_BOUNDARY",
+      "migrationStatus": "EXEMPT",
+      "reason": "로그인과 credential 검증은 authorization policy의 입력을 만드는 인증 경계다."
+    },
+    {
+      "namespace": "authorization",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "ChallengerRole 조회·생성·삭제와 active 중앙 CORE 권한을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "blog",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "콘텐츠·시리즈·댓글의 작성자와 SUPER_ADMIN 권한을 SHADOW 평가한다."
+    },
+    {
+      "namespace": "certificate",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "운영진 인증서 발급·폐기 권한을 target Gisu 기준으로 SHADOW 평가한다."
+    },
+    {
+      "namespace": "challenger",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "챌린저·상벌점·운영 기록 action을 정책으로 관리한다."
+    },
+    {
+      "namespace": "chat",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "채팅방 membership과 메시지 작성자·moderator 권한을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "common",
+      "classification": "INFRASTRUCTURE",
+      "migrationStatus": "EXEMPT",
+      "reason": "공용 모델과 enum을 제공하며 actor-facing authorization surface를 소유하지 않는다."
+    },
+    {
+      "namespace": "community",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "게시글·댓글·thread·message·report 권한을 정책으로 관리한다."
+    },
+    {
+      "namespace": "curriculum",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "커리큘럼·워크북·제출 현황 action을 정책으로 관리한다."
+    },
+    {
+      "namespace": "documentation",
+      "classification": "INFRASTRUCTURE",
+      "migrationStatus": "EXEMPT",
+      "reason": "문서 생성 지원 코드이며 authorization surface를 소유하지 않는다."
+    },
+    {
+      "namespace": "feedback",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "피드백 대상 유형과 응답 자격을 정책 outcome으로 관리한다."
+    },
+    {
+      "namespace": "figma",
+      "classification": "NO_ACTOR_AUTHORIZATION",
+      "migrationStatus": "EXEMPT",
+      "reason": "현재 production actor-facing 구현이 없다."
+    },
+    {
+      "namespace": "form",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "Form lifecycle과 response ownership·capability를 독립 정책으로 관리한다."
+    },
+    {
+      "namespace": "global",
+      "classification": "INFRASTRUCTURE",
+      "migrationStatus": "EXEMPT",
+      "reason": "보안 filter와 공용 설정을 제공하며 도메인 resource policy를 소유하지 않는다."
+    },
+    {
+      "namespace": "llm",
+      "classification": "INTERNAL_ONLY",
+      "migrationStatus": "EXEMPT",
+      "reason": "내부 completion port이며 외부 actor가 직접 호출하지 않는다."
+    },
+    {
+      "namespace": "maintenance",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "점검 우회와 관리의 SUPER_ADMIN 정책을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "member",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "회원 조회·삭제와 검색 scope를 정책으로 관리한다."
+    },
+    {
+      "namespace": "notice",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "공지 대상 Gisu·지부·학교·파트와 관리 권한을 정책으로 관리한다."
+    },
+    {
+      "namespace": "notification",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "FCM 발송과 token 삭제 정책을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "organization",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "Gisu·지부·학교·스터디 그룹·UMC PRODUCT 관리 권한을 정책으로 관리한다."
+    },
+    {
+      "namespace": "project",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "Project pilot target bundle을 SHADOW 평가 중이다."
+    },
+    {
+      "namespace": "recruiting",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "모집 season·지원서·면접·내보내기 권한을 정책으로 관리한다."
+    },
+    {
+      "namespace": "schedule",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "PLANNED",
+      "reason": "일정·참가자·출석 권한을 정책으로 관리한다."
+    },
+    {
+      "namespace": "storage",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "파일 업로더와 SUPER_ADMIN 삭제 정책을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "survey",
+      "classification": "NO_ACTOR_AUTHORIZATION",
+      "migrationStatus": "EXEMPT",
+      "reason": "현재 production actor-facing 구현이 없다."
+    },
+    {
+      "namespace": "term",
+      "classification": "POLICY_MANAGED",
+      "migrationStatus": "SHADOW",
+      "reason": "약관 생성의 SUPER_ADMIN 정책을 공용 rollout에서 SHADOW 평가한다."
+    },
+    {
+      "namespace": "test",
+      "classification": "INFRASTRUCTURE",
+      "migrationStatus": "EXEMPT",
+      "reason": "개발·테스트 지원 surface이며 production domain policy 대상이 아니다."
+    }
+  ]
+}

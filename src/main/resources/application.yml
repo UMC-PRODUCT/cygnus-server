@@ -369,6 +369,10 @@ app:
           - https://auth.university.neordinary.com/android/auth/callback
         allowed-origins: []
 
+  authorization:
+    rollout:
+      default-mode: ${AUTHORIZATION_POLICY_ROLLOUT_DEFAULT_MODE:SHADOW}
+
   project:
     authorization-rollout:
       default-mode: ${PROJECT_AUTHORIZATION_ROLLOUT_DEFAULT_MODE:SHADOW}

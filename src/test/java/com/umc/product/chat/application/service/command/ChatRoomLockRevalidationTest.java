@@ -3,6 +3,7 @@ package com.umc.product.chat.application.service.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willAnswer;
@@ -29,6 +30,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAuthorizationService;
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.UpdateChatReadUseCase;
@@ -77,6 +79,8 @@ class ChatRoomLockRevalidationTest {
     UpdateChatReadUseCase updateChatReadUseCase;
     @Mock
     DomainEventPublisher domainEventPublisher;
+    @Mock
+    ChatPolicyAuthorizationService chatPolicyAuthorizationService;
 
     private ExecutorService executor;
     private ChatMessageCommandService sendService;
@@ -86,7 +90,10 @@ class ChatRoomLockRevalidationTest {
     @BeforeEach
     void setUp() {
         executor = Executors.newFixedThreadPool(2);
-        ChatRoomAccessPolicy accessPolicy = new ChatRoomAccessPolicy(loadChatMemberPort);
+        given(chatPolicyAuthorizationService.evaluate(any(), anyBoolean(), anyBoolean(), anyBoolean()))
+            .willAnswer(invocation -> invocation.getArgument(1));
+        ChatRoomAccessPolicy accessPolicy =
+            new ChatRoomAccessPolicy(loadChatMemberPort, chatPolicyAuthorizationService);
         sendService = new ChatMessageCommandService(
             saveChatMessagePort,
             loadChatMessagePort,

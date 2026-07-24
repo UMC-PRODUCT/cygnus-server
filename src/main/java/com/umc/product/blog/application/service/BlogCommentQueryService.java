@@ -8,7 +8,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.blog.application.authorization.BlogPolicyAuthorizationService;
 import com.umc.product.blog.application.port.in.query.GetBlogCommentListUseCase;
 import com.umc.product.blog.application.port.in.query.dto.BlogCommentCursorInfo;
 import com.umc.product.blog.application.port.in.query.dto.BlogCommentInfo;
@@ -35,7 +35,7 @@ public class BlogCommentQueryService implements GetBlogCommentListUseCase {
     private final LoadBlogCommentPort loadBlogCommentPort;
     private final LoadBlogLikePort loadBlogLikePort;
     private final BlogCommentInfoAssembler commentInfoAssembler;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final BlogPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public BlogCommentCursorInfo getComments(BlogCommentListQuery query) {
@@ -99,6 +99,6 @@ public class BlogCommentQueryService implements GetBlogCommentListUseCase {
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return memberId != null && getChallengerRoleUseCase.isSuperAdmin(memberId);
+        return policyAuthorizationService.isSuperAdminViewer(memberId);
     }
 }

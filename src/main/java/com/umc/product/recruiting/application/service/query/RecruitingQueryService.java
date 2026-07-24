@@ -11,12 +11,13 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
@@ -57,7 +58,7 @@ public class RecruitingQueryService implements
     private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final GetSchoolUseCase getSchoolUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final RecruitingPolicyAuthorizationService policyAuthorizationService;
     private final GetFormUseCase getFormUseCase;
     private final GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
 
@@ -227,8 +228,12 @@ public class RecruitingQueryService implements
     }
 
     private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, gisuId)
-            || getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
+        if (policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.SUMMARY_READ,
+            requesterMemberId,
+            gisuId,
+            null
+        )) {
             return;
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SUMMARY_ACCESS_DENIED);

@@ -6,11 +6,18 @@ import com.umc.product.authorization.application.port.out.ResourcePermissionEval
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.challenger.application.authorization.ChallengerPolicyAction;
+import com.umc.product.challenger.application.authorization.ChallengerPolicyAuthorizationService;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 
+import lombok.RequiredArgsConstructor;
+
 @Component
+@RequiredArgsConstructor
 public class ChallengerPermissionEvaluator implements ResourcePermissionEvaluator {
+
+    private final ChallengerPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public ResourceType supportedResourceType() {
@@ -20,27 +27,17 @@ public class ChallengerPermissionEvaluator implements ResourcePermissionEvaluato
     @Override
     public boolean evaluate(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         return switch (resourcePermission.permission()) {
-            case WRITE -> canCreateChallenger(subjectAttributes);
-            case EDIT -> canUpdateChallenger(subjectAttributes, resourcePermission);
-            case DELETE -> canDeleteChallenger(subjectAttributes);
+            case WRITE -> evaluate(ChallengerPolicyAction.CHALLENGER_CREATE, subjectAttributes);
+            case EDIT -> evaluate(ChallengerPolicyAction.CHALLENGER_UPDATE, subjectAttributes);
+            case DELETE -> evaluate(ChallengerPolicyAction.CHALLENGER_DELETE, subjectAttributes);
             default -> throw new CommonException(CommonErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED); // 지원하지 않는 권한 유형은 거부
         };
     }
 
-    private boolean canCreateChallenger(SubjectAttributes subjectAttributes) {
-        // 교내 회장/부회장 이상만 가능함
-        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin()
-            || subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastSchoolCore());
-    }
-
-    private boolean canUpdateChallenger(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
-        // 중앙운영사무국 총괄단만 가능
-        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
-    }
-
-    private boolean canDeleteChallenger(SubjectAttributes subjectAttributes) {
-        // 중앙운영사무국 총괄단만 가능함
-        return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
+    private boolean evaluate(
+        ChallengerPolicyAction action,
+        SubjectAttributes subjectAttributes
+    ) {
+        return policyAuthorizationService.evaluate(action, subjectAttributes);
     }
 }

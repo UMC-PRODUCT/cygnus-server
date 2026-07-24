@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.UpdateChatReadUseCase;
@@ -91,7 +92,8 @@ class ChatMessageCommandServiceTest {
         then(saveChatMessagePort).should().save(any(ChatMessage.class));
         InOrder lockOrder = inOrder(loadChatRoomPort, chatRoomAccessPolicy, saveChatMessagePort);
         lockOrder.verify(loadChatRoomPort).getByIdForUpdate(1L);
-        lockOrder.verify(chatRoomAccessPolicy).verifyMember(1L, 10L);
+        lockOrder.verify(chatRoomAccessPolicy)
+            .verifyMember(ChatPolicyAction.MESSAGE_CREATE, 1L, 10L);
         lockOrder.verify(saveChatMessagePort).save(any(ChatMessage.class));
         // 발신자 읽음 위치는 원자 단조 갱신으로 처리한다
         then(saveChatMemberPort).should().bumpLastReadMessageId(1L, 10L, 100L);

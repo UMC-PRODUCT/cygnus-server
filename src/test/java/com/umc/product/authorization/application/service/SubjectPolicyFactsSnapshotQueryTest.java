@@ -50,7 +50,6 @@ import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
@@ -116,7 +115,9 @@ class SubjectPolicyFactsSnapshotQueryTest {
     @DisplayName(
         "loadSubject는 role, challenger, Gisu, 학교-지부 fact를 각각 한 번의 batch 조회로 조립한다")
     void 주체_로드는_정책_사실을_각각_한_번의_배치_조회로_조립한다() {
-        given(getMemberUseCase.getById(MEMBER_ID)).willReturn(member());
+        given(getMemberUseCase.existsById(MEMBER_ID)).willReturn(true);
+        given(getMemberUseCase.findAllSchoolIdsByIds(Set.of(MEMBER_ID)))
+            .willReturn(Map.of(MEMBER_ID, MEMBER_SCHOOL_ID));
         given(clock.instant()).willReturn(EVALUATED_AT);
         given(getChallengerRoleUseCase.listPolicyFactsByMemberId(MEMBER_ID)).willReturn(roleInfos());
         given(getChallengerUseCase.listPolicyFactsByMemberId(MEMBER_ID)).willReturn(challengerInfos());
@@ -144,6 +145,8 @@ class SubjectPolicyFactsSnapshotQueryTest {
                 org.assertj.core.groups.Tuple.tuple(21L, SECOND_GISU_START, SECOND_GISU_END));
 
         then(getChallengerRoleUseCase).should(times(1)).listPolicyFactsByMemberId(MEMBER_ID);
+        then(getMemberUseCase).should(times(1)).existsById(MEMBER_ID);
+        then(getMemberUseCase).should(times(1)).findAllSchoolIdsByIds(Set.of(MEMBER_ID));
         then(getChallengerUseCase).should(times(1)).listPolicyFactsByMemberId(MEMBER_ID);
         then(getGisuUseCase).should(times(1)).getByIds(Set.of(FIRST_GISU_ID, SECOND_GISU_ID));
         then(getChapterUseCase).should(times(1)).getChapterMapByGisuIdsAndSchoolIds(
@@ -217,13 +220,6 @@ class SubjectPolicyFactsSnapshotQueryTest {
             operationalMetrics,
             clock
         );
-    }
-
-    private MemberInfo member() {
-        return MemberInfo.builder()
-            .id(MEMBER_ID)
-            .schoolId(MEMBER_SCHOOL_ID)
-            .build();
     }
 
     private List<ChallengerRolePolicyInfo> roleInfos() {

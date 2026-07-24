@@ -17,6 +17,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.policy.CommunityChatMessagePolicy;
 import com.umc.product.chat.application.port.in.command.dto.CreateChatMessageCommand;
@@ -89,7 +90,8 @@ class ChatMessageLifecycleReplyValidationTest {
 
         InOrder validationOrder = inOrder(loadChatRoomPort, chatRoomAccessPolicy, loadChatMessagePort);
         validationOrder.verify(loadChatRoomPort).getByIdForUpdate(1L);
-        validationOrder.verify(chatRoomAccessPolicy).verifyMember(1L, 10L);
+        validationOrder.verify(chatRoomAccessPolicy)
+            .verifyMember(ChatPolicyAction.MESSAGE_CREATE, 1L, 10L);
         validationOrder.verify(loadChatMessagePort).existsByIdAndRoomId(90L, 1L);
         then(loadChatMessagePort).should(never())
             .findByRoomIdAndSenderMemberIdAndClientMessageId(1L, 10L, clientMessageId);

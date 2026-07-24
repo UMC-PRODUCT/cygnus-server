@@ -18,8 +18,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingDocumentCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus;
@@ -46,7 +47,7 @@ class RecruitingDecisionCommandServiceTest {
     @Mock
     SaveRecruitingApplicationPort saveApplicationPort;
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    RecruitingPolicyAuthorizationService policyAuthorizationService;
     @Mock
     RecruitingConcurrencyLockService concurrencyLockService;
     @Mock
@@ -121,7 +122,7 @@ class RecruitingDecisionCommandServiceTest {
     void schoolCoreDecidesFinalPassWithAcceptedTrack() {
         RecruitingApplication application = documentPassedApplication();
         given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
-        given(getChallengerRoleUseCase.isSchoolCoreInGisu(1L, 1L, 10L)).willReturn(true);
+        allowApplicationDecision();
 
         sut.decideFinal(finalPassCommand(1L, ChallengerTrack.DESIGN));
 
@@ -136,7 +137,7 @@ class RecruitingDecisionCommandServiceTest {
     void centralCoreDecidesFinalPass() {
         RecruitingApplication application = documentPassedApplication();
         given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowApplicationDecision();
 
         sut.decideFinal(finalPassCommand(1L, ChallengerTrack.WEB_PRODUCT_ENGINEER));
 
@@ -162,7 +163,7 @@ class RecruitingDecisionCommandServiceTest {
     void finalPassRequiresAppliedTrack() {
         RecruitingApplication application = documentPassedApplication();
         given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowApplicationDecision();
 
         assertThatThrownBy(() -> sut.decideFinal(finalPassCommand(1L, ChallengerTrack.MOBILE_PRODUCT_ENGINEER)))
             .isInstanceOf(RecruitingDomainException.class)
@@ -175,7 +176,7 @@ class RecruitingDecisionCommandServiceTest {
     void finalPassRejectsDuplicateAcrossSchools() {
         RecruitingApplication application = documentPassedApplication();
         given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowApplicationDecision();
         given(loadApplicationPort.existsFinalPassedByGisuIdAndApplicant(
             1L,
             200L,
@@ -200,7 +201,15 @@ class RecruitingDecisionCommandServiceTest {
     }
 
     private void allowDocumentDecision() {
-        given(getChallengerRoleUseCase.isSuperAdmin(1L)).willReturn(true);
+        allowApplicationDecision();
+    }
+
+    private void allowApplicationDecision() {
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.APPLICATION_DECIDE,
+            1L,
+            1L,
+            10L)).willReturn(true);
     }
 
     private RecruitingApplication documentPassedApplication() {

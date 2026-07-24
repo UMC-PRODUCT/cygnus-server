@@ -8,12 +8,18 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
+import com.umc.product.organization.application.authorization.OrganizationPolicyAction;
+import com.umc.product.organization.application.authorization.OrganizationPolicyAuthorizationService;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class ChapterPermissionEvaluator implements ResourcePermissionEvaluator {
+
+    private final OrganizationPolicyAuthorizationService policyAuthorizationService;
 
     @Override
     public ResourceType supportedResourceType() {
@@ -23,7 +29,12 @@ public class ChapterPermissionEvaluator implements ResourcePermissionEvaluator {
     @Override
     public boolean evaluate(SubjectAttributes subjectAttributes, ResourcePermission resourcePermission) {
         return switch (resourcePermission.permission()) {
-            case WRITE, DELETE -> subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu();
+            case WRITE -> policyAuthorizationService.evaluate(
+                OrganizationPolicyAction.CHAPTER_CREATE,
+                subjectAttributes);
+            case DELETE -> policyAuthorizationService.evaluate(
+                OrganizationPolicyAction.CHAPTER_DELETE,
+                subjectAttributes);
             default -> throw new AuthorizationDomainException(AuthorizationErrorCode.PERMISSION_TYPE_NOT_IMPLEMENTED,
                 "ChapterPermissionEvaluator에서 해당 PermissionType을 지원하지 않습니다: " + resourcePermission.permission());
         };

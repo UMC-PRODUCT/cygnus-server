@@ -1,0 +1,136 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "community-1.0",
+  "namespace": "community",
+  "policyVersion": "1.0.0",
+  "moduleId": "community-resource",
+  "statements": [
+    {
+      "id": "community.content.authenticated-read",
+      "effect": "ALLOW",
+      "actions": [
+        "community-post:read",
+        "community-comment:read"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.authenticated"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "community.content.legacy-write",
+      "effect": "ALLOW",
+      "actions": [
+        "community-post:write",
+        "community-comment:write"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.authorHasChallengerHistory"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "community.content.author-update",
+      "effect": "ALLOW",
+      "actions": [
+        "community-post:update",
+        "community-comment:update"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.isAuthor"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "community.content.author-delete",
+      "effect": "ALLOW",
+      "actions": [
+        "community-post:delete",
+        "community-comment:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.isAuthor"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "community.content.super-admin-delete",
+      "effect": "ALLOW",
+      "actions": [
+        "community-post:delete",
+        "community-comment:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "community.content.active-central-delete",
+      "effect": "ALLOW",
+      "actions": [
+        "community-post:delete",
+        "community-comment:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.activeCentralCore"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "blog-1.0",
+  "namespace": "blog",
+  "policyVersion": "1.0.0",
+  "moduleId": "blog-resource",
+  "statements": [
+    {
+      "id": "blog.resource.author",
+      "effect": "ALLOW",
+      "actions": [
+        "blog-content:read",
+        "blog-content:update",
+        "blog-content:delete",
+        "blog-series:read",
+        "blog-series:update",
+        "blog-series:delete",
+        "blog-comment:update",
+        "blog-comment:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.isAuthor"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "blog.resource.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "blog-content:create",
+        "blog-content:read",
+        "blog-content:delete",
+        "blog-series:create",
+        "blog-series:read",
+        "blog-series:delete",
+        "blog-comment:delete",
+        "blog:admin-view"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

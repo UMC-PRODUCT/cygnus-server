@@ -13,6 +13,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatAttachmentPolicy;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.command.UpdateChatReadUseCase;
@@ -66,7 +67,7 @@ class ChatMessageLegacyCompatibilityTest {
             List.of("file-1")
         );
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(chatRoomAccessPolicy).verifyMember(ChatPolicyAction.MESSAGE_CREATE, 1L, 10L);
 
         assertThatThrownBy(() -> sut.send(command))
             .isInstanceOf(ChatDomainException.class)

@@ -1,6 +1,5 @@
 package com.umc.product.storage.application.service;
 
-import java.util.Objects;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
@@ -8,8 +7,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.storage.application.authorization.StoragePolicyAuthorizationService;
 import com.umc.product.storage.application.port.in.command.ManageFileUseCase;
 import com.umc.product.storage.application.port.in.command.StoreGeneratedFileUseCase;
 import com.umc.product.storage.application.port.in.command.dto.DeleteFileCommand;
@@ -40,7 +39,7 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     private final StoragePort storagePort;
     private final LoadFileMetadataPort loadFileMetadataPort;
     private final SaveFileMetadataPort saveFileMetadataPort;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final StoragePolicyAuthorizationService policyAuthorizationService;
 
     @Audited(
         domain = Domain.STORAGE,
@@ -186,7 +185,9 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
     }
 
     private void validateDeletePermission(FileMetadata metadata, Long requesterMemberId) {
-        if (Objects.equals(metadata.getUploadedMemberId(), requesterMemberId) || isSuperAdmin(requesterMemberId)) {
+        if (policyAuthorizationService.canDelete(
+            requesterMemberId,
+            metadata.getUploadedMemberId())) {
             return;
         }
 
@@ -213,10 +214,6 @@ public class FileCommandService implements ManageFileUseCase, StoreGeneratedFile
                 deleteException
             );
         }
-    }
-
-    private boolean isSuperAdmin(Long memberId) {
-        return getChallengerRoleUseCase.isSuperAdmin(memberId);
     }
 
     private void validateFile(PrepareFileUploadCommand command) {

@@ -18,8 +18,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingSeasonTrackQuotaCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
@@ -53,7 +54,7 @@ class RecruitingSeasonCommandServiceTest {
     @Mock
     SaveRecruitingSeasonTrackQuotaPort saveQuotaPort;
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    RecruitingPolicyAuthorizationService policyAuthorizationService;
     @InjectMocks
     RecruitingSeasonCommandService sut;
 
@@ -66,7 +67,11 @@ class RecruitingSeasonCommandServiceTest {
             .schoolId(10L)
             .quotas(List.of(RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 3)))
             .build();
-        given(getChallengerRoleUseCase.isSchoolCoreInGisu(99L, 1L, 10L)).willReturn(true);
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.SEASON_CREATE,
+            99L,
+            1L,
+            10L)).willReturn(true);
         given(loadSeasonPort.existsByGisuIdAndSchoolId(1L, 10L)).willReturn(false);
         given(saveSeasonPort.save(any())).willAnswer(invocation -> {
             RecruitingSeason season = invocation.getArgument(0);
@@ -116,7 +121,11 @@ class RecruitingSeasonCommandServiceTest {
             .gisuId(1L)
             .schoolId(10L)
             .build();
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.SEASON_CREATE,
+            99L,
+            1L,
+            10L)).willReturn(true);
         given(loadSeasonPort.existsByGisuIdAndSchoolId(1L, 10L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.createSeason(command))
@@ -138,7 +147,11 @@ class RecruitingSeasonCommandServiceTest {
                 RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 5)
             ))
             .build();
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.SEASON_CREATE,
+            99L,
+            1L,
+            10L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.createSeason(command))
             .isInstanceOf(RecruitingDomainException.class)
@@ -155,14 +168,16 @@ class RecruitingSeasonCommandServiceTest {
             .gisuId(1L)
             .schoolId(10L)
             .build();
-        given(getChallengerRoleUseCase.isSchoolCoreInGisu(99L, 1L, 10L)).willReturn(false);
-
         assertThatThrownBy(() -> sut.createSeason(command))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_SEASON_CREATION_FORBIDDEN);
 
-        then(getChallengerRoleUseCase).should().isSchoolCoreInGisu(99L, 1L, 10L);
+        then(policyAuthorizationService).should().evaluateMember(
+            RecruitingPolicyAction.SEASON_CREATE,
+            99L,
+            1L,
+            10L);
         then(loadSeasonPort).shouldHaveNoInteractions();
         then(saveSeasonPort).shouldHaveNoInteractions();
     }
@@ -175,14 +190,16 @@ class RecruitingSeasonCommandServiceTest {
             .gisuId(1L)
             .schoolId(10L)
             .build();
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
-
         assertThatThrownBy(() -> sut.createSeason(command))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_SEASON_CREATION_FORBIDDEN);
 
-        then(getChallengerRoleUseCase).should().isCentralCoreInGisu(99L, 1L);
+        then(policyAuthorizationService).should().evaluateMember(
+            RecruitingPolicyAction.SEASON_CREATE,
+            99L,
+            1L,
+            10L);
         then(loadSeasonPort).shouldHaveNoInteractions();
         then(saveSeasonPort).shouldHaveNoInteractions();
     }

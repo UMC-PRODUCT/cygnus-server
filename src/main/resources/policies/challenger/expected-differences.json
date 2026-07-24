@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "1.0",
+  "namespace": "challenger",
+  "differences": [
+    {
+      "id": "challenger.expired-staff-role",
+      "actions": [
+        "challenger:create",
+        "challenger:update",
+        "challenger:delete",
+        "challenger-point:create",
+        "challenger-point:update",
+        "challenger-point:delete",
+        "challenger-record:read",
+        "challenger-record:create",
+        "challenger-record:delete"
+      ],
+      "contextPredicate": "matching legacy role exists but its Gisu is not active at evaluatedAt",
+      "expectedLegacyEffect": "ALLOW",
+      "expectedTargetEffect": "DENY",
+      "reason": "ChallengerRole은 연결된 Gisu의 [startAt, endAt) 동안만 유효하다.",
+      "testCaseId": "ChallengerTargetPolicyTest#deniesExpiredRoles",
+      "owner": "challenger"
+    }
+  ]
+}

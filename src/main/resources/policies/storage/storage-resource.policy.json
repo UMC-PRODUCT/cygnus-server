@@ -1,0 +1,50 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "storage-1.0",
+  "namespace": "storage",
+  "policyVersion": "1.0.0",
+  "moduleId": "storage-resource",
+  "statements": [
+    {
+      "id": "storage-file.delete.uploader",
+      "effect": "ALLOW",
+      "actions": [
+        "storage-file:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.isUploader"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "storage-file.delete.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "storage-file:delete"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    }
+  ]
+}

@@ -19,10 +19,11 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.command.AddChallengerTrackUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.AddChallengerTrackCommand;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAction;
+import com.umc.product.recruiting.application.authorization.RecruitingPolicyAuthorizationService;
 import com.umc.product.recruiting.application.port.in.command.dto.CancelRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
@@ -53,7 +54,7 @@ class RecruitingRegistrationCommandServiceTest {
     @Mock
     AddChallengerTrackUseCase addChallengerTrackUseCase;
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    RecruitingPolicyAuthorizationService policyAuthorizationService;
 
     RecruitingRegistrationCommandService sut;
 
@@ -64,7 +65,7 @@ class RecruitingRegistrationCommandServiceTest {
             saveApplicationPort,
             loadQuotaPort,
             addChallengerTrackUseCase,
-            getChallengerRoleUseCase
+            policyAuthorizationService
         );
     }
 
@@ -74,7 +75,7 @@ class RecruitingRegistrationCommandServiceTest {
         RecruitingApplication application = finalPassedApplication();
         RecruitingSeasonTrackQuota quota = quota(application, 1);
         given(loadApplicationPort.getByIdWithDetailsForUpdate(900L)).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowRegistrationManagement();
         given(loadQuotaPort.getBySeasonIdAndTrackForUpdate(1L, ChallengerTrack.DESIGN)).willReturn(quota);
         given(loadApplicationPort.countReservedOrRegisteredBySeasonIdAndTrack(1L, ChallengerTrack.DESIGN))
             .willReturn(0L);
@@ -104,7 +105,7 @@ class RecruitingRegistrationCommandServiceTest {
     void fullQuotaRejectsPreparation() {
         RecruitingApplication application = finalPassedApplication();
         given(loadApplicationPort.getByIdWithDetailsForUpdate(900L)).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowRegistrationManagement();
         given(loadQuotaPort.getBySeasonIdAndTrackForUpdate(1L, ChallengerTrack.DESIGN))
             .willReturn(quota(application, 1));
         given(loadApplicationPort.countReservedOrRegisteredBySeasonIdAndTrack(1L, ChallengerTrack.DESIGN))
@@ -122,7 +123,7 @@ class RecruitingRegistrationCommandServiceTest {
         RecruitingApplication application = finalPassedApplication();
         application.markRegistrationReady(1L);
         given(loadApplicationPort.getByIdWithDetailsForUpdate(900L)).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowRegistrationManagement();
 
         sut.cancelRegistration(CancelRecruitingRegistrationCommand.of(900L, 1L));
 
@@ -136,7 +137,7 @@ class RecruitingRegistrationCommandServiceTest {
         RecruitingApplication application = finalPassedApplication();
         application.markRegistrationReady(1L);
         given(loadApplicationPort.getByIdWithDetailsForUpdate(900L)).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowRegistrationManagement();
 
         sut.confirmRegistration(ConfirmRecruitingRegistrationCommand.builder()
             .applicationId(900L)
@@ -156,7 +157,7 @@ class RecruitingRegistrationCommandServiceTest {
         application.markRegistrationReady(1L);
         application.register(1L);
         given(loadApplicationPort.getByIdWithDetailsForUpdate(900L)).willReturn(application);
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(1L, 1L)).willReturn(true);
+        allowRegistrationManagement();
 
         assertThatThrownBy(() -> sut.cancelRegistration(CancelRecruitingRegistrationCommand.of(900L, 1L)))
             .isInstanceOf(RecruitingDomainException.class)
@@ -172,6 +173,14 @@ class RecruitingRegistrationCommandServiceTest {
             application.getAcceptedTrack(),
             targetCount
         );
+    }
+
+    private void allowRegistrationManagement() {
+        given(policyAuthorizationService.evaluateMember(
+            RecruitingPolicyAction.REGISTRATION_MANAGE,
+            1L,
+            1L,
+            null)).willReturn(true);
     }
 
     private RecruitingApplication finalPassedApplication() {

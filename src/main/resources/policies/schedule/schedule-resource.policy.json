@@ -1,0 +1,364 @@
+{
+  "$schema": "urn:umc:authorization:policy-module:1.0",
+  "schemaVersion": "1.0",
+  "contextSchemaVersion": "schedule-1.0",
+  "namespace": "schedule",
+  "policyVersion": "1.0.0",
+  "moduleId": "schedule-resource",
+  "statements": [
+    {
+      "id": "schedule.read-create.challenger",
+      "effect": "ALLOW",
+      "actions": [
+        "schedule:read",
+        "schedule:create"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.challengerHistory"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "schedule.read-create.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "schedule:read",
+        "schedule:create"
+      ],
+      "condition": {
+        "type": "PREDICATE",
+        "operator": "EQ",
+        "left": {
+          "type": "ATTRIBUTE",
+          "name": "relation.superAdmin"
+        },
+        "right": {
+          "type": "BOOLEAN",
+          "value": true
+        }
+      },
+      "outcomes": []
+    },
+    {
+      "id": "schedule.update-delete.author",
+      "effect": "ALLOW",
+      "actions": [
+        "schedule:update",
+        "schedule:delete"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isAuthor"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "schedule.update-delete.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "schedule:update",
+        "schedule:delete"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.superAdmin"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "schedule.force-delete.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "schedule:force-delete"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.superAdmin"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "attendance.submit.participant-challenger",
+      "effect": "ALLOW",
+      "actions": [
+        "attendance:submit"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.challengerHistory"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.isParticipant"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "attendance.read-list.active-staff",
+      "effect": "ALLOW",
+      "actions": [
+        "attendance:read"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeOperatingStaff"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "attendance.read-list.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "attendance:read"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": false
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.superAdmin"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "attendance.read-approve.target-gisu-staff",
+      "effect": "ALLOW",
+      "actions": [
+        "attendance:read",
+        "attendance:approve"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.activeOperatingStaffInTargetGisu"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    },
+    {
+      "id": "attendance.read-approve.super-admin",
+      "effect": "ALLOW",
+      "actions": [
+        "attendance:read",
+        "attendance:approve"
+      ],
+      "condition": {
+        "type": "ALL",
+        "conditions": [
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "resource.specified"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          },
+          {
+            "type": "PREDICATE",
+            "operator": "EQ",
+            "left": {
+              "type": "ATTRIBUTE",
+              "name": "relation.superAdmin"
+            },
+            "right": {
+              "type": "BOOLEAN",
+              "value": true
+            }
+          }
+        ]
+      },
+      "outcomes": []
+    }
+  ]
+}

@@ -23,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.authorization.ChatPolicyAction;
 import com.umc.product.chat.application.policy.ChatMessagePayloadFingerprint;
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.policy.CommunityChatMessagePolicy;
@@ -117,7 +118,8 @@ class ChatMessageLifecycleCreateServiceTest {
             saveChatMessagePort
         );
         validationOrder.verify(loadChatRoomPort).getByIdForUpdate(1L);
-        validationOrder.verify(chatRoomAccessPolicy).verifyMember(1L, 10L);
+        validationOrder.verify(chatRoomAccessPolicy)
+            .verifyMember(ChatPolicyAction.MESSAGE_CREATE, 1L, 10L);
         validationOrder.verify(loadChatMemberPort).listByRoomId(1L);
         validationOrder.verify(loadChatMessagePort)
             .findByRoomIdAndSenderMemberIdAndClientMessageId(1L, 10L, clientMessageId);

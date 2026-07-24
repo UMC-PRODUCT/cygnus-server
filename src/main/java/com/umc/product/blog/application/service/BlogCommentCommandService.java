@@ -7,7 +7,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.blog.application.authorization.BlogPolicyAuthorizationService;
 import com.umc.product.blog.application.port.in.command.CreateBlogCommentUseCase;
 import com.umc.product.blog.application.port.in.command.DeleteBlogCommentUseCase;
 import com.umc.product.blog.application.port.in.command.ToggleBlogCommentLikeUseCase;
@@ -44,7 +44,7 @@ public class BlogCommentCommandService implements CreateBlogCommentUseCase, Upda
     private final LoadBlogLikePort loadBlogLikePort;
     private final SaveBlogLikePort saveBlogLikePort;
     private final BlogCommentInfoAssembler commentInfoAssembler;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final BlogPolicyAuthorizationService policyAuthorizationService;
 
     @Audited(
         domain = Domain.BLOG,
@@ -172,7 +172,7 @@ public class BlogCommentCommandService implements CreateBlogCommentUseCase, Upda
     }
 
     private boolean isSuperAdmin(Long memberId) {
-        return memberId != null && getChallengerRoleUseCase.isSuperAdmin(memberId);
+        return policyAuthorizationService.isSuperAdminViewer(memberId);
     }
 
     private BlogContent getPublishedContent(String typeValue, String slug) {
