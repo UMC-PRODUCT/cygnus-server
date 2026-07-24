@@ -27,7 +27,7 @@ cd /opt
 %{ if git_repo_url != "" ~}
 # infra/monitoring/grafana 의 compose/config/provisioning 을 가져온다.
 # private repo URL 에 토큰을 넣으면 EC2 user-data 와 Terraform state 에 남으므로 read-only 토큰만 사용한다.
-git clone ${git_repo_url} umc-product
+git clone -b ${git_repo_branch} --depth 1 ${git_repo_url} umc-product
 cd umc-product/infra/monitoring/grafana
 %{ else ~}
 echo "⚠️ git_repo_url 미설정 — infra/monitoring/grafana 의 compose+config 를 이 경로에 수동으로 올린 뒤 compose up 하세요."

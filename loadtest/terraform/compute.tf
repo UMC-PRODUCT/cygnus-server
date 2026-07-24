@@ -27,6 +27,7 @@ resource "aws_instance" "monitoring" {
   # 부하 테스트용 Prometheus scrape/remote-write/postgres_exporter 설정을 덮어쓴다.
   user_data = templatefile("${path.module}/user-data/monitoring.sh.tftpl", {
     git_repo_url           = var.git_repo_url
+    git_repo_branch        = var.git_repo_branch
     otel_token             = random_password.otel_token.result
     grafana_admin_password = random_password.grafana_admin.result
     db_host                = aws_db_instance.this.address

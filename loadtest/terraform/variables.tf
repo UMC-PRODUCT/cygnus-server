@@ -142,6 +142,13 @@ variable "ecr_repository_name" {
   default     = "umc-product-server"
 }
 
+# monitoring 이 clone 할 브랜치. 대시보드/관측 config 가 feature 브랜치에만 있을 때 그 브랜치를 지정한다.
+variable "git_repo_branch" {
+  description = "monitoring EC2 가 clone 할 git 브랜치 (기본 develop)"
+  type        = string
+  default     = "develop"
+}
+
 variable "git_repo_url" {
   description = "compose/관측 config 와 k6 스크립트를 가져올 레포 URL. private repo면 read-only 토큰을 포함한 HTTPS URL."
   type        = string
