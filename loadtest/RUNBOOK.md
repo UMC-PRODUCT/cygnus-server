@@ -97,6 +97,14 @@ loadtest/scripts/run-k6.sh stress project-read 1000 20m   # 필요 시
 
 ---
 
+## 2.5 결과 기록 (실행 전에 시작)
+
+```bash
+loadtest/scripts/new-run.sh home-breakpoint-500   # runs/<날짜>-<이름>/summary.md 스캐폴드
+```
+
+실행 **전**에 만들어 가설부터 적고, 끝나면 결과·스크린샷·결론을 채운다. 규칙: `docs/loadtest/README.md`.
+
 ## 3. 결과 보기
 
 ```bash
