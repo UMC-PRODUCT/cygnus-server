@@ -74,7 +74,8 @@ resource "aws_route_table_association" "public_secondary" {
 # 실제 노출면은 아래 ingress rule 들이 결정한다.
 resource "aws_security_group" "generator" {
   name_prefix = "${local.name}-gen-"
-  description = "k6 부하 생성기"
+  # SG description 은 AWS API 제약상 ASCII 만 허용된다 (한글 넣으면 InvalidParameterValue)
+  description = "k6 load generator"
   vpc_id      = aws_vpc.this.id
   egress {
     from_port   = 0
@@ -87,7 +88,7 @@ resource "aws_security_group" "generator" {
 
 resource "aws_security_group" "sut" {
   name_prefix = "${local.name}-sut-"
-  description = "측정 대상 앱"
+  description = "SUT app under test"
   vpc_id      = aws_vpc.this.id
   egress {
     from_port   = 0
@@ -113,7 +114,7 @@ resource "aws_security_group" "rds" {
 
 resource "aws_security_group" "monitoring" {
   name_prefix = "${local.name}-mon-"
-  description = "관측 스택"
+  description = "observability stack"
   vpc_id      = aws_vpc.this.id
   egress {
     from_port   = 0
