@@ -143,4 +143,4 @@ terraform -chdir=loadtest/terraform destroy
 | bulk: `app 컨테이너가 실행 중이 아닙니다` | 앱 부팅 대기 후 재실행 (health UP 먼저) |
 | bulk: email unique 에러 | 빈 DB 아님 → destroy/apply 로 리셋 후 재시딩 |
 | k6 `seed.json 없음` | `prepare-data.sh` 먼저 실행 |
-| 시나리오 추가하고 싶다 | `loadtest/README.md` "새 시나리오 추가 (확장 가이드)" |
+| 시나리오 추가하고 싶다 | `loadtest/README.md` "확장 — 새 시나리오 추가" |
