@@ -101,9 +101,12 @@ loadtest/scripts/run-k6.sh stress project-read 1000 20m   # 필요 시
 
 ```bash
 loadtest/scripts/new-run.sh home-breakpoint-500   # runs/<날짜>-<이름>/summary.md 스캐폴드
+export RUN_DIR=docs/loadtest/runs/<방금 생성된 디렉터리>   # 이후 run-k6.sh 결과가 여기 자동 저장
 ```
 
-실행 **전**에 만들어 가설부터 적고, 끝나면 결과·스크린샷·결론을 채운다. 규칙: `docs/loadtest/README.md`.
+실행 **전**에 만들어 가설부터 적는다. `RUN_DIR` 를 설정하면 run-k6.sh 가 콘솔 로그(.log)와
+k6 요약(.summary.json)을 실행마다 이 디렉터리에 자동 저장한다 — destroy 해도 결과가 남는다.
+끝나면 summary.md 에 결론·Grafana 스크린샷을 채운다. 규칙: `docs/loadtest/README.md`.
 
 ## 3. 결과 보기
 

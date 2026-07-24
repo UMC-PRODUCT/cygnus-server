@@ -1,3 +1,5 @@
+import { textSummary } from "https://jslib.k6.io/k6-summary/0.0.1/index.js";
+
 import { buildOptions } from "./config/profiles.js";
 import { parseSeed } from "./lib/data.js";
 
@@ -95,4 +97,13 @@ export function setup() {
 
 export default function (data) {
   selected.fn(data.seed);
+}
+
+// 실행마다 요약을 파일로 남긴다 (JMeter 리포트처럼). 터미널 출력은 그대로 유지하고,
+// JSON 은 generator 의 ./out/ 에 쓰며 run-k6.sh 가 실행 직후 로컬(RUN_DIR)로 회수한다.
+export function handleSummary(data) {
+  return {
+    stdout: textSummary(data, { indent: "  ", enableColors: true }),
+    "./out/last-summary.json": JSON.stringify(data, null, 2),
+  };
 }

@@ -37,3 +37,6 @@ sed \
   "$TEMPLATE" >"$DIR/summary.md"
 
 echo "$DIR/summary.md"
+echo "" >&2
+echo "이렇게 실행하면 k6 결과(로그·요약 JSON)가 이 디렉터리에 자동 저장됩니다:" >&2
+echo "  RUN_DIR=$DIR loadtest/scripts/run-k6.sh <profile> <scenario> <rate> <duration>" >&2

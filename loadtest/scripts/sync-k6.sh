@@ -25,11 +25,12 @@ if [ -n "${SSH_KEY:-}" ]; then
 fi
 
 echo "sync: $K6_DIR/ -> $SSH_USER@$GENERATOR_IP:/home/ec2-user/k6/"
-# RUN.md 는 generator user-data 가 만든 실행 힌트라 삭제하지 않는다.
+# RUN.md 는 generator user-data 가 만든 실행 힌트라, out/ 은 k6 요약 산출물이라 삭제하지 않는다.
 rsync -az --delete \
   --exclude '.gitignore' \
   --exclude 'README.md' \
   --exclude 'RUN.md' \
+  --exclude 'out/' \
   -e "ssh $SSH_OPTS" \
   "$K6_DIR/" "$SSH_USER@$GENERATOR_IP:/home/ec2-user/k6/"
 
