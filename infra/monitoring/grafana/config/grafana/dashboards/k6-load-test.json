@@ -177,7 +177,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "k6_http_req_failed_rate"
+          "expr": "max(k6_http_req_failed_rate)"
         }
       ]
     },
@@ -767,7 +767,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "k6_http_req_failed_rate",
+          "expr": "max(k6_http_req_failed_rate)",
           "legendFormat": "전체 http 실패"
         }
       ]
