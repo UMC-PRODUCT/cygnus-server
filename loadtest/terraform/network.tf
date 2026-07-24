@@ -285,6 +285,19 @@ resource "aws_security_group_rule" "alb_http_from_gen" {
   security_group_id        = aws_security_group.alb.id
 }
 
+# generator 가 internet-facing ALB 의 public DNS 로 접속하면 IGW 를 거치며 소스가 generator 의
+# public IP 로 바뀐다 — 위 SG 소스 매칭 규칙은 이 경로에 적용되지 않으므로 public IP /32 를 따로 연다.
+# (generator 인스턴스 교체 시 IP 가 바뀌면 apply 가 이 규칙을 함께 갱신한다)
+resource "aws_security_group_rule" "alb_http_from_gen_public_ip" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  cidr_blocks       = ["${aws_instance.generator.public_ip}/32"]
+  security_group_id = aws_security_group.alb.id
+  description       = "k6 generator via public IP (IGW path)"
+}
+
 resource "aws_security_group_rule" "alb_http_from_me" {
   type              = "ingress"
   from_port         = 80
