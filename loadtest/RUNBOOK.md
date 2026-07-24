@@ -85,7 +85,9 @@ SEED_STRATEGY=bulk loadtest/scripts/prepare-data.sh
 
 # (4) 본 측정
 loadtest/scripts/run-k6.sh smoke home 1   1m     # 먼저 스모크로 seed.json 검증
-loadtest/scripts/run-k6.sh load  home 300 10m    # 본 부하
+loadtest/scripts/run-k6.sh load  home 300 10m    # 본 부하 (고정 도착률)
+loadtest/scripts/run-k6.sh breakpoint home 500 10m        # 포화점 탐색: 1→500 req/s 점증
+#   → Grafana ① 행 "포화점 탐색" 패널에서 TPS 평탄화+응답시간 급등 교차점 = 한계 처리량
 loadtest/scripts/run-k6.sh stress project-read 1000 20m   # 필요 시
 ```
 

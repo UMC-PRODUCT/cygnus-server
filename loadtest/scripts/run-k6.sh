@@ -13,7 +13,7 @@ REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 TF_DIR="$REPO_ROOT/loadtest/terraform"
 SSH_USER="${SSH_USER:-ec2-user}"
 
-PROFILE="${1:?profile 필요 (smoke|load|stress|soak)}"
+PROFILE="${1:?profile 필요 (smoke|load|stress|soak|breakpoint)}"
 SCENARIO="${2:?scenario 필요 (예: health-check, project-read)}"
 RATE="${3:?rate 필요 (예: 1, 300)}"
 DURATION="${4:-}"

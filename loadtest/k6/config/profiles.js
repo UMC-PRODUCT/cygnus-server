@@ -5,6 +5,7 @@ const DEFAULT_DURATION = {
   load: "10m",
   stress: "20m",
   soak: "2h",
+  breakpoint: "10m",
 };
 
 function thresholds(profile) {
@@ -39,10 +40,27 @@ export function buildOptions(profile, rateEnv, durationEnv) {
     };
   }
 
+  // breakpoint 는 도착률을 1 → RATE 로 선형 점증시켜 포화점(knee)을 찾는다:
+  // TPS 가 평탄해지고 응답시간이 급등하는 지점이 시스템 한계. Grafana 의
+  // "포화점 탐색" 패널(VUs·TPS·응답시간 겹침)과 짝으로 본다.
+  // thresholds 를 두지 않는다 — "언제부터 깨지는가" 자체가 이 테스트의 결과라서다.
+  if (profile === "breakpoint") {
+    return {
+      scenarios: {
+        breakpoint: {
+          executor: "ramping-arrival-rate",
+          startRate: 1,
+          timeUnit: "1s",
+          stages: [{ target: rate, duration: duration }],
+          ...vuPool(rate),
+        },
+      },
+    };
+  }
+
   // load/stress/soak 은 목표 처리량(RATE req/s)을 constant-arrival-rate 로 고정한다.
   // 도착률 기반이라 SUT 가 느려져도 부하가 밀리지 않고 목표 rate 를 유지한다 —
   // "요청을 얼마나 던졌나"가 아니라 "SUT 가 얼마나 받아내나"를 본다.
-  // (stress 의 ramping-arrival-rate 전환은 후속 개선. v1 은 높은 상수 rate 로 한계를 본다.)
   return {
     scenarios: {
       [profile]: {

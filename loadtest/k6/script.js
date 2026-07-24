@@ -44,6 +44,12 @@ const REGISTRY = {
   soak: {
     "project-read": { fn: soakProjectRead, requiresSeed: soakProjectReadSeed },
   },
+  // breakpoint 는 부하 패턴(점증)만 다르고 업무 로직은 같아 load 시나리오를 재사용한다.
+  // 혼합 비율 등을 breakpoint 전용으로 튜닝하게 되면 그때 scenarios/breakpoint/ 로 분리한다.
+  breakpoint: {
+    home: { fn: loadHome, requiresSeed: loadHomeSeed },
+    "project-read": { fn: loadProjectRead, requiresSeed: loadProjectReadSeed },
+  },
 };
 
 const PROFILE = __ENV.PROFILE || "smoke";
