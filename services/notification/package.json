@@ -1,0 +1,49 @@
+{
+  "name": "@umc-product/notification",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "contracts:generate": "node scripts/generate-contracts.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "npm run contracts:generate && npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@aws-lambda-powertools/logger": "^2.27.0",
+    "@aws-lambda-powertools/metrics": "^2.27.0",
+    "@aws-lambda-powertools/tracer": "^2.27.0",
+    "@aws-sdk/client-dynamodb": "^3.883.0",
+    "@aws-sdk/client-eventbridge": "^3.883.0",
+    "@aws-sdk/client-secrets-manager": "^3.883.0",
+    "@aws-sdk/client-sesv2": "^3.883.0",
+    "@aws-sdk/client-sqs": "^3.883.0",
+    "@aws-sdk/lib-dynamodb": "^3.883.0",
+    "ajv": "^8.17.1",
+    "ajv-formats": "^3.0.1",
+    "firebase-admin": "^14.2.0",
+    "handlebars": "^4.7.8"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.152",
+    "@types/node": "^24.3.0",
+    "esbuild": "^0.25.9",
+    "json-schema-to-typescript": "^15.0.4",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
+    "yaml": "^2.9.0"
+  },
+  "overrides": {
+    "gaxios@6.7.1": {
+      "uuid": "11.1.1"
+    },
+    "teeny-request@9.0.0": {
+      "uuid": "11.1.1"
+    }
+  }
+}

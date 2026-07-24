@@ -1,0 +1,64 @@
+name: CI [Notification Lambda]
+
+on:
+  pull_request:
+    paths:
+      - "contracts/notification/**"
+      - "services/notification/**"
+      - "infra/notification/**"
+      - ".github/workflows/ci-notification.yml"
+      - ".github/workflows/cd-notification.yml"
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "contracts/notification/**"
+      - "services/notification/**"
+      - "infra/notification/**"
+      - ".github/workflows/ci-notification.yml"
+      - ".github/workflows/cd-notification.yml"
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/notification
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/notification/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Add local build tools to PATH
+        run: echo "${GITHUB_WORKSPACE}/services/notification/node_modules/.bin" >> "${GITHUB_PATH}"
+
+      - name: Typecheck and test
+        run: npm run check
+
+      - name: Verify generated contracts
+        run: git diff --exit-code -- src/contracts/generated.ts src/contracts/generated-schemas.ts
+
+      - name: Setup AWS SAM
+        uses: aws-actions/setup-sam@v2
+
+      - name: Validate SAM template
+        working-directory: .
+        run: sam validate --lint --template-file infra/notification/template.yaml
+
+      - name: Build SAM application
+        working-directory: .
+        run: sam build --template-file infra/notification/template.yaml

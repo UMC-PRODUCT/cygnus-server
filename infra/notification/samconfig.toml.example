@@ -1,0 +1,31 @@
+version = 0.1
+
+[dev.deploy.parameters]
+stack_name = "umc-product-dev-notification"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+parameter_overrides = [
+  "Environment=dev",
+  "DeliveryEnabled=false",
+  "DeliveryMode=VALIDATE",
+  "FirebaseSecretId=umc-product/dev/firebase",
+  "WebhookSecretId=umc-product/dev/webhooks",
+  "EmailFromAddress=no-reply@example.com"
+]
+
+[prod.deploy.parameters]
+stack_name = "umc-product-prod-notification"
+region = "ap-northeast-2"
+resolve_s3 = true
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+parameter_overrides = [
+  "Environment=prod",
+  "DeliveryEnabled=false",
+  "DeliveryMode=VALIDATE",
+  "FirebaseSecretId=umc-product/prod/firebase",
+  "WebhookSecretId=umc-product/prod/webhooks",
+  "EmailFromAddress=no-reply@example.com"
+]

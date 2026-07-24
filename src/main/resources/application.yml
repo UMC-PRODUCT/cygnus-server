@@ -436,6 +436,10 @@ app:
     poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${EVENT_OUTBOX_BATCH_SIZE:100}
     max-attempts: ${EVENT_OUTBOX_MAX_ATTEMPTS:5}
+    eventbridge:
+      enabled: ${NOTIFICATION_EVENTBRIDGE_ENABLED:false}
+      region: ${NOTIFICATION_AWS_REGION:ap-northeast-2}
+      event-bus-name: ${NOTIFICATION_EVENT_BUS_NAME:}
 
   fcm:
     enabled: ${FCM_ENABLED:false}
@@ -509,6 +513,20 @@ app:
       burst: ${LLM_RATE_LIMIT_BURST:5}
 
   notification:
+    # local -> 기존 Java provider, shadow -> Java 실제 발송 + 외부 검증, external -> Lambda 전송.
+    transport: ${NOTIFICATION_TRANSPORT:local}
+    lambda:
+      enabled: ${NOTIFICATION_LAMBDA_ENABLED:false}
+      region: ${NOTIFICATION_AWS_REGION:ap-northeast-2}
+      installation-function-name: ${NOTIFICATION_INSTALLATION_FUNCTION_NAME:}
+    result-consumer:
+      enabled: ${NOTIFICATION_RESULT_CONSUMER_ENABLED:false}
+      region: ${NOTIFICATION_AWS_REGION:ap-northeast-2}
+      queue-url: ${NOTIFICATION_RESULT_QUEUE_URL:}
+      poll-interval-ms: ${NOTIFICATION_RESULT_POLL_INTERVAL_MS:1000}
+      max-messages: ${NOTIFICATION_RESULT_MAX_MESSAGES:10}
+      visibility-timeout-seconds: ${NOTIFICATION_RESULT_VISIBILITY_TIMEOUT_SECONDS:180}
+      wait-time-seconds: ${NOTIFICATION_RESULT_WAIT_TIME_SECONDS:10}
     # 인증 이메일 등 SES v2 발송 설정.
     # access-key/secret을 비워두면 DefaultCredentialsProvider 체인(IAM Role / IRSA / 환경변수 등)으로 폴백한다.
     # configuration-set 은 바운스/컴플레인트 트래킹이 필요할 때만 주입한다 (미설정 시 SendEmail 요청에 미포함).

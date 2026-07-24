@@ -1,0 +1,98 @@
+name: CD [Notification Lambda]
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Deployment environment
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      delivery_enabled:
+        description: Enable SQS event source mappings
+        required: true
+        type: boolean
+        default: false
+      delivery_mode:
+        description: Provider delivery mode
+        required: true
+        type: choice
+        options:
+          - VALIDATE
+          - LIVE
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: notification-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci-notification.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: services/notification/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/notification
+        run: npm ci
+
+      - name: Add local build tools to PATH
+        run: echo "${GITHUB_WORKSPACE}/services/notification/node_modules/.bin" >> "${GITHUB_PATH}"
+
+      - name: Setup AWS SAM
+        uses: aws-actions/setup-sam@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_NOTIFICATION_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-2
+
+      - name: Build
+        run: sam build --template-file infra/notification/template.yaml
+
+      - name: Deploy
+        env:
+          ENVIRONMENT: ${{ inputs.environment }}
+          DELIVERY_ENABLED: ${{ inputs.delivery_enabled }}
+          DELIVERY_MODE: ${{ inputs.delivery_mode }}
+          FIREBASE_SECRET_ID: ${{ vars.NOTIFICATION_FIREBASE_SECRET_ID }}
+          WEBHOOK_SECRET_ID: ${{ vars.NOTIFICATION_WEBHOOK_SECRET_ID }}
+          EMAIL_FROM_ADDRESS: ${{ vars.NOTIFICATION_EMAIL_FROM_ADDRESS }}
+          EMAIL_FROM_NAME: ${{ vars.NOTIFICATION_EMAIL_FROM_NAME }}
+          SES_CONFIGURATION_SET: ${{ vars.NOTIFICATION_SES_CONFIGURATION_SET }}
+        run: |
+          sam deploy \
+            --stack-name "umc-product-${ENVIRONMENT}-notification" \
+            --region ap-northeast-2 \
+            --resolve-s3 \
+            --capabilities CAPABILITY_IAM \
+            --no-confirm-changeset \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              "Environment=${ENVIRONMENT}" \
+              "DeliveryEnabled=${DELIVERY_ENABLED}" \
+              "DeliveryMode=${DELIVERY_MODE}" \
+              "FirebaseSecretId=${FIREBASE_SECRET_ID}" \
+              "WebhookSecretId=${WEBHOOK_SECRET_ID}" \
+              "EmailFromAddress=${EMAIL_FROM_ADDRESS}" \
+              "EmailFromName=${EMAIL_FROM_NAME}" \
+              "SesConfigurationSet=${SES_CONFIGURATION_SET}"

@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -23,10 +24,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.event.adapter.out.EventPayloadDeserializer;
 import com.umc.product.global.event.adapter.out.EventPayloadSerializer;
 import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
+import com.umc.product.global.event.application.port.out.PublishIntegrationEventPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.event.domain.EventOutboxStatus;
+import com.umc.product.global.event.domain.IntegrationEvent;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
 
 import io.micrometer.tracing.Tracer;
@@ -309,6 +312,66 @@ class EventOutboxRelayServiceTest {
         assertThat(savePort.savedStatuses).containsExactly(EventOutboxStatus.PROCESSING);
     }
 
+    @Test
+    @DisplayName("IntegrationEvent는 Spring event bus가 아니라 외부 publisher ACK 후 published 처리한다")
+    void relay_integration_event_외부_발행() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        TestIntegrationEvent event = TestIntegrationEvent.create();
+        String traceparent = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event), traceparent);
+        FakeSaveEventOutboxPort savePort = new FakeSaveEventOutboxPort();
+        CapturingApplicationEventPublisher springPublisher = new CapturingApplicationEventPublisher();
+        CapturingIntegrationEventPublisher integrationPublisher = new CapturingIntegrationEventPublisher();
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            savePort,
+            new EventPayloadDeserializer(objectMapper),
+            springPublisher,
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            integrationPublisher,
+            100,
+            3
+        );
+
+        relayService.relay();
+
+        assertThat(integrationPublisher.events).containsExactly(event);
+        assertThat(integrationPublisher.traceparents).containsExactly(traceparent);
+        assertThat(springPublisher.events).isEmpty();
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED);
+    }
+
+    @Test
+    @DisplayName("외부 broker가 IntegrationEvent를 거부하면 outbox를 published 처리하지 않고 재시도한다")
+    void relay_integration_event_broker_실패_재시도() {
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
+        EventPayloadSerializer serializer = new EventPayloadSerializer(objectMapper);
+        TestIntegrationEvent event = TestIntegrationEvent.create();
+        EventOutbox outbox = EventOutbox.record(event, serializer.serialize(event));
+        PublishIntegrationEventPort failedPublisher = (ignoredEvent, ignoredTraceparent) -> {
+            throw new IllegalStateException("broker rejected");
+        };
+        EventOutboxRelayService relayService = new EventOutboxRelayService(
+            new FakeLoadEventOutboxPort(List.of(outbox)),
+            new FakeSaveEventOutboxPort(),
+            new EventPayloadDeserializer(objectMapper),
+            new CapturingApplicationEventPublisher(),
+            new LocalTransactionManager(),
+            Tracer.NOOP,
+            failedPublisher,
+            100,
+            3
+        );
+
+        relayService.relay();
+
+        assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING);
+        assertThat(outbox.getAttempts()).isEqualTo(1);
+        assertThat(outbox.getLastError()).contains("broker rejected");
+    }
+
     private static class FailOnPublishedSaveEventOutboxPort implements SaveEventOutboxPort {
 
         private final List<EventOutboxStatus> savedStatuses = new ArrayList<>();
@@ -385,6 +448,18 @@ class EventOutboxRelayServiceTest {
         }
     }
 
+    private static class CapturingIntegrationEventPublisher implements PublishIntegrationEventPort {
+
+        private final List<IntegrationEvent> events = new ArrayList<>();
+        private final List<String> traceparents = new ArrayList<>();
+
+        @Override
+        public void publish(IntegrationEvent event, String traceparent) {
+            events.add(event);
+            traceparents.add(traceparent);
+        }
+    }
+
     public record TestEvent(
         UUID eventId,
         Instant occurredAt,
@@ -411,6 +486,30 @@ class EventOutboxRelayServiceTest {
         @Override
         public OutboxDispatchMode outboxDispatchMode() {
             return OutboxDispatchMode.NON_TRANSACTIONAL;
+        }
+    }
+
+    public record TestIntegrationEvent(
+        UUID eventId,
+        Instant occurredAt,
+        String eventType,
+        UUID requestId,
+        Map<String, String> detail
+    ) implements IntegrationEvent {
+
+        static TestIntegrationEvent create() {
+            return new TestIntegrationEvent(
+                UUID.randomUUID(),
+                Instant.now(),
+                "test.integration.created.v1",
+                UUID.randomUUID(),
+                Map.of("message", "hello")
+            );
+        }
+
+        @Override
+        public String source() {
+            return "umc-product.test";
         }
     }
 

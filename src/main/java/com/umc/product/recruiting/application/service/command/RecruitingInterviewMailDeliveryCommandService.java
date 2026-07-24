@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.application.service.command;
 
 import java.time.Instant;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,7 +35,12 @@ public class RecruitingInterviewMailDeliveryCommandService implements ManageRecr
     @Override
     public void markRequestMailFailed(Long applicationId, String error) {
         RecruitingInterviewSchedule schedule = loadSchedulePort.getByApplicationId(applicationId);
-        if (schedule.getRequestMailStatus() == RecruitingMailDeliveryStatus.SENT) {
+        RecruitingMailDeliveryStatus status = schedule.getRequestMailStatus();
+        if (status == RecruitingMailDeliveryStatus.SENT) {
+            return;
+        }
+        if (status == RecruitingMailDeliveryStatus.FAILED
+            && Objects.equals(schedule.getRequestMailError(), error)) {
             return;
         }
         schedule.markRequestMailFailed(error);

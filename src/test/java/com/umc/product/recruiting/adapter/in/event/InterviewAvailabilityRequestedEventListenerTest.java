@@ -20,9 +20,14 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.umc.product.global.config.notification.NotificationTransport;
+import com.umc.product.global.config.notification.NotificationTransportProperties;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.notification.application.port.in.SendEmailUseCase;
 import com.umc.product.notification.application.port.in.dto.SendHtmlEmailCommand;
 import com.umc.product.recruiting.application.event.InterviewAvailabilityRequestedEvent;
+import com.umc.product.recruiting.application.event.RecruitingInterviewEmailRequestedIntegrationEvent;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewMailDeliveryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewMailDeliveryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingInterviewRequestMailInfo;
@@ -38,6 +43,8 @@ class InterviewAvailabilityRequestedEventListenerTest {
     ManageRecruitingInterviewMailDeliveryUseCase mailDeliveryUseCase;
     @Mock
     GetRecruitingInterviewMailDeliveryUseCase getMailDeliveryUseCase;
+    @Mock
+    DomainEventPublisher eventPublisher;
 
     InterviewAvailabilityRequestedEventListener sut;
 
@@ -107,6 +114,34 @@ class InterviewAvailabilityRequestedEventListenerTest {
 
         then(sendEmailUseCase).shouldHaveNoInteractions();
         then(mailDeliveryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("external 모드는 SES를 직접 호출하지 않고 채용 메일 integration event를 기록한다")
+    void external_채용_메일_event_발행() {
+        InterviewAvailabilityRequestedEventListener externalListener =
+            new InterviewAvailabilityRequestedEventListener(
+                sendEmailUseCase,
+                getMailDeliveryUseCase,
+                mailDeliveryUseCase,
+                Clock.fixed(Instant.parse("2026-08-10T00:00:00Z"), ZoneOffset.UTC),
+                eventPublisher,
+                new NotificationTransportProperties(NotificationTransport.EXTERNAL)
+            );
+        given(getMailDeliveryUseCase.getRequestMail(40L))
+            .willReturn(mailInfo(RecruitingMailDeliveryStatus.PENDING));
+
+        externalListener.handle(event());
+
+        then(sendEmailUseCase).shouldHaveNoInteractions();
+        then(mailDeliveryUseCase).shouldHaveNoInteractions();
+        ArgumentCaptor<DomainEvent> captor = ArgumentCaptor.forClass(DomainEvent.class);
+        then(eventPublisher).should().publish(captor.capture());
+        assertThat(captor.getValue())
+            .isInstanceOfSatisfying(RecruitingInterviewEmailRequestedIntegrationEvent.class, integrationEvent -> {
+                assertThat(integrationEvent.detail().applicationId()).isEqualTo(40L);
+                assertThat(integrationEvent.detail().availabilityFormId()).isEqualTo(300L);
+            });
     }
 
     private InterviewAvailabilityRequestedEvent event() {

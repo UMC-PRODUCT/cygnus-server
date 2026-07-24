@@ -16,9 +16,11 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.umc.product.global.event.adapter.out.EventPayloadDeserializer;
 import com.umc.product.global.event.application.port.out.LoadEventOutboxPort;
+import com.umc.product.global.event.application.port.out.PublishIntegrationEventPort;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
+import com.umc.product.global.event.domain.IntegrationEvent;
 import com.umc.product.global.event.domain.OutboxDispatchMode;
 import com.umc.product.global.observability.ObservabilityErrorSanitizer;
 import com.umc.product.global.observability.W3CTraceparent;
@@ -42,6 +44,7 @@ public class EventOutboxRelayService {
     private final SaveEventOutboxPort saveEventOutboxPort;
     private final EventPayloadDeserializer deserializer;
     private final ApplicationEventPublisher eventPublisher;
+    private final PublishIntegrationEventPort integrationEventPublisher;
     private final Tracer tracer;
     private final EventOutboxRelayMetrics relayMetrics;
     private final TransactionTemplate transactionTemplate;
@@ -56,6 +59,7 @@ public class EventOutboxRelayService {
         ApplicationEventPublisher eventPublisher,
         PlatformTransactionManager transactionManager,
         ObjectProvider<Tracer> tracerProvider,
+        ObjectProvider<PublishIntegrationEventPort> integrationEventPublisherProvider,
         EventOutboxRelayMetrics relayMetrics,
         @Value("${app.event-outbox.batch-size:100}") int batchSize,
         @Value("${app.event-outbox.max-attempts:5}") int maxAttempts
@@ -67,6 +71,32 @@ public class EventOutboxRelayService {
             eventPublisher,
             transactionManager,
             tracerProvider.getIfAvailable(() -> Tracer.NOOP),
+            integrationEventPublisherProvider.getIfAvailable(UnavailableIntegrationEventPublisher::new),
+            relayMetrics,
+            batchSize,
+            maxAttempts
+        );
+    }
+
+    public EventOutboxRelayService(
+        LoadEventOutboxPort loadEventOutboxPort,
+        SaveEventOutboxPort saveEventOutboxPort,
+        EventPayloadDeserializer deserializer,
+        ApplicationEventPublisher eventPublisher,
+        PlatformTransactionManager transactionManager,
+        ObjectProvider<Tracer> tracerProvider,
+        EventOutboxRelayMetrics relayMetrics,
+        int batchSize,
+        int maxAttempts
+    ) {
+        this(
+            loadEventOutboxPort,
+            saveEventOutboxPort,
+            deserializer,
+            eventPublisher,
+            transactionManager,
+            tracerProvider.getIfAvailable(() -> Tracer.NOOP),
+            new UnavailableIntegrationEventPublisher(),
             relayMetrics,
             batchSize,
             maxAttempts
@@ -107,10 +137,62 @@ public class EventOutboxRelayService {
         int batchSize,
         int maxAttempts
     ) {
+        this(
+            loadEventOutboxPort,
+            saveEventOutboxPort,
+            deserializer,
+            eventPublisher,
+            transactionManager,
+            tracer,
+            new UnavailableIntegrationEventPublisher(),
+            relayMetrics,
+            batchSize,
+            maxAttempts
+        );
+    }
+
+    EventOutboxRelayService(
+        LoadEventOutboxPort loadEventOutboxPort,
+        SaveEventOutboxPort saveEventOutboxPort,
+        EventPayloadDeserializer deserializer,
+        ApplicationEventPublisher eventPublisher,
+        PlatformTransactionManager transactionManager,
+        Tracer tracer,
+        PublishIntegrationEventPort integrationEventPublisher,
+        int batchSize,
+        int maxAttempts
+    ) {
+        this(
+            loadEventOutboxPort,
+            saveEventOutboxPort,
+            deserializer,
+            eventPublisher,
+            transactionManager,
+            tracer,
+            integrationEventPublisher,
+            EventOutboxRelayMetrics.noOp(),
+            batchSize,
+            maxAttempts
+        );
+    }
+
+    private EventOutboxRelayService(
+        LoadEventOutboxPort loadEventOutboxPort,
+        SaveEventOutboxPort saveEventOutboxPort,
+        EventPayloadDeserializer deserializer,
+        ApplicationEventPublisher eventPublisher,
+        PlatformTransactionManager transactionManager,
+        Tracer tracer,
+        PublishIntegrationEventPort integrationEventPublisher,
+        EventOutboxRelayMetrics relayMetrics,
+        int batchSize,
+        int maxAttempts
+    ) {
         this.loadEventOutboxPort = loadEventOutboxPort;
         this.saveEventOutboxPort = saveEventOutboxPort;
         this.deserializer = deserializer;
         this.eventPublisher = eventPublisher;
+        this.integrationEventPublisher = integrationEventPublisher;
         this.tracer = tracer;
         this.relayMetrics = relayMetrics;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -184,6 +266,11 @@ public class EventOutboxRelayService {
 
     private void doPublish(EventOutbox outbox) {
         DomainEvent event = deserializer.deserialize(outbox);
+        if (event instanceof IntegrationEvent integrationEvent) {
+            integrationEventPublisher.publish(integrationEvent, outbox.getTraceparent());
+            markPublished(outbox);
+            return;
+        }
         if (event.outboxDispatchMode() == OutboxDispatchMode.NON_TRANSACTIONAL) {
             eventPublisher.publishEvent(event);
             markPublished(outbox);
@@ -226,5 +313,13 @@ public class EventOutboxRelayService {
             return exception.getClass().getName();
         }
         return exception.getMessage();
+    }
+
+    private static final class UnavailableIntegrationEventPublisher implements PublishIntegrationEventPort {
+
+        @Override
+        public void publish(IntegrationEvent event, String traceparent) {
+            throw new IllegalStateException("Integration event publisher가 활성화되지 않았습니다.");
+        }
     }
 }

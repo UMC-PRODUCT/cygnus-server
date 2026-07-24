@@ -1,11 +1,14 @@
 package com.umc.product.authentication.application.event;
 
-import com.umc.product.notification.application.port.in.SendEmailUseCase;
-import com.umc.product.notification.application.port.in.dto.SendVerificationEmailCommand;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
+
+import com.umc.product.global.config.notification.NotificationTransportProperties;
+import com.umc.product.global.event.application.port.out.DomainEventPublisher;
+import com.umc.product.notification.application.port.in.SendEmailUseCase;
+import com.umc.product.notification.application.port.in.dto.SendVerificationEmailCommand;
 
 /**
  * {@link SendVerificationEmailEvent} 를 받아 트랜잭션 commit 직후 실제 메일 발송을 트리거한다.
@@ -15,18 +18,40 @@ import org.springframework.transaction.event.TransactionalEventListener;
  * 일을 막는다.
  */
 @Component
-@RequiredArgsConstructor
 public class SendVerificationEmailEventListener {
 
     private final SendEmailUseCase sendEmailUseCase;
+    private final DomainEventPublisher eventPublisher;
+    private final NotificationTransportProperties transportProperties;
+    private final long validitySeconds;
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public SendVerificationEmailEventListener(
+        SendEmailUseCase sendEmailUseCase,
+        DomainEventPublisher eventPublisher,
+        NotificationTransportProperties transportProperties,
+        @Value("${jwt.verification-token-validity-in-seconds:600}") long validitySeconds
+    ) {
+        this.sendEmailUseCase = sendEmailUseCase;
+        this.eventPublisher = eventPublisher;
+        this.transportProperties = transportProperties;
+        this.validitySeconds = validitySeconds;
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT, fallbackExecution = true)
     public void handle(SendVerificationEmailEvent event) {
-        sendEmailUseCase.sendVerificationEmail(
-            SendVerificationEmailCommand.builder()
-                .to(event.email())
-                .verificationCode(event.verificationCode())
-                .build()
-        );
+        if (transportProperties.transport().sendsLocally()) {
+            sendEmailUseCase.sendVerificationEmail(
+                SendVerificationEmailCommand.builder()
+                    .to(event.email())
+                    .verificationCode(event.verificationCode())
+                    .build()
+            );
+        }
+        if (transportProperties.transport().sendsExternally()) {
+            eventPublisher.publish(VerificationEmailRequestedIntegrationEvent.from(
+                event,
+                event.occurredAt().plusSeconds(validitySeconds)
+            ));
+        }
     }
 }

@@ -78,6 +78,9 @@ dependencies {
     add("implementation", "software.amazon.awssdk:ssm")
     add("implementation", "software.amazon.awssdk:cloudfront")
     add("implementation", "software.amazon.awssdk:sesv2")
+    add("implementation", "software.amazon.awssdk:eventbridge")
+    add("implementation", "software.amazon.awssdk:lambda")
+    add("implementation", "software.amazon.awssdk:sqs")
 
     // --- Email ---
     add("implementation", "org.springframework.boot:spring-boot-starter-thymeleaf")

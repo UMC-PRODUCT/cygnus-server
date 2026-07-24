@@ -58,4 +58,18 @@ class RecruitingInterviewMailDeliveryCommandServiceTest {
         then(schedule).shouldHaveNoMoreInteractions();
         then(saveSchedulePort).shouldHaveNoInteractions();
     }
+
+    @Test
+    @DisplayName("동일한 실패 결과가 재전달되면 시도 횟수를 중복 증가시키지 않는다")
+    void 동일한_실패_결과는_멱등하게_처리한다() {
+        given(schedule.getRequestMailStatus()).willReturn(RecruitingMailDeliveryStatus.FAILED);
+        given(schedule.getRequestMailError()).willReturn("MessageRejected");
+
+        sut.markRequestMailFailed(40L, "MessageRejected");
+
+        then(schedule).should().getRequestMailStatus();
+        then(schedule).should().getRequestMailError();
+        then(schedule).shouldHaveNoMoreInteractions();
+        then(saveSchedulePort).shouldHaveNoInteractions();
+    }
 }

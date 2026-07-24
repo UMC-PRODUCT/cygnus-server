@@ -1,0 +1,1184 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: UMC PRODUCT Node.js Notification Lambda stack
+
+Parameters:
+  Environment:
+    Type: String
+    AllowedValues:
+      - dev
+      - prod
+  DeliveryEnabled:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Default: "false"
+  DeliveryMode:
+    Type: String
+    AllowedValues:
+      - VALIDATE
+      - LIVE
+    Default: VALIDATE
+  FirebaseSecretId:
+    Type: String
+    Description: Firebase service account를 저장한 Secrets Manager secret ARN
+  WebhookSecretId:
+    Type: String
+    Description: Webhook credential을 저장한 Secrets Manager secret ARN
+  EmailFromAddress:
+    Type: String
+  EmailFromName:
+    Type: String
+    Default: University MakeUs Challenge
+  SesConfigurationSet:
+    Type: String
+    Default: ""
+
+Conditions:
+  IsDeliveryEnabled: !Equals [!Ref DeliveryEnabled, "true"]
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    Architectures:
+      - arm64
+    AutoPublishAlias: live
+    MemorySize: 256
+    Timeout: 30
+    Tracing: Active
+    LoggingConfig:
+      LogFormat: JSON
+      ApplicationLogLevel: INFO
+      SystemLogLevel: WARN
+    Environment:
+      Variables:
+        NODE_OPTIONS: --enable-source-maps
+        POWERTOOLS_SERVICE_NAME: umc-product-notification
+        POWERTOOLS_METRICS_NAMESPACE: UMCProduct/Notification
+        INSTALLATIONS_TABLE: !Ref NotificationInstallations
+        TOKEN_OWNERS_TABLE: !Ref NotificationTokenOwners
+        DELIVERIES_TABLE: !Ref NotificationDeliveries
+        EVENT_BUS_NAME: !Ref NotificationEventBus
+        FCM_BATCH_QUEUE_URL: !Ref FcmBatchQueue
+        WEBHOOK_QUEUE_URL: !Ref WebhookQueue
+        FIREBASE_SECRET_ID: !Ref FirebaseSecretId
+        WEBHOOK_SECRET_ID: !Ref WebhookSecretId
+        EMAIL_FROM_ADDRESS: !Ref EmailFromAddress
+        EMAIL_FROM_NAME: !Ref EmailFromName
+        SES_CONFIGURATION_SET: !Ref SesConfigurationSet
+        DELIVERY_MODE: !Ref DeliveryMode
+
+Resources:
+  NotificationKmsKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: !Sub UMC PRODUCT ${Environment} notification encryption key
+      EnableKeyRotation: true
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: EnableAccountAdministration
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: "*"
+          - Sid: AllowNotificationAwsServices
+            Effect: Allow
+            Principal:
+              Service:
+                - dynamodb.amazonaws.com
+                - events.amazonaws.com
+                - sns.amazonaws.com
+                - sqs.amazonaws.com
+            Action:
+              - kms:CreateGrant
+              - kms:Decrypt
+              - kms:DescribeKey
+              - kms:GenerateDataKey*
+              - kms:ReEncrypt*
+            Resource: "*"
+
+  NotificationKmsAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/umc-product-${Environment}-notification
+      TargetKeyId: !Ref NotificationKmsKey
+
+  NotificationEventBus:
+    Type: AWS::Events::EventBus
+    Properties:
+      Name: !Sub umc-product-${Environment}-notification
+      KmsKeyIdentifier: !GetAtt NotificationKmsKey.Arn
+
+  NotificationInstallations:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub umc-product-${Environment}-notification-installations
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      AttributeDefinitions:
+        - AttributeName: installationId
+          AttributeType: S
+        - AttributeName: memberStatusKey
+          AttributeType: S
+        - AttributeName: registeredAt
+          AttributeType: S
+        - AttributeName: validationStatusKey
+          AttributeType: S
+        - AttributeName: lastValidatedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: installationId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: member-status-index
+          KeySchema:
+            - AttributeName: memberStatusKey
+              KeyType: HASH
+            - AttributeName: registeredAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+        - IndexName: validation-status-index
+          KeySchema:
+            - AttributeName: validationStatusKey
+              KeyType: HASH
+            - AttributeName: lastValidatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  NotificationTokenOwners:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub umc-product-${Environment}-notification-token-owners
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      AttributeDefinitions:
+        - AttributeName: tokenHash
+          AttributeType: S
+      KeySchema:
+        - AttributeName: tokenHash
+          KeyType: HASH
+
+  NotificationDeliveries:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: !Sub umc-product-${Environment}-notification-deliveries
+      BillingMode: PAY_PER_REQUEST
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+        SSEType: KMS
+        KMSMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      AttributeDefinitions:
+        - AttributeName: eventId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: eventId
+          KeyType: HASH
+
+  FcmRequestDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-fcm-request-dlq
+      MessageRetentionPeriod: 1209600
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+
+  FcmRequestQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-fcm-request
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 86400
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt FcmRequestDlq.Arn
+        maxReceiveCount: 5
+
+  FcmBatchDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-fcm-batch-dlq
+      MessageRetentionPeriod: 1209600
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+
+  FcmBatchQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-fcm-batch
+      VisibilityTimeout: 720
+      MessageRetentionPeriod: 86400
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt FcmBatchDlq.Arn
+        maxReceiveCount: 5
+
+  EmailDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-email-dlq
+      MessageRetentionPeriod: 1209600
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+
+  EmailQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-email
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 86400
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt EmailDlq.Arn
+        maxReceiveCount: 5
+
+  WebhookDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-webhook-dlq
+      MessageRetentionPeriod: 1209600
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+
+  WebhookQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-webhook
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 86400
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt WebhookDlq.Arn
+        maxReceiveCount: 5
+
+  DeliveryResultDlq:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-result-dlq
+      MessageRetentionPeriod: 1209600
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+
+  DeliveryResultQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub umc-product-${Environment}-notification-result
+      VisibilityTimeout: 180
+      MessageRetentionPeriod: 345600
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+      KmsDataKeyReusePeriodSeconds: 300
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt DeliveryResultDlq.Arn
+        maxReceiveCount: 5
+
+  EventBridgeQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      Queues:
+        - !Ref FcmRequestQueue
+        - !Ref EmailQueue
+        - !Ref WebhookQueue
+        - !Ref DeliveryResultQueue
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowEventBridgeFcm
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt FcmRequestQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt FcmRequestRule.Arn
+          - Sid: AllowEventBridgeEmail
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt EmailQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt EmailRequestRule.Arn
+          - Sid: AllowEventBridgeWebhook
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt WebhookQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt WebhookRequestRule.Arn
+          - Sid: AllowEventBridgeResult
+            Effect: Allow
+            Principal:
+              Service: events.amazonaws.com
+            Action: sqs:SendMessage
+            Resource: !GetAtt DeliveryResultQueue.Arn
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt EmailResultRule.Arn
+
+  FcmRequestRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref NotificationEventBus
+      EventPattern:
+        detail-type:
+          - notification.fcm.requested.v1
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt FcmRequestQueue.Arn
+          Id: FcmRequestQueue
+
+  EmailRequestRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref NotificationEventBus
+      EventPattern:
+        detail-type:
+          - authentication.email.verification.requested.v1
+          - recruiting.interview.email.requested.v1
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt EmailQueue.Arn
+          Id: EmailQueue
+
+  WebhookRequestRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref NotificationEventBus
+      EventPattern:
+        detail-type:
+          - notification.webhook.requested.v1
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WebhookQueue.Arn
+          Id: WebhookQueue
+
+  EmailResultRule:
+    Type: AWS::Events::Rule
+    Properties:
+      EventBusName: !Ref NotificationEventBus
+      EventPattern:
+        detail-type:
+          - notification.email.accepted.v1
+          - notification.email.failed.v1
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt DeliveryResultQueue.Arn
+          Id: DeliveryResultQueue
+
+  FcmInstallationCommandFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub umc-product-${Environment}-notification-fcm-installation
+      CodeUri: ../../services/notification
+      Handler: src/handlers/fcm-installation-command.handler
+      ReservedConcurrentExecutions: 20
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationInstallations
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationTokenOwners
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt NotificationKmsKey.Arn
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/fcm-installation-command.ts
+        Format: esm
+        Minify: false
+        Sourcemap: true
+        Target: es2024
+        OutExtension:
+          - .js=.mjs
+
+  FcmRequestResolverFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub umc-product-${Environment}-notification-fcm-resolver
+      CodeUri: ../../services/notification
+      Handler: src/handlers/fcm-request-resolver.handler
+      ReservedConcurrentExecutions: 5
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref NotificationInstallations
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationDeliveries
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt FcmBatchQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt NotificationKmsKey.Arn
+      Events:
+        FcmRequest:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt FcmRequestQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            Enabled: !If [IsDeliveryEnabled, true, false]
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/fcm-request-resolver.ts
+        Format: esm
+        Minify: false
+        Sourcemap: true
+        Target: es2024
+        OutExtension:
+          - .js=.mjs
+
+  FcmBatchSenderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub umc-product-${Environment}-notification-fcm-sender
+      CodeUri: ../../services/notification
+      Handler: src/handlers/fcm-batch-sender.handler
+      MemorySize: 512
+      Timeout: 120
+      ReservedConcurrentExecutions: 10
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationInstallations
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationTokenOwners
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationDeliveries
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt FcmBatchQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref FirebaseSecretId
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt NotificationKmsKey.Arn
+      Events:
+        FcmBatch:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt FcmBatchQueue.Arn
+            BatchSize: 1
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            Enabled: !If [IsDeliveryEnabled, true, false]
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/fcm-batch-sender.ts
+        Format: esm
+        Minify: false
+        Sourcemap: true
+        Target: es2024
+        OutExtension:
+          - .js=.mjs
+
+  FcmTokenValidatorFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub umc-product-${Environment}-notification-fcm-validator
+      CodeUri: ../../services/notification
+      Handler: src/handlers/fcm-token-validator.handler
+      ReservedConcurrentExecutions: 5
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationInstallations
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationTokenOwners
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref FirebaseSecretId
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt NotificationKmsKey.Arn
+      Events:
+        DailyValidation:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(1 day)
+            State: !If [IsDeliveryEnabled, ENABLED, DISABLED]
+            FlexibleTimeWindow:
+              Mode: "OFF"
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/fcm-token-validator.ts
+        Format: esm
+        Minify: false
+        Sourcemap: true
+        Target: es2024
+        OutExtension:
+          - .js=.mjs
+
+  EmailSenderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub umc-product-${Environment}-notification-email-sender
+      CodeUri: ../../services/notification
+      Handler: src/handlers/email-sender.handler
+      ReservedConcurrentExecutions: 5
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationDeliveries
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: "*"
+            - Effect: Allow
+              Action: events:PutEvents
+              Resource: !GetAtt NotificationEventBus.Arn
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt NotificationKmsKey.Arn
+      Events:
+        EmailRequest:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt EmailQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            Enabled: !If [IsDeliveryEnabled, true, false]
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/email-sender.ts
+        Format: esm
+        Minify: false
+        Sourcemap: true
+        Target: es2024
+        OutExtension:
+          - .js=.mjs
+
+  WebhookSenderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub umc-product-${Environment}-notification-webhook-sender
+      CodeUri: ../../services/notification
+      Handler: src/handlers/webhook-sender.handler
+      ReservedConcurrentExecutions: 5
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotificationDeliveries
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt WebhookQueue.QueueName
+        - Statement:
+            - Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource: !Ref WebhookSecretId
+            - Effect: Allow
+              Action:
+                - kms:Decrypt
+                - kms:GenerateDataKey
+              Resource: !GetAtt NotificationKmsKey.Arn
+      Events:
+        WebhookRequest:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt WebhookQueue.Arn
+            BatchSize: 5
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
+            Enabled: !If [IsDeliveryEnabled, true, false]
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        EntryPoints:
+          - src/handlers/webhook-sender.ts
+        Format: esm
+        Minify: false
+        Sourcemap: true
+        Target: es2024
+        OutExtension:
+          - .js=.mjs
+
+  FcmInstallationCommandLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FcmInstallationCommandFunction}
+      RetentionInDays: 30
+
+  FcmRequestResolverLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FcmRequestResolverFunction}
+      RetentionInDays: 30
+
+  FcmBatchSenderLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FcmBatchSenderFunction}
+      RetentionInDays: 30
+
+  FcmTokenValidatorLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${FcmTokenValidatorFunction}
+      RetentionInDays: 30
+
+  EmailSenderLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${EmailSenderFunction}
+      RetentionInDays: 30
+
+  WebhookSenderLogGroup:
+    Type: AWS::Logs::LogGroup
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${WebhookSenderFunction}
+      RetentionInDays: 30
+
+  NotificationAlarmTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub umc-product-${Environment}-notification-alarms
+      KmsMasterKeyId: !GetAtt NotificationKmsKey.Arn
+
+  FcmRequestDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-request-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt FcmRequestDlq.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmBatchDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-batch-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt FcmBatchDlq.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  EmailDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-email-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt EmailDlq.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  WebhookDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-webhook-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt WebhookDlq.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  DeliveryResultDlqAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-result-dlq
+      Namespace: AWS/SQS
+      MetricName: ApproximateNumberOfMessagesVisible
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DeliveryResultDlq.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmRequestQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-request-oldest-message
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt FcmRequestQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-oldest-message
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt FcmBatchQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  WebhookQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-webhook-oldest-message
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt WebhookQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  DeliveryResultQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-result-oldest-message
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt DeliveryResultQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmInstallationCommandErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-installation-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmInstallationCommandFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmInstallationCommandThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-installation-throttles
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmInstallationCommandFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmRequestResolverErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-resolver-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmRequestResolverFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmRequestResolverThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-resolver-throttles
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmRequestResolverFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmBatchSenderErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-sender-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmBatchSenderFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmBatchSenderThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-sender-throttles
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmBatchSenderFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmTokenValidatorErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-validator-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmTokenValidatorFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmTokenValidatorThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-validator-throttles
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref FcmTokenValidatorFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  EmailSenderErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-email-sender-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref EmailSenderFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  EmailSenderThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-email-sender-throttles
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref EmailSenderFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  WebhookSenderErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-webhook-sender-errors
+      Namespace: AWS/Lambda
+      MetricName: Errors
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WebhookSenderFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  EmailQueueAgeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-email-oldest-message
+      Namespace: AWS/SQS
+      MetricName: ApproximateAgeOfOldestMessage
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt EmailQueue.QueueName
+      Statistic: Maximum
+      Period: 60
+      EvaluationPeriods: 5
+      Threshold: 300
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  WebhookSenderThrottleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-webhook-sender-throttles
+      Namespace: AWS/Lambda
+      MetricName: Throttles
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref WebhookSenderFunction
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 0
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  FcmFailureRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-fcm-failure-rate
+      ComparisonOperator: GreaterThanThreshold
+      EvaluationPeriods: 5
+      Threshold: 5
+      TreatMissingData: notBreaching
+      Metrics:
+        - Id: failures
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: UMCProduct/Notification
+              MetricName: DeliveryFailureCount
+              Dimensions:
+                - Name: service
+                  Value: umc-product-notification
+                - Name: Channel
+                  Value: FCM
+            Period: 60
+            Stat: Sum
+        - Id: successes
+          ReturnData: false
+          MetricStat:
+            Metric:
+              Namespace: UMCProduct/Notification
+              MetricName: DeliverySuccessCount
+              Dimensions:
+                - Name: service
+                  Value: umc-product-notification
+                - Name: Channel
+                  Value: FCM
+            Period: 60
+            Stat: Sum
+        - Id: failureRate
+          Label: FCM failure rate
+          Expression: IF((failures + successes) > 0, 100 * failures / (failures + successes), 0)
+          ReturnData: true
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  SesBounceRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-ses-bounce-rate
+      Namespace: AWS/SES
+      MetricName: Reputation.BounceRate
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0.05
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+  SesComplaintRateAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: !Sub umc-product-${Environment}-notification-ses-complaint-rate
+      Namespace: AWS/SES
+      MetricName: Reputation.ComplaintRate
+      Statistic: Average
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 0.001
+      ComparisonOperator: GreaterThanThreshold
+      TreatMissingData: notBreaching
+      AlarmActions:
+        - !Ref NotificationAlarmTopic
+
+Outputs:
+  EventBusName:
+    Value: !Ref NotificationEventBus
+  EventBusArn:
+    Value: !GetAtt NotificationEventBus.Arn
+  KmsKeyArn:
+    Value: !GetAtt NotificationKmsKey.Arn
+  FcmInstallationFunctionName:
+    Value: !Sub ${FcmInstallationCommandFunction}:live
+  DeliveryResultQueueUrl:
+    Value: !Ref DeliveryResultQueue
+  NotificationAlarmTopicArn:
+    Value: !Ref NotificationAlarmTopic

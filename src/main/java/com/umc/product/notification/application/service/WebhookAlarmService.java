@@ -6,11 +6,14 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 
+import com.umc.product.global.config.notification.NotificationTransportProperties;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.notification.application.event.WebhookRequestedIntegrationEvent;
 import com.umc.product.notification.application.port.in.SendWebhookAlarmUseCase;
 import com.umc.product.notification.application.port.in.dto.SendWebhookAlarmCommand;
 import com.umc.product.notification.application.port.out.SendWebhookPort;
@@ -27,18 +30,37 @@ public class WebhookAlarmService implements SendWebhookAlarmUseCase {
     private final String profilePrefix;
     private final OperationalMetrics operationalMetrics;
     private final DomainEventPublisher eventPublisher;
+    private final NotificationTransportProperties transportProperties;
 
+    @Autowired
     public WebhookAlarmService(
         List<SendWebhookPort> adapters,
         Environment environment,
         OperationalMetrics operationalMetrics,
-        DomainEventPublisher eventPublisher
+        DomainEventPublisher eventPublisher,
+        NotificationTransportProperties transportProperties
     ) {
         this.adapterMap = adapters.stream()
             .collect(Collectors.toMap(SendWebhookPort::platform, Function.identity()));
         this.profilePrefix = buildProfilePrefix(environment);
         this.operationalMetrics = operationalMetrics;
         this.eventPublisher = eventPublisher;
+        this.transportProperties = transportProperties;
+    }
+
+    WebhookAlarmService(
+        List<SendWebhookPort> adapters,
+        Environment environment,
+        OperationalMetrics operationalMetrics,
+        DomainEventPublisher eventPublisher
+    ) {
+        this(
+            adapters,
+            environment,
+            operationalMetrics,
+            eventPublisher,
+            NotificationTransportProperties.local()
+        );
     }
 
     @Override
@@ -51,9 +73,20 @@ public class WebhookAlarmService implements SendWebhookAlarmUseCase {
 
     @Override
     public void sendBuffered(SendWebhookAlarmCommand command) {
-        eventPublisher.publish(WebhookAlarmEvent.of(command.platforms(), command.title(), command.content()));
-        log.debug("웹훅 알람 이벤트 발행: platforms={}, contentLength={}",
-            command.platforms(), command.content().length());
+        WebhookAlarmEvent localEvent =
+            WebhookAlarmEvent.of(command.platforms(), command.title(), command.content());
+        if (transportProperties.transport().sendsLocally()) {
+            eventPublisher.publish(localEvent);
+        }
+        if (transportProperties.transport().sendsExternally()) {
+            eventPublisher.publish(WebhookRequestedIntegrationEvent.from(localEvent));
+        }
+        log.debug(
+            "웹훅 알람 이벤트 발행: transport={}, platforms={}, contentLength={}",
+            transportProperties.transport(),
+            command.platforms(),
+            command.content().length()
+        );
     }
 
     private void trySend(WebhookPlatform platform, String title, String content) {

@@ -1,0 +1,308 @@
+asyncapi: 3.0.0
+info:
+  title: UMC PRODUCT Notification Integration Events
+  version: 1.0.0
+  description: Java producer와 Node.js Notification Lambda 사이의 비동기 계약입니다.
+defaultContentType: application/json
+channels:
+  notificationFcmRequested:
+    address: notification.fcm.requested.v1
+    messages:
+      notificationFcmRequested:
+        $ref: "#/components/messages/NotificationFcmRequested"
+  authenticationEmailVerificationRequested:
+    address: authentication.email.verification.requested.v1
+    messages:
+      authenticationEmailVerificationRequested:
+        $ref: "#/components/messages/AuthenticationEmailVerificationRequested"
+  recruitingInterviewEmailRequested:
+    address: recruiting.interview.email.requested.v1
+    messages:
+      recruitingInterviewEmailRequested:
+        $ref: "#/components/messages/RecruitingInterviewEmailRequested"
+  notificationWebhookRequested:
+    address: notification.webhook.requested.v1
+    messages:
+      notificationWebhookRequested:
+        $ref: "#/components/messages/NotificationWebhookRequested"
+  notificationEmailAccepted:
+    address: notification.email.accepted.v1
+    messages:
+      notificationEmailAccepted:
+        $ref: "#/components/messages/NotificationEmailResult"
+  notificationEmailFailed:
+    address: notification.email.failed.v1
+    messages:
+      notificationEmailFailed:
+        $ref: "#/components/messages/NotificationEmailResult"
+operations:
+  receiveFcmRequest:
+    action: receive
+    channel:
+      $ref: "#/channels/notificationFcmRequested"
+  receiveVerificationEmailRequest:
+    action: receive
+    channel:
+      $ref: "#/channels/authenticationEmailVerificationRequested"
+  receiveRecruitingEmailRequest:
+    action: receive
+    channel:
+      $ref: "#/channels/recruitingInterviewEmailRequested"
+  receiveWebhookRequest:
+    action: receive
+    channel:
+      $ref: "#/channels/notificationWebhookRequested"
+  sendEmailAccepted:
+    action: send
+    channel:
+      $ref: "#/channels/notificationEmailAccepted"
+  sendEmailFailed:
+    action: send
+    channel:
+      $ref: "#/channels/notificationEmailFailed"
+components:
+  messages:
+    NotificationFcmRequested:
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              eventType:
+                const: notification.fcm.requested.v1
+              detail:
+                $ref: "#/components/schemas/FcmRequestDetail"
+    AuthenticationEmailVerificationRequested:
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              eventType:
+                const: authentication.email.verification.requested.v1
+              detail:
+                $ref: "#/components/schemas/VerificationEmailDetail"
+    RecruitingInterviewEmailRequested:
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              eventType:
+                const: recruiting.interview.email.requested.v1
+              detail:
+                $ref: "#/components/schemas/RecruitingEmailDetail"
+    NotificationWebhookRequested:
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              eventType:
+                const: notification.webhook.requested.v1
+              detail:
+                $ref: "#/components/schemas/WebhookDetail"
+    NotificationEmailResult:
+      payload:
+        allOf:
+          - $ref: "#/components/schemas/EventEnvelope"
+          - type: object
+            properties:
+              detail:
+                $ref: "#/components/schemas/EmailResultDetail"
+  schemas:
+    EventEnvelope:
+      type: object
+      required:
+        - schemaVersion
+        - eventId
+        - eventType
+        - source
+        - occurredAt
+        - requestId
+        - detail
+      properties:
+        schemaVersion:
+          const: 1
+        eventId:
+          type: string
+          format: uuid
+        eventType:
+          type: string
+          minLength: 1
+        source:
+          type: string
+          minLength: 1
+        occurredAt:
+          type: string
+          format: date-time
+        traceparent:
+          type:
+            - string
+            - "null"
+          maxLength: 64
+        requestId:
+          type: string
+          format: uuid
+        detail:
+          type: object
+      additionalProperties: false
+    FcmRequestDetail:
+      type: object
+      required:
+        - chunkIndex
+        - chunkCount
+        - memberIds
+        - title
+        - body
+        - data
+      properties:
+        chunkIndex:
+          type: integer
+          minimum: 0
+        chunkCount:
+          type: integer
+          minimum: 1
+        memberIds:
+          type: array
+          maxItems: 500
+          uniqueItems: true
+          items:
+            type: integer
+            format: int64
+            minimum: 1
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        data:
+          type: object
+          additionalProperties:
+            type: string
+        imageUrl:
+          type:
+            - string
+            - "null"
+          format: uri
+        deepLink:
+          type:
+            - string
+            - "null"
+          maxLength: 2048
+      additionalProperties: false
+    VerificationEmailDetail:
+      type: object
+      required:
+        - email
+        - verificationCode
+        - expiresAt
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        verificationCode:
+          type: string
+          pattern: "^[0-9]{6}$"
+        expiresAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+    RecruitingEmailDetail:
+      type: object
+      required:
+        - applicationId
+        - email
+        - applicantName
+        - availabilityFormId
+        - contactText
+      properties:
+        applicationId:
+          type: integer
+          format: int64
+          minimum: 1
+        email:
+          type: string
+          format: email
+          maxLength: 320
+        applicantName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        availabilityFormId:
+          type: integer
+          format: int64
+          minimum: 1
+        contactText:
+          type: string
+          maxLength: 1000
+      additionalProperties: false
+    WebhookDetail:
+      type: object
+      required:
+        - platforms
+        - title
+        - content
+        - attempt
+      properties:
+        platforms:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items:
+            enum:
+              - TELEGRAM
+              - DISCORD
+              - SLACK
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        attempt:
+          type: integer
+          minimum: 1
+          maximum: 5
+      additionalProperties: false
+    EmailResultDetail:
+      type: object
+      required:
+        - correlationType
+        - correlationId
+        - status
+        - attemptedAt
+      properties:
+        correlationType:
+          enum:
+            - EMAIL_VERIFICATION
+            - RECRUITING_INTERVIEW
+        correlationId:
+          type: string
+          minLength: 1
+          maxLength: 100
+        status:
+          enum:
+            - ACCEPTED
+            - FAILED
+            - EXPIRED
+        providerMessageId:
+          type:
+            - string
+            - "null"
+          maxLength: 200
+        failureCode:
+          type:
+            - string
+            - "null"
+          maxLength: 100
+        attemptedAt:
+          type: string
+          format: date-time
+      additionalProperties: false

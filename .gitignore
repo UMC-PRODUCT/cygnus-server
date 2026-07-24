@@ -20,6 +20,7 @@ application-*.yml
 
 .gradle
 build/
+.aws-sam/
 
 ### STS ###
 .apt_generated
@@ -265,3 +266,5 @@ phases/
 scripts/
 !.github/scripts/
 !.github/scripts/**
+!services/notification/scripts/
+!services/notification/scripts/**
