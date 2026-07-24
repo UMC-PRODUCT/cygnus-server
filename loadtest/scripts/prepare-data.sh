@@ -223,13 +223,18 @@ seed_bulk() {
 
   echo "[bulk] $ssh_user@$sut_ip 에서 seeder 컨테이너 실행 (members=$count, seed=$seed)"
   # app.env(dev profile·RDS 접속)를 그대로 쓰되 -e 오버라이드로 seeder 프로파일·웹서버 off 를 얹는다.
-  # valkey 호스트가 compose 서비스명이라 compose 네트워크(umc_default)에 붙여서 실행한다.
+  # 이미지·네트워크는 하드코딩하지 않고 "실행 중인 app 컨테이너"에서 그대로 뽑는다
+  # (valkey 호스트를 compose 서비스명으로 해석하려면 같은 네트워크에 붙어야 하기 때문).
   ssh "${ssh_opts[@]}" "$ssh_user@$sut_ip" "sudo bash -s" <<REMOTE
 set -euo pipefail
 cd /opt/umc
-IMAGE="\$(docker compose config --images | grep -vE 'valkey|node-exporter' | head -1)"
+APP_CID="\$(docker compose ps -q app)"
+[ -n "\$APP_CID" ] || { echo "app 컨테이너가 실행 중이 아닙니다 — 앱 기동(compose up)·health 확인 후 다시 실행하세요" >&2; exit 1; }
+IMAGE="\$(docker inspect "\$APP_CID" | jq -r '.[0].Config.Image')"
+NETWORK="\$(docker inspect "\$APP_CID" | jq -r '.[0].NetworkSettings.Networks | keys[0]')"
+echo "[bulk-remote] image=\$IMAGE network=\$NETWORK"
 install -d -m 777 /opt/umc/seed-out
-docker run --rm --network umc_default --env-file /opt/umc/app.env \
+docker run --rm --network "\$NETWORK" --env-file /opt/umc/app.env \
   -e SPRING_PROFILES_ACTIVE=dev,seeder \
   -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
   -e APP_BULK_SEED_MEMBER_COUNT=$count \
