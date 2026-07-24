@@ -14,6 +14,8 @@
 
 ## 구조
 
+- `diagnosis.md` — 메트릭 읽는 법 (증상 조합 매트릭스·커넥션 풀·시나리오 설계·혼합 테스트)
+
 - `runs/_template/` — summary.md 템플릿 (new-run.sh 가 사용)
 - `runs/<YYYY-MM-DD>-<이름>/` — 실행 단위 기록. 스크린샷도 같은 디렉터리에 둔다.
 

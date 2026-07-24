@@ -110,6 +110,8 @@ k6 요약(.summary.json)을 실행마다 이 디렉터리에 자동 저장한다
 
 ## 3. 결과 보기
 
+> 대시보드에서 병목을 판정하는 법(증상 조합 매트릭스)은 `docs/loadtest/diagnosis.md`.
+
 ```bash
 # Grafana — 브라우저 바로 접속 (ID: admin)
 terraform -chdir=loadtest/terraform output -raw grafana_url
