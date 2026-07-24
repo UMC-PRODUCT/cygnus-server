@@ -1,10 +1,11 @@
 {
   "uid": "k6-load-test",
   "title": "부하 테스트 (k6)",
-  "description": "k6 remote-write 지표 대시보드. 실행: loadtest/scripts/run-k6.sh — SUT 리소스는 node-exporter-host, 앱 내부는 server-default 대시보드와 같이 본다.",
+  "description": "부하 테스트 종합 — ①판정(k6) ②SUT앱 ③DB내부 ④호스트 USE ⑤RDS 호스트 USE. 같은 시간축에서 위→아래로 인과를 추적한다. 실행: loadtest/scripts/run-k6.sh",
   "tags": [
     "load-test",
-    "k6"
+    "k6",
+    "use-method"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
@@ -16,16 +17,29 @@
   "panels": [
     {
       "id": 1,
+      "type": "row",
+      "title": "① 부하 판정 (k6)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 2,
       "type": "timeseries",
       "title": "요청 처리량 (RPS, 시나리오별)",
-      "description": "k6 가 보낸 초당 요청 수. RATE 를 올렸는데 여기가 안 오르면 생성기/SUT 어딘가가 포화된 것.",
+      "description": "RATE 를 올렸는데 여기가 안 오르면 어딘가 포화 — ④의 generator 부터 확인.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 1,
         "w": 12,
         "h": 8
       },
@@ -69,17 +83,17 @@
       ]
     },
     {
-      "id": 2,
+      "id": 3,
       "type": "timeseries",
-      "title": "응답시간 p95 / p99 (시나리오별, ms)",
-      "description": "시나리오(요청 태그)별 p95/p99. SLO 판정 기준.",
+      "title": "응답시간 p95 / p99 (시나리오별)",
+      "description": "SLO 판정 기준. 튀면 ↓ 아래 행들에서 원인 추적.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 0,
+        "y": 1,
         "w": 12,
         "h": 8
       },
@@ -132,18 +146,18 @@
       ]
     },
     {
-      "id": 3,
+      "id": 4,
       "type": "timeseries",
-      "title": "시나리오 에러율 (umc_scenario_errors)",
-      "description": "상태코드 체크 실패 비율(시나리오별 커스텀 Rate). 0 이어야 정상.",
+      "title": "시나리오 에러율",
+      "description": "상태코드 체크 실패 비율(커스텀 Rate). 0 이어야 정상.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 8,
-        "w": 12,
+        "y": 9,
+        "w": 8,
         "h": 8
       },
       "fieldConfig": {
@@ -154,7 +168,9 @@
             "lineWidth": 2,
             "fillOpacity": 12,
             "showPoints": "never"
-          }
+          },
+          "max": 1,
+          "min": 0
         },
         "overrides": []
       },
@@ -186,18 +202,18 @@
       ]
     },
     {
-      "id": 4,
+      "id": 5,
       "type": "timeseries",
-      "title": "HTTP 실패율 · 체크 성공률 (전체)",
+      "title": "HTTP 실패율 · 체크 성공률",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 8,
-        "w": 12,
+        "x": 8,
+        "y": 9,
+        "w": 8,
         "h": 8
       },
       "fieldConfig": {
@@ -208,7 +224,9 @@
             "lineWidth": 2,
             "fillOpacity": 12,
             "showPoints": "never"
-          }
+          },
+          "max": 1,
+          "min": 0
         },
         "overrides": []
       },
@@ -249,19 +267,19 @@
       ]
     },
     {
-      "id": 5,
+      "id": 6,
       "type": "timeseries",
-      "title": "가상 사용자 (VUs)",
+      "title": "VUs · 반복률",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 0,
-        "y": 16,
+        "x": 16,
+        "y": 9,
         "w": 8,
-        "h": 7
+        "h": 8
       },
       "fieldConfig": {
         "defaults": {
@@ -299,13 +317,327 @@
           },
           "expr": "k6_vus",
           "legendFormat": "VUs"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(k6_iterations_total[$__rate_interval]))",
+          "legendFormat": "iterations/s"
         }
       ]
     },
     {
-      "id": 6,
+      "id": 7,
+      "type": "row",
+      "title": "② SUT 앱 내부 (Hikari·Tomcat·JVM) — 지표명은 첫 부팅 때 검증",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 8,
       "type": "timeseries",
-      "title": "반복 수행률 (iterations/s)",
+      "title": "Hikari 커넥션 풀",
+      "description": "pending>0 지속 = 풀 고갈. DB 병목의 앱쪽 첫 증상 — ③·⑤와 같이 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "hikaricp_connections_active",
+          "legendFormat": "active"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "hikaricp_connections_idle",
+          "legendFormat": "idle"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "hikaricp_connections_pending",
+          "legendFormat": "pending (대기 스레드)"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "hikaricp_connections_max",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Tomcat 스레드",
+      "description": "busy 가 max 에 붙으면 서버 스레드 포화.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "{__name__=~\"tomcat_threads_busy(_threads)?\"}",
+          "legendFormat": "busy"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "{__name__=~\"tomcat_threads_config_max(_threads)?\"}",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "JVM 힙 · GC",
+      "description": "GC pause 가 계단식으로 늘면 힙 압박 — soak 에서 특히 주시.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 18,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})",
+          "legendFormat": "heap used"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})",
+          "legendFormat": "heap max"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum[$__rate_interval]))",
+          "legendFormat": "GC pause s/s"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "③ DB 내부 (postgres-exporter)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 26,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "커넥션 (상태별) vs max",
+      "description": "active 급증 + ② pending 증가 = 커넥션 병목. idle in transaction 누적도 위험 신호.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (state) (pg_stat_activity_count)",
+          "legendFormat": "{{state}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "pg_settings_max_connections",
+          "legendFormat": "max_connections"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "TPS (commit/rollback)",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -313,8 +645,367 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 16,
+        "y": 27,
         "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_xact_commit{datname!~\"template.*|\"}[$__rate_interval]))",
+          "legendFormat": "commit/s"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_xact_rollback{datname!~\"template.*|\"}[$__rate_interval]))",
+          "legendFormat": "rollback/s"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "캐시 적중률",
+      "description": "0.99 아래로 지속 하락하면 워킹셋이 shared_buffers 를 넘은 것.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 27,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_blks_hit[$__rate_interval])) / (sum(rate(pg_stat_database_blks_hit[$__rate_interval])) + sum(rate(pg_stat_database_blks_read[$__rate_interval])))",
+          "legendFormat": "buffer cache hit"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "락 (mode 별)",
+      "description": "Exclusive 계열 급증 = 경합. ① p95 튐과 같은 시각이면 유력 원인.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 35,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (mode) (pg_locks_count)",
+          "legendFormat": "{{mode}}"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "임시파일 쓰기 (S)",
+      "description": "정렬/해시가 work_mem 을 넘어 디스크로 — 쿼리 튜닝 신호.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 35,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_temp_bytes[$__rate_interval]))",
+          "legendFormat": "temp bytes/s"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "데드락 · 충돌 (E)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 35,
+        "w": 8,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_deadlocks[$__rate_interval]))",
+          "legendFormat": "deadlocks/s"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(pg_stat_database_conflicts[$__rate_interval]))",
+          "legendFormat": "conflicts/s"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "row",
+      "title": "④ 호스트 USE — SUT vs generator (role 라벨로 비교)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "CPU — U (사용률)",
+      "description": "generator 가 SUT 보다 먼저 100% 에 붙으면 측정 무효 — 생성기 병목.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "1 - avg by (role) (rate(node_cpu_seconds_total{mode=\"idle\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "CPU — S (run queue / core)",
+      "description": "1 초과 지속 = 실행 대기 스레드가 코어 수보다 많음(포화).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 44,
+        "w": 6,
         "h": 7
       },
       "fieldConfig": {
@@ -351,24 +1042,253 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(k6_iterations_total[$__rate_interval]))",
-          "legendFormat": "iterations/s"
+          "expr": "node_load1{role=~\"sut|generator\"} / on(role) group_left count by (role) (node_cpu_seconds_total{mode=\"idle\",role=~\"sut|generator\"})",
+          "legendFormat": "{{role}}"
         }
       ]
     },
     {
-      "id": 7,
+      "id": 21,
       "type": "timeseries",
-      "title": "전송/수신 (bytes/s)",
+      "title": "Memory — U (사용률)",
+      "description": "MemAvailable 기준 — 캐시는 사용량에서 제외(회수 가능).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 44,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "1 - node_memory_MemAvailable_bytes{role=~\"sut|generator\"} / node_memory_MemTotal_bytes{role=~\"sut|generator\"}",
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Memory — S (anonymous paging)",
+      "description": "swap in/out 발생 자체가 메모리 포화. major fault 급증도 같은 신호.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 44,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_vmstat_pswpin{role=~\"sut|generator\"}[$__rate_interval]) + rate(node_vmstat_pswpout{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "swap io {{role}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_vmstat_pgmajfault{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "major faults {{role}}"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Disk — U (busy %)",
       "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 16,
-        "w": 8,
+        "x": 0,
+        "y": 51,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          },
+          "max": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (role) (rate(node_disk_io_time_seconds_total{role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Disk — S (avg queue)",
+      "description": "1 이상 지속 = IO 대기 큐 형성(포화).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 51,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max by (role) (rate(node_disk_io_time_weighted_seconds_total{role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Network — U (throughput)",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 51,
+        "w": 6,
         "h": 7
       },
       "fieldConfig": {
@@ -405,8 +1325,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(k6_data_sent_total[$__rate_interval]))",
-          "legendFormat": "sent"
+          "expr": "sum by (role) (rate(node_network_receive_bytes_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "rx {{role}}"
         },
         {
           "refId": "B",
@@ -414,8 +1334,596 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(k6_data_received_total[$__rate_interval]))",
-          "legendFormat": "received"
+          "expr": "sum by (role) (rate(node_network_transmit_bytes_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "tx {{role}}"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "Network — S·E (drops·errs)",
+      "description": "EC2 게스트에선 HW E(ECC 등)가 안 보인다 — NIC drop/err 가 관측 가능한 E.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 51,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (role) (rate(node_network_receive_drop_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_drop_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "drops {{role}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (role) (rate(node_network_receive_errs_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_errs_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "errs {{role}}"
+        }
+      ]
+    },
+    {
+      "id": 27,
+      "type": "row",
+      "title": "⑤ DB 호스트 USE — RDS (CloudWatch, monitoring role 권한 필요)",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 58,
+        "w": 24,
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "CPU — U (%)",
+      "description": "RDS 호스트 CPU. ③ TPS 정체 + 여기 100% = CPU 바운드.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 59,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "CPUUtilization",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Memory — U·S (Freeable·Swap)",
+      "description": "FreeableMemory 바닥 + SwapUsage 증가 = 메모리 포화.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 59,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "FreeableMemory",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "SwapUsage",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "커넥션 수",
+      "description": "",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 59,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "DatabaseConnections",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "timeseries",
+      "title": "Disk — U (IOPS)",
+      "description": "",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 66,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "iops",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "ReadIOPS",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "WriteIOPS",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Disk — S (QueueDepth·Latency)",
+      "description": "QueueDepth 상승 = IO 포화. gp3 baseline 소진 여부는 IOPS 와 같이 본다.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 66,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "DiskQueueDepth",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "ReadLatency",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "WriteLatency",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Network — U (throughput)",
+      "description": "",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 66,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "calcs": [
+            "mean",
+            "max",
+            "lastNotNull"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "NetworkReceiveThroughput",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "NetworkTransmitThroughput",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
         }
       ]
     }

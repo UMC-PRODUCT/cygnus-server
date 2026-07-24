@@ -16,6 +16,7 @@ resource "aws_instance" "monitoring" {
   instance_type          = var.monitoring_instance_type
   subnet_id              = aws_subnet.primary.id
   private_ip             = local.monitoring_private_ip
+  iam_instance_profile   = aws_iam_instance_profile.monitoring.name
   vpc_security_group_ids = [aws_security_group.monitoring.id]
   key_name               = var.key_name
 
