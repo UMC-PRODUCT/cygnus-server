@@ -5,7 +5,8 @@ set -euo pipefail
 exec > >(tee /var/log/umc-load-test-monitoring-user-data.log | logger -t user-data -s 2>/dev/console) 2>&1
 
 # Docker compose 기반 기존 monitoring stack 을 그대로 재사용한다.
-dnf -y install docker git curl
+# AL2023 은 curl-minimal 기본 탑재 — curl 을 설치 목록에 넣으면 패키지 충돌로 dnf 가 실패한다
+dnf -y install docker git
 systemctl enable --now docker
 
 case "$(uname -m)" in

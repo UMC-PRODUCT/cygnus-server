@@ -6,7 +6,8 @@ exec > >(tee /var/log/umc-load-test-generator-user-data.log | logger -t user-dat
 
 # generator 는 k6 실행과 host metric 수집만 담당한다. 앱/관측 컨테이너는 올리지 않는다.
 # user-data 는 "부팅 시 설치/구성"까지만 책임진다. k6 스크립트 업로드/실행은 로컬 loadtest/scripts/*.sh 가 맡는다.
-dnf -y install docker curl
+# AL2023 은 curl-minimal 기본 탑재 — curl 을 설치 목록에 넣으면 패키지 충돌로 dnf 가 실패한다
+dnf -y install docker
 systemctl enable --now docker
 
 case "$(uname -m)" in
