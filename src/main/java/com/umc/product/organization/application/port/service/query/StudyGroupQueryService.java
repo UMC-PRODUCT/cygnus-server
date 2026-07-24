@@ -1,22 +1,5 @@
 package com.umc.product.organization.application.port.service.query;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
-import com.umc.product.organization.application.port.in.query.GetStudyGroupUseCase;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
-import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
-import com.umc.product.organization.domain.StudyGroup;
-import com.umc.product.organization.domain.StudyGroupMember;
-import com.umc.product.organization.domain.StudyGroupMentor;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -24,9 +7,29 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.GetStudyGroupUseCase;
+import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
+import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
+import com.umc.product.organization.domain.StudyGroup;
+import com.umc.product.organization.domain.StudyGroupMember;
+import com.umc.product.organization.domain.StudyGroupMentor;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -164,6 +167,16 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
     @Override
     public Optional<StudyGroupInfo> findById(Long studyGroupId) {
         return loadStudyGroupPort.findEntityById(studyGroupId)
+            .map(StudyGroupInfo::from);
+    }
+
+    @Override
+    public Optional<StudyGroupInfo> findByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    ) {
+        return loadStudyGroupPort.findEntityByMemberIdAndGisuIdAndPart(memberId, gisuId, part)
             .map(StudyGroupInfo::from);
     }
 

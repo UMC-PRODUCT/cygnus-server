@@ -1,7 +1,10 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 
-import com.umc.product.curriculum.domain.WeeklyBestWorkbook;
 import java.util.List;
+
+import com.umc.product.curriculum.application.port.in.query.dto.WeeklyBestWorkbookInfo;
+import com.umc.product.curriculum.domain.WeeklyBestWorkbook;
+
 import lombok.Builder;
 
 /**
@@ -23,4 +26,16 @@ public record BestWorkbookResponse(
     String reason,
     List<ChallengerWorkbookResponse> challengerWorkbooks
 ) {
+    public static BestWorkbookResponse from(WeeklyBestWorkbookInfo info) {
+        return BestWorkbookResponse.builder()
+            .weeklyBestWorkbookEntityId(info.weeklyBestWorkbookEntityId())
+            .memberId(info.challengerId())
+            .studyGroupId(info.studyGroupId())
+            .decidedMemberId(info.decidedMemberId())
+            .reason(info.reason())
+            .challengerWorkbooks(info.challengerWorkbooks().stream()
+                .map(ChallengerWorkbookResponse::from)
+                .toList())
+            .build();
+    }
 }

@@ -1,9 +1,23 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.request;
 
+import com.umc.product.curriculum.application.port.in.command.dto.workbook.CreateWeeklyBestWorkbookCommand;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
 public record CreateBestWorkbookRequest(
-    Long bestMemberId,
-    Long weeklyCurriculumId,
-    Long studyGroupId, // NOT NULL!
-    String reason
+    @NotNull Long bestMemberId,
+    @NotNull Long weeklyCurriculumId,
+    @NotNull Long studyGroupId,
+    @NotBlank String reason
 ) {
+    public CreateWeeklyBestWorkbookCommand toCommand(Long decidedMemberId) {
+        return CreateWeeklyBestWorkbookCommand.builder()
+            .decidedMemberId(decidedMemberId)
+            .bestMemberId(bestMemberId)
+            .weeklyCurriculumId(weeklyCurriculumId)
+            .studyGroupId(studyGroupId)
+            .reason(reason)
+            .build();
+    }
 }

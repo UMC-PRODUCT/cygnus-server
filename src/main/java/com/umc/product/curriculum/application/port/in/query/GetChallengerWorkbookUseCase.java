@@ -18,6 +18,6 @@ public interface GetChallengerWorkbookUseCase {
      * @param challengerWorkbookId 챌린저 워크북 ID
      * @return 챌린저 워크북 상세 정보 (미션 제출물 및 피드백 포함)
      */
-    ChallengerWorkbookInfo getById(Long challengerWorkbookId);
+    ChallengerWorkbookInfo getById(Long challengerWorkbookId, Long requesterMemberId);
 
 }

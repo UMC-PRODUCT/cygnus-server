@@ -1,12 +1,16 @@
 package com.umc.product.organization.application.service;
 
-import com.umc.product.organization.application.port.in.query.GetStudyGroupScheduleUseCase;
-import com.umc.product.organization.application.port.out.query.LoadStudyGroupSchedulePort;
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.organization.application.port.in.query.GetStudyGroupScheduleUseCase;
+import com.umc.product.organization.application.port.out.query.LoadStudyGroupSchedulePort;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * StudyGroupSchedule (StudyGroup ↔ Schedule 매핑) 조회 Service.
@@ -25,5 +29,16 @@ public class StudyGroupScheduleQueryService implements GetStudyGroupScheduleUseC
             return Set.of();
         }
         return loadStudyGroupSchedulePort.findScheduleIdsByStudyGroupIds(studyGroupIds);
+    }
+
+    @Override
+    public Optional<Long> findScheduleIdByStudyGroupIdAndWeeklyCurriculumId(
+        Long studyGroupId,
+        Long weeklyCurriculumId
+    ) {
+        return loadStudyGroupSchedulePort.findScheduleIdByStudyGroupIdAndWeeklyCurriculumId(
+            studyGroupId,
+            weeklyCurriculumId
+        );
     }
 }

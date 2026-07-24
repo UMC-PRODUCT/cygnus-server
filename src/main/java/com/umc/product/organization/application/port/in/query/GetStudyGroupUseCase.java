@@ -1,14 +1,15 @@
 package com.umc.product.organization.application.port.in.query;
 
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
 
 /**
  * 스터디 그룹 조회 UseCase
@@ -40,6 +41,12 @@ public interface GetStudyGroupUseCase {
     StudyGroupInfo getById(Long studyGroupId);
 
     Optional<StudyGroupInfo> findById(Long studyGroupId);
+
+    Optional<StudyGroupInfo> findByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    );
 
     StudyGroupWithMemberAndMentorInfo getWithMemberAndMentorInfoById(Long studyGroupId);
 

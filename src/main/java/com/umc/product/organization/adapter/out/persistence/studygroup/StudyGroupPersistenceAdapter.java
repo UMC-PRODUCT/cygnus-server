@@ -1,22 +1,25 @@
 package com.umc.product.organization.adapter.out.persistence.studygroup;
 
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
-import com.umc.product.organization.application.port.out.command.SaveStudyGroupPort;
-import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
-import com.umc.product.organization.domain.StudyGroup;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Component;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
+import com.umc.product.organization.application.port.out.command.SaveStudyGroupPort;
+import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
+import com.umc.product.organization.domain.StudyGroup;
+import com.umc.product.organization.exception.OrganizationDomainException;
+import com.umc.product.organization.exception.OrganizationErrorCode;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
@@ -34,6 +37,15 @@ public class StudyGroupPersistenceAdapter implements SaveStudyGroupPort, LoadStu
     @Override
     public Optional<StudyGroup> findEntityById(Long id) {
         return studyGroupQueryRepository.findEntityById(id);
+    }
+
+    @Override
+    public Optional<StudyGroup> findEntityByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    ) {
+        return studyGroupQueryRepository.findEntityByMemberIdAndGisuIdAndPart(memberId, gisuId, part);
     }
 
     @Override

@@ -1,12 +1,12 @@
 package com.umc.product.curriculum.application.port.in.command;
 
+import java.util.List;
+
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.DeleteChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.DeployChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.EditChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.command.dto.workbook.ExcuseChallengerWorkbookCommand;
 import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
-
-import java.util.List;
 
 /**
  * 챌린저 워크북 관리 UseCase
@@ -41,7 +41,7 @@ public interface ManageChallengerWorkbookUseCase {
      * 챌린저 워크북 강제 삭제 (운영진 전용)
      * <p>
      * 부정한 방법으로 배포된 워크북을 강제 삭제합니다.
-     * 삭제 시 연관된 모든 미션 제출 기록 및 피드백도 함께 삭제됩니다.
+     * 연관된 미션 제출 또는 피드백이 있으면 삭제를 거부합니다.
      *
      * @param command 삭제 커맨드 (챌린저 워크북 ID, 요청 멤버 ID, 삭제 사유)
      */

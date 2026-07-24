@@ -64,6 +64,8 @@ public enum OrganizationErrorCode implements BaseCode {
 
     STUDY_GROUP_SCHEDULE_ATTENDANCE_POLICY_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0038",
         "스터디 그룹 일정에는 출석 정책이 필요해요. 출석 정책을 설정해주세요."),
+    STUDY_GROUP_SCHEDULE_ALREADY_EXISTS(HttpStatus.CONFLICT, "ORGANIZATION-0039",
+        "해당 스터디 그룹과 주차에 연결된 일정이 이미 있어요."),
 
     UMC_PRODUCT_MEMBER_REQUIRED(HttpStatus.BAD_REQUEST, "ORGANIZATION-0045", "UMC PRODUCT 인원은 필수입니다."),
     UMC_PRODUCT_MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "ORGANIZATION-0046", "UMC PRODUCT 인원을 찾을 수 없습니다."),

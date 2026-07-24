@@ -1,15 +1,16 @@
 package com.umc.product.organization.application.port.out.query;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
-import com.umc.product.organization.domain.StudyGroup;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
+import com.umc.product.organization.domain.StudyGroup;
 
 public interface LoadStudyGroupPort {
     // TODO: 의존성 역전 있음, 수정 필요
@@ -17,6 +18,12 @@ public interface LoadStudyGroupPort {
     StudyGroup getEntityById(Long id);
 
     Optional<StudyGroup> findEntityById(Long id);
+
+    Optional<StudyGroup> findEntityByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    );
 
     StudyGroup getByName(String name);
 

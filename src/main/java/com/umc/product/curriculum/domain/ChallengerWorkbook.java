@@ -1,6 +1,11 @@
 package com.umc.product.curriculum.domain;
 
+import java.util.Objects;
+
 import com.umc.product.common.BaseEntity;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -53,14 +58,61 @@ public class ChallengerWorkbook extends BaseEntity {
 
     @Builder(access = AccessLevel.PRIVATE)
     private ChallengerWorkbook(
-        OriginalWorkbook originalWorkbook
+        OriginalWorkbook originalWorkbook,
+        Long memberId,
+        Long studyGroupId
     ) {
+        if (originalWorkbook == null) {
+            throw new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_NOT_FOUND);
+        }
+        if (memberId == null) {
+            throw new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
+        }
         this.originalWorkbook = originalWorkbook;
+        this.memberId = memberId;
+        this.studyGroupId = studyGroupId;
+        this.isExcused = false;
     }
 
     public static ChallengerWorkbook create(
+        OriginalWorkbook originalWorkbook,
+        Long memberId,
+        Long studyGroupId
     ) {
-        return null;
+        return ChallengerWorkbook.builder()
+            .originalWorkbook(originalWorkbook)
+            .memberId(memberId)
+            .studyGroupId(studyGroupId)
+            .build();
+    }
+
+    public void edit(String content) {
+        if (content == null || content.isBlank()) {
+            throw new CurriculumDomainException(CurriculumErrorCode.SUBMISSION_REQUIRED);
+        }
+        this.content = content;
+    }
+
+    public void excuse(String reason, Long approvedMemberId) {
+        if (reason == null || reason.isBlank()) {
+            throw new CurriculumDomainException(CurriculumErrorCode.SUBMISSION_REQUIRED);
+        }
+        if (approvedMemberId == null) {
+            throw new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_ACCESS_DENIED);
+        }
+        this.isExcused = true;
+        this.excusedReason = reason;
+        this.excuseApprovedMemberId = approvedMemberId;
+    }
+
+    public boolean isOwnedBy(Long memberId) {
+        return Objects.equals(this.memberId, memberId);
+    }
+
+    public void assignStudyGroupIfAbsent(Long studyGroupId) {
+        if (this.studyGroupId == null) {
+            this.studyGroupId = Objects.requireNonNull(studyGroupId);
+        }
     }
 
 }

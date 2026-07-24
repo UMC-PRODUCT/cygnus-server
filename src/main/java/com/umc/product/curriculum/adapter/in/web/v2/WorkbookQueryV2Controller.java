@@ -4,18 +4,23 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.GetBestWorkbooksRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.BestWorkbookResponse;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.ChallengerWorkbookResponse;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.OriginalWorkbookResponse;
-import com.umc.product.global.exception.NotImplementedException;
+import com.umc.product.curriculum.application.port.in.query.GetChallengerWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.query.GetOriginalWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.query.GetWeeklyBestWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.query.dto.WeeklyBestWorkbookPageInfo;
 import com.umc.product.global.response.PageResponse;
+import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -23,6 +28,10 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Tag(name = "Curriculum V2 | 워크북 Query", description = "원본 워크북, 챌린저 워크북, 베스트 워크북을 조회합니다.")
 public class WorkbookQueryV2Controller {
+
+    private final GetOriginalWorkbookUseCase getOriginalWorkbookUseCase;
+    private final GetChallengerWorkbookUseCase getChallengerWorkbookUseCase;
+    private final GetWeeklyBestWorkbookUseCase getWeeklyBestWorkbookUseCase;
 
     @Operation(
         operationId = "WORKBOOK-101",
@@ -33,9 +42,12 @@ public class WorkbookQueryV2Controller {
     )
     @GetMapping("/original-workbooks/{originalWorkbookId}")
     public OriginalWorkbookResponse getOriginalWorkbook(
-        @PathVariable Long originalWorkbookId
+        @PathVariable Long originalWorkbookId,
+        @CurrentMember MemberPrincipal memberPrincipal
     ) {
-        throw new NotImplementedException();
+        return OriginalWorkbookResponse.from(
+            getOriginalWorkbookUseCase.getById(originalWorkbookId, memberPrincipal.getMemberId())
+        );
     }
 
     @Operation(
@@ -50,16 +62,19 @@ public class WorkbookQueryV2Controller {
     )
     @GetMapping("/challenger-workbooks/{challengerWorkbookId}")
     public ChallengerWorkbookResponse getChallengerWorkbook(
-        @PathVariable Long challengerWorkbookId
+        @PathVariable Long challengerWorkbookId,
+        @CurrentMember MemberPrincipal memberPrincipal
     ) {
-        throw new NotImplementedException();
+        return ChallengerWorkbookResponse.from(
+            getChallengerWorkbookUseCase.getById(challengerWorkbookId, memberPrincipal.getMemberId())
+        );
     }
 
     @Operation(
         operationId = "WORKBOOK-103",
         summary = "베스트 워크북 조회",
         description = """
-            베스트 워크북을 조회합니다. Cursor Pagination이 적용되었습니다.
+            베스트 워크북을 조회합니다. 0부터 시작하는 page 기반 Pagination이 적용되었습니다.
 
             Query Param으로 아래와 같은 필터를 적용할 수 있으며,
             다중 선택을 지원하며, 제공된 값들에 대한 카르테시안 곱으로 결과를 제공합니다.
@@ -69,16 +84,23 @@ public class WorkbookQueryV2Controller {
             - (다중 선택 가능) 파트 (제공되지 않은 경우 전체 파트)
             - (다중 선택 가능) 주차
             - (다중 선택 가능) 스터디 그룹 ID
+
+            size는 최대 100이며, 기수 ID를 포함한 모든 필터는 선택 사항입니다.
             """
     )
     @GetMapping("/weekly-best-workbooks")
     public PageResponse<BestWorkbookResponse> getBestWorkbooks(
-        @ParameterObject
-        @RequestParam(required = false)
-        GetBestWorkbooksRequest request
+        @ParameterObject @Valid GetBestWorkbooksRequest request
     ) {
-        // TODO: 경운 - 이거 IN Query로 안짜면 죽어도 Approve 안해줄거임,,,,,,
-
-        throw new NotImplementedException();
+        WeeklyBestWorkbookPageInfo page = getWeeklyBestWorkbookUseCase.searchBestWorkbooks(request.toQuery());
+        return new PageResponse<>(
+            page.content().stream().map(BestWorkbookResponse::from).toList(),
+            page.page(),
+            page.size(),
+            page.totalElements(),
+            page.totalPages(),
+            page.hasNext(),
+            page.hasPrevious()
+        );
     }
 }

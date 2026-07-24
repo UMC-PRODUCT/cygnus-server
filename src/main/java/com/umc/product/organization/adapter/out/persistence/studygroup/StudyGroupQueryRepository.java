@@ -4,17 +4,6 @@ import static com.umc.product.organization.domain.QStudyGroup.studyGroup;
 import static com.umc.product.organization.domain.QStudyGroupMember.studyGroupMember;
 import static com.umc.product.organization.domain.QStudyGroupMentor.studyGroupMentor;
 
-import com.querydsl.core.types.Projections;
-import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.jpa.JPAExpressions;
-import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
-import com.umc.product.organization.domain.QStudyGroupMember;
-import com.umc.product.organization.domain.QStudyGroupMentor;
-import com.umc.product.organization.domain.StudyGroup;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -24,8 +13,22 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Repository;
+
+import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
+import com.umc.product.organization.domain.QStudyGroupMember;
+import com.umc.product.organization.domain.QStudyGroupMentor;
+import com.umc.product.organization.domain.StudyGroup;
+
+import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
@@ -70,6 +73,24 @@ public class StudyGroupQueryRepository {
             .fetchOne();
 
         return Optional.of(group);
+    }
+
+    public Optional<StudyGroup> findEntityByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    ) {
+        Long groupId = queryFactory
+            .select(studyGroup.id)
+            .from(studyGroupMember)
+            .join(studyGroupMember.studyGroup, studyGroup)
+            .where(
+                studyGroupMember.memberId.eq(memberId),
+                studyGroup.gisuId.eq(gisuId),
+                studyGroup.part.eq(part)
+            )
+            .fetchFirst();
+        return groupId == null ? Optional.empty() : findEntityById(groupId);
     }
 
     // ============================================================================

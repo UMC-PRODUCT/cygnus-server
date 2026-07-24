@@ -40,6 +40,11 @@ operation::admin-school-query-controller-test/학교_상세정보를_조회합�
 === 학교_전체_목록을_조회합니다
 operation::admin-school-query-controller-test/학교_전체_목록을_조회합니다[snippets='http-request,http-response,response-fields']
 
+== Challenger workbook command v2
+
+=== workbook-with-submission_delete-returns-conflict
+operation::challenger-workbook-command-v2-controller-test/workbook-with-submission_delete-returns-conflict[snippets='http-request,http-response,path-parameters']
+
 == Chapter command
 
 === 신규_지부를_생성한다
@@ -49,6 +54,17 @@ operation::chapter-command-controller-test/신규_지부를_생성한다[snippet
 
 === 지부_목록을_조회합니다
 operation::chapter-query-controller-test/지부_목록을_조회합니다[snippets='http-request,http-response,response-fields']
+
+== Fcm admin
+
+=== null_part_발송_대상_거부
+operation::fcm-admin-controller-test/null_part_발송_대상_거부[snippets='http-request,http-response']
+
+=== 관리자_fcm_알림_발송_요청
+operation::fcm-admin-controller-test/관리자_fcm_알림_발송_요청[snippets='http-request,http-response']
+
+=== 빈_발송_대상_거부
+operation::fcm-admin-controller-test/빈_발송_대상_거부[snippets='http-request,http-response']
 
 == Gisu command
 
@@ -298,3 +314,17 @@ operation::umc-product-squad-controller-documentation-test/umc_product_-squad를
 
 === 제거된_-squad_참여자_전체_교체_api는_404를_반환한다
 operation::umc-product-squad-controller-documentation-test/제거된_-squad_참여자_전체_교체_api는_404를_반환한다[snippets='http-request,http-response']
+
+== Workbook query v2
+
+=== best-workbook_size101-rejected
+operation::workbook-query-v2-controller-test/best-workbook_size101-rejected[snippets='http-request,http-response']
+
+=== best-workbook_without-gisu-returns-page-response
+operation::workbook-query-v2-controller-test/best-workbook_without-gisu-returns-page-response[snippets='http-request,http-response,query-parameters']
+
+=== challenger-workbook_passes-requester-member-id
+operation::workbook-query-v2-controller-test/challenger-workbook_passes-requester-member-id[snippets='http-request,http-response,path-parameters']
+
+=== original-workbook_passes-requester-member-id
+operation::workbook-query-v2-controller-test/original-workbook_passes-requester-member-id[snippets='http-request,http-response,path-parameters']

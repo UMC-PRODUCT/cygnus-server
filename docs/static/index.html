@@ -467,6 +467,11 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_학교_전체_목록을_조회합니다">학교_전체_목록을_조회합니다</a></li>
 </ul>
 </li>
+<li><a href="#_challenger_workbook_command_v2">Challenger workbook command v2</a>
+<ul class="sectlevel2">
+<li><a href="#_workbook_with_submission_delete_returns_conflict">workbook-with-submission_delete-returns-conflict</a></li>
+</ul>
+</li>
 <li><a href="#_chapter_command">Chapter command</a>
 <ul class="sectlevel2">
 <li><a href="#_신규_지부를_생성한다">신규_지부를_생성한다</a></li>
@@ -475,6 +480,13 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_chapter_query">Chapter query</a>
 <ul class="sectlevel2">
 <li><a href="#_지부_목록을_조회합니다">지부_목록을_조회합니다</a></li>
+</ul>
+</li>
+<li><a href="#_fcm_admin">Fcm admin</a>
+<ul class="sectlevel2">
+<li><a href="#_null_part_발송_대상_거부">null_part_발송_대상_거부</a></li>
+<li><a href="#_관리자_fcm_알림_발송_요청">관리자_fcm_알림_발송_요청</a></li>
+<li><a href="#_빈_발송_대상_거부">빈_발송_대상_거부</a></li>
 </ul>
 </li>
 <li><a href="#_gisu_command">Gisu command</a>
@@ -499,6 +511,47 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_id_목록은_중복을_제거하고_첫_등장_순서대로_조회한다">id_목록은_중복을_제거하고_첫_등장_순서대로_조회한다</a></li>
 <li><a href="#_조회_기준을_둘_이상_보내면_400을_반환한다">조회_기준을_둘_이상_보내면_400을_반환한다</a></li>
 <li><a href="#_조회_기준이_없으면_400을_반환한다">조회_기준이_없으면_400을_반환한다</a></li>
+</ul>
+</li>
+<li><a href="#_recruiting_admin">Recruiting admin</a>
+<ul class="sectlevel2">
+<li><a href="#_close_form_endpoint_is_removed">close-form-endpoint-is-removed</a></li>
+<li><a href="#_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다">csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다</a></li>
+<li><a href="#_publish_form_endpoint_is_removed">publish-form-endpoint-is-removed</a></li>
+<li><a href="#_ready_uses_current_member_actor">ready-uses-current-member-actor</a></li>
+<li><a href="#_면접_생략_api는_current_member와_사유를_전달한다">면접_생략_api는_-current-member와_사유를_전달한다</a></li>
+<li><a href="#_면접_생략_api는_긴_사유를_거부한다">면접_생략_api는_긴_사유를_거부한다</a></li>
+<li><a href="#_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다">모집_폼_upsert_api는_전체_구조와_요청자를_전달한다</a></li>
+<li><a href="#_상태_요약_api는_status별_count를_반환한다">상태_요약_api는_status별_count를_반환한다</a></li>
+<li><a href="#_서류_결정_api는_결정자와_합불을_전달한다">서류_결정_api는_결정자와_합불을_전달한다</a></li>
+<li><a href="#_서류_결정_api는_긴_사유를_거부한다">서류_결정_api는_긴_사유를_거부한다</a></li>
+<li><a href="#_최종_결정_api는_결정자_member_id를_command로_전달한다">최종_결정_api는_결정자_member-id를_command로_전달한다</a></li>
+</ul>
+</li>
+<li><a href="#_recruiting_application">Recruiting application</a>
+<ul class="sectlevel2">
+<li><a href="#_create_draft_uses_authenticated_actor">create-draft-uses-authenticated-actor</a></li>
+<li><a href="#_reject_malformed_email_when_other_create_fields_are_valid">reject-malformed-email-when-other-create-fields-are-valid</a></li>
+<li><a href="#_reject_non_positive_form_id_when_other_create_fields_are_valid">reject-non-positive-form-id-when-other-create-fields-are-valid</a></li>
+<li><a href="#_reject_unauthenticated_create">reject-unauthenticated-create</a></li>
+</ul>
+</li>
+<li><a href="#_recruiting_application_mutation">Recruiting application mutation</a>
+<ul class="sectlevel2">
+<li><a href="#_cancel_uses_authenticated_actor">cancel-uses-authenticated-actor</a></li>
+<li><a href="#_reject_malformed_email_when_other_update_fields_are_valid">reject-malformed-email-when-other-update-fields-are-valid</a></li>
+<li><a href="#_reject_non_positive_application_id">reject-non-positive-application-id</a></li>
+<li><a href="#_reject_non_positive_question_id_when_other_update_fields_are_valid">reject-non-positive-question-id-when-other-update-fields-are-valid</a></li>
+<li><a href="#_submit_uses_authenticated_actor">submit-uses-authenticated-actor</a></li>
+<li><a href="#_update_draft_uses_authenticated_actor">update-draft-uses-authenticated-actor</a></li>
+</ul>
+</li>
+<li><a href="#_recruiting_public">Recruiting public</a>
+<ul class="sectlevel2">
+<li><a href="#_public_round_list_binds_filters">public-round-list-binds-filters</a></li>
+<li><a href="#_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다">익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다</a></li>
+<li><a href="#_익명_지원서_조회_api는_내부_key를_노출하지_않는다">익명_지원서_조회_api는_내부_key를_노출하지_않는다</a></li>
+<li><a href="#_익명_지원서_철회_api는_정규화된_credential을_전달한다">익명_지원서_철회_api는_정규화된_credential을_전달한다</a></li>
 </ul>
 </li>
 <li><a href="#_school_command">School command</a>
@@ -569,6 +622,14 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_제거된_squad_참여자_전체_교체_api는_404를_반환한다">제거된_-squad_참여자_전체_교체_api는_404를_반환한다</a></li>
 </ul>
 </li>
+<li><a href="#_workbook_query_v2">Workbook query v2</a>
+<ul class="sectlevel2">
+<li><a href="#_best_workbook_size101_rejected">best-workbook_size101-rejected</a></li>
+<li><a href="#_best_workbook_without_gisu_returns_page_response">best-workbook_without-gisu-returns-page-response</a></li>
+<li><a href="#_challenger_workbook_passes_requester_member_id">challenger-workbook_passes-requester-member-id</a></li>
+<li><a href="#_original_workbook_passes_requester_member_id">original-workbook_passes-requester-member-id</a></li>
+</ul>
+</li>
 </ul>
 </div>
 </div>
@@ -626,14 +687,14 @@ Host: localhost:8080</code></pre>
 <div class="content">
 <pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
 Content-Type: application/json
-Content-Length: 263
+Content-Length: 257
 
 {
   "success" : true,
   "code" : "COMMON200",
   "message" : "성공입니다.",
   "result" : {
-    "roleType" : "CENTRAL_PRESIDENT",
+    "roleType" : "SUPER_ADMIN",
     "gisuId" : "7",
     "chapterId" : null,
     "schoolId" : null,
@@ -781,10 +842,10 @@ Content-Length: 496
       "negative" : "-4"
     },
     "challengerStatusDistribution" : {
-      "ACTIVE" : "0",
-      "GRADUATED" : "0",
+      "WITHDRAWN" : "0",
       "EXPELLED" : "0",
-      "WITHDRAWN" : "0"
+      "GRADUATED" : "0",
+      "ACTIVE" : "0"
     }
   }
 }</code></pre>
@@ -1148,6 +1209,61 @@ Content-Length: 335
 </div>
 </div>
 <div class="sect1">
+<h2 id="_challenger_workbook_command_v2"><a class="link" href="#_challenger_workbook_command_v2">Challenger workbook command v2</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_workbook_with_submission_delete_returns_conflict"><a class="link" href="#_workbook_with_submission_delete_returns_conflict">workbook-with-submission_delete-returns-conflict</a></h3>
+<div class="sect3">
+<h4 id="_workbook_with_submission_delete_returns_conflict_http_request"><a class="link" href="#_workbook_with_submission_delete_returns_conflict_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">DELETE /api/v2/curriculums/challenger-workbooks/10 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_workbook_with_submission_delete_returns_conflict_http_response"><a class="link" href="#_workbook_with_submission_delete_returns_conflict_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 409 Conflict
+Content-Type: application/json
+Content-Length: 169
+
+{
+  "success" : false,
+  "code" : "CURRICULUM-0004",
+  "message" : "제출된 워크북이 있어 삭제할 수 없어요. 제출 내역을 먼저 확인해주세요."
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_workbook_with_submission_delete_returns_conflict_path_parameters"><a class="link" href="#_workbook_with_submission_delete_returns_conflict_path_parameters">Path parameters</a></h4>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. /api/v2/curriculums/challenger-workbooks/{id}</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">삭제할 챌린저 워크북 ID</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_chapter_command"><a class="link" href="#_chapter_command">Chapter command</a></h2>
 <div class="sectionbody">
 <div class="sect2">
@@ -1331,6 +1447,146 @@ Content-Length: 289
 </div>
 </div>
 <div class="sect1">
+<h2 id="_fcm_admin"><a class="link" href="#_fcm_admin">Fcm admin</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_null_part_발송_대상_거부"><a class="link" href="#_null_part_발송_대상_거부">null_part_발송_대상_거부</a></h3>
+<div class="sect3">
+<h4 id="_null_part_발송_대상_거부_http_request"><a class="link" href="#_null_part_발송_대상_거부_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
+Content-Type: application/json
+Content-Length: 112
+Host: localhost:8080
+
+{
+  "target" : {
+    "parts" : [ null ]
+  },
+  "message" : {
+    "title" : "공지",
+    "body" : "본문"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_null_part_발송_대상_거부_http_response"><a class="link" href="#_null_part_발송_대상_거부_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 296
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다.",
+    "target.parts[]" : "must not be null"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_관리자_fcm_알림_발송_요청"><a class="link" href="#_관리자_fcm_알림_발송_요청">관리자_fcm_알림_발송_요청</a></h3>
+<div class="sect3">
+<h4 id="_관리자_fcm_알림_발송_요청_http_request"><a class="link" href="#_관리자_fcm_알림_발송_요청_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
+Content-Type: application/json
+Content-Length: 248
+Host: localhost:8080
+
+{
+  "target" : {
+    "memberIds" : [ 1, 2 ],
+    "gisuId" : 10,
+    "parts" : [ "SPRINGBOOT" ]
+  },
+  "message" : {
+    "title" : "공지",
+    "body" : "본문",
+    "data" : {
+      "noticeId" : "1"
+    },
+    "deepLink" : "umc://notices/1"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_관리자_fcm_알림_발송_요청_http_response"><a class="link" href="#_관리자_fcm_알림_발송_요청_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 202 Accepted
+Content-Type: application/json
+Content-Length: 198
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "requestId" : "daef493e-34ab-4231-b76b-2fc0f314fc30",
+    "queuedAt" : "2026-06-20T00:00:00Z"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_빈_발송_대상_거부"><a class="link" href="#_빈_발송_대상_거부">빈_발송_대상_거부</a></h3>
+<div class="sect3">
+<h4 id="_빈_발송_대상_거부_http_request"><a class="link" href="#_빈_발송_대상_거부_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
+Content-Type: application/json
+Content-Length: 87
+Host: localhost:8080
+
+{
+  "target" : { },
+  "message" : {
+    "title" : "공지",
+    "body" : "본문"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_빈_발송_대상_거부_http_response"><a class="link" href="#_빈_발송_대상_거부_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 253
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다."
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_gisu_command"><a class="link" href="#_gisu_command">Gisu command</a></h2>
 <div class="sectionbody">
 <div class="sect2">
@@ -1466,8 +1722,7 @@ Content-Length: 98
 <div class="listingblock">
 <div class="content">
 <pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/gisu/3/active HTTP/1.1
-Host: localhost:8080
-Content-Type: application/x-www-form-urlencoded</code></pre>
+Host: localhost:8080</code></pre>
 </div>
 </div>
 </div>
@@ -2391,6 +2646,1000 @@ Content-Length: 123
   "success" : false,
   "code" : "ORGANIZATION-0065",
   "message" : "기수 조회 조건이 올바르지 않습니다."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_recruiting_admin"><a class="link" href="#_recruiting_admin">Recruiting admin</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_close_form_endpoint_is_removed"><a class="link" href="#_close_form_endpoint_is_removed">close-form-endpoint-is-removed</a></h3>
+<div class="sect3">
+<h4 id="_close_form_endpoint_is_removed_http_request"><a class="link" href="#_close_form_endpoint_is_removed_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/admin/seasons/10/forms/30/close HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_close_form_endpoint_is_removed_http_response"><a class="link" href="#_close_form_endpoint_is_removed_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 404 Not Found
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다"><a class="link" href="#_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다">csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다</a></h3>
+<div class="sect3">
+<h4 id="_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다_http_request"><a class="link" href="#_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/statistics.csv?gisuId=11&amp;schoolId=22 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다_http_response"><a class="link" href="#_csv_export_api는_raw_email과_지원서_본문_없이_attachment를_반환한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Disposition: attachment; filename="recruiting-statistics.csv"
+Content-Type: text/csv;charset=UTF-8
+Content-Length: 250
+
+gisuId,schoolId,roundType,roundNo,applicationId,maskedEmail,firstChoiceTrack,secondChoiceTrack,acceptedTrack,status,registrationStatus,submittedAt
+11,22,REGULAR,1,40,app****@example.org,WEB_PRODUCT_ENGINEER,,,SUBMITTED,NOT_READY,2026-07-01T00:00:00Z</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_publish_form_endpoint_is_removed"><a class="link" href="#_publish_form_endpoint_is_removed">publish-form-endpoint-is-removed</a></h3>
+<div class="sect3">
+<h4 id="_publish_form_endpoint_is_removed_http_request"><a class="link" href="#_publish_form_endpoint_is_removed_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/admin/seasons/10/forms/30/publish HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_publish_form_endpoint_is_removed_http_response"><a class="link" href="#_publish_form_endpoint_is_removed_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 404 Not Found
+Vary: Origin
+Vary: Access-Control-Request-Method
+Vary: Access-Control-Request-Headers</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_ready_uses_current_member_actor"><a class="link" href="#_ready_uses_current_member_actor">ready-uses-current-member-actor</a></h3>
+<div class="sect3">
+<h4 id="_ready_uses_current_member_actor_http_request"><a class="link" href="#_ready_uses_current_member_actor_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/admin/applications/40/registration/ready HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_ready_uses_current_member_actor_http_response"><a class="link" href="#_ready_uses_current_member_actor_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 80
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_면접_생략_api는_current_member와_사유를_전달한다"><a class="link" href="#_면접_생략_api는_current_member와_사유를_전달한다">면접_생략_api는_-current-member와_사유를_전달한다</a></h3>
+<div class="sect3">
+<h4 id="_면접_생략_api는_current_member와_사유를_전달한다_http_request"><a class="link" href="#_면접_생략_api는_current_member와_사유를_전달한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/admin/applications/40/interview/skip HTTP/1.1
+Content-Type: application/json
+Content-Length: 49
+Host: localhost:8080
+
+{
+  "reason" : "학교 정책상 면접 없음"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_면접_생략_api는_current_member와_사유를_전달한다_http_response"><a class="link" href="#_면접_생략_api는_current_member와_사유를_전달한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 80
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_면접_생략_api는_긴_사유를_거부한다"><a class="link" href="#_면접_생략_api는_긴_사유를_거부한다">면접_생략_api는_긴_사유를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_면접_생략_api는_긴_사유를_거부한다_http_request"><a class="link" href="#_면접_생략_api는_긴_사유를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/admin/applications/40/interview/skip HTTP/1.1
+Content-Type: application/json
+Content-Length: 275
+Host: localhost:8080
+
+{
+  "reason" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_면접_생략_api는_긴_사유를_거부한다_http_response"><a class="link" href="#_면접_생략_api는_긴_사유를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 208
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "reason" : "size must be between 0 and 255"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다"><a class="link" href="#_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다">모집_폼_upsert_api는_전체_구조와_요청자를_전달한다</a></h3>
+<div class="sect3">
+<h4 id="_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다_http_request"><a class="link" href="#_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PUT /api/v1/recruiting/admin/seasons/10/rounds/20/form HTTP/1.1
+Content-Type: application/json
+Content-Length: 156
+Host: localhost:8080
+
+{
+  "description" : "지원서",
+  "sections" : [ {
+    "clientKey" : "common",
+    "title" : "공통",
+    "type" : "COMMON",
+    "questions" : [ ]
+  } ]
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다_http_response"><a class="link" href="#_모집_폼_upsert_api는_전체_구조와_요청자를_전달한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 116
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "id" : "30"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_상태_요약_api는_status별_count를_반환한다"><a class="link" href="#_상태_요약_api는_status별_count를_반환한다">상태_요약_api는_status별_count를_반환한다</a></h3>
+<div class="sect3">
+<h4 id="_상태_요약_api는_status별_count를_반환한다_http_request"><a class="link" href="#_상태_요약_api는_status별_count를_반환한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/summary?gisuId=11&amp;schoolIds=22&amp;schoolIds=23&amp;roundIds=31&amp;roundIds=32&amp;schoolName=%ED%85%8C%EC%8A%A4%ED%8A%B8 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_상태_요약_api는_status별_count를_반환한다_http_response"><a class="link" href="#_상태_요약_api는_status별_count를_반환한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 440
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "totalCount" : "3",
+    "countByStatus" : {
+      "SUBMITTED" : "3"
+    },
+    "schools" : [ {
+      "schoolId" : "22",
+      "schoolName" : "테스트대학교",
+      "chapterId" : "7",
+      "chapterName" : "중앙",
+      "totalCount" : "3",
+      "countByStatus" : {
+        "SUBMITTED" : "3"
+      },
+      "rounds" : [ ]
+    } ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_서류_결정_api는_결정자와_합불을_전달한다"><a class="link" href="#_서류_결정_api는_결정자와_합불을_전달한다">서류_결정_api는_결정자와_합불을_전달한다</a></h3>
+<div class="sect3">
+<h4 id="_서류_결정_api는_결정자와_합불을_전달한다_http_request"><a class="link" href="#_서류_결정_api는_결정자와_합불을_전달한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PATCH /api/v1/recruiting/admin/applications/40/document-decision HTTP/1.1
+Content-Type: application/json
+Content-Length: 48
+Host: localhost:8080
+
+{
+  "decision" : "PASS",
+  "reason" : "적합"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_서류_결정_api는_결정자와_합불을_전달한다_http_response"><a class="link" href="#_서류_결정_api는_결정자와_합불을_전달한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 80
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_서류_결정_api는_긴_사유를_거부한다"><a class="link" href="#_서류_결정_api는_긴_사유를_거부한다">서류_결정_api는_긴_사유를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_서류_결정_api는_긴_사유를_거부한다_http_request"><a class="link" href="#_서류_결정_api는_긴_사유를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PATCH /api/v1/recruiting/admin/applications/40/document-decision HTTP/1.1
+Content-Type: application/json
+Content-Length: 298
+Host: localhost:8080
+
+{
+  "decision" : "PASS",
+  "reason" : "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_서류_결정_api는_긴_사유를_거부한다_http_response"><a class="link" href="#_서류_결정_api는_긴_사유를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 208
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "reason" : "size must be between 0 and 255"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_최종_결정_api는_결정자_member_id를_command로_전달한다"><a class="link" href="#_최종_결정_api는_결정자_member_id를_command로_전달한다">최종_결정_api는_결정자_member-id를_command로_전달한다</a></h3>
+<div class="sect3">
+<h4 id="_최종_결정_api는_결정자_member_id를_command로_전달한다_http_request"><a class="link" href="#_최종_결정_api는_결정자_member_id를_command로_전달한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PATCH /api/v1/recruiting/admin/applications/40/final-decision HTTP/1.1
+Content-Type: application/json
+Content-Length: 76
+Host: localhost:8080
+
+{
+  "decision" : "PASS",
+  "acceptedTrack" : "PLAN",
+  "reason" : "적합"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_최종_결정_api는_결정자_member_id를_command로_전달한다_http_response"><a class="link" href="#_최종_결정_api는_결정자_member_id를_command로_전달한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 80
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_recruiting_application"><a class="link" href="#_recruiting_application">Recruiting application</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_create_draft_uses_authenticated_actor"><a class="link" href="#_create_draft_uses_authenticated_actor">create-draft-uses-authenticated-actor</a></h3>
+<div class="sect3">
+<h4 id="_create_draft_uses_authenticated_actor_http_request"><a class="link" href="#_create_draft_uses_authenticated_actor_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/applications HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 195
+Host: localhost:8080
+
+{
+  "applicationFormId" : 10,
+  "applicantMemberId" : 999,
+  "applicantName" : "홍길동",
+  "applicantEmail" : " Applicant@Example.COM ",
+  "firstChoice" : "PLAN",
+  "secondChoice" : "DESIGN"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_create_draft_uses_authenticated_actor_http_response"><a class="link" href="#_create_draft_uses_authenticated_actor_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 185
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "applicationKey" : "A1B2C3",
+    "status" : "DRAFT"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reject_malformed_email_when_other_create_fields_are_valid"><a class="link" href="#_reject_malformed_email_when_other_create_fields_are_valid">reject-malformed-email-when-other-create-fields-are-valid</a></h3>
+<div class="sect3">
+<h4 id="_reject_malformed_email_when_other_create_fields_are_valid_http_request"><a class="link" href="#_reject_malformed_email_when_other_create_fields_are_valid_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/applications HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 122
+Host: localhost:8080
+
+{
+  "applicationFormId" : 10,
+  "applicantName" : "홍길동",
+  "applicantEmail" : "a@@b.com",
+  "firstChoice" : "PLAN"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reject_malformed_email_when_other_create_fields_are_valid_http_response"><a class="link" href="#_reject_malformed_email_when_other_create_fields_are_valid_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 234
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "요청 형식이 올바르지 않아요. 입력한 값을 확인해주세요."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reject_non_positive_form_id_when_other_create_fields_are_valid"><a class="link" href="#_reject_non_positive_form_id_when_other_create_fields_are_valid">reject-non-positive-form-id-when-other-create-fields-are-valid</a></h3>
+<div class="sect3">
+<h4 id="_reject_non_positive_form_id_when_other_create_fields_are_valid_http_request"><a class="link" href="#_reject_non_positive_form_id_when_other_create_fields_are_valid_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/applications HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 134
+Host: localhost:8080
+
+{
+  "applicationFormId" : 0,
+  "applicantName" : "홍길동",
+  "applicantEmail" : "applicant@example.com",
+  "firstChoice" : "PLAN"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reject_non_positive_form_id_when_other_create_fields_are_valid_http_response"><a class="link" href="#_reject_non_positive_form_id_when_other_create_fields_are_valid_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 211
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "applicationFormId" : "must be greater than 0"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reject_unauthenticated_create"><a class="link" href="#_reject_unauthenticated_create">reject-unauthenticated-create</a></h3>
+<div class="sect3">
+<h4 id="_reject_unauthenticated_create_http_request"><a class="link" href="#_reject_unauthenticated_create_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/applications HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 135
+Host: localhost:8080
+
+{
+  "applicationFormId" : 10,
+  "applicantName" : "홍길동",
+  "applicantEmail" : "applicant@example.com",
+  "firstChoice" : "PLAN"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reject_unauthenticated_create_http_response"><a class="link" href="#_reject_unauthenticated_create_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 401 Unauthorized
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_recruiting_application_mutation"><a class="link" href="#_recruiting_application_mutation">Recruiting application mutation</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_cancel_uses_authenticated_actor"><a class="link" href="#_cancel_uses_authenticated_actor">cancel-uses-authenticated-actor</a></h3>
+<div class="sect3">
+<h4 id="_cancel_uses_authenticated_actor_http_request"><a class="link" href="#_cancel_uses_authenticated_actor_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PATCH /api/v1/recruiting/applications/100/cancel HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 32
+Host: localhost:8080
+
+{
+  "reason" : "개인 사정"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_cancel_uses_authenticated_actor_http_response"><a class="link" href="#_cancel_uses_authenticated_actor_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 156
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "status" : "CANCELLED"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reject_malformed_email_when_other_update_fields_are_valid"><a class="link" href="#_reject_malformed_email_when_other_update_fields_are_valid">reject-malformed-email-when-other-update-fields-are-valid</a></h3>
+<div class="sect3">
+<h4 id="_reject_malformed_email_when_other_update_fields_are_valid_http_request"><a class="link" href="#_reject_malformed_email_when_other_update_fields_are_valid_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PUT /api/v1/recruiting/applications/100 HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 175
+Host: localhost:8080
+
+{
+  "applicantName" : "홍길동",
+  "applicantEmail" : "a b@example.com",
+  "firstChoice" : "PLAN",
+  "answers" : [ {
+    "questionId" : 7,
+    "textValue" : "답변"
+  } ]
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reject_malformed_email_when_other_update_fields_are_valid_http_response"><a class="link" href="#_reject_malformed_email_when_other_update_fields_are_valid_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 234
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "요청 형식이 올바르지 않아요. 입력한 값을 확인해주세요."
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reject_non_positive_application_id"><a class="link" href="#_reject_non_positive_application_id">reject-non-positive-application-id</a></h3>
+<div class="sect3">
+<h4 id="_reject_non_positive_application_id_http_request"><a class="link" href="#_reject_non_positive_application_id_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/applications/0/submit HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reject_non_positive_application_id_http_response"><a class="link" href="#_reject_non_positive_application_id_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 179
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "must be greater than 0"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_reject_non_positive_question_id_when_other_update_fields_are_valid"><a class="link" href="#_reject_non_positive_question_id_when_other_update_fields_are_valid">reject-non-positive-question-id-when-other-update-fields-are-valid</a></h3>
+<div class="sect3">
+<h4 id="_reject_non_positive_question_id_when_other_update_fields_are_valid_http_request"><a class="link" href="#_reject_non_positive_question_id_when_other_update_fields_are_valid_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PUT /api/v1/recruiting/applications/100 HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 181
+Host: localhost:8080
+
+{
+  "applicantName" : "홍길동",
+  "applicantEmail" : "applicant@example.com",
+  "firstChoice" : "PLAN",
+  "answers" : [ {
+    "questionId" : 0,
+    "textValue" : "답변"
+  } ]
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_reject_non_positive_question_id_when_other_update_fields_are_valid_http_response"><a class="link" href="#_reject_non_positive_question_id_when_other_update_fields_are_valid_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 215
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "answers[0].questionId" : "must be greater than 0"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_submit_uses_authenticated_actor"><a class="link" href="#_submit_uses_authenticated_actor">submit-uses-authenticated-actor</a></h3>
+<div class="sect3">
+<h4 id="_submit_uses_authenticated_actor_http_request"><a class="link" href="#_submit_uses_authenticated_actor_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/applications/100/submit HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 33
+Host: localhost:8080
+
+{
+  "submittedIp" : "127.0.0.1"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_submit_uses_authenticated_actor_http_response"><a class="link" href="#_submit_uses_authenticated_actor_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 156
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "status" : "SUBMITTED"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_update_draft_uses_authenticated_actor"><a class="link" href="#_update_draft_uses_authenticated_actor">update-draft-uses-authenticated-actor</a></h3>
+<div class="sect3">
+<h4 id="_update_draft_uses_authenticated_actor_http_request"><a class="link" href="#_update_draft_uses_authenticated_actor_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">PUT /api/v1/recruiting/applications/100 HTTP/1.1
+Content-Type: application/json;charset=UTF-8
+Content-Length: 181
+Host: localhost:8080
+
+{
+  "applicantName" : "홍길동",
+  "applicantEmail" : "applicant@example.com",
+  "firstChoice" : "PLAN",
+  "answers" : [ {
+    "questionId" : 7,
+    "textValue" : "답변"
+  } ]
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_update_draft_uses_authenticated_actor_http_response"><a class="link" href="#_update_draft_uses_authenticated_actor_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+X-Content-Type-Options: nosniff
+X-XSS-Protection: 0
+Cache-Control: no-cache, no-store, max-age=0, must-revalidate
+Pragma: no-cache
+Expires: 0
+X-Frame-Options: DENY
+Content-Length: 152
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "status" : "DRAFT"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
+<h2 id="_recruiting_public"><a class="link" href="#_recruiting_public">Recruiting public</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_public_round_list_binds_filters"><a class="link" href="#_public_round_list_binds_filters">public-round-list-binds-filters</a></h3>
+<div class="sect3">
+<h4 id="_public_round_list_binds_filters_http_request"><a class="link" href="#_public_round_list_binds_filters_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/public/rounds?gisuId=11&amp;schoolIds=22&amp;schoolIds=23&amp;roundIds=31&amp;roundIds=32&amp;schoolName=%EB%8C%80%ED%95%99%EA%B5%90&amp;phase=OPEN HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_public_round_list_binds_filters_http_response"><a class="link" href="#_public_round_list_binds_filters_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 98
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : [ ]
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다"><a class="link" href="#_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다">익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다</a></h3>
+<div class="sect3">
+<h4 id="_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다_http_request"><a class="link" href="#_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/public/applications HTTP/1.1
+Content-Type: application/json
+Content-Length: 184
+Host: localhost:8080
+
+{
+  "applicationFormId" : 10,
+  "applicantName" : "홍길동",
+  "applicantEmail" : "Applicant@Example.COM",
+  "firstChoice" : "PLAN",
+  "privacyTermId" : 3,
+  "privacyAgreed" : true
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다_http_response"><a class="link" href="#_익명_지원서_생성_api는_지원_키를_최초_응답에서_반환한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 185
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "applicationKey" : "A1B2C3",
+    "status" : "DRAFT"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_익명_지원서_조회_api는_내부_key를_노출하지_않는다"><a class="link" href="#_익명_지원서_조회_api는_내부_key를_노출하지_않는다">익명_지원서_조회_api는_내부_key를_노출하지_않는다</a></h3>
+<div class="sect3">
+<h4 id="_익명_지원서_조회_api는_내부_key를_노출하지_않는다_http_request"><a class="link" href="#_익명_지원서_조회_api는_내부_key를_노출하지_않는다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/public/applications/lookup HTTP/1.1
+Content-Type: application/json
+Content-Length: 70
+Host: localhost:8080
+
+{
+  "email" : "Applicant@Example.COM",
+  "applicationKey" : "A1B2C3"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_익명_지원서_조회_api는_내부_key를_노출하지_않는다_http_response"><a class="link" href="#_익명_지원서_조회_api는_내부_key를_노출하지_않는다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 452
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "applicantName" : "홍길동",
+    "applicantEmail" : "applicant@example.com",
+    "firstChoice" : "PLAN",
+    "secondChoice" : null,
+    "submitted" : true,
+    "cancelled" : false,
+    "editable" : true,
+    "documentResult" : "PENDING",
+    "finalResult" : "PENDING",
+    "acceptedTrack" : null,
+    "answers" : [ ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_익명_지원서_철회_api는_정규화된_credential을_전달한다"><a class="link" href="#_익명_지원서_철회_api는_정규화된_credential을_전달한다">익명_지원서_철회_api는_정규화된_credential을_전달한다</a></h3>
+<div class="sect3">
+<h4 id="_익명_지원서_철회_api는_정규화된_credential을_전달한다_http_request"><a class="link" href="#_익명_지원서_철회_api는_정규화된_credential을_전달한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/recruiting/public/applications/cancel HTTP/1.1
+Content-Type: application/json
+Content-Length: 70
+Host: localhost:8080
+
+{
+  "email" : "Applicant@Example.COM",
+  "applicationKey" : "A1B2C3"
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_익명_지원서_철회_api는_정규화된_credential을_전달한다_http_response"><a class="link" href="#_익명_지원서_철회_api는_정규화된_credential을_전달한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 156
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "applicationId" : "100",
+    "status" : "CANCELLED"
+  }
 }</code></pre>
 </div>
 </div>
@@ -5243,11 +6492,256 @@ Content-Length: 134
 </div>
 </div>
 </div>
+<div class="sect1">
+<h2 id="_workbook_query_v2"><a class="link" href="#_workbook_query_v2">Workbook query v2</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_best_workbook_size101_rejected"><a class="link" href="#_best_workbook_size101_rejected">best-workbook_size101-rejected</a></h3>
+<div class="sect3">
+<h4 id="_best_workbook_size101_rejected_http_request"><a class="link" href="#_best_workbook_size101_rejected_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v2/curriculums/weekly-best-workbooks?size=101 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_best_workbook_size101_rejected_http_response"><a class="link" href="#_best_workbook_size101_rejected_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 209
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "size" : "must be less than or equal to 100"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_best_workbook_without_gisu_returns_page_response"><a class="link" href="#_best_workbook_without_gisu_returns_page_response">best-workbook_without-gisu-returns-page-response</a></h3>
+<div class="sect3">
+<h4 id="_best_workbook_without_gisu_returns_page_response_http_request"><a class="link" href="#_best_workbook_without_gisu_returns_page_response_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v2/curriculums/weekly-best-workbooks?page=0&amp;size=20 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_best_workbook_without_gisu_returns_page_response_http_response"><a class="link" href="#_best_workbook_without_gisu_returns_page_response_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 258
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "content" : [ ],
+    "page" : "0",
+    "size" : "20",
+    "totalElements" : "0",
+    "totalPages" : "0",
+    "hasNext" : false,
+    "hasPrevious" : false
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_best_workbook_without_gisu_returns_page_response_query_parameters"><a class="link" href="#_best_workbook_without_gisu_returns_page_response_query_parameters">Query parameters</a></h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gisuId</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">기수 ID</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>schoolIds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">학교 ID 목록</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>parts</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">파트 목록</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>weekNos</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">주차 번호 목록</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>studyGroupIds</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">스터디 그룹 ID 목록</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>page</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0부터 시작하는 페이지 번호. 기본값 0</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">페이지 크기. 기본값 20, 최대 100</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_challenger_workbook_passes_requester_member_id"><a class="link" href="#_challenger_workbook_passes_requester_member_id">challenger-workbook_passes-requester-member-id</a></h3>
+<div class="sect3">
+<h4 id="_challenger_workbook_passes_requester_member_id_http_request"><a class="link" href="#_challenger_workbook_passes_requester_member_id_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v2/curriculums/challenger-workbooks/2 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_challenger_workbook_passes_requester_member_id_http_response"><a class="link" href="#_challenger_workbook_passes_requester_member_id_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 438
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "challengerWorkbookId" : "2",
+    "originalWorkbookId" : null,
+    "receivedStudyGroupId" : null,
+    "memberId" : null,
+    "isExcused" : false,
+    "excusedReason" : null,
+    "content" : null,
+    "isBestWorkbook" : false,
+    "status" : "IN_PROGRESS",
+    "hasSubmission" : false,
+    "submission" : null,
+    "submissions" : [ ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_challenger_workbook_passes_requester_member_id_path_parameters"><a class="link" href="#_challenger_workbook_passes_requester_member_id_path_parameters">Path parameters</a></h4>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. /api/v2/curriculums/challenger-workbooks/{id}</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">챌린저 워크북 ID</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_original_workbook_passes_requester_member_id"><a class="link" href="#_original_workbook_passes_requester_member_id">original-workbook_passes-requester-member-id</a></h3>
+<div class="sect3">
+<h4 id="_original_workbook_passes_requester_member_id_http_request"><a class="link" href="#_original_workbook_passes_requester_member_id_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v2/curriculums/original-workbooks/1 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_original_workbook_passes_requester_member_id_http_response"><a class="link" href="#_original_workbook_passes_requester_member_id_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 361
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "originalWorkbookId" : "1",
+    "title" : null,
+    "description" : null,
+    "url" : null,
+    "content" : null,
+    "type" : null,
+    "status" : null,
+    "releasedAt" : null,
+    "releasedMemberId" : null,
+    "missions" : null,
+    "missionList" : [ ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_original_workbook_passes_requester_member_id_path_parameters"><a class="link" href="#_original_workbook_passes_requester_member_id_path_parameters">Path parameters</a></h4>
+<table class="tableblock frame-all grid-all stretch">
+<caption class="title">Table 1. /api/v2/curriculums/original-workbooks/{id}</caption>
+<colgroup>
+<col style="width: 50%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">원본 워크북 ID</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
 </div>
 <div id="footer">
 <div id="footer-text">
 Version 2.0.0<br>
-Last updated 2026-07-15 08:58:28 +0900
+Last updated 2026-07-25 00:22:49 +0900
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.3/highlight.min.js"></script>
