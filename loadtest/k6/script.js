@@ -66,7 +66,21 @@ if (!selected) {
 }
 
 // options 는 init 단계에서 평가된다. RATE/DURATION 은 run-umc-k6 가 넘긴다.
-export const options = buildOptions(PROFILE, __ENV.RATE, __ENV.DURATION);
+// systemTags 에서 url/name 을 제외한다 — 쿼리스트링(memberId 등)이 URL 마다 달라
+// Prometheus 시리즈가 요청 수만큼 폭발한다(카디널리티). 시나리오 구분은 우리 scenario 태그로 충분.
+export const options = {
+  ...buildOptions(PROFILE, __ENV.RATE, __ENV.DURATION),
+  systemTags: [
+    "scenario",
+    "status",
+    "method",
+    "expected_response",
+    "check",
+    "error",
+    "error_code",
+    "group",
+  ],
+};
 
 // open() 은 init 단계에서만 동작한다. 시딩이 필요한 시나리오일 때만 seed.json 을 읽는다.
 // 파일이 없으면 여기서 실패한다 — prepare-data.sh 로 먼저 시딩하거나 seed.example.json 을 복사한다.

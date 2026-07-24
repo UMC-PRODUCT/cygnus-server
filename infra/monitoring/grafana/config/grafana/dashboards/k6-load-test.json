@@ -1,7 +1,7 @@
 {
   "uid": "k6-load-test",
   "title": "부하 테스트 (k6)",
-  "description": "부하 테스트 종합 — ①판정(k6) ②SUT앱 ③DB내부 ④호스트 USE ⑤RDS 호스트 USE. 같은 시간축에서 위→아래로 인과를 추적한다. 실행: loadtest/scripts/run-k6.sh",
+  "description": "부하 테스트 종합 — 헤더(현재 상태) ①판정 ②SUT앱 ③DB내부 ④호스트 USE ⑤RDS 호스트 USE. 공유 크로스헤어로 같은 시각의 인과를 위→아래로 추적한다. 실행: loadtest/scripts/run-k6.sh",
   "tags": [
     "load-test",
     "k6",
@@ -10,6 +10,7 @@
   "timezone": "browser",
   "schemaVersion": 39,
   "refresh": "5s",
+  "graphTooltip": 1,
   "time": {
     "from": "now-30m",
     "to": "now"
@@ -17,31 +18,474 @@
   "panels": [
     {
       "id": 1,
-      "type": "row",
-      "title": "① 부하 판정 (k6)",
-      "collapsed": false,
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 1
-      },
-      "panels": []
-    },
-    {
-      "id": 2,
-      "type": "timeseries",
-      "title": "포화점 탐색 — VUs · TPS · 응답시간 (breakpoint 프로파일용)",
-      "description": "run-k6.sh breakpoint home 500 10m 처럼 점증 부하로 실행. TPS 가 평평해지는데 응답시간이 급등하기 시작하는 지점 = 포화점(한계 처리량). 고정 부하(load/stress)에서는 참고용.",
+      "type": "stat",
+      "title": "TPS",
+      "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 1,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(k6_http_reqs_total[$__rate_interval]))"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "p95 응답시간",
+      "description": "threshold 800ms (stress 는 2s)",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 800
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(k6_http_req_duration_p95)"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "에러율",
+      "description": "threshold 1%",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.01
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "k6_http_req_failed_rate"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "VUs",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "k6_vus"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "DB 커넥션",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 19,
+        "y": 0,
+        "w": 5,
+        "h": 4
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        },
+        "graphMode": "area",
+        "colorMode": "value",
+        "justifyMode": "auto",
+        "textMode": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(pg_stat_activity_count)"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "row",
+      "title": "① 부하 판정 (k6) — 아래 3개는 세로로 겹쳐 읽는 포화점(knee) 뷰",
+      "collapsed": false,
+      "gridPos": {
+        "x": 0,
+        "y": 4,
         "w": 24,
-        "h": 9
+        "h": 1
+      },
+      "panels": []
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "처리량 TPS",
+      "description": "breakpoint 로 점증 중 여기가 평평해지는 순간부터가 포화 — 아래 응답시간과 같이 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TPS"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#5794F2"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": false,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(k6_http_reqs_total[$__rate_interval]))",
+          "legendFormat": "TPS"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "응답시간 (전체 집계)",
+      "description": "p95(진한 선)가 판정 기준. 위 TPS 평탄화와 동시에 급등하면 그 지점이 한계 처리량.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 24,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 800
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D9578F"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "avg"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#EFA8CD"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(k6_http_req_duration_p95)",
+          "legendFormat": "p95"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg(k6_http_req_duration_avg)",
+          "legendFormat": "avg"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "VUs",
+      "description": "arrival-rate 실행에서 VUs 급증은 SUT 지연으로 동시성이 쌓인다는 뜻 — 그 자체가 포화 신호.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 3
       },
       "fieldConfig": {
         "defaults": {
@@ -49,33 +493,24 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
         "overrides": [
           {
             "matcher": {
-              "id": "byRegexp",
-              "options": ".*응답시간.*"
-            },
-            "properties": [
-              {
-                "id": "unit",
-                "value": "ms"
-              },
-              {
-                "id": "custom.axisPlacement",
-                "value": "right"
-              }
-            ]
-          },
-          {
-            "matcher": {
               "id": "byName",
               "options": "VUs"
             },
             "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#8E8E93"
+                }
+              },
               {
                 "id": "custom.lineStyle",
                 "value": {
@@ -96,13 +531,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": false,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -118,50 +550,23 @@
           },
           "expr": "k6_vus",
           "legendFormat": "VUs"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(k6_http_reqs_total[$__rate_interval]))",
-          "legendFormat": "TPS"
-        },
-        {
-          "refId": "C",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "avg(k6_http_req_duration_avg)",
-          "legendFormat": "응답시간 avg (우축)"
-        },
-        {
-          "refId": "D",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "max(k6_http_req_duration_p95)",
-          "legendFormat": "응답시간 p95 (우축)"
         }
       ]
     },
     {
-      "id": 3,
+      "id": 10,
       "type": "timeseries",
-      "title": "요청 처리량 (RPS, 시나리오별)",
-      "description": "RATE 를 올렸는데 여기가 안 오르면 어딘가 포화 — ④의 generator 부터 확인.",
+      "title": "시나리오별 RPS",
+      "description": "auth = 토큰 발급(측정 대상 아님, 분리 표시).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 10,
-        "w": 12,
-        "h": 8
+        "y": 18,
+        "w": 8,
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -169,7 +574,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -177,12 +582,12 @@
       },
       "options": {
         "legend": {
+          "showLegend": true,
           "displayMode": "table",
           "placement": "bottom",
           "calcs": [
             "mean",
-            "max",
-            "lastNotNull"
+            "max"
           ]
         },
         "tooltip": {
@@ -203,128 +608,9 @@
       ]
     },
     {
-      "id": 4,
+      "id": 11,
       "type": "timeseries",
-      "title": "응답시간 p95 / p99 (시나리오별)",
-      "description": "SLO 판정 기준. 튀면 ↓ 아래 행들에서 원인 추적.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 10,
-        "w": 12,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "ms",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "k6_http_req_duration_p95",
-          "legendFormat": "p95 {{scenario}}"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "k6_http_req_duration_p99",
-          "legendFormat": "p99 {{scenario}}"
-        }
-      ]
-    },
-    {
-      "id": 5,
-      "type": "timeseries",
-      "title": "시나리오 에러율",
-      "description": "상태코드 체크 실패 비율(커스텀 Rate). 0 이어야 정상.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 18,
-        "w": 8,
-        "h": 8
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "custom": {
-            "drawStyle": "line",
-            "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
-          },
-          "max": 1,
-          "min": 0
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "table",
-          "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
-        },
-        "tooltip": {
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "k6_umc_scenario_errors_rate",
-          "legendFormat": "{{scenario}}"
-        }
-      ]
-    },
-    {
-      "id": 6,
-      "type": "timeseries",
-      "title": "HTTP 실패율 · 체크 성공률",
+      "title": "시나리오별 p95",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -334,30 +620,44 @@
         "x": 8,
         "y": 18,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "ms",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
-          "max": 1,
-          "min": 0
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 800
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
+          "showLegend": true,
           "displayMode": "table",
           "placement": "bottom",
           "calcs": [
             "mean",
-            "max",
-            "lastNotNull"
+            "max"
           ]
         },
         "tooltip": {
@@ -372,24 +672,15 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "k6_http_req_failed_rate",
-          "legendFormat": "http_req_failed"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "k6_checks_rate",
-          "legendFormat": "checks 성공률"
+          "expr": "max by (scenario) (k6_http_req_duration_p95)",
+          "legendFormat": "{{scenario}}"
         }
       ]
     },
     {
-      "id": 7,
+      "id": 12,
       "type": "timeseries",
-      "title": "VUs · 반복률",
+      "title": "에러율 (시나리오·전체)",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -399,29 +690,61 @@
         "x": 16,
         "y": 18,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "percentunit",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "max": 1,
+          "min": 0,
+          "decimals": 1,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 0.01
+              }
+            ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "전체 http 실패"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -435,8 +758,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "k6_vus",
-          "legendFormat": "VUs"
+          "expr": "max by (scenario) (k6_umc_scenario_errors_rate)",
+          "legendFormat": "{{scenario}}"
         },
         {
           "refId": "B",
@@ -444,26 +767,26 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(k6_iterations_total[$__rate_interval]))",
-          "legendFormat": "iterations/s"
+          "expr": "k6_http_req_failed_rate",
+          "legendFormat": "전체 http 실패"
         }
       ]
     },
     {
-      "id": 8,
+      "id": 13,
       "type": "row",
-      "title": "② SUT 앱 내부 (Hikari·Tomcat·JVM) — 지표명은 첫 부팅 때 검증",
+      "title": "② SUT 앱 내부 (Hikari · Tomcat · JVM)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 25,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 9,
+      "id": 14,
       "type": "timeseries",
       "title": "Hikari 커넥션 풀",
       "description": "pending>0 지속 = 풀 고갈. DB 병목의 앱쪽 첫 증상 — ③·⑤와 같이 본다.",
@@ -473,9 +796,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 27,
-        "w": 8,
-        "h": 8
+        "y": 26,
+        "w": 6,
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -483,21 +806,34 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pending"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -530,7 +866,7 @@
             "uid": "prometheus"
           },
           "expr": "hikaricp_connections_pending",
-          "legendFormat": "pending (대기 스레드)"
+          "legendFormat": "pending"
         },
         {
           "refId": "D",
@@ -544,7 +880,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 15,
       "type": "timeseries",
       "title": "Tomcat 스레드",
       "description": "busy 가 max 에 붙으면 서버 스레드 포화.",
@@ -553,10 +889,10 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 8,
-        "y": 27,
-        "w": 8,
-        "h": 8
+        "x": 6,
+        "y": 26,
+        "w": 6,
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -564,7 +900,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -572,13 +908,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -607,19 +940,19 @@
       ]
     },
     {
-      "id": 11,
+      "id": 16,
       "type": "timeseries",
-      "title": "JVM 힙 · GC",
-      "description": "GC pause 가 계단식으로 늘면 힙 압박 — soak 에서 특히 주시.",
+      "title": "JVM 힙",
+      "description": "",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 16,
-        "y": 27,
-        "w": 8,
-        "h": 8
+        "x": 12,
+        "y": 26,
+        "w": 6,
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -627,7 +960,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -635,13 +968,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -656,7 +986,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(jvm_memory_used_bytes{area=\"heap\"})",
-          "legendFormat": "heap used"
+          "legendFormat": "used"
         },
         {
           "refId": "B",
@@ -665,34 +995,76 @@
             "uid": "prometheus"
           },
           "expr": "sum(jvm_memory_max_bytes{area=\"heap\"})",
-          "legendFormat": "heap max"
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "GC pause",
+      "description": "계단식 증가 = 힙 압박. soak 에서 특히 주시.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 26,
+        "w": 6,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
         },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
         {
-          "refId": "C",
+          "refId": "A",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
           },
           "expr": "sum(rate(jvm_gc_pause_seconds_sum[$__rate_interval]))",
-          "legendFormat": "GC pause s/s"
+          "legendFormat": "pause 초/초"
         }
       ]
     },
     {
-      "id": 12,
+      "id": 18,
       "type": "row",
       "title": "③ DB 내부 (postgres-exporter)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 35,
+        "y": 33,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 13,
+      "id": 19,
       "type": "timeseries",
       "title": "커넥션 (상태별) vs max",
       "description": "active 급증 + ② pending 증가 = 커넥션 병목. idle in transaction 누적도 위험 신호.",
@@ -702,9 +1074,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 34,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -712,7 +1084,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -720,13 +1092,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -755,7 +1124,7 @@
       ]
     },
     {
-      "id": 14,
+      "id": 20,
       "type": "timeseries",
       "title": "TPS (commit/rollback)",
       "description": "",
@@ -765,9 +1134,9 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 36,
+        "y": 34,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -775,21 +1144,34 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "rollback/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -818,19 +1200,19 @@
       ]
     },
     {
-      "id": 15,
+      "id": 21,
       "type": "timeseries",
       "title": "캐시 적중률",
-      "description": "0.99 아래로 지속 하락하면 워킹셋이 shared_buffers 를 넘은 것.",
+      "description": "0.99 아래로 지속 하락 = 워킹셋이 shared_buffers 초과.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 16,
-        "y": 36,
+        "y": 34,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -838,23 +1220,21 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           },
           "max": 1,
-          "min": 0
+          "min": 0,
+          "decimals": 1
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -874,19 +1254,19 @@
       ]
     },
     {
-      "id": 16,
+      "id": 22,
       "type": "timeseries",
       "title": "락 (mode 별)",
-      "description": "Exclusive 계열 급증 = 경합. ① p95 튐과 같은 시각이면 유력 원인.",
+      "description": "Exclusive 계열 급증 = 경합. ① p95 급등과 같은 시각이면 유력 원인.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 41,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -894,7 +1274,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -902,13 +1282,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -928,19 +1305,19 @@
       ]
     },
     {
-      "id": 17,
+      "id": 23,
       "type": "timeseries",
       "title": "임시파일 쓰기 (S)",
-      "description": "정렬/해시가 work_mem 을 넘어 디스크로 — 쿼리 튜닝 신호.",
+      "description": "정렬/해시가 work_mem 초과로 디스크행 — 쿼리 튜닝 신호.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 8,
-        "y": 44,
+        "y": 41,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -948,7 +1325,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -956,13 +1333,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -982,7 +1356,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 24,
       "type": "timeseries",
       "title": "데드락 · 충돌 (E)",
       "description": "",
@@ -992,9 +1366,9 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 44,
+        "y": 41,
         "w": 8,
-        "h": 8
+        "h": 7
       },
       "fieldConfig": {
         "defaults": {
@@ -1002,21 +1376,34 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "deadlocks/s"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1045,32 +1432,32 @@
       ]
     },
     {
-      "id": 19,
+      "id": 25,
       "type": "row",
-      "title": "④ 호스트 USE — SUT vs generator (role 라벨로 비교)",
+      "title": "④ 호스트 USE — SUT vs generator",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 52,
+        "y": 48,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 20,
+      "id": 26,
       "type": "timeseries",
-      "title": "CPU — U (사용률)",
-      "description": "generator 가 SUT 보다 먼저 100% 에 붙으면 측정 무효 — 생성기 병목.",
+      "title": "CPU — U 사용률",
+      "description": "generator 가 먼저 상한에 붙으면 측정 무효(생성기 병목).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 53,
+        "y": 49,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1078,23 +1465,37 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
           "max": 1,
-          "min": 0
+          "min": 0,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 0.8
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1114,19 +1515,19 @@
       ]
     },
     {
-      "id": 21,
+      "id": 27,
       "type": "timeseries",
-      "title": "CPU — S (run queue / core)",
-      "description": "1 초과 지속 = 실행 대기 스레드가 코어 수보다 많음(포화).",
+      "title": "CPU — S run queue/core",
+      "description": "1 초과 지속 = 코어보다 대기 스레드가 많음(포화).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 6,
-        "y": 53,
+        "y": 49,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1134,21 +1535,34 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 1
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1168,19 +1582,19 @@
       ]
     },
     {
-      "id": 22,
+      "id": 28,
       "type": "timeseries",
-      "title": "Memory — U (사용률)",
-      "description": "MemAvailable 기준 — 캐시는 사용량에서 제외(회수 가능).",
+      "title": "Memory — U 사용률",
+      "description": "MemAvailable 기준(회수 가능한 캐시 제외).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 53,
+        "y": 49,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1188,23 +1602,37 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
           },
           "max": 1,
-          "min": 0
+          "min": 0,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 0.9
+              }
+            ]
+          }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1224,19 +1652,19 @@
       ]
     },
     {
-      "id": 23,
+      "id": 29,
       "type": "timeseries",
-      "title": "Memory — S (anonymous paging)",
-      "description": "swap in/out 발생 자체가 메모리 포화. major fault 급증도 같은 신호.",
+      "title": "Memory — S anonymous paging",
+      "description": "swap 발생 자체가 메모리 포화 신호.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 18,
-        "y": 53,
+        "y": 49,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1244,7 +1672,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1252,13 +1680,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1273,7 +1698,7 @@
             "uid": "prometheus"
           },
           "expr": "rate(node_vmstat_pswpin{role=~\"sut|generator\"}[$__rate_interval]) + rate(node_vmstat_pswpout{role=~\"sut|generator\"}[$__rate_interval])",
-          "legendFormat": "swap io {{role}}"
+          "legendFormat": "swap {{role}}"
         },
         {
           "refId": "B",
@@ -1282,14 +1707,14 @@
             "uid": "prometheus"
           },
           "expr": "rate(node_vmstat_pgmajfault{role=~\"sut|generator\"}[$__rate_interval])",
-          "legendFormat": "major faults {{role}}"
+          "legendFormat": "majflt {{role}}"
         }
       ]
     },
     {
-      "id": 24,
+      "id": 30,
       "type": "timeseries",
-      "title": "Disk — U (busy %)",
+      "title": "Disk — U busy",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1297,9 +1722,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 60,
+        "y": 55,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1307,23 +1732,21 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           },
           "max": 1,
-          "min": 0
+          "min": 0,
+          "decimals": 0
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1343,19 +1766,19 @@
       ]
     },
     {
-      "id": 25,
+      "id": 31,
       "type": "timeseries",
-      "title": "Disk — S (avg queue)",
-      "description": "1 이상 지속 = IO 대기 큐 형성(포화).",
+      "title": "Disk — S avg queue",
+      "description": "1 이상 지속 = IO 대기 큐 형성.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 6,
-        "y": 60,
+        "y": 55,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1363,21 +1786,34 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 1
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1397,9 +1833,9 @@
       ]
     },
     {
-      "id": 26,
+      "id": 32,
       "type": "timeseries",
-      "title": "Network — U (throughput)",
+      "title": "Network — U throughput",
       "description": "",
       "datasource": {
         "type": "prometheus",
@@ -1407,9 +1843,9 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 60,
+        "y": 55,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1417,7 +1853,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1425,13 +1861,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1460,19 +1893,19 @@
       ]
     },
     {
-      "id": 27,
+      "id": 33,
       "type": "timeseries",
-      "title": "Network — S·E (drops·errs)",
-      "description": "EC2 게스트에선 HW E(ECC 등)가 안 보인다 — NIC drop/err 가 관측 가능한 E.",
+      "title": "Network — S·E drops·errs",
+      "description": "EC2 게스트에선 HW E(ECC 등)가 안 보임 — NIC drop/err 가 관측 가능한 E.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 18,
-        "y": 60,
+        "y": 55,
         "w": 6,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1480,7 +1913,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1488,13 +1921,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1509,7 +1939,7 @@
             "uid": "prometheus"
           },
           "expr": "sum by (role) (rate(node_network_receive_drop_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_drop_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
-          "legendFormat": "drops {{role}}"
+          "legendFormat": "drop {{role}}"
         },
         {
           "refId": "B",
@@ -1518,37 +1948,37 @@
             "uid": "prometheus"
           },
           "expr": "sum by (role) (rate(node_network_receive_errs_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_errs_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
-          "legendFormat": "errs {{role}}"
+          "legendFormat": "err {{role}}"
         }
       ]
     },
     {
-      "id": 28,
+      "id": 34,
       "type": "row",
-      "title": "⑤ DB 호스트 USE — RDS (CloudWatch, monitoring role 권한 필요)",
+      "title": "⑤ DB 호스트 USE — RDS (CloudWatch)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 67,
+        "y": 61,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 29,
+      "id": 35,
       "type": "timeseries",
       "title": "CPU — U (%)",
-      "description": "RDS 호스트 CPU. ③ TPS 정체 + 여기 100% = CPU 바운드.",
+      "description": "",
       "datasource": {
         "type": "cloudwatch",
         "uid": "cloudwatch"
       },
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 62,
         "w": 8,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1556,21 +1986,34 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
-            "showPoints": "never"
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 80
+              }
+            ]
           }
         },
         "overrides": []
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1603,19 +2046,19 @@
       ]
     },
     {
-      "id": 30,
+      "id": 36,
       "type": "timeseries",
       "title": "Memory — U·S (Freeable·Swap)",
-      "description": "FreeableMemory 바닥 + SwapUsage 증가 = 메모리 포화.",
+      "description": "Freeable 바닥 + Swap 증가 = 메모리 포화.",
       "datasource": {
         "type": "cloudwatch",
         "uid": "cloudwatch"
       },
       "gridPos": {
         "x": 8,
-        "y": 68,
+        "y": 62,
         "w": 8,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1623,7 +2066,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1631,13 +2074,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1692,7 +2132,7 @@
       ]
     },
     {
-      "id": 31,
+      "id": 37,
       "type": "timeseries",
       "title": "커넥션 수",
       "description": "",
@@ -1702,9 +2142,9 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 68,
+        "y": 62,
         "w": 8,
-        "h": 7
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1712,7 +2152,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1720,13 +2160,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1759,9 +2196,9 @@
       ]
     },
     {
-      "id": 32,
+      "id": 38,
       "type": "timeseries",
-      "title": "Disk — U (IOPS)",
+      "title": "Disk — U IOPS",
       "description": "",
       "datasource": {
         "type": "cloudwatch",
@@ -1769,9 +2206,9 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 75,
-        "w": 8,
-        "h": 7
+        "y": 68,
+        "w": 6,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1779,7 +2216,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1787,13 +2224,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1848,19 +2282,19 @@
       ]
     },
     {
-      "id": 33,
+      "id": 39,
       "type": "timeseries",
-      "title": "Disk — S (QueueDepth·Latency)",
-      "description": "QueueDepth 상승 = IO 포화. gp3 baseline 소진 여부는 IOPS 와 같이 본다.",
+      "title": "Disk — S QueueDepth",
+      "description": "상승 = IO 포화. gp3 baseline 소진은 IOPS 와 같이 본다.",
       "datasource": {
         "type": "cloudwatch",
         "uid": "cloudwatch"
       },
       "gridPos": {
-        "x": 8,
-        "y": 75,
-        "w": 8,
-        "h": 7
+        "x": 6,
+        "y": 68,
+        "w": 6,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1868,7 +2302,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1876,13 +2310,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
@@ -1911,9 +2342,51 @@
           "matchExact": true,
           "metricQueryType": 0,
           "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "Disk — Latency",
+      "description": "",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 68,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
         },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
         {
-          "refId": "B",
+          "refId": "A",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cloudwatch"
@@ -1935,7 +2408,7 @@
           "metricEditorMode": 0
         },
         {
-          "refId": "C",
+          "refId": "B",
           "datasource": {
             "type": "cloudwatch",
             "uid": "cloudwatch"
@@ -1959,19 +2432,19 @@
       ]
     },
     {
-      "id": 34,
+      "id": 41,
       "type": "timeseries",
-      "title": "Network — U (throughput)",
+      "title": "Network — U",
       "description": "",
       "datasource": {
         "type": "cloudwatch",
         "uid": "cloudwatch"
       },
       "gridPos": {
-        "x": 16,
-        "y": 75,
-        "w": 8,
-        "h": 7
+        "x": 18,
+        "y": 68,
+        "w": 6,
+        "h": 6
       },
       "fieldConfig": {
         "defaults": {
@@ -1979,7 +2452,7 @@
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
-            "fillOpacity": 12,
+            "fillOpacity": 10,
             "showPoints": "never"
           }
         },
@@ -1987,13 +2460,10 @@
       },
       "options": {
         "legend": {
-          "displayMode": "table",
+          "showLegend": true,
+          "displayMode": "list",
           "placement": "bottom",
-          "calcs": [
-            "mean",
-            "max",
-            "lastNotNull"
-          ]
+          "calcs": []
         },
         "tooltip": {
           "mode": "multi",
