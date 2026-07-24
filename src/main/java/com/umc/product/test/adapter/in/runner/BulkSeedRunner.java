@@ -6,6 +6,8 @@ import java.util.List;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
@@ -26,11 +28,12 @@ import lombok.extern.slf4j.Slf4j;
  * <pre>
  * docker run --rm --env-file &lt;SUT env&gt; \
  *   -e SPRING_PROFILES_ACTIVE=&lt;base&gt;,seeder \
- *   &lt;app_image&gt; \
- *   --spring.main.web-application-type=none \
- *   --app.bulk-seed.member-count=100000 --app.bulk-seed.seed-json-path=/seed-out/seed.json
+ *   -e APP_BULK_SEED_MEMBER_COUNT=100000 -e APP_BULK_SEED_SEED_JSON_PATH=/seed-out/seed.json \
+ *   &lt;app_image&gt;
  * </pre>
- * 시딩 후 k6 계약(prepare-data.sh 산출물과 동일 스키마)의 seed.json 을 쓰고 프로세스가 종료된다.
+ * 웹서버는 끄지 않는다 — SecurityConfig 가 MVC 빈(RequestMappingHandlerMapping)을 생성자로 요구해
+ * web-application-type=none 으로는 컨텍스트가 뜨지 않는다. 컨테이너가 포트를 publish 하지 않으므로
+ * SUT 앱과 충돌은 없고, 시딩 후 k6 계약의 seed.json 을 쓴 뒤 러너가 스스로 프로세스를 종료한다.
  */
 @Slf4j
 @Component
@@ -42,6 +45,7 @@ public class BulkSeedRunner implements ApplicationRunner {
     private final BulkSeedProperties properties;
     private final ObjectMapper objectMapper;
     private final Environment environment;
+    private final ConfigurableApplicationContext applicationContext;
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
@@ -69,6 +73,9 @@ public class BulkSeedRunner implements ApplicationRunner {
             System.currentTimeMillis() - startedAt,
             result.memberCount(), result.memberIds().size(), properties.seedJsonPath()
         );
+        // 웹서버가 떠 있어 JVM 이 스스로 안 죽는다 — 시딩 성공 시 여기서 명시적으로 종료한다.
+        // (실패 시에는 예외가 부팅을 중단시켜 exit 1 로 끝난다)
+        System.exit(SpringApplication.exit(applicationContext, () -> 0));
     }
 
     /** prepare-data.sh(api 전략) 산출물과 동일한 스키마로 쓴다 — k6 lib/data.js 계약. */

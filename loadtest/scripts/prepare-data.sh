@@ -233,10 +233,14 @@ APP_CID="\$(docker compose ps -q app)"
 IMAGE="\$(docker inspect "\$APP_CID" | jq -r '.[0].Config.Image')"
 NETWORK="\$(docker inspect "\$APP_CID" | jq -r '.[0].NetworkSettings.Networks | keys[0]')"
 echo "[bulk-remote] image=\$IMAGE network=\$NETWORK"
+# 같은 태그로 새 이미지를 push 했을 수 있으니 항상 최신을 pull 한다 (시더 수정이 로컬 캐시에 가려지는 것 방지)
+REGISTRY="\${IMAGE%%/*}"
+REGION="\$(echo "\$REGISTRY" | sed -n 's/.*\.dkr\.ecr\.\([a-z0-9-]*\)\.amazonaws\.com/\1/p')"
+aws --region "\$REGION" ecr get-login-password | docker login --username AWS --password-stdin "\$REGISTRY" >/dev/null
+docker pull "\$IMAGE" >/dev/null
 install -d -m 777 /opt/umc/seed-out
 docker run --rm --network "\$NETWORK" --env-file /opt/umc/app.env \
   -e SPRING_PROFILES_ACTIVE=dev,seeder \
-  -e SPRING_MAIN_WEB_APPLICATION_TYPE=none \
   -e APP_BULK_SEED_MEMBER_COUNT=$count \
   -e APP_BULK_SEED_RANDOM_SEED=$seed \
   -e APP_BULK_SEED_SEED_JSON_PATH=/seed-out/seed.json \
