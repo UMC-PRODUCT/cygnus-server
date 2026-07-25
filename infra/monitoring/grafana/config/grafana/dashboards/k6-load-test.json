@@ -72,7 +72,7 @@
       "id": 2,
       "type": "stat",
       "title": "p95 응답시간",
-      "description": "threshold 800ms (stress 는 2s)",
+      "description": "k6 remote-write 는 초 단위. threshold 0.8s (stress 는 2s)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -85,7 +85,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "s",
+          "decimals": 2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -95,7 +96,7 @@
               },
               {
                 "color": "red",
-                "value": 800
+                "value": 0.8
               }
             ]
           }
@@ -369,7 +370,7 @@
       "id": 8,
       "type": "timeseries",
       "title": "응답시간 (전체 집계)",
-      "description": "p95(진한 선)가 판정 기준. 위 TPS 평탄화와 동시에 급등하면 그 지점이 한계 처리량.",
+      "description": "단위: 초(k6 remote-write). p95(진한 선)가 판정 기준 — TPS 평탄화와 동시 급등 지점이 한계.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -382,7 +383,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "s",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -401,7 +402,7 @@
               },
               {
                 "color": "#F2495C",
-                "value": 800
+                "value": 0.8
               }
             ]
           }
@@ -624,7 +625,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "ms",
+          "unit": "s",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -643,7 +644,7 @@
               },
               {
                 "color": "#F2495C",
-                "value": 800
+                "value": 0.8
               }
             ]
           }
@@ -882,8 +883,8 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "Tomcat 스레드",
-      "description": "busy 가 max 에 붙으면 서버 스레드 포화.",
+      "title": "Hikari acquire 대기시간",
+      "description": "커넥션 얻기까지 대기한 시간 — pending 의 '고통 크기'. 수 ms 이상이면 풀 병목 진행 중.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -896,7 +897,7 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "short",
+          "unit": "ms",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
@@ -925,8 +926,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "{__name__=~\"tomcat_threads_busy(_threads)?\"}",
-          "legendFormat": "busy"
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(hikaricp_connections_acquire_milliseconds_bucket[$__rate_interval])))",
+          "legendFormat": "p95"
         },
         {
           "refId": "B",
@@ -934,8 +935,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "{__name__=~\"tomcat_threads_config_max(_threads)?\"}",
-          "legendFormat": "max"
+          "expr": "sum(rate(hikaricp_connections_acquire_milliseconds_sum[$__rate_interval])) / sum(rate(hikaricp_connections_acquire_milliseconds_count[$__rate_interval]))",
+          "legendFormat": "avg"
         }
       ]
     },
@@ -1002,8 +1003,8 @@
     {
       "id": 17,
       "type": "timeseries",
-      "title": "GC pause",
-      "description": "계단식 증가 = 힙 압박. soak 에서 특히 주시.",
+      "title": "GC overhead",
+      "description": "전체 시간 중 GC 가 차지한 비율. 지속 상승·계단식 = 힙 압박 (soak 에서 주시).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1016,13 +1017,16 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "s",
+          "unit": "percentunit",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
             "showPoints": "never"
-          }
+          },
+          "max": 1,
+          "min": 0,
+          "decimals": 1
         },
         "overrides": []
       },
@@ -1045,8 +1049,8 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum(rate(jvm_gc_pause_seconds_sum[$__rate_interval]))",
-          "legendFormat": "pause 초/초"
+          "expr": "jvm_gc_overhead",
+          "legendFormat": "GC 시간 비율"
         }
       ]
     },
