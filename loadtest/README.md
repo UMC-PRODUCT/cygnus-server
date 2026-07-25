@@ -26,11 +26,21 @@
 - 결정: **`loadtest/terraform` 분리, local backend**
 - 이유: 쓰고 통째로 destroy 하는 소모품이라 배포 env 의 state 경계·S3 backend 와 섞이면 안 된다. SUT 스펙은 prod 와 동일 고정(t4g.small)이 측정의 전제.
 
+### 시나리오 선택
+
+- 비교: 엔드포인트별 벤치마크 vs 사용자 행동 단위 / 어느 도메인부터 / 단일 vs 혼합 시작
+- 결정: **home 부터, 성분(단일 시나리오 breakpoint) → 통합(spike·혼합) 순서**
+- 이유:
+  - UMC 트래픽은 **이벤트 구동** — 지원 오픈·공지 푸시·출석 순간에 집중 유입되고 평시는 한산하다. 위험은 평균 부하가 아니라 순간 폭주다.
+  - home 은 전 유저 공통 진입점 + 1행동=3콜(부하 배수) + 최다 조인 집계(member/me) — **가장 넓고 가장 무거운 경로 하나**로 시작해 커버리지 대비 효율을 최대화.
+  - 혼합에서 문제가 나오면 원인 분리가 안 된다 — **성분별 한계 실측이 먼저**, 혼합·spike 는 성분 수치가 있어야 해석 가능.
+  - SLO 가 없는 상태라 breakpoint(점증)로 한계 처리량부터 실측 — 목표는 실측에서 역산한다.
+
 ### 부하 방식
 
-- 비교: VU 고정(constant-vus) vs 도착률 고정(constant-arrival-rate) vs 점증(ramping)
-- 결정: **smoke 만 VU, 본 측정은 arrival-rate, 포화점 탐색은 breakpoint(점증)**
-- 이유: VU 방식은 SUT 가 느려지면 요청도 같이 줄어 한계가 낙관적으로 나온다. 도착률 고정은 "SUT 가 얼마나 받아내나"를 정직하게 잰다. 한계 지점 자체를 찾을 땐 breakpoint 로 1→RATE 점증 (thresholds 없음 — 언제 깨지는가가 결과).
+- 비교: VU 고정(constant-vus) vs 도착률 고정(constant-arrival-rate) vs 점증(ramping) vs 급등(spike)
+- 결정: **smoke 만 VU, 본 측정은 arrival-rate, 포화점 탐색은 breakpoint(점증), 이벤트 폭주 재현은 spike(급등+회복)**
+- 이유: VU 방식은 SUT 가 느려지면 요청도 같이 줄어 한계가 낙관적으로 나온다(coordinated omission). 도착률 고정은 "SUT 가 얼마나 받아내나"를 정직하게 잰다. 한계 지점은 breakpoint 로 1→RATE 점증(thresholds 없음 — 언제 깨지는가가 결과). **spike 는 breakpoint 와 다른 테스트다** — 같은 rate 라도 완만 점증은 버티고 10초 급등은 죽을 수 있다(풀·JIT·캐시가 식은 상태에서 맞기 때문). 급등 후 rate 0 구간을 둬 회복까지 관찰한다.
 
 ### 시딩
 

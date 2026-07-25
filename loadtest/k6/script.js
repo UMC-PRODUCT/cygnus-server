@@ -52,6 +52,11 @@ const REGISTRY = {
     home: { fn: loadHome, requiresSeed: loadHomeSeed },
     "project-read": { fn: loadProjectRead, requiresSeed: loadProjectReadSeed },
   },
+  // spike 도 부하 패턴만 다르다 — 같은 원칙으로 load 시나리오 재사용.
+  spike: {
+    home: { fn: loadHome, requiresSeed: loadHomeSeed },
+    "project-read": { fn: loadProjectRead, requiresSeed: loadProjectReadSeed },
+  },
 };
 
 const PROFILE = __ENV.PROFILE || "smoke";

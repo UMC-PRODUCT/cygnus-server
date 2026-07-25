@@ -6,6 +6,7 @@ const DEFAULT_DURATION = {
   stress: "20m",
   soak: "2h",
   breakpoint: "10m",
+  spike: "2m", // 급등 후 유지 구간 길이 (앞 10s 급등 + 뒤 30s 회복은 고정)
 };
 
 function thresholds(profile) {
@@ -37,6 +38,29 @@ export function buildOptions(profile, rateEnv, durationEnv) {
       vus: rate,
       duration: duration,
       thresholds: thresholds(profile),
+    };
+  }
+
+  // spike 는 "급등 기울기가 죽이는가"를 본다 — breakpoint 와 다른 테스트다.
+  // 같은 rate 라도 완만 점증은 버티고 10초 급등은 죽을 수 있다(풀·JIT·캐시가 식은 상태에서 맞기 때문).
+  // 평시 저부하 → 10초 급등 → duration 유지 → 30초 rate 0 으로 회복(backlog 소화)까지 관찰.
+  // 이벤트성 폭주(지원 오픈·공지 푸시·출석) 재현. thresholds 는 stress 완화치 재사용.
+  if (profile === "spike") {
+    return {
+      scenarios: {
+        spike: {
+          executor: "ramping-arrival-rate",
+          startRate: Math.max(Math.floor(rate / 20), 1),
+          timeUnit: "1s",
+          stages: [
+            { target: rate, duration: "10s" },
+            { target: rate, duration: duration },
+            { target: 0, duration: "30s" },
+          ],
+          ...vuPool(rate),
+        },
+      },
+      thresholds: thresholds("stress"),
     };
   }
 

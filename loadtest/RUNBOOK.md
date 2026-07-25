@@ -88,6 +88,8 @@ loadtest/scripts/run-k6.sh smoke home 1   1m     # 먼저 스모크로 seed.json
 loadtest/scripts/run-k6.sh load  home 300 10m    # 본 부하 (고정 도착률)
 loadtest/scripts/run-k6.sh breakpoint home 500 10m        # 포화점 탐색: 1→500 req/s 점증
 #   → Grafana ① 행 "포화점 탐색" 패널에서 TPS 평탄화+응답시간 급등 교차점 = 한계 처리량
+loadtest/scripts/run-k6.sh spike home 300 2m              # 이벤트 폭주: 10초 급등→2분 유지→30초 회복
+#   → breakpoint 로 찾은 한계의 60~80% rate 로 급등을 버티는지 + 회복되는지 관찰
 loadtest/scripts/run-k6.sh stress project-read 1000 20m   # 필요 시
 ```
 
