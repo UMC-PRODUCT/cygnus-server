@@ -775,19 +775,162 @@
     },
     {
       "id": 13,
+      "type": "timeseries",
+      "title": "투입 vs 버림 (행동/s)",
+      "description": "dropped>0 = 요청한 부하가 실제로 안 들어가고 있음 — VU 풀 고갈. 이때 서버 지표는 '잔존 처리율'일 뿐 요청 부하가 아니다. 에러율 0%여도 여기가 뜨면 붕괴 중.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 25,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "dropped (VU 고갈로 시작 못 함)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#F2495C"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(k6_iterations_total[$__rate_interval]))",
+          "legendFormat": "완료된 행동"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(k6_dropped_iterations_total[$__rate_interval]))",
+          "legendFormat": "dropped (VU 고갈로 시작 못 함)"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "행동 소요시간 p95 (iteration)",
+      "description": "1행동(홈 로드 전체)이 걸린 시간. VU 수요 = rate × 이 값 — 이게 튀면 곧 VU 고갈(위 dropped)로 이어진다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 25,
+        "w": 12,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "p95"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#D9578F"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "max(k6_iteration_duration_p95)",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "id": 15,
       "type": "row",
       "title": "② SUT 앱 내부 (Hikari · Tomcat · JVM)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 32,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 14,
+      "id": 16,
       "type": "timeseries",
       "title": "Hikari 커넥션 풀",
       "description": "pending>0 지속 = 풀 고갈. DB 병목의 앱쪽 첫 증상 — ③·⑤와 같이 본다.",
@@ -797,7 +940,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 33,
         "w": 6,
         "h": 7
       },
@@ -881,7 +1024,7 @@
       ]
     },
     {
-      "id": 15,
+      "id": 17,
       "type": "timeseries",
       "title": "Hikari acquire 대기시간",
       "description": "커넥션 얻기까지 대기한 시간 — pending 의 '고통 크기'. 수 ms 이상이면 풀 병목 진행 중.",
@@ -891,7 +1034,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 26,
+        "y": 33,
         "w": 6,
         "h": 7
       },
@@ -941,7 +1084,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 18,
       "type": "timeseries",
       "title": "JVM 힙",
       "description": "",
@@ -951,7 +1094,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 26,
+        "y": 33,
         "w": 6,
         "h": 7
       },
@@ -1001,7 +1144,7 @@
       ]
     },
     {
-      "id": 17,
+      "id": 19,
       "type": "timeseries",
       "title": "GC overhead",
       "description": "전체 시간 중 GC 가 차지한 비율. 지속 상승·계단식 = 힙 압박 (soak 에서 주시).",
@@ -1011,7 +1154,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 26,
+        "y": 33,
         "w": 6,
         "h": 7
       },
@@ -1055,20 +1198,20 @@
       ]
     },
     {
-      "id": 18,
+      "id": 20,
       "type": "row",
       "title": "③ DB 내부 (postgres-exporter)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 33,
+        "y": 40,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 19,
+      "id": 21,
       "type": "timeseries",
       "title": "커넥션 (상태별) vs max",
       "description": "active 급증 + ② pending 증가 = 커넥션 병목. idle in transaction 누적도 위험 신호.",
@@ -1078,7 +1221,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 34,
+        "y": 41,
         "w": 8,
         "h": 7
       },
@@ -1128,7 +1271,7 @@
       ]
     },
     {
-      "id": 20,
+      "id": 22,
       "type": "timeseries",
       "title": "TPS (commit/rollback)",
       "description": "",
@@ -1138,7 +1281,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 34,
+        "y": 41,
         "w": 8,
         "h": 7
       },
@@ -1204,7 +1347,7 @@
       ]
     },
     {
-      "id": 21,
+      "id": 23,
       "type": "timeseries",
       "title": "캐시 적중률",
       "description": "0.99 아래로 지속 하락 = 워킹셋이 shared_buffers 초과.",
@@ -1214,7 +1357,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 34,
+        "y": 41,
         "w": 8,
         "h": 7
       },
@@ -1258,7 +1401,7 @@
       ]
     },
     {
-      "id": 22,
+      "id": 24,
       "type": "timeseries",
       "title": "락 (mode 별)",
       "description": "Exclusive 계열 급증 = 경합. ① p95 급등과 같은 시각이면 유력 원인.",
@@ -1268,7 +1411,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 41,
+        "y": 48,
         "w": 8,
         "h": 7
       },
@@ -1309,7 +1452,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 25,
       "type": "timeseries",
       "title": "임시파일 쓰기 (S)",
       "description": "정렬/해시가 work_mem 초과로 디스크행 — 쿼리 튜닝 신호.",
@@ -1319,7 +1462,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 41,
+        "y": 48,
         "w": 8,
         "h": 7
       },
@@ -1360,7 +1503,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 26,
       "type": "timeseries",
       "title": "데드락 · 충돌 (E)",
       "description": "",
@@ -1370,7 +1513,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 41,
+        "y": 48,
         "w": 8,
         "h": 7
       },
@@ -1436,20 +1579,20 @@
       ]
     },
     {
-      "id": 25,
+      "id": 27,
       "type": "row",
       "title": "④ 호스트 USE — SUT vs generator",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 48,
+        "y": 55,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 26,
+      "id": 28,
       "type": "timeseries",
       "title": "CPU — U 사용률",
       "description": "generator 가 먼저 상한에 붙으면 측정 무효(생성기 병목).",
@@ -1459,7 +1602,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 49,
+        "y": 56,
         "w": 6,
         "h": 6
       },
@@ -1519,7 +1662,7 @@
       ]
     },
     {
-      "id": 27,
+      "id": 29,
       "type": "timeseries",
       "title": "CPU — S run queue/core",
       "description": "1 초과 지속 = 코어보다 대기 스레드가 많음(포화).",
@@ -1529,7 +1672,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 49,
+        "y": 56,
         "w": 6,
         "h": 6
       },
@@ -1586,7 +1729,7 @@
       ]
     },
     {
-      "id": 28,
+      "id": 30,
       "type": "timeseries",
       "title": "Memory — U 사용률",
       "description": "MemAvailable 기준(회수 가능한 캐시 제외).",
@@ -1596,7 +1739,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 49,
+        "y": 56,
         "w": 6,
         "h": 6
       },
@@ -1656,7 +1799,7 @@
       ]
     },
     {
-      "id": 29,
+      "id": 31,
       "type": "timeseries",
       "title": "Memory — S anonymous paging",
       "description": "swap 발생 자체가 메모리 포화 신호.",
@@ -1666,7 +1809,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 49,
+        "y": 56,
         "w": 6,
         "h": 6
       },
@@ -1716,7 +1859,7 @@
       ]
     },
     {
-      "id": 30,
+      "id": 32,
       "type": "timeseries",
       "title": "Disk — U busy",
       "description": "",
@@ -1726,7 +1869,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 55,
+        "y": 62,
         "w": 6,
         "h": 6
       },
@@ -1770,7 +1913,7 @@
       ]
     },
     {
-      "id": 31,
+      "id": 33,
       "type": "timeseries",
       "title": "Disk — S avg queue",
       "description": "1 이상 지속 = IO 대기 큐 형성.",
@@ -1780,7 +1923,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 55,
+        "y": 62,
         "w": 6,
         "h": 6
       },
@@ -1837,7 +1980,7 @@
       ]
     },
     {
-      "id": 32,
+      "id": 34,
       "type": "timeseries",
       "title": "Network — U throughput",
       "description": "",
@@ -1847,7 +1990,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 55,
+        "y": 62,
         "w": 6,
         "h": 6
       },
@@ -1897,7 +2040,7 @@
       ]
     },
     {
-      "id": 33,
+      "id": 35,
       "type": "timeseries",
       "title": "Network — S·E drops·errs",
       "description": "EC2 게스트에선 HW E(ECC 등)가 안 보임 — NIC drop/err 가 관측 가능한 E.",
@@ -1907,7 +2050,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 55,
+        "y": 62,
         "w": 6,
         "h": 6
       },
@@ -1957,20 +2100,20 @@
       ]
     },
     {
-      "id": 34,
+      "id": 36,
       "type": "row",
       "title": "⑤ DB 호스트 USE — RDS (CloudWatch)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 61,
+        "y": 68,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 35,
+      "id": 37,
       "type": "timeseries",
       "title": "CPU — U (%)",
       "description": "",
@@ -1980,7 +2123,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 62,
+        "y": 69,
         "w": 8,
         "h": 6
       },
@@ -2050,7 +2193,7 @@
       ]
     },
     {
-      "id": 36,
+      "id": 38,
       "type": "timeseries",
       "title": "Memory — U·S (Freeable·Swap)",
       "description": "Freeable 바닥 + Swap 증가 = 메모리 포화.",
@@ -2060,7 +2203,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 62,
+        "y": 69,
         "w": 8,
         "h": 6
       },
@@ -2136,7 +2279,7 @@
       ]
     },
     {
-      "id": 37,
+      "id": 39,
       "type": "timeseries",
       "title": "커넥션 수",
       "description": "",
@@ -2146,7 +2289,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 62,
+        "y": 69,
         "w": 8,
         "h": 6
       },
@@ -2200,7 +2343,7 @@
       ]
     },
     {
-      "id": 38,
+      "id": 40,
       "type": "timeseries",
       "title": "Disk — U IOPS",
       "description": "",
@@ -2210,7 +2353,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 75,
         "w": 6,
         "h": 6
       },
@@ -2286,7 +2429,7 @@
       ]
     },
     {
-      "id": 39,
+      "id": 41,
       "type": "timeseries",
       "title": "Disk — S QueueDepth",
       "description": "상승 = IO 포화. gp3 baseline 소진은 IOPS 와 같이 본다.",
@@ -2296,7 +2439,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 68,
+        "y": 75,
         "w": 6,
         "h": 6
       },
@@ -2350,7 +2493,7 @@
       ]
     },
     {
-      "id": 40,
+      "id": 42,
       "type": "timeseries",
       "title": "Disk — Latency",
       "description": "",
@@ -2360,7 +2503,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 68,
+        "y": 75,
         "w": 6,
         "h": 6
       },
@@ -2436,7 +2579,7 @@
       ]
     },
     {
-      "id": 41,
+      "id": 43,
       "type": "timeseries",
       "title": "Network — U",
       "description": "",
@@ -2446,7 +2589,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 68,
+        "y": 75,
         "w": 6,
         "h": 6
       },
@@ -2506,6 +2649,92 @@
           "queryMode": "Metrics",
           "namespace": "AWS/RDS",
           "metricName": "NetworkTransmitThroughput",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "type": "timeseries",
+      "title": "CPU 크레딧 (버스터블)",
+      "description": "t4g 는 크레딧 소진 시 baseline(vCPU당 20%)으로 추락. 실행 전 잔고 = 실험 조건 — 연속 실험 시 앞 실험이 뒤 실험 조건을 바꾼다. SUT(EC2) 크레딧은 콘솔에서 확인.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 81,
+        "w": 8,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "CPUCreditBalance",
+          "statistic": "Average",
+          "dimensions": {
+            "DBInstanceIdentifier": "umc-loadtest-pg"
+          },
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "",
+          "matchExact": true,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/RDS",
+          "metricName": "CPUSurplusCreditBalance",
           "statistic": "Average",
           "dimensions": {
             "DBInstanceIdentifier": "umc-loadtest-pg"
