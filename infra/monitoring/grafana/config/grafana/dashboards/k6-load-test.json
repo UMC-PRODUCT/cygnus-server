@@ -19,8 +19,8 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "TPS",
-      "description": "",
+      "title": "RPS (요청/초)",
+      "description": "k6 가 세는 HTTP 요청/초. 홈 1행동=4요청이므로 사용자 기준 TPS = RPS ÷ 4.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -302,8 +302,8 @@
     {
       "id": 7,
       "type": "timeseries",
-      "title": "처리량 TPS",
-      "description": "breakpoint 로 점증 중 여기가 평평해지는 순간부터가 포화 — 아래 응답시간과 같이 본다.",
+      "title": "처리량 RPS (요청/초)",
+      "description": "k6 가 세는 HTTP 요청/초. 홈 1행동=4요청이라 사용자 기준 처리량(TPS)=RPS÷4. breakpoint 로 점증 중 여기가 평평해지는 순간부터가 포화 — 아래 응답시간과 같이 본다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -328,7 +328,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "TPS"
+              "options": "RPS"
             },
             "properties": [
               {
@@ -362,7 +362,7 @@
             "uid": "prometheus"
           },
           "expr": "sum(rate(k6_http_reqs_total[$__rate_interval]))",
-          "legendFormat": "TPS"
+          "legendFormat": "RPS"
         }
       ]
     },
