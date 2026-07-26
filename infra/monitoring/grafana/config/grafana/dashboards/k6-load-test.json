@@ -1287,8 +1287,8 @@
     {
       "id": 21,
       "type": "timeseries",
-      "title": "GC 시간 비율 · pause",
-      "description": "GC 가 CPU 를 먹는 정도. 낮으면(<5%) CPU 병목은 GC 아님 = 순수 연산. jvm_gc_overhead 사용(예전 'GC pause' 패널의 No data 는 지표명 오류였음).",
+      "title": "GC overhead",
+      "description": "GC 가 CPU 를 먹는 정도. 낮으면(<5%) CPU 병목은 GC 아님 = 순수 연산(직렬화 등). GC 이벤트가 아예 없으면 이 값도 0 근처 — 힙 여유(왼쪽)와 같이 보면 GC 무혐의 확정. (pause 지표는 jvm_gc_pause_milliseconds — 앱이 ms 단위로 내보냄)",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1334,16 +1334,7 @@
             "uid": "prometheus"
           },
           "expr": "jvm_gc_overhead",
-          "legendFormat": "GC overhead(비율)"
-        },
-        {
-          "refId": "B",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "sum(rate(jvm_gc_pause_seconds_sum[$__rate_interval]))",
-          "legendFormat": "pause 초/초"
+          "legendFormat": "GC 시간 비율"
         }
       ]
     },
