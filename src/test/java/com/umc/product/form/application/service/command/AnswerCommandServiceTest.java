@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -665,6 +666,138 @@ class AnswerCommandServiceTest {
         question.assignTo(section);
         ReflectionTestUtils.setField(question, "id", QUESTION_ID);
         return question;
+    }
+
+    private Answer scheduleAnswer(FormResponse formResponse, Set<Instant> times) {
+        Question question = scheduleQuestion(formResponse.getForm());
+        Answer answer = Answer.create(formResponse, question, QuestionType.SCHEDULE, null, null, times);
+        ReflectionTestUtils.setField(answer, "id", ANSWER_ID);
+        return answer;
+    }
+
+    // ============================================================
+    //          SCHEDULE 답변 PATCH 시맨틱 (updateAnswer / updateAnonymousAnswer)
+    //          null = keep, empty = clear, 값 = 갱신, null 원소 = 400
+    // ============================================================
+
+    @Test
+    @DisplayName("updateAnswer: SCHEDULE times=null 이면 검증 통과 (기존 값 유지 시맨틱)")
+    void updateAnswer_SCHEDULE_times_null_keep() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Set<Instant> before = new java.util.HashSet<>(java.util.Set.of(Instant.parse("2026-08-01T10:00:00Z")));
+        Answer existing = scheduleAnswer(draft, before);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(existing));
+
+        sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(null)
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getTimes()).containsExactlyInAnyOrder(Instant.parse("2026-08-01T10:00:00Z"));
+        then(saveAnswerPort).should().save(existing);
+    }
+
+    @Test
+    @DisplayName("updateAnswer: SCHEDULE times=[] 이면 검증 통과 (기존 값 제거 시맨틱)")
+    void updateAnswer_SCHEDULE_times_empty_clear() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Set<Instant> before = new java.util.HashSet<>(java.util.Set.of(Instant.parse("2026-08-01T10:00:00Z")));
+        Answer existing = scheduleAnswer(draft, before);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(existing));
+
+        sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(List.of())
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getTimes()).isNull();
+        then(saveAnswerPort).should().save(existing);
+    }
+
+    @Test
+    @DisplayName("updateAnswer: SCHEDULE times 새 값 주면 갱신")
+    void updateAnswer_SCHEDULE_times_새값_갱신() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Set<Instant> before = new java.util.HashSet<>(java.util.Set.of(Instant.parse("2026-08-01T10:00:00Z")));
+        Answer existing = scheduleAnswer(draft, before);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(existing));
+
+        Instant newSlot = Instant.parse("2026-08-01T11:15:00Z");
+        sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(List.of(newSlot))
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getTimes()).containsExactly(newSlot);
+        then(saveAnswerPort).should().save(existing);
+    }
+
+    @Test
+    @DisplayName("updateAnswer: SCHEDULE times 안에 null 원소 있으면 INVALID_ANSWER_FORMAT")
+    void updateAnswer_SCHEDULE_times_null_원소_거부() {
+        FormResponse draft = namedDraft(OWNER_MEMBER_ID);
+        Answer existing = scheduleAnswer(draft, java.util.Set.of(Instant.parse("2026-08-01T10:00:00Z")));
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(existing));
+
+        List<Instant> withNull = new java.util.ArrayList<>();
+        withNull.add(Instant.parse("2026-08-01T11:00:00Z"));
+        withNull.add(null);
+
+        assertThatThrownBy(() -> sut.updateAnswer(UpdateAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .requesterMemberId(OWNER_MEMBER_ID)
+            .times(withNull)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveAnswerPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("updateAnonymousAnswer: SCHEDULE times=null 이면 검증 통과 (익명 대칭)")
+    void updateAnonymousAnswer_SCHEDULE_times_null_keep() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Set<Instant> before = new java.util.HashSet<>(java.util.Set.of(Instant.parse("2026-08-01T10:00:00Z")));
+        Answer existing = scheduleAnswer(anonymousDraft, before);
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(existing));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+
+        sut.updateAnonymousAnswer(UpdateAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .times(null)
+            .build());
+
+        org.assertj.core.api.Assertions.assertThat(existing.getTimes()).containsExactlyInAnyOrder(Instant.parse("2026-08-01T10:00:00Z"));
+        then(saveAnswerPort).should().save(existing);
+    }
+
+    @Test
+    @DisplayName("updateAnonymousAnswer: SCHEDULE times 안에 null 원소 있으면 INVALID_ANSWER_FORMAT (익명 대칭)")
+    void updateAnonymousAnswer_SCHEDULE_times_null_원소_거부() {
+        FormResponse anonymousDraft = anonymousDraft();
+        Answer existing = scheduleAnswer(anonymousDraft, java.util.Set.of(Instant.parse("2026-08-01T10:00:00Z")));
+        given(loadAnswerPort.findById(ANSWER_ID)).willReturn(Optional.of(existing));
+        given(secureTokenGenerator.sha256Hex(RAW_KEY)).willReturn(KEY_HASH);
+
+        List<Instant> withNull = new java.util.ArrayList<>();
+        withNull.add(null);
+
+        assertThatThrownBy(() -> sut.updateAnonymousAnswer(UpdateAnonymousAnswerCommand.builder()
+            .answerId(ANSWER_ID)
+            .responseAccessKey(RAW_KEY)
+            .times(withNull)
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveAnswerPort).should(never()).save(any());
     }
 
     private FormResponse namedDraft(Long memberId) {

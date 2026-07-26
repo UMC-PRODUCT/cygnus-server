@@ -89,7 +89,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerAndDraftAsOwner(command.answerId(), command.requesterMemberId());
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
+        validateAnswerContentForPartialUpdate(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
@@ -161,7 +161,7 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerAndDraftAsAnonymous(command.answerId(), command.responseAccessKey());
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
+        validateAnswerContentForPartialUpdate(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
@@ -315,7 +315,11 @@ public class AnswerCommandService implements ManageAnswerUseCase {
     }
 
     /**
-     * 질문 type 별 답변 형식 검증.
+     * 질문 type 별 답변 형식 strict 검증. 개별 답변 create 흐름 (createAnswer, createAnonymousAnswer) 에서 사용하며,
+     * 모든 값 필드가 실제로 제공되어야 함을 가정한다.
+     * <p>
+     * FormResponse 레벨 rebuild 흐름 (submitImmediately / submitDraft / updateResponse / updateAnonymousResponse) 은
+     * 별도로 {@code FormResponseCommandService#validateAnswerAgainstQuestion} 에서 동일한 strict 규칙을 적용한다.
      */
     private void validateAnswerContent(
         Question question,
@@ -369,12 +373,32 @@ public class AnswerCommandService implements ManageAnswerUseCase {
                     throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                 }
                 for (Instant t : times) {
-                    if (!isAlignedToSlot(t)) {
+                    if (t == null || !isAlignedToSlot(t)) {
                         throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                     }
                 }
             }
         }
+    }
+
+    /**
+     * 개별 답변 PATCH (updateAnswer / updateAnonymousAnswer) 전용 검증.
+     * <p>
+     * SCHEDULE 은 {@code times} null/empty 를 각각 keep/clear 시맨틱으로 허용하고
+     * (그 경우 {@link Answer#update} 에 위임), 값이 실제로 제공된 경우에만 슬롯 정렬을 검증한다.
+     * 그 외 타입은 {@link #validateAnswerContent} 와 동일 strict 규칙을 적용한다.
+     */
+    private void validateAnswerContentForPartialUpdate(
+        Question question,
+        String textValue,
+        List<Long> selectedOptionIds,
+        List<String> fileIds,
+        List<Instant> times
+    ) {
+        if (question.getType() == QuestionType.SCHEDULE && (times == null || times.isEmpty())) {
+            return;
+        }
+        validateAnswerContent(question, textValue, selectedOptionIds, fileIds, times);
     }
 
     // 15분 = 900초. 슬롯 시작은 초 단위로 900의 배수이며 나노초 부분은 0.

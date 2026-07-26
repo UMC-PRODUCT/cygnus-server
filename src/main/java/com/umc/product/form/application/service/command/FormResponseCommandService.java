@@ -1066,7 +1066,7 @@ public class FormResponseCommandService implements ManageFormResponseUseCase {
                     throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                 }
                 for (Instant t : times) {
-                    if (!isAlignedToSlot(t)) {
+                    if (t == null || !isAlignedToSlot(t)) {
                         throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
                     }
                 }
