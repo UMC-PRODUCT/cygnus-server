@@ -17,11 +17,15 @@ import com.umc.product.form.application.port.in.command.dto.ReorderFormSectionsC
 import com.umc.product.form.application.port.in.command.dto.UpdateFormSectionCommand;
 import com.umc.product.form.application.port.out.LoadFormPort;
 import com.umc.product.form.application.port.out.LoadFormSectionPort;
+import com.umc.product.form.application.port.out.LoadQuestionOptionPort;
+import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.application.port.out.SaveFormSectionPort;
 import com.umc.product.form.application.port.out.SaveQuestionOptionPort;
 import com.umc.product.form.application.port.out.SaveQuestionPort;
 import com.umc.product.form.domain.Form;
 import com.umc.product.form.domain.FormSection;
+import com.umc.product.form.domain.Question;
+import com.umc.product.form.domain.QuestionOption;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 
@@ -34,6 +38,8 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
 
     private final LoadFormPort loadFormPort;
     private final LoadFormSectionPort loadFormSectionPort;
+    private final LoadQuestionPort loadQuestionPort;
+    private final LoadQuestionOptionPort loadQuestionOptionPort;
     private final SaveFormSectionPort saveFormSectionPort;
     private final SaveQuestionPort saveQuestionPort;
     private final SaveQuestionOptionPort saveQuestionOptionPort;
@@ -94,6 +100,50 @@ public class FormSectionCommandService implements ManageFormSectionUseCase {
             byId.get(command.orderedSectionIds().get(i)).updateOrderNo((long) (i + 1));
         }
 
+        validateForwardOnlyAfterReorder(command.formId(), byId);
+
         saveFormSectionPort.saveAll(sections);
+    }
+
+    /**
+     * 재배치로 인해 기존 옵션의 {@code nextSectionId} 가 back-edge 로 바뀌지 않는지 검증한다.
+     * <p>
+     * 폼의 모든 질문/옵션을 순회해 옵션이 가리키는 대상 섹션의 새 orderNo 가 옵션 자신의 섹션 새 orderNo 보다 큰지 확인한다.
+     * 위반 옵션이 하나라도 있으면 재배치 자체를 거부한다.
+     */
+    private void validateForwardOnlyAfterReorder(Long formId, Map<Long, FormSection> sectionsById) {
+        List<Question> questions = loadQuestionPort.listByFormId(formId);
+        if (questions.isEmpty()) {
+            return;
+        }
+
+        Set<Long> questionIds = questions.stream().map(Question::getId).collect(Collectors.toSet());
+        List<QuestionOption> options = loadQuestionOptionPort.listByQuestionIdIn(questionIds);
+        if (options.isEmpty()) {
+            return;
+        }
+
+        Map<Long, Long> questionIdToSectionId = questions.stream()
+            .filter(q -> q.getFormSection() != null)
+            .collect(Collectors.toMap(Question::getId, q -> q.getFormSection().getId()));
+
+        for (QuestionOption option : options) {
+            Long nextSectionId = option.getNextSectionId();
+            if (nextSectionId == null) {
+                continue;
+            }
+            Long currentSectionId = questionIdToSectionId.get(option.getQuestion().getId());
+            if (currentSectionId == null) {
+                continue;
+            }
+            FormSection current = sectionsById.get(currentSectionId);
+            FormSection target = sectionsById.get(nextSectionId);
+            if (current == null || target == null) {
+                continue;
+            }
+            if (target.getOrderNo() <= current.getOrderNo()) {
+                throw new FormDomainException(FormErrorCode.INVALID_NEXT_SECTION_BACKWARD);
+            }
+        }
     }
 }
