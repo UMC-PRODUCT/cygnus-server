@@ -14,8 +14,10 @@ import com.umc.product.form.application.port.in.query.GetScheduleOverlapUseCase;
 import com.umc.product.form.application.port.in.query.dto.ScheduleOverlapSlotInfo;
 import com.umc.product.form.application.port.out.LoadAnswerPort;
 import com.umc.product.form.application.port.out.LoadFormResponsePort;
+import com.umc.product.form.application.port.out.LoadQuestionPort;
 import com.umc.product.form.domain.Answer;
 import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.Question;
 import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
@@ -30,13 +32,15 @@ public class ScheduleOverlapQueryService implements GetScheduleOverlapUseCase {
 
     private final LoadFormResponsePort loadFormResponsePort;
     private final LoadAnswerPort loadAnswerPort;
+    private final LoadQuestionPort loadQuestionPort;
 
     @Override
-    public List<ScheduleOverlapSlotInfo> getOverlap(Long formId, Set<Long> formResponseIds) {
+    public List<ScheduleOverlapSlotInfo> getOverlap(Long formId, Long questionId, Set<Long> formResponseIds) {
         if (formResponseIds == null || formResponseIds.isEmpty()) {
             return List.of();
         }
 
+        validateQuestion(formId, questionId);
         validateResponses(formId, formResponseIds);
 
         List<Answer> answers = loadAnswerPort.listByFormResponseIds(formResponseIds);
@@ -44,6 +48,7 @@ public class ScheduleOverlapQueryService implements GetScheduleOverlapUseCase {
         Map<Instant, Set<Long>> slotToResponseIds = new HashMap<>();
         for (Answer answer : answers) {
             if (answer.getAnsweredAsType() != QuestionType.SCHEDULE) continue;
+            if (!questionId.equals(answer.getQuestion().getId())) continue;
             Set<Instant> times = answer.getTimes();
             if (times == null || times.isEmpty()) continue;
             Long responseId = answer.getFormResponse().getId();
@@ -58,6 +63,17 @@ public class ScheduleOverlapQueryService implements GetScheduleOverlapUseCase {
             .toList();
     }
 
+    private void validateQuestion(Long formId, Long questionId) {
+        Question question = loadQuestionPort.findById(questionId)
+            .orElseThrow(() -> new FormDomainException(FormErrorCode.QUESTION_NOT_FOUND));
+        if (question.getFormSection() == null
+            || !question.getFormSection().getForm().getId().equals(formId)) {
+            throw new FormDomainException(FormErrorCode.QUESTION_IS_NOT_OWNED_BY_FORM);
+        }
+        if (question.getType() != QuestionType.SCHEDULE) {
+            throw new FormDomainException(FormErrorCode.QUESTION_TYPE_MISMATCH);
+        }
+    }
 
     private void validateResponses(Long formId, Set<Long> formResponseIds) {
         List<FormResponse> loaded = loadFormResponsePort.listByIdsWithForm(formResponseIds);
