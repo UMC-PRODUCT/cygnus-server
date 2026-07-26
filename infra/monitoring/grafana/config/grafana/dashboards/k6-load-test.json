@@ -1164,8 +1164,8 @@
     {
       "id": 19,
       "type": "timeseries",
-      "title": "JVM 힙",
-      "description": "",
+      "title": "앱 CPU 사용률 (process vs host)",
+      "description": "앱 프로세스가 태우는 CPU. DB 를 뚫은 뒤 여기가 병목이 된다. GC(오른쪽)가 낮은데 이게 높으면 순수 연산(직렬화·로깅) 비용 — 응답/쿼리 다이어트 신호.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1173,7 +1173,70 @@
       "gridPos": {
         "x": 0,
         "y": 42,
-        "w": 12,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          },
+          "max": 1,
+          "min": 0,
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "process_cpu_usage",
+          "legendFormat": "앱 프로세스"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "system_cpu_usage",
+          "legendFormat": "호스트 전체"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "JVM 힙",
+      "description": "used 가 max 에 자주 닿으면 GC 유발. 지금은 여유면 GC 는 범인 아님.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 42,
+        "w": 8,
         "h": 7
       },
       "fieldConfig": {
@@ -1222,18 +1285,18 @@
       ]
     },
     {
-      "id": 20,
+      "id": 21,
       "type": "timeseries",
-      "title": "GC overhead",
-      "description": "전체 시간 중 GC 가 차지한 비율. 지속 상승·계단식 = 힙 압박 (soak 에서 주시).",
+      "title": "GC 시간 비율 · pause",
+      "description": "GC 가 CPU 를 먹는 정도. 낮으면(<5%) CPU 병목은 GC 아님 = 순수 연산. jvm_gc_overhead 사용(예전 'GC pause' 패널의 No data 는 지표명 오류였음).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
+        "x": 16,
         "y": 42,
-        "w": 12,
+        "w": 8,
         "h": 7
       },
       "fieldConfig": {
@@ -1271,12 +1334,21 @@
             "uid": "prometheus"
           },
           "expr": "jvm_gc_overhead",
-          "legendFormat": "GC 시간 비율"
+          "legendFormat": "GC overhead(비율)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(rate(jvm_gc_pause_seconds_sum[$__rate_interval]))",
+          "legendFormat": "pause 초/초"
         }
       ]
     },
     {
-      "id": 21,
+      "id": 22,
       "type": "row",
       "title": "③ DB 내부 (postgres-exporter)",
       "collapsed": false,
@@ -1289,7 +1361,7 @@
       "panels": []
     },
     {
-      "id": 22,
+      "id": 23,
       "type": "timeseries",
       "title": "커넥션 (상태별) vs max",
       "description": "active 급증 + ② pending 증가 = 커넥션 병목. idle in transaction 누적도 위험 신호.",
@@ -1349,7 +1421,7 @@
       ]
     },
     {
-      "id": 23,
+      "id": 24,
       "type": "timeseries",
       "title": "TPS (commit/rollback)",
       "description": "",
@@ -1425,7 +1497,7 @@
       ]
     },
     {
-      "id": 24,
+      "id": 25,
       "type": "timeseries",
       "title": "캐시 적중률",
       "description": "0.99 아래로 지속 하락 = 워킹셋이 shared_buffers 초과.",
@@ -1479,7 +1551,7 @@
       ]
     },
     {
-      "id": 25,
+      "id": 26,
       "type": "timeseries",
       "title": "락 (mode 별)",
       "description": "Exclusive 계열 급증 = 경합. ① p95 급등과 같은 시각이면 유력 원인.",
@@ -1530,7 +1602,7 @@
       ]
     },
     {
-      "id": 26,
+      "id": 27,
       "type": "timeseries",
       "title": "임시파일 쓰기 (S)",
       "description": "정렬/해시가 work_mem 초과로 디스크행 — 쿼리 튜닝 신호.",
@@ -1581,7 +1653,7 @@
       ]
     },
     {
-      "id": 27,
+      "id": 28,
       "type": "timeseries",
       "title": "데드락 · 충돌 (E)",
       "description": "",
@@ -1657,7 +1729,7 @@
       ]
     },
     {
-      "id": 28,
+      "id": 29,
       "type": "row",
       "title": "④ 호스트 USE — SUT vs generator",
       "collapsed": false,
@@ -1670,7 +1742,7 @@
       "panels": []
     },
     {
-      "id": 29,
+      "id": 30,
       "type": "timeseries",
       "title": "CPU — U 사용률",
       "description": "generator 가 먼저 상한에 붙으면 측정 무효(생성기 병목).",
@@ -1740,7 +1812,7 @@
       ]
     },
     {
-      "id": 30,
+      "id": 31,
       "type": "timeseries",
       "title": "CPU — S run queue/core",
       "description": "1 초과 지속 = 코어보다 대기 스레드가 많음(포화).",
@@ -1807,7 +1879,7 @@
       ]
     },
     {
-      "id": 31,
+      "id": 32,
       "type": "timeseries",
       "title": "Memory — U 사용률",
       "description": "MemAvailable 기준(회수 가능한 캐시 제외).",
@@ -1877,7 +1949,7 @@
       ]
     },
     {
-      "id": 32,
+      "id": 33,
       "type": "timeseries",
       "title": "Memory — S anonymous paging",
       "description": "swap 발생 자체가 메모리 포화 신호.",
@@ -1937,7 +2009,7 @@
       ]
     },
     {
-      "id": 33,
+      "id": 34,
       "type": "timeseries",
       "title": "Disk — U busy",
       "description": "",
@@ -1991,7 +2063,7 @@
       ]
     },
     {
-      "id": 34,
+      "id": 35,
       "type": "timeseries",
       "title": "Disk — S avg queue",
       "description": "1 이상 지속 = IO 대기 큐 형성.",
@@ -2058,7 +2130,7 @@
       ]
     },
     {
-      "id": 35,
+      "id": 36,
       "type": "timeseries",
       "title": "Network — U throughput",
       "description": "",
@@ -2118,7 +2190,7 @@
       ]
     },
     {
-      "id": 36,
+      "id": 37,
       "type": "timeseries",
       "title": "Network — S·E drops·errs",
       "description": "EC2 게스트에선 HW E(ECC 등)가 안 보임 — NIC drop/err 가 관측 가능한 E.",
@@ -2178,7 +2250,7 @@
       ]
     },
     {
-      "id": 37,
+      "id": 38,
       "type": "row",
       "title": "⑤ DB 호스트 USE — RDS (CloudWatch)",
       "collapsed": false,
@@ -2191,7 +2263,7 @@
       "panels": []
     },
     {
-      "id": 38,
+      "id": 39,
       "type": "timeseries",
       "title": "CPU — U (%)",
       "description": "",
@@ -2271,7 +2343,7 @@
       ]
     },
     {
-      "id": 39,
+      "id": 40,
       "type": "timeseries",
       "title": "Memory — U·S (Freeable·Swap)",
       "description": "Freeable 바닥 + Swap 증가 = 메모리 포화.",
@@ -2357,7 +2429,7 @@
       ]
     },
     {
-      "id": 40,
+      "id": 41,
       "type": "timeseries",
       "title": "커넥션 수",
       "description": "",
@@ -2421,7 +2493,7 @@
       ]
     },
     {
-      "id": 41,
+      "id": 42,
       "type": "timeseries",
       "title": "Disk — U IOPS",
       "description": "",
@@ -2507,7 +2579,7 @@
       ]
     },
     {
-      "id": 42,
+      "id": 43,
       "type": "timeseries",
       "title": "Disk — S QueueDepth",
       "description": "상승 = IO 포화. gp3 baseline 소진은 IOPS 와 같이 본다.",
@@ -2571,7 +2643,7 @@
       ]
     },
     {
-      "id": 43,
+      "id": 44,
       "type": "timeseries",
       "title": "Disk — Latency",
       "description": "",
@@ -2657,7 +2729,7 @@
       ]
     },
     {
-      "id": 44,
+      "id": 45,
       "type": "timeseries",
       "title": "Network — U",
       "description": "",
@@ -2743,7 +2815,7 @@
       ]
     },
     {
-      "id": 45,
+      "id": 46,
       "type": "timeseries",
       "title": "CPU 크레딧 (버스터블)",
       "description": "t4g 는 크레딧 소진 시 baseline(vCPU당 20%)으로 추락. 실행 전 잔고 = 실험 조건 — 연속 실험 시 앞 실험이 뒤 실험 조건을 바꾼다. SUT(EC2) 크레딧은 콘솔에서 확인.",
