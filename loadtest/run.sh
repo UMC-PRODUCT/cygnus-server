@@ -21,8 +21,9 @@ if command -v curl >/dev/null 2>&1; then
     || echo "[경고] ${BASE_URL} 헬스체크 실패 — 앱이 떠 있는지 확인하세요(계속 진행)."
 fi
 
-DATE=$(date +%Y-%m-%d)
-OUT="docs/loadtest/runs/${DATE}-${LABEL}"
+# 시각(HHmmss)까지 포함해 같은 날 같은 label 재실행 시 이전 결과가 덮어써지지 않게 한다.
+TS=$(date +%Y-%m-%d-%H%M%S)
+OUT="docs/loadtest/runs/${TS}-${LABEL}"
 mkdir -p "$OUT"
 GITREF=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
 

@@ -55,7 +55,8 @@ loadtest/
 K6_MEMBER_ID=1 K6_NOTICE_ID=1 \
   k6 run loadtest/scenarios/notice/read-status.smoke.js
 
-# load (권장: run.sh) — 전/후 비교 본체. 결과가 docs/loadtest/runs/<날짜>-<label>/ 에 자동 저장
+# load (권장: run.sh) — 전/후 비교 본체.
+# 결과는 docs/loadtest/runs/<YYYY-MM-DD-HHmmss>-<label>/ 에 자동 저장(시각 포함 → 재실행해도 덮어쓰지 않음)
 K6_MEMBER_ID=1 K6_NOTICE_ID=1 K6_RATE=20 \
   loadtest/run.sh loadtest/scenarios/notice/read-status.load.js notice-read-status-before
 
@@ -63,10 +64,10 @@ K6_MEMBER_ID=1 K6_NOTICE_ID=1 K6_RATE=20 \
 K6_MEMBER_ID=1 K6_NOTICE_ID=1 K6_RATE=20 \
   loadtest/run.sh loadtest/scenarios/notice/read-status.load.js notice-read-status-after
 
-# 전/후 비교
+# 전/후 비교 (run.sh 가 출력한 실제 디렉토리 경로를 사용)
 loadtest/compare.sh \
-  docs/loadtest/runs/2026-07-27-notice-read-status-before \
-  docs/loadtest/runs/2026-07-27-notice-read-status-after
+  docs/loadtest/runs/2026-07-27-101500-notice-read-status-before \
+  docs/loadtest/runs/2026-07-27-142230-notice-read-status-after
 ```
 
 주요 env:
