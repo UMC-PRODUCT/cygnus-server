@@ -3,9 +3,10 @@
 # jq 가 필요하다. 없으면 각 디렉토리의 summary.md 를 직접 비교하면 된다.
 #
 # usage: loadtest/compare.sh <before_dir> <after_dir>
+#   (run.sh 가 출력한 실제 디렉토리 경로를 사용. 디렉토리명에 시각이 포함된다.)
 # 예:    loadtest/compare.sh \
-#          docs/loadtest/runs/2026-07-27-notice-read-status-before \
-#          docs/loadtest/runs/2026-07-27-notice-read-status-after
+#          docs/loadtest/runs/2026-07-27-101500-notice-read-status-before \
+#          docs/loadtest/runs/2026-07-27-142230-notice-read-status-after
 set -euo pipefail
 
 [ $# -eq 2 ] || { echo "usage: loadtest/compare.sh <before_dir> <after_dir>"; exit 1; }
