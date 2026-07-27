@@ -2,7 +2,7 @@
 // load 를 돌리기 전에 토큰 발급 / 엔드포인트 경로 / 응답 형태가 맞는지 검증하는 용도.
 //
 // 실행: loadtest/README.md 참고
-//   k6 run -e K6_EMAIL=... -e K6_PASSWORD=... loadtest/scenarios/notice/read-status.smoke.js
+//   k6 run -e K6_MEMBER_ID=1 -e K6_NOTICE_ID=1 loadtest/scenarios/notice/read-status.smoke.js
 
 import http from 'k6/http';
 import { sleep } from 'k6';
@@ -10,6 +10,9 @@ import { sleep } from 'k6';
 import { BASE_URL, NOTICE_ID } from '../../lib/config.js';
 import { issueToken, authHeaders } from '../../lib/auth.js';
 import { recordResponse, cursorResponseChecks } from '../../lib/checks.js';
+
+// 종료 시 summary.md/json 자동 생성(run.sh 로 실행 시에도 결과 파일이 남도록 load 와 동일하게 export)
+export { handleSummary } from '../../lib/summary.js';
 
 export const options = {
   vus: 1,
