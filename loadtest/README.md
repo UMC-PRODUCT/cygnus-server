@@ -52,8 +52,9 @@ loadtest/
 
 ```bash
 # smoke — 먼저 이걸로 토큰/경로/응답이 정상인지 확인 (local: memberId 로 토큰 발급)
+# run.sh 로 실행하면 결과가 시각 포함 디렉토리에 남아 덮어쓰기가 없다.
 K6_MEMBER_ID=1 K6_NOTICE_ID=1 \
-  k6 run loadtest/scenarios/notice/read-status.smoke.js
+  loadtest/run.sh loadtest/scenarios/notice/read-status.smoke.js notice-read-status-smoke
 
 # load (권장: run.sh) — 전/후 비교 본체.
 # 결과는 docs/loadtest/runs/<YYYY-MM-DD-HHmmss>-<label>/ 에 자동 저장(시각 포함 → 재실행해도 덮어쓰지 않음)
