@@ -5,10 +5,9 @@
 // 제공 부하가 일정하다 → 리팩토링 전/후를 "동일 부하"에서 비교할 수 있다.
 // (ramping-vus + sleep 은 응답이 빨라질수록 실제 RPS가 올라가 비교가 오염된다.)
 //
-// 실행: loadtest/README.md 참고
-//   k6 run -e K6_MEMBER_ID=1 -e K6_RATE=20 --tag gitref=$(git rev-parse --short HEAD) \
-//     --summary-export docs/loadtest/runs/<날짜-label>/summary.json \
-//     loadtest/scenarios/notice/read-status.load.js
+// 실행(권장: run.sh — 결과 디렉토리/메타/summary 자동 생성). loadtest/README.md 참고
+//   K6_MEMBER_ID=1 K6_NOTICE_ID=1 K6_RATE=20 \
+//     loadtest/run.sh loadtest/scenarios/notice/read-status.load.js notice-read-status-before
 
 import http from 'k6/http';
 
