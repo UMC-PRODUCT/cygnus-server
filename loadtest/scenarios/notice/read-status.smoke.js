@@ -1,8 +1,9 @@
 // smoke: VU=1, 1분. "정상 동작하는가"만 확인한다(부하가 목적이 아님).
 // load 를 돌리기 전에 토큰 발급 / 엔드포인트 경로 / 응답 형태가 맞는지 검증하는 용도.
 //
-// 실행: loadtest/README.md 참고
-//   k6 run -e K6_MEMBER_ID=1 -e K6_NOTICE_ID=1 loadtest/scenarios/notice/read-status.smoke.js
+// 실행(권장: run.sh — 결과 디렉토리/메타/summary 자동 생성). loadtest/README.md 참고
+//   K6_MEMBER_ID=1 K6_NOTICE_ID=1 \
+//     loadtest/run.sh loadtest/scenarios/notice/read-status.smoke.js notice-read-status-smoke
 
 import http from 'k6/http';
 import { sleep } from 'k6';
