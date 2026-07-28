@@ -63,9 +63,9 @@ class GetChapterUseCaseTest extends UseCaseTestSupport {
         Chapter leoChapter = saveChapterPort.save(Chapter.create(gisu9, "Leo"));
         saveChapterPort.save(Chapter.create(gisu10, "Ain"));
 
-        School school1 = saveSchoolPort.save(School.create("한성대", null));
-        School school2 = saveSchoolPort.save(School.create("동국대", null));
-        School school3 = saveSchoolPort.save(School.create("중앙대", null));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, null));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, null));
+        School school3 = saveSchoolPort.save(School.create("중앙대", null, null));
 
         saveChapterSchoolPort.save(ChapterSchool.create(scorpioChapter, school1));
         saveChapterSchoolPort.save(ChapterSchool.create(scorpioChapter, school2));

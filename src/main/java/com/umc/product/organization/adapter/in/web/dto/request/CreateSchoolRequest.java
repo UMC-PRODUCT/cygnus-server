@@ -15,6 +15,10 @@ public record CreateSchoolRequest(
         @NotBlank @Size(min = 2, max = 50, message = "학교명은 2~50자")
         String schoolName,
 
+        @Schema(description = "학교 약칭", example = "서울대", maxLength = 20)
+        @Size(max = 20, message = "학교 약칭은 20자 이내")
+        String shortName,
+
         @Schema(description = "비고", example = "관악캠퍼스", maxLength = 200)
         @Size(max = 200, message = "비고는 200자 이내")
         String remark,
@@ -29,6 +33,7 @@ public record CreateSchoolRequest(
     public CreateSchoolCommand toCommand() {
         return new CreateSchoolCommand(
                 schoolName,
+                shortName,
                 remark,
                 logoImageId,
                 links != null ? links.stream().map(SchoolLinkRequest::toCommand).toList() : List.of()

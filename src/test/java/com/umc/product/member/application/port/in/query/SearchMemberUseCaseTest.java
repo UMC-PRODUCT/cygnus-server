@@ -73,8 +73,8 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             Instant.parse("2025-02-28T23:59:59Z"),
             true));
 
-        school1 = saveSchoolPort.save(School.create("한양대학교 ERICA", null));
-        school2 = saveSchoolPort.save(School.create("한성대학교", null));
+        school1 = saveSchoolPort.save(School.create("한양대학교 ERICA", null, null));
+        school2 = saveSchoolPort.save(School.create("한성대학교", null, null));
 
         chapter = saveChapterPort.save(Chapter.create(gisu8, "Scorpio"));
         school1.updateChapterSchool(chapter);

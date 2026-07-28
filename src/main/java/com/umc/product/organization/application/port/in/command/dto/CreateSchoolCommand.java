@@ -9,6 +9,7 @@ import lombok.Builder;
 @Builder
 public record CreateSchoolCommand(
     String schoolName,
+    String shortName,
     String remark,
     String logoImageId,
     List<SchoolLinkCommand> links

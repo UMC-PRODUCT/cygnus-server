@@ -47,7 +47,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 학교를_등록한다() {
         // given
-        CreateSchoolCommand command = new CreateSchoolCommand("한성대", "비고", null, List.of());
+        CreateSchoolCommand command = new CreateSchoolCommand("한성대", null, "비고", null, List.of());
 
         // when
         Long schoolId = manageSchoolUseCase.create(command);
@@ -67,7 +67,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
                 "https://instagram.com/example"),
             new CreateSchoolCommand.SchoolLinkCommand("유튜브", SchoolLinkType.YOUTUBE, "https://youtube.com/@example")
         );
-        CreateSchoolCommand command = new CreateSchoolCommand("한성대", "비고", null, links);
+        CreateSchoolCommand command = new CreateSchoolCommand("한성대", null, "비고", null, links);
 
         // when
         Long schoolId = manageSchoolUseCase.create(command);
@@ -89,7 +89,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
             new CreateSchoolCommand.SchoolLinkCommand("메인 인스타", SchoolLinkType.INSTAGRAM, "https://instagram.com/main"),
             new CreateSchoolCommand.SchoolLinkCommand("서브 인스타", SchoolLinkType.INSTAGRAM, "https://instagram.com/sub")
         );
-        CreateSchoolCommand command = new CreateSchoolCommand("한성대", "비고", null, links);
+        CreateSchoolCommand command = new CreateSchoolCommand("한성대", null, "비고", null, links);
 
         // when
         Long schoolId = manageSchoolUseCase.create(command);
@@ -112,7 +112,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
             new CreateSchoolCommand.SchoolLinkCommand("메인 인스타", SchoolLinkType.INSTAGRAM, "https://instagram.com/main"),
             new CreateSchoolCommand.SchoolLinkCommand("서브 인스타", SchoolLinkType.INSTAGRAM, "https://instagram.com/sub")
         );
-        CreateSchoolCommand createCommand = new CreateSchoolCommand("한성대", "비고", null, initialLinks);
+        CreateSchoolCommand createCommand = new CreateSchoolCommand("한성대", null, "비고", null, initialLinks);
         Long schoolId = manageSchoolUseCase.create(createCommand);
 
         // when - 같은 타입 링크를 다른 URL로 교체
@@ -121,7 +121,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
             new CreateSchoolCommand.SchoolLinkCommand("새 인스타2", SchoolLinkType.INSTAGRAM, "https://instagram.com/new2"),
             new CreateSchoolCommand.SchoolLinkCommand("카카오톡", SchoolLinkType.KAKAO, "https://open.kakao.com/o/example")
         );
-        UpdateSchoolCommand updateCommand = new UpdateSchoolCommand("한성대", null, "비고", null, updatedLinks);
+        UpdateSchoolCommand updateCommand = new UpdateSchoolCommand("한성대", null, null, "비고", null, updatedLinks);
         manageSchoolUseCase.updateSchool(schoolId, updateCommand);
 
         // then
@@ -142,9 +142,9 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 학교_이름과_비고를_수정한다() {
         // given
-        School school = saveSchoolPort.save(School.create("한성대", "비고"));
+        School school = saveSchoolPort.save(School.create("한성대", null, "비고"));
 
-        UpdateSchoolCommand command = new UpdateSchoolCommand("동국대", null, "수정된 비고", null, null);
+        UpdateSchoolCommand command = new UpdateSchoolCommand("동국대", null, null, "수정된 비고", null, null);
 
         // when
         manageSchoolUseCase.updateSchool(school.getId(), command);
@@ -158,20 +158,20 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 학교_수정_시_링크도_함께_수정한다() {
         // given
-        School school = saveSchoolPort.save(School.create("한성대", "비고"));
+        School school = saveSchoolPort.save(School.create("한성대", null, "비고"));
 
         List<CreateSchoolCommand.SchoolLinkCommand> initialLinks = List.of(
             new CreateSchoolCommand.SchoolLinkCommand("카카오톡", SchoolLinkType.KAKAO, "https://open.kakao.com/o/old")
         );
         manageSchoolUseCase.updateSchool(school.getId(),
-            new UpdateSchoolCommand("한성대", null, "비고", null, initialLinks));
+            new UpdateSchoolCommand("한성대", null, null, "비고", null, initialLinks));
 
         // when - 링크를 새로운 링크로 교체
         List<CreateSchoolCommand.SchoolLinkCommand> updatedLinks = List.of(
             new CreateSchoolCommand.SchoolLinkCommand("인스타그램", SchoolLinkType.INSTAGRAM, "https://instagram.com/new"),
             new CreateSchoolCommand.SchoolLinkCommand("유튜브", SchoolLinkType.YOUTUBE, "https://youtube.com/@new")
         );
-        UpdateSchoolCommand command = new UpdateSchoolCommand("한성대", null, "비고", null, updatedLinks);
+        UpdateSchoolCommand command = new UpdateSchoolCommand("한성대", null, null, "비고", null, updatedLinks);
         manageSchoolUseCase.updateSchool(school.getId(), command);
 
         // then
@@ -192,9 +192,9 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
         Chapter scorpioChapter = saveChapterPort.save(Chapter.create(gisu, "Scorpio"));
         Chapter leoChapter = saveChapterPort.save(Chapter.create(gisu, "Leo"));
 
-        School school = saveSchoolPort.save(School.create("한성대", "비고"));
+        School school = saveSchoolPort.save(School.create("한성대", null, "비고"));
 
-        UpdateSchoolCommand command = new UpdateSchoolCommand("한성대", leoChapter.getId(), "비고", null, null);
+        UpdateSchoolCommand command = new UpdateSchoolCommand("한성대", null, leoChapter.getId(), "비고", null, null);
 
         // when
         manageSchoolUseCase.updateSchool(school.getId(), command);
@@ -208,7 +208,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 존재하지_않는_학교를_수정하면_예외가_발생한다() {
         // given
-        UpdateSchoolCommand command = new UpdateSchoolCommand("동국대", null, "비고", null, null);
+        UpdateSchoolCommand command = new UpdateSchoolCommand("동국대", null, null, "비고", null, null);
 
         // when & then
         assertThatThrownBy(() -> manageSchoolUseCase.updateSchool(999L, command))
@@ -218,8 +218,8 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 학교를_삭제한다() {
         // given
-        School school1 = saveSchoolPort.save(School.create("한성대", "비고1"));
-        School school2 = saveSchoolPort.save(School.create("동국대", "비고2"));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, "비고1"));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, "비고2"));
 
         // when
         manageSchoolUseCase.deleteSchools(List.of(school1.getId()));
@@ -235,9 +235,9 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 여러_학교를_한번에_삭제한다() {
         // given
-        School school1 = saveSchoolPort.save(School.create("한성대", "비고1"));
-        School school2 = saveSchoolPort.save(School.create("동국대", "비고2"));
-        School school3 = saveSchoolPort.save(School.create("중앙대", "비고3"));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, "비고1"));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, "비고2"));
+        School school3 = saveSchoolPort.save(School.create("중앙대", null, "비고3"));
 
         // when
         manageSchoolUseCase.deleteSchools(List.of(school1.getId(), school2.getId()));
@@ -257,7 +257,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
         // given
         Gisu gisu = gisuFixture.활성_기수(9L);
         Chapter chapter = saveChapterPort.save(Chapter.create(gisu, "Scorpio"));
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
 
         AssignSchoolCommand command = new AssignSchoolCommand(school.getId(), chapter.getId());
 
@@ -277,7 +277,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
         Chapter scorpioChapter = saveChapterPort.save(Chapter.create(gisu, "Scorpio"));
         Chapter leoChapter = saveChapterPort.save(Chapter.create(gisu, "Leo"));
 
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
         saveChapterSchoolPort.save(ChapterSchool.create(scorpioChapter, school));
 
         AssignSchoolCommand command = new AssignSchoolCommand(school.getId(), leoChapter.getId());
@@ -300,7 +300,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
         Chapter chapter9 = saveChapterPort.save(Chapter.create(gisu9, "Scorpio"));
         Chapter chapter10 = saveChapterPort.save(Chapter.create(gisu10, "Leo"));
 
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
         saveChapterSchoolPort.save(ChapterSchool.create(chapter10, school));
 
         AssignSchoolCommand command = new AssignSchoolCommand(school.getId(), chapter9.getId());
@@ -322,7 +322,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
         Gisu gisu = gisuFixture.활성_기수(9L);
         Chapter chapter = saveChapterPort.save(Chapter.create(gisu, "Scorpio"));
 
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
         saveChapterSchoolPort.save(ChapterSchool.create(chapter, school));
 
         UnassignSchoolCommand command = new UnassignSchoolCommand(school.getId(), gisu.getId());
@@ -344,7 +344,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
         Chapter chapter9 = saveChapterPort.save(Chapter.create(gisu9, "Scorpio"));
         Chapter chapter10 = saveChapterPort.save(Chapter.create(gisu10, "Leo"));
 
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
         saveChapterSchoolPort.save(ChapterSchool.create(chapter9, school));
         saveChapterSchoolPort.save(ChapterSchool.create(chapter10, school));
 
@@ -375,7 +375,7 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 존재하지_않는_지부에_배정하면_예외가_발생한다() {
         // given
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
 
         AssignSchoolCommand command = new AssignSchoolCommand(school.getId(), 999L);
 

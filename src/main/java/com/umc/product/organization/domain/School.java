@@ -55,9 +55,10 @@ public class School extends BaseEntity {
         this.chapterSchools = chapterSchools;
     }
 
-    public static School create(String name, String remark) {
+    public static School create(String name, String shortName, String remark) {
         return School.builder()
             .name(name)
+            .shortName(shortName)
             .remark(remark)
             .chapterSchools(new ArrayList<>())
             .build();

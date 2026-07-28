@@ -54,9 +54,9 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
         Gisu gisu9 = gisuFixture.활성_기수(9L);
         Chapter scorpioChapter = saveChapterPort.save(Chapter.create(gisu9, "Scorpio"));
 
-        School assignedSchool = saveSchoolPort.save(School.create("한성대", null));
-        School unassignedSchool1 = saveSchoolPort.save(School.create("동국대", null));
-        School unassignedSchool2 = saveSchoolPort.save(School.create("중앙대", null));
+        School assignedSchool = saveSchoolPort.save(School.create("한성대", null, null));
+        School unassignedSchool1 = saveSchoolPort.save(School.create("동국대", null, null));
+        School unassignedSchool2 = saveSchoolPort.save(School.create("중앙대", null, null));
 
         saveChapterSchoolPort.save(ChapterSchool.create(scorpioChapter, assignedSchool));
 
@@ -78,8 +78,8 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
         Chapter chapter9 = saveChapterPort.save(Chapter.create(gisu9, "Scorpio"));
         Chapter chapter10 = saveChapterPort.save(Chapter.create(gisu10, "Leo"));
 
-        School school1 = saveSchoolPort.save(School.create("한성대", null));
-        School school2 = saveSchoolPort.save(School.create("동국대", null));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, null));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, null));
 
         saveChapterSchoolPort.save(ChapterSchool.create(chapter9, school1));
         saveChapterSchoolPort.save(ChapterSchool.create(chapter10, school2));
@@ -99,7 +99,7 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
         Gisu gisu = gisuFixture.활성_기수(9L);
         Chapter chapter = saveChapterPort.save(Chapter.create(gisu, "Scorpio"));
 
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
         saveChapterSchoolPort.save(ChapterSchool.create(chapter, school));
 
         // when
@@ -115,7 +115,7 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
         Gisu gisu = gisuFixture.활성_기수(8L);
         Chapter chapter = saveChapterPort.save(Chapter.create(gisu, "Ain"));
 
-        School school = School.create("중앙대", "비고");
+        School school = School.create("중앙대", null, "비고");
         school.updateChapterSchool(chapter);
         saveSchoolPort.save(school);
 
@@ -138,7 +138,7 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
         Gisu inactiveGisu = gisuFixture.비활성_기수(7L);
         Chapter inactiveChapter = saveChapterPort.save(Chapter.create(inactiveGisu, "Scorpio"));
 
-        School school = School.create("동국대", "비고");
+        School school = School.create("동국대", null, "비고");
         school.updateChapterSchool(inactiveChapter);
         saveSchoolPort.save(school);
 
@@ -154,9 +154,9 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 전체_학교_이름_목록을_조회한다() {
         // given
-        saveSchoolPort.save(School.create("한성대", "비고1"));
-        saveSchoolPort.save(School.create("동국대", "비고2"));
-        saveSchoolPort.save(School.create("중앙대", "비고3"));
+        saveSchoolPort.save(School.create("한성대", null, "비고1"));
+        saveSchoolPort.save(School.create("동국대", null, "비고2"));
+        saveSchoolPort.save(School.create("중앙대", null, "비고3"));
 
         // when
         List<SchoolNameInfo> result = getSchoolUseCase.getAllSchoolNames();

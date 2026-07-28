@@ -57,8 +57,8 @@ class AdminDashboardAnalyticsQueryRepositoryTest {
         // 분석 쿼리는 scope.gisuId() 로 기수를 스코프하므로 is_active 값과는 무관하다.
         Gisu gisu = em.persist(Gisu.create(7L, Instant.now().minusSeconds(3600), Instant.now().plusSeconds(86400 * 30), false));
         Chapter chapter = em.persist(Chapter.create(gisu, "중앙"));
-        School schoolA = em.persist(School.create("A대학교", null));
-        School schoolB = em.persist(School.create("B대학교", null));
+        School schoolA = em.persist(School.create("A대학교", null, null));
+        School schoolB = em.persist(School.create("B대학교", null, null));
         em.persist(ChapterSchool.create(chapter, schoolA));
         em.persist(ChapterSchool.create(chapter, schoolB));
         em.flush();

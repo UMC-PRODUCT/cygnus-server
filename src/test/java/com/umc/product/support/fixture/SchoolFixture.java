@@ -15,7 +15,7 @@ public class SchoolFixture extends FixtureSupport {
     }
 
     public School 학교(String name) {
-        return saveSchoolPort.save(School.create(valueOrFixture(name, "school", 50), null));
+        return saveSchoolPort.save(School.create(valueOrFixture(name, "school", 50), null, null));
     }
 
     public School 학교() {
@@ -23,7 +23,7 @@ public class SchoolFixture extends FixtureSupport {
     }
 
     public School 지부에_소속된_학교(String name, Chapter chapter) {
-        School school = School.create(valueOrFixture(name, "school", 50), null);
+        School school = School.create(valueOrFixture(name, "school", 50), null, null);
         school.assignToChapter(chapter);
         return saveSchoolPort.save(school);
     }
