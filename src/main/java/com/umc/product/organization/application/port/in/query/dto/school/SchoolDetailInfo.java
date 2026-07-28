@@ -9,6 +9,7 @@ public record SchoolDetailInfo(
     Long chapterId,
     String chapterName,
     String schoolName,
+    String shortName,
     Long schoolId,
     String remark,
     String logoImageUrl,

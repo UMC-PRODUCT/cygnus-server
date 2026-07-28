@@ -66,6 +66,7 @@ class GetMemberUseCaseTest {
             1L,           // chapterId
             "cassiopeia",    // chapterName
             schoolName,
+            null,         // shortName
             schoolId,
             null,         // remark
             null,         // logoImageUrl

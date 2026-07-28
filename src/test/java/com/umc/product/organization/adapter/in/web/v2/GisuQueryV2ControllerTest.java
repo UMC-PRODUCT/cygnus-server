@@ -233,6 +233,7 @@ class GisuQueryV2ControllerTest {
                 "Ain 지부",
                 1000L,
                 "중앙대학교",
+                null,
                 "비고",
                 "https://storage.example.com/school-logo.png",
                 List.of(new SchoolLinkInfo("인스타그램", SchoolLinkType.INSTAGRAM, "https://instagram.com/example")),

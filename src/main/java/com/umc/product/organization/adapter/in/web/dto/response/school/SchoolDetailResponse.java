@@ -17,6 +17,9 @@ public record SchoolDetailResponse(
     @Schema(description = "학교명", example = "서울대학교")
     String schoolName,
 
+    @Schema(description = "학교 약칭", example = "서울대")
+    String shortName,
+
     @Schema(description = "학교 ID", example = "1")
     Long schoolId,
 
@@ -49,6 +52,7 @@ public record SchoolDetailResponse(
             info.chapterId(),
             info.chapterName(),
             info.schoolName(),
+            info.shortName(),
             info.schoolId(),
             info.remark(),
             info.logoImageUrl(),

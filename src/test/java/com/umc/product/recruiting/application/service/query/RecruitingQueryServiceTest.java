@@ -536,7 +536,7 @@ class RecruitingQueryServiceTest {
 
     private SchoolDetailInfo school(Long schoolId, String schoolName) {
         return new SchoolDetailInfo(
-            3L, "중앙", schoolName, schoolId, null, null, List.of(), true, null, null
+            3L, "중앙", schoolName, null, schoolId, null, null, List.of(), true, null, null
         );
     }
 

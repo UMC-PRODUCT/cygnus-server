@@ -36,7 +36,7 @@ class AdminSchoolQueryControllerTest extends DocumentationTest {
             new SchoolDetailInfo.SchoolLinkItem("유튜브 채널", SchoolLinkType.YOUTUBE, "https://youtube.com/@example")
         );
 
-        SchoolDetailInfo schoolDetailInfo = new SchoolDetailInfo(3L, "Ain 지부", "중앙대학교", 1L, "비고", "logo-file-123",
+        SchoolDetailInfo schoolDetailInfo = new SchoolDetailInfo(3L, "Ain 지부", "중앙대학교", null, 1L, "비고", "logo-file-123",
             links, true, createdAt, updatedAt);
         FileInfo fileInfo = new FileInfo("logo-file-123", "동국대학교 로고", FileCategory.SCHOOL_LOGO, null, null,
             "https://storage.example.com/school-logo/logo.png", null, null, null);
