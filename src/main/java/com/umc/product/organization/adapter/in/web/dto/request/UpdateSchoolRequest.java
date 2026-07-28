@@ -14,8 +14,7 @@ public record UpdateSchoolRequest(
         String schoolName,
 
         @Schema(description = "학교 약칭 (수정할 경우만 입력)", example = "서울대", maxLength = 20)
-        @Size(max = 20, message = "학교 약칭은 20자 이내")
-        String shortName,
+        @Size(max = 20, message = "학교 약칭은 20자 이내")String shortName,
 
         @Schema(description = "지부 ID (수정할 경우만 입력)", example = "1")
         Long chapterId,
@@ -27,8 +26,7 @@ public record UpdateSchoolRequest(
         String logoImageId,
 
         @Schema(description = "학교 링크 목록 (전달 시 전체 교체)")
-        @Valid
-        List<SchoolLinkRequest> links
+        @Valid List<SchoolLinkRequest> links
 ) {
     public UpdateSchoolCommand toCommand() {
         return new UpdateSchoolCommand(
