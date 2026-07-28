@@ -1,10 +1,12 @@
 package com.umc.product.organization.adapter.in.web.dto.request;
 
+import java.util.List;
+
 import com.umc.product.organization.application.port.in.command.dto.UpdateSchoolCommand;
+
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Size;
-import java.util.List;
 
 @Schema(description = "학교 수정 요청")
 public record UpdateSchoolRequest(

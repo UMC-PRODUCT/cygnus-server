@@ -1,8 +1,9 @@
 package com.umc.product.organization.application.port.in.query.dto.school;
 
-import com.umc.product.organization.domain.enums.SchoolLinkType;
 import java.time.Instant;
 import java.util.List;
+
+import com.umc.product.organization.domain.enums.SchoolLinkType;
 
 
 public record SchoolDetailInfo(

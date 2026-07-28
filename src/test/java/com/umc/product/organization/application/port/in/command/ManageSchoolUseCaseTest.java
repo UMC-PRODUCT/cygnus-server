@@ -3,6 +3,11 @@ package com.umc.product.organization.application.port.in.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.organization.application.port.in.command.dto.AssignSchoolCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateSchoolCommand;
@@ -19,9 +24,6 @@ import com.umc.product.organization.domain.School;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.GisuFixture;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 
 class ManageSchoolUseCaseTest extends UseCaseTestSupport {
@@ -47,14 +49,15 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 학교를_등록한다() {
         // given
-        CreateSchoolCommand command = new CreateSchoolCommand("한성대", null, "비고", null, List.of());
+        CreateSchoolCommand command = new CreateSchoolCommand("한성대학교", "한성", "비고", null, List.of());
 
         // when
         Long schoolId = manageSchoolUseCase.create(command);
 
         // then
         School savedSchool = loadSchoolPort.findSchoolDetailById(schoolId);
-        assertThat(savedSchool.getName()).isEqualTo("한성대");
+        assertThat(savedSchool.getName()).isEqualTo("한성대학교");
+        assertThat(savedSchool.getShortName()).isEqualTo("한성");
         assertThat(savedSchool.getRemark()).isEqualTo("비고");
     }
 
@@ -142,16 +145,17 @@ class ManageSchoolUseCaseTest extends UseCaseTestSupport {
     @Test
     void 학교_이름과_비고를_수정한다() {
         // given
-        School school = saveSchoolPort.save(School.create("한성대", null, "비고"));
+        School school = saveSchoolPort.save(School.create("한성대학교", "한성", "비고"));
 
-        UpdateSchoolCommand command = new UpdateSchoolCommand("동국대", null, null, "수정된 비고", null, null);
+        UpdateSchoolCommand command = new UpdateSchoolCommand("동국대학교", "동국", null, "수정된 비고", null, null);
 
         // when
         manageSchoolUseCase.updateSchool(school.getId(), command);
 
         // then
         School updatedSchool = loadSchoolPort.findById(school.getId());
-        assertThat(updatedSchool.getName()).isEqualTo("동국대");
+        assertThat(updatedSchool.getName()).isEqualTo("동국대학교");
+        assertThat(updatedSchool.getShortName()).isEqualTo("동국");
         assertThat(updatedSchool.getRemark()).isEqualTo("수정된 비고");
     }
 

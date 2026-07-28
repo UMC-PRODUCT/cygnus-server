@@ -8,17 +8,19 @@ import static org.springframework.restdocs.request.RequestDocumentation.pathPara
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.restdocs.payload.JsonFieldType;
+import org.springframework.test.web.servlet.ResultActions;
+
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolNameInfo;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
 import com.umc.product.storage.domain.enums.FileCategory;
 import com.umc.product.support.DocumentationTest;
-import java.time.Instant;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.restdocs.payload.JsonFieldType;
-import org.springframework.test.web.servlet.ResultActions;
 
 class AdminSchoolQueryControllerTest extends DocumentationTest {
 
@@ -36,7 +38,7 @@ class AdminSchoolQueryControllerTest extends DocumentationTest {
             new SchoolDetailInfo.SchoolLinkItem("유튜브 채널", SchoolLinkType.YOUTUBE, "https://youtube.com/@example")
         );
 
-        SchoolDetailInfo schoolDetailInfo = new SchoolDetailInfo(3L, "Ain 지부", "중앙대학교", null, 1L, "비고", "logo-file-123",
+        SchoolDetailInfo schoolDetailInfo = new SchoolDetailInfo(3L, "Ain 지부", "중앙대학교", "중앙대", 1L, "비고", "logo-file-123",
             links, true, createdAt, updatedAt);
         FileInfo fileInfo = new FileInfo("logo-file-123", "동국대학교 로고", FileCategory.SCHOOL_LOGO, null, null,
             "https://storage.example.com/school-logo/logo.png", null, null, null);
@@ -53,6 +55,7 @@ class AdminSchoolQueryControllerTest extends DocumentationTest {
                     fieldWithPath("result.chapterId").type(JsonFieldType.STRING).description("지부 ID"),
                     fieldWithPath("result.chapterName").type(JsonFieldType.STRING).description("지부 이름"),
                     fieldWithPath("result.schoolName").type(JsonFieldType.STRING).description("학교 이름"),
+                    fieldWithPath("result.shortName").type(JsonFieldType.STRING).description("학교 약칭").optional(),
                     fieldWithPath("result.schoolId").type(JsonFieldType.STRING).description("학교 ID"),
                     fieldWithPath("result.isActive").type(JsonFieldType.BOOLEAN).description("학교 활성상태"),
                     fieldWithPath("result.remark").type(JsonFieldType.STRING).description("비고"),

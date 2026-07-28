@@ -9,16 +9,18 @@ import static org.springframework.restdocs.request.RequestDocumentation.paramete
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.http.MediaType;
+import org.springframework.restdocs.payload.JsonFieldType;
+import org.springframework.test.web.servlet.ResultActions;
+
 import com.umc.product.organization.adapter.in.web.dto.request.CreateSchoolRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.DeleteSchoolsRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.SchoolLinkRequest;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
 import com.umc.product.support.DocumentationTest;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.http.MediaType;
-import org.springframework.restdocs.payload.JsonFieldType;
-import org.springframework.test.web.servlet.ResultActions;
 
 public class SchoolCommandControllerTest extends DocumentationTest {
 
@@ -27,6 +29,7 @@ public class SchoolCommandControllerTest extends DocumentationTest {
     void 총괄_신규학교를_추가한다() throws Exception {
         // given when
         CreateSchoolRequest request = CreateSchoolRequest.builder().schoolName("중앙대학교")
+            .shortName("중앙대")
             .remark("중앙대는 멋집니다.").logoImageId("file-123")
             .links(List.of(
                 new SchoolLinkRequest("카카오톡 오픈채팅", SchoolLinkType.KAKAO, "https://open.kakao.com/o/example"),
@@ -41,6 +44,7 @@ public class SchoolCommandControllerTest extends DocumentationTest {
 
         result.andExpect(status().isOk()).andDo(restDocsHandler.document(
             requestFields(fieldWithPath("schoolName").type(JsonFieldType.STRING).description("학교 이름"),
+                fieldWithPath("shortName").optional().type(JsonFieldType.STRING).description("학교 약칭 (20자 이내)"),
                 fieldWithPath("remark").type(JsonFieldType.STRING).description("비고"),
                 fieldWithPath("logoImageId").optional().type(JsonFieldType.STRING).description("로고 이미지 파일 ID"),
                 fieldWithPath("links").optional().type(JsonFieldType.ARRAY).description("학교 링크 목록"),
@@ -57,6 +61,7 @@ public class SchoolCommandControllerTest extends DocumentationTest {
         Long schoolId = 1L;
 
         CreateSchoolRequest request = CreateSchoolRequest.builder().schoolName("동국대학교")
+            .shortName("동국대")
             .remark("신승호 라면이 맛있습니다.").logoImageId("file-456").build();
 
         ResultActions result = mockMvc.perform(
@@ -68,6 +73,7 @@ public class SchoolCommandControllerTest extends DocumentationTest {
             .andDo(restDocsHandler.document(pathParameters(parameterWithName("schoolId").description("학교 ID")),
                 requestFields(
                     fieldWithPath("schoolName").optional().type(JsonFieldType.STRING).description("학교 이름"),
+                    fieldWithPath("shortName").optional().type(JsonFieldType.STRING).description("학교 약칭 (20자 이내)"),
                     fieldWithPath("remark").optional().type(JsonFieldType.STRING).description("비고"),
                     fieldWithPath("logoImageId").optional().type(JsonFieldType.STRING).description("로고 이미지 파일 ID"),
                     fieldWithPath("links").optional().type(JsonFieldType.ARRAY).description("학교 링크 목록 (전달 시 전체 교체)"),

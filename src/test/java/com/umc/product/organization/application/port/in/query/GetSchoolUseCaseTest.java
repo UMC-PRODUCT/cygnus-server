@@ -115,7 +115,7 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
         Gisu gisu = gisuFixture.활성_기수(8L);
         Chapter chapter = saveChapterPort.save(Chapter.create(gisu, "Ain"));
 
-        School school = School.create("중앙대", null, "비고");
+        School school = School.create("중앙대학교", "중앙대", "비고");
         school.updateChapterSchool(chapter);
         saveSchoolPort.save(school);
 
@@ -124,7 +124,8 @@ class GetSchoolUseCaseTest extends UseCaseTestSupport {
 
         // then
         assertThat(result.schoolId()).isEqualTo(school.getId());
-        assertThat(result.schoolName()).isEqualTo("중앙대");
+        assertThat(result.schoolName()).isEqualTo("중앙대학교");
+        assertThat(result.shortName()).isEqualTo("중앙대");
         assertThat(result.remark()).isEqualTo("비고");
         assertThat(result.chapterId()).isEqualTo(chapter.getId());
         assertThat(result.chapterName()).isEqualTo("Ain");

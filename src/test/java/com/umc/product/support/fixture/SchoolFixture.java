@@ -1,9 +1,10 @@
 package com.umc.product.support.fixture;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.organization.application.port.out.command.SaveSchoolPort;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.School;
-import org.springframework.stereotype.Component;
 
 @Component
 public class SchoolFixture extends FixtureSupport {

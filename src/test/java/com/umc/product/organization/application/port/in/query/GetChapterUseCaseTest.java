@@ -2,6 +2,12 @@ package com.umc.product.organization.application.port.in.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
 import com.umc.product.organization.application.port.out.command.SaveChapterPort;
@@ -13,10 +19,6 @@ import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.GisuFixture;
-import java.util.List;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Disabled
 class GetChapterUseCaseTest extends UseCaseTestSupport {

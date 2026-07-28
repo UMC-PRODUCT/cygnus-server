@@ -111,6 +111,7 @@ class GisuQueryV2ControllerTest {
                     fieldWithPath("result.gisus[].schools[].chapterName").type(JsonFieldType.STRING).description("학교 소속 지부 이름"),
                     fieldWithPath("result.gisus[].schools[].schoolId").type(JsonFieldType.STRING).description("학교 ID"),
                     fieldWithPath("result.gisus[].schools[].schoolName").type(JsonFieldType.STRING).description("학교 이름"),
+                    fieldWithPath("result.gisus[].schools[].shortName").type(JsonFieldType.STRING).description("학교 약칭").optional(),
                     fieldWithPath("result.gisus[].schools[].remark").type(JsonFieldType.STRING).description("학교 비고"),
                     fieldWithPath("result.gisus[].schools[].logoImageUrl").type(JsonFieldType.STRING).description("학교 로고 이미지 URL"),
                     fieldWithPath("result.gisus[].schools[].links").type(JsonFieldType.ARRAY).description("학교 링크 목록"),

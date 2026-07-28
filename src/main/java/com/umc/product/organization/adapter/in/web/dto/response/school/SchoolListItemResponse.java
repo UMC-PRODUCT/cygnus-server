@@ -1,8 +1,10 @@
 package com.umc.product.organization.adapter.in.web.dto.response.school;
 
-import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "학교 목록 항목")
 public record SchoolListItemResponse(
@@ -40,4 +42,3 @@ public record SchoolListItemResponse(
             summary.remark(), summary.logoImageUrl());
     }
 }
-
