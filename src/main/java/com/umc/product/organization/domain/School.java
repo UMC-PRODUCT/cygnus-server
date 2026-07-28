@@ -35,6 +35,9 @@ public class School extends BaseEntity {
     private String name;
 
     @Column(nullable = true)
+    private String shortName;
+
+    @Column(nullable = true)
     private String logoImageId;
 
     @Column(nullable = true)
@@ -45,8 +48,9 @@ public class School extends BaseEntity {
     private List<SchoolLink> schoolLinks = new ArrayList<>();
 
     @Builder(access = AccessLevel.PRIVATE)
-    private School(String name, String remark, ArrayList<ChapterSchool> chapterSchools) {
+    private School(String name, String shortName, String remark, ArrayList<ChapterSchool> chapterSchools) {
         this.name = name;
+        this.shortName = shortName;
         this.remark = remark;
         this.chapterSchools = chapterSchools;
     }
@@ -68,6 +72,12 @@ public class School extends BaseEntity {
     public void updateName(String name) {
         if (StringUtils.hasText(name)) {
             this.name = name;
+        }
+    }
+
+    public void updateShortName(String shortName) {
+        if (StringUtils.hasText(shortName)) {
+            this.shortName = shortName;
         }
     }
 
