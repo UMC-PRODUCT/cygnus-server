@@ -1,6 +1,7 @@
 package com.umc.product.form.application.port.in.command;
 
 import com.umc.product.form.application.port.in.command.dto.AnonymousFormResponseResult;
+import com.umc.product.form.application.port.in.command.dto.ClaimAnonymousFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateAnonymousDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
 import com.umc.product.form.application.port.in.command.dto.DeleteAnonymousDraftFormResponseCommand;
@@ -194,4 +195,25 @@ public interface ManageFormResponseUseCase {
      * null 은 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED}.
      */
     void deleteAnonymousDraft(DeleteAnonymousDraftFormResponseCommand command);
+
+    /**
+     * (익명 → 기명 전환) 익명으로 남긴 응답을 로그인 사용자의 memberId 로 등록한다.
+     * <p>
+     * DRAFT / SUBMITTED 상태 모두 대상. 대상 응답의 답변({@code answer}) 은 손대지 않고
+     * {@code form_response} 한 행만 원자적으로 갱신한다 —
+     * {@code respondent_member_id := memberId} 과 {@code response_access_key_hash := null} 을 같은 UPDATE 로 반영해
+     * XOR CHECK({@code ck_form_response_identifier_xor}) 를 위반하는 중간 상태를 만들지 않는다.
+     * <p>
+     * 인증: {@code requesterMemberId}(로그인 세션) 와 {@code responseAccessKey}(raw) 모두 필수.
+     * 서버는 raw key 를 sha256 로 해시해 {@code response_access_key_hash} 와 매칭한다.
+     * <ul>
+     *   <li>대상 응답이 이미 기명({@code respondentMemberId != null}) 이면 재등록 금지 — {@link FormErrorCode#FORM_RESPONSE_ALREADY_CLAIMED}</li>
+     *   <li>rawKey 해시 매칭 실패 → {@link FormErrorCode#FORM_RESPONSE_FORBIDDEN}</li>
+     *   <li>rawKey 가 null 이면 {@link FormErrorCode#RESPONSE_ACCESS_KEY_REQUIRED},
+     *       requesterMemberId 가 null 이면 {@link FormErrorCode#RESPONDENT_MEMBER_ID_REQUIRED}</li>
+     *   <li>{@code Form.allowDuplicateResponses = false} 이고 requester 가 같은 폼에 다른 응답을 갖고 있으면 {@link FormErrorCode#FORM_RESPONSE_ALREADY_EXISTS}</li>
+     * </ul>
+     * @return 등록된 FormResponse ID (호출자 편의를 위해 입력과 동일 ID 반환)
+     */
+    Long claimAnonymousResponse(ClaimAnonymousFormResponseCommand command);
 }

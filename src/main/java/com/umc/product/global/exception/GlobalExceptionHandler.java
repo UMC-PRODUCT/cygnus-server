@@ -6,12 +6,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.hibernate.StaleObjectStateException;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -21,6 +23,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
+import com.umc.product.form.domain.FormResponse;
+import com.umc.product.form.domain.exception.DraftSchemaMismatchException;
+import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.response.ApiErrorResponseFactory;
 import com.umc.product.global.response.ApiResponse;
@@ -171,6 +176,62 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
             : e.getMessage();
 
         return buildResponse(e, CommonErrorCode.INTERNAL_SERVER_ERROR, HttpHeaders.EMPTY, request, errorDetail);
+    }
+
+    /**
+     * draft 제출 시 스키마 재검증 실패 처리 — 응답 body 에 staleQuestionIds 목록을 함께 노출한다.
+     */
+    @ExceptionHandler(DraftSchemaMismatchException.class)
+    public ResponseEntity<Object> onDraftSchemaMismatch(DraftSchemaMismatchException e, WebRequest request) {
+        log.warn("[BUSINESS EXCEPTION] domain={}, code={}, staleQuestionIds={}",
+            e.getDomain(), e.getBaseCode().getCode(), e.getStaleQuestionIds());
+
+        Map<String, Object> detail = new LinkedHashMap<>();
+        detail.put("staleQuestionIds", e.getStaleQuestionIds());
+        ApiResponse<Object> body = ApiErrorResponseFactory.from(e.getBaseCode(), detail);
+        return super.handleExceptionInternal(
+            e,
+            body,
+            HttpHeaders.EMPTY,
+            e.getBaseCode().getHttpStatus(),
+            request
+        );
+    }
+
+    /**
+     * FormResponse 낙관적 락(@Version) CAS 실패를 409 로 매핑한다.
+     * <p>
+     * Spring 이 감싼 {@link ObjectOptimisticLockingFailureException} 을 먼저 처리하고,
+     * 일부 코드 경로(EntityManager 직접 사용 등)에서 원본 Hibernate {@link StaleObjectStateException}
+     * 이 그대로 올라오는 케이스도 함께 방어한다. 대상 엔티티가 FormResponse 가 아닐 경우
+     * 재던져서 기본 핸들러가 처리하도록 위임한다.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<Object> onOptimisticLockingFailure(
+        ObjectOptimisticLockingFailureException e,
+        WebRequest request
+    ) {
+        if (!isFormResponseConflict(e.getPersistentClassName())) {
+            return handleUnhandledException(e, request);
+        }
+        log.warn("[FORM RESPONSE CONCURRENT MODIFICATION] persistentClass={}, id={}",
+            e.getPersistentClassName(), e.getIdentifier());
+        return buildResponse(e, FormErrorCode.FORM_RESPONSE_CONCURRENT_MODIFICATION, HttpHeaders.EMPTY, request, null);
+    }
+
+    @ExceptionHandler(StaleObjectStateException.class)
+    public ResponseEntity<Object> onStaleObjectState(StaleObjectStateException e, WebRequest request) {
+        if (!isFormResponseConflict(e.getEntityName())) {
+            return handleUnhandledException(e, request);
+        }
+        log.warn("[FORM RESPONSE CONCURRENT MODIFICATION] entityName={}, id={}",
+            e.getEntityName(), e.getIdentifier());
+        return buildResponse(e, FormErrorCode.FORM_RESPONSE_CONCURRENT_MODIFICATION, HttpHeaders.EMPTY, request, null);
+    }
+
+    private boolean isFormResponseConflict(String className) {
+        return className != null
+            && (className.equals(FormResponse.class.getName()) || className.equals(FormResponse.class.getSimpleName()));
     }
 
     @ExceptionHandler(value = BusinessException.class)

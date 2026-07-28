@@ -302,7 +302,7 @@ class AnswerQueryServiceTest {
     private Answer shortTextAnswerWithId(FormResponse formResponse, Long id) {
         Question question = Question.create("질문", QuestionType.SHORT_TEXT, false, 1L);
         ReflectionTestUtils.setField(question, "id", QUESTION_ID);
-        Answer answer = Answer.create(formResponse, question, QuestionType.SHORT_TEXT, "답", null);
+        Answer answer = Answer.create(formResponse, question, QuestionType.SHORT_TEXT, "답", null, null);
         ReflectionTestUtils.setField(answer, "id", id);
         return answer;
     }

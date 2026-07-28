@@ -1,5 +1,7 @@
 package com.umc.product.form.adapter.out.persistence;
 
+import java.util.Set;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -18,6 +20,20 @@ public interface AnswerJpaRepository extends JpaRepository<Answer, Long> {
             WHERE a.formResponse.id = :formResponseId
         """)
     int deleteAllByFormResponseId(@Param("formResponseId") Long formResponseId);
+
+    /**
+     * 특정 FormResponse 에 속한 답변 중 questionId 가 주어진 집합에 포함되는 Answer 삭제 (orphan 정리 용)
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            DELETE FROM Answer a
+            WHERE a.formResponse.id = :formResponseId
+              AND a.question.id IN :questionIds
+        """)
+    int deleteByFormResponseIdAndQuestionIdIn(
+        @Param("formResponseId") Long formResponseId,
+        @Param("questionIds") Set<Long> questionIds
+    );
 
     /**
      * 특정 폼에 속한 모든 Answer 삭제 (deleteForm cascade 용)

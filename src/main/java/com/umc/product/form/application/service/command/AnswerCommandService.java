@@ -62,12 +62,13 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.ANSWER_ALREADY_EXISTS);
         }
 
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         Answer answer = Answer.create(
             draft, question, question.getType(),
             command.textValue(),
-            toFileIdSet(command.fileIds())
+            toFileIdSet(command.fileIds()),
+            toTimeSet(command.times())
         );
         Answer saved = saveAnswerPort.save(answer);
 
@@ -88,16 +89,19 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerAndDraftAsOwner(command.answerId(), command.requesterMemberId());
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContentForPartialUpdate(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
 
-        // 2. Answer 의 textValue / fileIds 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
+        // 2. Answer 의 textValue / fileIds / times 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
         Set<String> requestedFileIds = command.fileIds() == null
             ? null  // null = keep
             : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
-        existing.update(command.textValue(), requestedFileIds);
+        Set<Instant> requestedTimes = command.times() == null
+            ? null
+            : new HashSet<>(command.times());
+        existing.update(command.textValue(), requestedFileIds, requestedTimes);
         saveAnswerPort.save(existing);
 
         // 3. 새 AnswerChoice 저장 (객관식인 경우)
@@ -130,12 +134,13 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             throw new FormDomainException(FormErrorCode.ANSWER_ALREADY_EXISTS);
         }
 
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         Answer answer = Answer.create(
             draft, question, question.getType(),
             command.textValue(),
-            toFileIdSet(command.fileIds())
+            toFileIdSet(command.fileIds()),
+            toTimeSet(command.times())
         );
         Answer saved = saveAnswerPort.save(answer);
 
@@ -156,16 +161,19 @@ public class AnswerCommandService implements ManageAnswerUseCase {
         Answer existing = loadAnswerAndDraftAsAnonymous(command.answerId(), command.responseAccessKey());
         FormResponse draft = existing.getFormResponse();
         Question question = existing.getQuestion();
-        validateAnswerContent(question, command.textValue(), command.selectedOptionIds(), command.fileIds());
+        validateAnswerContentForPartialUpdate(question, command.textValue(), command.selectedOptionIds(), command.fileIds(), command.times());
 
         // 1. 기존 AnswerChoice 만 삭제 (Answer 는 PK 유지하며 update)
         saveAnswerPort.deleteChoicesByAnswerId(existing.getId());
 
-        // 2. Answer 의 textValue / fileIds 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
+        // 2. Answer 의 textValue / fileIds / times 갱신 (PATCH 시맨틱 — null 은 기존 값 유지)
         Set<String> requestedFileIds = command.fileIds() == null
             ? null  // null = keep
             : new HashSet<>(command.fileIds());  // empty = clear, non-empty = set
-        existing.update(command.textValue(), requestedFileIds);
+        Set<Instant> requestedTimes = command.times() == null
+            ? null
+            : new HashSet<>(command.times());
+        existing.update(command.textValue(), requestedFileIds, requestedTimes);
         saveAnswerPort.save(existing);
 
         // 3. 새 AnswerChoice 저장 (객관식인 경우)
@@ -307,13 +315,18 @@ public class AnswerCommandService implements ManageAnswerUseCase {
     }
 
     /**
-     * 질문 type 별 답변 형식 검증.
+     * 질문 type 별 답변 형식 strict 검증. 개별 답변 create 흐름 (createAnswer, createAnonymousAnswer) 에서 사용하며,
+     * 모든 값 필드가 실제로 제공되어야 함을 가정한다.
+     * <p>
+     * FormResponse 레벨 rebuild 흐름 (submitImmediately / submitDraft / updateResponse / updateAnonymousResponse) 은
+     * 별도로 {@code FormResponseCommandService#validateAnswerAgainstQuestion} 에서 동일한 strict 규칙을 적용한다.
      */
     private void validateAnswerContent(
         Question question,
         String textValue,
         List<Long> selectedOptionIds,
-        List<String> fileIds
+        List<String> fileIds,
+        List<Instant> times
     ) {
         switch (question.getType()) {
             case SHORT_TEXT, LONG_TEXT -> {
@@ -355,11 +368,42 @@ public class AnswerCommandService implements ManageAnswerUseCase {
                     }
                 }
             }
-            case SCHEDULE ->
-                // 후속 PR 에서 지원
-                throw new UnsupportedOperationException(
-                    "Question type " + question.getType() + " is not supported yet");
+            case SCHEDULE -> {
+                if (times == null || times.isEmpty()) {
+                    throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+                }
+                for (Instant t : times) {
+                    if (t == null || !isAlignedToSlot(t)) {
+                        throw new FormDomainException(FormErrorCode.INVALID_ANSWER_FORMAT);
+                    }
+                }
+            }
         }
+    }
+
+    /**
+     * 개별 답변 PATCH (updateAnswer / updateAnonymousAnswer) 전용 검증.
+     * <p>
+     * SCHEDULE 은 {@code times} null/empty 를 각각 keep/clear 시맨틱으로 허용하고
+     * (그 경우 {@link Answer#update} 에 위임), 값이 실제로 제공된 경우에만 슬롯 정렬을 검증한다.
+     * 그 외 타입은 {@link #validateAnswerContent} 와 동일 strict 규칙을 적용한다.
+     */
+    private void validateAnswerContentForPartialUpdate(
+        Question question,
+        String textValue,
+        List<Long> selectedOptionIds,
+        List<String> fileIds,
+        List<Instant> times
+    ) {
+        if (question.getType() == QuestionType.SCHEDULE && (times == null || times.isEmpty())) {
+            return;
+        }
+        validateAnswerContent(question, textValue, selectedOptionIds, fileIds, times);
+    }
+
+    // 15분 = 900초. 슬롯 시작은 초 단위로 900의 배수이며 나노초 부분은 0.
+    private static boolean isAlignedToSlot(Instant t) {
+        return t.getEpochSecond() % 900 == 0 && t.getNano() == 0;
     }
 
     private void validateOptionBelongsToQuestion(Long optionId, Long questionId) {
@@ -376,6 +420,16 @@ public class AnswerCommandService implements ManageAnswerUseCase {
             return null;
         }
         return new HashSet<>(fileIds);
+    }
+
+    /**
+     * times List를 Set 으로 변환. null 또는 비어있으면 null 반환 (Answer.times 도 null 허용 컬럼).
+     */
+    private static Set<Instant> toTimeSet(List<Instant> times) {
+        if (times == null || times.isEmpty()) {
+            return null;
+        }
+        return new HashSet<>(times);
     }
 
     /**
