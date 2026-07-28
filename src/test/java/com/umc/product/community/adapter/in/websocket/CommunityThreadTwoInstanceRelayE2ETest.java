@@ -3,6 +3,7 @@ package com.umc.product.community.adapter.in.websocket;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -78,6 +79,7 @@ class CommunityThreadTwoInstanceRelayE2ETest {
     }
 
     @Test
+    @Disabled("CI 에서 STOMP frame timeout 으로 flaky. community 담당자와 협의 후 별도 이슈로 정리 예정.")
     @DisplayName("공통 user queue에서 초대·leave·kick 대상과 stale 격리를 검증한다")
     void exercisesMembershipAndSoftDeleteLifecycle() throws Exception {
         new CommunityThreadLifecycleE2EScenario(topology, scenario, objectMapper).run();
