@@ -27,12 +27,17 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.curriculum.application.port.in.query.GetChallengerWorkbookUseCase;
 import com.umc.product.curriculum.application.port.in.query.GetOriginalWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.query.GetStudyMemberSubmissionUseCase;
 import com.umc.product.curriculum.application.port.in.query.GetWeeklyBestWorkbookUseCase;
 import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.OriginalWorkbookInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.StudyMemberSubmissionInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.StudyMemberSubmissionInfo.WeeklySubmissionInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.WeeklyBestWorkbookPageInfo;
+import com.umc.product.curriculum.domain.enums.ChallengerWorkbookStatus;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -62,6 +67,9 @@ class WorkbookQueryV2ControllerTest {
 
     @MockitoBean
     private GetWeeklyBestWorkbookUseCase getWeeklyBestWorkbookUseCase;
+
+    @MockitoBean
+    private GetStudyMemberSubmissionUseCase getStudyMemberSubmissionUseCase;
 
     @BeforeEach
     void setUpSecurityContext() {
@@ -142,5 +150,53 @@ class WorkbookQueryV2ControllerTest {
                 parameterWithName("page").description("0부터 시작하는 페이지 번호. 기본값 0").optional(),
                 parameterWithName("size").description("페이지 크기. 기본값 20, 최대 100").optional()
             )));
+    }
+
+    @Test
+    @DisplayName("스터디원 제출 현황을 커서 응답으로 반환하고 미배포 인원도 포함한다")
+    void studyMemberSubmissions_returnsCursorResponse() throws Exception {
+        given(getStudyMemberSubmissionUseCase.getStudyMemberSubmissions(any())).willReturn(List.of(
+            StudyMemberSubmissionInfo.builder()
+                .studyGroupMemberId(51L)
+                .memberId(100L)
+                .memberName("김통과")
+                .studyGroupId(10L)
+                .studyGroupName("SpringBoot 스터디")
+                .part(ChallengerPart.SPRINGBOOT)
+                .weeks(List.of(WeeklySubmissionInfo.builder()
+                    .weekNo(3L)
+                    .weeklyCurriculumId(20L)
+                    .challengerWorkbookId(null)
+                    .status(ChallengerWorkbookStatus.NOT_SUBMITTED)
+                    .isBest(false)
+                    .build()))
+                .build()
+        ));
+
+        mockMvc.perform(get("/api/v2/curriculums/workbook-submissions")
+                .param("studyGroupId", "10")
+                .param("weekNos", "3")
+                .param("size", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.content[0].studyGroupMemberId").value(51L))
+            .andExpect(jsonPath("$.result.content[0].weeks[0].challengerWorkbookId").doesNotExist())
+            .andExpect(jsonPath("$.result.content[0].weeks[0].status").value("NOT_SUBMITTED"))
+            .andExpect(jsonPath("$.result.hasNext").value(false))
+            .andDo(restDocsHandler.document(queryParameters(
+                parameterWithName("studyGroupId").description("스터디 그룹 ID. 생략 시 조회 가능한 전체 그룹").optional(),
+                parameterWithName("weekNos").description("주차 번호 목록. 생략 시 전체 주차").optional(),
+                parameterWithName("cursor").description("직전 페이지 마지막 studyGroupMemberId").optional(),
+                parameterWithName("size").description("페이지 크기. 기본값 20, 최대 100").optional()
+            )));
+    }
+
+    @Test
+    @DisplayName("제출 현황 size 101은 Bean Validation으로 거부한다")
+    void studyMemberSubmissions_size101Rejected() throws Exception {
+        mockMvc.perform(get("/api/v2/curriculums/workbook-submissions")
+                .param("size", "101"))
+            .andExpect(status().isBadRequest());
+
+        then(getStudyMemberSubmissionUseCase).shouldHaveNoInteractions();
     }
 }

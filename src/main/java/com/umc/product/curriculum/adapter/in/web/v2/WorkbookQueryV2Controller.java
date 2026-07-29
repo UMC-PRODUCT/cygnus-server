@@ -1,5 +1,7 @@
 package com.umc.product.curriculum.adapter.in.web.v2;
 
+import java.util.List;
+
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -7,13 +9,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.GetBestWorkbooksRequest;
+import com.umc.product.curriculum.adapter.in.web.v2.dto.request.GetStudyMemberSubmissionsRequest;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.BestWorkbookResponse;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.ChallengerWorkbookResponse;
 import com.umc.product.curriculum.adapter.in.web.v2.dto.response.OriginalWorkbookResponse;
+import com.umc.product.curriculum.adapter.in.web.v2.dto.response.StudyMemberSubmissionResponse;
 import com.umc.product.curriculum.application.port.in.query.GetChallengerWorkbookUseCase;
 import com.umc.product.curriculum.application.port.in.query.GetOriginalWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.query.GetStudyMemberSubmissionUseCase;
 import com.umc.product.curriculum.application.port.in.query.GetWeeklyBestWorkbookUseCase;
+import com.umc.product.curriculum.application.port.in.query.dto.StudyMemberSubmissionInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.WeeklyBestWorkbookPageInfo;
+import com.umc.product.global.response.CursorResponse;
 import com.umc.product.global.response.PageResponse;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -29,9 +36,45 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "Curriculum V2 | 워크북 Query", description = "원본 워크북, 챌린저 워크북, 베스트 워크북을 조회합니다.")
 public class WorkbookQueryV2Controller {
 
+    private final GetStudyMemberSubmissionUseCase getStudyMemberSubmissionUseCase;
     private final GetOriginalWorkbookUseCase getOriginalWorkbookUseCase;
     private final GetChallengerWorkbookUseCase getChallengerWorkbookUseCase;
     private final GetWeeklyBestWorkbookUseCase getWeeklyBestWorkbookUseCase;
+
+    @Operation(
+        operationId = "WORKBOOK-104",
+        summary = "스터디원 제출 현황 조회",
+        description = """
+            요청자가 관리할 수 있는 스터디 그룹의 스터디원들과, 각자의 주차별 워크북 제출 현황을 조회합니다.
+            파트장은 본인이 맡은 그룹을, 학교 회장/부회장은 해당 학교 멤버가 속한 그룹을 볼 수 있습니다.
+
+            행 단위는 *스터디원* 이며, 주차는 각 행의 `weeks` 배열에 담깁니다.
+            아직 워크북을 배포받지 않은 인원도 결과에 포함되며, 이 경우 `challengerWorkbookId` 가 null 이고
+            `status` 는 `NOT_SUBMITTED` 입니다.
+
+            Query Param 으로 아래 필터를 적용할 수 있으며 모두 선택 사항입니다.
+            - 스터디 그룹 ID (생략 시 조회 가능한 전체 그룹)
+            - (다중 선택 가능) 주차 (생략 시 전체 주차)
+
+            커서 페이지네이션이며 cursor 는 직전 페이지 마지막 `studyGroupMemberId` 입니다. size 는 최대 100, 기본 20 입니다.
+            """
+    )
+    @GetMapping("/workbook-submissions")
+    public CursorResponse<StudyMemberSubmissionResponse> getStudyMemberSubmissions(
+        @ParameterObject @Valid GetStudyMemberSubmissionsRequest request,
+        @CurrentMember MemberPrincipal memberPrincipal
+    ) {
+        List<StudyMemberSubmissionInfo> content = getStudyMemberSubmissionUseCase.getStudyMemberSubmissions(
+            request.toQuery(memberPrincipal.getMemberId())
+        );
+
+        return CursorResponse.of(
+            content,
+            request.resolvedSize(),
+            StudyMemberSubmissionInfo::studyGroupMemberId,
+            StudyMemberSubmissionResponse::from
+        );
+    }
 
     @Operation(
         operationId = "WORKBOOK-101",
