@@ -50,6 +50,17 @@ operation::chapter-command-controller-test/신규_지부를_생성한다[snippet
 === 지부_목록을_조회합니다
 operation::chapter-query-controller-test/지부_목록을_조회합니다[snippets='http-request,http-response,response-fields']
 
+== Fcm admin
+
+=== null_part_발송_대상_거부
+operation::fcm-admin-controller-test/null_part_발송_대상_거부[snippets='http-request,http-response']
+
+=== 관리자_fcm_알림_발송_요청
+operation::fcm-admin-controller-test/관리자_fcm_알림_발송_요청[snippets='http-request,http-response']
+
+=== 빈_발송_대상_거부
+operation::fcm-admin-controller-test/빈_발송_대상_거부[snippets='http-request,http-response']
+
 == Gisu command
 
 === 기수를_삭제한다
@@ -126,6 +137,9 @@ operation::recruiting-admin-controller-test/서류_결정_api는_긴_사유를_�
 
 === 최종_결정_api는_결정자_member-id를_command로_전달한다
 operation::recruiting-admin-controller-test/최종_결정_api는_결정자_member-id를_command로_전달한다[snippets='http-request,http-response']
+
+=== 평가_현황_집계_api는_지부_학교_파트별_카운트를_반환한다
+operation::recruiting-admin-controller-test/평가_현황_집계_api는_지부_학교_파트별_카운트를_반환한다[snippets='http-request,http-response']
 
 == Recruiting application
 
@@ -298,3 +312,4 @@ operation::umc-product-squad-controller-documentation-test/umc_product_-squad를
 
 === 제거된_-squad_참여자_전체_교체_api는_404를_반환한다
 operation::umc-product-squad-controller-documentation-test/제거된_-squad_참여자_전체_교체_api는_404를_반환한다[snippets='http-request,http-response']
+
