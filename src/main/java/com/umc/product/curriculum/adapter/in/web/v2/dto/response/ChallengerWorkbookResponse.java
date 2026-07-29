@@ -1,10 +1,12 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
+import com.umc.product.curriculum.domain.ChallengerWorkbookStatusPolicy;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
 
 import lombok.Builder;
@@ -61,27 +63,18 @@ public record ChallengerWorkbookResponse(
         ChallengerWorkbookInfo info,
         List<MissionSubmissionResponse> submissions
     ) {
-        if (info.isExcused()) {
-            return ChallengerWorkbookStatusResponse.PASS;
-        }
-        if (submissions.isEmpty()) {
-            return ChallengerWorkbookStatusResponse.IN_PROGRESS;
-        }
-        if (submissions.stream().map(MissionSubmissionResponse::status)
-            .anyMatch(status -> status == SubmissionStatus.FAIL)) {
-            return ChallengerWorkbookStatusResponse.FAIL;
-        }
-        boolean allPass = submissions.stream().map(MissionSubmissionResponse::status)
-            .allMatch(status -> status == SubmissionStatus.PASS);
-        Set<Long> passedMissionIds = submissions.stream()
-            .filter(submission -> submission.status() == SubmissionStatus.PASS)
-            .map(MissionSubmissionResponse::originalWorkbookMissionId)
-            .collect(Collectors.toSet());
-        Set<Long> requiredMissionIds =
-            info.requiredMissionIds() == null ? Set.of() : info.requiredMissionIds();
-        boolean allRequiredMissionsPassed = passedMissionIds.containsAll(requiredMissionIds);
-        return allPass && allRequiredMissionsPassed
-            ? ChallengerWorkbookStatusResponse.PASS
-            : ChallengerWorkbookStatusResponse.IN_PROGRESS;
+        Map<Long, SubmissionStatus> statusByMission = submissions.stream()
+            .collect(Collectors.toMap(
+                MissionSubmissionResponse::originalWorkbookMissionId,
+                MissionSubmissionResponse::status
+            ));
+
+        return ChallengerWorkbookStatusResponse.from(
+            ChallengerWorkbookStatusPolicy.resolveWorkbookStatus(
+                info.isExcused(),
+                statusByMission,
+                info.requiredMissionIds() == null ? Set.of() : info.requiredMissionIds()
+            )
+        );
     }
 }

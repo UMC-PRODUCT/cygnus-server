@@ -5,7 +5,7 @@ import java.util.List;
 
 import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
 import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionSubmissionInfo;
-import com.umc.product.curriculum.domain.enums.FeedbackResult;
+import com.umc.product.curriculum.domain.ChallengerWorkbookStatusPolicy;
 import com.umc.product.curriculum.domain.enums.MissionType;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
 
@@ -59,18 +59,8 @@ public record MissionSubmissionResponse(
     }
 
     private static SubmissionStatus resolveStatus(List<MissionFeedbackResponse> feedbacks) {
-        if (feedbacks.isEmpty()) {
-            return SubmissionStatus.PENDING;
-        }
-        if (feedbacks.stream()
-            .map(MissionFeedbackResponse::feedbackResult)
-            .anyMatch(result -> result == FeedbackResult.FAIL)) {
-            return SubmissionStatus.FAIL;
-        }
-        return feedbacks.stream()
-            .map(MissionFeedbackResponse::feedbackResult)
-            .anyMatch(result -> result == FeedbackResult.PASS)
-            ? SubmissionStatus.PASS
-            : SubmissionStatus.PENDING;
+        return ChallengerWorkbookStatusPolicy.resolveSubmissionStatus(
+            feedbacks.stream().map(MissionFeedbackResponse::feedbackResult).toList()
+        );
     }
 }

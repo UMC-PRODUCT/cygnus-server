@@ -28,12 +28,12 @@ import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissi
 import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookPort;
 import com.umc.product.curriculum.application.port.out.LoadWeeklyCurriculumPort;
 import com.umc.product.curriculum.domain.ChallengerWorkbook;
+import com.umc.product.curriculum.domain.ChallengerWorkbookStatusPolicy;
 import com.umc.product.curriculum.domain.MissionFeedback;
 import com.umc.product.curriculum.domain.MissionSubmission;
 import com.umc.product.curriculum.domain.OriginalWorkbook;
 import com.umc.product.curriculum.domain.OriginalWorkbookMission;
 import com.umc.product.curriculum.domain.WeeklyCurriculum;
-import com.umc.product.curriculum.domain.enums.FeedbackResult;
 import com.umc.product.curriculum.domain.enums.SubmissionStatus;
 
 import lombok.RequiredArgsConstructor;
@@ -162,13 +162,8 @@ public class CurriculumQueryService implements GetCurriculumUseCase {
     }
 
     private SubmissionStatus resolveSubmissionStatus(List<MissionFeedback> feedbacks) {
-        if (feedbacks.isEmpty()) {
-            return SubmissionStatus.PENDING;
-        }
-        return feedbacks.stream()
-            .map(MissionFeedback::getFeedbackResult)
-            .anyMatch(r -> r == FeedbackResult.PASS)
-            ? SubmissionStatus.PASS
-            : SubmissionStatus.FAIL;
+        return ChallengerWorkbookStatusPolicy.resolveSubmissionStatus(
+            feedbacks.stream().map(feedback -> feedback.getFeedbackResult()).toList()
+        );
     }
 }
