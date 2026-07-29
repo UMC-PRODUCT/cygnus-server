@@ -1,5 +1,8 @@
 package com.umc.product.curriculum.adapter.out.persistence;
 
+import java.util.Collection;
+import java.util.List;
+
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Component;
@@ -30,6 +33,14 @@ public class WeeklyBestWorkbookPersistenceAdapter implements
     public WeeklyBestWorkbook getById(Long id) {
         return jpaRepository.findById(id)
             .orElseThrow(() -> new CurriculumDomainException(CurriculumErrorCode.WORKBOOK_NOT_FOUND));
+    }
+
+    @Override
+    public List<BestWorkbookHolder> findHolders(
+        Collection<Long> studyGroupIds,
+        Collection<Long> weeklyCurriculumIds
+    ) {
+        return queryRepository.findHolders(studyGroupIds, weeklyCurriculumIds);
     }
 
     @Override

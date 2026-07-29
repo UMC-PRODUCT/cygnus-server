@@ -16,10 +16,12 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Repository;
 
+import com.querydsl.core.types.Projections;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.curriculum.application.port.in.query.dto.GetBestWorkbooksQuery;
+import com.umc.product.curriculum.application.port.out.LoadWeeklyBestWorkbookPort.BestWorkbookHolder;
 import com.umc.product.curriculum.domain.WeeklyBestWorkbook;
 
 import lombok.RequiredArgsConstructor;
@@ -54,6 +56,34 @@ public class WeeklyBestWorkbookQueryRepository {
             .limit(query.size())
             .toList();
         return page(query, content, total);
+    }
+
+    /**
+     * 여러 (스터디 그룹, 주차) 조합의 베스트 선정자를 한 번에 조회한다.
+     * <p>
+     * {@code uk_weekly_best_workbook_study_group_week} 로 조합당 최대 1건이므로 결과는 {@code 그룹 수 × 주차 수} 를 넘지 않는다. 조합을 정확히
+     * 나열하는 대신 두 IN 절의 곱집합으로 조회하고 (조합 수가 작아 과다 조회 부담이 없다) 매칭은 호출 측이 조합 키로 수행한다.
+     */
+    public List<BestWorkbookHolder> findHolders(
+        Collection<Long> studyGroupIds, Collection<Long> weeklyCurriculumIds
+    ) {
+        if (!hasValues(studyGroupIds) || !hasValues(weeklyCurriculumIds)) {
+            return List.of();
+        }
+
+        return queryFactory
+            .select(Projections.constructor(
+                BestWorkbookHolder.class,
+                weeklyBestWorkbook.studyGroupId,
+                weeklyBestWorkbook.weeklyCurriculum.id,
+                weeklyBestWorkbook.memberId
+            ))
+            .from(weeklyBestWorkbook)
+            .where(
+                weeklyBestWorkbook.studyGroupId.in(studyGroupIds),
+                weeklyBestWorkbook.weeklyCurriculum.id.in(weeklyCurriculumIds)
+            )
+            .fetch();
     }
 
     static List<Set<Long>> partitionMemberIds(Set<Long> memberIds) {
