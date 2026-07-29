@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
 import com.umc.product.organization.application.port.out.command.SaveStudyGroupPort;
 import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
@@ -90,6 +91,16 @@ public class StudyGroupPersistenceAdapter implements SaveStudyGroupPort, LoadStu
             return Map.of();
         }
         return studyGroupQueryRepository.findMemberIdsByStudyGroupIds(groupIds);
+    }
+
+    @Override
+    public List<StudyGroupMemberPageInfo> findStudyGroupMemberPage(
+        Collection<Long> groupIds, Long cursor, int size
+    ) {
+        if (groupIds == null || groupIds.isEmpty()) {
+            return List.of();
+        }
+        return studyGroupQueryRepository.findStudyGroupMemberPage(groupIds, cursor, size);
     }
 
     @Override

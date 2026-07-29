@@ -22,12 +22,15 @@ import com.umc.product.organization.application.port.in.query.dto.OrganizationRo
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
 import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
 import com.umc.product.organization.domain.StudyGroup;
 import com.umc.product.organization.domain.StudyGroupMember;
 import com.umc.product.organization.domain.StudyGroupMentor;
+import com.umc.product.organization.exception.OrganizationDomainException;
+import com.umc.product.organization.exception.OrganizationErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -108,6 +111,34 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
         Long schoolId = getMemberUseCase.getById(memberId).schoolId();
         Long activeGisuId = getGisuUseCase.getActiveGisuId();
         return resolveScopes(memberId, activeGisuId, schoolId);
+    }
+
+    /**
+     * 권한 범위 내 스터디원 목록 (커서 페이지네이션).
+     * <p>
+     * {@code studyGroupId} 가 주어지면 그 그룹이 권한 범위에 있는지 먼저 확인한다. 범위 밖이면 빈 목록이 아니라 403 으로 끊는다 — 존재하지 않는 그룹과
+     * 권한 없는 그룹을 호출 측이 구분할 수 있어야 하기 때문.
+     */
+    @Override
+    public List<StudyGroupMemberPageInfo> getVisibleStudyGroupMembers(
+        Long requesterMemberId, Long studyGroupId, Long cursor, int size
+    ) {
+        Long schoolId = getMemberUseCase.getById(requesterMemberId).schoolId();
+        Long activeGisuId = getGisuUseCase.getActiveGisuId();
+
+        List<OrganizationRoleScope> scopes = resolveScopes(requesterMemberId, activeGisuId, schoolId);
+        Set<Long> visibleGroupIds = scopes.isEmpty()
+            ? Set.of()
+            : loadStudyGroupPort.findStudyGroupIds(scopes, activeGisuId);
+
+        if (studyGroupId != null) {
+            if (!visibleGroupIds.contains(studyGroupId)) {
+                throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_ACCESS_DENIED);
+            }
+            return loadStudyGroupPort.findStudyGroupMemberPage(Set.of(studyGroupId), cursor, size);
+        }
+
+        return loadStudyGroupPort.findStudyGroupMemberPage(visibleGroupIds, cursor, size);
     }
 
     /**

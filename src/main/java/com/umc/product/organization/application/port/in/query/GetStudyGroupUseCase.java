@@ -8,6 +8,7 @@ import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
 
@@ -60,6 +61,26 @@ public interface GetStudyGroupUseCase {
      * @return 소속 스터디원 목록 (소속 없으면 빈 리스트)
      */
     List<StudyGroupMemberInfo> getStudyGroupMembers(Long groupId);
+
+    /**
+     * 요청자가 조회 권한을 가진 스터디 그룹들의 스터디원 목록을 커서 페이지네이션으로 조회한다.
+     * <p>
+     * {@link #getMyStudyGroups} 와 같은 역할 Scope 규칙(회장단/파트장)을 쓰되, 페이지 단위가 그룹이 아니라 *스터디원* 이다. 제출 현황처럼 인원이 행이 되는
+     * 화면을 위해 분리했다.
+     * <p>
+     * 이름/학교/프로필은 담기지 않는다 (Member 도메인 소관). 호출 측이 memberId 로 batch 합성한다.
+     *
+     * @param requesterMemberId 요청 주체 memberId
+     * @param studyGroupId      특정 그룹만 조회 (null 이면 권한 범위 내 전체 그룹)
+     * @param cursor            직전 페이지 마지막 studyGroupMemberId (첫 페이지는 null)
+     * @param size              조회 건수. hasNext 판별이 필요하면 호출 측에서 +1 하여 전달한다.
+     * @return 조회된 스터디원 목록 (권한 범위가 비면 빈 리스트)
+     * @throws com.umc.product.organization.exception.OrganizationDomainException {@code studyGroupId} 가 요청자의 권한
+     *                                                                           범위 밖일 때
+     */
+    List<StudyGroupMemberPageInfo> getVisibleStudyGroupMembers(
+        Long requesterMemberId, Long studyGroupId, Long cursor, int size
+    );
 
     /**
      * 특정 기수에서 해당 파트들의 스터디 그룹 ID 목록 조회 (파트장용)
