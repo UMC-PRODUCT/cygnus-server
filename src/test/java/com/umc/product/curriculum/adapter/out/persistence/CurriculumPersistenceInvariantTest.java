@@ -139,6 +139,36 @@ class CurriculumPersistenceInvariantTest {
     }
 
     @Test
+    @DisplayName("베스트 batch 조회는 요청한 그룹과 주차 조합의 선정자만 돌려준다")
+    void findHoldersReturnsOnlyRequestedCombinations() {
+        Scenario scenario = persistScenario();
+        Long weeklyCurriculumId = scenario.weekly().getId();
+        weeklyBestWorkbookJpaRepository.saveAndFlush(
+            WeeklyBestWorkbook.create(scenario.weekly(), 100L, 10L, "10번 그룹 베스트", 900L)
+        );
+        weeklyBestWorkbookJpaRepository.saveAndFlush(
+            WeeklyBestWorkbook.create(scenario.weekly(), 200L, 20L, "20번 그룹 베스트", 900L)
+        );
+
+        assertThat(weeklyBestWorkbookQueryRepository.findHolders(Set.of(10L), List.of(weeklyCurriculumId)))
+            .singleElement()
+            .satisfies(holder -> {
+                assertThat(holder.studyGroupId()).isEqualTo(10L);
+                assertThat(holder.weeklyCurriculumId()).isEqualTo(weeklyCurriculumId);
+                assertThat(holder.memberId()).isEqualTo(100L);
+            });
+
+        assertThat(weeklyBestWorkbookQueryRepository.findHolders(Set.of(10L, 20L), List.of(weeklyCurriculumId)))
+            .hasSize(2);
+        assertThat(weeklyBestWorkbookQueryRepository.findHolders(Set.of(99L), List.of(weeklyCurriculumId)))
+            .isEmpty();
+        assertThat(weeklyBestWorkbookQueryRepository.findHolders(Set.of(), List.of(weeklyCurriculumId)))
+            .isEmpty();
+        assertThat(weeklyBestWorkbookQueryRepository.findHolders(Set.of(10L), List.of()))
+            .isEmpty();
+    }
+
+    @Test
     @DisplayName("같은 그룹과 주차에는 스터디 일정을 하나만 연결할 수 있다")
     void duplicateStudyGroupWeekScheduleRejected() {
         Scenario scenario = persistScenario();

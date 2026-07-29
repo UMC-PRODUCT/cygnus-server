@@ -138,6 +138,9 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
             return loadStudyGroupPort.findStudyGroupMemberPage(Set.of(studyGroupId), cursor, size);
         }
 
+        if (visibleGroupIds.isEmpty()) {
+            return List.of();
+        }
         return loadStudyGroupPort.findStudyGroupMemberPage(visibleGroupIds, cursor, size);
     }
 
