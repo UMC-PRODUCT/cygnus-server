@@ -29,6 +29,7 @@ import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDecisionR
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpsertRecruitingApplicationFormRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingEvaluationStatisticsResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingIdResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingStatusSummaryResponse;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
@@ -43,6 +44,8 @@ import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruit
 import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruitingRegistrationCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -68,6 +71,7 @@ public class RecruitingAdminController {
     private final ConfirmRecruitingRegistrationUseCase confirmRegistrationUseCase;
     private final GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     private final ExportRecruitingCsvUseCase exportRecruitingCsvUseCase;
+    private final GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
 
     @PutMapping("/seasons/{seasonId}/rounds/{roundId}/form")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)
@@ -223,6 +227,25 @@ public class RecruitingAdminController {
                     .toString())
             .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
             .body(csv);
+    }
+
+    @GetMapping("/statistics/evaluations")
+    @Operation(
+        operationId = "RECRUITING-ADMIN-083",
+        summary = "평가 현황 집계 조회",
+        description = "기수 내 지부별·학교별·1지망 파트별 지원자 수와 평가 완료 수를 집계합니다. "
+            + "평가 완료는 서류 불합격 또는 최종 판정이 확정된 지원서를 뜻하며, DRAFT와 CANCELLED 지원서는 집계에서 제외합니다."
+    )
+    public RecruitingEvaluationStatisticsResponse getEvaluationStatistics(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @RequestParam @Positive Long gisuId
+    ) {
+        return RecruitingEvaluationStatisticsResponse.from(
+            getEvaluationStatisticsUseCase.getEvaluationStatistics(RecruitingEvaluationStatisticsQuery.builder()
+                .gisuId(gisuId)
+                .requesterMemberId(memberId(memberPrincipal))
+                .build())
+        );
     }
 
     private Long memberId(MemberPrincipal memberPrincipal) {
