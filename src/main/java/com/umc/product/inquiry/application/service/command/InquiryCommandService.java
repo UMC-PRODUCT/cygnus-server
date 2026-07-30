@@ -10,9 +10,9 @@ import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomComman
 import com.umc.product.chat.application.port.in.command.dto.JoinChatRoomCommand;
 import com.umc.product.chat.application.port.in.command.dto.MarkChatRoomReadCommand;
 import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
-import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessagesForAuthorizedCallerUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
-import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesForAuthorizedCallerQuery;
 import com.umc.product.inquiry.application.port.in.command.AssignInquiryManagerUseCase;
 import com.umc.product.inquiry.application.port.in.command.CloseInquiryUseCase;
 import com.umc.product.inquiry.application.port.in.command.MarkInquiryReadUseCase;
@@ -60,7 +60,7 @@ public class InquiryCommandService implements
     private final JoinChatRoomUseCase joinChatRoomUseCase;
     private final CheckChatRoomAccessUseCase checkChatRoomAccessUseCase;
     private final MarkChatRoomReadUseCase markChatRoomReadUseCase;
-    private final GetChatMessagesUseCase getChatMessagesUseCase;
+    private final GetChatMessagesForAuthorizedCallerUseCase getChatMessagesForAuthorizedCallerUseCase;
     private final LoadInquiryPort loadInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
 
@@ -138,20 +138,40 @@ public class InquiryCommandService implements
         saveInquiryPort.save(inquiry);
     }
 
+    /**
+     * 문의 읽음 처리. 작성자와 운영진 모두 호출할 수 있다(assign/transfer/close 와 달리 운영진 전용이 아니다).
+     * <p>
+     * inquiry 의 {@code isRead} 는 "운영진이 열람했는가" 플래그이므로 운영진 호출에서만 갱신한다. 작성자가 읽어도
+     * 운영진 열람 여부는 바뀌지 않아야 하기 때문이다.
+     * <p>
+     * 접근 권한은 이 메서드에서 판정하므로, 채팅 메시지 조회는 membership 검사가 없는 권한위임형 유스케이스를 사용한다.
+     * 담당자로 지정되지 않아 채팅방 멤버가 아닌 운영진도 읽음 처리를 할 수 있어야 한다.
+     */
     @Override
     public void markRead(MarkInquiryReadCommand command) {
         Inquiry inquiry = loadInquiryPort.getById(command.inquiryId());
+        boolean isOperator = loadOperatorStatusPort.isOperator(
+            LoadOperatorStatusContext.of(command.memberId(), inquiry));
+        if (!inquiry.isAccessibleBy(command.memberId(), isOperator)) {
+            throw new InquiryDomainException(InquiryErrorCode.NO_INQUIRY_PERMISSION);
+        }
+
+        if (isOperator) {
+            inquiry.markAsRead();
+        }
+
         Long chatRoomId = inquiry.getChatRoomId();
         // 엔진 markRead 는 "lastSeenMessageId 까지 읽음"이므로, 방의 최신(id DESC 1건) 메시지 id 를 넘기면 기존의 "방 전체 읽음"과 동치가 된다.
-        ChatMessageCursorResult latest = getChatMessagesUseCase.getMessages(
-            new GetChatMessagesQuery(chatRoomId, command.memberId(), null, 1));
-        if (latest.content().isEmpty()) {
-            // 메시지가 없는 빈 방이면 읽음 처리할 대상도 없으므로 no-op 으로 정상 반환한다.
-            return;
+        ChatMessageCursorResult latest = getChatMessagesForAuthorizedCallerUseCase.getMessages(
+            new GetChatMessagesForAuthorizedCallerQuery(chatRoomId, null, 1));
+        if (!latest.content().isEmpty()) {
+            // 메시지가 없는 빈 방이면 채팅방 읽음 처리 대상이 없으므로 생략한다(inquiry 저장은 그대로 진행).
+            Long lastSeenMessageId = latest.content().get(0).messageId();
+            markChatRoomReadUseCase.markRead(
+                MarkChatRoomReadCommand.of(chatRoomId, command.memberId(), lastSeenMessageId));
         }
-        Long lastSeenMessageId = latest.content().get(0).messageId();
-        markChatRoomReadUseCase.markRead(
-            MarkChatRoomReadCommand.of(chatRoomId, command.memberId(), lastSeenMessageId));
+
+        saveInquiryPort.save(inquiry);
     }
 
     /**

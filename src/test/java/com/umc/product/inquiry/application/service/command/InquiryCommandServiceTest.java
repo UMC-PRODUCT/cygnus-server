@@ -21,7 +21,7 @@ import com.umc.product.chat.application.port.in.command.CreateChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.JoinChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.MarkChatRoomReadUseCase;
 import com.umc.product.chat.application.port.in.query.CheckChatRoomAccessUseCase;
-import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessagesForAuthorizedCallerUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.domain.MessageContentType;
@@ -54,7 +54,7 @@ class InquiryCommandServiceTest {
     @Mock
     MarkChatRoomReadUseCase markChatRoomReadUseCase;
     @Mock
-    GetChatMessagesUseCase getChatMessagesUseCase;
+    GetChatMessagesForAuthorizedCallerUseCase getChatMessagesForAuthorizedCallerUseCase;
     @Mock
     LoadInquiryPort loadInquiryPort;
     @Mock
@@ -89,7 +89,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(true);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, OPERATOR_ID));
@@ -105,7 +105,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(true);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, OPERATOR_ID));
@@ -121,7 +121,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(true);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, OPERATOR_ID));
@@ -143,7 +143,7 @@ class InquiryCommandServiceTest {
                 inquiry.markAsRead();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(false);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, AUTHOR_ID));
@@ -159,7 +159,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(false);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, AUTHOR_ID));
@@ -175,7 +175,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(false);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, AUTHOR_ID));
@@ -191,7 +191,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(false);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(latestMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(latestMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, AUTHOR_ID));
@@ -252,7 +252,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(true);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(emptyMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(emptyMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, OPERATOR_ID));
@@ -270,7 +270,7 @@ class InquiryCommandServiceTest {
                 Inquiry inquiry = unreadInquiry();
                 given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
                 given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(false);
-                given(getChatMessagesUseCase.getMessages(any())).willReturn(emptyMessageResult());
+                given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any())).willReturn(emptyMessageResult());
 
                 // when
                 sut.markRead(MarkInquiryReadCommand.of(INQUIRY_ID, AUTHOR_ID));
