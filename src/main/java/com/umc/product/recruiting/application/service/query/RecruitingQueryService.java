@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.service.query;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -59,6 +60,12 @@ public class RecruitingQueryService implements
         RecruitingApplicationStatus.DRAFT,
         RecruitingApplicationStatus.CANCELLED
     ));
+
+    /** 파트별 집계 고정 슬롯. 모집 불가 트랙(INFRA_PLUS)을 제외한 파트를 sortOrder 순으로 항상 노출한다. */
+    private static final List<ChallengerTrack> SUMMARY_PART_TRACKS = Arrays.stream(ChallengerTrack.values())
+        .filter(track -> track != ChallengerTrack.INFRA_PLUS)
+        .sorted(Comparator.comparingInt(ChallengerTrack::getSortOrder))
+        .toList();
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingRoundPort loadRoundPort;
@@ -243,19 +250,17 @@ public class RecruitingQueryService implements
 
     /**
      * 1지망(firstChoice) 파트 기준으로 상태별 개수를 교차집계한다.
-     * rows에 실제로 존재하는 파트만 ChallengerTrack.sortOrder 순으로 반환하므로 파트별 합계는 totalCount와 일치한다.
+     * 지원자가 없는 파트도 0건으로 항상 포함하며(SUMMARY_PART_TRACKS 고정 슬롯), 파트별 합계는 totalCount와 일치한다.
      */
     private List<RecruitingPartStatusSummaryInfo> partSummaries(List<RecruitingApplicationSummaryRow> rows) {
         Map<ChallengerTrack, List<RecruitingApplicationSummaryRow>> rowsByPart = rows.stream()
             .filter(row -> row.firstChoice() != null)
             .collect(java.util.stream.Collectors.groupingBy(RecruitingApplicationSummaryRow::firstChoice));
-        return rowsByPart.entrySet().stream()
-            .sorted(Comparator.comparingInt(entry -> entry.getKey().getSortOrder()))
-            .map(entry -> new RecruitingPartStatusSummaryInfo(
-                entry.getKey(),
-                (long) entry.getValue().size(),
-                countByStatus(entry.getValue())
-            ))
+        return SUMMARY_PART_TRACKS.stream()
+            .map(track -> {
+                List<RecruitingApplicationSummaryRow> partRows = rowsByPart.getOrDefault(track, List.of());
+                return new RecruitingPartStatusSummaryInfo(track, (long) partRows.size(), countByStatus(partRows));
+            })
             .toList();
     }
 

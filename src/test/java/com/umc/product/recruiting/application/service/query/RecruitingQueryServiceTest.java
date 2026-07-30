@@ -133,9 +133,15 @@ class RecruitingQueryServiceTest {
 
         RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
 
+        // 지원자가 없는 파트(DESIGN, MOBILE)도 0건 슬롯으로 포함되고 sortOrder 순으로 정렬된다.
         assertThat(result.parts())
             .extracting(part -> part.part())
-            .containsExactly(ChallengerTrack.PLAN, ChallengerTrack.WEB_PRODUCT_ENGINEER);
+            .containsExactly(
+                ChallengerTrack.PLAN,
+                ChallengerTrack.DESIGN,
+                ChallengerTrack.WEB_PRODUCT_ENGINEER,
+                ChallengerTrack.MOBILE_PRODUCT_ENGINEER
+            );
         assertThat(result.parts())
             .filteredOn(part -> part.part() == ChallengerTrack.WEB_PRODUCT_ENGINEER)
             .singleElement()
@@ -144,11 +150,18 @@ class RecruitingQueryServiceTest {
                 assertThat(part.countByStatus().get(RecruitingApplicationStatus.SUBMITTED)).isEqualTo(1L);
                 assertThat(part.countByStatus().get(RecruitingApplicationStatus.FINAL_PASSED)).isEqualTo(1L);
             });
+        assertThat(result.parts())
+            .filteredOn(part -> part.part() == ChallengerTrack.DESIGN)
+            .singleElement()
+            .satisfies(part -> {
+                assertThat(part.totalCount()).isZero();
+                assertThat(part.countByStatus()).isEmpty();
+            });
         assertThat(result.parts().stream().mapToLong(part -> part.totalCount()).sum())
             .isEqualTo(result.totalCount());
         assertThat(result.schools()).singleElement()
             .satisfies(school -> assertThat(school.rounds()).singleElement()
-                .satisfies(round -> assertThat(round.parts()).hasSize(2)));
+                .satisfies(round -> assertThat(round.parts()).hasSize(4)));
     }
 
     @Test
