@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.chat.application.policy.ChatRoomAccessPolicy;
 import com.umc.product.chat.application.port.in.query.CheckChatMessageReadUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessagesForAuthorizedCallerUseCase;
 import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
 import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
@@ -18,6 +19,7 @@ import com.umc.product.chat.application.port.in.query.dto.ChatMessageInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageReadStatusInfo;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
 import com.umc.product.chat.application.port.in.query.dto.CheckChatMessageReadQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesForAuthorizedCallerQuery;
 import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
 import com.umc.product.chat.application.port.out.LoadChatMemberPort;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
@@ -32,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ChatMessageQueryService implements
     GetChatMessagesUseCase,
+    GetChatMessagesForAuthorizedCallerUseCase,
     ListChatRoomSummariesUseCase,
     CheckChatMessageReadUseCase {
 
@@ -48,10 +51,26 @@ public class ChatMessageQueryService implements
     public ChatMessageCursorResult getMessages(GetChatMessagesQuery query) {
         chatRoomAccessPolicy.verifyMember(query.roomId(), query.memberId());
 
-        List<ChatMessage> rows = loadChatMessagePort.listByRoomId(query.roomId(), query.cursorId(), query.size() + 1);
+        return fetchCursorPage(query.roomId(), query.cursorId(), query.size());
+    }
 
-        boolean hasNext = rows.size() > query.size();
-        List<ChatMessage> page = hasNext ? rows.subList(0, query.size()) : rows;
+    /**
+     * {@link GetChatMessagesForAuthorizedCallerUseCase} 계약대로 membership 검사를 하지 않는다. 호출자가 접근 권한을
+     * 사전에 검증했다는 전제로 순수 조회만 수행하며, ChatMember를 등록하지 않는다.
+     */
+    @Override
+    public ChatMessageCursorResult getMessages(GetChatMessagesForAuthorizedCallerQuery query) {
+        return fetchCursorPage(query.roomId(), query.cursorId(), query.size());
+    }
+
+    /**
+     * 방 메시지 내역을 최신순 커서 페이지네이션으로 조회한다. (size + 1 조회 후 hasNext 판별)
+     */
+    private ChatMessageCursorResult fetchCursorPage(Long roomId, Long cursorId, int size) {
+        List<ChatMessage> rows = loadChatMessagePort.listByRoomId(roomId, cursorId, size + 1);
+
+        boolean hasNext = rows.size() > size;
+        List<ChatMessage> page = hasNext ? rows.subList(0, size) : rows;
         Long nextCursor = hasNext && !page.isEmpty() ? page.get(page.size() - 1).getId() : null;
 
         List<ChatMessageInfo> content = page.stream()

@@ -19,13 +19,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessagesForAuthorizedCallerUseCase;
 import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
+import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesForAuthorizedCallerQuery;
 import com.umc.product.global.response.CursorResponse;
 import com.umc.product.inquiry.application.access.InquiryAccessScope;
 import com.umc.product.inquiry.application.access.InquiryAccessScopeResolver;
 import com.umc.product.inquiry.application.port.in.query.dto.GetInquiryListQuery;
+import com.umc.product.inquiry.application.port.in.query.dto.GetInquiryMessagesQuery;
 import com.umc.product.inquiry.application.port.in.query.dto.InquirySummaryInfo;
 import com.umc.product.inquiry.application.port.out.LoadInquiryPort;
 import com.umc.product.inquiry.application.port.out.LoadOperatorStatusPort;
@@ -47,7 +50,7 @@ class InquiryQueryServiceTest {
     @Mock
     LoadOperatorStatusPort loadOperatorStatusPort;
     @Mock
-    GetChatMessagesUseCase getChatMessagesUseCase;
+    GetChatMessagesForAuthorizedCallerUseCase getChatMessagesForAuthorizedCallerUseCase;
     @Mock
     ListChatRoomSummariesUseCase listChatRoomSummariesUseCase;
 
@@ -229,6 +232,74 @@ class InquiryQueryServiceTest {
                 .isInstanceOf(InquiryDomainException.class)
                 .extracting(e -> ((InquiryDomainException) e).getBaseCode())
                 .isEqualTo(InquiryErrorCode.NO_INQUIRY_PERMISSION);
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // getMessages — 담당자 지정·첫 메시지 이전에도 권한 있는 운영진/작성자는 조회 가능,
+    // chat에는 membership 검사 없이 위임(ChatMember 미등록)
+    // -----------------------------------------------------------------------
+
+    @Nested
+    @DisplayName("getMessages")
+    class GetMessages {
+
+        @Test
+        @DisplayName("권한 있는 운영진(담당자 아님)은 메시지를 조회할 수 있고, memberId 없이 권한위임형 조회만 호출된다")
+        void 권한있는_운영진은_담당자_아니어도_메시지_조회_가능() {
+            // given
+            Long operatorMemberId = 99L;
+            Inquiry inquiry = inquiry(101L); // authorMemberId = MEMBER_ID (operatorMemberId와 다름)
+            given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
+            given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(true);
+            given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any()))
+                .willReturn(new ChatMessageCursorResult(List.of(), null, false));
+
+            // when
+            sut.getMessages(new GetInquiryMessagesQuery(INQUIRY_ID, operatorMemberId, null, 20));
+
+            // then — chat에는 membership 검사가 없는 권한위임형 유스케이스만, roomId 기준으로 호출된다
+            ArgumentCaptor<GetChatMessagesForAuthorizedCallerQuery> captor =
+                ArgumentCaptor.forClass(GetChatMessagesForAuthorizedCallerQuery.class);
+            then(getChatMessagesForAuthorizedCallerUseCase).should().getMessages(captor.capture());
+            assertThat(captor.getValue().roomId()).isEqualTo(inquiry.getChatRoomId());
+        }
+
+        @Test
+        @DisplayName("작성자는 메시지를 조회할 수 있다")
+        void 작성자는_메시지_조회_가능() {
+            // given
+            Inquiry inquiry = inquiry(101L); // authorMemberId = MEMBER_ID
+            given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
+            given(getChatMessagesForAuthorizedCallerUseCase.getMessages(any()))
+                .willReturn(new ChatMessageCursorResult(List.of(), null, false));
+
+            // when
+            ChatMessageCursorResult result =
+                sut.getMessages(new GetInquiryMessagesQuery(INQUIRY_ID, MEMBER_ID, null, 20));
+
+            // then
+            assertThat(result.hasNext()).isFalse();
+            then(loadOperatorStatusPort).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("작성자도 운영진도 아닌 제3자는 verifyAccess에서 거부되고 chat까지 호출되지 않는다")
+        void 제3자는_verifyAccess에서_거부되고_chat_미호출() {
+            // given
+            Long strangerId = 99L;
+            Inquiry inquiry = inquiry(101L);
+            given(loadInquiryPort.getById(INQUIRY_ID)).willReturn(inquiry);
+            given(loadOperatorStatusPort.isOperator(any(LoadOperatorStatusContext.class))).willReturn(false);
+
+            // when / then
+            assertThatThrownBy(() ->
+                sut.getMessages(new GetInquiryMessagesQuery(INQUIRY_ID, strangerId, null, 20)))
+                .isInstanceOf(InquiryDomainException.class)
+                .extracting(e -> ((InquiryDomainException) e).getBaseCode())
+                .isEqualTo(InquiryErrorCode.NO_INQUIRY_PERMISSION);
+
+            then(getChatMessagesForAuthorizedCallerUseCase).shouldHaveNoInteractions();
         }
     }
 

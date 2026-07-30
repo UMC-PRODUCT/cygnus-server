@@ -7,11 +7,11 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.chat.application.port.in.query.GetChatMessagesUseCase;
+import com.umc.product.chat.application.port.in.query.GetChatMessagesForAuthorizedCallerUseCase;
 import com.umc.product.chat.application.port.in.query.ListChatRoomSummariesUseCase;
 import com.umc.product.chat.application.port.in.query.dto.ChatMessageCursorResult;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomSummaryInfo;
-import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesQuery;
+import com.umc.product.chat.application.port.in.query.dto.GetChatMessagesForAuthorizedCallerQuery;
 import com.umc.product.global.response.CursorResponse;
 import com.umc.product.inquiry.application.access.InquiryAccessScope;
 import com.umc.product.inquiry.application.access.InquiryAccessScopeResolver;
@@ -40,7 +40,7 @@ public class InquiryQueryService implements GetInquiryListUseCase, GetInquiryUse
     private final InquiryAccessScopeResolver scopeResolver;
     private final LoadInquiryPort loadInquiryPort;
     private final LoadOperatorStatusPort loadOperatorStatusPort;
-    private final GetChatMessagesUseCase getChatMessagesUseCase;
+    private final GetChatMessagesForAuthorizedCallerUseCase getChatMessagesForAuthorizedCallerUseCase;
     private final ListChatRoomSummariesUseCase listChatRoomSummariesUseCase;
 
     @Override
@@ -80,9 +80,10 @@ public class InquiryQueryService implements GetInquiryListUseCase, GetInquiryUse
         Inquiry inquiry = loadInquiryPort.getById(query.inquiryId());
         verifyAccess(query.requesterMemberId(), inquiry);
 
-        return getChatMessagesUseCase.getMessages(new GetChatMessagesQuery(
+        // verifyAccess를 통과했으므로 접근 권한은 이미 검증됨 — chat에는 membership 검사 없이
+        // 순수 조회만 위임한다(권한 있는 운영진을 ChatMember로 등록하지 않기 위함).
+        return getChatMessagesForAuthorizedCallerUseCase.getMessages(new GetChatMessagesForAuthorizedCallerQuery(
             inquiry.getChatRoomId(),
-            query.requesterMemberId(),
             query.cursorId(),
             query.size()
         ));
