@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.time.Instant;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -71,13 +72,18 @@ class RecruitingQueryServiceTest {
     @InjectMocks
     RecruitingQueryService sut;
 
+    private static final Set<RecruitingApplicationStatus> SUMMARY_STATUSES = EnumSet.complementOf(EnumSet.of(
+        RecruitingApplicationStatus.DRAFT,
+        RecruitingApplicationStatus.CANCELLED
+    ));
+
     @Test
     @DisplayName("상태_요약은_summary_row의_지원서_상태를_집계한다")
     void summarizeApplicationStatuses() {
         // Given
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
         givenSummaryScope();
-        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, null)).willReturn(List.of(
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES)).willReturn(List.of(
             row("지원자1", RecruitingApplicationStatus.SUBMITTED),
             row("지원자2", RecruitingApplicationStatus.SUBMITTED),
             row("지원자3", RecruitingApplicationStatus.FINAL_PASSED)
@@ -97,6 +103,21 @@ class RecruitingQueryServiceTest {
                 assertThat(round.totalCount()).isEqualTo(3L);
             });
         });
+    }
+
+    @Test
+    @DisplayName("상태 요약은 DRAFT·CANCELLED를 제외한 상태만 집계 대상으로 조회한다")
+    void statusSummaryExcludesDraftAndCancelledFromQuery() {
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        givenSummaryScope();
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES))
+            .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
+
+        sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
+
+        then(loadApplicationPort).should().searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES);
+        assertThat(SUMMARY_STATUSES)
+            .doesNotContain(RecruitingApplicationStatus.DRAFT, RecruitingApplicationStatus.CANCELLED);
     }
 
     @Test
@@ -126,13 +147,13 @@ class RecruitingQueryServiceTest {
     void filterStatusSummaryByRound() {
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
         givenSummaryScope();
-        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), Set.of(20L), null))
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), Set.of(20L), SUMMARY_STATUSES))
             .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
 
         RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of(20L)));
 
         assertThat(result.totalCount()).isEqualTo(1L);
-        then(loadApplicationPort).should().searchSummaryRows(1L, Set.of(10L), Set.of(20L), null);
+        then(loadApplicationPort).should().searchSummaryRows(1L, Set.of(10L), Set.of(20L), SUMMARY_STATUSES);
     }
 
     @Test
@@ -149,7 +170,7 @@ class RecruitingQueryServiceTest {
         ));
         given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
         given(loadRoundPort.listBySeasonIds(List.of(5L))).willReturn(List.of(firstRound, emptyRound));
-        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, null))
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES))
             .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
 
         RecruitingStatusSummaryInfo result = sut.getStatusSummary(RecruitingStatusSummaryQuery.builder()

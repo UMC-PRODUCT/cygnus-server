@@ -2,6 +2,7 @@ package com.umc.product.recruiting.application.service.query;
 
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -51,6 +52,12 @@ public class RecruitingQueryService implements
     GetRecruitingFormQueryUseCase,
     ValidateRecruitingApplicationScopeUseCase,
     ValidateRecruitingFormScopeUseCase {
+
+    /** 지원 현황 집계 대상 상태. 작성 중(DRAFT)·지원 취소(CANCELLED)는 제외한다. */
+    private static final Set<RecruitingApplicationStatus> SUMMARY_STATUSES = EnumSet.complementOf(EnumSet.of(
+        RecruitingApplicationStatus.DRAFT,
+        RecruitingApplicationStatus.CANCELLED
+    ));
 
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingRoundPort loadRoundPort;
@@ -147,7 +154,7 @@ public class RecruitingQueryService implements
                 query.gisuId(),
                 schoolIds,
                 query.roundIds().isEmpty() ? null : roundIds,
-                null
+                SUMMARY_STATUSES
             );
 
         Map<Long, List<RecruitingApplicationSummaryRow>> rowsBySchool = rows.stream()
