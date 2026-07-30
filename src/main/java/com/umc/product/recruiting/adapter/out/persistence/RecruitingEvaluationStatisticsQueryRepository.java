@@ -1,7 +1,6 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import static com.umc.product.recruiting.domain.QRecruitingApplication.recruitingApplication;
-import static com.umc.product.recruiting.domain.QRecruitingApplicationForm.recruitingApplicationForm;
 import static com.umc.product.recruiting.domain.QRecruitingRound.recruitingRound;
 import static com.umc.product.recruiting.domain.QRecruitingSeason.recruitingSeason;
 
@@ -32,8 +31,7 @@ public class RecruitingEvaluationStatisticsQueryRepository {
                 recruitingApplication.count()
             ))
             .from(recruitingApplication)
-            .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm)
-            .innerJoin(recruitingApplicationForm.round, recruitingRound)
+            .innerJoin(recruitingApplication.round, recruitingRound)
             .innerJoin(recruitingRound.season, recruitingSeason)
             .where(
                 recruitingSeason.gisuId.eq(gisuId),
