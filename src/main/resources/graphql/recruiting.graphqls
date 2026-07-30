@@ -29,6 +29,7 @@ extend type Query {
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
   recruitingEvaluationStatistics(input: RecruitingEvaluationStatisticsInput!): RecruitingEvaluationStatistics!
+  recruitingDecisionHistories(input: RecruitingDecisionHistorySearchInput!): RecruitingDecisionHistoryPage!
   recruitingRoundApplications(
     roundId: ID!
     input: RecruitingApplicationSearchInput
@@ -274,6 +275,19 @@ input UpsertRecruitingFormOptionInput {
 input RecruitingApplicationSearchInput {
   statuses: [RecruitingApplicationStatus!]
   tracks: [ChallengerTrack!]
+  page: Int
+  size: Int
+}
+
+input RecruitingDecisionHistorySearchInput {
+  gisuId: ID!
+  chapterId: ID
+  schoolId: ID
+  tracks: [ChallengerTrack!]
+  results: [RecruitingDecisionResult!]
+  searchName: String
+  sort: RecruitingDecisionHistorySortOrder
+  groupByDecider: Boolean
   page: Int
   size: Int
 }
@@ -673,6 +687,49 @@ type RecruitingApplicationReviewPage {
   hasNext: Boolean!
 }
 
+type RecruitingDecisionHistoryPage {
+  asOf: Instant!
+  progressStatus: RecruitingEvaluationProgressStatus!
+  content: [RecruitingDecisionHistory!]!
+  page: Int!
+  size: Int!
+  totalElements: Long!
+  totalPages: Int!
+  hasNext: Boolean!
+}
+
+type RecruitingDecisionHistory {
+  decisionHistoryId: ID!
+  applicationId: ID!
+  decidedAt: Instant!
+  decisionStatus: RecruitingApplicationStatus!
+  result: RecruitingDecisionResult!
+  applicant: RecruitingDecisionHistoryApplicant!
+  decider: RecruitingDecisionHistoryDecider!
+}
+
+type RecruitingDecisionHistoryApplicant {
+  chapterId: ID!
+  chapterName: String!
+  schoolId: ID!
+  schoolName: String!
+  name: String!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  acceptedTrack: ChallengerTrack
+}
+
+type RecruitingDecisionHistoryDecider {
+  memberId: ID!
+  chapterId: ID
+  chapterName: String
+  schoolId: ID
+  schoolName: String
+  roleType: ChallengerRoleType
+  name: String
+  nickname: String
+}
+
 type RecruitingApplicationReview {
   applicationId: ID!
   applicantName: String!
@@ -752,6 +809,34 @@ enum RecruitingApplicationRegistrationStatus {
   NOT_READY
   READY
   REGISTERED
+}
+
+enum RecruitingDecisionResult {
+  PASSED
+  FAILED
+}
+
+enum RecruitingDecisionHistorySortOrder {
+  LATEST
+  OLDEST
+}
+
+enum RecruitingEvaluationProgressStatus {
+  BEFORE_EVALUATION
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ChallengerRoleType {
+  CENTRAL_PRESIDENT
+  CENTRAL_VICE_PRESIDENT
+  CENTRAL_OPERATING_TEAM_MEMBER
+  CENTRAL_EDUCATION_TEAM_MEMBER
+  CHAPTER_PRESIDENT
+  SCHOOL_PRESIDENT
+  SCHOOL_VICE_PRESIDENT
+  SCHOOL_PART_LEADER
+  SCHOOL_ETC_ADMIN
 }
 
 enum RecruitingDecisionStatus {

@@ -17,15 +17,19 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
@@ -42,10 +46,14 @@ import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRound
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
@@ -57,6 +65,9 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatus
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingTrackEvaluationCountInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
+import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
+import com.umc.product.recruiting.domain.enums.RecruitingEvaluationProgressStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
@@ -72,6 +83,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     GraphQlTester graphQlTester;
     @MockitoBean
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
+    @MockitoBean
+    SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     @MockitoBean
     GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
     @MockitoBean
@@ -258,6 +271,72 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     }
 
     @Test
+    @DisplayName("GraphQL 평가 이력은 필터·정렬 조건과 CurrentMember를 query로 전달한다")
+    void decisionHistoriesBindsFiltersAndCurrentMember() {
+        given(searchDecisionHistoryUseCase.search(any())).willReturn(new RecruitingDecisionHistoryPageInfo(
+            Instant.parse("2026-07-04T02:48:00Z"),
+            RecruitingEvaluationProgressStatus.IN_PROGRESS,
+            new PageImpl<>(
+                List.of(RecruitingDecisionHistoryInfo.builder()
+                    .decisionHistoryId(1L)
+                    .applicationId(900L)
+                    .decidedAt(Instant.parse("2026-07-04T02:48:00Z"))
+                    .decisionStatus(RecruitingApplicationStatus.FINAL_PASSED)
+                    .result(RecruitingDecisionResult.PASSED)
+                    .applicant(RecruitingDecisionHistoryInfo.ApplicantInfo.builder()
+                        .chapterId(5L).chapterName("Selenium").schoolId(22L).schoolName("한양대 ERICA")
+                        .name("박유엠").firstChoice(ChallengerTrack.WEB_PRODUCT_ENGINEER).build())
+                    .decider(RecruitingDecisionHistoryInfo.DeciderInfo.builder()
+                        .memberId(70L).roleType(ChallengerRoleType.SCHOOL_PRESIDENT)
+                        .name("이예원").nickname("이방토").build())
+                    .build()),
+                PageRequest.of(0, 20),
+                1L
+            )
+        ));
+
+        graphQlTester.document("""
+                query {
+                  recruitingDecisionHistories(input: {
+                    gisuId: 11,
+                    chapterId: 5,
+                    results: [PASSED],
+                    sort: OLDEST,
+                    groupByDecider: true
+                  }) {
+                    progressStatus
+                    totalElements
+                    content { applicant { name } decider { roleType nickname } }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingDecisionHistories.totalElements")
+            .entity(Long.class)
+            .isEqualTo(1L);
+
+        ArgumentCaptor<RecruitingDecisionHistorySearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingDecisionHistorySearchQuery.class);
+        then(searchDecisionHistoryUseCase).should().search(captor.capture());
+        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
+        assertThat(captor.getValue().chapterId()).isEqualTo(5L);
+        assertThat(captor.getValue().results()).containsExactly(RecruitingDecisionResult.PASSED);
+        assertThat(captor.getValue().sortOrder()).isEqualTo(RecruitingDecisionHistorySortOrder.OLDEST);
+        assertThat(captor.getValue().groupByDecider()).isTrue();
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
+    }
+
+    @Test
+    @DisplayName("GraphQL 평가 이력은 양수가 아닌 기수·지부·학교 ID를 거부한다")
+    void decisionHistoriesRejectNonPositiveIdentifiers() {
+        assertInvalidDecisionHistoryInput("gisuId: 0");
+        assertInvalidDecisionHistoryInput("gisuId: 11, chapterId: -1");
+        assertInvalidDecisionHistoryInput("gisuId: 11, schoolId: -1");
+
+        then(searchDecisionHistoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("GraphQL 모집 목록은 시즌별 그룹과 필터를 반환한다")
     void searchRoundGroups() {
         given(searchRoundGroupUseCase.searchRoundGroups(any())).willReturn(List.of(
@@ -312,6 +391,22 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             .satisfy(errors -> assertThat(errors).hasSize(1));
 
         then(searchRoundGroupUseCase).shouldHaveNoInteractions();
+    }
+
+    private void assertInvalidDecisionHistoryInput(String input) {
+        graphQlTester.document("""
+                query {
+                  recruitingDecisionHistories(input: { %s }) { totalElements }
+                }
+                """.formatted(input))
+            .execute()
+            .errors()
+            .satisfy(errors -> {
+                assertThat(errors).hasSize(1);
+                assertThat(errors.get(0).getPath()).isEqualTo("recruitingDecisionHistories");
+                assertThat(errors.get(0).getExtensions())
+                    .containsEntry("code", CommonErrorCode.BAD_REQUEST.getCode());
+            });
     }
 
     private RecruitingRoundConfigurationInfo roundConfiguration() {

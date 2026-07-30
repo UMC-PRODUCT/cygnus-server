@@ -54,9 +54,14 @@ import com.umc.product.recruiting.application.port.in.command.dto.PrepareRecruit
 import com.umc.product.recruiting.application.port.in.command.dto.SkipRecruitingInterviewCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
+import com.umc.product.recruiting.application.port.in.query.ExportRecruitingDecisionHistoryCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
@@ -65,6 +70,9 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatus
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingTrackEvaluationCountInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
+import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
+import com.umc.product.recruiting.domain.enums.RecruitingEvaluationProgressStatus;
 import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = {RecruitingAdminController.class, RecruitingAdminInterviewController.class})
@@ -110,6 +118,10 @@ class RecruitingAdminControllerTest {
     ExportRecruitingCsvUseCase exportRecruitingCsvUseCase;
     @MockitoBean
     GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
+    @MockitoBean
+    SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
+    @MockitoBean
+    ExportRecruitingDecisionHistoryCsvUseCase exportDecisionHistoryCsvUseCase;
     @MockitoBean
     UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
 
@@ -348,5 +360,95 @@ class RecruitingAdminControllerTest {
         then(getEvaluationStatisticsUseCase).should().getEvaluationStatistics(captor.capture());
         assertThat(captor.getValue().gisuId()).isEqualTo(11L);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("평가 이력 조회 API는 필터·정렬·페이징 조건을 query로 전달하고 헤더 집계와 목록을 반환한다")
+    void 평가_이력_조회_API는_조건을_query로_전달한다() throws Exception {
+        given(searchDecisionHistoryUseCase.search(any())).willReturn(decisionHistoryPage());
+
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories")
+                .param("gisuId", "11")
+                .param("chapterId", "5")
+                .param("schoolId", "22")
+                .param("tracks", "WEB_PRODUCT_ENGINEER")
+                .param("results", "PASSED")
+                .param("searchName", "박유엠")
+                .param("sort", "OLDEST")
+                .param("groupByDecider", "true")
+                .param("page", "0")
+                .param("size", "20"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.progressStatus").value("IN_PROGRESS"))
+            .andExpect(jsonPath("$.result.histories.totalElements").value(1L))
+            .andExpect(jsonPath("$.result.histories.content[0].applicant.name").value("박유엠"))
+            .andExpect(jsonPath("$.result.histories.content[0].decider.roleType").value("SCHOOL_PRESIDENT"));
+
+        ArgumentCaptor<RecruitingDecisionHistorySearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingDecisionHistorySearchQuery.class);
+        then(searchDecisionHistoryUseCase).should().search(captor.capture());
+        RecruitingDecisionHistorySearchQuery query = captor.getValue();
+        assertThat(query.gisuId()).isEqualTo(11L);
+        assertThat(query.chapterId()).isEqualTo(5L);
+        assertThat(query.schoolId()).isEqualTo(22L);
+        assertThat(query.results()).containsExactly(RecruitingDecisionResult.PASSED);
+        assertThat(query.searchName()).isEqualTo("박유엠");
+        assertThat(query.sortOrder()).isEqualTo(RecruitingDecisionHistorySortOrder.OLDEST);
+        assertThat(query.groupByDecider()).isTrue();
+        assertThat(query.requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("평가 이력 CSV API는 같은 조건으로 attachment를 반환한다")
+    void 평가_이력_CSV_API는_attachment를_반환한다() throws Exception {
+        given(exportDecisionHistoryCsvUseCase.exportCsv(any()))
+            .willReturn("decidedAt,decisionStatus,result\n".getBytes());
+
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories.csv")
+                .param("gisuId", "11"))
+            .andExpect(status().isOk())
+            .andExpect(header().string(
+                HttpHeaders.CONTENT_DISPOSITION,
+                "attachment; filename=\"recruiting-decision-histories.csv\""
+            ));
+
+        then(exportDecisionHistoryCsvUseCase).should().exportCsv(any());
+    }
+
+    private RecruitingDecisionHistoryPageInfo decisionHistoryPage() {
+        RecruitingDecisionHistoryInfo history = RecruitingDecisionHistoryInfo.builder()
+            .decisionHistoryId(1L)
+            .applicationId(900L)
+            .decidedAt(java.time.Instant.parse("2026-07-04T02:48:00Z"))
+            .decisionStatus(RecruitingApplicationStatus.FINAL_PASSED)
+            .result(RecruitingDecisionResult.PASSED)
+            .applicant(RecruitingDecisionHistoryInfo.ApplicantInfo.builder()
+                .chapterId(5L)
+                .chapterName("Selenium")
+                .schoolId(22L)
+                .schoolName("한양대 ERICA")
+                .name("박유엠")
+                .firstChoice(com.umc.product.common.domain.enums.ChallengerTrack.WEB_PRODUCT_ENGINEER)
+                .build())
+            .decider(RecruitingDecisionHistoryInfo.DeciderInfo.builder()
+                .memberId(70L)
+                .chapterId(5L)
+                .chapterName("Selenium")
+                .schoolId(22L)
+                .schoolName("한양대 ERICA")
+                .roleType(com.umc.product.common.domain.enums.ChallengerRoleType.SCHOOL_PRESIDENT)
+                .name("이예원")
+                .nickname("이방토")
+                .build())
+            .build();
+        return new RecruitingDecisionHistoryPageInfo(
+            java.time.Instant.parse("2026-07-04T02:48:00Z"),
+            RecruitingEvaluationProgressStatus.IN_PROGRESS,
+            new org.springframework.data.domain.PageImpl<>(
+                List.of(history),
+                org.springframework.data.domain.PageRequest.of(0, 20),
+                1L
+            )
+        );
     }
 }

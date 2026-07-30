@@ -138,6 +138,12 @@ operation::recruiting-admin-controller-test/서류_결정_api는_긴_사유를_�
 === 최종_결정_api는_결정자_member-id를_command로_전달한다
 operation::recruiting-admin-controller-test/최종_결정_api는_결정자_member-id를_command로_전달한다[snippets='http-request,http-response']
 
+=== 평가_이력_csv_api는_attachment를_반환한다
+operation::recruiting-admin-controller-test/평가_이력_csv_api는_attachment를_반환한다[snippets='http-request,http-response']
+
+=== 평가_이력_조회_api는_조건을_query로_전달한다
+operation::recruiting-admin-controller-test/평가_이력_조회_api는_조건을_query로_전달한다[snippets='http-request,http-response']
+
 === 평가_현황_집계_api는_지부_학교_파트별_카운트를_반환한다
 operation::recruiting-admin-controller-test/평가_현황_집계_api는_지부_학교_파트별_카운트를_반환한다[snippets='http-request,http-response']
 

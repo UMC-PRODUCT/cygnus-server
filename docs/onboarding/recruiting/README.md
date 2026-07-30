@@ -107,7 +107,7 @@ Round evaluator는 지원서 목록, 상세와 Form 답변을 조회하고 서�
 
 Swagger `operationId`는 suffix 없이 숫자 3자리를 사용한다. 관리자 API는 Season `001~004`, Round `011~017`,
 Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061~063`, 등록 `071~073`,
-통계 `081~082` 대역으로 구분한다.
+통계 `081~082`, 히스토리 `091~092` 대역으로 구분한다.
 
 ### 공개 및 지원자
 
@@ -158,6 +158,8 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | POST | `/api/v1/recruiting/admin/applications/{applicationId}/registration/registered` | Challenger 등록 확정 |
 | GET | `/api/v1/recruiting/admin/summary` | 복수 학교·Round 및 학교명 조건의 상태 집계 (`ADMIN-081`) |
 | GET | `/api/v1/recruiting/admin/statistics.csv` | 민감정보를 제외한 CSV 다운로드 |
+| GET | `/api/v1/recruiting/admin/decision-histories` | 중앙 전용 서류/최종 판정 이력 감사 조회 (`ADMIN-091`) |
+| GET | `/api/v1/recruiting/admin/decision-histories.csv` | 판정 이력 CSV 다운로드, 원문 email·실명 제외 (`ADMIN-092`) |
 
 ## GraphQL API
 
@@ -165,7 +167,7 @@ GraphQL은 REST와 같은 UseCase를 사용한다. CSV만 REST 전용이다.
 
 ### Query
 
-`publicRecruitingRounds`, `recruitingApplicationFormStructure`, `recruitingApplicationByCredential`, `recruitingApplication`, `recruitingRoundGroups`, `recruitingRoundTitleAvailable`, `recruitingSeasonConfiguration`, `recruitingRoundEvaluators`, `recruitingRoundInterviewQuestions`, `recruitingApplicationInterviewQuestions`, `recruitingApplicationEvaluations`, `recruitingInterviewSchedule`, `recruitingStatusSummary`, `recruitingRoundApplications`, `recruitingRoundApplication`
+`publicRecruitingRounds`, `recruitingApplicationFormStructure`, `recruitingApplicationByCredential`, `recruitingApplication`, `recruitingRoundGroups`, `recruitingRoundTitleAvailable`, `recruitingSeasonConfiguration`, `recruitingRoundEvaluators`, `recruitingRoundInterviewQuestions`, `recruitingApplicationInterviewQuestions`, `recruitingApplicationEvaluations`, `recruitingInterviewSchedule`, `recruitingStatusSummary`, `recruitingDecisionHistories`, `recruitingRoundApplications`, `recruitingRoundApplication`
 
 ### Mutation
 

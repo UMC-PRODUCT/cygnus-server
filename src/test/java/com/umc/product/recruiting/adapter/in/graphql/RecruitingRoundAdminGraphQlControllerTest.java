@@ -40,6 +40,7 @@ import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRound
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
@@ -58,6 +59,8 @@ class RecruitingRoundAdminGraphQlControllerTest {
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     @MockitoBean
     GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
+    @MockitoBean
+    SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     @MockitoBean
     GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
     @MockitoBean
