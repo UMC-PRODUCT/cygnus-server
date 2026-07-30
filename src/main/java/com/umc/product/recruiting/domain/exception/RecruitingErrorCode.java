@@ -75,6 +75,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_DECISION_HISTORY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0326", "해당 기수의 평가 이력을 조회할 권한이 없어요."),
     RECRUITING_DECISION_HISTORY_INVALID(HttpStatus.BAD_REQUEST, "RECRUITING-0327", "판정 이력 정보가 올바르지 않아요."),
     RECRUITING_DECISION_HISTORY_EXPORT_TOO_LARGE(HttpStatus.BAD_REQUEST, "RECRUITING-0328", "다운로드 대상이 너무 많아요. 지부·학교·트랙 등 조건을 좁혀주세요."),
+    RECRUITING_DECISION_HISTORY_INVALID_PAGE_SIZE(HttpStatus.BAD_REQUEST, "RECRUITING-0329", "평가 이력 조회 size는 1 이상 100 이하여야 해요."),
     RECRUITING_EVALUATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "RECRUITING-0401", "이미 확정한 지원자 평가가 있어요."),
     RECRUITING_EVALUATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0402", "지원자 평가를 조회할 권한이 없어요."),
     RECRUITING_EVALUATION_INVALID(HttpStatus.BAD_REQUEST, "RECRUITING-0403", "지원자 평가 정보가 올바르지 않아요."),

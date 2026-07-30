@@ -334,6 +334,27 @@ class RecruitingDecisionHistoryQueryServiceTest {
         }
     }
 
+    @Nested
+    @DisplayName("페이지 크기 검증")
+    class PageSize {
+
+        @Test
+        @DisplayName("size가 100을 초과하면 조회 요청을 거부한다")
+        void rejectsPageSizeOverLimit() {
+            assertThatThrownBy(() -> defaultQuery().pageable(PageRequest.of(0, 101)).build())
+                .isInstanceOf(RecruitingDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(RecruitingErrorCode.RECRUITING_DECISION_HISTORY_INVALID_PAGE_SIZE);
+        }
+
+        @Test
+        @DisplayName("size가 100 이하이면 허용한다")
+        void allowsPageSizeWithinLimit() {
+            assertThat(defaultQuery().pageable(PageRequest.of(0, 100)).build().pageable().getPageSize())
+                .isEqualTo(100);
+        }
+    }
+
     private RecruitingDecisionHistorySearchQuery.RecruitingDecisionHistorySearchQueryBuilder defaultQuery() {
         return RecruitingDecisionHistorySearchQuery.builder()
             .gisuId(GISU_ID)
