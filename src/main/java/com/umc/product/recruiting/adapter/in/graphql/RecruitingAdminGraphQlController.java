@@ -14,6 +14,8 @@ import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CloneRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistoryPageGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistorySearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonConfigurationGraphQlResponse;
@@ -36,6 +38,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruiti
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -45,6 +48,7 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingAdminGraphQlController {
 
     private final GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
+    private final SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     private final GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
     private final SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
     private final CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
@@ -101,6 +105,17 @@ public class RecruitingAdminGraphQlController {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         return RecruitingStatusSummaryGraphQlResponse.from(
             getApplicationQueryUseCase.getStatusSummary(input.toQuery(requesterMemberId))
+        );
+    }
+
+    @QueryMapping
+    public RecruitingDecisionHistoryPageGraphQlResponse recruitingDecisionHistories(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument RecruitingDecisionHistorySearchGraphQlRequest input
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        return RecruitingDecisionHistoryPageGraphQlResponse.from(
+            searchDecisionHistoryUseCase.search(input.toQuery(requesterMemberId))
         );
     }
 
