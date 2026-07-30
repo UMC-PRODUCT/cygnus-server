@@ -27,6 +27,7 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
@@ -162,6 +163,40 @@ class RecruitingQueryServiceTest {
         assertThat(result.schools()).singleElement()
             .satisfies(school -> assertThat(school.rounds()).singleElement()
                 .satisfies(round -> assertThat(round.parts()).hasSize(4)));
+    }
+
+    @Test
+    @DisplayName("상태 요약은 지원서가 전혀 없어도 전체·학교·Round 모두에서 4개 파트 슬롯을 0건으로 반환한다")
+    void statusSummaryReturnsAllPartSlotsWhenNoApplications() {
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        givenSummaryScope();
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES))
+            .willReturn(List.of());
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
+
+        assertThat(result.totalCount()).isZero();
+        assertAllPartSlotsZero(result.parts());
+        assertThat(result.schools()).singleElement().satisfies(school -> {
+            assertAllPartSlotsZero(school.parts());
+            assertThat(school.rounds()).singleElement()
+                .satisfies(round -> assertAllPartSlotsZero(round.parts()));
+        });
+    }
+
+    private void assertAllPartSlotsZero(List<RecruitingPartStatusSummaryInfo> parts) {
+        assertThat(parts)
+            .extracting(part -> part.part())
+            .containsExactly(
+                ChallengerTrack.PLAN,
+                ChallengerTrack.DESIGN,
+                ChallengerTrack.WEB_PRODUCT_ENGINEER,
+                ChallengerTrack.MOBILE_PRODUCT_ENGINEER
+            );
+        assertThat(parts).allSatisfy(part -> {
+            assertThat(part.totalCount()).isZero();
+            assertThat(part.countByStatus()).isEmpty();
+        });
     }
 
     @Test
