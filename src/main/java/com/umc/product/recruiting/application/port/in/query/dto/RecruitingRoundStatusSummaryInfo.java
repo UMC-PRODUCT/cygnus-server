@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.port.in.query.dto;
 
+import java.util.List;
 import java.util.Map;
 
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
@@ -11,6 +12,7 @@ public record RecruitingRoundStatusSummaryInfo(
     RecruitingRoundType roundType,
     Integer roundNo,
     Long totalCount,
-    Map<RecruitingApplicationStatus, Long> countByStatus
+    Map<RecruitingApplicationStatus, Long> countByStatus,
+    List<RecruitingPartStatusSummaryInfo> parts
 ) {
 }

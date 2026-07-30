@@ -56,8 +56,10 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisi
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
@@ -187,13 +189,24 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     @Test
     @DisplayName("GraphQL 상태 요약은 CurrentMember와 요청 기수를 public UseCase에 전달한다")
     void statusSummaryBindsCurrentMemberAndRequestedGisu() {
+        List<RecruitingPartStatusSummaryInfo> parts = List.of(
+            new RecruitingPartStatusSummaryInfo(
+                ChallengerTrack.PLAN, 3L, Map.of(RecruitingApplicationStatus.SUBMITTED, 3L)),
+            new RecruitingPartStatusSummaryInfo(
+                ChallengerTrack.DESIGN, 0L, Map.of())
+        );
+        RecruitingRoundStatusSummaryInfo round = new RecruitingRoundStatusSummaryInfo(
+            31L, "1차 서류", RecruitingRoundType.REGULAR, 1, 3L,
+            Map.of(RecruitingApplicationStatus.SUBMITTED, 3L), parts
+        );
         given(getApplicationQueryUseCase.getStatusSummary(any()))
             .willReturn(new RecruitingStatusSummaryInfo(
                 3L,
                 Map.of(RecruitingApplicationStatus.SUBMITTED, 3L),
+                parts,
                 List.of(new RecruitingSchoolStatusSummaryInfo(
                     22L, "테스트대학교", 3L, "중앙", 3L,
-                    Map.of(RecruitingApplicationStatus.SUBMITTED, 3L), List.of()
+                    Map.of(RecruitingApplicationStatus.SUBMITTED, 3L), parts, List.of(round)
                 ))
             ));
 
@@ -207,14 +220,25 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                   }) {
                     totalCount
                     countByStatus { status count }
-                    schools { schoolId schoolName totalCount }
+                    parts { part totalCount countByStatus { status count } }
+                    schools {
+                      schoolId schoolName totalCount
+                      parts { part totalCount }
+                      rounds { roundId parts { part totalCount } }
+                    }
                   }
                 }
                 """)
             .execute()
-            .path("recruitingStatusSummary.totalCount")
-            .entity(Long.class)
-            .isEqualTo(3L);
+            .path("recruitingStatusSummary.totalCount").entity(Long.class).isEqualTo(3L)
+            .path("recruitingStatusSummary.parts[0].part").entity(String.class).isEqualTo("PLAN")
+            .path("recruitingStatusSummary.parts[0].totalCount").entity(Long.class).isEqualTo(3L)
+            .path("recruitingStatusSummary.parts[0].countByStatus[0].status").entity(String.class).isEqualTo("SUBMITTED")
+            .path("recruitingStatusSummary.parts[0].countByStatus[0].count").entity(Long.class).isEqualTo(3L)
+            .path("recruitingStatusSummary.parts[1].part").entity(String.class).isEqualTo("DESIGN")
+            .path("recruitingStatusSummary.parts[1].totalCount").entity(Long.class).isEqualTo(0L)
+            .path("recruitingStatusSummary.schools[0].parts[0].part").entity(String.class).isEqualTo("PLAN")
+            .path("recruitingStatusSummary.schools[0].rounds[0].parts[0].part").entity(String.class).isEqualTo("PLAN");
 
         ArgumentCaptor<RecruitingStatusSummaryQuery> captor =
             ArgumentCaptor.forClass(RecruitingStatusSummaryQuery.class);

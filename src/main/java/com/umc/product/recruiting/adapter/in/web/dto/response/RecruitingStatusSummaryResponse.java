@@ -3,6 +3,8 @@ package com.umc.product.recruiting.adapter.in.web.dto.response;
 import java.util.List;
 import java.util.Map;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -17,6 +19,8 @@ public record RecruitingStatusSummaryResponse(
     Long totalCount,
     @Schema(description = "지원서 상태별 지원서 수")
     Map<RecruitingApplicationStatus, Long> countByStatus,
+    @Schema(description = "1지망 파트별 상태 교차집계")
+    List<PartSummaryResponse> parts,
     List<SchoolSummaryResponse> schools
 ) {
 
@@ -24,6 +28,7 @@ public record RecruitingStatusSummaryResponse(
         return new RecruitingStatusSummaryResponse(
             info.totalCount(),
             info.countByStatus(),
+            info.parts().stream().map(PartSummaryResponse::from).toList(),
             info.schools().stream().map(SchoolSummaryResponse::from).toList()
         );
     }
@@ -35,6 +40,7 @@ public record RecruitingStatusSummaryResponse(
         String chapterName,
         Long totalCount,
         Map<RecruitingApplicationStatus, Long> countByStatus,
+        List<PartSummaryResponse> parts,
         List<RoundSummaryResponse> rounds
     ) {
 
@@ -46,6 +52,7 @@ public record RecruitingStatusSummaryResponse(
                 info.chapterName(),
                 info.totalCount(),
                 info.countByStatus(),
+                info.parts().stream().map(PartSummaryResponse::from).toList(),
                 info.rounds().stream().map(RoundSummaryResponse::from).toList()
             );
         }
@@ -57,7 +64,8 @@ public record RecruitingStatusSummaryResponse(
         RecruitingRoundType roundType,
         Integer roundNo,
         Long totalCount,
-        Map<RecruitingApplicationStatus, Long> countByStatus
+        Map<RecruitingApplicationStatus, Long> countByStatus,
+        List<PartSummaryResponse> parts
     ) {
 
         private static RoundSummaryResponse from(RecruitingRoundStatusSummaryInfo info) {
@@ -66,6 +74,26 @@ public record RecruitingStatusSummaryResponse(
                 info.roundTitle(),
                 info.roundType(),
                 info.roundNo(),
+                info.totalCount(),
+                info.countByStatus(),
+                info.parts().stream().map(PartSummaryResponse::from).toList()
+            );
+        }
+    }
+
+    @Schema(description = "1지망 파트별 상태 교차집계 항목")
+    public record PartSummaryResponse(
+        @Schema(description = "1지망 파트")
+        ChallengerTrack part,
+        @Schema(description = "파트 지원서 수", example = "24")
+        Long totalCount,
+        @Schema(description = "파트 내 지원서 상태별 수")
+        Map<RecruitingApplicationStatus, Long> countByStatus
+    ) {
+
+        private static PartSummaryResponse from(RecruitingPartStatusSummaryInfo info) {
+            return new PartSummaryResponse(
+                info.part(),
                 info.totalCount(),
                 info.countByStatus()
             );

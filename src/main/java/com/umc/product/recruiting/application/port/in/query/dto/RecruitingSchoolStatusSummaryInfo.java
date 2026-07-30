@@ -12,6 +12,7 @@ public record RecruitingSchoolStatusSummaryInfo(
     String chapterName,
     Long totalCount,
     Map<RecruitingApplicationStatus, Long> countByStatus,
+    List<RecruitingPartStatusSummaryInfo> parts,
     List<RecruitingRoundStatusSummaryInfo> rounds
 ) {
 }
