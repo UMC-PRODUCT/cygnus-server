@@ -10,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
@@ -92,6 +93,11 @@ public class SchoolPersistenceAdapter implements SaveSchoolPort, LoadSchoolPort 
     @Override
     public List<SchoolChapterInfo> findSchoolDetailsByGisuId(Long gisuId) {
         return schoolQueryRepository.getSchoolDetailsByGisuId(gisuId);
+    }
+
+    @Override
+    public List<SchoolChapterNameInfo> findSchoolChapterNamesByGisuId(Long gisuId) {
+        return schoolQueryRepository.getSchoolChapterNamesByGisuId(gisuId);
     }
 
     @Override

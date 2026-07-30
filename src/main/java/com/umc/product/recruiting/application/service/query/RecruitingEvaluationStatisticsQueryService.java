@@ -18,7 +18,7 @@ import com.umc.product.authorization.application.port.in.query.CheckChallengerAu
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
-import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
@@ -69,7 +69,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
     public RecruitingEvaluationStatisticsInfo getEvaluationStatistics(RecruitingEvaluationStatisticsQuery query) {
         validateReadAccess(query.requesterMemberId(), query.gisuId());
 
-        List<SchoolDetailInfo> schools = getSchoolUseCase.getSchoolListByGisuId(query.gisuId());
+        List<SchoolChapterNameInfo> schools = getSchoolUseCase.getSchoolChapterNamesByGisuId(query.gisuId());
         Set<Long> knownSchoolIds = schools.stream()
             .map(SchoolDetailInfo::schoolId)
             .collect(Collectors.toSet());
@@ -101,7 +101,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
     }
 
     private List<RecruitingChapterEvaluationStatisticsInfo> toChapterInfos(
-        List<SchoolDetailInfo> schools,
+        List<SchoolChapterNameInfo> schools,
         Map<Long, List<RecruitingEvaluationStatisticsRow>> rowsBySchool
     ) {
         Map<Long, List<SchoolDetailInfo>> schoolsByChapter = schools.stream()
@@ -115,10 +115,10 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
     }
 
     private RecruitingChapterEvaluationStatisticsInfo toChapterInfo(
-        List<SchoolDetailInfo> chapterSchools,
+        List<SchoolChapterNameInfo> chapterSchools,
         Map<Long, List<RecruitingEvaluationStatisticsRow>> rowsBySchool
     ) {
-        SchoolDetailInfo first = chapterSchools.get(0);
+        SchoolChapterNameInfo first = chapterSchools.get(0);
         List<RecruitingEvaluationStatisticsRow> chapterRows = chapterSchools.stream()
             .flatMap(school -> rowsBySchool.getOrDefault(school.schoolId(), List.of()).stream())
             .toList();
@@ -136,7 +136,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
     }
 
     private RecruitingSchoolEvaluationStatisticsInfo toSchoolInfo(
-        SchoolDetailInfo school,
+        SchoolChapterNameInfo school,
         List<RecruitingEvaluationStatisticsRow> schoolRows
     ) {
         return new RecruitingSchoolEvaluationStatisticsInfo(
