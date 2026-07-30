@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
@@ -16,12 +17,15 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.graphql.GraphQlTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
@@ -40,9 +44,13 @@ import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruit
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
+import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
@@ -50,6 +58,9 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
+import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
+import com.umc.product.recruiting.domain.enums.RecruitingEvaluationProgressStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
@@ -65,6 +76,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     GraphQlTester graphQlTester;
     @MockitoBean
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
+    @MockitoBean
+    SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     @MockitoBean
     GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
     @MockitoBean
@@ -201,6 +214,62 @@ class RecruitingSeasonAdminGraphQlControllerTest {
         assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
         assertThat(captor.getValue().roundIds()).containsExactly(31L);
         assertThat(captor.getValue().schoolName()).isEqualTo("테스트");
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
+    }
+
+    @Test
+    @DisplayName("GraphQL 평가 이력은 필터·정렬 조건과 CurrentMember를 query로 전달한다")
+    void decisionHistoriesBindsFiltersAndCurrentMember() {
+        given(searchDecisionHistoryUseCase.search(any())).willReturn(new RecruitingDecisionHistoryPageInfo(
+            Instant.parse("2026-07-04T02:48:00Z"),
+            RecruitingEvaluationProgressStatus.IN_PROGRESS,
+            new PageImpl<>(
+                List.of(RecruitingDecisionHistoryInfo.builder()
+                    .decisionHistoryId(1L)
+                    .applicationId(900L)
+                    .decidedAt(Instant.parse("2026-07-04T02:48:00Z"))
+                    .decisionStatus(RecruitingApplicationStatus.FINAL_PASSED)
+                    .result(RecruitingDecisionResult.PASSED)
+                    .applicant(RecruitingDecisionHistoryInfo.ApplicantInfo.builder()
+                        .chapterId(5L).chapterName("Selenium").schoolId(22L).schoolName("한양대 ERICA")
+                        .name("박유엠").firstChoice(ChallengerTrack.WEB_PRODUCT_ENGINEER).build())
+                    .decider(RecruitingDecisionHistoryInfo.DeciderInfo.builder()
+                        .memberId(70L).roleType(ChallengerRoleType.SCHOOL_PRESIDENT)
+                        .name("이예원").nickname("이방토").build())
+                    .build()),
+                PageRequest.of(0, 20),
+                1L
+            )
+        ));
+
+        graphQlTester.document("""
+                query {
+                  recruitingDecisionHistories(input: {
+                    gisuId: 11,
+                    chapterId: 5,
+                    results: [PASSED],
+                    sort: OLDEST,
+                    groupByDecider: true
+                  }) {
+                    progressStatus
+                    totalElements
+                    content { applicant { name } decider { roleType nickname } }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingDecisionHistories.totalElements")
+            .entity(Long.class)
+            .isEqualTo(1L);
+
+        ArgumentCaptor<RecruitingDecisionHistorySearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingDecisionHistorySearchQuery.class);
+        then(searchDecisionHistoryUseCase).should().search(captor.capture());
+        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
+        assertThat(captor.getValue().chapterId()).isEqualTo(5L);
+        assertThat(captor.getValue().results()).containsExactly(RecruitingDecisionResult.PASSED);
+        assertThat(captor.getValue().sortOrder()).isEqualTo(RecruitingDecisionHistorySortOrder.OLDEST);
+        assertThat(captor.getValue().groupByDecider()).isTrue();
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
     }
 
