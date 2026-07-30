@@ -16,6 +16,8 @@ import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGr
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistoryPageGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistorySearchGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingEvaluationStatisticsGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingEvaluationStatisticsGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonConfigurationGraphQlResponse;
@@ -37,6 +39,7 @@ import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSe
 import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
@@ -49,6 +52,7 @@ public class RecruitingAdminGraphQlController {
 
     private final GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     private final SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
+    private final GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
     private final GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
     private final SearchRecruitingRoundGroupUseCase searchRoundGroupUseCase;
     private final CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
@@ -105,6 +109,17 @@ public class RecruitingAdminGraphQlController {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         return RecruitingStatusSummaryGraphQlResponse.from(
             getApplicationQueryUseCase.getStatusSummary(input.toQuery(requesterMemberId))
+        );
+    }
+
+    @QueryMapping
+    public RecruitingEvaluationStatisticsGraphQlResponse recruitingEvaluationStatistics(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument RecruitingEvaluationStatisticsGraphQlRequest input
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        return RecruitingEvaluationStatisticsGraphQlResponse.from(
+            getEvaluationStatisticsUseCase.getEvaluationStatistics(input.toQuery(requesterMemberId))
         );
     }
 

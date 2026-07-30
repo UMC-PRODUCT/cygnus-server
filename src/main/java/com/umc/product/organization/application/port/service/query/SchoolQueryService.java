@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolLinkInfo;
@@ -135,6 +136,11 @@ public class SchoolQueryService implements GetSchoolUseCase {
                 linksMap.getOrDefault(school.schoolId(), List.of())
             ))
             .toList();
+    }
+
+    @Override
+    public List<SchoolChapterNameInfo> getSchoolChapterNamesByGisuId(Long gisuId) {
+        return loadSchoolPort.findSchoolChapterNamesByGisuId(gisuId);
     }
 
     @Override

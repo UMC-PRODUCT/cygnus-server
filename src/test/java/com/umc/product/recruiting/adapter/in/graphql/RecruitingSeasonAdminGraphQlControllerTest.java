@@ -44,20 +44,26 @@ import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingTrackEvaluationCountInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
@@ -79,6 +85,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     @MockitoBean
     SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
+    @MockitoBean
+    GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
     @MockitoBean
     GetRecruitingSeasonConfigurationUseCase getSeasonConfigurationUseCase;
     @MockitoBean
@@ -215,6 +223,50 @@ class RecruitingSeasonAdminGraphQlControllerTest {
         assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
         assertThat(captor.getValue().roundIds()).containsExactly(31L);
         assertThat(captor.getValue().schoolName()).isEqualTo("테스트");
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
+    }
+
+    @Test
+    @DisplayName("GraphQL 평가 현황은 CurrentMember와 요청 기수를 UseCase에 전달한다")
+    void evaluationStatisticsBindsCurrentMemberAndRequestedGisu() {
+        List<RecruitingTrackEvaluationCountInfo> byTrack = List.of(
+            new RecruitingTrackEvaluationCountInfo(ChallengerTrack.PLAN, 5L, 2L)
+        );
+        given(getEvaluationStatisticsUseCase.getEvaluationStatistics(any()))
+            .willReturn(new RecruitingEvaluationStatisticsInfo(
+                Instant.parse("2026-07-04T02:48:00Z"), 5L, 2L, byTrack,
+                List.of(new RecruitingChapterEvaluationStatisticsInfo(7L, "중앙", 5L, 2L, byTrack,
+                    List.of(new RecruitingSchoolEvaluationStatisticsInfo(22L, "테스트대학교", 5L, 2L, byTrack))
+                ))
+            ));
+
+        graphQlTester.document("""
+                query {
+                  recruitingEvaluationStatistics(input: { gisuId: 11 }) {
+                    asOf
+                    applicantCount
+                    evaluatedCount
+                    byTrack { track applicantCount evaluatedCount }
+                    chapters {
+                      chapterName
+                      applicantCount
+                      schools { schoolName applicantCount evaluatedCount }
+                    }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingEvaluationStatistics.applicantCount")
+            .entity(Long.class)
+            .isEqualTo(5L)
+            .path("recruitingEvaluationStatistics.chapters[0].schools[0].schoolName")
+            .entity(String.class)
+            .isEqualTo("테스트대학교");
+
+        ArgumentCaptor<RecruitingEvaluationStatisticsQuery> captor =
+            ArgumentCaptor.forClass(RecruitingEvaluationStatisticsQuery.class);
+        then(getEvaluationStatisticsUseCase).should().getEvaluationStatistics(captor.capture());
+        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
     }
 

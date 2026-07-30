@@ -12,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.time.Instant;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +34,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -54,13 +56,19 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruiti
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingDecisionHistoryCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingTrackEvaluationCountInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
@@ -108,6 +116,8 @@ class RecruitingAdminControllerTest {
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     @MockitoBean
     ExportRecruitingCsvUseCase exportRecruitingCsvUseCase;
+    @MockitoBean
+    GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
     @MockitoBean
     SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     @MockitoBean
@@ -320,6 +330,36 @@ class RecruitingAdminControllerTest {
         assertThat(captor.getValue().schoolIds()).isEqualTo(Set.of(22L, 23L));
         assertThat(captor.getValue().roundIds()).isEqualTo(Set.of(31L, 32L));
         assertThat(captor.getValue().schoolName()).isEqualTo("테스트");
+    }
+
+    @Test
+    @DisplayName("평가 현황 집계 API는 지부·학교·파트별 카운트를 반환한다")
+    void 평가_현황_집계_API는_지부_학교_파트별_카운트를_반환한다() throws Exception {
+        List<RecruitingTrackEvaluationCountInfo> byTrack = List.of(
+            new RecruitingTrackEvaluationCountInfo(ChallengerTrack.PLAN, 5L, 2L)
+        );
+        given(getEvaluationStatisticsUseCase.getEvaluationStatistics(any()))
+            .willReturn(new RecruitingEvaluationStatisticsInfo(
+                Instant.parse("2026-07-04T02:48:00Z"), 5L, 2L, byTrack,
+                List.of(new RecruitingChapterEvaluationStatisticsInfo(7L, "중앙", 5L, 2L, byTrack,
+                    List.of(new RecruitingSchoolEvaluationStatisticsInfo(22L, "테스트대학교", 5L, 2L, byTrack))
+                ))
+            ));
+
+        mockMvc.perform(get("/api/v1/recruiting/admin/statistics/evaluations")
+                .param("gisuId", "11"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.applicantCount").value(5L))
+            .andExpect(jsonPath("$.result.evaluatedCount").value(2L))
+            .andExpect(jsonPath("$.result.byTrack[0].track").value("PLAN"))
+            .andExpect(jsonPath("$.result.chapters[0].chapterName").value("중앙"))
+            .andExpect(jsonPath("$.result.chapters[0].schools[0].schoolName").value("테스트대학교"));
+
+        ArgumentCaptor<RecruitingEvaluationStatisticsQuery> captor =
+            ArgumentCaptor.forClass(RecruitingEvaluationStatisticsQuery.class);
+        then(getEvaluationStatisticsUseCase).should().getEvaluationStatistics(captor.capture());
+        assertThat(captor.getValue().gisuId()).isEqualTo(11L);
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
     }
 
     @Test

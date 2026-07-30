@@ -1522,6 +1522,146 @@ Content-Length: 253
 </div>
 </div>
 <div class="sect1">
+<h2 id="_fcm_admin"><a class="link" href="#_fcm_admin">Fcm admin</a></h2>
+<div class="sectionbody">
+<div class="sect2">
+<h3 id="_null_part_발송_대상_거부"><a class="link" href="#_null_part_발송_대상_거부">null_part_발송_대상_거부</a></h3>
+<div class="sect3">
+<h4 id="_null_part_발송_대상_거부_http_request"><a class="link" href="#_null_part_발송_대상_거부_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
+Content-Type: application/json
+Content-Length: 112
+Host: localhost:8080
+
+{
+  "target" : {
+    "parts" : [ null ]
+  },
+  "message" : {
+    "title" : "공지",
+    "body" : "본문"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_null_part_발송_대상_거부_http_response"><a class="link" href="#_null_part_발송_대상_거부_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 296
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다.",
+    "target.parts[]" : "must not be null"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_관리자_fcm_알림_발송_요청"><a class="link" href="#_관리자_fcm_알림_발송_요청">관리자_fcm_알림_발송_요청</a></h3>
+<div class="sect3">
+<h4 id="_관리자_fcm_알림_발송_요청_http_request"><a class="link" href="#_관리자_fcm_알림_발송_요청_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
+Content-Type: application/json
+Content-Length: 248
+Host: localhost:8080
+
+{
+  "target" : {
+    "memberIds" : [ 1, 2 ],
+    "gisuId" : 10,
+    "parts" : [ "SPRINGBOOT" ]
+  },
+  "message" : {
+    "title" : "공지",
+    "body" : "본문",
+    "data" : {
+      "noticeId" : "1"
+    },
+    "deepLink" : "umc://notices/1"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_관리자_fcm_알림_발송_요청_http_response"><a class="link" href="#_관리자_fcm_알림_발송_요청_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 202 Accepted
+Content-Type: application/json
+Content-Length: 198
+
+{
+  "success" : true,
+  "code" : "COMMON200",
+  "message" : "성공입니다.",
+  "result" : {
+    "requestId" : "8a77ec6f-960c-4e54-8cce-01347816de08",
+    "queuedAt" : "2026-06-20T00:00:00Z"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_빈_발송_대상_거부"><a class="link" href="#_빈_발송_대상_거부">빈_발송_대상_거부</a></h3>
+<div class="sect3">
+<h4 id="_빈_발송_대상_거부_http_request"><a class="link" href="#_빈_발송_대상_거부_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
+Content-Type: application/json
+Content-Length: 87
+Host: localhost:8080
+
+{
+  "target" : { },
+  "message" : {
+    "title" : "공지",
+    "body" : "본문"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_빈_발송_대상_거부_http_response"><a class="link" href="#_빈_발송_대상_거부_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 253
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : {
+    "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다."
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="sect1">
 <h2 id="_gisu_command"><a class="link" href="#_gisu_command">Gisu command</a></h2>
 <div class="sectionbody">
 <div class="sect2">

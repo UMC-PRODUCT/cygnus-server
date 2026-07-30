@@ -28,6 +28,7 @@ extend type Query {
   ): [RecruitingApplicationEvaluation!]!
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
+  recruitingEvaluationStatistics(input: RecruitingEvaluationStatisticsInput!): RecruitingEvaluationStatistics!
   recruitingDecisionHistories(input: RecruitingDecisionHistorySearchInput!): RecruitingDecisionHistoryPage!
   recruitingRoundApplications(
     roundId: ID!
@@ -149,6 +150,10 @@ input RecruitingStatusSummaryInput {
   schoolIds: [ID!]
   roundIds: [ID!]
   schoolName: String
+}
+
+input RecruitingEvaluationStatisticsInput {
+  gisuId: ID!
 }
 
 input RecruitingPublicRoundSearchInput {
@@ -605,6 +610,37 @@ type RecruitingRoundStatusSummary {
   roundNo: Int!
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+}
+
+type RecruitingEvaluationStatistics {
+  asOf: Instant!
+  applicantCount: Long!
+  evaluatedCount: Long!
+  byTrack: [RecruitingTrackEvaluationCount!]!
+  chapters: [RecruitingChapterEvaluationStatistics!]!
+}
+
+type RecruitingTrackEvaluationCount {
+  track: ChallengerTrack!
+  applicantCount: Long!
+  evaluatedCount: Long!
+}
+
+type RecruitingChapterEvaluationStatistics {
+  chapterId: ID!
+  chapterName: String!
+  applicantCount: Long!
+  evaluatedCount: Long!
+  byTrack: [RecruitingTrackEvaluationCount!]!
+  schools: [RecruitingSchoolEvaluationStatistics!]!
+}
+
+type RecruitingSchoolEvaluationStatistics {
+  schoolId: ID!
+  schoolName: String!
+  applicantCount: Long!
+  evaluatedCount: Long!
+  byTrack: [RecruitingTrackEvaluationCount!]!
 }
 
 type RecruitingStatusCount {

@@ -165,7 +165,7 @@
   "schemaVersion": 1,
   "service": "umc-product-server",
   "generatedAt": null,
-  "totalCount": 573,
+  "totalCount": 574,
   "items": [
     {
       "sequence": 1,
@@ -11060,11 +11060,11 @@
     {
       "sequence": 496,
       "domain": "recruiting",
-      "code": "RECRUITING-0326",
-      "name": "RECRUITING_DECISION_HISTORY_ACCESS_DENIED",
+      "code": "RECRUITING-0325",
+      "name": "RECRUITING_EVALUATION_STATISTICS_ACCESS_DENIED",
       "httpStatus": 403,
       "httpStatusName": "FORBIDDEN",
-      "message": "해당 기수의 평가 이력을 조회할 권한이 없어요.",
+      "message": "해당 기수의 평가 현황을 조회할 권한이 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11082,11 +11082,11 @@
     {
       "sequence": 497,
       "domain": "recruiting",
-      "code": "RECRUITING-0327",
-      "name": "RECRUITING_DECISION_HISTORY_INVALID",
-      "httpStatus": 400,
-      "httpStatusName": "BAD_REQUEST",
-      "message": "판정 이력 정보가 올바르지 않아요.",
+      "code": "RECRUITING-0326",
+      "name": "RECRUITING_DECISION_HISTORY_ACCESS_DENIED",
+      "httpStatus": 403,
+      "httpStatusName": "FORBIDDEN",
+      "message": "해당 기수의 평가 이력을 조회할 권한이 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11104,11 +11104,11 @@
     {
       "sequence": 498,
       "domain": "recruiting",
-      "code": "RECRUITING-0401",
-      "name": "RECRUITING_EVALUATION_ALREADY_SUBMITTED",
-      "httpStatus": 409,
-      "httpStatusName": "CONFLICT",
-      "message": "이미 확정한 지원자 평가가 있어요.",
+      "code": "RECRUITING-0327",
+      "name": "RECRUITING_DECISION_HISTORY_INVALID",
+      "httpStatus": 400,
+      "httpStatusName": "BAD_REQUEST",
+      "message": "판정 이력 정보가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11126,11 +11126,11 @@
     {
       "sequence": 499,
       "domain": "recruiting",
-      "code": "RECRUITING-0402",
-      "name": "RECRUITING_EVALUATION_ACCESS_DENIED",
-      "httpStatus": 403,
-      "httpStatusName": "FORBIDDEN",
-      "message": "지원자 평가를 조회할 권한이 없어요.",
+      "code": "RECRUITING-0401",
+      "name": "RECRUITING_EVALUATION_ALREADY_SUBMITTED",
+      "httpStatus": 409,
+      "httpStatusName": "CONFLICT",
+      "message": "이미 확정한 지원자 평가가 있어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11148,11 +11148,11 @@
     {
       "sequence": 500,
       "domain": "recruiting",
-      "code": "RECRUITING-0403",
-      "name": "RECRUITING_EVALUATION_INVALID",
-      "httpStatus": 400,
-      "httpStatusName": "BAD_REQUEST",
-      "message": "지원자 평가 정보가 올바르지 않아요.",
+      "code": "RECRUITING-0402",
+      "name": "RECRUITING_EVALUATION_ACCESS_DENIED",
+      "httpStatus": 403,
+      "httpStatusName": "FORBIDDEN",
+      "message": "지원자 평가를 조회할 권한이 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11170,11 +11170,11 @@
     {
       "sequence": 501,
       "domain": "recruiting",
-      "code": "RECRUITING-0404",
-      "name": "RECRUITING_EVALUATION_DECISION_REQUIRED",
+      "code": "RECRUITING-0403",
+      "name": "RECRUITING_EVALUATION_INVALID",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "평가 확정에는 결정이 필요해요.",
+      "message": "지원자 평가 정보가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11192,11 +11192,11 @@
     {
       "sequence": 502,
       "domain": "recruiting",
-      "code": "RECRUITING-0405",
-      "name": "RECRUITING_EVALUATION_COMMENT_TOO_LONG",
+      "code": "RECRUITING-0404",
+      "name": "RECRUITING_EVALUATION_DECISION_REQUIRED",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "평가 의견은 2000자 이하여야 해요.",
+      "message": "평가 확정에는 결정이 필요해요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11214,11 +11214,11 @@
     {
       "sequence": 503,
       "domain": "recruiting",
-      "code": "RECRUITING-0410",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID",
+      "code": "RECRUITING-0405",
+      "name": "RECRUITING_EVALUATION_COMMENT_TOO_LONG",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 일정 정보가 올바르지 않아요.",
+      "message": "평가 의견은 2000자 이하여야 해요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11236,11 +11236,11 @@
     {
       "sequence": 504,
       "domain": "recruiting",
-      "code": "RECRUITING-0411",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION",
+      "code": "RECRUITING-0410",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "현재 면접 일정 상태에서는 할 수 없는 작업이에요.",
+      "message": "면접 일정 정보가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11258,11 +11258,11 @@
     {
       "sequence": 505,
       "domain": "recruiting",
-      "code": "RECRUITING-0412",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_RESPONSE",
+      "code": "RECRUITING-0411",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 가능 시간 응답 정보가 올바르지 않아요.",
+      "message": "현재 면접 일정 상태에서는 할 수 없는 작업이에요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11280,11 +11280,11 @@
     {
       "sequence": 506,
       "domain": "recruiting",
-      "code": "RECRUITING-0413",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD",
+      "code": "RECRUITING-0412",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_RESPONSE",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 일정 시간이 올바르지 않아요.",
+      "message": "면접 가능 시간 응답 정보가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11302,11 +11302,11 @@
     {
       "sequence": 507,
       "domain": "recruiting",
-      "code": "RECRUITING-0414",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_LOCATION",
+      "code": "RECRUITING-0413",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 장소가 올바르지 않아요.",
+      "message": "면접 일정 시간이 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11324,11 +11324,11 @@
     {
       "sequence": 508,
       "domain": "recruiting",
-      "code": "RECRUITING-0415",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_CONTACT",
+      "code": "RECRUITING-0414",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_LOCATION",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 연락처가 올바르지 않아요.",
+      "message": "면접 장소가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11346,11 +11346,11 @@
     {
       "sequence": 509,
       "domain": "recruiting",
-      "code": "RECRUITING-0416",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE",
+      "code": "RECRUITING-0415",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_CONTACT",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 안내 메일 상태가 올바르지 않아요.",
+      "message": "면접 연락처가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11368,11 +11368,11 @@
     {
       "sequence": 510,
       "domain": "recruiting",
-      "code": "RECRUITING-0417",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_ALREADY_EXISTS",
-      "httpStatus": 409,
-      "httpStatusName": "CONFLICT",
-      "message": "이미 면접 일정이 있어요.",
+      "code": "RECRUITING-0416",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_INVALID_MAIL_STATE",
+      "httpStatus": 400,
+      "httpStatusName": "BAD_REQUEST",
+      "message": "면접 안내 메일 상태가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11390,11 +11390,11 @@
     {
       "sequence": 511,
       "domain": "recruiting",
-      "code": "RECRUITING-0418",
-      "name": "RECRUITING_INTERVIEW_SCHEDULE_ACCESS_DENIED",
-      "httpStatus": 403,
-      "httpStatusName": "FORBIDDEN",
-      "message": "면접 일정을 조회할 권한이 없어요.",
+      "code": "RECRUITING-0417",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_ALREADY_EXISTS",
+      "httpStatus": 409,
+      "httpStatusName": "CONFLICT",
+      "message": "이미 면접 일정이 있어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11412,11 +11412,11 @@
     {
       "sequence": 512,
       "domain": "recruiting",
-      "code": "RECRUITING-0419",
-      "name": "RECRUITING_INTERVIEW_AVAILABILITY_NOT_IMPLEMENTED",
-      "httpStatus": 501,
-      "httpStatusName": "NOT_IMPLEMENTED",
-      "message": "면접 가능 일정 응답 제출 기능은 아직 사용할 수 없어요.",
+      "code": "RECRUITING-0418",
+      "name": "RECRUITING_INTERVIEW_SCHEDULE_ACCESS_DENIED",
+      "httpStatus": 403,
+      "httpStatusName": "FORBIDDEN",
+      "message": "면접 일정을 조회할 권한이 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11434,11 +11434,11 @@
     {
       "sequence": 513,
       "domain": "recruiting",
-      "code": "RECRUITING-0500",
-      "name": "RECRUITING_ROUND_EVALUATOR_INVALID",
-      "httpStatus": 400,
-      "httpStatusName": "BAD_REQUEST",
-      "message": "모집 차수 평가자 정보가 올바르지 않아요.",
+      "code": "RECRUITING-0419",
+      "name": "RECRUITING_INTERVIEW_AVAILABILITY_NOT_IMPLEMENTED",
+      "httpStatus": 501,
+      "httpStatusName": "NOT_IMPLEMENTED",
+      "message": "면접 가능 일정 응답 제출 기능은 아직 사용할 수 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11456,11 +11456,11 @@
     {
       "sequence": 514,
       "domain": "recruiting",
-      "code": "RECRUITING-0501",
-      "name": "RECRUITING_ROUND_EVALUATOR_ALREADY_EXISTS",
-      "httpStatus": 409,
-      "httpStatusName": "CONFLICT",
-      "message": "이미 해당 모집 차수의 평가자로 등록되어 있어요.",
+      "code": "RECRUITING-0500",
+      "name": "RECRUITING_ROUND_EVALUATOR_INVALID",
+      "httpStatus": 400,
+      "httpStatusName": "BAD_REQUEST",
+      "message": "모집 차수 평가자 정보가 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11478,11 +11478,11 @@
     {
       "sequence": 515,
       "domain": "recruiting",
-      "code": "RECRUITING-0502",
-      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_TARGET",
-      "httpStatus": 400,
-      "httpStatusName": "BAD_REQUEST",
-      "message": "면접 질문 대상이 올바르지 않아요.",
+      "code": "RECRUITING-0501",
+      "name": "RECRUITING_ROUND_EVALUATOR_ALREADY_EXISTS",
+      "httpStatus": 409,
+      "httpStatusName": "CONFLICT",
+      "message": "이미 해당 모집 차수의 평가자로 등록되어 있어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11500,11 +11500,11 @@
     {
       "sequence": 516,
       "domain": "recruiting",
-      "code": "RECRUITING-0503",
-      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_CONTENT",
+      "code": "RECRUITING-0502",
+      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_TARGET",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 질문 내용을 입력해주세요.",
+      "message": "면접 질문 대상이 올바르지 않아요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11522,11 +11522,11 @@
     {
       "sequence": 517,
       "domain": "recruiting",
-      "code": "RECRUITING-0504",
-      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_ORDER_NO",
+      "code": "RECRUITING-0503",
+      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_CONTENT",
       "httpStatus": 400,
       "httpStatusName": "BAD_REQUEST",
-      "message": "면접 질문 순서는 0 이상이어야 해요.",
+      "message": "면접 질문 내용을 입력해주세요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11544,11 +11544,11 @@
     {
       "sequence": 518,
       "domain": "recruiting",
-      "code": "RECRUITING-0505",
-      "name": "RECRUITING_INTERVIEW_QUESTION_IMMUTABLE",
-      "httpStatus": 409,
-      "httpStatusName": "CONFLICT",
-      "message": "면접 평가 제출 후에는 질문을 변경할 수 없어요.",
+      "code": "RECRUITING-0504",
+      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_ORDER_NO",
+      "httpStatus": 400,
+      "httpStatusName": "BAD_REQUEST",
+      "message": "면접 질문 순서는 0 이상이어야 해요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11566,11 +11566,11 @@
     {
       "sequence": 519,
       "domain": "recruiting",
-      "code": "RECRUITING-0506",
-      "name": "RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED",
-      "httpStatus": 403,
-      "httpStatusName": "FORBIDDEN",
-      "message": "면접 질문을 변경할 권한이 없어요.",
+      "code": "RECRUITING-0505",
+      "name": "RECRUITING_INTERVIEW_QUESTION_IMMUTABLE",
+      "httpStatus": 409,
+      "httpStatusName": "CONFLICT",
+      "message": "면접 평가 제출 후에는 질문을 변경할 수 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11588,11 +11588,11 @@
     {
       "sequence": 520,
       "domain": "recruiting",
-      "code": "RECRUITING-0507",
-      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_ACTOR",
-      "httpStatus": 400,
-      "httpStatusName": "BAD_REQUEST",
-      "message": "면접 질문 변경자 정보가 올바르지 않아요.",
+      "code": "RECRUITING-0506",
+      "name": "RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED",
+      "httpStatus": 403,
+      "httpStatusName": "FORBIDDEN",
+      "message": "면접 질문을 변경할 권한이 없어요.",
       "description": null,
       "clientAction": null,
       "retryable": null,
@@ -11609,6 +11609,28 @@
     },
     {
       "sequence": 521,
+      "domain": "recruiting",
+      "code": "RECRUITING-0507",
+      "name": "RECRUITING_INTERVIEW_QUESTION_INVALID_ACTOR",
+      "httpStatus": 400,
+      "httpStatusName": "BAD_REQUEST",
+      "message": "면접 질문 변경자 정보가 올바르지 않아요.",
+      "description": null,
+      "clientAction": null,
+      "retryable": null,
+      "severity": null,
+      "deprecated": false,
+      "replacementCode": null,
+      "owners": [],
+      "tags": [],
+      "source": {
+        "enumName": "RecruitingErrorCode",
+        "file": "src/main/java/com/umc/product/recruiting/domain/exception/RecruitingErrorCode.java",
+        "line": 99
+      }
+    },
+    {
+      "sequence": 522,
       "domain": "schedule",
       "code": "SCHEDULE-0006",
       "name": "INVALID_TIME_RANGE",
@@ -11630,7 +11652,7 @@
       }
     },
     {
-      "sequence": 522,
+      "sequence": 523,
       "domain": "schedule",
       "code": "SCHEDULE-0009",
       "name": "SCHEDULE_NOT_FOUND",
@@ -11652,7 +11674,7 @@
       }
     },
     {
-      "sequence": 523,
+      "sequence": 524,
       "domain": "schedule",
       "code": "SCHEDULE-0010",
       "name": "TAG_REQUIRED",
@@ -11674,7 +11696,7 @@
       }
     },
     {
-      "sequence": 524,
+      "sequence": 525,
       "domain": "schedule",
       "code": "SCHEDULE-0011",
       "name": "NOT_FIRST_ATTENDANCE_REQUEST",
@@ -11696,7 +11718,7 @@
       }
     },
     {
-      "sequence": 525,
+      "sequence": 526,
       "domain": "schedule",
       "code": "SCHEDULE-0012",
       "name": "NO_ATTENDANCE_RECORD",
@@ -11718,7 +11740,7 @@
       }
     },
     {
-      "sequence": 526,
+      "sequence": 527,
       "domain": "schedule",
       "code": "SCHEDULE-0013",
       "name": "INVALID_ATTENDANCE_STATUS_FOR_EXCUSE",
@@ -11740,7 +11762,7 @@
       }
     },
     {
-      "sequence": 527,
+      "sequence": 528,
       "domain": "schedule",
       "code": "SCHEDULE-0014",
       "name": "INVALID_ATTENDANCE_STATUS_FOR_APPROVAL",
@@ -11762,7 +11784,7 @@
       }
     },
     {
-      "sequence": 528,
+      "sequence": 529,
       "domain": "schedule",
       "code": "SCHEDULE-0015",
       "name": "INVALID_ATTENDANCE_STATUS_FOR_REJECT",
@@ -11784,7 +11806,7 @@
       }
     },
     {
-      "sequence": 529,
+      "sequence": 530,
       "domain": "schedule",
       "code": "SCHEDULE-0016",
       "name": "NO_EXCUSE_REASON_GIVEN",
@@ -11806,7 +11828,7 @@
       }
     },
     {
-      "sequence": 530,
+      "sequence": 531,
       "domain": "schedule",
       "code": "SCHEDULE-0017",
       "name": "ATTENDANCE_NOT_REQUIRES_CONFIRM",
@@ -11828,7 +11850,7 @@
       }
     },
     {
-      "sequence": 531,
+      "sequence": 532,
       "domain": "schedule",
       "code": "SCHEDULE-0018",
       "name": "SCHEDULE_ENDED",
@@ -11850,7 +11872,7 @@
       }
     },
     {
-      "sequence": 532,
+      "sequence": 533,
       "domain": "schedule",
       "code": "SCHEDULE-0019",
       "name": "CHECK_IN_TOO_EARLY",
@@ -11872,7 +11894,7 @@
       }
     },
     {
-      "sequence": 533,
+      "sequence": 534,
       "domain": "schedule",
       "code": "SCHEDULE-0020",
       "name": "OFFLINE_SCHEDULE_REQUIRES_LOCATION",
@@ -11894,7 +11916,7 @@
       }
     },
     {
-      "sequence": 534,
+      "sequence": 535,
       "domain": "schedule",
       "code": "SCHEDULE-0021",
       "name": "SCHEDULE_ATTENDANCE_POLICY_NOT_EXIST",
@@ -11916,7 +11938,7 @@
       }
     },
     {
-      "sequence": 535,
+      "sequence": 536,
       "domain": "schedule",
       "code": "SCHEDULE-0022",
       "name": "PARTICIPANT_NOT_FOUND",
@@ -11938,7 +11960,7 @@
       }
     },
     {
-      "sequence": 536,
+      "sequence": 537,
       "domain": "schedule",
       "code": "SCHEDULE-0023",
       "name": "LOCATION_NOT_VERIFIED",
@@ -11960,7 +11982,7 @@
       }
     },
     {
-      "sequence": 537,
+      "sequence": 538,
       "domain": "schedule",
       "code": "SCHEDULE-0024",
       "name": "ONLINE_SCHEDULE_SHOULD_NOT_HAVE_LOCATION",
@@ -11982,7 +12004,7 @@
       }
     },
     {
-      "sequence": 538,
+      "sequence": 539,
       "domain": "schedule",
       "code": "SCHEDULE-0025",
       "name": "NOT_ACTIVE_GISU_SCHEDULE",
@@ -12004,7 +12026,7 @@
       }
     },
     {
-      "sequence": 539,
+      "sequence": 540,
       "domain": "schedule",
       "code": "SCHEDULE-0026",
       "name": "NOT_SCHEDULE_PARTICIPANT",
@@ -12026,7 +12048,7 @@
       }
     },
     {
-      "sequence": 540,
+      "sequence": 541,
       "domain": "schedule",
       "code": "SCHEDULE-0027",
       "name": "ATTENDANCE_POLICY_REQUIRED",
@@ -12048,7 +12070,7 @@
       }
     },
     {
-      "sequence": 541,
+      "sequence": 542,
       "domain": "schedule",
       "code": "SCHEDULE-0028",
       "name": "STARTED_SCHEDULE_CANT_BE_EDITED",
@@ -12070,7 +12092,7 @@
       }
     },
     {
-      "sequence": 542,
+      "sequence": 543,
       "domain": "schedule",
       "code": "SCHEDULE-0029",
       "name": "CANNOT_CREATE_SCHEDULE",
@@ -12092,7 +12114,7 @@
       }
     },
     {
-      "sequence": 543,
+      "sequence": 544,
       "domain": "schedule",
       "code": "SCHEDULE-0030",
       "name": "EXCEEDED_MAX_PARTICIPANTS",
@@ -12114,7 +12136,7 @@
       }
     },
     {
-      "sequence": 544,
+      "sequence": 545,
       "domain": "schedule",
       "code": "SCHEDULE-0031",
       "name": "CANNOT_CREATE_ATTENDANCE_REQUIRED_SCHEDULE",
@@ -12136,7 +12158,7 @@
       }
     },
     {
-      "sequence": 545,
+      "sequence": 546,
       "domain": "schedule",
       "code": "SCHEDULE-0032",
       "name": "INVALID_MEMBER_INVITE",
@@ -12158,7 +12180,7 @@
       }
     },
     {
-      "sequence": 546,
+      "sequence": 547,
       "domain": "schedule",
       "code": "SCHEDULE-0033",
       "name": "SCHEDULE_HAS_ATTENDANCE_RECORD",
@@ -12180,7 +12202,7 @@
       }
     },
     {
-      "sequence": 547,
+      "sequence": 548,
       "domain": "storage",
       "code": "STORAGE-0001",
       "name": "FILE_NOT_FOUND",
@@ -12202,7 +12224,7 @@
       }
     },
     {
-      "sequence": 548,
+      "sequence": 549,
       "domain": "storage",
       "code": "STORAGE-0002",
       "name": "FILE_UPLOAD_NOT_COMPLETED",
@@ -12224,7 +12246,7 @@
       }
     },
     {
-      "sequence": 549,
+      "sequence": 550,
       "domain": "storage",
       "code": "STORAGE-0003",
       "name": "FILE_ALREADY_UPLOADED",
@@ -12246,7 +12268,7 @@
       }
     },
     {
-      "sequence": 550,
+      "sequence": 551,
       "domain": "storage",
       "code": "STORAGE-0004",
       "name": "INVALID_FILE_EXTENSION",
@@ -12268,7 +12290,7 @@
       }
     },
     {
-      "sequence": 551,
+      "sequence": 552,
       "domain": "storage",
       "code": "STORAGE-0005",
       "name": "FILE_SIZE_EXCEEDED",
@@ -12290,7 +12312,7 @@
       }
     },
     {
-      "sequence": 552,
+      "sequence": 553,
       "domain": "storage",
       "code": "STORAGE-0006",
       "name": "INVALID_CONTENT_TYPE",
@@ -12312,7 +12334,7 @@
       }
     },
     {
-      "sequence": 553,
+      "sequence": 554,
       "domain": "storage",
       "code": "STORAGE-0007",
       "name": "STORAGE_UPLOAD_FAILED",
@@ -12334,7 +12356,7 @@
       }
     },
     {
-      "sequence": 554,
+      "sequence": 555,
       "domain": "storage",
       "code": "STORAGE-0008",
       "name": "STORAGE_DELETE_FAILED",
@@ -12356,7 +12378,7 @@
       }
     },
     {
-      "sequence": 555,
+      "sequence": 556,
       "domain": "storage",
       "code": "STORAGE-0009",
       "name": "STORAGE_URL_GENERATION_FAILED",
@@ -12378,7 +12400,7 @@
       }
     },
     {
-      "sequence": 556,
+      "sequence": 557,
       "domain": "storage",
       "code": "STORAGE-0010",
       "name": "CDN_SIGNING_FAILED",
@@ -12400,7 +12422,7 @@
       }
     },
     {
-      "sequence": 557,
+      "sequence": 558,
       "domain": "storage",
       "code": "STORAGE-0011",
       "name": "NO_ENV_KEYS",
@@ -12422,7 +12444,7 @@
       }
     },
     {
-      "sequence": 558,
+      "sequence": 559,
       "domain": "storage",
       "code": "STORAGE-0012",
       "name": "INVALID_SPRING_PROFILE",
@@ -12444,7 +12466,7 @@
       }
     },
     {
-      "sequence": 559,
+      "sequence": 560,
       "domain": "storage",
       "code": "STORAGE-0013",
       "name": "FILE_DELETE_FORBIDDEN",
@@ -12466,7 +12488,7 @@
       }
     },
     {
-      "sequence": 560,
+      "sequence": 561,
       "domain": "storage",
       "code": "STORAGE-0014",
       "name": "FILE_SIZE_MISMATCH",
@@ -12488,7 +12510,7 @@
       }
     },
     {
-      "sequence": 561,
+      "sequence": 562,
       "domain": "storage",
       "code": "STORAGE-0015",
       "name": "STORAGE_METADATA_READ_FAILED",
@@ -12510,7 +12532,7 @@
       }
     },
     {
-      "sequence": 562,
+      "sequence": 563,
       "domain": "storage",
       "code": "STORAGE-0016",
       "name": "FILE_USE_FORBIDDEN",
@@ -12532,7 +12554,7 @@
       }
     },
     {
-      "sequence": 563,
+      "sequence": 564,
       "domain": "term",
       "code": "TERMS-0001",
       "name": "TERMS_NOT_FOUND",
@@ -12554,7 +12576,7 @@
       }
     },
     {
-      "sequence": 564,
+      "sequence": 565,
       "domain": "term",
       "code": "TERMS-0002",
       "name": "TERMS_TYPE_REQUIRED",
@@ -12576,7 +12598,7 @@
       }
     },
     {
-      "sequence": 565,
+      "sequence": 566,
       "domain": "term",
       "code": "TERMS-0003",
       "name": "TERMS_TITLE_REQUIRED",
@@ -12598,7 +12620,7 @@
       }
     },
     {
-      "sequence": 566,
+      "sequence": 567,
       "domain": "term",
       "code": "TERMS-0004",
       "name": "TERMS_CONTENT_REQUIRED",
@@ -12620,7 +12642,7 @@
       }
     },
     {
-      "sequence": 567,
+      "sequence": 568,
       "domain": "term",
       "code": "TERMS-0005",
       "name": "TERMS_VERSION_REQUIRED",
@@ -12642,7 +12664,7 @@
       }
     },
     {
-      "sequence": 568,
+      "sequence": 569,
       "domain": "term",
       "code": "TERMS-0006",
       "name": "TERMS_CONSENT_NOT_FOUND",
@@ -12664,7 +12686,7 @@
       }
     },
     {
-      "sequence": 569,
+      "sequence": 570,
       "domain": "term",
       "code": "TERMS-0007",
       "name": "TERMS_CONSENT_ALREADY_EXISTS",
@@ -12686,7 +12708,7 @@
       }
     },
     {
-      "sequence": 570,
+      "sequence": 571,
       "domain": "term",
       "code": "TERMS-0008",
       "name": "MEMBER_ID_REQUIRED",
@@ -12708,7 +12730,7 @@
       }
     },
     {
-      "sequence": 571,
+      "sequence": 572,
       "domain": "term",
       "code": "TERMS-0009",
       "name": "TERM_ID_REQUIRED",
@@ -12730,7 +12752,7 @@
       }
     },
     {
-      "sequence": 572,
+      "sequence": 573,
       "domain": "term",
       "code": "TERMS-0010",
       "name": "MANDATORY_TERMS_NOT_AGREED",
@@ -12752,7 +12774,7 @@
       }
     },
     {
-      "sequence": 573,
+      "sequence": 574,
       "domain": "term",
       "code": "TERMS-0011",
       "name": "TERM_PERMISSION_DENIED",
