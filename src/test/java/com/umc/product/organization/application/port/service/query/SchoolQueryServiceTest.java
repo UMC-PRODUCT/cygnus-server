@@ -18,6 +18,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.out.query.LoadSchoolPort;
@@ -74,6 +75,21 @@ class SchoolQueryServiceTest {
 
         assertThat(result).isEmpty();
         then(loadSchoolPort).shouldHaveNoInteractions();
+        then(getFileUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("getSchoolChapterNamesByGisuId는 로고와 링크를 조회하지 않고 학교 및 지부 이름을 반환한다")
+    void getSchoolChapterNamesByGisuId는_로고와_링크를_조회하지_않고_학교_및_지부_이름을_반환한다() {
+        given(loadSchoolPort.findSchoolChapterNamesByGisuId(1L)).willReturn(List.of(
+            new SchoolChapterNameInfo(10L, "A 지부", "A 대학교", 100L)
+        ));
+
+        List<SchoolChapterNameInfo> result = schoolQueryService.getSchoolChapterNamesByGisuId(1L);
+
+        assertThat(result).containsExactly(new SchoolChapterNameInfo(10L, "A 지부", "A 대학교", 100L));
+        then(loadSchoolPort).should().findSchoolChapterNamesByGisuId(1L);
+        then(loadSchoolPort).shouldHaveNoMoreInteractions();
         then(getFileUseCase).shouldHaveNoInteractions();
     }
 

@@ -63,7 +63,8 @@ class RecruitingGraphQlSurfaceTest {
                     "recruitingApplicationInterviewQuestions",
                     "recruitingApplicationEvaluations",
                     "recruitingInterviewSchedule",
-                    "recruitingStatusSummary"
+                    "recruitingStatusSummary",
+                    "recruitingEvaluationStatistics"
                     , "recruitingRoundApplications"
                     , "recruitingRoundApplication"
                 );

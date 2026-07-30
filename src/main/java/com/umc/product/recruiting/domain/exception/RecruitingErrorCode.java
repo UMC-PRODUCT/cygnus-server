@@ -71,6 +71,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_CONCURRENCY_LOCK_TIMEOUT(HttpStatus.CONFLICT, "RECRUITING-0322", "동시 요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요."),
     RECRUITING_SUMMARY_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0323", "해당 기수의 지원 현황을 조회할 권한이 없어요."),
     RECRUITING_APPLICATION_ANSWER_OUT_OF_SCOPE(HttpStatus.BAD_REQUEST, "RECRUITING-0324", "선택한 지원 트랙에 포함되지 않은 문항에는 응답할 수 없어요."),
+    RECRUITING_EVALUATION_STATISTICS_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0325", "해당 기수의 평가 현황을 조회할 권한이 없어요."),
     RECRUITING_EVALUATION_ALREADY_SUBMITTED(HttpStatus.CONFLICT, "RECRUITING-0401", "이미 확정한 지원자 평가가 있어요."),
     RECRUITING_EVALUATION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0402", "지원자 평가를 조회할 권한이 없어요."),
     RECRUITING_EVALUATION_INVALID(HttpStatus.BAD_REQUEST, "RECRUITING-0403", "지원자 평가 정보가 올바르지 않아요."),
