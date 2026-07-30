@@ -32,6 +32,7 @@ import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 평가 현황 대시보드용 집계 Query 서비스.
@@ -47,6 +48,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
+@Slf4j
 public class RecruitingEvaluationStatisticsQueryService implements GetRecruitingEvaluationStatisticsUseCase {
 
     private static final Set<RecruitingApplicationStatus> EVALUATED_STATUSES = EnumSet.of(
@@ -71,11 +73,26 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
 
         List<SchoolChapterNameInfo> schools = getSchoolUseCase.getSchoolChapterNamesByGisuId(query.gisuId());
         Set<Long> knownSchoolIds = schools.stream()
-            .map(SchoolDetailInfo::schoolId)
+            .map(SchoolChapterNameInfo::schoolId)
             .collect(Collectors.toSet());
 
+        List<RecruitingEvaluationStatisticsRow> loadedRows = loadStatisticsPort.listByGisuId(query.gisuId());
+        Map<Long, Long> unknownSchoolCounts = loadedRows.stream()
+            .filter(row -> !knownSchoolIds.contains(row.schoolId()))
+            .collect(Collectors.groupingBy(
+                RecruitingEvaluationStatisticsRow::schoolId,
+                Collectors.summingLong(RecruitingEvaluationStatisticsRow::count)
+            ));
+        if (!unknownSchoolCounts.isEmpty()) {
+            log.error(
+                "기수에 등록되지 않은 학교의 평가 현황 지원서가 집계에서 제외되었습니다. gisuId={}, schoolCounts={}",
+                query.gisuId(),
+                unknownSchoolCounts
+            );
+        }
+
         // 학교 목록에 없는 학교의 row는 제외해 전체 합계와 지부·학교 합계의 정합성을 보장한다.
-        List<RecruitingEvaluationStatisticsRow> rows = loadStatisticsPort.listByGisuId(query.gisuId()).stream()
+        List<RecruitingEvaluationStatisticsRow> rows = loadedRows.stream()
             .filter(row -> knownSchoolIds.contains(row.schoolId()))
             .toList();
 
@@ -104,10 +121,14 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
         List<SchoolChapterNameInfo> schools,
         Map<Long, List<RecruitingEvaluationStatisticsRow>> rowsBySchool
     ) {
-        Map<Long, List<SchoolDetailInfo>> schoolsByChapter = schools.stream()
-            .sorted(Comparator.comparing(SchoolDetailInfo::chapterName)
-                .thenComparing(SchoolDetailInfo::schoolName))
-            .collect(Collectors.groupingBy(SchoolDetailInfo::chapterId, LinkedHashMap::new, Collectors.toList()));
+        Map<Long, List<SchoolChapterNameInfo>> schoolsByChapter = schools.stream()
+            .sorted(Comparator.comparing(SchoolChapterNameInfo::chapterName)
+                .thenComparing(SchoolChapterNameInfo::schoolName))
+            .collect(Collectors.groupingBy(
+                SchoolChapterNameInfo::chapterId,
+                LinkedHashMap::new,
+                Collectors.toList()
+            ));
 
         return schoolsByChapter.values().stream()
             .map(chapterSchools -> toChapterInfo(chapterSchools, rowsBySchool))
