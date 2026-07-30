@@ -1,8 +1,10 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.within;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Set;
 
@@ -83,7 +85,8 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
         );
         assertThat(result.getContent()).singleElement().satisfies(row -> {
             assertThat(row.decidedByMemberId()).isEqualTo(700L);
-            assertThat(row.decidedAt()).isEqualTo(decidedAt);
+            // Postgres timestamptz는 마이크로초까지만 저장하므로 나노초 정밀도의 in-memory 값과 오차를 허용한다.
+            assertThat(row.decidedAt()).isCloseTo(decidedAt, within(1, ChronoUnit.MICROS));
             assertThat(row.decisionStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
             assertThat(row.deciderRoleType()).isEqualTo(ChallengerRoleType.SCHOOL_PRESIDENT);
         });
@@ -115,12 +118,15 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
     @DisplayName("담당자별 정렬은 최초 판정 시각 순으로 그룹을 배치하고 그룹 내부는 최신순으로 정렬한다")
     void groupByDeciderOrdersByFirstDecisionThenLatestWithinGroup() {
         // 담당자 700: 08:00, 10:00 판정 / 담당자 701: 09:00 판정
-        RecruitingDecisionHistory a = persistDecision(HANYANG_SCHOOL_ID, "지원자A", RecruitingApplicationStatus.FINAL_PASSED, 700L);
-        RecruitingDecisionHistory b = persistDecision(HANYANG_SCHOOL_ID, "지원자B", RecruitingApplicationStatus.FINAL_FAILED, 701L);
-        RecruitingDecisionHistory c = persistDecision(HANYANG_SCHOOL_ID, "지원자C", RecruitingApplicationStatus.FINAL_PASSED, 700L);
-        ReflectionTestUtils.setField(a, "decidedAt", Instant.parse("2026-07-01T08:00:00Z"));
-        ReflectionTestUtils.setField(b, "decidedAt", Instant.parse("2026-07-01T09:00:00Z"));
-        ReflectionTestUtils.setField(c, "decidedAt", Instant.parse("2026-07-01T10:00:00Z"));
+        RecruitingDecisionHistory decisionA =
+            persistDecision(HANYANG_SCHOOL_ID, "지원자A", RecruitingApplicationStatus.FINAL_PASSED, 700L);
+        RecruitingDecisionHistory decisionB =
+            persistDecision(HANYANG_SCHOOL_ID, "지원자B", RecruitingApplicationStatus.FINAL_FAILED, 701L);
+        RecruitingDecisionHistory decisionC =
+            persistDecision(HANYANG_SCHOOL_ID, "지원자C", RecruitingApplicationStatus.FINAL_PASSED, 700L);
+        ReflectionTestUtils.setField(decisionA, "decidedAt", Instant.parse("2026-07-01T08:00:00Z"));
+        ReflectionTestUtils.setField(decisionB, "decidedAt", Instant.parse("2026-07-01T09:00:00Z"));
+        ReflectionTestUtils.setField(decisionC, "decidedAt", Instant.parse("2026-07-01T10:00:00Z"));
         em.flush();
         em.clear();
 
@@ -200,7 +206,9 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
             .stream()
             .findFirst()
             .orElseGet(() -> em.persist(RecruitingSeason.create(GISU_ID, schoolId)));
-        RecruitingRound round = em.persist(RecruitingRound.createAdditional(season, (int) current + 1, configuration()));
+        RecruitingRound round = em.persist(
+            RecruitingRound.createAdditional(season, (int) current + 1, configuration())
+        );
         RecruitingApplicationForm form = em.persist(RecruitingApplicationForm.create(round, 10_000L + current));
         RecruitingApplication application = RecruitingApplication.createMemberDraft(
             form,
