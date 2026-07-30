@@ -127,12 +127,18 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
         em.flush();
         em.clear();
 
-        Page<RecruitingDecisionHistoryRow> result = decisionHistoryAdapter.searchRows(
-            condition().searchName("판정닉700").build(),
+        Page<RecruitingDecisionHistoryRow> nameResult = decisionHistoryAdapter.searchRows(
+            condition().searchName("담당자 700").build(),
+            PageRequest.of(0, 20)
+        );
+        Page<RecruitingDecisionHistoryRow> nicknameResult = decisionHistoryAdapter.searchRows(
+            condition().searchName("정닉700").build(),
             PageRequest.of(0, 20)
         );
 
-        assertThat(result.getContent()).singleElement()
+        assertThat(nameResult.getContent()).singleElement()
+            .satisfies(row -> assertThat(row.decidedByMemberId()).isEqualTo(700L));
+        assertThat(nicknameResult.getContent()).singleElement()
             .satisfies(row -> assertThat(row.decidedByMemberId()).isEqualTo(700L));
     }
 
