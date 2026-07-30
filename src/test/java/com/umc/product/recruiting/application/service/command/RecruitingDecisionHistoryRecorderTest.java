@@ -55,13 +55,38 @@ class RecruitingDecisionHistoryRecorderTest {
     RecruitingDecisionHistoryRecorder sut;
 
     @Test
-    @DisplayName("지원서 학교의 회장단 직위를 최우선으로 스냅샷한다")
-    void snapshotPrefersSchoolCoreOfApplicationSchool() {
+    @DisplayName("중앙 총괄단과 학교 회장단을 겸직하면 권한 판정과 같은 우선순위로 중앙 총괄단을 스냅샷한다")
+    void snapshotPrefersCentralCoreOverSchoolCore() {
         RecruitingApplication application = finalPassedApplication();
         given(listChallengerRoleUseCase.listByMemberIdAndGisuId(DECIDER_MEMBER_ID, GISU_ID)).willReturn(List.of(
             roleOf(ChallengerRoleType.SCHOOL_VICE_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID),
             roleOf(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID),
             roleOf(ChallengerRoleType.CENTRAL_PRESIDENT, OrganizationType.CENTRAL, 999L)
+        ));
+        givenDeciderMember();
+
+        sut.record(application, DECIDER_MEMBER_ID);
+
+        RecruitingDecisionHistory history = savedHistory();
+        assertThat(history.getDeciderRoleType()).isEqualTo(ChallengerRoleType.CENTRAL_PRESIDENT);
+        assertThat(history.getDecisionStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
+        assertThat(history.getDecidedByMemberId()).isEqualTo(DECIDER_MEMBER_ID);
+        assertThat(history.getDecidedAt()).isEqualTo(application.getStatusChangedAt());
+        assertThat(history.getDeciderChapterId()).isNull();
+        assertThat(history.getDeciderChapterName()).isNull();
+        assertThat(history.getDeciderSchoolId()).isNull();
+        assertThat(history.getDeciderSchoolName()).isNull();
+        assertThat(history.getDeciderName()).isEqualTo("이예원");
+        assertThat(history.getDeciderNickname()).isEqualTo("이방토");
+    }
+
+    @Test
+    @DisplayName("중앙 총괄단이 아니면 지원서 학교의 회장단 직위를 스냅샷한다")
+    void snapshotUsesSchoolCoreWhenDeciderIsNotCentralCore() {
+        RecruitingApplication application = finalPassedApplication();
+        given(listChallengerRoleUseCase.listByMemberIdAndGisuId(DECIDER_MEMBER_ID, GISU_ID)).willReturn(List.of(
+            roleOf(ChallengerRoleType.CENTRAL_EDUCATION_TEAM_MEMBER, OrganizationType.CENTRAL, 999L),
+            roleOf(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID)
         ));
         givenDeciderMember();
         given(getSchoolUseCase.getSchoolDetail(SCHOOL_ID)).willReturn(school());
@@ -70,20 +95,14 @@ class RecruitingDecisionHistoryRecorderTest {
 
         RecruitingDecisionHistory history = savedHistory();
         assertThat(history.getDeciderRoleType()).isEqualTo(ChallengerRoleType.SCHOOL_PRESIDENT);
-        assertThat(history.getDecisionStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
-        assertThat(history.getDecidedByMemberId()).isEqualTo(DECIDER_MEMBER_ID);
-        assertThat(history.getDecidedAt()).isEqualTo(application.getStatusChangedAt());
         assertThat(history.getDeciderChapterId()).isEqualTo(20L);
-        assertThat(history.getDeciderChapterName()).isEqualTo("Selenium");
         assertThat(history.getDeciderSchoolId()).isEqualTo(SCHOOL_ID);
         assertThat(history.getDeciderSchoolName()).isEqualTo("한양대 ERICA");
-        assertThat(history.getDeciderName()).isEqualTo("이예원");
-        assertThat(history.getDeciderNickname()).isEqualTo("이방토");
     }
 
     @Test
-    @DisplayName("타 학교 회장단 직위는 판정 근거가 아니므로 무시하고 중앙 직위를 스냅샷한다")
-    void snapshotFallsBackToCentralRoleWhenSchoolCoreIsForOtherSchool() {
+    @DisplayName("타 학교 회장단 직위뿐이고 판정 가능한 직위가 없으면 직위 없이 기록한다")
+    void snapshotWithoutRoleWhenOnlySchoolCoreIsForOtherSchool() {
         RecruitingApplication application = finalPassedApplication();
         given(listChallengerRoleUseCase.listByMemberIdAndGisuId(DECIDER_MEMBER_ID, GISU_ID)).willReturn(List.of(
             roleOf(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 99L),
@@ -94,7 +113,7 @@ class RecruitingDecisionHistoryRecorderTest {
         sut.record(application, DECIDER_MEMBER_ID);
 
         RecruitingDecisionHistory history = savedHistory();
-        assertThat(history.getDeciderRoleType()).isEqualTo(ChallengerRoleType.CENTRAL_EDUCATION_TEAM_MEMBER);
+        assertThat(history.getDeciderRoleType()).isNull();
         assertThat(history.getDeciderSchoolId()).isNull();
     }
 

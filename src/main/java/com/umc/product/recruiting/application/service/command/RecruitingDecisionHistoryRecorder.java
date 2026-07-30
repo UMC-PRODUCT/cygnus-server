@@ -23,8 +23,10 @@ import lombok.RequiredArgsConstructor;
 /**
  * 판정 커맨드와 같은 트랜잭션에서 판정 이력을 기록합니다.
  * <p>
- * 담당자의 직위는 판정 권한 우선순위와 같은 순서로 스냅샷합니다:
- * 지원서 학교의 회장단 -> 중앙운영사무국 역할 -> 없음(SUPER_ADMIN 등).
+ * 담당자의 직위는 판정 권한 판정과 같은 우선순위로 스냅샷합니다:
+ * 중앙운영사무국 총괄단 -> 지원서 학교의 회장단 -> 없음(SUPER_ADMIN 등).
+ * <p>
+ * 운영국·교육국 등 총괄단이 아닌 중앙 역할은 판정 권한이 없으므로 스냅샷 직위 후보에서 제외합니다.
  */
 @Component
 @RequiredArgsConstructor
@@ -47,14 +49,14 @@ public class RecruitingDecisionHistoryRecorder {
 
     private ChallengerRoleInfo resolveDeciderRole(Long memberId, Long gisuId, Long schoolId) {
         List<ChallengerRoleInfo> roles = listChallengerRoleUseCase.listByMemberIdAndGisuId(memberId, gisuId);
-        Optional<ChallengerRoleInfo> schoolCoreRole = roles.stream()
+        Optional<ChallengerRoleInfo> centralCoreRole = roles.stream()
+            .filter(role -> role.roleType().isAtLeastCentralCore())
+            .min(Comparator.comparingInt(role -> role.roleType().ordinal()));
+        return centralCoreRole.or(() -> roles.stream()
             .filter(role -> role.roleType().isAtLeastSchoolCore()
                 && Objects.equals(role.organizationId(), schoolId))
-            .min(Comparator.comparingInt(role -> role.roleType().ordinal()));
-        return schoolCoreRole.orElseGet(() -> roles.stream()
-            .filter(role -> role.roleType().isAtLeastCentralMember())
-            .min(Comparator.comparingInt(role -> role.roleType().ordinal()))
-            .orElse(null));
+            .min(Comparator.comparingInt(role -> role.roleType().ordinal())))
+            .orElse(null);
     }
 
     private RecruitingDecisionHistoryDeciderSnapshot toDeciderSnapshot(
