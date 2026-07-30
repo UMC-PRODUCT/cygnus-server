@@ -12,6 +12,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -331,6 +332,20 @@ class RecruitingDecisionHistoryQueryServiceTest {
             assertThat(csv).doesNotContain("판정 당시 이름");
             assertThat(csv).doesNotContain("applicant@example.com");
             assertThat(csv).doesNotContain("홍길동");
+        }
+
+        @Test
+        @DisplayName("다운로드 대상이 상한(50,000건)을 초과하면 거부한다")
+        void csvRejectsWhenExportExceedsMaxRows() {
+            // 상한 초과를 재현하기 위해 MAX_EXPORT_ROWS(50,000) + 1 건을 반환한다.
+            given(loadDecisionHistoryPort.searchRows(any(), any())).willReturn(new PageImpl<>(
+                Collections.nCopies(50_001, row(1L, HANYANG_SCHOOL_ID, ChallengerRoleType.SCHOOL_PRESIDENT, 70L))
+            ));
+
+            assertThatThrownBy(() -> sut.exportCsv(defaultQuery().build()))
+                .isInstanceOf(RecruitingDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(RecruitingErrorCode.RECRUITING_DECISION_HISTORY_EXPORT_TOO_LARGE);
         }
     }
 
