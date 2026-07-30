@@ -9,10 +9,14 @@ import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingDecisionHistoryPort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingDecisionHistory;
+import com.umc.product.recruiting.domain.RecruitingDecisionHistoryDeciderSnapshot;
 
 import lombok.RequiredArgsConstructor;
 
@@ -27,28 +31,49 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingDecisionHistoryRecorder {
 
     private final ListChallengerRoleUseCase listChallengerRoleUseCase;
+    private final GetMemberUseCase getMemberUseCase;
+    private final GetSchoolUseCase getSchoolUseCase;
     private final SaveRecruitingDecisionHistoryPort saveDecisionHistoryPort;
 
     public void record(RecruitingApplication application, Long decidedByMemberId) {
         Long gisuId = application.getRound().getSeason().getGisuId();
         Long schoolId = application.getRound().getSeason().getSchoolId();
-        ChallengerRoleType deciderRoleType = resolveDeciderRoleType(decidedByMemberId, gisuId, schoolId);
+        ChallengerRoleInfo deciderRole = resolveDeciderRole(decidedByMemberId, gisuId, schoolId);
+        MemberInfo decider = getMemberUseCase.getById(decidedByMemberId);
         saveDecisionHistoryPort.save(
-            RecruitingDecisionHistory.create(application, decidedByMemberId, deciderRoleType)
+            RecruitingDecisionHistory.create(application, toDeciderSnapshot(decidedByMemberId, deciderRole, decider))
         );
     }
 
-    private ChallengerRoleType resolveDeciderRoleType(Long memberId, Long gisuId, Long schoolId) {
+    private ChallengerRoleInfo resolveDeciderRole(Long memberId, Long gisuId, Long schoolId) {
         List<ChallengerRoleInfo> roles = listChallengerRoleUseCase.listByMemberIdAndGisuId(memberId, gisuId);
-        Optional<ChallengerRoleType> schoolCoreRole = roles.stream()
+        Optional<ChallengerRoleInfo> schoolCoreRole = roles.stream()
             .filter(role -> role.roleType().isAtLeastSchoolCore()
                 && Objects.equals(role.organizationId(), schoolId))
-            .map(ChallengerRoleInfo::roleType)
-            .min(Comparator.comparingInt(Enum::ordinal));
+            .min(Comparator.comparingInt(role -> role.roleType().ordinal()));
         return schoolCoreRole.orElseGet(() -> roles.stream()
             .filter(role -> role.roleType().isAtLeastCentralMember())
-            .map(ChallengerRoleInfo::roleType)
-            .min(Comparator.comparingInt(Enum::ordinal))
+            .min(Comparator.comparingInt(role -> role.roleType().ordinal()))
             .orElse(null));
+    }
+
+    private RecruitingDecisionHistoryDeciderSnapshot toDeciderSnapshot(
+        Long decidedByMemberId,
+        ChallengerRoleInfo deciderRole,
+        MemberInfo decider
+    ) {
+        SchoolDetailInfo school = deciderRole != null && deciderRole.roleType().isAtLeastSchoolCore()
+            ? getSchoolUseCase.getSchoolDetail(deciderRole.organizationId())
+            : null;
+        return RecruitingDecisionHistoryDeciderSnapshot.builder()
+            .memberId(decidedByMemberId)
+            .chapterId(school == null ? null : school.chapterId())
+            .chapterName(school == null ? null : school.chapterName())
+            .schoolId(school == null ? null : school.schoolId())
+            .schoolName(school == null ? null : school.schoolName())
+            .roleType(deciderRole == null ? null : deciderRole.roleType())
+            .name(decider.name())
+            .nickname(decider.nickname())
+            .build();
     }
 }

@@ -1,8 +1,5 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
-import java.util.List;
-import java.util.Set;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -29,11 +26,6 @@ public class RecruitingDecisionHistoryPersistenceAdapter
         Pageable pageable
     ) {
         return recruitingDecisionHistoryQueryRepository.searchRows(condition, pageable);
-    }
-
-    @Override
-    public List<Long> listDeciderMemberIds(Long gisuId, Set<Long> schoolIds) {
-        return recruitingDecisionHistoryQueryRepository.listDeciderMemberIds(gisuId, schoolIds);
     }
 
     @Override

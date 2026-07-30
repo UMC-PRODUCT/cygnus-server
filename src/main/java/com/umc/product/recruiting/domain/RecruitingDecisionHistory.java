@@ -30,8 +30,7 @@ import lombok.NoArgsConstructor;
  * <p>
  * 판정 축과 등록 축이 {@code RecruitingApplication}의 {@code statusChanged*} 슬롯을 공유해 덮어쓰기 때문에,
  * 등록 전이 이후에도 판정 시각·담당자를 조회할 수 있도록 판정 트랜잭션에서 함께 기록합니다.
- * 담당자의 직위는 판정 이후 역할 변경과 무관하게 당시 상태를 스냅샷으로 보존하며,
- * 이름·닉네임은 조회 시점에 member 도메인에서, 소속 학교는 직위와 지원서의 학교로 유도해 결합합니다.
+ * 담당자의 지부·학교·직위·이름·닉네임을 판정 시점 스냅샷으로 보존합니다.
  */
 @Entity
 @Table(name = "recruiting_decision_history")
@@ -67,20 +66,44 @@ public class RecruitingDecisionHistory extends BaseEntity {
     @Column(name = "decider_role_type")
     private ChallengerRoleType deciderRoleType;
 
+    @Column(name = "decider_chapter_id")
+    private Long deciderChapterId;
+
+    @Column(name = "decider_chapter_name")
+    private String deciderChapterName;
+
+    @Column(name = "decider_school_id")
+    private Long deciderSchoolId;
+
+    @Column(name = "decider_school_name")
+    private String deciderSchoolName;
+
+    @Column(name = "decider_name", nullable = false, length = 30)
+    private String deciderName;
+
+    @Column(name = "decider_nickname", nullable = false, length = 20)
+    private String deciderNickname;
+
     @Builder(access = AccessLevel.PRIVATE)
     private RecruitingDecisionHistory(
         RecruitingApplication application,
         RecruitingApplicationStatus decisionStatus,
         Long decidedByMemberId,
         Instant decidedAt,
-        ChallengerRoleType deciderRoleType
+        RecruitingDecisionHistoryDeciderSnapshot deciderSnapshot
     ) {
-        validateRequired(application, decisionStatus, decidedByMemberId, decidedAt);
+        validateRequired(application, decisionStatus, decidedByMemberId, decidedAt, deciderSnapshot);
         this.application = application;
         this.decisionStatus = decisionStatus;
         this.decidedByMemberId = decidedByMemberId;
         this.decidedAt = decidedAt;
-        this.deciderRoleType = deciderRoleType;
+        this.deciderRoleType = deciderSnapshot.roleType();
+        this.deciderChapterId = deciderSnapshot.chapterId();
+        this.deciderChapterName = deciderSnapshot.chapterName();
+        this.deciderSchoolId = deciderSnapshot.schoolId();
+        this.deciderSchoolName = deciderSnapshot.schoolName();
+        this.deciderName = deciderSnapshot.name();
+        this.deciderNickname = deciderSnapshot.nickname();
     }
 
     /**
@@ -88,18 +111,17 @@ public class RecruitingDecisionHistory extends BaseEntity {
      */
     public static RecruitingDecisionHistory create(
         RecruitingApplication application,
-        Long decidedByMemberId,
-        ChallengerRoleType deciderRoleType
+        RecruitingDecisionHistoryDeciderSnapshot deciderSnapshot
     ) {
-        if (application == null) {
+        if (application == null || deciderSnapshot == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_DECISION_HISTORY_INVALID);
         }
         return RecruitingDecisionHistory.builder()
             .application(application)
             .decisionStatus(application.getStatus())
-            .decidedByMemberId(decidedByMemberId)
+            .decidedByMemberId(deciderSnapshot.memberId())
             .decidedAt(application.getStatusChangedAt())
-            .deciderRoleType(deciderRoleType)
+            .deciderSnapshot(deciderSnapshot)
             .build();
     }
 
@@ -107,13 +129,17 @@ public class RecruitingDecisionHistory extends BaseEntity {
         RecruitingApplication application,
         RecruitingApplicationStatus decisionStatus,
         Long decidedByMemberId,
-        Instant decidedAt
+        Instant decidedAt,
+        RecruitingDecisionHistoryDeciderSnapshot deciderSnapshot
     ) {
         if (application == null
             || decisionStatus == null
             || !DECISION_STATUSES.contains(decisionStatus)
             || decidedByMemberId == null
-            || decidedAt == null) {
+            || decidedAt == null
+            || deciderSnapshot == null
+            || deciderSnapshot.name() == null
+            || deciderSnapshot.nickname() == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_DECISION_HISTORY_INVALID);
         }
     }

@@ -21,6 +21,10 @@ import com.umc.product.authorization.application.port.in.query.dto.ChallengerRol
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingDecisionHistoryPort;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
@@ -42,6 +46,10 @@ class RecruitingDecisionHistoryRecorderTest {
     @Mock
     ListChallengerRoleUseCase listChallengerRoleUseCase;
     @Mock
+    GetMemberUseCase getMemberUseCase;
+    @Mock
+    GetSchoolUseCase getSchoolUseCase;
+    @Mock
     SaveRecruitingDecisionHistoryPort saveDecisionHistoryPort;
     @InjectMocks
     RecruitingDecisionHistoryRecorder sut;
@@ -55,6 +63,8 @@ class RecruitingDecisionHistoryRecorderTest {
             roleOf(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, SCHOOL_ID),
             roleOf(ChallengerRoleType.CENTRAL_PRESIDENT, OrganizationType.CENTRAL, 999L)
         ));
+        givenDeciderMember();
+        given(getSchoolUseCase.getSchoolDetail(SCHOOL_ID)).willReturn(school());
 
         sut.record(application, DECIDER_MEMBER_ID);
 
@@ -63,6 +73,12 @@ class RecruitingDecisionHistoryRecorderTest {
         assertThat(history.getDecisionStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
         assertThat(history.getDecidedByMemberId()).isEqualTo(DECIDER_MEMBER_ID);
         assertThat(history.getDecidedAt()).isEqualTo(application.getStatusChangedAt());
+        assertThat(history.getDeciderChapterId()).isEqualTo(20L);
+        assertThat(history.getDeciderChapterName()).isEqualTo("Selenium");
+        assertThat(history.getDeciderSchoolId()).isEqualTo(SCHOOL_ID);
+        assertThat(history.getDeciderSchoolName()).isEqualTo("한양대 ERICA");
+        assertThat(history.getDeciderName()).isEqualTo("이예원");
+        assertThat(history.getDeciderNickname()).isEqualTo("이방토");
     }
 
     @Test
@@ -73,10 +89,13 @@ class RecruitingDecisionHistoryRecorderTest {
             roleOf(ChallengerRoleType.SCHOOL_PRESIDENT, OrganizationType.SCHOOL, 99L),
             roleOf(ChallengerRoleType.CENTRAL_EDUCATION_TEAM_MEMBER, OrganizationType.CENTRAL, 999L)
         ));
+        givenDeciderMember();
 
         sut.record(application, DECIDER_MEMBER_ID);
 
-        assertThat(savedHistory().getDeciderRoleType()).isEqualTo(ChallengerRoleType.CENTRAL_EDUCATION_TEAM_MEMBER);
+        RecruitingDecisionHistory history = savedHistory();
+        assertThat(history.getDeciderRoleType()).isEqualTo(ChallengerRoleType.CENTRAL_EDUCATION_TEAM_MEMBER);
+        assertThat(history.getDeciderSchoolId()).isNull();
     }
 
     @Test
@@ -84,10 +103,14 @@ class RecruitingDecisionHistoryRecorderTest {
     void snapshotWithoutRoleWhenDeciderHasNoChallengerRole() {
         RecruitingApplication application = finalPassedApplication();
         given(listChallengerRoleUseCase.listByMemberIdAndGisuId(DECIDER_MEMBER_ID, GISU_ID)).willReturn(List.of());
+        givenDeciderMember();
 
         sut.record(application, DECIDER_MEMBER_ID);
 
-        assertThat(savedHistory().getDeciderRoleType()).isNull();
+        RecruitingDecisionHistory history = savedHistory();
+        assertThat(history.getDeciderRoleType()).isNull();
+        assertThat(history.getDeciderName()).isEqualTo("이예원");
+        assertThat(history.getDeciderNickname()).isEqualTo("이방토");
     }
 
     private RecruitingDecisionHistory savedHistory() {
@@ -107,6 +130,29 @@ class RecruitingDecisionHistoryRecorderTest {
             .organizationId(organizationId)
             .gisuId(GISU_ID)
             .build();
+    }
+
+    private void givenDeciderMember() {
+        given(getMemberUseCase.getById(DECIDER_MEMBER_ID)).willReturn(MemberInfo.builder()
+            .id(DECIDER_MEMBER_ID)
+            .name("이예원")
+            .nickname("이방토")
+            .build());
+    }
+
+    private SchoolDetailInfo school() {
+        return new SchoolDetailInfo(
+            20L,
+            "Selenium",
+            "한양대 ERICA",
+            SCHOOL_ID,
+            null,
+            null,
+            List.of(),
+            true,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-01T00:00:00Z")
+        );
     }
 
     private RecruitingApplication finalPassedApplication() {

@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -16,8 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.global.util.EmailMasker;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingDecisionHistoryCsvUseCase;
@@ -45,8 +42,7 @@ import lombok.RequiredArgsConstructor;
  * <p>
  * - 상태 뱃지: 구조 조건(기수·지부·학교) 범위에서 판정 대상(DRAFT, CANCELLED 제외) 전원의 판정 완료 여부로 판단합니다.
  * <p>
- * - 담당자 이름·닉네임은 member 도메인에서 batch로 결합하고, 담당자 소속 학교는 직위가 학교 단위일 때
- * 지원서의 학교로 유도합니다(회장단은 자기 학교 지원서만 판정할 수 있음).
+ * - 담당자 정보는 판정 시점에 저장한 스냅샷으로 제공합니다.
  */
 @Service
 @Transactional(readOnly = true)
@@ -91,7 +87,6 @@ public class RecruitingDecisionHistoryQueryService implements
     private final LoadRecruitingDecisionHistoryPort loadDecisionHistoryPort;
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final GetSchoolUseCase getSchoolUseCase;
-    private final GetMemberUseCase getMemberUseCase;
     private final CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     private final Clock clock;
 
@@ -103,11 +98,10 @@ public class RecruitingDecisionHistoryQueryService implements
 
         Map<Long, SchoolDetailInfo> schoolById = scopedSchools.stream()
             .collect(Collectors.toMap(SchoolDetailInfo::schoolId, school -> school));
-        Map<Long, MemberInfo> deciderById = findDeciders(rowPage.getContent());
         return new RecruitingDecisionHistoryPageInfo(
             clock.instant(),
             resolveProgressStatus(query.gisuId(), schoolById.keySet()),
-            rowPage.map(row -> toInfo(row, schoolById, deciderById))
+            rowPage.map(row -> toInfo(row, schoolById))
         );
     }
 
@@ -120,10 +114,9 @@ public class RecruitingDecisionHistoryQueryService implements
 
         Map<Long, SchoolDetailInfo> schoolById = scopedSchools.stream()
             .collect(Collectors.toMap(SchoolDetailInfo::schoolId, school -> school));
-        Map<Long, MemberInfo> deciderById = findDeciders(rows);
         StringBuilder builder = new StringBuilder(CSV_HEADER).append('\n');
         for (RecruitingDecisionHistoryRow row : rows) {
-            builder.append(toCsvLine(query.gisuId(), row, schoolById, deciderById)).append('\n');
+            builder.append(toCsvLine(query.gisuId(), row, schoolById)).append('\n');
         }
         return builder.toString().getBytes(StandardCharsets.UTF_8);
     }
@@ -148,7 +141,6 @@ public class RecruitingDecisionHistoryQueryService implements
                     .flatMap(result -> result.getStatuses().stream())
                     .collect(Collectors.toSet()))
                 .searchName(query.searchName())
-                .matchedDeciderMemberIds(matchDeciderMemberIds(query, scopedSchoolIds))
                 .latestFirst(query.effectiveSortOrder().isLatestFirst())
                 .groupByDecider(query.groupByDecider())
                 .build(),
@@ -157,43 +149,13 @@ public class RecruitingDecisionHistoryQueryService implements
     }
 
     /**
-     * 조건에 포함된 학교 목록입니다. 기수의 학교 목록을 벗어난 이력 행은 결과에서 제외해 이름 결합 정합성을 보장합니다.
+     * 조건에 포함된 학교 목록입니다. 기수의 학교 목록을 벗어난 이력 행은 결과에서 제외합니다.
      */
     private List<SchoolDetailInfo> listScopedSchools(RecruitingDecisionHistorySearchQuery query) {
         return getSchoolUseCase.getSchoolListByGisuId(query.gisuId()).stream()
             .filter(school -> query.chapterId() == null || query.chapterId().equals(school.chapterId()))
             .filter(school -> query.schoolId() == null || query.schoolId().equals(school.schoolId()))
             .toList();
-    }
-
-    /**
-     * 담당자 이름 검색은 이력에 이름이 저장되지 않으므로, 범위 내 담당자를 member 도메인에서 batch 조회해
-     * 이름·닉네임이 부분일치하는 member ID 집합으로 변환합니다.
-     */
-    private Set<Long> matchDeciderMemberIds(RecruitingDecisionHistorySearchQuery query, Set<Long> scopedSchoolIds) {
-        if (query.searchName() == null) {
-            return Set.of();
-        }
-        List<Long> deciderMemberIds = loadDecisionHistoryPort.listDeciderMemberIds(query.gisuId(), scopedSchoolIds);
-        if (deciderMemberIds.isEmpty()) {
-            return Set.of();
-        }
-        String keyword = query.searchName().toLowerCase(Locale.ROOT);
-        return getMemberUseCase.findAllByIds(Set.copyOf(deciderMemberIds)).entrySet().stream()
-            .filter(entry -> containsIgnoreCase(entry.getValue().name(), keyword)
-                || containsIgnoreCase(entry.getValue().nickname(), keyword))
-            .map(Map.Entry::getKey)
-            .collect(Collectors.toSet());
-    }
-
-    private Map<Long, MemberInfo> findDeciders(List<RecruitingDecisionHistoryRow> rows) {
-        Set<Long> deciderMemberIds = rows.stream()
-            .map(RecruitingDecisionHistoryRow::decidedByMemberId)
-            .collect(Collectors.toSet());
-        if (deciderMemberIds.isEmpty()) {
-            return Map.of();
-        }
-        return getMemberUseCase.findAllByIds(deciderMemberIds);
     }
 
     private RecruitingEvaluationProgressStatus resolveProgressStatus(Long gisuId, Set<Long> scopedSchoolIds) {
@@ -220,12 +182,9 @@ public class RecruitingDecisionHistoryQueryService implements
 
     private RecruitingDecisionHistoryInfo toInfo(
         RecruitingDecisionHistoryRow row,
-        Map<Long, SchoolDetailInfo> schoolById,
-        Map<Long, MemberInfo> deciderById
+        Map<Long, SchoolDetailInfo> schoolById
     ) {
         SchoolDetailInfo applicantSchool = schoolById.get(row.schoolId());
-        SchoolDetailInfo deciderSchool = resolveDeciderSchool(row, applicantSchool);
-        MemberInfo decider = deciderById.get(row.decidedByMemberId());
         return RecruitingDecisionHistoryInfo.builder()
             .decisionHistoryId(row.decisionHistoryId())
             .applicationId(row.applicationId())
@@ -244,37 +203,23 @@ public class RecruitingDecisionHistoryQueryService implements
                 .build())
             .decider(RecruitingDecisionHistoryInfo.DeciderInfo.builder()
                 .memberId(row.decidedByMemberId())
-                .chapterId(deciderSchool == null ? null : deciderSchool.chapterId())
-                .chapterName(deciderSchool == null ? null : deciderSchool.chapterName())
-                .schoolId(deciderSchool == null ? null : deciderSchool.schoolId())
-                .schoolName(deciderSchool == null ? null : deciderSchool.schoolName())
+                .chapterId(row.deciderChapterId())
+                .chapterName(row.deciderChapterName())
+                .schoolId(row.deciderSchoolId())
+                .schoolName(row.deciderSchoolName())
                 .roleType(row.deciderRoleType())
-                .name(decider == null ? null : decider.name())
-                .nickname(decider == null ? null : decider.nickname())
+                .name(row.deciderName())
+                .nickname(row.deciderNickname())
                 .build())
             .build();
-    }
-
-    /**
-     * 회장단은 자기 학교 지원서만 판정할 수 있으므로, 직위가 학교 단위면 담당자 소속을 지원서의 학교로 유도합니다.
-     * 중앙 직위나 SUPER_ADMIN은 학교 소속 없이(null) 노출합니다.
-     */
-    private SchoolDetailInfo resolveDeciderSchool(RecruitingDecisionHistoryRow row, SchoolDetailInfo applicantSchool) {
-        if (row.deciderRoleType() == null || !row.deciderRoleType().isAtLeastSchoolCore()) {
-            return null;
-        }
-        return applicantSchool;
     }
 
     private String toCsvLine(
         Long gisuId,
         RecruitingDecisionHistoryRow row,
-        Map<Long, SchoolDetailInfo> schoolById,
-        Map<Long, MemberInfo> deciderById
+        Map<Long, SchoolDetailInfo> schoolById
     ) {
         SchoolDetailInfo applicantSchool = schoolById.get(row.schoolId());
-        SchoolDetailInfo deciderSchool = resolveDeciderSchool(row, applicantSchool);
-        MemberInfo decider = deciderById.get(row.decidedByMemberId());
         return String.join(",",
             RecruitingCsvCellEncoder.encode(row.decidedAt()),
             RecruitingCsvCellEncoder.encode(row.decisionStatus()),
@@ -289,13 +234,9 @@ public class RecruitingDecisionHistoryQueryService implements
             RecruitingCsvCellEncoder.encode(row.acceptedTrack()),
             RecruitingCsvCellEncoder.encode(row.decidedByMemberId()),
             RecruitingCsvCellEncoder.encode(row.deciderRoleType()),
-            RecruitingCsvCellEncoder.encode(deciderSchool == null ? null : deciderSchool.schoolId()),
-            RecruitingCsvCellEncoder.encode(decider == null ? null : decider.nickname())
+            RecruitingCsvCellEncoder.encode(row.deciderSchoolId()),
+            RecruitingCsvCellEncoder.encode(row.deciderNickname())
         );
-    }
-
-    private boolean containsIgnoreCase(String value, String lowerCaseKeyword) {
-        return value != null && value.toLowerCase(Locale.ROOT).contains(lowerCaseKeyword);
     }
 
     private void validateReadAccess(Long requesterMemberId, Long gisuId) {

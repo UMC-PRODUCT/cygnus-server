@@ -13,7 +13,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -31,8 +30,6 @@ import org.springframework.data.domain.Pageable;
 import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
@@ -67,8 +64,6 @@ class RecruitingDecisionHistoryQueryServiceTest {
     @Mock
     GetSchoolUseCase getSchoolUseCase;
     @Mock
-    GetMemberUseCase getMemberUseCase;
-    @Mock
     CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
 
     RecruitingDecisionHistoryQueryService sut;
@@ -79,7 +74,6 @@ class RecruitingDecisionHistoryQueryServiceTest {
             loadDecisionHistoryPort,
             loadApplicationPort,
             getSchoolUseCase,
-            getMemberUseCase,
             checkChallengerAuthorityUseCase,
             Clock.fixed(NOW, ZoneOffset.UTC)
         );
@@ -197,22 +191,16 @@ class RecruitingDecisionHistoryQueryServiceTest {
         }
 
         @Test
-        @DisplayName("담당자 이름 검색은 이름이 일치하는 담당자 member ID 집합으로 변환한다")
-        void deciderNameSearchIsResolvedThroughMemberDomain() {
+        @DisplayName("담당자 이름 검색은 판정 시점 스냅샷 조건으로 전달한다")
+        void deciderNameSearchUsesSnapshotCondition() {
             givenSchools();
             givenEmptySearch();
             givenNoDecisionTargets();
-            given(loadDecisionHistoryPort.listDeciderMemberIds(eq(GISU_ID), anySet())).willReturn(List.of(70L, 71L));
-            given(getMemberUseCase.findAllByIds(Set.of(70L, 71L))).willReturn(Map.of(
-                70L, memberInfo(70L, "이예원", "이방토"),
-                71L, memberInfo(71L, "김철수", "돌돌이")
-            ));
 
             sut.search(defaultQuery().searchName("방토").build());
 
             RecruitingDecisionHistorySearchCondition condition = capturedCondition();
             assertThat(condition.searchName()).isEqualTo("방토");
-            assertThat(condition.matchedDeciderMemberIds()).containsExactly(70L);
         }
     }
 
@@ -280,19 +268,18 @@ class RecruitingDecisionHistoryQueryServiceTest {
         }
 
         @Test
-        @DisplayName("학교 직위 담당자의 소속은 지원서의 학교로 유도한다")
-        void schoolTierDeciderSchoolIsDerivedFromApplication() {
+        @DisplayName("담당자 정보는 판정 시점 스냅샷으로 노출한다")
+        void deciderInfoUsesDecisionTimeSnapshot() {
             givenSearchReturns(row(1L, HANYANG_SCHOOL_ID, ChallengerRoleType.SCHOOL_PRESIDENT, 70L));
-            given(getMemberUseCase.findAllByIds(Set.of(70L)))
-                .willReturn(Map.of(70L, memberInfo(70L, "이예원", "이방토")));
 
             RecruitingDecisionHistoryInfo info = sut.search(defaultQuery().build()).page().getContent().get(0);
 
-            assertThat(info.decider().schoolId()).isEqualTo(HANYANG_SCHOOL_ID);
-            assertThat(info.decider().schoolName()).isEqualTo("한양대 ERICA");
-            assertThat(info.decider().chapterId()).isEqualTo(CHROMIUM_CHAPTER_ID);
-            assertThat(info.decider().name()).isEqualTo("이예원");
-            assertThat(info.decider().nickname()).isEqualTo("이방토");
+            assertThat(info.decider().schoolId()).isEqualTo(30L);
+            assertThat(info.decider().schoolName()).isEqualTo("판정 당시 학교");
+            assertThat(info.decider().chapterId()).isEqualTo(300L);
+            assertThat(info.decider().chapterName()).isEqualTo("판정 당시 지부");
+            assertThat(info.decider().name()).isEqualTo("판정 당시 이름");
+            assertThat(info.decider().nickname()).isEqualTo("판정닉");
             assertThat(info.result()).isEqualTo(RecruitingDecisionResult.PASSED);
         }
 
@@ -300,8 +287,6 @@ class RecruitingDecisionHistoryQueryServiceTest {
         @DisplayName("중앙 직위 담당자는 지부·학교 소속 없이 노출한다")
         void centralTierDeciderHasNoSchool() {
             givenSearchReturns(row(1L, HANYANG_SCHOOL_ID, ChallengerRoleType.CENTRAL_PRESIDENT, 70L));
-            given(getMemberUseCase.findAllByIds(Set.of(70L)))
-                .willReturn(Map.of(70L, memberInfo(70L, "이예원", "이방토")));
 
             RecruitingDecisionHistoryInfo info = sut.search(defaultQuery().build()).page().getContent().get(0);
 
@@ -311,16 +296,15 @@ class RecruitingDecisionHistoryQueryServiceTest {
         }
 
         @Test
-        @DisplayName("탈퇴 등으로 member를 찾지 못한 담당자는 이름 없이 노출한다")
-        void missingDeciderMemberIsExposedWithoutName() {
+        @DisplayName("담당자 탈퇴 후에도 판정 시점 이름과 닉네임을 노출한다")
+        void withdrawnDeciderIsExposedWithSnapshotName() {
             givenSearchReturns(row(1L, HANYANG_SCHOOL_ID, ChallengerRoleType.SCHOOL_PRESIDENT, 70L));
-            given(getMemberUseCase.findAllByIds(Set.of(70L))).willReturn(Map.of());
 
             RecruitingDecisionHistoryInfo info = sut.search(defaultQuery().build()).page().getContent().get(0);
 
             assertThat(info.decider().memberId()).isEqualTo(70L);
-            assertThat(info.decider().name()).isNull();
-            assertThat(info.decider().nickname()).isNull();
+            assertThat(info.decider().name()).isEqualTo("판정 당시 이름");
+            assertThat(info.decider().nickname()).isEqualTo("판정닉");
         }
     }
 
@@ -340,14 +324,12 @@ class RecruitingDecisionHistoryQueryServiceTest {
             given(loadDecisionHistoryPort.searchRows(any(), eq(Pageable.unpaged()))).willReturn(
                 new PageImpl<>(List.of(row(1L, HANYANG_SCHOOL_ID, ChallengerRoleType.SCHOOL_PRESIDENT, 70L)))
             );
-            given(getMemberUseCase.findAllByIds(Set.of(70L)))
-                .willReturn(Map.of(70L, memberInfo(70L, "이예원", "이방토")));
 
             String csv = new String(sut.exportCsv(defaultQuery().build()), StandardCharsets.UTF_8);
 
             assertThat(csv).startsWith("decidedAt,decisionStatus,result,");
-            assertThat(csv).contains("이방토");
-            assertThat(csv).doesNotContain("이예원");
+            assertThat(csv).contains("판정닉");
+            assertThat(csv).doesNotContain("판정 당시 이름");
             assertThat(csv).doesNotContain("applicant@example.com");
             assertThat(csv).doesNotContain("홍길동");
         }
@@ -416,7 +398,13 @@ class RecruitingDecisionHistoryQueryServiceTest {
             RecruitingApplicationStatus.FINAL_PASSED,
             NOW,
             deciderMemberId,
-            deciderRoleType
+            deciderRoleType,
+            deciderRoleType.isAtLeastSchoolCore() ? 300L : null,
+            deciderRoleType.isAtLeastSchoolCore() ? "판정 당시 지부" : null,
+            deciderRoleType.isAtLeastSchoolCore() ? 30L : null,
+            deciderRoleType.isAtLeastSchoolCore() ? "판정 당시 학교" : null,
+            "판정 당시 이름",
+            "판정닉"
         );
     }
 
@@ -426,11 +414,4 @@ class RecruitingDecisionHistoryQueryServiceTest {
         );
     }
 
-    private MemberInfo memberInfo(Long memberId, String name, String nickname) {
-        return MemberInfo.builder()
-            .id(memberId)
-            .name(name)
-            .nickname(nickname)
-            .build();
-    }
 }

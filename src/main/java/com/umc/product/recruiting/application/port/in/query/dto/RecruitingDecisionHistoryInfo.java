@@ -37,8 +37,7 @@ public record RecruitingDecisionHistoryInfo(
     }
 
     /**
-     * 담당자의 직위는 판정 시점 스냅샷이며, 소속 학교는 직위가 학교 단위일 때 지원서의 학교로 유도합니다.
-     * 이름·닉네임은 조회 시점의 member 정보라 탈퇴한 담당자는 null일 수 있습니다.
+     * 담당자의 지부·학교·직위·이름·닉네임은 판정 시점 스냅샷입니다.
      */
     @Builder
     public record DeciderInfo(

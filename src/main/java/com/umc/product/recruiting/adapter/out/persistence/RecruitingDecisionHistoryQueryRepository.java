@@ -42,7 +42,7 @@ public class RecruitingDecisionHistoryQueryRepository {
             .and(schoolIdIn(condition.schoolIds()))
             .and(trackIn(condition.tracks()))
             .and(decisionStatusIn(condition.decisionStatuses()))
-            .and(nameMatches(condition.searchName(), condition.matchedDeciderMemberIds()));
+            .and(nameMatches(condition.searchName()));
 
         var contentQuery = queryFactory
             .select(Projections.constructor(
@@ -58,7 +58,13 @@ public class RecruitingDecisionHistoryQueryRepository {
                 recruitingDecisionHistory.decisionStatus,
                 recruitingDecisionHistory.decidedAt,
                 recruitingDecisionHistory.decidedByMemberId,
-                recruitingDecisionHistory.deciderRoleType
+                recruitingDecisionHistory.deciderRoleType,
+                recruitingDecisionHistory.deciderChapterId,
+                recruitingDecisionHistory.deciderChapterName,
+                recruitingDecisionHistory.deciderSchoolId,
+                recruitingDecisionHistory.deciderSchoolName,
+                recruitingDecisionHistory.deciderName,
+                recruitingDecisionHistory.deciderNickname
             ))
             .from(recruitingDecisionHistory)
             .innerJoin(recruitingDecisionHistory.application, recruitingApplication)
@@ -80,21 +86,6 @@ public class RecruitingDecisionHistoryQueryRepository {
             .where(predicate)
             .fetchOne();
         return new PageImpl<>(content, pageable, total == null ? 0L : total);
-    }
-
-    public List<Long> listDeciderMemberIds(Long gisuId, Set<Long> schoolIds) {
-        return queryFactory
-            .select(recruitingDecisionHistory.decidedByMemberId)
-            .distinct()
-            .from(recruitingDecisionHistory)
-            .innerJoin(recruitingDecisionHistory.application, recruitingApplication)
-            .innerJoin(recruitingApplication.round, recruitingRound)
-            .innerJoin(recruitingRound.season, recruitingSeason)
-            .where(
-                recruitingSeason.gisuId.eq(gisuId),
-                schoolIdIn(schoolIds)
-            )
-            .fetch();
     }
 
     /**
@@ -139,16 +130,13 @@ public class RecruitingDecisionHistoryQueryRepository {
             : recruitingDecisionHistory.decisionStatus.in(statuses);
     }
 
-    private BooleanExpression nameMatches(String searchName, Set<Long> matchedDeciderMemberIds) {
+    private BooleanExpression nameMatches(String searchName) {
         if (searchName == null) {
             return null;
         }
-        BooleanExpression applicantNameMatches = recruitingApplication.applicantProfile.applicantName
-            .lower()
-            .contains(searchName.toLowerCase(Locale.ROOT));
-        if (matchedDeciderMemberIds == null || matchedDeciderMemberIds.isEmpty()) {
-            return applicantNameMatches;
-        }
-        return applicantNameMatches.or(recruitingDecisionHistory.decidedByMemberId.in(matchedDeciderMemberIds));
+        String keyword = searchName.toLowerCase(Locale.ROOT);
+        return recruitingApplication.applicantProfile.applicantName.lower().contains(keyword)
+            .or(recruitingDecisionHistory.deciderName.lower().contains(keyword))
+            .or(recruitingDecisionHistory.deciderNickname.lower().contains(keyword));
     }
 }

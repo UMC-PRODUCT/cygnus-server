@@ -27,6 +27,7 @@ import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingDecisionHistory;
+import com.umc.product.recruiting.domain.RecruitingDecisionHistoryDeciderSnapshot;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
@@ -65,7 +66,7 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
         application.skipInterview(700L, "면접 미진행");
         application.passFinal(700L, "최종 합격", ChallengerTrack.WEB_PRODUCT_ENGINEER);
         decisionHistoryAdapter.save(
-            RecruitingDecisionHistory.create(application, 700L, ChallengerRoleType.SCHOOL_PRESIDENT)
+            RecruitingDecisionHistory.create(application, deciderSnapshot(700L))
         );
         Instant decidedAt = application.getStatusChangedAt();
         applicationAdapter.save(application);
@@ -89,6 +90,10 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
             assertThat(row.decidedAt()).isCloseTo(decidedAt, within(1, ChronoUnit.MICROS));
             assertThat(row.decisionStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_PASSED);
             assertThat(row.deciderRoleType()).isEqualTo(ChallengerRoleType.SCHOOL_PRESIDENT);
+            assertThat(row.deciderChapterName()).isEqualTo("판정 당시 지부");
+            assertThat(row.deciderSchoolName()).isEqualTo("판정 당시 학교");
+            assertThat(row.deciderName()).isEqualTo("판정 담당자 700");
+            assertThat(row.deciderNickname()).isEqualTo("판정닉700");
         });
     }
 
@@ -112,6 +117,23 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
 
         assertThat(result.getContent()).singleElement()
             .satisfies(row -> assertThat(row.applicantName()).isEqualTo("박유엠"));
+    }
+
+    @Test
+    @DisplayName("판정 시점 담당자 이름과 닉네임 부분일치로 검색한다")
+    void searchesByDecisionTimeDeciderNameAndNickname() {
+        persistDecision(HANYANG_SCHOOL_ID, "지원자A", RecruitingApplicationStatus.FINAL_PASSED, 700L);
+        persistDecision(HANYANG_SCHOOL_ID, "지원자B", RecruitingApplicationStatus.FINAL_PASSED, 701L);
+        em.flush();
+        em.clear();
+
+        Page<RecruitingDecisionHistoryRow> result = decisionHistoryAdapter.searchRows(
+            condition().searchName("판정닉700").build(),
+            PageRequest.of(0, 20)
+        );
+
+        assertThat(result.getContent()).singleElement()
+            .satisfies(row -> assertThat(row.decidedByMemberId()).isEqualTo(700L));
     }
 
     @Test
@@ -175,9 +197,21 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
         applicationAdapter.save(application);
         return decisionHistoryAdapter.save(RecruitingDecisionHistory.create(
             application,
-            deciderMemberId,
-            ChallengerRoleType.SCHOOL_PRESIDENT
+            deciderSnapshot(deciderMemberId)
         ));
+    }
+
+    private RecruitingDecisionHistoryDeciderSnapshot deciderSnapshot(Long memberId) {
+        return RecruitingDecisionHistoryDeciderSnapshot.builder()
+            .memberId(memberId)
+            .chapterId(100L)
+            .chapterName("판정 당시 지부")
+            .schoolId(30L)
+            .schoolName("판정 당시 학교")
+            .roleType(ChallengerRoleType.SCHOOL_PRESIDENT)
+            .name("판정 담당자 " + memberId)
+            .nickname("판정닉" + memberId)
+            .build();
     }
 
     private void moveToDecision(RecruitingApplication application, RecruitingApplicationStatus status, Long memberId) {
