@@ -576,6 +576,7 @@ type RecruitingInterviewSchedule {
 type RecruitingStatusSummary {
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  parts: [RecruitingPartStatusSummary!]!
   schools: [RecruitingSchoolStatusSummary!]!
 }
 
@@ -586,6 +587,7 @@ type RecruitingSchoolStatusSummary {
   chapterName: String!
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  parts: [RecruitingPartStatusSummary!]!
   rounds: [RecruitingRoundStatusSummary!]!
 }
 
@@ -594,6 +596,13 @@ type RecruitingRoundStatusSummary {
   roundTitle: String!
   roundType: RecruitingRoundType!
   roundNo: Int!
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
+  parts: [RecruitingPartStatusSummary!]!
+}
+
+type RecruitingPartStatusSummary {
+  part: ChallengerTrack!
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
 }

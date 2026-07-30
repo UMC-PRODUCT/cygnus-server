@@ -121,6 +121,37 @@ class RecruitingQueryServiceTest {
     }
 
     @Test
+    @DisplayName("상태 요약은 1지망 파트별로 상태를 교차집계하고 sortOrder 순으로 정렬한다")
+    void statusSummaryAggregatesByFirstChoicePart() {
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        givenSummaryScope();
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES)).willReturn(List.of(
+            row("웹1", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.WEB_PRODUCT_ENGINEER),
+            row("웹2", RecruitingApplicationStatus.FINAL_PASSED, ChallengerTrack.WEB_PRODUCT_ENGINEER),
+            row("기획1", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.PLAN)
+        ));
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
+
+        assertThat(result.parts())
+            .extracting(part -> part.part())
+            .containsExactly(ChallengerTrack.PLAN, ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(result.parts())
+            .filteredOn(part -> part.part() == ChallengerTrack.WEB_PRODUCT_ENGINEER)
+            .singleElement()
+            .satisfies(part -> {
+                assertThat(part.totalCount()).isEqualTo(2L);
+                assertThat(part.countByStatus().get(RecruitingApplicationStatus.SUBMITTED)).isEqualTo(1L);
+                assertThat(part.countByStatus().get(RecruitingApplicationStatus.FINAL_PASSED)).isEqualTo(1L);
+            });
+        assertThat(result.parts().stream().mapToLong(part -> part.totalCount()).sum())
+            .isEqualTo(result.totalCount());
+        assertThat(result.schools()).singleElement()
+            .satisfies(school -> assertThat(school.rounds()).singleElement()
+                .satisfies(round -> assertThat(round.parts()).hasSize(2)));
+    }
+
+    @Test
     @DisplayName("다른 기수의 중앙 총괄단은 상태 요약을 조회할 수 없다")
     void rejectStatusSummaryForCentralCoreFromDifferentGisu() {
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
@@ -284,6 +315,14 @@ class RecruitingQueryServiceTest {
     }
 
     private RecruitingApplicationSummaryRow row(String applicantName, RecruitingApplicationStatus status) {
+        return row(applicantName, status, ChallengerTrack.WEB_PRODUCT_ENGINEER);
+    }
+
+    private RecruitingApplicationSummaryRow row(
+        String applicantName,
+        RecruitingApplicationStatus status,
+        ChallengerTrack firstChoice
+    ) {
         return new RecruitingApplicationSummaryRow(
             1L,
             1L,
@@ -297,7 +336,7 @@ class RecruitingQueryServiceTest {
             900L,
             applicantName,
             "masked-source@umc.test",
-            ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            firstChoice,
             null,
             null,
             status,

@@ -24,6 +24,7 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQue
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -168,7 +169,12 @@ public class RecruitingQueryService implements
                 roundsBySchool.getOrDefault(school.schoolId(), List.of())
             ))
             .toList();
-        return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus(rows), schoolSummaries);
+        return new RecruitingStatusSummaryInfo(
+            (long) rows.size(),
+            countByStatus(rows),
+            partSummaries(rows),
+            schoolSummaries
+        );
     }
 
     private List<SchoolDetailInfo> listSummarySchools(RecruitingStatusSummaryQuery query) {
@@ -212,7 +218,8 @@ public class RecruitingQueryService implements
                     round.getType(),
                     round.getRoundNo(),
                     (long) roundRows.size(),
-                    countByStatus(roundRows)
+                    countByStatus(roundRows),
+                    partSummaries(roundRows)
                 );
             })
             .toList();
@@ -223,6 +230,7 @@ public class RecruitingQueryService implements
             school.chapterName(),
             (long) rows.size(),
             countByStatus(rows),
+            partSummaries(rows),
             roundSummaries
         );
     }
@@ -231,6 +239,24 @@ public class RecruitingQueryService implements
         Map<RecruitingApplicationStatus, Long> result = new EnumMap<>(RecruitingApplicationStatus.class);
         rows.forEach(row -> result.merge(row.applicationStatus(), 1L, Long::sum));
         return result;
+    }
+
+    /**
+     * 1지망(firstChoice) 파트 기준으로 상태별 개수를 교차집계한다.
+     * rows에 실제로 존재하는 파트만 ChallengerTrack.sortOrder 순으로 반환하므로 파트별 합계는 totalCount와 일치한다.
+     */
+    private List<RecruitingPartStatusSummaryInfo> partSummaries(List<RecruitingApplicationSummaryRow> rows) {
+        Map<ChallengerTrack, List<RecruitingApplicationSummaryRow>> rowsByPart = rows.stream()
+            .filter(row -> row.firstChoice() != null)
+            .collect(java.util.stream.Collectors.groupingBy(RecruitingApplicationSummaryRow::firstChoice));
+        return rowsByPart.entrySet().stream()
+            .sorted(Comparator.comparingInt(entry -> entry.getKey().getSortOrder()))
+            .map(entry -> new RecruitingPartStatusSummaryInfo(
+                entry.getKey(),
+                (long) entry.getValue().size(),
+                countByStatus(entry.getValue())
+            ))
+            .toList();
     }
 
     private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {

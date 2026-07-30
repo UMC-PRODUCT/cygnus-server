@@ -4,6 +4,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -13,6 +15,7 @@ import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 public record RecruitingStatusSummaryGraphQlResponse(
     Long totalCount,
     List<RecruitingStatusCountGraphQlResponse> countByStatus,
+    List<PartSummary> parts,
     List<SchoolSummary> schools
 ) {
 
@@ -26,6 +29,7 @@ public record RecruitingStatusSummaryGraphQlResponse(
                 .sorted(Comparator.comparing(entry -> entry.getKey().ordinal()))
                 .map(entry -> new RecruitingStatusCountGraphQlResponse(entry.getKey(), entry.getValue()))
                 .toList(),
+            toParts(info.parts()),
             info.schools().stream().map(SchoolSummary::from).toList()
         );
     }
@@ -37,6 +41,7 @@ public record RecruitingStatusSummaryGraphQlResponse(
         String chapterName,
         Long totalCount,
         List<RecruitingStatusCountGraphQlResponse> countByStatus,
+        List<PartSummary> parts,
         List<RoundSummary> rounds
     ) {
 
@@ -48,6 +53,7 @@ public record RecruitingStatusSummaryGraphQlResponse(
                 info.chapterName(),
                 info.totalCount(),
                 toStatusCounts(info.countByStatus()),
+                toParts(info.parts()),
                 info.rounds().stream().map(RoundSummary::from).toList()
             );
         }
@@ -59,7 +65,8 @@ public record RecruitingStatusSummaryGraphQlResponse(
         RecruitingRoundType roundType,
         Integer roundNo,
         Long totalCount,
-        List<RecruitingStatusCountGraphQlResponse> countByStatus
+        List<RecruitingStatusCountGraphQlResponse> countByStatus,
+        List<PartSummary> parts
     ) {
 
         private static RoundSummary from(RecruitingRoundStatusSummaryInfo info) {
@@ -69,9 +76,29 @@ public record RecruitingStatusSummaryGraphQlResponse(
                 info.roundType(),
                 info.roundNo(),
                 info.totalCount(),
+                toStatusCounts(info.countByStatus()),
+                toParts(info.parts())
+            );
+        }
+    }
+
+    public record PartSummary(
+        ChallengerTrack part,
+        Long totalCount,
+        List<RecruitingStatusCountGraphQlResponse> countByStatus
+    ) {
+
+        private static PartSummary from(RecruitingPartStatusSummaryInfo info) {
+            return new PartSummary(
+                info.part(),
+                info.totalCount(),
                 toStatusCounts(info.countByStatus())
             );
         }
+    }
+
+    private static List<PartSummary> toParts(List<RecruitingPartStatusSummaryInfo> parts) {
+        return parts == null ? List.of() : parts.stream().map(PartSummary::from).toList();
     }
 
     private static List<RecruitingStatusCountGraphQlResponse> toStatusCounts(

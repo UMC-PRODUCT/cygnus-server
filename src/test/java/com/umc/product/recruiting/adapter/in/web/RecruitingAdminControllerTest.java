@@ -59,6 +59,7 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluat
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -297,9 +298,12 @@ class RecruitingAdminControllerTest {
     void 상태_요약_API는_status별_count를_반환한다() throws Exception {
         Map<RecruitingApplicationStatus, Long> counts = new EnumMap<>(RecruitingApplicationStatus.class);
         counts.put(RecruitingApplicationStatus.SUBMITTED, 3L);
+        List<RecruitingPartStatusSummaryInfo> parts = List.of(
+            new RecruitingPartStatusSummaryInfo(ChallengerTrack.PLAN, 3L, counts)
+        );
         given(getApplicationQueryUseCase.getStatusSummary(any()))
-            .willReturn(new RecruitingStatusSummaryInfo(3L, counts, List.of(
-                new RecruitingSchoolStatusSummaryInfo(22L, "테스트대학교", 7L, "중앙", 3L, counts, List.of())
+            .willReturn(new RecruitingStatusSummaryInfo(3L, counts, parts, List.of(
+                new RecruitingSchoolStatusSummaryInfo(22L, "테스트대학교", 7L, "중앙", 3L, counts, parts, List.of())
             )));
 
         mockMvc.perform(get("/api/v1/recruiting/admin/summary")
@@ -310,7 +314,11 @@ class RecruitingAdminControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.totalCount").value(3L))
             .andExpect(jsonPath("$.result.countByStatus.SUBMITTED").value(3L))
-            .andExpect(jsonPath("$.result.schools[0].schoolName").value("테스트대학교"));
+            .andExpect(jsonPath("$.result.parts[0].part").value("PLAN"))
+            .andExpect(jsonPath("$.result.parts[0].totalCount").value(3L))
+            .andExpect(jsonPath("$.result.parts[0].countByStatus.SUBMITTED").value(3L))
+            .andExpect(jsonPath("$.result.schools[0].schoolName").value("테스트대학교"))
+            .andExpect(jsonPath("$.result.schools[0].parts[0].part").value("PLAN"));
 
         ArgumentCaptor<RecruitingStatusSummaryQuery> captor =
             ArgumentCaptor.forClass(RecruitingStatusSummaryQuery.class);

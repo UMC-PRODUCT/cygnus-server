@@ -178,9 +178,10 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             .willReturn(new RecruitingStatusSummaryInfo(
                 3L,
                 Map.of(RecruitingApplicationStatus.SUBMITTED, 3L),
+                List.of(),
                 List.of(new RecruitingSchoolStatusSummaryInfo(
                     22L, "테스트대학교", 3L, "중앙", 3L,
-                    Map.of(RecruitingApplicationStatus.SUBMITTED, 3L), List.of()
+                    Map.of(RecruitingApplicationStatus.SUBMITTED, 3L), List.of(), List.of()
                 ))
             ));
 
