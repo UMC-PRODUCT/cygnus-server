@@ -25,7 +25,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 
 import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
@@ -321,7 +320,7 @@ class RecruitingDecisionHistoryQueryServiceTest {
         @Test
         @DisplayName("CSV는 마스킹된 이메일과 닉네임만 포함하고 실명은 포함하지 않는다")
         void csvExcludesRawEmailAndRealNames() {
-            given(loadDecisionHistoryPort.searchRows(any(), eq(Pageable.unpaged()))).willReturn(
+            given(loadDecisionHistoryPort.searchRows(any(), any())).willReturn(
                 new PageImpl<>(List.of(row(1L, HANYANG_SCHOOL_ID, ChallengerRoleType.SCHOOL_PRESIDENT, 70L)))
             );
 

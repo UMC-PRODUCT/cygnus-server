@@ -9,6 +9,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +67,11 @@ public class RecruitingDecisionHistoryQueryService implements
         RecruitingApplicationStatus.FINAL_FAILED
     );
 
+    /**
+     * CSV 한 번에 내려받을 수 있는 최대 행 수입니다. 완전 스트리밍 전까지 메모리 사용량을 제한하기 위한 상한입니다.
+     */
+    private static final int MAX_EXPORT_ROWS = 50_000;
+
     private static final String CSV_HEADER = String.join(",",
         "decidedAt",
         "decisionStatus",
@@ -110,7 +116,10 @@ public class RecruitingDecisionHistoryQueryService implements
         validateReadAccess(query.requesterMemberId(), query.gisuId());
         List<SchoolDetailInfo> scopedSchools = listScopedSchools(query);
         List<RecruitingDecisionHistoryRow> rows =
-            searchRowPage(query, scopedSchools, Pageable.unpaged()).getContent();
+            searchRowPage(query, scopedSchools, PageRequest.of(0, MAX_EXPORT_ROWS + 1)).getContent();
+        if (rows.size() > MAX_EXPORT_ROWS) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_DECISION_HISTORY_EXPORT_TOO_LARGE);
+        }
 
         Map<Long, SchoolDetailInfo> schoolById = scopedSchools.stream()
             .collect(Collectors.toMap(SchoolDetailInfo::schoolId, school -> school));
