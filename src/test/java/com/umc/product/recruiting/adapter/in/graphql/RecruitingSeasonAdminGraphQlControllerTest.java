@@ -29,6 +29,7 @@ import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.exception.constant.CommonErrorCode;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
@@ -274,6 +275,16 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     }
 
     @Test
+    @DisplayName("GraphQL 평가 이력은 양수가 아닌 기수·지부·학교 ID를 거부한다")
+    void decisionHistoriesRejectNonPositiveIdentifiers() {
+        assertInvalidDecisionHistoryInput("gisuId: 0");
+        assertInvalidDecisionHistoryInput("gisuId: 11, chapterId: -1");
+        assertInvalidDecisionHistoryInput("gisuId: 11, schoolId: -1");
+
+        then(searchDecisionHistoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("GraphQL 모집 목록은 시즌별 그룹과 필터를 반환한다")
     void searchRoundGroups() {
         given(searchRoundGroupUseCase.searchRoundGroups(any())).willReturn(List.of(
@@ -328,6 +339,22 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             .satisfy(errors -> assertThat(errors).hasSize(1));
 
         then(searchRoundGroupUseCase).shouldHaveNoInteractions();
+    }
+
+    private void assertInvalidDecisionHistoryInput(String input) {
+        graphQlTester.document("""
+                query {
+                  recruitingDecisionHistories(input: { %s }) { totalElements }
+                }
+                """.formatted(input))
+            .execute()
+            .errors()
+            .satisfy(errors -> {
+                assertThat(errors).hasSize(1);
+                assertThat(errors.get(0).getPath()).isEqualTo("recruitingDecisionHistories");
+                assertThat(errors.get(0).getExtensions())
+                    .containsEntry("code", CommonErrorCode.BAD_REQUEST.getCode());
+            });
     }
 
     private RecruitingRoundConfigurationInfo roundConfiguration() {

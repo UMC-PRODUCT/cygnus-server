@@ -23,6 +23,12 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
     Integer size
 ) {
 
+    public RecruitingDecisionHistorySearchGraphQlRequest {
+        requirePositive(gisuId, "gisuId");
+        requirePositiveIfPresent(chapterId, "chapterId");
+        requirePositiveIfPresent(schoolId, "schoolId");
+    }
+
     public RecruitingDecisionHistorySearchQuery toQuery(Long requesterMemberId) {
         int pageNumber = page == null ? 0 : page;
         int pageSize = size == null ? 20 : size;
@@ -41,5 +47,17 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
             .requesterMemberId(requesterMemberId)
             .pageable(PageRequest.of(pageNumber, pageSize))
             .build();
+    }
+
+    private static void requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
+        }
+    }
+
+    private static void requirePositiveIfPresent(Long value, String fieldName) {
+        if (value != null) {
+            requirePositive(value, fieldName);
+        }
     }
 }
