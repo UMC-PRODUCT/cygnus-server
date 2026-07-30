@@ -22,7 +22,6 @@ import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
@@ -95,8 +94,8 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
             row(20L, ChallengerTrack.MOBILE_PRODUCT_ENGINEER, RecruitingApplicationStatus.INTERVIEW_ASSIGNED, 5L)
         ));
         given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
-            schoolName(10L, "가온", 1L, "한국대"),
-            schoolName(20L, "나래", 2L, "중앙대")
+            schoolName(1L, "가온", 10L, "한국대"),
+            schoolName(2L, "나래", 20L, "중앙대")
         ));
 
         RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
@@ -125,7 +124,7 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
             row(10L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 3L)
         ));
         given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
-            schoolName(10L, "가온", 1L, "한국대")
+            schoolName(1L, "가온", 10L, "한국대")
         ));
 
         RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
@@ -151,9 +150,9 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
             row(30L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 2L)
         ));
         given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
-            schoolName(30L, "나래", 2L, "홍익대"),
-            schoolName(20L, "가온", 1L, "중앙대"),
-            schoolName(10L, "가온", 1L, "건국대")
+            schoolName(2L, "나래", 30L, "홍익대"),
+            schoolName(1L, "가온", 20L, "중앙대"),
+            schoolName(1L, "가온", 10L, "건국대")
         ));
 
         RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
@@ -181,7 +180,7 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
             row(999L, ChallengerTrack.PLAN, RecruitingApplicationStatus.FINAL_PASSED, 7L)
         ));
         given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
-            schoolName(10L, "가온", 1L, "한국대")
+            schoolName(1L, "가온", 10L, "한국대")
         ));
 
         RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
@@ -211,11 +210,6 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
         Long count
     ) {
         return new RecruitingEvaluationStatisticsRow(schoolId, track, status, count);
-    }
-
-    private SchoolDetailInfo school(Long chapterId, String chapterName, Long schoolId, String schoolName) {
-        return new SchoolDetailInfo(chapterId, chapterName, schoolName, schoolId,
-            null, null, List.of(), true, NOW, NOW);
     }
 
     private SchoolChapterNameInfo schoolName(Long chapterId, String chapterName, Long schoolId, String schoolName) {
