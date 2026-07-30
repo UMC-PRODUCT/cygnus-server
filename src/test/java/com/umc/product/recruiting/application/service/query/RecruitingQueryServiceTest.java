@@ -28,6 +28,8 @@ import com.umc.product.organization.application.port.in.query.dto.school.SchoolD
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
@@ -197,6 +199,107 @@ class RecruitingQueryServiceTest {
             assertThat(part.totalCount()).isZero();
             assertThat(part.countByStatus()).isEmpty();
         });
+    }
+
+    @Test
+    @DisplayName("상태 요약은 학교·Round가 여러 개일 때도 각 계층의 parts를 해당 그룹 rows로만 집계한다")
+    void statusSummaryAggregatesPartsPerSchoolAndRound() {
+        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        RecruitingSeason season10 = RecruitingSeason.create(1L, 10L);
+        ReflectionTestUtils.setField(season10, "id", 5L);
+        RecruitingSeason season11 = RecruitingSeason.create(1L, 11L);
+        ReflectionTestUtils.setField(season11, "id", 6L);
+        RecruitingRound round20 = summaryRound(season10, 20L, "A대 1차");
+        RecruitingRound round22 = summaryRound(season10, 22L, "A대 2차");
+        RecruitingRound round21 = summaryRound(season11, 21L, "B대 1차");
+        given(getSchoolUseCase.getSchoolListByGisuId(1L))
+            .willReturn(List.of(school(10L, "A대학교"), school(11L, "B대학교")));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season10, season11));
+        given(loadRoundPort.listBySeasonIds(List.of(5L, 6L))).willReturn(List.of(round20, round22, round21));
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L, 11L), null, SUMMARY_STATUSES)).willReturn(List.of(
+            row("A웹서류", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.WEB_PRODUCT_ENGINEER, 10L, 20L),
+            row("A기획서류", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.PLAN, 10L, 20L),
+            row("A웹최종", RecruitingApplicationStatus.FINAL_PASSED, ChallengerTrack.WEB_PRODUCT_ENGINEER, 10L, 22L),
+            row("B기획", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.PLAN, 11L, 21L),
+            row("B디자인", RecruitingApplicationStatus.DOCUMENT_FAILED, ChallengerTrack.DESIGN, 11L, 21L)
+        ));
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L, 11L), Set.of()));
+
+        // 전체: PLAN 2, DESIGN 1, WEB 2, MOBILE 0
+        assertThat(partTotal(result.parts(), ChallengerTrack.PLAN)).isEqualTo(2L);
+        assertThat(partTotal(result.parts(), ChallengerTrack.DESIGN)).isEqualTo(1L);
+        assertThat(partTotal(result.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER)).isEqualTo(2L);
+        assertThat(partTotal(result.parts(), ChallengerTrack.MOBILE_PRODUCT_ENGINEER)).isZero();
+        assertPartSumMatchesTotal(result.parts(), result.totalCount());
+
+        RecruitingSchoolStatusSummaryInfo schoolA = schoolOf(result, 10L);
+        assertThat(partTotal(schoolA.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER)).isEqualTo(2L);
+        assertThat(partStatus(schoolA.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            RecruitingApplicationStatus.SUBMITTED)).isEqualTo(1L);
+        assertThat(partStatus(schoolA.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            RecruitingApplicationStatus.FINAL_PASSED)).isEqualTo(1L);
+        assertThat(partTotal(schoolA.parts(), ChallengerTrack.PLAN)).isEqualTo(1L);
+        assertThat(partTotal(schoolA.parts(), ChallengerTrack.DESIGN)).isZero();
+        assertPartSumMatchesTotal(schoolA.parts(), schoolA.totalCount());
+
+        RecruitingSchoolStatusSummaryInfo schoolB = schoolOf(result, 11L);
+        assertThat(partTotal(schoolB.parts(), ChallengerTrack.PLAN)).isEqualTo(1L);
+        assertThat(partTotal(schoolB.parts(), ChallengerTrack.DESIGN)).isEqualTo(1L);
+        assertThat(partTotal(schoolB.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER)).isZero();
+        assertPartSumMatchesTotal(schoolB.parts(), schoolB.totalCount());
+
+        RecruitingRoundStatusSummaryInfo round20Info = roundOf(schoolA, 20L);
+        assertThat(partTotal(round20Info.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER)).isEqualTo(1L);
+        assertThat(partTotal(round20Info.parts(), ChallengerTrack.PLAN)).isEqualTo(1L);
+        RecruitingRoundStatusSummaryInfo round22Info = roundOf(schoolA, 22L);
+        assertThat(partTotal(round22Info.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER)).isEqualTo(1L);
+        assertThat(partStatus(round22Info.parts(), ChallengerTrack.WEB_PRODUCT_ENGINEER,
+            RecruitingApplicationStatus.FINAL_PASSED)).isEqualTo(1L);
+        assertThat(partTotal(round22Info.parts(), ChallengerTrack.PLAN)).isZero();
+        RecruitingRoundStatusSummaryInfo round21Info = roundOf(schoolB, 21L);
+        assertThat(partTotal(round21Info.parts(), ChallengerTrack.PLAN)).isEqualTo(1L);
+        assertThat(partStatus(round21Info.parts(), ChallengerTrack.DESIGN,
+            RecruitingApplicationStatus.DOCUMENT_FAILED)).isEqualTo(1L);
+    }
+
+    private RecruitingSchoolStatusSummaryInfo schoolOf(RecruitingStatusSummaryInfo result, Long schoolId) {
+        return result.schools().stream()
+            .filter(school -> school.schoolId().equals(schoolId))
+            .findFirst()
+            .orElseThrow();
+    }
+
+    private RecruitingRoundStatusSummaryInfo roundOf(RecruitingSchoolStatusSummaryInfo school, Long roundId) {
+        return school.rounds().stream()
+            .filter(round -> round.roundId().equals(roundId))
+            .findFirst()
+            .orElseThrow();
+    }
+
+    private long partTotal(List<RecruitingPartStatusSummaryInfo> parts, ChallengerTrack track) {
+        return parts.stream()
+            .filter(part -> part.part() == track)
+            .findFirst()
+            .orElseThrow()
+            .totalCount();
+    }
+
+    private long partStatus(
+        List<RecruitingPartStatusSummaryInfo> parts,
+        ChallengerTrack track,
+        RecruitingApplicationStatus status
+    ) {
+        return parts.stream()
+            .filter(part -> part.part() == track)
+            .findFirst()
+            .orElseThrow()
+            .countByStatus()
+            .getOrDefault(status, 0L);
+    }
+
+    private void assertPartSumMatchesTotal(List<RecruitingPartStatusSummaryInfo> parts, Long totalCount) {
+        assertThat(parts.stream().mapToLong(part -> part.totalCount()).sum()).isEqualTo(totalCount);
     }
 
     @Test
@@ -371,11 +474,21 @@ class RecruitingQueryServiceTest {
         RecruitingApplicationStatus status,
         ChallengerTrack firstChoice
     ) {
+        return row(applicantName, status, firstChoice, 10L, 20L);
+    }
+
+    private RecruitingApplicationSummaryRow row(
+        String applicantName,
+        RecruitingApplicationStatus status,
+        ChallengerTrack firstChoice,
+        Long schoolId,
+        Long roundId
+    ) {
         return new RecruitingApplicationSummaryRow(
             1L,
             1L,
-            10L,
-            20L,
+            schoolId,
+            roundId,
             "15기 본모집",
             RecruitingRoundType.REGULAR,
             1,
