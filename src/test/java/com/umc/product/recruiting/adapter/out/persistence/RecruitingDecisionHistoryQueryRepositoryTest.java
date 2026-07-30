@@ -1,6 +1,7 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 import java.time.Instant;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -95,6 +97,21 @@ class RecruitingDecisionHistoryQueryRepositoryTest {
             assertThat(row.deciderName()).isEqualTo("판정 담당자 700");
             assertThat(row.deciderNickname()).isEqualTo("판정닉700");
         });
+    }
+
+    @Test
+    @DisplayName("같은 지원서의 판정 이력은 데이터베이스에서 중복 저장할 수 없다")
+    void decisionHistoryIsUniqueByApplication() {
+        RecruitingApplication application = persistApplication(HANYANG_SCHOOL_ID, "박유엠");
+        application.skipInterview(700L, "면접 미진행");
+        application.passFinal(700L, "최종 합격", ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        decisionHistoryAdapter.save(RecruitingDecisionHistory.create(application, deciderSnapshot(700L)));
+        em.flush();
+
+        assertThatThrownBy(() -> {
+            decisionHistoryAdapter.save(RecruitingDecisionHistory.create(application, deciderSnapshot(701L)));
+            em.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     @Test

@@ -20,13 +20,11 @@ CREATE TABLE public.recruiting_decision_history
     CONSTRAINT pk_recruiting_decision_history PRIMARY KEY (id),
     CONSTRAINT fk_recruiting_decision_history_application
         FOREIGN KEY (recruiting_application_id) REFERENCES public.recruiting_application (id),
+    CONSTRAINT uk_recruiting_decision_history_application UNIQUE (recruiting_application_id),
     CONSTRAINT recruiting_decision_history_status_check CHECK (
         decision_status IN ('DOCUMENT_FAILED', 'FINAL_PASSED', 'FINAL_FAILED')
     )
 );
-
-CREATE INDEX ix_recruiting_decision_history_application
-    ON public.recruiting_decision_history (recruiting_application_id);
 
 CREATE INDEX ix_recruiting_decision_history_decided_at
     ON public.recruiting_decision_history (decided_at);
