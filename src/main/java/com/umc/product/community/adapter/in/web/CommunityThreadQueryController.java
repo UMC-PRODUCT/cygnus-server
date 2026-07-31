@@ -16,7 +16,7 @@ import com.umc.product.community.adapter.in.web.dto.response.CommunityThreadMess
 import com.umc.product.community.adapter.in.web.validation.CodePointLength;
 import com.umc.product.community.adapter.in.web.validation.PositiveDecimalId;
 import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
@@ -45,7 +45,7 @@ import lombok.RequiredArgsConstructor;
 public class CommunityThreadQueryController {
 
     private final BrowseCommunityThreadsUseCase browseThreadsUseCase;
-    private final GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private final GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
     private final ListCommunityThreadMembersUseCase listThreadMembersUseCase;
     private final SearchCommunityThreadInvitableUseCase searchThreadInvitableUseCase;
     private final GetCommunityThreadMessageHistoryUseCase getMessageHistoryUseCase;
@@ -73,7 +73,7 @@ public class CommunityThreadQueryController {
         @PathVariable @PositiveDecimalId String threadId,
         @CurrentMember MemberPrincipal principal
     ) {
-        return CommunityThreadDetailResponse.from(getThreadDetailUseCase.getThread(
+        return CommunityThreadDetailResponse.from(getPublicThreadUseCase.getPublicThread(
             new GetThreadDetailQuery(CommunityWebNumbers.id(threadId), principal.getMemberId())
         ));
     }

@@ -19,6 +19,7 @@ import com.umc.product.community.application.port.in.query.thread.BrowseCommunit
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMembersByIdsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
@@ -65,6 +66,7 @@ public class CommunityThreadQueryService implements
     ListCommunityThreadsUseCase,
     BrowseCommunityThreadsUseCase,
     GetCommunityThreadDetailUseCase,
+    GetPublicCommunityThreadDetailUseCase,
     GetCommunityThreadMembersByIdsUseCase,
     GetCommunityThreadMutationDetailUseCase,
     ListCommunityThreadMembersUseCase,
@@ -137,6 +139,17 @@ public class CommunityThreadQueryService implements
     }
 
     @Override
+    public ThreadDetailInfo getPublicThread(GetThreadDetailQuery query) {
+        CommunityThreadQueryRow row = getPublicReadableThread(query.threadId(), query.requesterMemberId());
+        Map<Long, MemberInfo> senders = loadVisibleSenders(List.of(row), List.of());
+        return ThreadDetailInfo.from(
+            toSummary(row, senders),
+            SHARE_PATH_PREFIX + row.threadId(),
+            row.deletedAt()
+        );
+    }
+
+    @Override
     public ThreadDetailInfo getMutationDetail(GetThreadDetailQuery query) {
         CommunityThreadQueryRow row = getMutationReadableThread(
             query.threadId(),
@@ -178,7 +191,7 @@ public class CommunityThreadQueryService implements
 
     @Override
     public ThreadMemberPageInfo listMembers(ListThreadMembersQuery query) {
-        CommunityThreadQueryRow thread = getReadableThread(query.threadId(), query.requesterMemberId());
+        CommunityThreadQueryRow thread = getPublicReadableThread(query.threadId(), query.requesterMemberId());
         List<CommunityThreadMemberRow> rows = threadQueryPort.listActiveThreadMembers(query.threadId());
         if (rows.isEmpty()) {
             return new ThreadMemberPageInfo(List.of(), null, 0L);
@@ -239,6 +252,15 @@ public class CommunityThreadQueryService implements
         }
         if (row.requesterState() != CommunityThreadMemberState.ACTIVE) {
             throw new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        }
+        return row;
+    }
+
+    private CommunityThreadQueryRow getPublicReadableThread(Long threadId, Long requesterMemberId) {
+        CommunityThreadQueryRow row = threadQueryPort.findThread(threadId, requesterMemberId)
+            .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.THREAD_NOT_FOUND));
+        if (row.deletedAt() != null) {
+            throw new CommunityDomainException(CommunityErrorCode.THREAD_DELETED);
         }
         return row;
     }
