@@ -1,11 +1,12 @@
 package com.umc.product.community.application.port.out.dto;
 
-import com.umc.product.community.adapter.out.persistence.entity.PostJpaEntity;
+import java.time.Instant;
+
 import com.umc.product.community.application.port.in.query.dto.PostSearchResult;
 import com.umc.product.community.application.port.in.query.dto.PostSearchResult.MatchType;
 import com.umc.product.community.domain.Post;
 import com.umc.product.community.domain.enums.Category;
-import java.time.Instant;
+
 import lombok.Builder;
 
 @Builder
@@ -20,24 +21,9 @@ public record PostSearchData(
     int relevanceScore
 ) {
 
-    public static PostSearchData from(PostJpaEntity post, MatchType matchType, int relevanceScore) {
-        return PostSearchData.builder()
-            .postId(post.getId())
-            .title(post.getTitle())
-            .content(post.getContent())
-            .category(post.getCategory())
-            .likeCount(post.getLikeCount())
-            .createdAt(post.getCreatedAt())
-
-            // TODO: 이거 두 개 필요한게 맞나? 왜 구현되었는지 .. - 경운 to 예은
-            .matchType(matchType)
-            .relevanceScore(relevanceScore)
-            .build();
-    }
-
     public static PostSearchData from(Post post, MatchType matchType, int relevanceScore) {
         return PostSearchData.builder()
-            .postId(post.getPostId().id())
+            .postId(post.getId())
             .title(post.getTitle())
             .content(post.getContent())
             .category(post.getCategory())

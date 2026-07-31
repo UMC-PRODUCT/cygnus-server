@@ -31,8 +31,8 @@ src/main/java/com/umc/product/storage/** @kyeoungwoon
 src/main/java/com/umc/product/community/** @sopp1313
 
 # 커리큘럼, 조직 관련
-src/main/java/com/umc/product/curriculum/** @wlgusqkr @kyeoungwoon @psb3707
-src/main/java/com/umc/product/organization/** @wlgusqkr @kyeoungwoon @psb3707
+src/main/java/com/umc/product/curriculum/** @wlgusqkr @kyeoungwoon
+src/main/java/com/umc/product/organization/** @wlgusqkr @kyeoungwoon
 
 # 공지사항
 src/main/java/com/umc/product/notice/** @kanghana1 @seamooll @kyeoungwoon

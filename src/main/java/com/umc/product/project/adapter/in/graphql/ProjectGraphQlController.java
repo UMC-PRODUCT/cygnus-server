@@ -14,9 +14,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.lang.Nullable;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
@@ -24,7 +23,9 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.project.adapter.in.graphql.dto.MemberBriefGraphQlResponse;
@@ -59,20 +60,25 @@ public class ProjectGraphQlController {
     private final GetProjectApplicationDetailUseCase getProjectApplicationDetailUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final CheckPermissionUseCase checkPermissionUseCase;
+    private final CurrentMemberProvider currentMemberProvider;
 
     @QueryMapping
-    public ProjectGraphQlResponse project(@Argument Long id) {
-        Long requesterMemberId = currentMemberId();
+    public ProjectGraphQlResponse project(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long id
+    ) {
+        Long requesterMemberId = currentMemberId(memberPrincipal);
         checkPermissionUseCase.checkOrThrow(requesterMemberId, projectReadPermission(id));
         return ProjectGraphQlResponse.from(getProjectUseCase.getById(id));
     }
 
     @QueryMapping
     public ProjectPageGraphQlResponse projects(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument ProjectSearchGraphQlRequest input,
         @Argument ProjectPageGraphQlRequest page
     ) {
-        Long requesterMemberId = currentMemberId();
+        Long requesterMemberId = currentMemberId(memberPrincipal);
         checkPermissionUseCase.checkOrThrow(
             requesterMemberId,
             ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.READ)
@@ -222,15 +228,14 @@ public class ProjectGraphQlController {
         return result;
     }
 
+    private Long currentMemberId(MemberPrincipal memberPrincipal) {
+        return memberPrincipal == null
+            ? currentMemberProvider.getRequiredCurrentMemberId()
+            : memberPrincipal.getMemberId();
+    }
+
     private Long currentMemberId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new AccessDeniedException("로그인이 필요해요. 로그인 후 다시 시도해주세요.");
-        }
-        if (authentication.getPrincipal() instanceof MemberPrincipal principal) {
-            return principal.getMemberId();
-        }
-        throw new AccessDeniedException("인증 정보가 올바르지 않아요. 다시 로그인해주세요.");
+        return currentMemberProvider.getRequiredCurrentMemberId();
     }
 
     private void assertProjectRead(SubjectAttributes subject, Long projectId) {

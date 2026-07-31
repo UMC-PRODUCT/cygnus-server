@@ -49,6 +49,8 @@ import com.umc.product.global.websocket.application.port.out.BroadcastPort;
 import com.umc.product.global.websocket.application.service.StompSubscriptionAuthorizerRegistry;
 import com.umc.product.global.websocket.handler.ApiResponseStompErrorHandler;
 import com.umc.product.global.websocket.handler.WebSocketErrorPublisher;
+import com.umc.product.global.websocket.relay.RelayDestinationChannelInterceptors;
+import com.umc.product.global.websocket.relay.RelayDestinationCodec;
 
 import io.micrometer.context.ContextSnapshotFactory;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -101,6 +103,33 @@ class StompSubscriptionAuthorizationIntegrationTest {
         }
     }
 
+    @Test
+    @DisplayName("SockJS의 raw WebSocket transport로 native STOMP client가 연결하고 broadcast를 수신한다")
+    void nativeWebSocketTransportReceivesBroadcast() throws Exception {
+        when(jwtTokenProvider.parseAndValidateAccessToken(eq("valid-token")))
+            .thenReturn(new ParsedAccessToken(10L, List.of(), null));
+
+        BlockingQueue<String> messages = new LinkedBlockingQueue<>();
+        WebSocketStompClient stompClient = nativeStompClient();
+        StompSession session = null;
+
+        try {
+            session = connectNative(stompClient);
+            session.subscribe(DESTINATION, frameHandler(messages));
+
+            String receivedMessage = awaitBroadcast(messages);
+
+            assertThat(receivedMessage)
+                .contains("\"id\":100")
+                .contains("\"content\":\"안녕하세요\"");
+        } finally {
+            if (session != null && session.isConnected()) {
+                session.disconnect();
+            }
+            stompClient.stop();
+        }
+    }
+
     private String awaitBroadcast(BlockingQueue<String> messages) throws InterruptedException {
         for (int attempt = 0; attempt < 20; attempt++) {
             broadcastPort.broadcast(DESTINATION, new TestPayload(100L, "안녕하세요"));
@@ -124,12 +153,28 @@ class StompSubscriptionAuthorizationIntegrationTest {
         ).get(5, TimeUnit.SECONDS);
     }
 
+    private StompSession connectNative(WebSocketStompClient stompClient) throws Exception {
+        StompHeaders connectHeaders = new StompHeaders();
+        connectHeaders.add("Authorization", "Bearer valid-token");
+        return stompClient.connectAsync(
+            "ws://localhost:%d/ws/websocket".formatted(port),
+            new WebSocketHttpHeaders(),
+            connectHeaders,
+            new StompSessionHandlerAdapter() {
+            }
+        ).get(5, TimeUnit.SECONDS);
+    }
+
     private WebSocketStompClient stompClient() {
         SockJsClient sockJsClient = new SockJsClient(
             List.of(new WebSocketTransport(new StandardWebSocketClient()))
         );
         WebSocketStompClient stompClient = new WebSocketStompClient(sockJsClient);
         return stompClient;
+    }
+
+    private WebSocketStompClient nativeStompClient() {
+        return new WebSocketStompClient(new StandardWebSocketClient());
     }
 
     private StompFrameHandler frameHandler(BlockingQueue<String> messages) {
@@ -172,7 +217,9 @@ class StompSubscriptionAuthorizationIntegrationTest {
         WebSocketRateLimitInterceptor.class,
         WebSocketInboundMetricInterceptor.class,
         WebSocketOutboundMetricInterceptor.class,
-        ShutdownAwareHandshakeInterceptor.class
+        ShutdownAwareHandshakeInterceptor.class,
+        RelayDestinationChannelInterceptors.class,
+        RelayDestinationCodec.class
     })
     static class TestApplication {
 

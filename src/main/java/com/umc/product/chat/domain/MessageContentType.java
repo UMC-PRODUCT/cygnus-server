@@ -8,7 +8,7 @@ package com.umc.product.chat.domain;
  *     <li>{@code TEXT} — 일반 텍스트 메시지.</li>
  *     <li>{@code IMAGE} — 이미지 첨부 (content는 캡션, fileMetadataIds에 이미지 참조).</li>
  *     <li>{@code FILE} — 파일 첨부 (content는 캡션, fileMetadataIds에 파일 참조).</li>
- *     <li>{@code SYSTEM} — 시스템 자동 생성 메시지 (입장/퇴장 등, senderMemberId 없음).</li>
+ *     <li>{@code SYSTEM} — 자동 안내 또는 삭제 tombstone 메시지. tombstone은 원 발신자를 보존한다.</li>
  * </ul>
  */
 public enum MessageContentType {

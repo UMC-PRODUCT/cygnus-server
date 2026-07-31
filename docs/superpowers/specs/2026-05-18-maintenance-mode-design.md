@@ -1,6 +1,7 @@
 # 점검 모드(Maintenance Mode) 설계 문서
 
 작성일: 2026-05-18
+갱신일: 2026-07-17 — 커뮤니티 Trophy 경로 제거 반영
 도메인: `maintenance` (신설)
 관련 PR: TBD (구현 후 추가)
 
@@ -55,7 +56,7 @@ CHALLENGER   → /api/v1/challenger/**, /api/v1/challenger-record/**
 PROJECT      → /api/v1/projects/**, /api/v1/project/**
 SCHEDULE     → /api/v1/schedules/**, /api/v1/study-groups/schedules/**
 NOTICE       → /api/v1/notices/**
-COMMUNITY    → /api/v1/posts/**, /api/v1/trophies/**
+COMMUNITY    → /api/v1/posts/**
 ORGANIZATION → /api/v1/gisu/**, /api/v1/schools/**, /api/v1/chapters/**, /api/v1/study-groups/**
 NOTIFICATION → /api/v1/notification/**
 MEMBER       → /api/v1/member/**

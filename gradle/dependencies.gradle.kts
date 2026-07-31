@@ -23,6 +23,7 @@ dependencies {
     add("implementation", "org.springframework.boot:spring-boot-starter-web")
     add("implementation", "org.springframework.boot:spring-boot-starter-validation")
     add("implementation", "org.springframework.boot:spring-boot-starter-websocket")
+    add("implementation", "io.projectreactor.netty:reactor-netty-core")
     add("implementation", "org.springframework.boot:spring-boot-starter-aop")
     add("implementation", "org.springframework.boot:spring-boot-starter-actuator")
     add("implementation", "org.springframework.boot:spring-boot-starter-security")

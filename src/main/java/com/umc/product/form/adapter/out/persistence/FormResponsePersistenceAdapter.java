@@ -81,6 +81,11 @@ public class FormResponsePersistenceAdapter implements LoadFormResponsePort, Sav
     }
 
     @Override
+    public boolean existsByFormId(Long formId) {
+        return formResponseJpaRepository.existsByForm_Id(formId);
+    }
+
+    @Override
     @Transactional
     public int deleteByFormIdAndStatus(Long formId, FormResponseStatus status) {
         return formResponseJpaRepository.deleteByFormIdAndStatus(formId, status);

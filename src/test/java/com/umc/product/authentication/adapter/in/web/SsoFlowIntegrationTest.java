@@ -29,7 +29,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -58,7 +58,11 @@ import com.umc.product.support.fixture.SchoolFixture;
 
 import jakarta.servlet.http.Cookie;
 
-@ActiveProfiles("dev")
+@TestPropertySource(properties = {
+    "app.sso.clients.backoffice.environment=DEV",
+    "app.sso.clients.backoffice.redirect-uris[0]=https://dev.admin.university.neordinary.com/auth/callback",
+    "app.sso.clients.backoffice.allowed-origins[0]=https://dev.admin.university.neordinary.com"
+})
 @DisplayName("SSO Authorization Code + PKCE 통합 흐름")
 class SsoFlowIntegrationTest extends IntegrationTestSupport {
 

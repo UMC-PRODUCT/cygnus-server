@@ -37,10 +37,12 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
@@ -60,7 +62,7 @@ import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 
 @GraphQlTest({MemberGraphQlController.class, OrganizationGraphQlController.class})
-@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class})
+@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, CurrentMemberSecurityConfig.class})
 @DisplayName("MemberGraphQlController")
 class MemberGraphQlControllerTest {
 
@@ -1029,7 +1031,14 @@ class MemberGraphQlControllerTest {
         ChallengerPart part,
         ChallengerStatus status
     ) {
-        return new ChallengerBasicInfo(challengerId, memberId, gisuId, part, status);
+        return new ChallengerBasicInfo(
+            challengerId,
+            memberId,
+            gisuId,
+            part,
+            List.of(ChallengerTrack.from(part)),
+            status
+        );
     }
 
     private GisuInfo gisu(Long gisuId, Long generation) {
@@ -1041,4 +1050,5 @@ class MemberGraphQlControllerTest {
             true
         );
     }
+
 }

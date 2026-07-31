@@ -1,11 +1,13 @@
 package com.umc.product.community.application.port.in.query.dto;
 
+import java.time.Instant;
+
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.community.domain.Post;
 import com.umc.product.community.domain.enums.Category;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import java.time.Instant;
+
 import lombok.Builder;
 
 @Builder
@@ -31,6 +33,15 @@ public record PostInfo(
 ) {
 
     public static PostInfo from(Post post, MemberInfo memberInfo, ChallengerInfo challengerInfo) {
+        return from(post, memberInfo, challengerInfo, false);
+    }
+
+    public static PostInfo from(
+        Post post,
+        MemberInfo memberInfo,
+        ChallengerInfo challengerInfo,
+        boolean liked
+    ) {
         Long authorChallengerId = post.getAuthorChallengerId();
 
         Long authorMemberId = memberInfo != null ? memberInfo.id() : null;
@@ -52,7 +63,7 @@ public record PostInfo(
         }
 
         return builder
-            .postId(post.getPostId().id())
+            .postId(post.getId())
             .title(post.getTitle())
             .content(post.getContent())
             .category(post.getCategory())
@@ -64,7 +75,7 @@ public record PostInfo(
             .authorPart(authorPart)
             .createdAt(post.getCreatedAt())
             .likeCount(post.getLikeCount())
-            .isLiked(post.isLiked())
+            .isLiked(liked)
             .build();
     }
 
@@ -81,8 +92,15 @@ public record PostInfo(
     public static PostInfo from(
         Post post, Long authorId, String authorName, String authorProfileImage,
         ChallengerPart authorPart, int commentCount) {
+        return from(post, authorId, authorName, authorProfileImage, authorPart, commentCount, false);
+    }
 
-        Long postId = post.getPostId() != null ? post.getPostId().id() : null;
+    @Deprecated
+    public static PostInfo from(
+        Post post, Long authorId, String authorName, String authorProfileImage,
+        ChallengerPart authorPart, int commentCount, boolean liked) {
+
+        Long postId = post.getId();
         PostInfoBuilder builder = PostInfo.builder()
             .postId(postId)
             .title(post.getTitle())
@@ -95,7 +113,7 @@ public record PostInfo(
             .createdAt(post.getCreatedAt())
             .commentCount(commentCount)
             .likeCount(post.getLikeCount())
-            .isLiked(post.isLiked());
+            .isLiked(liked);
 
         if (post.isLightning()) {
             Post.LightningInfo info = post.getLightningInfoOrThrow();

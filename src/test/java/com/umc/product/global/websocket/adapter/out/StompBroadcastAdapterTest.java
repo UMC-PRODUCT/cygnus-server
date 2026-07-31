@@ -51,6 +51,19 @@ class StompBroadcastAdapterTest {
     }
 
     @Test
+    @DisplayName("사용자와 destination을 가공하지 않고 user destination으로 전송한다")
+    void broadcastToUserUsesArgumentsAsIs() {
+        String userName = "20";
+        String destination = "/queue/community/threads/events";
+        TestPayload payload = new TestPayload(100L, "안녕하세요");
+
+        sut.broadcastToUser(userName, destination, payload);
+
+        then(messagingTemplate).should().convertAndSendToUser(userName, destination, payload);
+        then(messagingTemplate).shouldHaveNoMoreInteractions();
+    }
+
+    @Test
     @DisplayName("브로커 예외 발생 시 예외를 삼키지 않고 그대로 전파한다")
     void broadcastPropagatesBrokerException() {
         // given
@@ -61,6 +74,20 @@ class StompBroadcastAdapterTest {
 
         // when & then
         assertThatThrownBy(() -> sut.broadcast(destination, payload))
+            .isInstanceOf(MessagingException.class)
+            .hasMessageContaining("브로커 연결 실패");
+    }
+
+    @Test
+    @DisplayName("user destination 전송 중 broker 예외를 그대로 전파한다")
+    void broadcastToUserPropagatesBrokerException() {
+        String userName = "20";
+        String destination = "/queue/community/threads/events";
+        TestPayload payload = new TestPayload(100L, "안녕하세요");
+        willThrow(new MessagingException("브로커 연결 실패"))
+            .given(messagingTemplate).convertAndSendToUser(userName, destination, payload);
+
+        assertThatThrownBy(() -> sut.broadcastToUser(userName, destination, payload))
             .isInstanceOf(MessagingException.class)
             .hasMessageContaining("브로커 연결 실패");
     }

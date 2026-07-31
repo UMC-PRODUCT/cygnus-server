@@ -1,6 +1,8 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
+    <turboFilter class="com.umc.product.global.config.SensitiveDataSanitizingTurboFilter"/>
+
     <!-- ========== Custom Converter ========== -->
     <conversionRule conversionWord="customHighlight"
                     class="com.umc.product.global.config.CustomHighlightConverter"/>

@@ -1,6 +1,9 @@
 package com.umc.product.chat.domain;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -38,6 +41,8 @@ import lombok.NoArgsConstructor;
 @Table(name = "chat_message")
 public class ChatMessage extends BaseEntity {
 
+    public static final String DELETED_CONTENT = "삭제된 메시지입니다.";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -45,7 +50,6 @@ public class ChatMessage extends BaseEntity {
     @Column(name = "room_id", nullable = false)
     private Long roomId;
 
-    // 발신자. SYSTEM 메시지(입장/퇴장 등)는 발신자가 없으므로 nullable.
     @Column(name = "sender_member_id")
     private Long senderMemberId;
 
@@ -66,6 +70,18 @@ public class ChatMessage extends BaseEntity {
     @Column(name = "reply_to_message_id")
     private Long replyToMessageId;
 
+    @Column(name = "client_message_id")
+    private UUID clientMessageId;
+
+    @Column(name = "client_payload_fingerprint", length = 64)
+    private String clientPayloadFingerprint;
+
+    @Column(name = "edited_at")
+    private Instant editedAt;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
+
     /**
      * 일반 메시지(TEXT/IMAGE/FILE)를 생성한다.
      */
@@ -76,7 +92,7 @@ public class ChatMessage extends BaseEntity {
         String content,
         List<String> fileMetadataIds
     ) {
-        return create(roomId, senderMemberId, contentType, content, fileMetadataIds, null);
+        return create(roomId, senderMemberId, contentType, content, fileMetadataIds, null, null, null);
     }
 
     /**
@@ -93,8 +109,31 @@ public class ChatMessage extends BaseEntity {
         List<String> fileMetadataIds,
         Long replyToMessageId
     ) {
+        return create(
+            roomId,
+            senderMemberId,
+            contentType,
+            content,
+            fileMetadataIds,
+            replyToMessageId,
+            null,
+            null
+        );
+    }
+
+    public static ChatMessage create(
+        Long roomId,
+        Long senderMemberId,
+        MessageContentType contentType,
+        String content,
+        List<String> fileMetadataIds,
+        Long replyToMessageId,
+        UUID clientMessageId,
+        String clientPayloadFingerprint
+    ) {
         List<String> files = fileMetadataIds != null ? List.copyOf(fileMetadataIds) : List.of();
         validateContentConsistency(contentType, content, files);
+        validateClientIdentity(clientMessageId, clientPayloadFingerprint);
 
         return ChatMessage.builder()
             .roomId(roomId)
@@ -103,7 +142,25 @@ public class ChatMessage extends BaseEntity {
             .content(content)
             .fileMetadataIds(files)
             .replyToMessageId(replyToMessageId)
+            .clientMessageId(clientMessageId)
+            .clientPayloadFingerprint(clientPayloadFingerprint)
             .build();
+    }
+
+    private static void validateClientIdentity(
+        UUID clientMessageId,
+        String clientPayloadFingerprint
+    ) {
+        if (clientMessageId == null && clientPayloadFingerprint == null) {
+            return;
+        }
+        if (clientMessageId == null
+            || clientPayloadFingerprint == null
+            || clientPayloadFingerprint.isBlank()) {
+            throw new IllegalArgumentException(
+                "clientMessageId와 clientPayloadFingerprint는 함께 제공해야 합니다."
+            );
+        }
     }
 
     /**
@@ -146,5 +203,68 @@ public class ChatMessage extends BaseEntity {
             .fileMetadataIds(List.of())
             .replyToMessageId(null)
             .build();
+    }
+
+    public boolean hasCanonicalPayload(
+        MessageContentType expectedType,
+        String expectedContent,
+        List<String> expectedFileMetadataIds,
+        Long expectedReplyToMessageId
+    ) {
+        List<String> expectedFiles = expectedFileMetadataIds == null
+            ? List.of()
+            : expectedFileMetadataIds;
+        return contentType == expectedType
+            && Objects.equals(content, expectedContent)
+            && fileMetadataIds.equals(expectedFiles)
+            && Objects.equals(replyToMessageId, expectedReplyToMessageId);
+    }
+
+    public boolean hasClientPayloadFingerprint(String expectedFingerprint) {
+        return Objects.equals(clientPayloadFingerprint, expectedFingerprint);
+    }
+
+    public boolean editContent(String newContent) {
+        validateEditableContent(newContent);
+        if (Objects.equals(content, newContent)) {
+            return false;
+        }
+        content = newContent;
+        editedAt = Instant.now();
+        return true;
+    }
+
+    public boolean tombstone() {
+        if (deletedAt != null) {
+            return false;
+        }
+        contentType = MessageContentType.SYSTEM;
+        content = DELETED_CONTENT;
+        fileMetadataIds = List.of();
+        deletedAt = Instant.now();
+        return true;
+    }
+
+    public boolean isAuthoredBy(Long memberId) {
+        return Objects.equals(senderMemberId, memberId);
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
+
+    private void validateEditableContent(String newContent) {
+        ChatErrorCode violation = switch (contentType) {
+            case TEXT -> newContent == null || newContent.isBlank()
+                ? ChatErrorCode.CHAT_MESSAGE_EMPTY
+                : null;
+            case IMAGE, FILE -> null;
+            case SYSTEM -> ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN;
+        };
+        if (violation != null || deletedAt != null) {
+            throw new ChatDomainException(
+                violation != null ? violation : ChatErrorCode.CHAT_MESSAGE_MUTATION_FORBIDDEN
+            );
+        }
     }
 }

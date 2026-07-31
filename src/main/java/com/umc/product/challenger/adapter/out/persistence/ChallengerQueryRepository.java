@@ -135,12 +135,6 @@ public class ChallengerQueryRepository {
             ));
     }
 
-
-    /**
-     * 챌린저별 포인트 합계
-     * <p>
-     * {@link Challenger#getTotalPoints()}로 하는 방법도 있습니다. 참고하세요.
-     */
     public Map<Long, Double> sumPointsByChallengerIds(Set<Long> challengerIds) {
         if (challengerIds == null || challengerIds.isEmpty()) {
             return Map.of();

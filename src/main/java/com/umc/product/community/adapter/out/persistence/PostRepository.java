@@ -1,19 +1,21 @@
 package com.umc.product.community.adapter.out.persistence;
 
-import com.umc.product.community.adapter.out.persistence.entity.PostJpaEntity;
-import com.umc.product.community.domain.enums.Category;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface PostRepository extends JpaRepository<PostJpaEntity, Long> {
+import com.umc.product.community.domain.Post;
+import com.umc.product.community.domain.enums.Category;
 
-    List<PostJpaEntity> findByCategory(Category category);
+public interface PostRepository extends JpaRepository<Post, Long> {
 
-    @Query("SELECT p.id as postId, p.authorChallengerId as authorId FROM PostJpaEntity p WHERE p.id IN :postIds")
+    List<Post> findByCategory(Category category);
+
+    @Query("SELECT p.id as postId, p.authorChallengerId as authorId FROM Post p WHERE p.id IN :postIds")
     List<PostAuthorProjection> findAuthorIdsByPostIds(@Param("postIds") List<Long> postIds);
 
     default Map<Long, Long> findAuthorIdsMapByPostIds(List<Long> postIds) {

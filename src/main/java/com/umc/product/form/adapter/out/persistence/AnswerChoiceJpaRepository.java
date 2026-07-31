@@ -1,6 +1,7 @@
 package com.umc.product.form.adapter.out.persistence;
 
 import java.util.List;
+import java.util.Set;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -36,6 +37,24 @@ public interface AnswerChoiceJpaRepository extends JpaRepository<AnswerChoice, L
             )
         """)
     int deleteAllByFormResponseId(@Param("formResponseId") Long formResponseId);
+
+    /**
+     * 특정 FormResponse 에 속한 답변 중 questionId 가 주어진 집합에 포함되는 Answer 의 AnswerChoice 를
+     * 일괄 삭제 (orphan 정리 용)
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("""
+            DELETE FROM AnswerChoice ac
+            WHERE ac.answer.id IN (
+                SELECT a.id FROM Answer a
+                WHERE a.formResponse.id = :formResponseId
+                  AND a.question.id IN :questionIds
+            )
+        """)
+    int deleteByFormResponseIdAndQuestionIdIn(
+        @Param("formResponseId") Long formResponseId,
+        @Param("questionIds") Set<Long> questionIds
+    );
 
     /**
      * 특정 폼에 속한 모든 AnswerChoice 삭제 (deleteForm cascade 용)

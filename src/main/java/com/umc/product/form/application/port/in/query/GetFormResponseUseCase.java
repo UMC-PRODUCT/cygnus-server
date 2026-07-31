@@ -16,6 +16,8 @@ import com.umc.product.form.domain.exception.FormErrorCode;
  */
 public interface GetFormResponseUseCase {
 
+    boolean existsByFormId(Long formId);
+
     /**
      * 응답 ID 로 단건 조회. 없으면 Optional.empty.
      */

@@ -56,6 +56,20 @@ class StompPrincipalInterceptorTest {
     }
 
     @Test
+    @DisplayName("유효한 JWT로 CONNECT 인증 후 Authorization 헤더와 token 렌더링이 제거된다")
+    void connect_with_valid_token_removes_authorization_header() {
+        when(jwtTokenProvider.parseAndValidateAccessToken("relay-secret-token"))
+            .thenReturn(new ParsedAccessToken(1L, List.of("USER"), ClientType.WEB));
+
+        Message<?> result = sut.preSend(connectMessage("Bearer relay-secret-token"), channel);
+
+        StompHeaderAccessor accessor = StompHeaderAccessor.wrap(result);
+        assertThat(accessor.getNativeHeader("Authorization")).isNull();
+        assertThat(accessor.getDetailedLogMessage(result.getPayload()))
+            .doesNotContain("relay-secret-token");
+    }
+
+    @Test
     @DisplayName("roles가 여러 개일 때 ROLE_ 접두사가 붙은 권한으로 변환된다")
     void connect_with_multiple_roles_prefixes_role() {
         when(jwtTokenProvider.parseAndValidateAccessToken("multi-role-token"))

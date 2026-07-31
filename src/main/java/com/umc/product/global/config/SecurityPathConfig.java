@@ -7,6 +7,10 @@ public final class SecurityPathConfig {
 
     public static final String SCALAR_ENTRY_PATH = "/docs";
     public static final String SCALAR_ENTRY_SLASH_PATH = "/docs/";
+    public static final String ASYNCAPI_ENTRY_PATH = "/docs/asyncapi";
+    public static final String ASYNCAPI_ENTRY_SLASH_PATH = "/docs/asyncapi/";
+    public static final String ASYNCAPI_HTML_PATH = "/docs/asyncapi.html";
+    public static final String ASYNCAPI_DOCUMENT_PATH = "/docs/asyncapi.yaml";
     public static final String SCALAR_DOCUMENTATION_PATTERN = "/docs/**";
     public static final String OPENAPI_JSON_PATH = "/docs-json";
     public static final String OPENAPI_JSON_PATTERN = "/docs-json/**";

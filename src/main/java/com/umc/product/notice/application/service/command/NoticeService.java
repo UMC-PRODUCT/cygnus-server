@@ -32,8 +32,8 @@ import com.umc.product.notice.domain.NoticeTargetInfo;
 import com.umc.product.notice.domain.enums.NoticeTargetPattern;
 import com.umc.product.notice.domain.exception.NoticeDomainException;
 import com.umc.product.notice.domain.exception.NoticeErrorCode;
-import com.umc.product.notification.application.port.in.SendNotificationToAudienceUseCase;
-import com.umc.product.notification.application.port.in.dto.AudienceNotificationCommand;
+import com.umc.product.notification.application.port.in.RequestFcmNotificationUseCase;
+import com.umc.product.notification.application.port.in.dto.RequestFcmNotificationCommand;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -63,7 +63,7 @@ public class NoticeService implements ManageNoticeUseCase {
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final ManageNoticeContentUseCase manageNoticeContentUseCase;
-    private final SendNotificationToAudienceUseCase sendNotificationToAudienceUseCase;
+    private final RequestFcmNotificationUseCase requestFcmNotificationUseCase;
 
     @Override
     public List<Long> createNoticeBulk(List<CreateNoticeCommand> commands) {
@@ -115,9 +115,15 @@ public class NoticeService implements ManageNoticeUseCase {
             String alarmTitle = StringUtils.abbreviate(NOTICE_TITLE_PREFIX + savedNotice.getTitle(), 25);
             String alarmBody = StringUtils.abbreviate(NOTICE_BODY_SUFFIX + savedNotice.getContent(), 40);
 
-            sendNotificationToAudienceUseCase.sendToAudience(
-                AudienceNotificationCommand.builder()
-                    .targetInfo(command.targetInfo())
+            requestFcmNotificationUseCase.request(
+                RequestFcmNotificationCommand.builder()
+                    .requesterMemberId(command.memberId())
+                    .targetGisuId(command.targetInfo().targetGisuId())
+                    .targetChapterId(command.targetInfo().targetChapterId())
+                    .targetSchoolId(command.targetInfo().targetSchoolId())
+                    .targetParts(command.targetInfo().targetParts() == null
+                        ? Set.of()
+                        : new HashSet<>(command.targetInfo().targetParts()))
                     .title(alarmTitle)
                     .body(alarmBody)
                     .build()
@@ -186,8 +192,14 @@ public class NoticeService implements ManageNoticeUseCase {
             .map(info -> info.memberId())
             .toList();
 
-        // 대상 멤버 전체에 FCM 배치 발송 (토큰 조회 1회 + FCM 배치 전송)
-        sendNotificationToAudienceUseCase.sendToMembers(memberIds, alarmTitle, alarmBody);
+        requestFcmNotificationUseCase.request(
+            RequestFcmNotificationCommand.builder()
+                .requesterMemberId(command.memberId())
+                .memberIds(memberIds)
+                .title(alarmTitle)
+                .body(alarmBody)
+                .build()
+        );
     }
 
     @Override

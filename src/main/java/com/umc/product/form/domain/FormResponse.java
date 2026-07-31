@@ -4,6 +4,8 @@ import java.time.Instant;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.form.domain.enums.FormResponseStatus;
+import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.form.domain.exception.FormErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,6 +18,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,6 +36,14 @@ public class FormResponse extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /**
+     * 동시 update/submit/delete 방어용 낙관적 락 버전. JPA 가 flush 시점에 {@code UPDATE ... WHERE version = ?} 로 CAS 를 수행하며,
+     * stale 쓰기는 {@link org.springframework.orm.ObjectOptimisticLockingFailureException} 으로 전파돼 HTTP 409 로 매핑된다.
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "form_id", nullable = false)
@@ -99,6 +110,21 @@ public class FormResponse extends BaseEntity {
 
     public void updateLastSavedAt(Instant now) {
         this.lastSavedAt = now;
+    }
+
+    /**
+     * 익명 응답을 로그인 사용자에게 등록한다. {@code respondentMemberId} 와 {@code responseAccessKeyHash} 를 한 번에 갱신해
+     * XOR CHECK({@code ck_form_response_identifier_xor}) 를 위반하는 중간 상태를 만들지 않는다.
+     * <p>
+     * 이미 기명 응답이면 재등록 금지 (방어) — {@link FormErrorCode#FORM_RESPONSE_ALREADY_CLAIMED}.
+     * 상위 서비스에서도 사전 검증하지만 도메인 불변조건 방어 목적으로 함께 체크한다.
+     */
+    public void claimBy(Long memberId) {
+        if (this.respondentMemberId != null) {
+            throw new FormDomainException(FormErrorCode.FORM_RESPONSE_ALREADY_CLAIMED);
+        }
+        this.respondentMemberId = memberId;
+        this.responseAccessKeyHash = null;
     }
 
 }
