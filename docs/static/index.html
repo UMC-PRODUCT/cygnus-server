@@ -522,6 +522,16 @@ body.book #toc,body.book #preamble,body.book h1.sect0,body.book .sect1>h2{page-b
 <li><a href="#_서류_결정_api는_긴_사유를_거부한다">서류_결정_api는_긴_사유를_거부한다</a></li>
 <li><a href="#_최종_결정_api는_결정자_member_id를_command로_전달한다">최종_결정_api는_결정자_member-id를_command로_전달한다</a></li>
 <li><a href="#_평가_이력_csv_api는_attachment를_반환한다">평가_이력_csv_api는_attachment를_반환한다</a></li>
+<li><a href="#_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다">평가_이력_csv_api는_빈_chapter-ids_반복_값을_거부한다</a></li>
+<li><a href="#_평가_이력_csv_api는_빈_chapter_ids를_거부한다">평가_이력_csv_api는_빈_chapter-ids를_거부한다</a></li>
+<li><a href="#_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다">평가_이력_csv_api는_빈_school-ids_반복_값을_거부한다</a></li>
+<li><a href="#_평가_이력_csv_api는_빈_school_ids를_거부한다">평가_이력_csv_api는_빈_school-ids를_거부한다</a></li>
+<li><a href="#_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다">평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다</a></li>
+<li><a href="#_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다">평가_이력_조회_api는_빈_chapter-ids_반복_값을_거부한다</a></li>
+<li><a href="#_평가_이력_조회_api는_빈_chapter_ids를_거부한다">평가_이력_조회_api는_빈_chapter-ids를_거부한다</a></li>
+<li><a href="#_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다">평가_이력_조회_api는_빈_school-ids_반복_값을_거부한다</a></li>
+<li><a href="#_평가_이력_조회_api는_빈_school_ids를_거부한다">평가_이력_조회_api는_빈_school-ids를_거부한다</a></li>
+<li><a href="#_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다">평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다</a></li>
 <li><a href="#_평가_이력_조회_api는_조건을_query로_전달한다">평가_이력_조회_api는_조건을_query로_전달한다</a></li>
 <li><a href="#_평가_현황_집계_api는_지부_학교_파트별_카운트를_반환한다">평가_현황_집계_api는_지부_학교_파트별_카운트를_반환한다</a></li>
 </ul>
@@ -832,10 +842,10 @@ Content-Length: 496
       "negative" : "-4"
     },
     "challengerStatusDistribution" : {
-      "EXPELLED" : "0",
-      "GRADUATED" : "0",
       "WITHDRAWN" : "0",
-      "ACTIVE" : "0"
+      "ACTIVE" : "0",
+      "EXPELLED" : "0",
+      "GRADUATED" : "0"
     }
   }
 }</code></pre>
@@ -1420,98 +1430,7 @@ Content-Length: 296
   "code" : "COMMON-400",
   "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
   "result" : {
-    "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다.",
-    "target.parts[]" : "must not be null"
-  }
-}</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_관리자_fcm_알림_발송_요청"><a class="link" href="#_관리자_fcm_알림_발송_요청">관리자_fcm_알림_발송_요청</a></h3>
-<div class="sect3">
-<h4 id="_관리자_fcm_알림_발송_요청_http_request"><a class="link" href="#_관리자_fcm_알림_발송_요청_http_request">HTTP request</a></h4>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
-Content-Type: application/json
-Content-Length: 248
-Host: localhost:8080
-
-{
-  "target" : {
-    "memberIds" : [ 1, 2 ],
-    "gisuId" : 10,
-    "parts" : [ "SPRINGBOOT" ]
-  },
-  "message" : {
-    "title" : "공지",
-    "body" : "본문",
-    "data" : {
-      "noticeId" : "1"
-    },
-    "deepLink" : "umc://notices/1"
-  }
-}</code></pre>
-</div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_관리자_fcm_알림_발송_요청_http_response"><a class="link" href="#_관리자_fcm_알림_발송_요청_http_response">HTTP response</a></h4>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 202 Accepted
-Content-Type: application/json
-Content-Length: 198
-
-{
-  "success" : true,
-  "code" : "COMMON200",
-  "message" : "성공입니다.",
-  "result" : {
-    "requestId" : "3ab2ecb3-ede2-44b8-a308-2f2999717847",
-    "queuedAt" : "2026-06-20T00:00:00Z"
-  }
-}</code></pre>
-</div>
-</div>
-</div>
-</div>
-<div class="sect2">
-<h3 id="_빈_발송_대상_거부"><a class="link" href="#_빈_발송_대상_거부">빈_발송_대상_거부</a></h3>
-<div class="sect3">
-<h4 id="_빈_발송_대상_거부_http_request"><a class="link" href="#_빈_발송_대상_거부_http_request">HTTP request</a></h4>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
-Content-Type: application/json
-Content-Length: 87
-Host: localhost:8080
-
-{
-  "target" : { },
-  "message" : {
-    "title" : "공지",
-    "body" : "본문"
-  }
-}</code></pre>
-</div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_빈_발송_대상_거부_http_response"><a class="link" href="#_빈_발송_대상_거부_http_response">HTTP response</a></h4>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
-Content-Type: application/json
-Content-Length: 253
-
-{
-  "success" : false,
-  "code" : "COMMON-400",
-  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
-  "result" : {
+    "target.parts[]" : "must not be null",
     "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다."
   }
 }</code></pre>
@@ -1519,55 +1438,6 @@ Content-Length: 253
 </div>
 </div>
 </div>
-</div>
-</div>
-<div class="sect1">
-<h2 id="_fcm_admin"><a class="link" href="#_fcm_admin">Fcm admin</a></h2>
-<div class="sectionbody">
-<div class="sect2">
-<h3 id="_null_part_발송_대상_거부"><a class="link" href="#_null_part_발송_대상_거부">null_part_발송_대상_거부</a></h3>
-<div class="sect3">
-<h4 id="_null_part_발송_대상_거부_http_request"><a class="link" href="#_null_part_발송_대상_거부_http_request">HTTP request</a></h4>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">POST /api/v1/notifications/admin/fcm/messages HTTP/1.1
-Content-Type: application/json
-Content-Length: 112
-Host: localhost:8080
-
-{
-  "target" : {
-    "parts" : [ null ]
-  },
-  "message" : {
-    "title" : "공지",
-    "body" : "본문"
-  }
-}</code></pre>
-</div>
-</div>
-</div>
-<div class="sect3">
-<h4 id="_null_part_발송_대상_거부_http_response"><a class="link" href="#_null_part_발송_대상_거부_http_response">HTTP response</a></h4>
-<div class="listingblock">
-<div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
-Content-Type: application/json
-Content-Length: 296
-
-{
-  "success" : false,
-  "code" : "COMMON-400",
-  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
-  "result" : {
-    "target.anyTarget" : "FCM 알림 발송 대상은 하나 이상 지정해야 합니다.",
-    "target.parts[]" : "must not be null"
-  }
-}</code></pre>
-</div>
-</div>
-</div>
-</div>
 <div class="sect2">
 <h3 id="_관리자_fcm_알림_발송_요청"><a class="link" href="#_관리자_fcm_알림_발송_요청">관리자_fcm_알림_발송_요청</a></h3>
 <div class="sect3">
@@ -1610,7 +1480,7 @@ Content-Length: 198
   "code" : "COMMON200",
   "message" : "성공입니다.",
   "result" : {
-    "requestId" : "8a77ec6f-960c-4e54-8cce-01347816de08",
+    "requestId" : "0154baf2-51f0-40e1-b809-e79ef682dc47",
     "queuedAt" : "2026-06-20T00:00:00Z"
   }
 }</code></pre>
@@ -2962,7 +2832,7 @@ Host: localhost:8080</code></pre>
 <div class="content">
 <pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
 Content-Type: application/json
-Content-Length: 440
+Content-Length: 726
 
 {
   "success" : true,
@@ -2973,6 +2843,13 @@ Content-Length: 440
     "countByStatus" : {
       "SUBMITTED" : "3"
     },
+    "parts" : [ {
+      "part" : "PLAN",
+      "totalCount" : "3",
+      "countByStatus" : {
+        "SUBMITTED" : "3"
+      }
+    } ],
     "schools" : [ {
       "schoolId" : "22",
       "schoolName" : "테스트대학교",
@@ -2982,6 +2859,13 @@ Content-Length: 440
       "countByStatus" : {
         "SUBMITTED" : "3"
       },
+      "parts" : [ {
+        "part" : "PLAN",
+        "totalCount" : "3",
+        "countByStatus" : {
+          "SUBMITTED" : "3"
+        }
+      } ],
       "rounds" : [ ]
     } ]
   }
@@ -3120,6 +3004,282 @@ Content-Type: text/csv;charset=UTF-8
 Content-Length: 32
 
 decidedAt,decisionStatus,result</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다"><a class="link" href="#_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다">평가_이력_csv_api는_빈_chapter-ids_반복_값을_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다_http_request"><a class="link" href="#_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11&amp;chapterIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다_http_response"><a class="link" href="#_평가_이력_csv_api는_빈_chapter_ids_반복_값을_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 194
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "size must be between 1 and 2147483647"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_csv_api는_빈_chapter_ids를_거부한다"><a class="link" href="#_평가_이력_csv_api는_빈_chapter_ids를_거부한다">평가_이력_csv_api는_빈_chapter-ids를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_chapter_ids를_거부한다_http_request"><a class="link" href="#_평가_이력_csv_api는_빈_chapter_ids를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11&amp;chapterIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_chapter_ids를_거부한다_http_response"><a class="link" href="#_평가_이력_csv_api는_빈_chapter_ids를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Disposition: attachment; filename="recruiting-decision-histories.csv"
+Content-Type: text/csv;charset=UTF-8</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다"><a class="link" href="#_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다">평가_이력_csv_api는_빈_school-ids_반복_값을_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다_http_request"><a class="link" href="#_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11&amp;schoolIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다_http_response"><a class="link" href="#_평가_이력_csv_api는_빈_school_ids_반복_값을_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 194
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "size must be between 1 and 2147483647"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_csv_api는_빈_school_ids를_거부한다"><a class="link" href="#_평가_이력_csv_api는_빈_school_ids를_거부한다">평가_이력_csv_api는_빈_school-ids를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_school_ids를_거부한다_http_request"><a class="link" href="#_평가_이력_csv_api는_빈_school_ids를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11&amp;schoolIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_빈_school_ids를_거부한다_http_response"><a class="link" href="#_평가_이력_csv_api는_빈_school_ids를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 200 OK
+Content-Disposition: attachment; filename="recruiting-decision-histories.csv"
+Content-Type: text/csv;charset=UTF-8</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다"><a class="link" href="#_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다">평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다_http_request"><a class="link" href="#_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11&amp;chapterIds=-1&amp;schoolIds=-1 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다_http_response"><a class="link" href="#_평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 203
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "must be greater than 0, must be greater than 0"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다"><a class="link" href="#_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다">평가_이력_조회_api는_빈_chapter-ids_반복_값을_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다_http_request"><a class="link" href="#_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;chapterIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다_http_response"><a class="link" href="#_평가_이력_조회_api는_빈_chapter_ids_반복_값을_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 194
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "size must be between 1 and 2147483647"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_조회_api는_빈_chapter_ids를_거부한다"><a class="link" href="#_평가_이력_조회_api는_빈_chapter_ids를_거부한다">평가_이력_조회_api는_빈_chapter-ids를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_chapter_ids를_거부한다_http_request"><a class="link" href="#_평가_이력_조회_api는_빈_chapter_ids를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;chapterIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_chapter_ids를_거부한다_http_response"><a class="link" href="#_평가_이력_조회_api는_빈_chapter_ids를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 500 Internal Server Error
+Content-Type: application/json
+Content-Length: 298
+
+{
+  "success" : false,
+  "code" : "COMMON-0001",
+  "message" : "요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.",
+  "result" : "Cannot invoke \"com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo.asOf()\" because \"info\" is null"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다"><a class="link" href="#_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다">평가_이력_조회_api는_빈_school-ids_반복_값을_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다_http_request"><a class="link" href="#_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;schoolIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다_http_response"><a class="link" href="#_평가_이력_조회_api는_빈_school_ids_반복_값을_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 194
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "size must be between 1 and 2147483647"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_조회_api는_빈_school_ids를_거부한다"><a class="link" href="#_평가_이력_조회_api는_빈_school_ids를_거부한다">평가_이력_조회_api는_빈_school-ids를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_school_ids를_거부한다_http_request"><a class="link" href="#_평가_이력_조회_api는_빈_school_ids를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;schoolIds= HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_빈_school_ids를_거부한다_http_response"><a class="link" href="#_평가_이력_조회_api는_빈_school_ids를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 500 Internal Server Error
+Content-Type: application/json
+Content-Length: 298
+
+{
+  "success" : false,
+  "code" : "COMMON-0001",
+  "message" : "요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요.",
+  "result" : "Cannot invoke \"com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo.asOf()\" because \"info\" is null"
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다"><a class="link" href="#_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다">평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다</a></h3>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다_http_request"><a class="link" href="#_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다_http_request">HTTP request</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;chapterIds=-1&amp;schoolIds=-1 HTTP/1.1
+Host: localhost:8080</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다_http_response"><a class="link" href="#_평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다_http_response">HTTP response</a></h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">HTTP/1.1 400 Bad Request
+Content-Type: application/json
+Content-Length: 203
+
+{
+  "success" : false,
+  "code" : "COMMON-400",
+  "message" : "요청 값이 올바르지 않아요. 입력한 값을 확인해주세요.",
+  "result" : "must be greater than 0, must be greater than 0"
+}</code></pre>
 </div>
 </div>
 </div>
@@ -6723,7 +6883,7 @@ Content-Length: 134
 <div id="footer">
 <div id="footer-text">
 Version 2.0.0<br>
-Last updated 2026-07-30 13:28:49 +0900
+Last updated 2026-07-31 14:33:22 +0900
 </div>
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.18.3/highlight.min.js"></script>
