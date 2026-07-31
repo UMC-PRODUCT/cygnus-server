@@ -29,7 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
@@ -77,7 +77,7 @@ class CommunityThreadQueryControllerTest {
     private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -148,7 +148,7 @@ class CommunityThreadQueryControllerTest {
     @Test
     @DisplayName("thread 상세의 nullable 값과 boolean은 JSON 원시 타입을 유지한다")
     void getThread_keepsNullAndBooleanJsonTypes() throws Exception {
-        given(getThreadDetailUseCase.getThread(any())).willReturn(new ThreadDetailInfo(
+        given(getPublicThreadUseCase.getPublicThread(any())).willReturn(new ThreadDetailInfo(
             42L, "스터디", null, CommunityThreadCategory.STUDY, "📚",
             3L, 0L, 100, false, true, true, CommunityThreadMemberRole.OWNER,
             null, 99L, NOW, NOW, "/api/v1/community/threads/42", null

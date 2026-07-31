@@ -19,7 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageHistoryUseCase;
@@ -43,7 +43,7 @@ class CommunityThreadQueryValidationTest {
     private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -69,7 +69,7 @@ class CommunityThreadQueryValidationTest {
         mockMvc.perform(get("/api/v1/community/threads/{threadId}", threadId))
             .andExpect(status().is4xxClientError());
 
-        then(getThreadDetailUseCase).shouldHaveNoInteractions();
+        then(getPublicThreadUseCase).shouldHaveNoInteractions();
     }
 
     @ParameterizedTest

@@ -258,6 +258,40 @@ class CommunityThreadListDetailQueryServiceTest {
         assertThat(captor.getValue().unreadOnly()).isTrue();
     }
 
+    @Test
+    @DisplayName("getPublicThread는 비멤버 요청자에게도 상세를 반환하고 isJoined=false로 매핑한다")
+    void getPublicThread_비멤버도_허용한다() {
+        // given
+        CommunityThreadQueryRow nonMember = nonMemberRow(1L);
+        given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(nonMember));
+
+        // when
+        var result = sut.getPublicThread(new GetThreadDetailQuery(1L, 10L));
+
+        // then
+        assertThat(result.threadId()).isEqualTo(1L);
+        assertThat(result.isJoined()).isFalse();
+        assertThat(result.myRole()).isNull();
+    }
+
+    @Test
+    @DisplayName("getPublicThread는 삭제된 스레드를 THREAD_DELETED로 거절한다")
+    void getPublicThread_삭제된_스레드를_거절한다() {
+        // given
+        CommunityThreadQueryRow deleted = restrictedRow(
+            CommunityThreadMemberState.ACTIVE,
+            NOW.plusSeconds(1)
+        );
+        given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(deleted));
+
+        // when & then
+        assertThatThrownBy(() -> sut.getPublicThread(new GetThreadDetailQuery(1L, 10L)))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_DELETED);
+        verifyNoInteractions(getMemberUseCase);
+    }
+
     private CommunityThreadQueryRow nonMemberRow(Long threadId) {
         return new CommunityThreadQueryRow(
             threadId, "스레드 " + threadId, "설명", CommunityThreadCategory.STUDY, "📚",
