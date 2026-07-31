@@ -85,6 +85,25 @@ public class SchoolCommandControllerTest extends DocumentationTest {
     }
 
     @Test
+    void 총괄_신규학교_shortName이_20자를_초과하면_400을_반환한다() throws Exception {
+        // given
+        String tooLongShortName = "가".repeat(21);
+        CreateSchoolRequest request = CreateSchoolRequest.builder()
+            .schoolName("중앙대학교")
+            .shortName(tooLongShortName)
+            .remark("비고")
+            .build();
+
+        // when
+        ResultActions result = mockMvc.perform(
+            post("/api/v1/schools").content(objectMapper.writeValueAsString(request))
+                .contentType(MediaType.APPLICATION_JSON));
+
+        // then
+        result.andExpect(status().isBadRequest());
+    }
+
+    @Test
     void 총괄_학교를_일괄_삭제한다() throws Exception {
         // given
         DeleteSchoolsRequest request = new DeleteSchoolsRequest(List.of(1L, 2L, 3L));
