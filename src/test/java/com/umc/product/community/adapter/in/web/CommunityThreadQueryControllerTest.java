@@ -150,7 +150,7 @@ class CommunityThreadQueryControllerTest {
     void getThread_keepsNullAndBooleanJsonTypes() throws Exception {
         given(getThreadDetailUseCase.getThread(any())).willReturn(new ThreadDetailInfo(
             42L, "스터디", null, CommunityThreadCategory.STUDY, "📚",
-            3L, 0L, 100, false, true, CommunityThreadMemberRole.OWNER,
+            3L, 0L, 100, false, true, true, CommunityThreadMemberRole.OWNER,
             null, 99L, NOW, NOW, "/api/v1/community/threads/42", null
         ));
 
@@ -247,7 +247,7 @@ class CommunityThreadQueryControllerTest {
     private ThreadSummaryInfo summary(Long threadId, boolean pinned) {
         return new ThreadSummaryInfo(
             threadId, "스터디", null, CommunityThreadCategory.STUDY, "📚",
-            3L, 2L, 100, pinned, false, CommunityThreadMemberRole.OWNER,
+            3L, 2L, 100, pinned, false, true, CommunityThreadMemberRole.OWNER,
             new ThreadLastMessageInfo("최근 메시지", "하늘", NOW), 99L, NOW, NOW
         );
     }

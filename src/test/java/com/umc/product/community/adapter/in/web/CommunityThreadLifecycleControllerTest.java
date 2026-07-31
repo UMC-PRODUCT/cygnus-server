@@ -200,7 +200,7 @@ class CommunityThreadLifecycleControllerTest {
     private ThreadDetailInfo detail(Instant deletedAt) {
         return new ThreadDetailInfo(
             42L, "서버 스터디", "함께 공부해요", CommunityThreadCategory.STUDY, "📚",
-            3L, 2L, 100, true, false, CommunityThreadMemberRole.OWNER,
+            3L, 2L, 100, true, false, true, CommunityThreadMemberRole.OWNER,
             null, REQUESTER_ID, NOW, NOW, "/api/v1/community/threads/42", deletedAt
         );
     }

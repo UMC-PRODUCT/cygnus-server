@@ -280,6 +280,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
             100,
             false,
             false,
+            true,
             CommunityThreadMemberRole.MEMBER,
             null,
             10L,
