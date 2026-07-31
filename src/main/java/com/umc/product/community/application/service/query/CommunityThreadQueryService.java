@@ -320,10 +320,11 @@ public class CommunityThreadQueryService implements
                 row.lastMessageCreatedAt()
             );
         }
+        boolean joined = row.requesterState() == CommunityThreadMemberState.ACTIVE;
         return new ThreadSummaryInfo(
             row.threadId(), row.title(), row.description(), row.category(), row.icon(),
             row.memberCount(), row.unreadCount(), threadProperties.maxMembers(),
-            row.pinned(), row.muted(), row.requesterRole(), lastMessage,
+            row.pinned(), row.muted(), joined, row.requesterRole(), lastMessage,
             row.creatorMemberId(), row.createdAt(), row.updatedAt()
         );
     }

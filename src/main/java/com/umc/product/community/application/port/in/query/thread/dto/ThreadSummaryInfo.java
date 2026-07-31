@@ -16,6 +16,7 @@ public record ThreadSummaryInfo(
     int maxMembers,
     boolean isPinned,
     boolean isMuted,
+    boolean isJoined,
     CommunityThreadMemberRole myRole,
     ThreadLastMessageInfo lastMessage,
     Long createdBy,
