@@ -63,6 +63,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -271,8 +272,8 @@ public class RecruitingAdminController {
     public RecruitingDecisionHistoryPageResponse searchDecisionHistories(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam @Positive Long gisuId,
-        @RequestParam(required = false) @Positive Long chapterId,
-        @RequestParam(required = false) @Positive Long schoolId,
+        @RequestParam(required = false) @Size(min = 1) List<@Positive Long> chapterIds,
+        @RequestParam(required = false) @Size(min = 1) List<@Positive Long> schoolIds,
         @RequestParam(required = false) List<ChallengerTrack> tracks,
         @RequestParam(required = false) List<RecruitingDecisionResult> results,
         @RequestParam(required = false) String searchName,
@@ -282,7 +283,7 @@ public class RecruitingAdminController {
     ) {
         return RecruitingDecisionHistoryPageResponse.from(searchDecisionHistoryUseCase.search(
             toDecisionHistoryQuery(
-                memberPrincipal, gisuId, chapterId, schoolId, tracks, results, searchName, sort, groupByDecider,
+                memberPrincipal, gisuId, chapterIds, schoolIds, tracks, results, searchName, sort, groupByDecider,
                 pageable
             )
         ));
@@ -297,8 +298,8 @@ public class RecruitingAdminController {
     public ResponseEntity<byte[]> exportDecisionHistoryCsv(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @RequestParam @Positive Long gisuId,
-        @RequestParam(required = false) @Positive Long chapterId,
-        @RequestParam(required = false) @Positive Long schoolId,
+        @RequestParam(required = false) @Size(min = 1) List<@Positive Long> chapterIds,
+        @RequestParam(required = false) @Size(min = 1) List<@Positive Long> schoolIds,
         @RequestParam(required = false) List<ChallengerTrack> tracks,
         @RequestParam(required = false) List<RecruitingDecisionResult> results,
         @RequestParam(required = false) String searchName,
@@ -306,7 +307,7 @@ public class RecruitingAdminController {
         @RequestParam(required = false, defaultValue = "false") boolean groupByDecider
     ) {
         byte[] csv = exportDecisionHistoryCsvUseCase.exportCsv(toDecisionHistoryQuery(
-            memberPrincipal, gisuId, chapterId, schoolId, tracks, results, searchName, sort, groupByDecider, null
+            memberPrincipal, gisuId, chapterIds, schoolIds, tracks, results, searchName, sort, groupByDecider, null
         ));
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION,
@@ -321,8 +322,8 @@ public class RecruitingAdminController {
     private RecruitingDecisionHistorySearchQuery toDecisionHistoryQuery(
         MemberPrincipal memberPrincipal,
         Long gisuId,
-        Long chapterId,
-        Long schoolId,
+        List<Long> chapterIds,
+        List<Long> schoolIds,
         List<ChallengerTrack> tracks,
         List<RecruitingDecisionResult> results,
         String searchName,
@@ -332,8 +333,8 @@ public class RecruitingAdminController {
     ) {
         return RecruitingDecisionHistorySearchQuery.builder()
             .gisuId(gisuId)
-            .chapterId(chapterId)
-            .schoolId(schoolId)
+            .chapterIds(chapterIds == null ? Set.of() : Set.copyOf(chapterIds))
+            .schoolIds(schoolIds == null ? Set.of() : Set.copyOf(schoolIds))
             .tracks(tracks == null ? Set.of() : Set.copyOf(tracks))
             .results(results == null ? Set.of() : Set.copyOf(results))
             .searchName(searchName)

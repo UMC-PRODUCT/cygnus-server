@@ -12,8 +12,8 @@ import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
 
 public record RecruitingDecisionHistorySearchGraphQlRequest(
     Long gisuId,
-    Long chapterId,
-    Long schoolId,
+    List<Long> chapterIds,
+    List<Long> schoolIds,
     List<ChallengerTrack> tracks,
     List<RecruitingDecisionResult> results,
     String searchName,
@@ -25,8 +25,8 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
 
     public RecruitingDecisionHistorySearchGraphQlRequest {
         requirePositive(gisuId, "gisuId");
-        requirePositiveIfPresent(chapterId, "chapterId");
-        requirePositiveIfPresent(schoolId, "schoolId");
+        requirePositive(chapterIds, "chapterIds");
+        requirePositive(schoolIds, "schoolIds");
     }
 
     public RecruitingDecisionHistorySearchQuery toQuery(Long requesterMemberId) {
@@ -37,8 +37,8 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
         }
         return RecruitingDecisionHistorySearchQuery.builder()
             .gisuId(gisuId)
-            .chapterId(chapterId)
-            .schoolId(schoolId)
+            .chapterIds(chapterIds == null ? Set.of() : Set.copyOf(chapterIds))
+            .schoolIds(schoolIds == null ? Set.of() : Set.copyOf(schoolIds))
             .tracks(tracks == null ? Set.of() : Set.copyOf(tracks))
             .results(results == null ? Set.of() : Set.copyOf(results))
             .searchName(searchName)
@@ -55,9 +55,9 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
         }
     }
 
-    private static void requirePositiveIfPresent(Long value, String fieldName) {
-        if (value != null) {
-            requirePositive(value, fieldName);
+    private static void requirePositive(List<Long> values, String fieldName) {
+        if (values != null && values.stream().anyMatch(value -> value == null || value <= 0)) {
+            throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
         }
     }
 }

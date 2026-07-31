@@ -15,8 +15,8 @@ import lombok.Builder;
 @Builder
 public record RecruitingDecisionHistorySearchQuery(
     Long gisuId,
-    Long chapterId,
-    Long schoolId,
+    Set<Long> chapterIds,
+    Set<Long> schoolIds,
     Set<ChallengerTrack> tracks,
     Set<RecruitingDecisionResult> results,
     String searchName,
@@ -29,6 +29,8 @@ public record RecruitingDecisionHistorySearchQuery(
     private static final int MAX_PAGE_SIZE = 100;
 
     public RecruitingDecisionHistorySearchQuery {
+        chapterIds = chapterIds == null ? Set.of() : Set.copyOf(chapterIds);
+        schoolIds = schoolIds == null ? Set.of() : Set.copyOf(schoolIds);
         tracks = tracks == null ? Set.of() : Set.copyOf(tracks);
         results = results == null ? Set.of() : Set.copyOf(results);
         searchName = normalizeSearchName(searchName);

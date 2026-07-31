@@ -162,8 +162,8 @@ public class RecruitingDecisionHistoryQueryService implements
      */
     private List<SchoolDetailInfo> listScopedSchools(RecruitingDecisionHistorySearchQuery query) {
         return getSchoolUseCase.getSchoolListByGisuId(query.gisuId()).stream()
-            .filter(school -> query.chapterId() == null || query.chapterId().equals(school.chapterId()))
-            .filter(school -> query.schoolId() == null || query.schoolId().equals(school.schoolId()))
+            .filter(school -> query.chapterIds().isEmpty() || query.chapterIds().contains(school.chapterId()))
+            .filter(school -> query.schoolIds().isEmpty() || query.schoolIds().contains(school.schoolId()))
             .toList();
     }
 

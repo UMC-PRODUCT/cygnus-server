@@ -120,6 +120,13 @@ class RecruitingGraphQlSurfaceTest {
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
             assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
+            assertThat(inputFieldNames(data, "RecruitingDecisionHistorySearchInput"))
+                .contains("chapterIds", "schoolIds")
+                .doesNotContain("chapterId", "schoolId");
+            assertThat(inputFieldType(data, "RecruitingDecisionHistorySearchInput", "chapterIds"))
+                .isEqualTo("[ID!]");
+            assertThat(inputFieldType(data, "RecruitingDecisionHistorySearchInput", "schoolIds"))
+                .isEqualTo("[ID!]");
             assertThat(enumValues(data, "ChallengerTrack"))
                 .containsExactlyInAnyOrder(
                     "PLAN",
@@ -194,6 +201,12 @@ class RecruitingGraphQlSurfaceTest {
             .collect(Collectors.toSet());
     }
 
+    private static Set<String> inputFieldNames(Map<String, Object> data, String typeName) {
+        return inputFields(type(data, typeName)).stream()
+            .map(field -> (String)field.get("name"))
+            .collect(Collectors.toSet());
+    }
+
     private static List<String> fieldNames(Map<String, Object> data, String typeName) {
         return fields(type(data, typeName)).stream()
             .map(field -> (String)field.get("name"))
@@ -205,6 +218,14 @@ class RecruitingGraphQlSurfaceTest {
             .filter(candidate -> fieldName.equals(candidate.get("name")))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("GraphQL 필드를 찾을 수 없습니다: " + fieldName));
+        return renderType(castMap(field.get("type")));
+    }
+
+    private static String inputFieldType(Map<String, Object> data, String typeName, String fieldName) {
+        Map<String, Object> field = inputFields(type(data, typeName)).stream()
+            .filter(candidate -> fieldName.equals(candidate.get("name")))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("GraphQL 입력 필드를 찾을 수 없습니다: " + fieldName));
         return renderType(castMap(field.get("type")));
     }
 
