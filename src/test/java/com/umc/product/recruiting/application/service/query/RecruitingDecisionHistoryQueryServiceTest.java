@@ -578,7 +578,7 @@ class RecruitingDecisionHistoryQueryServiceTest {
 
     private SchoolDetailInfo school(Long chapterId, String chapterName, Long schoolId, String schoolName) {
         return new SchoolDetailInfo(
-            chapterId, chapterName, schoolName, schoolId, null, null, List.of(), true, NOW, NOW
+            chapterId, chapterName, schoolName, null, schoolId, null, null, List.of(), true, NOW, NOW
         );
     }
 
