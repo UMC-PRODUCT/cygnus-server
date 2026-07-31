@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ListThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadListFilter;
@@ -222,6 +223,47 @@ class CommunityThreadListDetailQueryServiceTest {
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
         verifyNoInteractions(getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("browse는 고정/전체를 분리하고 비멤버 행은 isJoined=false로 매핑하며 안읽음 필터를 전달한다")
+    void browseThreads_공개_목록을_매핑하고_isJoined를_계산한다() {
+        // given
+        CommunityThreadQueryRow pinned = activeRow(1L, true, null);
+        CommunityThreadQueryRow joined = activeRow(2L, false, null);
+        CommunityThreadQueryRow nonMember = nonMemberRow(3L);
+        given(threadQueryPort.browseThreads(org.mockito.ArgumentMatchers.any()))
+            .willReturn(new CommunityThreadListRows(List.of(pinned), List.of(joined, nonMember), 2L));
+
+        // when
+        ThreadListInfo result = sut.browseThreads(new BrowseThreadsQuery(
+            10L,
+            ThreadListFilter.UNREAD,
+            null,
+            0,
+            20
+        ));
+
+        // then
+        assertThat(result.pinned()).extracting(info -> info.threadId()).containsExactly(1L);
+        assertThat(result.pinned().get(0).isJoined()).isTrue();
+        assertThat(result.threads()).extracting(info -> info.threadId()).containsExactly(2L, 3L);
+        assertThat(result.threads().get(0).isJoined()).isTrue();
+        assertThat(result.threads().get(1).isJoined()).isFalse();
+        assertThat(result.threads().get(1).myRole()).isNull();
+
+        ArgumentCaptor<CommunityThreadListCondition> captor =
+            ArgumentCaptor.forClass(CommunityThreadListCondition.class);
+        verify(threadQueryPort).browseThreads(captor.capture());
+        assertThat(captor.getValue().unreadOnly()).isTrue();
+    }
+
+    private CommunityThreadQueryRow nonMemberRow(Long threadId) {
+        return new CommunityThreadQueryRow(
+            threadId, "스레드 " + threadId, "설명", CommunityThreadCategory.STUDY, "📚",
+            5L, 0L, false, false, null, null,
+            null, null, null, 10L, NOW, null, NOW, NOW
+        );
     }
 
     private CommunityThreadQueryRow activeRow(Long threadId, boolean pinned, Long senderId) {

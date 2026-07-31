@@ -19,9 +19,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 
+import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
-import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageHistoryUseCase;
 import com.umc.product.global.config.JacksonConfig;
@@ -43,7 +43,7 @@ class CommunityCanonicalPathFilterIntegrationTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
-    private ListCommunityThreadsUseCase listThreadsUseCase;
+    private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
     private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
@@ -78,7 +78,7 @@ class CommunityCanonicalPathFilterIntegrationTest {
         mockMvc.perform(get(URI.create(rawPath)))
             .andExpect(status().isBadRequest());
 
-        then(listThreadsUseCase).shouldHaveNoInteractions();
+        then(browseThreadsUseCase).shouldHaveNoInteractions();
         then(getThreadDetailUseCase).shouldHaveNoInteractions();
         then(listThreadMembersUseCase).shouldHaveNoInteractions();
         then(searchThreadInvitableUseCase).shouldHaveNoInteractions();
