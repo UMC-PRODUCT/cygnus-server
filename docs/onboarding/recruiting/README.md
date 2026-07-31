@@ -55,6 +55,8 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 
 `RECRUITING-ADMIN-081`은 모집 목록이 아니라 운영 현황 집계다. `gisuId` 내에서 `schoolIds`, `roundIds`, `schoolName`으로 범위를 좁히며 전체 합계와 학교별·Round별 상태 합계를 함께 반환한다. 조건에 포함된 학교나 Round에 지원서가 없어도 0건 그룹을 반환한다.
 
+`RECRUITING-ADMIN-091` 평가 이력 목록과 `RECRUITING-ADMIN-092` CSV는 `chapterIds`와 `schoolIds`를 반복 쿼리 파라미터로 받는다(예: `chapterIds=1&chapterIds=2`). 각 목록 내부는 OR, 지부·학교 목록을 함께 주면 AND로 기수 내 학교 범위를 정한다. `[]` 접미사 키는 사용하지 않는다.
+
 ### Round와 Form 상태
 
 | 요청 | 허용 조건 | 결과 |

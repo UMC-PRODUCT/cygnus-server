@@ -3105,7 +3105,7 @@ Content-Length: 80
 <h4 id="_평가_이력_csv_api는_attachment를_반환한다_http_request"><a class="link" href="#_평가_이력_csv_api는_attachment를_반환한다_http_request">HTTP request</a></h4>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11 HTTP/1.1
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories.csv?gisuId=11&amp;chapterIds=5&amp;chapterIds=6&amp;schoolIds=22&amp;schoolIds=23 HTTP/1.1
 Host: localhost:8080</code></pre>
 </div>
 </div>
@@ -3130,7 +3130,7 @@ decidedAt,decisionStatus,result</code></pre>
 <h4 id="_평가_이력_조회_api는_조건을_query로_전달한다_http_request"><a class="link" href="#_평가_이력_조회_api는_조건을_query로_전달한다_http_request">HTTP request</a></h4>
 <div class="listingblock">
 <div class="content">
-<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;chapterId=5&amp;schoolId=22&amp;tracks=WEB_PRODUCT_ENGINEER&amp;results=PASSED&amp;searchName=%EB%B0%95%EC%9C%A0%EC%97%A0&amp;sort=OLDEST&amp;groupByDecider=true&amp;page=0&amp;size=20 HTTP/1.1
+<pre class="highlightjs highlight nowrap"><code class="language-http hljs" data-lang="http">GET /api/v1/recruiting/admin/decision-histories?gisuId=11&amp;chapterIds=5&amp;chapterIds=6&amp;schoolIds=22&amp;schoolIds=23&amp;tracks=WEB_PRODUCT_ENGINEER&amp;results=PASSED&amp;searchName=%EB%B0%95%EC%9C%A0%EC%97%A0&amp;sort=OLDEST&amp;groupByDecider=true&amp;page=0&amp;size=20 HTTP/1.1
 Host: localhost:8080</code></pre>
 </div>
 </div>
