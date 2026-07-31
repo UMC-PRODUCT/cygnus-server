@@ -353,9 +353,11 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     }
 
     @Test
-    @DisplayName("GraphQL 평가 이력은 양수가 아닌 기수·지부·학교 ID를 거부한다")
-    void decisionHistoriesRejectNonPositiveIdentifiers() {
+    @DisplayName("GraphQL 평가 이력은 빈 목록과 양수가 아닌 기수·지부·학교 ID를 거부한다")
+    void decisionHistoriesRejectEmptyAndNonPositiveIdentifiers() {
         assertInvalidDecisionHistoryInput("gisuId: 0");
+        assertInvalidDecisionHistoryInput("gisuId: 11, chapterIds: []");
+        assertInvalidDecisionHistoryInput("gisuId: 11, schoolIds: []");
         assertInvalidDecisionHistoryInput("gisuId: 11, chapterIds: [-1]");
         assertInvalidDecisionHistoryInput("gisuId: 11, schoolIds: [0]");
 

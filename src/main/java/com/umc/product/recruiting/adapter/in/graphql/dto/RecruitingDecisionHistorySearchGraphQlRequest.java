@@ -25,8 +25,8 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
 
     public RecruitingDecisionHistorySearchGraphQlRequest {
         requirePositive(gisuId, "gisuId");
-        requirePositive(chapterIds, "chapterIds");
-        requirePositive(schoolIds, "schoolIds");
+        requirePositiveIds(chapterIds, "chapterIds");
+        requirePositiveIds(schoolIds, "schoolIds");
     }
 
     public RecruitingDecisionHistorySearchQuery toQuery(Long requesterMemberId) {
@@ -55,8 +55,14 @@ public record RecruitingDecisionHistorySearchGraphQlRequest(
         }
     }
 
-    private static void requirePositive(List<Long> values, String fieldName) {
-        if (values != null && values.stream().anyMatch(value -> value == null || value <= 0)) {
+    private static void requirePositiveIds(List<Long> values, String fieldName) {
+        if (values == null) {
+            return;
+        }
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException(fieldName + "는 하나 이상이어야 합니다.");
+        }
+        if (values.stream().anyMatch(value -> value == null || value <= 0)) {
             throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
         }
     }
