@@ -56,6 +56,7 @@
 | `RecruitingPublicApplicationQueryServiceTest` | credential 검증, email 정규화, 서류·최종 발표 직전/정시 결과 마스킹 |
 | `RecruitingApplicationReviewQueryServiceTest` | evaluator/운영진 목록·상세 권한, DRAFT 제외, 다중 상태·1·2지망 트랙 필터와 pagination count, 본인 평가 여부, 익명/회원 Form 답변 조회 |
 | `RecruitingApplicationEvaluationQueryServiceTest` | 본인 평가 제출 전 타 평가 비공개, 제출 후 공개, 관리자 bypass |
+| `RecruitingDecisionHistoryQueryServiceTest` | 평가 이력 권한·상태 집계·CSV 마스킹, 복수 지부/학교 OR와 두 목록 AND 범위 |
 | `RecruitingEvaluatorQuestionQueryServiceTest` | 공통·개별 질문 조회 scope와 active 정렬 |
 | `RecruitingInterviewScheduleQueryServiceTest` | 지원자와 운영진 일정 조회 권한 및 응답 변환 |
 | `RecruitingInterviewMailDeliveryQueryServiceTest` | 일정·지원자·Round의 메일 발송 정보 조합 |
@@ -99,7 +100,7 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 | `RecruitingApplicationMutationControllerTest` | 로그인 수정·제출·철회와 CurrentMember 전달 |
 | `RecruitingSeasonAdminControllerTest` | Season 설정·memo·TO, 그룹 Round 조회와 필수 gisu, 제목 확인, 생성·복제·삭제 command 변환 |
 | `RecruitingRoundAdminControllerTest` | Round 생성·수정·상태 요청과 title/일정 schema |
-| `RecruitingAdminControllerTest` | Form Upsert, 제거된 별도 게시/마감 route, 서류·최종 판정, skip, 등록, summary와 CSV |
+| `RecruitingAdminControllerTest` | Form Upsert, 제거된 별도 게시/마감 route, 서류·최종 판정, skip, 등록, summary와 반복 `chapterIds`·`schoolIds` 평가 이력/CSV |
 | `RecruitingAdminEvaluatorController` 범위 (`RecruitingManagementControllerTest`) | evaluator actor/target 분리 |
 | `RecruitingAdminQuestionController` 범위 (`RecruitingManagementControllerTest`) | 질문 validation과 actor 전달 |
 | `RecruitingAdminInterviewController` 범위 (`RecruitingManagementControllerTest`) | 요청·확정 일정 command 변환 |
@@ -115,12 +116,12 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 
 | 테스트 | 검증 케이스 |
 |---|---|
-| `RecruitingGraphQlSurfaceTest` | schema Query/Mutation/enum/input/output 표면과 제거된 legacy field |
+| `RecruitingGraphQlSurfaceTest` | schema Query/Mutation/enum/input/output 표면, 평가 이력 `chapterIds`·`schoolIds` 목록 입력과 제거된 legacy field |
 | `RecruitingGraphQlArchitectureTest` | GraphQL adapter가 UseCase만 의존하고 persistence를 직접 참조하지 않음 |
 | `RecruitingGraphQlSecurityTest` | 공개 Query·익명 mutation과 인증/관리 mutation 경계, CurrentMember 적용 |
 | `RecruitingGraphQlExceptionAdviceTest` | domain·validation·authorization 오류 code 변환 |
 | `RecruitingCredentialGraphQlRateLimitInterceptorTest` | alias/fragment 우회 차단, cancel 포함 credential field count, 비credential 통과 |
-| `RecruitingSeasonAdminGraphQlControllerTest` | Season별 Round 그룹, 필터, Season memo/TO와 validation |
+| `RecruitingSeasonAdminGraphQlControllerTest` | Season별 Round 그룹, 필터, Season memo/TO, 평가 이력 다중 범위 입력과 validation |
 | `RecruitingRoundAdminGraphQlControllerTest` | Round title·생성·수정·상태·복제·삭제 mutation |
 | `RecruitingFormAdminGraphQlControllerTest` | Form 전체 구조 Upsert와 조건부 section key |
 | `RecruitingEvaluatorQuestionGraphQlControllerTest` | evaluator와 공통·개별 질문 Query/Mutation |

@@ -281,8 +281,8 @@ input RecruitingApplicationSearchInput {
 
 input RecruitingDecisionHistorySearchInput {
   gisuId: ID!
-  chapterId: ID
-  schoolId: ID
+  chapterIds: [ID!]
+  schoolIds: [ID!]
   tracks: [ChallengerTrack!]
   results: [RecruitingDecisionResult!]
   searchName: String

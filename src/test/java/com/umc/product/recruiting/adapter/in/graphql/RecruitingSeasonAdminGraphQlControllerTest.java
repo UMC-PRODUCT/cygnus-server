@@ -323,7 +323,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                 query {
                   recruitingDecisionHistories(input: {
                     gisuId: 11,
-                    chapterId: 5,
+                    chapterIds: [5, 6],
+                    schoolIds: [22, 23],
                     results: [PASSED],
                     sort: OLDEST,
                     groupByDecider: true
@@ -343,7 +344,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             ArgumentCaptor.forClass(RecruitingDecisionHistorySearchQuery.class);
         then(searchDecisionHistoryUseCase).should().search(captor.capture());
         assertThat(captor.getValue().gisuId()).isEqualTo(11L);
-        assertThat(captor.getValue().chapterId()).isEqualTo(5L);
+        assertThat(captor.getValue().chapterIds()).containsExactlyInAnyOrder(5L, 6L);
+        assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
         assertThat(captor.getValue().results()).containsExactly(RecruitingDecisionResult.PASSED);
         assertThat(captor.getValue().sortOrder()).isEqualTo(RecruitingDecisionHistorySortOrder.OLDEST);
         assertThat(captor.getValue().groupByDecider()).isTrue();
@@ -351,11 +353,13 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     }
 
     @Test
-    @DisplayName("GraphQL 평가 이력은 양수가 아닌 기수·지부·학교 ID를 거부한다")
-    void decisionHistoriesRejectNonPositiveIdentifiers() {
+    @DisplayName("GraphQL 평가 이력은 빈 목록과 양수가 아닌 기수·지부·학교 ID를 거부한다")
+    void decisionHistoriesRejectEmptyAndNonPositiveIdentifiers() {
         assertInvalidDecisionHistoryInput("gisuId: 0");
-        assertInvalidDecisionHistoryInput("gisuId: 11, chapterId: -1");
-        assertInvalidDecisionHistoryInput("gisuId: 11, schoolId: -1");
+        assertInvalidDecisionHistoryInput("gisuId: 11, chapterIds: []");
+        assertInvalidDecisionHistoryInput("gisuId: 11, schoolIds: []");
+        assertInvalidDecisionHistoryInput("gisuId: 11, chapterIds: [-1]");
+        assertInvalidDecisionHistoryInput("gisuId: 11, schoolIds: [0]");
 
         then(searchDecisionHistoryUseCase).shouldHaveNoInteractions();
     }

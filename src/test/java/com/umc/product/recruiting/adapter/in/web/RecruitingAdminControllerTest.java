@@ -21,6 +21,8 @@ import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
@@ -371,14 +373,14 @@ class RecruitingAdminControllerTest {
     }
 
     @Test
-    @DisplayName("평가 이력 조회 API는 필터·정렬·페이징 조건을 query로 전달하고 헤더 집계와 목록을 반환한다")
+    @DisplayName("평가 이력 조회 API는 반복 지부·학교 필터와 정렬·페이징 조건을 query로 전달한다")
     void 평가_이력_조회_API는_조건을_query로_전달한다() throws Exception {
         given(searchDecisionHistoryUseCase.search(any())).willReturn(decisionHistoryPage());
 
         mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories")
                 .param("gisuId", "11")
-                .param("chapterId", "5")
-                .param("schoolId", "22")
+                .param("chapterIds", "5", "6")
+                .param("schoolIds", "22", "23")
                 .param("tracks", "WEB_PRODUCT_ENGINEER")
                 .param("results", "PASSED")
                 .param("searchName", "박유엠")
@@ -397,8 +399,8 @@ class RecruitingAdminControllerTest {
         then(searchDecisionHistoryUseCase).should().search(captor.capture());
         RecruitingDecisionHistorySearchQuery query = captor.getValue();
         assertThat(query.gisuId()).isEqualTo(11L);
-        assertThat(query.chapterId()).isEqualTo(5L);
-        assertThat(query.schoolId()).isEqualTo(22L);
+        assertThat(query.chapterIds()).containsExactlyInAnyOrder(5L, 6L);
+        assertThat(query.schoolIds()).containsExactlyInAnyOrder(22L, 23L);
         assertThat(query.results()).containsExactly(RecruitingDecisionResult.PASSED);
         assertThat(query.searchName()).isEqualTo("박유엠");
         assertThat(query.sortOrder()).isEqualTo(RecruitingDecisionHistorySortOrder.OLDEST);
@@ -407,20 +409,96 @@ class RecruitingAdminControllerTest {
     }
 
     @Test
-    @DisplayName("평가 이력 CSV API는 같은 조건으로 attachment를 반환한다")
+    @DisplayName("평가 이력 CSV API는 반복 지부·학교 필터와 함께 attachment를 반환한다")
     void 평가_이력_CSV_API는_attachment를_반환한다() throws Exception {
         given(exportDecisionHistoryCsvUseCase.exportCsv(any()))
             .willReturn("decidedAt,decisionStatus,result\n".getBytes());
 
         mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories.csv")
-                .param("gisuId", "11"))
+                .param("gisuId", "11")
+                .param("chapterIds", "5", "6")
+                .param("schoolIds", "22", "23"))
             .andExpect(status().isOk())
             .andExpect(header().string(
                 HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=\"recruiting-decision-histories.csv\""
             ));
 
-        then(exportDecisionHistoryCsvUseCase).should().exportCsv(any());
+        ArgumentCaptor<RecruitingDecisionHistorySearchQuery> captor =
+            ArgumentCaptor.forClass(RecruitingDecisionHistorySearchQuery.class);
+        then(exportDecisionHistoryCsvUseCase).should().exportCsv(captor.capture());
+        assertThat(captor.getValue().chapterIds()).containsExactlyInAnyOrder(5L, 6L);
+        assertThat(captor.getValue().schoolIds()).containsExactlyInAnyOrder(22L, 23L);
+    }
+
+    @Test
+    @DisplayName("평가 이력 조회 API는 빈 chapterIds 반복 값을 거부하고 UseCase를 호출하지 않는다")
+    void 평가_이력_조회_API는_빈_chapterIds_반복_값을_거부한다() throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories")
+                .param("gisuId", "11")
+                .param("chapterIds", ""))
+            .andExpect(status().isBadRequest());
+
+        then(searchDecisionHistoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("평가 이력 조회 API는 빈 schoolIds 반복 값을 거부하고 UseCase를 호출하지 않는다")
+    void 평가_이력_조회_API는_빈_schoolIds_반복_값을_거부한다() throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories")
+                .param("gisuId", "11")
+                .param("schoolIds", ""))
+            .andExpect(status().isBadRequest());
+
+        then(searchDecisionHistoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("평가 이력 CSV API는 빈 chapterIds 반복 값을 거부하고 UseCase를 호출하지 않는다")
+    void 평가_이력_CSV_API는_빈_chapterIds_반복_값을_거부한다() throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories.csv")
+                .param("gisuId", "11")
+                .param("chapterIds", ""))
+            .andExpect(status().isBadRequest());
+
+        then(exportDecisionHistoryCsvUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("평가 이력 CSV API는 빈 schoolIds 반복 값을 거부하고 UseCase를 호출하지 않는다")
+    void 평가_이력_CSV_API는_빈_schoolIds_반복_값을_거부한다() throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories.csv")
+                .param("gisuId", "11")
+                .param("schoolIds", ""))
+            .andExpect(status().isBadRequest());
+
+        then(exportDecisionHistoryCsvUseCase).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1"})
+    @DisplayName("평가 이력 조회 API는 0 또는 음수 반복 ID를 거부하고 UseCase를 호출하지 않는다")
+    void 평가_이력_조회_API는_유효하지_않은_반복_ID를_거부한다(String invalidId) throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories")
+                .param("gisuId", "11")
+                .param("chapterIds", invalidId)
+                .param("schoolIds", invalidId))
+            .andExpect(status().isBadRequest());
+
+        then(searchDecisionHistoryUseCase).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "-1"})
+    @DisplayName("평가 이력 CSV API는 0 또는 음수 반복 ID를 거부하고 UseCase를 호출하지 않는다")
+    void 평가_이력_CSV_API는_유효하지_않은_반복_ID를_거부한다(String invalidId) throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/admin/decision-histories.csv")
+                .param("gisuId", "11")
+                .param("chapterIds", invalidId)
+                .param("schoolIds", invalidId))
+            .andExpect(status().isBadRequest());
+
+        then(exportDecisionHistoryCsvUseCase).shouldHaveNoInteractions();
     }
 
     private RecruitingDecisionHistoryPageInfo decisionHistoryPage() {

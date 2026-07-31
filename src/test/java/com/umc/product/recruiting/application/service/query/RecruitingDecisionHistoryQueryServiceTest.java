@@ -13,6 +13,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -54,8 +55,12 @@ class RecruitingDecisionHistoryQueryServiceTest {
     private static final Long REQUESTER_ID = 40L;
     private static final Long CHROMIUM_CHAPTER_ID = 100L;
     private static final Long SELENIUM_CHAPTER_ID = 200L;
+    private static final Long FIREFOX_CHAPTER_ID = 300L;
     private static final Long HANYANG_SCHOOL_ID = 10L;
     private static final Long SOONGSIL_SCHOOL_ID = 20L;
+    private static final Long KOREA_SCHOOL_ID = 30L;
+    private static final Long UNKNOWN_CHAPTER_ID = 999L;
+    private static final Long UNKNOWN_SCHOOL_ID = 999L;
 
     @Mock
     LoadRecruitingDecisionHistoryPort loadDecisionHistoryPort;
@@ -171,7 +176,7 @@ class RecruitingDecisionHistoryQueryServiceTest {
             givenEmptySearch();
             givenNoDecisionTargets();
 
-            sut.search(defaultQuery().chapterId(CHROMIUM_CHAPTER_ID).build());
+            sut.search(defaultQuery().chapterIds(Set.of(CHROMIUM_CHAPTER_ID)).build());
 
             assertThat(capturedCondition().schoolIds()).containsExactly(HANYANG_SCHOOL_ID);
         }
@@ -182,12 +187,115 @@ class RecruitingDecisionHistoryQueryServiceTest {
             givenSchools();
 
             RecruitingDecisionHistoryPageInfo result = sut.search(defaultQuery()
-                .chapterId(SELENIUM_CHAPTER_ID)
-                .schoolId(HANYANG_SCHOOL_ID)
+                .chapterIds(Set.of(SELENIUM_CHAPTER_ID))
+                .schoolIds(Set.of(HANYANG_SCHOOL_ID))
                 .build());
 
             assertThat(result.page().getContent()).isEmpty();
             then(loadDecisionHistoryPort).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("여러 지부 필터는 해당 지부 학교들의 합집합으로 검색한다")
+        void chapterFiltersUseUnionOfScopedSchools() {
+            givenSchools();
+            givenEmptySearch();
+            givenNoDecisionTargets();
+
+            sut.search(defaultQuery().chapterIds(Set.of(CHROMIUM_CHAPTER_ID, SELENIUM_CHAPTER_ID)).build());
+
+            assertThat(capturedCondition().schoolIds())
+                .containsExactlyInAnyOrder(HANYANG_SCHOOL_ID, SOONGSIL_SCHOOL_ID);
+        }
+
+        @Test
+        @DisplayName("여러 학교 필터는 해당 학교들의 합집합으로 검색한다")
+        void schoolFiltersUseUnionOfScopedSchools() {
+            givenSchools();
+            givenEmptySearch();
+            givenNoDecisionTargets();
+
+            sut.search(defaultQuery().schoolIds(Set.of(HANYANG_SCHOOL_ID, SOONGSIL_SCHOOL_ID)).build());
+
+            assertThat(capturedCondition().schoolIds())
+                .containsExactlyInAnyOrder(HANYANG_SCHOOL_ID, SOONGSIL_SCHOOL_ID);
+        }
+
+        @Test
+        @DisplayName("지부와 학교 필터를 함께 주면 양쪽에 속하는 학교만 검색한다")
+        void chapterAndSchoolFiltersUsePartialIntersection() {
+            givenSchools();
+            givenEmptySearch();
+            givenNoDecisionTargets();
+
+            sut.search(defaultQuery()
+                .chapterIds(Set.of(CHROMIUM_CHAPTER_ID, SELENIUM_CHAPTER_ID))
+                .schoolIds(Set.of(HANYANG_SCHOOL_ID, KOREA_SCHOOL_ID))
+                .build());
+
+            assertThat(capturedCondition().schoolIds()).containsExactly(HANYANG_SCHOOL_ID);
+        }
+
+        @Test
+        @DisplayName("지부와 학교 필터가 모두 일치하면 전체 교집합을 검색한다")
+        void chapterAndSchoolFiltersUseFullIntersection() {
+            givenSchools();
+            givenEmptySearch();
+            givenNoDecisionTargets();
+
+            sut.search(defaultQuery()
+                .chapterIds(Set.of(CHROMIUM_CHAPTER_ID, SELENIUM_CHAPTER_ID))
+                .schoolIds(Set.of(HANYANG_SCHOOL_ID, SOONGSIL_SCHOOL_ID))
+                .build());
+
+            assertThat(capturedCondition().schoolIds())
+                .containsExactlyInAnyOrder(HANYANG_SCHOOL_ID, SOONGSIL_SCHOOL_ID);
+        }
+
+        @Test
+        @DisplayName("중복 지부 ID는 한 번으로 정규화하고 호출자 변경과 분리한다")
+        void duplicatedChapterIdsAreNormalizedAndDefensivelyCopied() {
+            givenSchools();
+            givenEmptySearch();
+            givenNoDecisionTargets();
+            Set<Long> chapterIds = new LinkedHashSet<>(List.of(CHROMIUM_CHAPTER_ID, CHROMIUM_CHAPTER_ID));
+            RecruitingDecisionHistorySearchQuery query = defaultQuery().chapterIds(chapterIds).build();
+            chapterIds.clear();
+
+            sut.search(query);
+
+            assertThat(query.chapterIds()).containsExactly(CHROMIUM_CHAPTER_ID);
+            assertThat(capturedCondition().schoolIds()).containsExactly(HANYANG_SCHOOL_ID);
+        }
+
+        @Test
+        @DisplayName("유효·무효 지부와 학교 ID가 섞여도 기수 내 유효 학교는 유지한다")
+        void validAndUnknownScopeIdsKeepValidGisuSchools() {
+            givenSchools();
+            givenEmptySearch();
+            givenNoDecisionTargets();
+
+            sut.search(defaultQuery()
+                .chapterIds(Set.of(CHROMIUM_CHAPTER_ID, UNKNOWN_CHAPTER_ID))
+                .schoolIds(Set.of(HANYANG_SCHOOL_ID, UNKNOWN_SCHOOL_ID))
+                .build());
+
+            assertThat(capturedCondition().schoolIds()).containsExactly(HANYANG_SCHOOL_ID);
+        }
+
+        @Test
+        @DisplayName("기수 학교에 없는 범위면 이력 검색 없이 평가 전 빈 페이지를 반환한다")
+        void emptyScopeSkipsHistorySearchAndReturnsBeforeEvaluation() {
+            givenSchools();
+
+            RecruitingDecisionHistoryPageInfo result = sut.search(defaultQuery()
+                .schoolIds(Set.of(UNKNOWN_SCHOOL_ID))
+                .build());
+
+            assertThat(result.page().getContent()).isEmpty();
+            assertThat(result.progressStatus()).isEqualTo(RecruitingEvaluationProgressStatus.BEFORE_EVALUATION);
+            then(loadDecisionHistoryPort).shouldHaveNoInteractions();
+            then(loadApplicationPort).shouldHaveNoInteractions();
         }
 
         @Test
@@ -347,11 +455,35 @@ class RecruitingDecisionHistoryQueryServiceTest {
                 .extracting("baseCode")
                 .isEqualTo(RecruitingErrorCode.RECRUITING_DECISION_HISTORY_EXPORT_TOO_LARGE);
         }
+
+        @Test
+        @DisplayName("기수 학교에 없는 범위의 CSV는 헤더와 개행만 반환하고 이력을 검색하지 않는다")
+        void csvForEmptyScopeContainsHeaderOnly() {
+            String csv = new String(sut.exportCsv(defaultQuery()
+                .schoolIds(Set.of(UNKNOWN_SCHOOL_ID))
+                .build()), StandardCharsets.UTF_8);
+
+            assertThat(csv).isEqualTo(
+                "decidedAt,decisionStatus,result,gisuId,chapterId,schoolId,applicationId,maskedEmail,"
+                    + "firstChoiceTrack,secondChoiceTrack,acceptedTrack,deciderMemberId,deciderRoleType,"
+                    + "deciderSchoolId,deciderNickname\n"
+            );
+            then(loadDecisionHistoryPort).shouldHaveNoInteractions();
+        }
     }
 
     @Nested
     @DisplayName("페이지 크기 검증")
     class PageSize {
+
+        @Test
+        @DisplayName("범위 ID가 없으면 빈 집합으로 정규화한다")
+        void nullScopeIdsAreNormalizedToEmptySets() {
+            RecruitingDecisionHistorySearchQuery query = defaultQuery().build();
+
+            assertThat(query.chapterIds()).isEmpty();
+            assertThat(query.schoolIds()).isEmpty();
+        }
 
         @Test
         @DisplayName("size가 100을 초과하면 조회 요청을 거부한다")
@@ -387,7 +519,8 @@ class RecruitingDecisionHistoryQueryServiceTest {
     private void givenSchools() {
         given(getSchoolUseCase.getSchoolListByGisuId(GISU_ID)).willReturn(List.of(
             school(CHROMIUM_CHAPTER_ID, "Chromium", HANYANG_SCHOOL_ID, "한양대 ERICA"),
-            school(SELENIUM_CHAPTER_ID, "Selenium", SOONGSIL_SCHOOL_ID, "숭실대")
+            school(SELENIUM_CHAPTER_ID, "Selenium", SOONGSIL_SCHOOL_ID, "숭실대"),
+            school(FIREFOX_CHAPTER_ID, "Firefox", KOREA_SCHOOL_ID, "고려대")
         ));
     }
 
