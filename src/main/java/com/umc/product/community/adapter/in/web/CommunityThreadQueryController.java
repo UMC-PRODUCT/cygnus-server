@@ -15,13 +15,13 @@ import com.umc.product.community.adapter.in.web.dto.response.CommunityThreadMemb
 import com.umc.product.community.adapter.in.web.dto.response.CommunityThreadMessagePageResponse;
 import com.umc.product.community.adapter.in.web.validation.CodePointLength;
 import com.umc.product.community.adapter.in.web.validation.PositiveDecimalId;
+import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
-import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
+import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ListThreadMembersQuery;
-import com.umc.product.community.application.port.in.query.thread.dto.ListThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.SearchThreadInvitableQuery;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageHistoryUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageHistoryQuery;
@@ -44,7 +44,7 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "Community | Thread Query", description = "Community thread 조회와 REST recovery API")
 public class CommunityThreadQueryController {
 
-    private final ListCommunityThreadsUseCase listThreadsUseCase;
+    private final BrowseCommunityThreadsUseCase browseThreadsUseCase;
     private final GetCommunityThreadDetailUseCase getThreadDetailUseCase;
     private final ListCommunityThreadMembersUseCase listThreadMembersUseCase;
     private final SearchCommunityThreadInvitableUseCase searchThreadInvitableUseCase;
@@ -60,8 +60,8 @@ public class CommunityThreadQueryController {
         @RequestParam(defaultValue = "20") @Min(1) @Max(100) int limit,
         @CurrentMember MemberPrincipal principal
     ) {
-        return CommunityThreadListResponse.from(listThreadsUseCase.listThreads(
-            new ListThreadsQuery(
+        return CommunityThreadListResponse.from(browseThreadsUseCase.browseThreads(
+            new BrowseThreadsQuery(
                 principal.getMemberId(), CommunityThreadFilterParser.parse(filter), query, offset, limit
             )
         ));

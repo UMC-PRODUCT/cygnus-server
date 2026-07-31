@@ -15,12 +15,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMembersByIdsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
+import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadMembersByIdsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ListThreadMembersQuery;
@@ -61,6 +63,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class CommunityThreadQueryService implements
     ListCommunityThreadsUseCase,
+    BrowseCommunityThreadsUseCase,
     GetCommunityThreadDetailUseCase,
     GetCommunityThreadMembersByIdsUseCase,
     GetCommunityThreadMutationDetailUseCase,
@@ -77,9 +80,32 @@ public class CommunityThreadQueryService implements
     private final SearchMemberInvitationUseCase searchInvitationUseCase;
     private final CommunityThreadProperties threadProperties;
 
+    @Deprecated
     @Override
     public ThreadListInfo listThreads(ListThreadsQuery query) {
         CommunityThreadListRows rows = threadQueryPort.searchThreads(new CommunityThreadListCondition(
+            query.requesterMemberId(),
+            categoryOf(query.filter()),
+            query.filter() == ThreadListFilter.UNREAD,
+            query.q(),
+            query.offset(),
+            query.limit()
+        ));
+        Map<Long, MemberInfo> senders = loadVisibleSenders(rows.pinned(), rows.unpinned());
+        List<ThreadSummaryInfo> pinned = rows.pinned().stream()
+            .map(row -> toSummary(row, senders))
+            .toList();
+        List<ThreadSummaryInfo> threads = rows.unpinned().stream()
+            .map(row -> toSummary(row, senders))
+            .toList();
+        int consumed = Math.addExact(query.offset(), threads.size());
+        Integer nextOffset = consumed < rows.unpinnedTotal() ? consumed : null;
+        return new ThreadListInfo(pinned, threads, nextOffset, rows.unpinnedTotal());
+    }
+
+    @Override
+    public ThreadListInfo browseThreads(BrowseThreadsQuery query) {
+        CommunityThreadListRows rows = threadQueryPort.browseThreads(new CommunityThreadListCondition(
             query.requesterMemberId(),
             categoryOf(query.filter()),
             query.filter() == ThreadListFilter.UNREAD,
