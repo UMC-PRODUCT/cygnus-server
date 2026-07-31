@@ -304,6 +304,7 @@ class RecruitingSeasonQueryServiceTest {
             chapterId,
             chapterName,
             schoolName,
+            null,
             schoolId,
             null,
             null,

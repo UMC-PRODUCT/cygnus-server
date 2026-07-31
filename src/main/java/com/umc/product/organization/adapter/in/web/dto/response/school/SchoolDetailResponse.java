@@ -1,10 +1,12 @@
 package com.umc.product.organization.adapter.in.web.dto.response.school;
 
-import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
-import com.umc.product.organization.domain.enums.SchoolLinkType;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
+
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
+import com.umc.product.organization.domain.enums.SchoolLinkType;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "학교 상세 정보")
 public record SchoolDetailResponse(
@@ -16,6 +18,9 @@ public record SchoolDetailResponse(
 
     @Schema(description = "학교명", example = "서울대학교")
     String schoolName,
+
+    @Schema(description = "학교 약칭", example = "서울대")
+    String shortName,
 
     @Schema(description = "학교 ID", example = "1")
     Long schoolId,
@@ -49,6 +54,7 @@ public record SchoolDetailResponse(
             info.chapterId(),
             info.chapterName(),
             info.schoolName(),
+            info.shortName(),
             info.schoolId(),
             info.remark(),
             info.logoImageUrl(),

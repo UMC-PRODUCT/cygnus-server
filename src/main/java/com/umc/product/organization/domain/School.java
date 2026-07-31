@@ -1,6 +1,13 @@
 package com.umc.product.organization.domain;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.hibernate.annotations.BatchSize;
+import org.springframework.util.StringUtils;
+
 import com.umc.product.common.BaseEntity;
+
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,14 +16,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
-import java.util.ArrayList;
-import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.BatchSize;
-import org.springframework.util.StringUtils;
 
 @Entity
 @Getter
@@ -35,6 +38,9 @@ public class School extends BaseEntity {
     private String name;
 
     @Column(nullable = true)
+    private String shortName;
+
+    @Column(nullable = true)
     private String logoImageId;
 
     @Column(nullable = true)
@@ -45,15 +51,17 @@ public class School extends BaseEntity {
     private List<SchoolLink> schoolLinks = new ArrayList<>();
 
     @Builder(access = AccessLevel.PRIVATE)
-    private School(String name, String remark, ArrayList<ChapterSchool> chapterSchools) {
+    private School(String name, String shortName, String remark, ArrayList<ChapterSchool> chapterSchools) {
         this.name = name;
+        this.shortName = shortName;
         this.remark = remark;
         this.chapterSchools = chapterSchools;
     }
 
-    public static School create(String name, String remark) {
+    public static School create(String name, String shortName, String remark) {
         return School.builder()
             .name(name)
+            .shortName(shortName)
             .remark(remark)
             .chapterSchools(new ArrayList<>())
             .build();
@@ -68,6 +76,12 @@ public class School extends BaseEntity {
     public void updateName(String name) {
         if (StringUtils.hasText(name)) {
             this.name = name;
+        }
+    }
+
+    public void updateShortName(String shortName) {
+        if (StringUtils.hasText(shortName)) {
+            this.shortName = shortName;
         }
     }
 

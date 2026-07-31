@@ -108,6 +108,9 @@ public record GisuOrganizationV2Response(
         @Schema(description = "학교명", example = "중앙대학교")
         String schoolName,
 
+        @Schema(description = "학교 약칭", example = "중앙대")
+        String shortName,
+
         @Schema(description = "비고")
         String remark,
 
@@ -133,6 +136,7 @@ public record GisuOrganizationV2Response(
                 info.chapterName(),
                 info.schoolId(),
                 info.schoolName(),
+                info.shortName(),
                 info.remark(),
                 info.logoImageUrl(),
                 info.links().stream().map(SchoolLinkItem::from).toList(),

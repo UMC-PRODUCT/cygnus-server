@@ -40,7 +40,7 @@ public class SchoolService implements ManageSchoolUseCase {
     @Override
     public Long create(CreateSchoolCommand command) {
 
-        School newSchool = School.create(command.schoolName(), command.remark());
+        School newSchool = School.create(command.schoolName(), command.shortName(), command.remark());
         newSchool.updateLogoImageId(command.logoImageId());
 
         List<SchoolLink> links = command.links().stream()
@@ -59,6 +59,7 @@ public class SchoolService implements ManageSchoolUseCase {
         School school = loadSchoolPort.findById(schoolId);
 
         school.updateName(command.schoolName());
+        school.updateShortName(command.shortName());
         school.updateRemark(command.remark());
         school.updateLogoImageId(command.logoImageId());
 

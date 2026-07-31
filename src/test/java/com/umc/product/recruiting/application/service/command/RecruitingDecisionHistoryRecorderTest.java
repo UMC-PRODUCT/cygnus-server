@@ -164,6 +164,7 @@ class RecruitingDecisionHistoryRecorderTest {
             20L,
             "Selenium",
             "한양대 ERICA",
+            null,
             SCHOOL_ID,
             null,
             null,

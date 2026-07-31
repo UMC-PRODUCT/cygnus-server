@@ -31,7 +31,7 @@ final class CommunityThreadTwoInstanceFixture {
         Chapter chapter = context.getBean(SaveChapterPort.class).save(
             Chapter.create(gisu, "community-relay-e2e")
         );
-        School school = School.create("community-relay-e2e-school", null);
+        School school = School.create("community-relay-e2e-school", null, null);
         school.assignToChapter(chapter);
         school = context.getBean(SaveSchoolPort.class).save(school);
 

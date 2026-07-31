@@ -328,7 +328,7 @@ class MemberQueryRepositoryTest {
     }
 
     private School persistSchool(String name) {
-        School school = School.create(name, null);
+        School school = School.create(name, null, null);
         em.persist(school);
         return school;
     }

@@ -1014,6 +1014,7 @@ class MemberGraphQlControllerTest {
             1L,
             "1지부",
             schoolName,
+            null,
             schoolId,
             "비고",
             null,
