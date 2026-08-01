@@ -697,6 +697,53 @@ class   FormResponseCommandServiceTest {
     }
 
     @Test
+    @DisplayName("submitImmediately: SCHEDULE 답변 시간이 비어 있으면 INVALID_ANSWER_FORMAT으로 거부한다")
+    void submitImmediately_SCHEDULE_답변_시간이_비어_있으면_INVALID_ANSWER_FORMAT() {
+        Question question = question(10L, QuestionType.SCHEDULE, true);
+        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(question));
+
+        assertThatThrownBy(() -> sut.submitImmediately(SubmitFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .respondentMemberId(MEMBER_ID)
+            .answers(List.of(AnswerCommand.builder()
+                .questionId(question.getId())
+                .times(List.of())
+                .build()))
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveFormResponsePort).should(never()).save(any());
+        then(saveAnswerPort).should(never()).saveAll(any());
+    }
+
+    @Test
+    @DisplayName("submitImmediately: SCHEDULE 답변 시간이 15분에 미정렬이면 INVALID_ANSWER_FORMAT으로 거부한다")
+    void submitImmediately_SCHEDULE_답변_시간이_15분에_미정렬이면_INVALID_ANSWER_FORMAT() {
+        Question question = question(10L, QuestionType.SCHEDULE, true);
+        Instant misalignedTime = Instant.parse("2026-08-12T10:01:00Z");
+        given(loadFormPort.findById(FORM_ID)).willReturn(Optional.of(publishedForm(false)));
+        given(loadQuestionPort.listByFormId(FORM_ID)).willReturn(List.of(question));
+
+        assertThatThrownBy(() -> sut.submitImmediately(SubmitFormResponseCommand.builder()
+            .formId(FORM_ID)
+            .respondentMemberId(MEMBER_ID)
+            .answers(List.of(AnswerCommand.builder()
+                .questionId(question.getId())
+                .times(List.of(misalignedTime))
+                .build()))
+            .build()))
+            .isInstanceOf(FormDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(FormErrorCode.INVALID_ANSWER_FORMAT);
+
+        then(saveFormResponsePort).should(never()).save(any());
+        then(saveAnswerPort).should(never()).saveAll(any());
+    }
+
+    @Test
     @DisplayName("LONG_TEXT 답변이 공백 문자열이면 저장하지 않고 INVALID_ANSWER_FORMAT으로 거부한다")
     void longText_답변이_공백_문자열이면_INVALID_ANSWER_FORMAT() {
         FormResponse draft = draftResponse();
