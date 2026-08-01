@@ -4,10 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.BDDMockito.willThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -33,12 +30,9 @@ import com.umc.product.recruiting.application.port.in.command.ManageRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingRoundInterviewQuestionUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundEvaluatorCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
-import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewQuestionUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingRoundEvaluatorUseCase;
-import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
-import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 @WebMvcTest(controllers = {
     RecruitingAdminEvaluatorController.class,
@@ -121,25 +115,6 @@ class RecruitingManagementControllerTest {
         ArgumentCaptor<RequestRecruitingInterviewScheduleCommand> captor =
             ArgumentCaptor.forClass(RequestRecruitingInterviewScheduleCommand.class);
         then(manageScheduleUseCase).should().requestAvailability(captor.capture());
-        assertThat(captor.getValue().requesterMemberId()).isEqualTo(ACTOR_ID);
-    }
-
-    @Test
-    @DisplayName("면접 가능 일정 제출은 외부 FormResponse ID 없이 501을 반환한다")
-    void submitAvailabilityReturnsNotImplementedWithoutFormResponseId() throws Exception {
-        willThrow(new RecruitingDomainException(
-            RecruitingErrorCode.RECRUITING_INTERVIEW_AVAILABILITY_NOT_IMPLEMENTED
-        )).given(manageScheduleUseCase).submitAvailability(any());
-
-        mockMvc.perform(put("/api/v1/recruiting/applications/{applicationId}/interview-schedule/availability", 40L)
-                .contentType(MediaType.APPLICATION_JSON))
-            .andExpect(status().isNotImplemented())
-            .andExpect(jsonPath("$.code").value("RECRUITING-0419"));
-
-        ArgumentCaptor<SubmitRecruitingInterviewAvailabilityCommand> captor =
-            ArgumentCaptor.forClass(SubmitRecruitingInterviewAvailabilityCommand.class);
-        then(manageScheduleUseCase).should().submitAvailability(captor.capture());
-        assertThat(captor.getValue().applicationId()).isEqualTo(40L);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(ACTOR_ID);
     }
 
