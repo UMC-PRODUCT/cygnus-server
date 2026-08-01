@@ -62,6 +62,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundG
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
@@ -160,6 +161,29 @@ class RecruitingSeasonAdminGraphQlControllerTest {
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(40L);
         assertThat(captor.getValue().quotas()).hasSize(2);
         assertThat(captor.getValue().quotas().getFirst().targetCount()).isZero();
+    }
+
+    @Test
+    @DisplayName("GraphQL 시즌 설정 조회는 availability Form과 SCHEDULE 질문 ID를 함께 반환한다")
+    void getSeasonConfigurationIncludesAvailabilityQuestionId() {
+        given(getSeasonConfigurationUseCase.getBySeasonId(10L)).willReturn(
+            new RecruitingSeasonConfigurationInfo(10L, 11L, 22L, "메모", List.of(), List.of(roundConfiguration()))
+        );
+
+        graphQlTester.document("""
+                query {
+                  recruitingSeasonConfiguration(seasonId: 10) {
+                    rounds { availabilityFormId availabilityScheduleQuestionId }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingSeasonConfiguration.rounds[0].availabilityFormId")
+            .entity(String.class)
+            .isEqualTo("100")
+            .path("recruitingSeasonConfiguration.rounds[0].availabilityScheduleQuestionId")
+            .entity(String.class)
+            .isEqualTo("200");
     }
 
     @Test
@@ -385,7 +409,7 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                   recruitingRoundGroups(input: {gisuId: 11, chapterId: 33, track: PLAN}) {
                     seasonId
                     chapterName
-                    rounds { id }
+                    rounds { id availabilityFormId availabilityScheduleQuestionId }
                   }
                 }
                 """)
@@ -395,7 +419,13 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             .isEqualTo("A 지부")
             .path("recruitingRoundGroups[0].rounds[0].id")
             .entity(String.class)
-            .isEqualTo("20");
+            .isEqualTo("20")
+            .path("recruitingRoundGroups[0].rounds[0].availabilityFormId")
+            .entity(String.class)
+            .isEqualTo("100")
+            .path("recruitingRoundGroups[0].rounds[0].availabilityScheduleQuestionId")
+            .entity(String.class)
+            .isEqualTo("200");
 
         ArgumentCaptor<RecruitingRoundGroupSearchQuery> captor =
             ArgumentCaptor.forClass(RecruitingRoundGroupSearchQuery.class);
@@ -453,7 +483,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             null,
             null,
             java.time.Instant.parse("2026-08-16T00:00:00Z"),
-            null,
+            100L,
+            200L,
             "공고",
             "연락처"
         );

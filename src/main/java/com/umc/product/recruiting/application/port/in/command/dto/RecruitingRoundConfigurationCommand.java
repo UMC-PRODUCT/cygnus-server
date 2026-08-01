@@ -17,6 +17,7 @@ public record RecruitingRoundConfigurationCommand(
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
     Long availabilityFormId,
+    Long availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
@@ -32,6 +33,7 @@ public record RecruitingRoundConfigurationCommand(
         Instant interviewEndAt,
         Instant finalResultPublishedAt,
         Long availabilityFormId,
+        Long availabilityScheduleQuestionId,
         String announcement,
         String contactText
     ) {
@@ -46,6 +48,38 @@ public record RecruitingRoundConfigurationCommand(
             interviewEndAt,
             finalResultPublishedAt,
             availabilityFormId,
+            availabilityScheduleQuestionId,
+            announcement,
+            contactText
+        );
+    }
+
+    public static RecruitingRoundConfigurationCommand of(
+        List<ChallengerTrack> recruitableTracks,
+        boolean secondChoiceEnabled,
+        Instant documentStartAt,
+        Instant documentEndAt,
+        Instant documentResultPublishedAt,
+        boolean interviewRequired,
+        Instant interviewStartAt,
+        Instant interviewEndAt,
+        Instant finalResultPublishedAt,
+        Long availabilityFormId,
+        String announcement,
+        String contactText
+    ) {
+        return of(
+            recruitableTracks,
+            secondChoiceEnabled,
+            documentStartAt,
+            documentEndAt,
+            documentResultPublishedAt,
+            interviewRequired,
+            interviewStartAt,
+            interviewEndAt,
+            finalResultPublishedAt,
+            availabilityFormId,
+            null,
             announcement,
             contactText
         );
@@ -63,6 +97,7 @@ public record RecruitingRoundConfigurationCommand(
             interviewEndAt,
             finalResultPublishedAt,
             availabilityFormId,
+            availabilityScheduleQuestionId,
             announcement,
             contactText
         );

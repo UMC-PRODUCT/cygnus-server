@@ -206,6 +206,7 @@ public class RecruitingRoundLifecycleCommandService implements
             source.getInterviewEndAt(),
             source.getFinalResultPublishedAt(),
             null,
+            null,
             source.getAnnouncement(),
             source.getContactText()
         );

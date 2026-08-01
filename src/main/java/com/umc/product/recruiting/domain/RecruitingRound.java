@@ -101,6 +101,9 @@ public class RecruitingRound extends BaseEntity {
     @Column(name = "availability_form_id")
     private Long availabilityFormId;
 
+    @Column(name = "availability_schedule_question_id")
+    private Long availabilityScheduleQuestionId;
+
     @Column(columnDefinition = "TEXT")
     private String announcement;
 
@@ -212,6 +215,7 @@ public class RecruitingRound extends BaseEntity {
         this.interviewEndAt = configuration.interviewEndAt();
         this.finalResultPublishedAt = configuration.finalResultPublishedAt();
         this.availabilityFormId = configuration.availabilityFormId();
+        this.availabilityScheduleQuestionId = configuration.availabilityScheduleQuestionId();
         this.announcement = configuration.announcement();
         this.contactText = configuration.contactText();
     }
