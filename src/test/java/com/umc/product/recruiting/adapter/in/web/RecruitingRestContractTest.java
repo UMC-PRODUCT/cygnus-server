@@ -16,15 +16,19 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.recruiting.adapter.in.web.dto.request.ConfirmRecruitingInterviewScheduleRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.ConfirmRecruitingInterviewSchedulesRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.CreateRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingInterviewQuestionRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingInterviewSessionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitRecruitingEvaluationRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingRoundRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpsertRecruitingApplicationFormRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingEvaluationResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingInterviewScheduleBoardResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingInterviewScheduleResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingInterviewSessionResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingSeasonConfigurationResponse;
 
 import io.swagger.v3.core.converter.ModelConverters;
@@ -95,6 +99,12 @@ class RecruitingRestContractTest {
                 "RECRUITING-ADMIN-048",
                 "RECRUITING-ADMIN-051",
                 "RECRUITING-ADMIN-052",
+                "RECRUITING-ADMIN-053",
+                "RECRUITING-ADMIN-054",
+                "RECRUITING-ADMIN-055",
+                "RECRUITING-ADMIN-056",
+                "RECRUITING-ADMIN-057",
+                "RECRUITING-ADMIN-058",
                 "RECRUITING-ADMIN-061",
                 "RECRUITING-ADMIN-062",
                 "RECRUITING-ADMIN-063",
@@ -143,8 +153,12 @@ class RecruitingRestContractTest {
             SkipRecruitingInterviewRequest.class,
             UpsertRecruitingApplicationFormRequest.class,
             ConfirmRecruitingInterviewScheduleRequest.class,
+            ConfirmRecruitingInterviewSchedulesRequest.class,
+            RecruitingInterviewSessionRequest.class,
             RecruitingEvaluationResponse.class,
             RecruitingInterviewScheduleResponse.class,
+            RecruitingInterviewScheduleBoardResponse.class,
+            RecruitingInterviewSessionResponse.class,
             RecruitingSeasonConfigurationResponse.class
         );
 
