@@ -24,6 +24,7 @@ public record RecruitingRoundConfigurationInfo(
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
     Long availabilityFormId,
+    Long availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
@@ -45,6 +46,7 @@ public record RecruitingRoundConfigurationInfo(
             round.getInterviewEndAt(),
             round.getFinalResultPublishedAt(),
             round.getAvailabilityFormId(),
+            round.getAvailabilityScheduleQuestionId(),
             round.getAnnouncement(),
             round.getContactText()
         );

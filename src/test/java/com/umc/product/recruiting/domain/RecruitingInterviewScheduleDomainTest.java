@@ -66,6 +66,48 @@ class RecruitingInterviewScheduleDomainTest {
     }
 
     @Test
+    @DisplayName("가능 시간 응답은 요청 상태에서 한 번만 제출할 수 있다")
+    void 가능_시간_응답은_요청_상태에서_한_번만_제출할_수_있다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+
+        assertThatThrownBy(() -> schedule.submitAvailability(701L))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+
+        assertThat(schedule.getAvailabilityFormResponseId()).isEqualTo(700L);
+    }
+
+    @Test
+    @DisplayName("취소된 일정에는 가능 시간 응답을 제출할 수 없다")
+    void 취소된_일정에는_가능_시간_응답을_제출할_수_없다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.cancel();
+
+        assertThatThrownBy(() -> schedule.submitAvailability(700L))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+
+        assertThat(schedule.getAvailabilityFormResponseId()).isNull();
+    }
+
+    @Test
+    @DisplayName("가능 시간 Form 응답 ID는 양수여야 한다")
+    void 가능_시간_Form_응답_ID는_양수여야_한다() {
+        RecruitingInterviewSchedule schedule = schedule();
+
+        assertThatThrownBy(() -> schedule.submitAvailability(0L))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_RESPONSE);
+
+        assertThat(schedule.getStatus()).isEqualTo(RecruitingInterviewScheduleStatus.AVAILABILITY_REQUESTED);
+        assertThat(schedule.getAvailabilityFormResponseId()).isNull();
+    }
+
+    @Test
     @DisplayName("면접 종료 시각은 시작 시각보다 늦어야 한다")
     void 면접_종료_시각은_시작_시각보다_늦어야_한다() {
         RecruitingInterviewSchedule schedule = schedule();
@@ -115,6 +157,7 @@ class RecruitingInterviewScheduleDomainTest {
                 Instant.parse("2026-08-15T00:00:00Z"),
                 Instant.parse("2026-08-16T00:00:00Z"),
                 300L,
+                301L,
                 null,
                 "문의 채널"
             )

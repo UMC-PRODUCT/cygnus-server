@@ -121,6 +121,7 @@ class RecruitingRoundAdminGraphQlControllerTest {
         assertThat(captor.getValue().configuration().documentStartAt())
             .isEqualTo(Instant.parse("2026-08-01T00:00:00Z"));
         assertThat(captor.getValue().configuration().availabilityFormId()).isEqualTo(100L);
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isEqualTo(200L);
     }
 
     @Test
@@ -156,6 +157,47 @@ class RecruitingRoundAdminGraphQlControllerTest {
         then(updateRoundUseCase).should().updateRound(captor.capture());
         assertThat(captor.getValue().configuration().interviewStartAt()).isNull();
         assertThat(captor.getValue().configuration().availabilityFormId()).isNull();
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isNull();
+    }
+
+    @Test
+    @DisplayName("GraphQL 면접 차수 변경은 availability Form과 SCHEDULE 질문 ID를 함께 전달한다")
+    void updateInterviewRound() {
+        given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(true);
+
+        graphQlTester.document("""
+                mutation {
+                  updateRecruitingRound(
+                    seasonId: 10,
+                    roundId: 20,
+                    input: {
+                      title: "15기 본모집",
+                      recruitableTracks: [PLAN],
+                      secondChoiceEnabled: false,
+                      documentStartAt: "2026-08-01T00:00:00Z",
+                      documentEndAt: "2026-08-08T00:00:00Z",
+                      documentResultPublishedAt: "2026-08-10T00:00:00Z",
+                      interviewRequired: true,
+                      interviewStartAt: "2026-08-11T00:00:00Z",
+                      interviewEndAt: "2026-08-14T00:00:00Z",
+                      finalResultPublishedAt: "2026-08-16T00:00:00Z",
+                      availabilityFormId: 100,
+                      availabilityScheduleQuestionId: 200
+                    }
+                  )
+                }
+                """)
+            .execute()
+            .path("updateRecruitingRound")
+            .entity(Boolean.class)
+            .isEqualTo(true);
+
+        ArgumentCaptor<UpdateRecruitingRoundCommand> captor =
+            ArgumentCaptor.forClass(UpdateRecruitingRoundCommand.class);
+        then(updateRoundUseCase).should().updateRound(captor.capture());
+        assertThat(captor.getValue().configuration().interviewRequired()).isTrue();
+        assertThat(captor.getValue().configuration().availabilityFormId()).isEqualTo(100L);
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isEqualTo(200L);
     }
 
     @Test
@@ -186,6 +228,7 @@ class RecruitingRoundAdminGraphQlControllerTest {
                   interviewEndAt: "2026-08-14T00:00:00Z",
                   finalResultPublishedAt: "2026-08-16T00:00:00Z",
                   availabilityFormId: 100,
+                  availabilityScheduleQuestionId: 200,
                   announcement: "안내",
                   contactText: "문의"
                 }

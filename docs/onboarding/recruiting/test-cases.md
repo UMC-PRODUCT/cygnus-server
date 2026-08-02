@@ -41,7 +41,8 @@
 | `RecruitingDecisionCommandServiceTest` | 서류 불합격, 면접 진행 시 일정 자동 생성, 면접 미진행 시 즉시 skip, 최종 판정 권한·acceptedTrack·중복 합격 |
 | `RecruitingInterviewAvailabilityRequestCoordinatorTest` | 일정 row와 Outbox의 같은 transaction 생성, 멱등 재요청과 실패 재시도 |
 | `RecruitingInterviewCommandServiceTest` | 면접 생략 시 Application 전이와 기존 일정 `CANCELLED`, 일정 후보 overlap 위임 |
-| `RecruitingInterviewScheduleCommandServiceTest` | 서류 합격자만 요청, Form 엔진 연동 전 availability 제출 501 거부, 제출 완료 일정의 면접 기간 안 확정, 연락처 snapshot |
+| `RecruitingInterviewScheduleCommandServiceTest` | 로그인한 면접 대상 지원자 본인만 `AVAILABILITY_REQUESTED` 일정에 제출, published·기명 Form의 지정된 sole-required `SCHEDULE` 질문 검증, FormResponse 즉시 최종 제출·ID 저장·`AVAILABILITY_SUBMITTED` 전이, 비어 있지 않은 times/null·Form 검증 오류, 시작 포함·종료 제외 기간과 `RECRUITING-0413`, 실패 시 일정 상태·응답 ID 미변경 |
+| `RecruitingInterviewAvailabilitySubmissionIntegrationTest` | 실제 published Form `SCHEDULE` 응답이 기명 `SUBMITTED` FormResponse로 저장되는지, 빈 times Form 거부 시 FormResponse와 일정 상태가 함께 rollback되는지, application lock으로 동시 두 제출 중 한 번만 성공하는지 |
 | `RecruitingInterviewMailDeliveryCommandServiceTest` | 요청/확정 메일 상태 저장과 잘못된 상태 차단 |
 | `RecruitingRegistrationCommandServiceTest` | 중앙 권한, quota lock, READY 예약·취소, REGISTERED와 Challenger track 멱등 추가 |
 | `RecruitingManagementAuthorizationServiceTest` | 학교 회장단·중앙 총괄단·SUPER_ADMIN scope와 evaluator 권한 분리 |
@@ -98,6 +99,7 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 | `RecruitingPublicControllerTest` | 공개 Round 필터, 익명 생성·조회·철회, key 비노출과 email 정규화 |
 | `RecruitingApplicationControllerTest` | 로그인 초안 생성과 인증·입력 검증 |
 | `RecruitingApplicationMutationControllerTest` | 로그인 수정·제출·철회와 CurrentMember 전달 |
+| `RecruitingInterviewScheduleControllerTest` | `SCHEDULE-001`의 times/CurrentMember command 변환, body·빈 목록·null 요소 validation, `RECRUITING-0413` error envelope |
 | `RecruitingSeasonAdminControllerTest` | Season 설정·memo·TO, 그룹 Round 조회와 필수 gisu, 제목 확인, 생성·복제·삭제 command 변환 |
 | `RecruitingRoundAdminControllerTest` | Round 생성·수정·상태 요청과 title/일정 schema |
 | `RecruitingAdminControllerTest` | Form Upsert, 제거된 별도 게시/마감 route, 서류·최종 판정, skip, 등록, summary와 반복 `chapterIds`·`schoolIds` 평가 이력/CSV |
@@ -128,7 +130,7 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 | `RecruitingEvaluationGraphQlControllerTest` | 평가 Upsert와 visibility Query |
 | `RecruitingApplicationReviewGraphQlControllerTest` | 평가용 지원서 필터·페이지 Query와 CurrentMember 전달 |
 | `RecruitingDecisionGraphQlControllerTest` | 서류·최종 판정, 면접 생략, 등록 mutation |
-| `RecruitingScheduleGraphQlControllerTest` | 일정 요청·availability 연결·확정 Query/Mutation |
+| `RecruitingScheduleGraphQlControllerTest` | 일정 요청·확정과 `submitRecruitingInterviewAvailability(applicationId, input { times })`의 CurrentMember 전달, `Boolean!` 반환, 누락·빈·null times validation, `RECRUITING-0413` extension |
 | `RecruitingGraphQlRandomPortIntegrationTest` | 실제 GraphQL HTTP 실행, schema validation과 보안 응답 |
 
 ## Event와 메일

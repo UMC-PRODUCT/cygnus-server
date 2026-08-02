@@ -19,6 +19,7 @@ public record UpdateRecruitingRoundGraphQlRequest(
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
     Long availabilityFormId,
+    Long availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
@@ -40,6 +41,7 @@ public record UpdateRecruitingRoundGraphQlRequest(
                 interviewEndAt,
                 finalResultPublishedAt,
                 availabilityFormId,
+                availabilityScheduleQuestionId,
                 announcement,
                 contactText
             ))

@@ -276,6 +276,7 @@ class RecruitingDecisionCommandServiceTest {
                 interviewRequired ? Instant.parse("2026-08-15T00:00:00Z") : null,
                 Instant.parse("2026-08-16T00:00:00Z"),
                 interviewRequired ? 600L : null,
+                interviewRequired ? 601L : null,
                 null,
                 interviewRequired ? "문의: recruit@example.org" : null
             )

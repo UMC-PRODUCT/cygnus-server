@@ -1,9 +1,14 @@
 package com.umc.product.recruiting.adapter.in.graphql.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
+
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 
 public final class RecruitingInterviewScheduleGraphQlRequest {
 
@@ -14,6 +19,15 @@ public final class RecruitingInterviewScheduleGraphQlRequest {
 
         public RequestRecruitingInterviewScheduleCommand toCommand(Long applicationId, Long requesterMemberId) {
             return RequestRecruitingInterviewScheduleCommand.of(applicationId, requesterMemberId, contactSnapshot);
+        }
+    }
+
+    public record Submit(
+        @NotEmpty List<@NotNull Instant> times
+    ) {
+
+        public SubmitRecruitingInterviewAvailabilityCommand toCommand(Long applicationId, Long requesterMemberId) {
+            return SubmitRecruitingInterviewAvailabilityCommand.of(applicationId, requesterMemberId, times);
         }
     }
 

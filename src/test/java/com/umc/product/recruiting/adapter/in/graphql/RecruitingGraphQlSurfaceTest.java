@@ -119,6 +119,8 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("RecruitingApplicationRegistrationStatus!");
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
+            assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability")).isEqualTo("Boolean!");
+            assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times")).isEqualTo("[Instant!]!");
             assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
             assertThat(inputFieldNames(data, "RecruitingDecisionHistorySearchInput"))
                 .contains("chapterIds", "schoolIds")

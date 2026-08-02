@@ -11,6 +11,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.List;
+
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -19,12 +23,15 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
@@ -61,6 +68,7 @@ class RecruitingRoundAdminControllerTest {
           "interviewEndAt": "2026-08-14T00:00:00Z",
           "finalResultPublishedAt": "2026-08-16T00:00:00Z",
           "availabilityFormId": 100,
+          "availabilityScheduleQuestionId": 200,
           "announcement": "안내",
           "contactText": "문의"
         }
@@ -97,6 +105,18 @@ class RecruitingRoundAdminControllerTest {
     @MockitoBean
     DeleteRecruitingRoundUseCase deleteRoundUseCase;
 
+    @BeforeEach
+    void authenticate() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(new MemberPrincipal(99L), null, List.of())
+        );
+    }
+
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     @DisplayName("면접 차수 생성 요청의 전체 설정을 command로 전달한다")
     void createInterviewRound() throws Exception {
@@ -115,6 +135,7 @@ class RecruitingRoundAdminControllerTest {
         assertThat(captor.getValue().configuration().recruitableTracks())
             .containsExactly(ChallengerTrack.PLAN, ChallengerTrack.DESIGN);
         assertThat(captor.getValue().configuration().availabilityFormId()).isEqualTo(100L);
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isEqualTo(200L);
     }
 
     @Test
@@ -133,6 +154,22 @@ class RecruitingRoundAdminControllerTest {
     }
 
     @Test
+    @DisplayName("면접 차수 변경 요청은 availability Form과 SCHEDULE 질문 ID를 함께 전달한다")
+    void updateInterviewRound() throws Exception {
+        mockMvc.perform(put("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}", 10L, 20L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(INTERVIEW_ROUND_JSON))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<UpdateRecruitingRoundCommand> captor =
+            ArgumentCaptor.forClass(UpdateRecruitingRoundCommand.class);
+        then(updateRoundUseCase).should().updateRound(captor.capture());
+        assertThat(captor.getValue().configuration().interviewRequired()).isTrue();
+        assertThat(captor.getValue().configuration().availabilityFormId()).isEqualTo(100L);
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isEqualTo(200L);
+    }
+
+    @Test
     @DisplayName("면접 없는 차수 변경 요청은 null 면접 설정을 전달한다")
     void updateNoInterviewRound() throws Exception {
         String valid = INTERVIEW_ROUND_JSON
@@ -140,6 +177,7 @@ class RecruitingRoundAdminControllerTest {
             .replace("\"interviewStartAt\": \"2026-08-11T00:00:00Z\",", "")
             .replace("\"interviewEndAt\": \"2026-08-14T00:00:00Z\",", "")
             .replace("\"availabilityFormId\": 100,", "");
+        valid = valid.replace("\"availabilityScheduleQuestionId\": 200,", "");
 
         mockMvc.perform(put("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}", 10L, 20L)
                 .contentType(MediaType.APPLICATION_JSON)
@@ -151,6 +189,7 @@ class RecruitingRoundAdminControllerTest {
         then(updateRoundUseCase).should().updateRound(captor.capture());
         assertThat(captor.getValue().configuration().interviewStartAt()).isNull();
         assertThat(captor.getValue().configuration().availabilityFormId()).isNull();
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isNull();
     }
 
     @Test

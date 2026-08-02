@@ -30,6 +30,7 @@ public record RecruitingRoundSummaryGraphQlResponse(
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
     Long availabilityFormId,
+    Long availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
@@ -57,6 +58,7 @@ public record RecruitingRoundSummaryGraphQlResponse(
             round.interviewEndAt(),
             round.finalResultPublishedAt(),
             round.availabilityFormId(),
+            round.availabilityScheduleQuestionId(),
             round.announcement(),
             round.contactText()
         );

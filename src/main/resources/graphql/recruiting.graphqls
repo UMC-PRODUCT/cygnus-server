@@ -124,6 +124,7 @@ type Mutation {
   ): RecruitingIdPayload!
   submitRecruitingInterviewAvailability(
     applicationId: ID!
+    input: SubmitRecruitingInterviewAvailabilityInput!
   ): Boolean!
   confirmRecruitingInterviewSchedule(
     applicationId: ID!
@@ -138,6 +139,10 @@ type Mutation {
 input RecruitingApplicationFormStructureInput {
   firstChoice: ChallengerTrack!
   secondChoice: ChallengerTrack
+}
+
+input SubmitRecruitingInterviewAvailabilityInput {
+  times: [Instant!]!
 }
 
 input RecruitingApplicationCredentialInput {
@@ -210,6 +215,7 @@ input CreateRecruitingRoundInput {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -226,6 +232,7 @@ input UpdateRecruitingRoundInput {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -516,6 +523,7 @@ type RecruitingRoundSummary {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -541,6 +549,7 @@ type RecruitingRoundConfiguration {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }

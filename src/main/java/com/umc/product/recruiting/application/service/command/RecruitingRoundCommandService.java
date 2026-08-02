@@ -13,7 +13,10 @@ import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.command.dto.UpdateFormCommand;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.exception.BusinessException;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
@@ -88,6 +91,12 @@ public class RecruitingRoundCommandService implements
         validateTitleAvailable(command.seasonId(), command.title(), command.roundId());
         RecruitingRoundConfiguration configuration = command.configuration().toDomain();
         validateRecruitableTrackSubset(command.seasonId(), configuration.recruitableTracks());
+        if (round.getStatus() == RecruitingRoundStatus.OPEN && configuration.interviewRequired()) {
+            validateAvailabilityFormForOpen(
+                configuration.availabilityFormId(),
+                configuration.availabilityScheduleQuestionId()
+            );
+        }
         String previousTitle = round.getTitle();
         round.update(command.title(), configuration, loadApplicationPort.existsByRoundId(round.getId()));
         if (!Objects.equals(previousTitle, round.getTitle())) {
@@ -148,10 +157,39 @@ public class RecruitingRoundCommandService implements
         if (!round.isInterviewRequired()) {
             return;
         }
-        if (round.getAvailabilityFormId() == null) {
+        validateAvailabilityFormForOpen(
+            round.getAvailabilityFormId(),
+            round.getAvailabilityScheduleQuestionId()
+        );
+    }
+
+    private void validateAvailabilityFormForOpen(
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
+        if (availabilityFormId == null || availabilityScheduleQuestionId == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
         }
-        if (getFormUseCase.getById(round.getAvailabilityFormId()).status() != FormStatus.PUBLISHED) {
+        FormWithStructureInfo form;
+        try {
+            form = getFormUseCase.getFormWithStructure(availabilityFormId);
+        } catch (BusinessException ignored) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+        }
+        List<FormWithStructureInfo.QuestionWithOptions> questions = form.sections().stream()
+            .flatMap(section -> section.questions().stream())
+            .toList();
+        boolean designatedQuestionValid = questions.stream()
+            .anyMatch(question -> Objects.equals(question.questionId(), availabilityScheduleQuestionId)
+                && question.type() == QuestionType.SCHEDULE
+                && question.isRequired());
+        long requiredQuestionCount = questions.stream()
+            .filter(FormWithStructureInfo.QuestionWithOptions::isRequired)
+            .count();
+        if (form.status() != FormStatus.PUBLISHED
+            || form.isAnonymous()
+            || !designatedQuestionValid
+            || requiredQuestionCount != 1) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
         }
     }

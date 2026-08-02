@@ -117,6 +117,7 @@ class RecruitingEvaluationDomainTest {
                 Instant.parse("2026-08-15T00:00:00Z"),
                 Instant.parse("2026-08-16T00:00:00Z"),
                 300L,
+                301L,
                 null,
                 "문의 채널"
             )

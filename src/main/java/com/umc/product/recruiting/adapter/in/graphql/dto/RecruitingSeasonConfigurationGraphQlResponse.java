@@ -53,6 +53,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
         Instant interviewEndAt,
         Instant finalResultPublishedAt,
         Long availabilityFormId,
+        Long availabilityScheduleQuestionId,
         String announcement,
         String contactText
     ) {
@@ -74,6 +75,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
                 info.interviewEndAt(),
                 info.finalResultPublishedAt(),
                 info.availabilityFormId(),
+                info.availabilityScheduleQuestionId(),
                 info.announcement(),
                 info.contactText()
             );
