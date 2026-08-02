@@ -7,4 +7,6 @@ public interface SaveRecruitingInterviewSessionPort {
     RecruitingInterviewSession save(RecruitingInterviewSession session);
 
     void delete(RecruitingInterviewSession session);
+
+    void deleteByRoundId(Long roundId);
 }

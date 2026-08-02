@@ -77,6 +77,23 @@ class RecruitingInterviewSessionPersistenceAdapterTest extends RecruitingPersist
     }
 
     @Test
+    @DisplayName("모집 차수를 삭제하기 전 세션을 일괄 삭제할 수 있다")
+    void hardDeleteSessionsByRoundId() {
+        RecruitingGraph graph = persistApplicationGraph(
+            104L, 1004L, 1, "session:round-delete", RecruitingApplicationStatus.SUBMITTED
+        );
+        sessionAdapter.save(session(graph.round().getId(), "오전", ROUND_START.plusSeconds(1800)));
+        sessionAdapter.save(session(graph.round().getId(), "오후", ROUND_START.plusSeconds(3600)));
+        em.flush();
+
+        sessionAdapter.deleteByRoundId(graph.round().getId());
+        em.flush();
+        em.clear();
+
+        assertThat(sessionAdapter.listByRoundId(graph.round().getId())).isEmpty();
+    }
+
+    @Test
     @DisplayName("확정 후 취소된 일정도 세션 FK 참조로 감지한다")
     void detectConfirmedAndAnyScheduleReferences() {
         RecruitingGraph graph = persistApplicationGraph(

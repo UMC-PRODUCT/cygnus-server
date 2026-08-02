@@ -27,4 +27,6 @@ public interface RecruitingInterviewSessionJpaRepository extends JpaRepository<R
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))
     @Query("SELECT s FROM RecruitingInterviewSession s WHERE s.id IN :ids ORDER BY s.id")
     List<RecruitingInterviewSession> findAllByIdInForUpdate(@Param("ids") List<Long> ids);
+
+    void deleteAllByRoundId(Long roundId);
 }

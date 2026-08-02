@@ -58,4 +58,9 @@ public class RecruitingInterviewSessionPersistenceAdapter
     public void delete(RecruitingInterviewSession session) {
         repository.delete(session);
     }
+
+    @Override
+    public void deleteByRoundId(Long roundId) {
+        repository.deleteAllByRoundId(roundId);
+    }
 }

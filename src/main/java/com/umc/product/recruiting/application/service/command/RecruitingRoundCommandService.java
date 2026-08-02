@@ -31,10 +31,12 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
+import com.umc.product.recruiting.domain.RecruitingInterviewSession;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
@@ -59,6 +61,7 @@ public class RecruitingRoundCommandService implements
     private final SaveRecruitingRoundPort saveRoundPort;
     private final LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     private final LoadRecruitingApplicationPort loadApplicationPort;
+    private final LoadRecruitingInterviewSessionPort loadInterviewSessionPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final PublishRecruitingApplicationFormUseCase publishApplicationFormUseCase;
     private final CloseRecruitingApplicationFormUseCase closeApplicationFormUseCase;
@@ -87,10 +90,11 @@ public class RecruitingRoundCommandService implements
 
     @Override
     public void updateRound(UpdateRecruitingRoundCommand command) {
-        RecruitingRound round = getRoundInSeason(command.roundId(), command.seasonId());
+        RecruitingRound round = getRoundInSeasonForUpdate(command.roundId(), command.seasonId());
         validateTitleAvailable(command.seasonId(), command.title(), command.roundId());
         RecruitingRoundConfiguration configuration = command.configuration().toDomain();
         validateRecruitableTrackSubset(command.seasonId(), configuration.recruitableTracks());
+        validateInterviewSessions(round, configuration);
         if (round.getStatus() == RecruitingRoundStatus.OPEN && configuration.interviewRequired()) {
             validateAvailabilityFormForOpen(
                 configuration.availabilityFormId(),
@@ -163,6 +167,21 @@ public class RecruitingRoundCommandService implements
         );
     }
 
+    private void validateInterviewSessions(RecruitingRound round, RecruitingRoundConfiguration configuration) {
+        List<RecruitingInterviewSession> sessions = loadInterviewSessionPort
+            .listByRoundId(round.getId());
+        if (sessions.isEmpty()) {
+            return;
+        }
+        if (!configuration.interviewRequired()
+            || configuration.interviewStartAt() == null
+            || configuration.interviewEndAt() == null
+            || sessions.stream().anyMatch(session -> session.getStartsAt().isBefore(configuration.interviewStartAt())
+                || session.getEndsAt().isAfter(configuration.interviewEndAt()))) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+        }
+    }
+
     private void validateAvailabilityFormForOpen(
         Long availabilityFormId,
         Long availabilityScheduleQuestionId
@@ -220,12 +239,6 @@ public class RecruitingRoundCommandService implements
         if (exists) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_TITLE_ALREADY_EXISTS);
         }
-    }
-
-    private RecruitingRound getRoundInSeason(Long roundId, Long seasonId) {
-        RecruitingRound round = loadRoundPort.getById(roundId);
-        validateRoundInSeason(round, seasonId);
-        return round;
     }
 
     private RecruitingRound getRoundInSeasonForUpdate(Long roundId, Long seasonId) {
