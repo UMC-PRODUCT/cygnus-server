@@ -50,6 +50,23 @@ class RecruitingInterviewScheduleDomainTest {
     }
 
     @Test
+    @DisplayName("면접 세션에 연결해 일정을 확정한다")
+    void 면접_세션에_연결해_일정을_확정한다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+
+        schedule.confirm(
+            800L,
+            Instant.parse("2026-08-12T01:00:00Z"),
+            Instant.parse("2026-08-12T01:30:00Z"),
+            "온라인",
+            "카카오톡 @umc"
+        );
+
+        assertThat(schedule.getInterviewSessionId()).isEqualTo(800L);
+    }
+
+    @Test
     @DisplayName("가능 시간 응답 전에는 면접 일정을 확정할 수 없다")
     void 가능_시간_응답_전에는_면접_일정을_확정할_수_없다() {
         RecruitingInterviewSchedule schedule = schedule();
