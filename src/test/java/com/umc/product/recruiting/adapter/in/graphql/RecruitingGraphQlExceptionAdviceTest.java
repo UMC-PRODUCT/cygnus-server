@@ -22,10 +22,14 @@ import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewSessionUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleBoardUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewSessionUseCase;
 
 @GraphQlTest(RecruitingScheduleGraphQlController.class)
 @Import({
@@ -47,6 +51,18 @@ class RecruitingGraphQlExceptionAdviceTest {
 
     @MockitoBean
     ManageRecruitingInterviewScheduleUseCase manageInterviewScheduleUseCase;
+
+    @MockitoBean
+    ManageRecruitingInterviewSessionUseCase manageInterviewSessionUseCase;
+
+    @MockitoBean
+    ConfirmRecruitingInterviewSchedulesUseCase confirmInterviewSchedulesUseCase;
+
+    @MockitoBean
+    GetRecruitingInterviewSessionUseCase getInterviewSessionUseCase;
+
+    @MockitoBean
+    GetRecruitingInterviewScheduleBoardUseCase getInterviewScheduleBoardUseCase;
 
     @MockitoBean
     SkipRecruitingInterviewUseCase skipInterviewUseCase;
