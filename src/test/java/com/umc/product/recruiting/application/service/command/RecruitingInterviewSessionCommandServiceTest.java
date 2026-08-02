@@ -86,7 +86,7 @@ class RecruitingInterviewSessionCommandServiceTest {
     @DisplayName("다른 모집 차수에 속한 세션은 수정할 수 없다")
     void rejectUpdateForDifferentRound() {
         authorizedRound(1L, 11L);
-        given(loadSessionPort.getById(101L)).willReturn(session(2L));
+        given(loadSessionPort.getByIdForUpdate(101L)).willReturn(session(2L));
 
         assertThatThrownBy(() -> sut.updateSession(updateCommand()))
             .isInstanceOf(RecruitingDomainException.class)
@@ -100,7 +100,7 @@ class RecruitingInterviewSessionCommandServiceTest {
     void updateSessionWithoutConfirmedSchedule() {
         authorizedRound(1L, 11L);
         RecruitingInterviewSession session = session(1L);
-        given(loadSessionPort.getById(101L)).willReturn(session);
+        given(loadSessionPort.getByIdForUpdate(101L)).willReturn(session);
 
         sut.updateSession(updateCommand());
 
@@ -114,7 +114,7 @@ class RecruitingInterviewSessionCommandServiceTest {
     void rejectUpdateWhenConfirmedScheduleExists() {
         authorizedRound(1L, 11L);
         RecruitingInterviewSession session = session(1L);
-        given(loadSessionPort.getById(101L)).willReturn(session);
+        given(loadSessionPort.getByIdForUpdate(101L)).willReturn(session);
         given(checkReferencePort.existsConfirmedBySessionId(101L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.updateSession(updateCommand()))
@@ -130,7 +130,7 @@ class RecruitingInterviewSessionCommandServiceTest {
     void rejectDeleteWhenScheduleReferenceExists() {
         authorizedRound(1L, 11L);
         RecruitingInterviewSession session = session(1L);
-        given(loadSessionPort.getById(101L)).willReturn(session);
+        given(loadSessionPort.getByIdForUpdate(101L)).willReturn(session);
         given(checkReferencePort.existsBySessionId(101L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.deleteSession(DeleteRecruitingInterviewSessionCommand.of(101L, 1L, 99L)))
@@ -145,7 +145,7 @@ class RecruitingInterviewSessionCommandServiceTest {
     void deleteSessionWithoutScheduleReference() {
         authorizedRound(1L, 11L);
         RecruitingInterviewSession session = session(1L);
-        given(loadSessionPort.getById(101L)).willReturn(session);
+        given(loadSessionPort.getByIdForUpdate(101L)).willReturn(session);
 
         sut.deleteSession(DeleteRecruitingInterviewSessionCommand.of(101L, 1L, 99L));
 

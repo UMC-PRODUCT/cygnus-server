@@ -28,6 +28,16 @@ public class RecruitingInterviewSessionPersistenceAdapter
     }
 
     @Override
+    public RecruitingInterviewSession getByIdForUpdate(Long id) {
+        return RecruitingLockExceptionTranslator.translateAssignment(
+            () -> repository.findByIdForUpdate(id)
+                .orElseThrow(() -> new RecruitingDomainException(
+                    RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_NOT_FOUND
+                ))
+        );
+    }
+
+    @Override
     public List<RecruitingInterviewSession> getAllByIdsForUpdate(List<Long> ids) {
         return RecruitingLockExceptionTranslator.translateAssignment(
             () -> repository.findAllByIdInForUpdate(ids)

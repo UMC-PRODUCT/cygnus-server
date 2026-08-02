@@ -87,7 +87,7 @@ public class RecruitingInterviewSessionCommandService implements ManageRecruitin
     }
 
     private RecruitingInterviewSession getSessionInRound(Long sessionId, Long roundId) {
-        RecruitingInterviewSession session = loadSessionPort.getById(sessionId);
+        RecruitingInterviewSession session = loadSessionPort.getByIdForUpdate(sessionId);
         if (!Objects.equals(session.getRoundId(), roundId)) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_NOT_FOUND);
         }

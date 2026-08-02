@@ -8,6 +8,8 @@ public interface LoadRecruitingInterviewSessionPort {
 
     RecruitingInterviewSession getById(Long id);
 
+    RecruitingInterviewSession getByIdForUpdate(Long id);
+
     List<RecruitingInterviewSession> getAllByIdsForUpdate(List<Long> ids);
 
     List<RecruitingInterviewSession> listByRoundId(Long roundId);
