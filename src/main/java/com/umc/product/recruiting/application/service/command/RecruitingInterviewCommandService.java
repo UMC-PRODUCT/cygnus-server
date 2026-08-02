@@ -53,7 +53,17 @@ public class RecruitingInterviewCommandService implements
     public List<RecruitingInterviewScheduleCandidate> findScheduleCandidates(
         FindRecruitingInterviewScheduleCandidatesCommand command
     ) {
-        return findScheduleOverlapPort.findOverlaps(command.formId(), command.formResponseIds());
+        return findScheduleOverlapPort.findOverlaps(
+            command.formId(),
+            command.questionId(),
+            command.formResponseIds()
+        ).stream()
+            .map(slot -> new RecruitingInterviewScheduleCandidate(
+                slot.startsAt(),
+                slot.startsAt().plusSeconds(15 * 60L),
+                slot.availableFormResponseIds().size()
+            ))
+            .toList();
     }
 
 }

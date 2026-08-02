@@ -23,6 +23,7 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSc
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingInterviewScheduleCandidate;
+import com.umc.product.recruiting.application.port.out.dto.RecruitingScheduleOverlapSlot;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
 
@@ -67,15 +68,21 @@ class RecruitingInterviewCommandServiceTest {
         List<RecruitingInterviewScheduleCandidate> expected = List.of(
             new RecruitingInterviewScheduleCandidate(
                 Instant.parse("2026-08-12T01:00:00Z"),
-                Instant.parse("2026-08-12T01:30:00Z"),
+                Instant.parse("2026-08-12T01:15:00Z"),
                 3
             )
         );
-        given(findScheduleOverlapPort.findOverlaps(100L, List.of(1L, 2L))).willReturn(expected);
+        given(findScheduleOverlapPort.findOverlaps(100L, 200L, List.of(1L, 2L))).willReturn(List.of(
+            new RecruitingScheduleOverlapSlot(
+                Instant.parse("2026-08-12T01:00:00Z"),
+                java.util.Set.of(1L, 2L, 3L)
+            )
+        ));
 
         List<RecruitingInterviewScheduleCandidate> result = sut.findScheduleCandidates(
             FindRecruitingInterviewScheduleCandidatesCommand.builder()
                 .formId(100L)
+                .questionId(200L)
                 .formResponseIds(List.of(1L, 2L))
                 .build()
         );
