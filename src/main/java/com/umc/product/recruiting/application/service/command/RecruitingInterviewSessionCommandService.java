@@ -25,8 +25,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RecruitingInterviewSessionCommandService implements ManageRecruitingInterviewSessionUseCase {
 
-    private static final int SLOT_DURATION_MINUTES = 15;
-
     private final LoadRecruitingInterviewSessionPort loadSessionPort;
     private final SaveRecruitingInterviewSessionPort saveSessionPort;
     private final CheckRecruitingInterviewSessionReferencePort checkReferencePort;
@@ -41,7 +39,7 @@ public class RecruitingInterviewSessionCommandService implements ManageRecruitin
             command.name(),
             command.startsAt(),
             command.endsAt(),
-            SLOT_DURATION_MINUTES,
+            command.slotDurationMinutes(),
             command.mode(),
             command.location(),
             round.getInterviewStartAt(),
@@ -61,7 +59,7 @@ public class RecruitingInterviewSessionCommandService implements ManageRecruitin
             command.name(),
             command.startsAt(),
             command.endsAt(),
-            SLOT_DURATION_MINUTES,
+            command.slotDurationMinutes(),
             command.mode(),
             command.location(),
             round.getInterviewStartAt(),

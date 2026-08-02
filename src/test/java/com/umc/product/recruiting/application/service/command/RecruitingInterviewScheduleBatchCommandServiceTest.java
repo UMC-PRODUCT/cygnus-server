@@ -111,6 +111,22 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
     }
 
     @Test
+    @DisplayName("30분 슬롯은 포함된 모든 15분 가능 시간이 있어야 확정할 수 있다")
+    void rejectThirtyMinuteSlotWhenAvailabilityCoversOnlyFirstQuarterHour() {
+        givenValidLockedState();
+        given(session.getSlotDurationMinutes()).willReturn(30);
+        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L)))
+            .willReturn(List.of(new RecruitingScheduleOverlapSlot(START, Set.of(700L))));
+
+        assertRecruitingError(
+            () -> sut.confirmAll(command(List.of(assignment(900L, 101L, START)))),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT
+        );
+
+        verifyNoInteractions(saveSchedulePort);
+    }
+
+    @Test
     @DisplayName("동일 지원자나 동일 세션 슬롯이 중복된 batch는 잠금 전에 거부한다")
     void duplicateApplicationOrSlotIsRejectedBeforeLock() {
         Assignment first = assignment(900L, 101L, START);

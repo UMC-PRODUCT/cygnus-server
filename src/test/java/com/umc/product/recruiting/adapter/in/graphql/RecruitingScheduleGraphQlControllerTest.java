@@ -283,11 +283,13 @@ class RecruitingScheduleGraphQlControllerTest {
                 mutation {
                   create: createRecruitingInterviewSession(seasonId: 10, roundId: 20, input: {
                     name: "오전 면접", startsAt: "2026-08-11T00:00:00Z",
-                    endsAt: "2026-08-11T01:00:00Z", mode: ONLINE, location: "https://meet.example.com"
+                    endsAt: "2026-08-11T01:00:00Z", slotDurationMinutes: 30,
+                    mode: ONLINE, location: "https://meet.example.com"
                   }) { id }
                   update: updateRecruitingInterviewSession(seasonId: 10, roundId: 20, sessionId: 7, input: {
                     name: "오후 면접", startsAt: "2026-08-11T02:00:00Z",
-                    endsAt: "2026-08-11T03:00:00Z", mode: OFFLINE, location: "회의실 A"
+                    endsAt: "2026-08-11T03:00:00Z", slotDurationMinutes: 45,
+                    mode: OFFLINE, location: "회의실 A"
                   })
                   delete: deleteRecruitingInterviewSession(seasonId: 10, roundId: 20, sessionId: 7)
                 }
@@ -308,7 +310,9 @@ class RecruitingScheduleGraphQlControllerTest {
         then(manageInterviewSessionUseCase).should().deleteSession(deleteCaptor.capture());
         assertThat(createCaptor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
         assertThat(createCaptor.getValue().startsAt()).isEqualTo(Instant.parse("2026-08-11T00:00:00Z"));
+        assertThat(createCaptor.getValue().slotDurationMinutes()).isEqualTo(30);
         assertThat(updateCaptor.getValue().sessionId()).isEqualTo(7L);
+        assertThat(updateCaptor.getValue().slotDurationMinutes()).isEqualTo(45);
         assertThat(updateCaptor.getValue().mode()).isEqualTo(RecruitingInterviewMode.OFFLINE);
         assertThat(deleteCaptor.getValue())
             .extracting(DeleteRecruitingInterviewSessionCommand::sessionId,

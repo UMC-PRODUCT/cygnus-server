@@ -156,7 +156,7 @@ public class RecruitingScheduleGraphQlController {
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long roundId,
-        @Argument Session input
+        @Argument @Valid Session input
     ) {
         Long requesterMemberId = requireRoundEditPermission(memberPrincipal, seasonId, roundId);
         return RecruitingIdGraphQlResponse.from(
@@ -170,7 +170,7 @@ public class RecruitingScheduleGraphQlController {
         @Argument Long seasonId,
         @Argument Long roundId,
         @Argument Long sessionId,
-        @Argument Session input
+        @Argument @Valid Session input
     ) {
         Long requesterMemberId = requireRoundEditPermission(memberPrincipal, seasonId, roundId);
         manageInterviewSessionUseCase.updateSession(input.toUpdateCommand(sessionId, roundId, requesterMemberId));

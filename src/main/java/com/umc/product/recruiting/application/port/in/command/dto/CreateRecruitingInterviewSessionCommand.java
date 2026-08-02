@@ -10,6 +10,7 @@ public record CreateRecruitingInterviewSessionCommand(
     String name,
     Instant startsAt,
     Instant endsAt,
+    Integer slotDurationMinutes,
     RecruitingInterviewMode mode,
     String location
 ) {
@@ -20,11 +21,12 @@ public record CreateRecruitingInterviewSessionCommand(
         String name,
         Instant startsAt,
         Instant endsAt,
+        Integer slotDurationMinutes,
         RecruitingInterviewMode mode,
         String location
     ) {
         return new CreateRecruitingInterviewSessionCommand(
-            roundId, requesterMemberId, name, startsAt, endsAt, mode, location
+            roundId, requesterMemberId, name, startsAt, endsAt, slotDurationMinutes, mode, location
         );
     }
 }

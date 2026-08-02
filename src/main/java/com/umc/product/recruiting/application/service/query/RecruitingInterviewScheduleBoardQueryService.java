@@ -42,8 +42,6 @@ import lombok.RequiredArgsConstructor;
 public class RecruitingInterviewScheduleBoardQueryService implements GetRecruitingInterviewScheduleBoardUseCase {
 
     private static final ZoneId KOREA_ZONE = ZoneId.of("Asia/Seoul");
-    private static final long SLOT_SECONDS = 15 * 60L;
-
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingInterviewSessionPort loadSessionPort;
     private final LoadRecruitingInterviewScheduleBoardPort loadBoardPort;
@@ -167,7 +165,10 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
         if (startsAt == null || startsAt.isBefore(session.getStartsAt()) || !startsAt.isBefore(session.getEndsAt())) {
             return false;
         }
-        return Math.floorMod(startsAt.getEpochSecond() - session.getStartsAt().getEpochSecond(), SLOT_SECONDS) == 0;
+        return Math.floorMod(
+            startsAt.getEpochSecond() - session.getStartsAt().getEpochSecond(),
+            session.getSlotDurationMinutes() * 60L
+        ) == 0;
     }
 
     private SessionInfo toSessionInfo(
@@ -176,11 +177,12 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
         Map<SessionSlot, ApplicantInfo> assignments
     ) {
         List<SlotInfo> slots = new ArrayList<>();
+        long slotDurationSeconds = session.getSlotDurationMinutes() * 60L;
         for (Instant startsAt = session.getStartsAt(); startsAt.isBefore(session.getEndsAt());
-             startsAt = startsAt.plusSeconds(SLOT_SECONDS)) {
+             startsAt = startsAt.plusSeconds(slotDurationSeconds)) {
             slots.add(new SlotInfo(
                 startsAt,
-                startsAt.plusSeconds(SLOT_SECONDS),
+                startsAt.plusSeconds(slotDurationSeconds),
                 availableApplicationsByStart.getOrDefault(startsAt, List.of()),
                 assignments.get(new SessionSlot(session.getId(), startsAt))
             ));

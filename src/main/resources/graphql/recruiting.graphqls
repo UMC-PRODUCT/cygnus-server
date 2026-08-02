@@ -419,6 +419,7 @@ input RecruitingInterviewSessionInput {
   name: String!
   startsAt: Instant!
   endsAt: Instant!
+  slotDurationMinutes: Int!
   mode: RecruitingInterviewMode!
   location: String!
 }

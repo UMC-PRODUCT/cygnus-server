@@ -79,6 +79,15 @@ class RecruitingInterviewSessionDomainTest {
     }
 
     @Test
+    @DisplayName("세션 운영 시간은 지원자 1명당 면접 시간으로 나누어떨어져야 한다")
+    void 세션_운영_시간은_슬롯_길이로_나누어떨어져야_한다() {
+        assertInvalidSlot(() -> RecruitingInterviewSession.create(
+            10L, "오전 면접", SESSION_START, SESSION_START.plusSeconds(2700), 30,
+            RecruitingInterviewMode.ONLINE, "온라인", ROUND_START, ROUND_END
+        ));
+    }
+
+    @Test
     @DisplayName("세션 시작과 종료 시각은 15분 경계에 정렬되어야 한다")
     void 세션_시작과_종료_시각은_15분_경계에_정렬되어야_한다() {
         assertInvalidSlot(() -> RecruitingInterviewSession.create(

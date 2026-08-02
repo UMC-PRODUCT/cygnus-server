@@ -70,7 +70,7 @@ public class RecruitingAdminInterviewController {
     @Operation(
         operationId = "RECRUITING-ADMIN-054",
         summary = "Round 면접 세션 생성",
-        description = "CurrentMember 운영 권한으로 Round 면접 기간 안의 15분 단위 면접 세션을 생성합니다."
+        description = "CurrentMember 운영 권한으로 Round 면접 기간 안의 15분 배수 슬롯 길이를 가진 면접 세션을 생성합니다."
     )
     public RecruitingIdResponse createSession(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,

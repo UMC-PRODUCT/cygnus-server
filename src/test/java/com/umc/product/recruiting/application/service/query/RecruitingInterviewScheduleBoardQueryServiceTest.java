@@ -79,6 +79,27 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
     }
 
     @Test
+    @DisplayName("30분 세션은 30분 단위 슬롯으로 계산한다")
+    void getBoardBuildsSlotsWithSessionSlotDuration() {
+        RecruitingRound round = round(11L, 10L, 20L);
+        RecruitingInterviewSession session = session(
+            101L, KST_DAY_START, KST_DAY_START.plusSeconds(3600), 30
+        );
+        given(loadRoundPort.getById(1L)).willReturn(round);
+        given(loadSessionPort.listByRoundId(1L)).willReturn(List.of(session));
+        given(loadBoardPort.listByRoundId(1L)).willReturn(List.of());
+
+        var result = sut().getBoard(1L, DATE, 99L);
+
+        assertThat(result.sessions()).singleElement().satisfies(info -> {
+            assertThat(info.slots()).hasSize(2);
+            assertThat(info.slots().get(0).startsAt()).isEqualTo(KST_DAY_START);
+            assertThat(info.slots().get(0).endsAt()).isEqualTo(KST_DAY_START.plusSeconds(1800));
+            assertThat(info.slots().get(1).startsAt()).isEqualTo(KST_DAY_START.plusSeconds(1800));
+        });
+    }
+
+    @Test
     @DisplayName("세션이 없는 레거시 확정 일정이 섞여도 현재 세션 배정과 대기 후보를 정상 반환한다")
     void getBoardIgnoresLegacyConfirmedScheduleWithoutSession() {
         RecruitingRound round = round(11L, 10L, 20L);
@@ -162,8 +183,12 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
     }
 
     private RecruitingInterviewSession session(Long id, Instant startsAt, Instant endsAt) {
+        return session(id, startsAt, endsAt, 15);
+    }
+
+    private RecruitingInterviewSession session(Long id, Instant startsAt, Instant endsAt, int slotDurationMinutes) {
         RecruitingInterviewSession session = RecruitingInterviewSession.create(
-            1L, "세션", startsAt, endsAt, 15, RecruitingInterviewMode.ONLINE, "회의 링크",
+            1L, "세션", startsAt, endsAt, slotDurationMinutes, RecruitingInterviewMode.ONLINE, "회의 링크",
             startsAt.minusSeconds(3600), endsAt.plusSeconds(3600)
         );
         ReflectionTestUtils.setField(session, "id", id);

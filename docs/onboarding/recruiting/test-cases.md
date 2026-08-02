@@ -42,7 +42,7 @@
 | `RecruitingInterviewAvailabilityRequestCoordinatorTest` | 일정 row와 Outbox의 같은 transaction 생성, 멱등 재요청과 실패 재시도 |
 | `RecruitingInterviewCommandServiceTest` | 면접 생략 시 Application 전이와 기존 일정 `CANCELLED`, 일정 후보 overlap 위임 |
 | `RecruitingInterviewScheduleCommandServiceTest` | 로그인한 면접 대상 지원자 본인만 `AVAILABILITY_REQUESTED` 일정에 제출, published·기명 Form의 지정된 sole-required `SCHEDULE` 질문 검증, FormResponse 즉시 최종 제출·ID 저장·`AVAILABILITY_SUBMITTED` 전이, 비어 있지 않은 times/null·Form 검증 오류, 시작 포함·종료 제외 기간과 `RECRUITING-0413`, 실패 시 일정 상태·응답 ID 미변경 |
-| `RecruitingInterviewSessionCommandServiceTest` | 운영진의 Round 면접 세션 생성·수정·삭제, 15분 슬롯 고정, 다른 Round 차단, 확정/참조 일정이 있는 세션 변경·삭제 차단 |
+| `RecruitingInterviewSessionCommandServiceTest` | 운영진의 Round 면접 세션 생성·수정·삭제, 15분 배수 슬롯 길이 설정, 다른 Round 차단, 확정/참조 일정이 있는 세션 변경·삭제 차단 |
 | `RecruitingInterviewScheduleBatchCommandServiceTest` | 세션 슬롯·지원자·가능 응답을 잠근 뒤 여러 일정을 한 transaction에서 일괄 확정하고, 중복·범위·가능 시간 충돌과 부분 실패 rollback을 검증 |
 | `RecruitingInterviewAvailabilitySubmissionIntegrationTest` | 실제 published Form `SCHEDULE` 응답이 기명 `SUBMITTED` FormResponse로 저장되는지, 빈 times Form 거부 시 FormResponse와 일정 상태가 함께 rollback되는지, application lock으로 동시 두 제출 중 한 번만 성공하는지, Form 가능 시간이 보드 슬롯과 batch 확정 결과로 이어지는지 |
 | `RecruitingInterviewMailDeliveryCommandServiceTest` | 요청/확정 메일 상태 저장과 잘못된 상태 차단 |
@@ -63,7 +63,7 @@
 | `RecruitingEvaluatorQuestionQueryServiceTest` | 공통·개별 질문 조회 scope와 active 정렬 |
 | `RecruitingInterviewScheduleQueryServiceTest` | 지원자와 운영진 일정 조회 권한 및 응답 변환 |
 | `RecruitingInterviewSessionQueryServiceTest` | 운영진 세션 목록/단건 조회, 시작 시각 순서 유지, 다른 Round 및 권한 없는 조회 차단 |
-| `RecruitingInterviewScheduleBoardQueryServiceTest` | `Asia/Seoul` 날짜 경계, 세션별 15분 슬롯 계산, 가능 지원자·대기/확정 지원자 결합, 저장된 확정 슬롯 불일치 차단 |
+| `RecruitingInterviewScheduleBoardQueryServiceTest` | `Asia/Seoul` 날짜 경계, 세션별 슬롯 길이 계산, 가능 지원자·대기/확정 지원자 결합, 저장된 확정 슬롯 불일치 차단 |
 | `RecruitingInterviewMailDeliveryQueryServiceTest` | 일정·지원자·Round의 메일 발송 정보 조합 |
 | `RecruitingCsvExportServiceTest` | 고정 header, masking, 원문 email·이름·키·답변·평가 정보 제외 |
 

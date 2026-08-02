@@ -144,7 +144,8 @@ class RecruitingManagementControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                     {"name":"온라인 면접","startsAt":"2026-08-11T00:00:00Z",
-                    "endsAt":"2026-08-11T00:30:00Z","mode":"ONLINE","location":"https://meet.example.com"}
+                    "endsAt":"2026-08-11T00:30:00Z","slotDurationMinutes":30,
+                    "mode":"ONLINE","location":"https://meet.example.com"}
                     """))
             .andExpect(status().isOk());
 
@@ -154,6 +155,7 @@ class RecruitingManagementControllerTest {
         assertThat(captor.getValue().roundId()).isEqualTo(20L);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(ACTOR_ID);
         assertThat(captor.getValue().name()).isEqualTo("온라인 면접");
+        assertThat(captor.getValue().slotDurationMinutes()).isEqualTo(30);
     }
 
     @Test

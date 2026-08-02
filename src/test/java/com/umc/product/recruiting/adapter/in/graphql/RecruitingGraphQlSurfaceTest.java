@@ -129,6 +129,8 @@ class RecruitingGraphQlSurfaceTest {
             assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability")).isEqualTo("Boolean!");
             assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times")).isEqualTo("[Instant!]!");
             assertThat(inputFieldType(data, "ConfirmRecruitingInterviewScheduleInput", "sessionId")).isEqualTo("ID!");
+            assertThat(inputFieldType(data, "RecruitingInterviewSessionInput", "slotDurationMinutes"))
+                .isEqualTo("Int!");
             assertThat(fieldType(data, "RecruitingInterviewSession", "slotDurationMinutes")).isEqualTo("Int!");
             assertThat(fieldType(data, "RecruitingInterviewScheduleBoard", "sessions"))
                 .isEqualTo("[RecruitingInterviewScheduleBoardSession!]!");

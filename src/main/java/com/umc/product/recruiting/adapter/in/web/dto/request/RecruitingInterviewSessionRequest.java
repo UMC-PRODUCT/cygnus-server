@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "면접 세션 생성 또는 수정 요청")
@@ -17,6 +18,7 @@ public record RecruitingInterviewSessionRequest(
     @Schema(description = "세션 이름", example = "1차 온라인 면접") @NotBlank @Size(max = 100) String name,
     @Schema(description = "세션 시작 시각") @NotNull Instant startsAt,
     @Schema(description = "세션 종료 시각") @NotNull Instant endsAt,
+    @Schema(description = "지원자 1명당 면접 시간(분)", example = "30") @NotNull @Positive Integer slotDurationMinutes,
     @Schema(description = "면접 방식", example = "ONLINE") @NotNull RecruitingInterviewMode mode,
     @Schema(description = "면접 장소 또는 접속 링크", example = "https://meet.example.com/umc")
     @NotBlank @Size(max = 255) String location
@@ -26,9 +28,13 @@ public record RecruitingInterviewSessionRequest(
         return startsAt == null || endsAt == null || startsAt.isBefore(endsAt);
     }
 
+    @AssertTrue(message = "지원자 1명당 면접 시간은 15분의 양의 배수여야 합니다.") public boolean isSlotDurationValid() {
+        return slotDurationMinutes == null || slotDurationMinutes % 15 == 0;
+    }
+
     public CreateRecruitingInterviewSessionCommand toCreateCommand(Long roundId, Long requesterMemberId) {
         return CreateRecruitingInterviewSessionCommand.of(
-            roundId, requesterMemberId, name, startsAt, endsAt, mode, location
+            roundId, requesterMemberId, name, startsAt, endsAt, slotDurationMinutes, mode, location
         );
     }
 
@@ -38,7 +44,7 @@ public record RecruitingInterviewSessionRequest(
         Long requesterMemberId
     ) {
         return UpdateRecruitingInterviewSessionCommand.of(
-            sessionId, roundId, requesterMemberId, name, startsAt, endsAt, mode, location
+            sessionId, roundId, requesterMemberId, name, startsAt, endsAt, slotDurationMinutes, mode, location
         );
     }
 }

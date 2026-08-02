@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.domain;
 
+import java.time.Duration;
 import java.time.Instant;
 
 import com.umc.product.common.BaseEntity;
@@ -159,7 +160,8 @@ public class RecruitingInterviewSession extends BaseEntity {
             || slotDurationMinutes <= 0
             || slotDurationMinutes % SLOT_UNIT_MINUTES != 0
             || !isAligned(startsAt)
-            || !isAligned(endsAt)) {
+            || !isAligned(endsAt)
+            || Duration.between(startsAt, endsAt).toMinutes() % slotDurationMinutes != 0) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID_SLOT);
         }
     }

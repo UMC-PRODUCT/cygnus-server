@@ -9,6 +9,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruiti
 import com.umc.product.recruiting.domain.enums.RecruitingInterviewMode;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -20,11 +21,22 @@ public final class RecruitingInterviewSessionGraphQlRequest {
     private RecruitingInterviewSessionGraphQlRequest() {
     }
 
-    public record Session(String name, Instant startsAt, Instant endsAt, RecruitingInterviewMode mode, String location) {
+    public record Session(
+        String name,
+        Instant startsAt,
+        Instant endsAt,
+        @NotNull @Positive Integer slotDurationMinutes,
+        RecruitingInterviewMode mode,
+        String location
+    ) {
+
+        @AssertTrue(message = "지원자 1명당 면접 시간은 15분의 양의 배수여야 합니다.") public boolean isSlotDurationValid() {
+            return slotDurationMinutes == null || slotDurationMinutes % 15 == 0;
+        }
 
         public CreateRecruitingInterviewSessionCommand toCreateCommand(Long roundId, Long requesterMemberId) {
             return CreateRecruitingInterviewSessionCommand.of(
-                roundId, requesterMemberId, name, startsAt, endsAt, mode, location
+                roundId, requesterMemberId, name, startsAt, endsAt, slotDurationMinutes, mode, location
             );
         }
 
@@ -34,7 +46,7 @@ public final class RecruitingInterviewSessionGraphQlRequest {
             Long requesterMemberId
         ) {
             return UpdateRecruitingInterviewSessionCommand.of(
-                sessionId, roundId, requesterMemberId, name, startsAt, endsAt, mode, location
+                sessionId, roundId, requesterMemberId, name, startsAt, endsAt, slotDurationMinutes, mode, location
             );
         }
     }

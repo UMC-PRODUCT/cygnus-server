@@ -11,6 +11,7 @@ public record UpdateRecruitingInterviewSessionCommand(
     String name,
     Instant startsAt,
     Instant endsAt,
+    Integer slotDurationMinutes,
     RecruitingInterviewMode mode,
     String location
 ) {
@@ -22,11 +23,12 @@ public record UpdateRecruitingInterviewSessionCommand(
         String name,
         Instant startsAt,
         Instant endsAt,
+        Integer slotDurationMinutes,
         RecruitingInterviewMode mode,
         String location
     ) {
         return new UpdateRecruitingInterviewSessionCommand(
-            sessionId, roundId, requesterMemberId, name, startsAt, endsAt, mode, location
+            sessionId, roundId, requesterMemberId, name, startsAt, endsAt, slotDurationMinutes, mode, location
         );
     }
 }

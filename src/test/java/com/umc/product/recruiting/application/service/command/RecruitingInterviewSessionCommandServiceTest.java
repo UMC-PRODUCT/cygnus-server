@@ -58,8 +58,8 @@ class RecruitingInterviewSessionCommandServiceTest {
     }
 
     @Test
-    @DisplayName("운영진은 모집 차수 면접 기간 안에 15분 세션을 생성한다")
-    void createSessionWithFixedSlotDuration() {
+    @DisplayName("운영진은 모집 차수 면접 기간 안에 요청한 슬롯 길이로 세션을 생성한다")
+    void createSessionWithRequestedSlotDuration() {
         RecruitingRound round = authorizedRound(1L, 11L);
         RecruitingInterviewSession saved = mock(RecruitingInterviewSession.class);
         given(saved.getId()).willReturn(101L);
@@ -71,6 +71,7 @@ class RecruitingInterviewSessionCommandServiceTest {
             "오전 면접",
             ROUND_START,
             ROUND_START.plusSeconds(3600),
+            30,
             RecruitingInterviewMode.ONLINE,
             "https://meet.example.com/room"
         ));
@@ -79,7 +80,7 @@ class RecruitingInterviewSessionCommandServiceTest {
         ArgumentCaptor<RecruitingInterviewSession> captor = ArgumentCaptor.forClass(RecruitingInterviewSession.class);
         then(saveSessionPort).should().save(captor.capture());
         assertThat(captor.getValue().getRoundId()).isEqualTo(round.getId());
-        assertThat(captor.getValue().getSlotDurationMinutes()).isEqualTo(15);
+        assertThat(captor.getValue().getSlotDurationMinutes()).isEqualTo(30);
     }
 
     @Test
@@ -105,7 +106,7 @@ class RecruitingInterviewSessionCommandServiceTest {
         sut.updateSession(updateCommand());
 
         assertThat(session.getName()).isEqualTo("수정 세션");
-        assertThat(session.getSlotDurationMinutes()).isEqualTo(15);
+        assertThat(session.getSlotDurationMinutes()).isEqualTo(30);
         then(saveSessionPort).should().save(session);
     }
 
@@ -188,6 +189,7 @@ class RecruitingInterviewSessionCommandServiceTest {
             "수정 세션",
             ROUND_START.plusSeconds(900),
             ROUND_START.plusSeconds(4500),
+            30,
             RecruitingInterviewMode.ONLINE,
             "https://meet.example.com/new"
         );
