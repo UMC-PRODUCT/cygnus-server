@@ -98,12 +98,14 @@ public class RecruitingInterviewScheduleCommandService implements ManageRecruiti
         if (command.sessionId() == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID);
         }
+        RecruitingInterviewSchedule schedule = loadSchedulePort.getByApplicationId(command.applicationId());
+        Long roundId = schedule.getApplication().getRound().getId();
+        authorizeManagementUseCase.authorizeSeasonManagement(
+            command.requesterMemberId(),
+            schedule.getApplication().getRound().getSeason().getId()
+        );
         var session = loadSessionPort.getById(command.sessionId());
         validateSessionDerivedValues(command, session);
-        Long roundId = loadSchedulePort.getByApplicationId(command.applicationId())
-            .getApplication()
-            .getRound()
-            .getId();
         confirmSchedulesUseCase.confirmAll(ConfirmRecruitingInterviewSchedulesCommand.of(
             roundId,
             command.requesterMemberId(),

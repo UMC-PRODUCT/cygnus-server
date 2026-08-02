@@ -16,8 +16,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -429,6 +431,39 @@ class RecruitingInterviewScheduleCommandServiceTest {
     }
 
     @Test
+    @DisplayName("단건 확정은 세션을 조회하기 전에 지원서 Season 관리 권한을 확인한다")
+    void 단건_확정은_세션을_조회하기_전에_지원서_Season_관리_권한을_확인한다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule);
+        givenSessionValues();
+
+        sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+            900L, 99L, 101L, sessionStartsAt(), sessionEndsAt(), "서버 회의실", "운영진 연락처"
+        ));
+
+        InOrder order = org.mockito.Mockito.inOrder(loadSchedulePort, authorizeManagementUseCase, loadSessionPort);
+        order.verify(loadSchedulePort).getByApplicationId(900L);
+        order.verify(authorizeManagementUseCase).authorizeSeasonManagement(99L, 700L);
+        order.verify(loadSessionPort).getById(101L);
+    }
+
+    @Test
+    @DisplayName("단건 확정 권한이 없으면 세션을 조회하지 않는다")
+    void 단건_확정_권한이_없으면_세션을_조회하지_않는다() {
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule());
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("권한 없음"))
+            .given(authorizeManagementUseCase)
+            .authorizeSeasonManagement(99L, 700L);
+
+        assertThatThrownBy(() -> sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+            900L, 99L, 101L, sessionStartsAt(), sessionEndsAt(), "서버 회의실", "운영진 연락처"
+        ))).isInstanceOf(AccessDeniedException.class);
+
+        verifyNoInteractions(loadSessionPort, confirmSchedulesUseCase);
+    }
+
+    @Test
     @DisplayName("단건 확정은 세션 안의 다음 슬롯도 공통 batch 확정에 위임한다")
     void 단건_확정은_세션_안의_다음_슬롯도_공통_batch_확정에_위임한다() {
         RecruitingInterviewSchedule schedule = schedule();
@@ -461,6 +496,7 @@ class RecruitingInterviewScheduleCommandServiceTest {
     @Test
     @DisplayName("단건 확정 요청의 종료 시각이 세션 슬롯과 다르면 충돌로 거부한다")
     void 단건_확정_요청의_종료_시각이_세션_슬롯과_다르면_충돌로_거부한다() {
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule());
         givenSessionValues();
 
         assertRecruitingError(
@@ -476,12 +512,13 @@ class RecruitingInterviewScheduleCommandServiceTest {
             RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT
         );
 
-        verifyNoInteractions(loadSchedulePort, confirmSchedulesUseCase);
+        verifyNoInteractions(confirmSchedulesUseCase);
     }
 
     @Test
     @DisplayName("단건 확정 요청의 장소가 세션과 다르면 충돌로 거부한다")
     void 단건_확정_요청의_장소가_세션과_다르면_충돌로_거부한다() {
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule());
         givenSessionValues();
 
         assertRecruitingError(
@@ -497,7 +534,7 @@ class RecruitingInterviewScheduleCommandServiceTest {
             RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT
         );
 
-        verifyNoInteractions(loadSchedulePort, confirmSchedulesUseCase);
+        verifyNoInteractions(confirmSchedulesUseCase);
     }
 
     private RecruitingInterviewSchedule schedule() {
