@@ -26,12 +26,16 @@ import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewSessionUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleBoardUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewSessionUseCase;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
@@ -56,6 +60,18 @@ class RecruitingScheduleGraphQlControllerTest {
 
     @MockitoBean
     ManageRecruitingInterviewScheduleUseCase manageInterviewScheduleUseCase;
+
+    @MockitoBean
+    ManageRecruitingInterviewSessionUseCase manageInterviewSessionUseCase;
+
+    @MockitoBean
+    GetRecruitingInterviewSessionUseCase getInterviewSessionUseCase;
+
+    @MockitoBean
+    GetRecruitingInterviewScheduleBoardUseCase getInterviewScheduleBoardUseCase;
+
+    @MockitoBean
+    ConfirmRecruitingInterviewSchedulesUseCase confirmInterviewSchedulesUseCase;
 
     @MockitoBean
     SkipRecruitingInterviewUseCase skipInterviewUseCase;
@@ -86,6 +102,7 @@ class RecruitingScheduleGraphQlControllerTest {
                   confirmRecruitingInterviewSchedule(
                     applicationId: 20,
                     input: {
+                      sessionId: 10,
                       startsAt: "2026-08-11T00:00:00Z",
                       endsAt: "2026-08-11T01:00:00Z",
                       location: "회의실 A",
@@ -103,6 +120,7 @@ class RecruitingScheduleGraphQlControllerTest {
             ArgumentCaptor.forClass(ConfirmRecruitingInterviewScheduleCommand.class);
         then(manageInterviewScheduleUseCase).should().confirm(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
+        assertThat(captor.getValue().sessionId()).isEqualTo(10L);
         assertThat(captor.getValue().startsAt()).isEqualTo(Instant.parse("2026-08-11T00:00:00Z"));
     }
 
