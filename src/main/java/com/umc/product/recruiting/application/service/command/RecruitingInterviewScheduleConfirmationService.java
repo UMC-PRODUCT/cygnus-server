@@ -105,6 +105,7 @@ public class RecruitingInterviewScheduleConfirmationService
             || command.requesterMemberId() == null
             || command.requesterMemberId() <= 0
             || command.assignments().isEmpty()
+            || command.assignments().size() > ConfirmRecruitingInterviewSchedulesCommand.MAX_ASSIGNMENT_COUNT
             || command.assignments().stream().anyMatch(this::hasInvalidRequiredValue)) {
             throw invalidAssignment();
         }

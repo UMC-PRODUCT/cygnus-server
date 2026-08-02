@@ -15,7 +15,8 @@ import jakarta.validation.constraints.Size;
 
 @Schema(description = "면접 일정 일괄 확정 요청")
 public record ConfirmRecruitingInterviewSchedulesRequest(
-    @Schema(description = "확정할 면접 배정 목록") @NotEmpty List<@NotNull @Valid AssignmentRequest> assignments
+    @Schema(description = "확정할 면접 배정 목록", maxLength = 100)
+    @NotEmpty @Size(max = ConfirmRecruitingInterviewSchedulesCommand.MAX_ASSIGNMENT_COUNT) List<@NotNull @Valid AssignmentRequest> assignments
 ) {
 
     public ConfirmRecruitingInterviewSchedulesCommand toCommand(Long roundId, Long requesterMemberId) {

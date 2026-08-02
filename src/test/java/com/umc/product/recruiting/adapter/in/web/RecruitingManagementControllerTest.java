@@ -187,6 +187,23 @@ class RecruitingManagementControllerTest {
     }
 
     @Test
+    @DisplayName("101건 batch 확정 요청은 controller에서 거부한다")
+    void rejectBatchConfirmationLargerThanMaximum() throws Exception {
+        String assignments = java.util.stream.IntStream.range(0, 101)
+            .mapToObj(index -> "{\\\"applicationId\\\":" + (40 + index)
+                + ",\\\"sessionId\\\":" + (7 + index)
+                + ",\\\"startsAt\\\":\\\"2026-08-11T00:00:00Z\\\",\\\"contactSnapshot\\\":\\\"문의 채널\\\"}")
+            .collect(java.util.stream.Collectors.joining(","));
+
+        mockMvc.perform(post("/api/v1/recruiting/admin/rounds/{roundId}/interview-schedule/confirmations", 20L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\\\"assignments\\\":[" + assignments + "]}"))
+            .andExpect(status().isBadRequest());
+
+        then(confirmSchedulesUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("단건 확정에 sessionId가 없으면 command를 호출하지 않고 400으로 거부한다")
     void rejectSingleConfirmationWithoutSessionId() throws Exception {
         mockMvc.perform(put("/api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/confirmation", 40L)

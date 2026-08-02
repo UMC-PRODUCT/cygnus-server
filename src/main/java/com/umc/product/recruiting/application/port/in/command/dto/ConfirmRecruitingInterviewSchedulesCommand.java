@@ -9,6 +9,8 @@ public record ConfirmRecruitingInterviewSchedulesCommand(
     List<Assignment> assignments
 ) {
 
+    public static final int MAX_ASSIGNMENT_COUNT = 100;
+
     public ConfirmRecruitingInterviewSchedulesCommand {
         assignments = assignments == null ? List.of() : List.copyOf(assignments);
     }

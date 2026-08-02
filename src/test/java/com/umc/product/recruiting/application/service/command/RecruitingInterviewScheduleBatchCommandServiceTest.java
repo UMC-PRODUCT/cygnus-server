@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -118,6 +119,22 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
         assertRecruitingError(
             () -> sut.confirmAll(command(List.of(first, duplicateApplication))),
             RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT
+        );
+
+        verifyNoInteractions(loadRoundPort, loadSessionPort, loadSchedulePort, concurrencyLockService);
+    }
+
+    @Test
+    @DisplayName("100건을 초과한 batch는 잠금 전에 거부한다")
+    void rejectBatchLargerThanMaximumBeforeLock() {
+        List<Assignment> assignments = IntStream.range(0,
+                ConfirmRecruitingInterviewSchedulesCommand.MAX_ASSIGNMENT_COUNT + 1)
+            .mapToObj(index -> assignment(900L + index, 101L + index, START.plusSeconds(index * 900L)))
+            .toList();
+
+        assertRecruitingError(
+            () -> sut.confirmAll(command(assignments)),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID
         );
 
         verifyNoInteractions(loadRoundPort, loadSessionPort, loadSchedulePort, concurrencyLockService);

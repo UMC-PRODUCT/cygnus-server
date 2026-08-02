@@ -196,7 +196,7 @@ public class RecruitingScheduleGraphQlController {
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument Long seasonId,
         @Argument Long roundId,
-        @Argument ConfirmSchedules input
+        @Argument @Valid ConfirmSchedules input
     ) {
         Long requesterMemberId = requireRoundEditPermission(memberPrincipal, seasonId, roundId);
         confirmInterviewSchedulesUseCase.confirmAll(input.toCommand(roundId, requesterMemberId));

@@ -8,6 +8,13 @@ import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingInterviewSessionCommand;
 import com.umc.product.recruiting.domain.enums.RecruitingInterviewMode;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
+
 public final class RecruitingInterviewSessionGraphQlRequest {
 
     private RecruitingInterviewSessionGraphQlRequest() {
@@ -32,7 +39,9 @@ public final class RecruitingInterviewSessionGraphQlRequest {
         }
     }
 
-    public record ConfirmSchedules(List<Assignment> assignments) {
+    public record ConfirmSchedules(
+        @NotEmpty @Size(max = ConfirmRecruitingInterviewSchedulesCommand.MAX_ASSIGNMENT_COUNT) List<@NotNull @Valid Assignment> assignments
+    ) {
 
         public ConfirmRecruitingInterviewSchedulesCommand toCommand(Long roundId, Long requesterMemberId) {
             return ConfirmRecruitingInterviewSchedulesCommand.of(
@@ -43,7 +52,12 @@ public final class RecruitingInterviewSessionGraphQlRequest {
         }
     }
 
-    public record Assignment(Long applicationId, Long sessionId, Instant startsAt, String contactSnapshot) {
+    public record Assignment(
+        @NotNull @Positive Long applicationId,
+        @NotNull @Positive Long sessionId,
+        @NotNull Instant startsAt,
+        @NotBlank @Size(max = 2000) String contactSnapshot
+    ) {
 
         private ConfirmRecruitingInterviewSchedulesCommand.Assignment toCommand() {
             return ConfirmRecruitingInterviewSchedulesCommand.Assignment.of(
