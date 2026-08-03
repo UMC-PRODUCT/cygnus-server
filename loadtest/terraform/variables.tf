@@ -161,6 +161,20 @@ variable "git_repo_url" {
   }
 }
 
+# ── 앱 동시성 조건 (실험 변수) ────────────────────────────────
+# 부하 테스트에서 바꿔가며 측정하는 값이다. 기본값은 비교 기준선이므로 실험 결과로 덮어쓰지 않는다.
+variable "hikari_pool" {
+  description = "SUT 앱의 HikariCP 최대 커넥션 수. 실효 동시성은 min(tomcat_threads, hikari_pool, DB max_connections) 이다."
+  type        = number
+  default     = 4
+}
+
+variable "tomcat_threads" {
+  description = "SUT 앱의 톰캣 워커 스레드 수. 처리 용량이 아니라 대기 큐 길이를 정하는 값이다 (동시처리수 = 처리율 × 응답시간)."
+  type        = number
+  default     = 200
+}
+
 # ── 앱 런타임 env (로컬 파일 주입) ────────────────────────────
 # load-test 전용 비밀값(JWT/OAuth/암호화 키 등)은 로컬 load-test.env 파일에 넣고 Terraform 에는 경로만 넘긴다.
 # DB/OTEL/Hikari/dev profile 값은 여기 넣지 않는다 — user-data 가 부하 테스트 조건으로 덮어쓴다.

@@ -82,7 +82,8 @@ resource "aws_instance" "sut" {
     db_password         = random_password.db.result
     otel_host           = local.monitoring_private_ip
     otel_token          = random_password.otel_token.result
-    hikari_pool         = 4
+    hikari_pool         = var.hikari_pool
+    tomcat_threads      = var.tomcat_threads
   })
 
   dynamic "credit_specification" {
