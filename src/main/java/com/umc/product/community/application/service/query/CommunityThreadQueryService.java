@@ -16,9 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
 import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMembersByIdsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
@@ -65,7 +65,7 @@ import lombok.RequiredArgsConstructor;
 public class CommunityThreadQueryService implements
     ListCommunityThreadsUseCase,
     BrowseCommunityThreadsUseCase,
-    GetCommunityThreadDetailUseCase,
+    GetJoinedCommunityThreadDetailUseCase,
     GetPublicCommunityThreadDetailUseCase,
     GetCommunityThreadMembersByIdsUseCase,
     GetCommunityThreadMutationDetailUseCase,
@@ -128,7 +128,7 @@ public class CommunityThreadQueryService implements
     }
 
     @Override
-    public ThreadDetailInfo getThread(GetThreadDetailQuery query) {
+    public ThreadDetailInfo getJoinedThread(GetThreadDetailQuery query) {
         CommunityThreadQueryRow row = getReadableThread(query.threadId(), query.requesterMemberId());
         Map<Long, MemberInfo> senders = loadVisibleSenders(List.of(row), List.of());
         return ThreadDetailInfo.from(

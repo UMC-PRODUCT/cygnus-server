@@ -77,7 +77,7 @@ class CommunityThreadQueryControllerTest {
     private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadDetailUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -148,7 +148,7 @@ class CommunityThreadQueryControllerTest {
     @Test
     @DisplayName("thread 상세의 nullable 값과 boolean은 JSON 원시 타입을 유지한다")
     void getThread_keepsNullAndBooleanJsonTypes() throws Exception {
-        given(getPublicThreadUseCase.getPublicThread(any())).willReturn(new ThreadDetailInfo(
+        given(getPublicThreadDetailUseCase.getPublicThread(any())).willReturn(new ThreadDetailInfo(
             42L, "스터디", null, CommunityThreadCategory.STUDY, "📚",
             3L, 0L, 100, false, true, true, CommunityThreadMemberRole.OWNER,
             null, 99L, NOW, NOW, "/api/v1/community/threads/42", null

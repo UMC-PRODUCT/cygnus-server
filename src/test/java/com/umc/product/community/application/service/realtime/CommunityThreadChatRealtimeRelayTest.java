@@ -25,7 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatMessageCreatedEvent;
 import com.umc.product.chat.domain.event.ChatMessageReactionChangedEvent;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageForRecipientsUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageRecipientsQuery;
@@ -60,7 +60,7 @@ class CommunityThreadChatRealtimeRelayTest {
     @Mock
     GetCommunityThreadMessageForRecipientsUseCase getMessageForRecipientsUseCase;
     @Mock
-    GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     @Mock
     CommunityThreadRealtimeBroadcastPort broadcastPort;
     @Mock
@@ -77,7 +77,7 @@ class CommunityThreadChatRealtimeRelayTest {
             loadThreadPort,
             threadQueryPort,
             getMessageForRecipientsUseCase,
-            getThreadDetailUseCase,
+            getJoinedThreadDetailUseCase,
             broadcastPort,
             new CommunityThreadProperties(100),
             metrics

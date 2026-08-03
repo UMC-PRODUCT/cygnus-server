@@ -38,8 +38,8 @@ import com.umc.product.community.application.port.in.command.thread.UpdateCommun
 import com.umc.product.community.application.port.in.command.thread.dto.CommunityThreadLifecycleInfo;
 import com.umc.product.community.application.port.in.command.thread.dto.CreateCommunityThreadCommand;
 import com.umc.product.community.application.port.in.command.thread.dto.UpdateCommunityThreadCommand;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadDetailInfo;
 import com.umc.product.community.domain.enums.CommunityThreadCategory;
 import com.umc.product.community.domain.enums.CommunityThreadMemberRole;
@@ -78,7 +78,7 @@ class CommunityThreadLifecycleControllerTest {
     private ManageCommunityThreadMuteUseCase manageMuteUseCase;
 
     @MockitoBean
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
 
     @MockitoBean
     private GetCommunityThreadMutationDetailUseCase getMutationDetailUseCase;
@@ -99,7 +99,7 @@ class CommunityThreadLifecycleControllerTest {
             REQUESTER_ID, 3L, 100, REQUESTER_ID, CommunityThreadMemberRole.OWNER,
             false, false, null
         ));
-        given(getThreadDetailUseCase.getThread(any())).willReturn(detail(null));
+        given(getJoinedThreadDetailUseCase.getJoinedThread(any())).willReturn(detail(null));
 
         mockMvc.perform(post("/api/v1/community/threads")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -124,13 +124,13 @@ class CommunityThreadLifecycleControllerTest {
         assertThat(captor.getValue().title()).isEqualTo("서버 스터디");
         assertThat(captor.getValue().description()).isEqualTo("함께 공부해요");
         assertThat(captor.getValue().inviteeMemberIds()).containsExactly(7L, 8L);
-        then(getThreadDetailUseCase).should().getThread(any());
+        then(getJoinedThreadDetailUseCase).should().getJoinedThread(any());
     }
 
     @Test
     @DisplayName("PATCH에서 omitted와 blank description clear를 구분한다")
     void updateThread_distinguishesOmittedFromBlankDescription() throws Exception {
-        given(getThreadDetailUseCase.getThread(any())).willReturn(detail(null));
+        given(getJoinedThreadDetailUseCase.getJoinedThread(any())).willReturn(detail(null));
 
         mockMvc.perform(patch("/api/v1/community/threads/42")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -152,7 +152,7 @@ class CommunityThreadLifecycleControllerTest {
     @Test
     @DisplayName("PATCH에서 description omitted는 기존 값을 유지한다")
     void updateThread_keepsOmittedDescription() throws Exception {
-        given(getThreadDetailUseCase.getThread(any())).willReturn(detail(null));
+        given(getJoinedThreadDetailUseCase.getJoinedThread(any())).willReturn(detail(null));
 
         mockMvc.perform(patch("/api/v1/community/threads/42")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -177,14 +177,14 @@ class CommunityThreadLifecycleControllerTest {
 
         then(deleteThreadUseCase).should().delete(any());
         then(getMutationDetailUseCase).should().getMutationDetail(any());
-        then(getThreadDetailUseCase).shouldHaveNoInteractions();
+        then(getJoinedThreadDetailUseCase).shouldHaveNoInteractions();
     }
 
     @ParameterizedTest
     @EnumSource(SettingRoute.class)
     @DisplayName("pin과 mute 설정 route는 대응하는 Community Port In을 호출한다")
     void settingsRoutes_callOnlyCommunityPorts(SettingRoute route) throws Exception {
-        given(getThreadDetailUseCase.getThread(any())).willReturn(detail(null));
+        given(getJoinedThreadDetailUseCase.getJoinedThread(any())).willReturn(detail(null));
 
         mockMvc.perform(request(route.method, "/api/v1/community/threads/42" + route.path))
             .andExpect(status().isOk());

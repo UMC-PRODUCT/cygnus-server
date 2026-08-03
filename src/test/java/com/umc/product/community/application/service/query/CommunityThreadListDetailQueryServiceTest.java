@@ -117,7 +117,7 @@ class CommunityThreadListDetailQueryServiceTest {
 
     @Test
     @DisplayName("삭제된 스레드 상세는 THREAD_DELETED로 거절하고 발신자를 조회하지 않는다")
-    void getThread_삭제된_스레드를_거절한다() {
+    void getJoinedThread_삭제된_스레드를_거절한다() {
         // given
         CommunityThreadQueryRow deleted = restrictedRow(
             CommunityThreadMemberState.ACTIVE,
@@ -126,7 +126,7 @@ class CommunityThreadListDetailQueryServiceTest {
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(deleted));
 
         // when & then
-        assertThatThrownBy(() -> sut.getThread(new GetThreadDetailQuery(1L, 10L)))
+        assertThatThrownBy(() -> sut.getJoinedThread(new GetThreadDetailQuery(1L, 10L)))
             .isInstanceOf(CommunityDomainException.class)
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_DELETED);
@@ -135,13 +135,13 @@ class CommunityThreadListDetailQueryServiceTest {
 
     @Test
     @DisplayName("ACTIVE 멤버가 아닌 요청자의 상세 조회는 THREAD_ACCESS_DENIED로 거절한다")
-    void getThread_비활성_멤버를_거절한다() {
+    void getJoinedThread_비활성_멤버를_거절한다() {
         // given
         CommunityThreadQueryRow left = restrictedRow(CommunityThreadMemberState.LEFT, null);
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(left));
 
         // when & then
-        assertThatThrownBy(() -> sut.getThread(new GetThreadDetailQuery(1L, 10L)))
+        assertThatThrownBy(() -> sut.getJoinedThread(new GetThreadDetailQuery(1L, 10L)))
             .isInstanceOf(CommunityDomainException.class)
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);

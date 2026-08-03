@@ -43,7 +43,7 @@ class CommunityThreadQueryValidationTest {
     private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadDetailUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -69,7 +69,7 @@ class CommunityThreadQueryValidationTest {
         mockMvc.perform(get("/api/v1/community/threads/{threadId}", threadId))
             .andExpect(status().is4xxClientError());
 
-        then(getPublicThreadUseCase).shouldHaveNoInteractions();
+        then(getPublicThreadDetailUseCase).shouldHaveNoInteractions();
     }
 
     @ParameterizedTest

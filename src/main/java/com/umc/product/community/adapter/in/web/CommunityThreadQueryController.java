@@ -45,7 +45,7 @@ import lombok.RequiredArgsConstructor;
 public class CommunityThreadQueryController {
 
     private final BrowseCommunityThreadsUseCase browseThreadsUseCase;
-    private final GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
+    private final GetPublicCommunityThreadDetailUseCase getPublicThreadDetailUseCase;
     private final ListCommunityThreadMembersUseCase listThreadMembersUseCase;
     private final SearchCommunityThreadInvitableUseCase searchThreadInvitableUseCase;
     private final GetCommunityThreadMessageHistoryUseCase getMessageHistoryUseCase;
@@ -73,7 +73,7 @@ public class CommunityThreadQueryController {
         @PathVariable @PositiveDecimalId String threadId,
         @CurrentMember MemberPrincipal principal
     ) {
-        return CommunityThreadDetailResponse.from(getPublicThreadUseCase.getPublicThread(
+        return CommunityThreadDetailResponse.from(getPublicThreadDetailUseCase.getPublicThread(
             new GetThreadDetailQuery(CommunityWebNumbers.id(threadId), principal.getMemberId())
         ));
     }

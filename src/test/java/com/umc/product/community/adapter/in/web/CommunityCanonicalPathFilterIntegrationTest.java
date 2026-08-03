@@ -46,7 +46,7 @@ class CommunityCanonicalPathFilterIntegrationTest {
     private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetPublicCommunityThreadDetailUseCase getPublicThreadUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadDetailUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -79,7 +79,7 @@ class CommunityCanonicalPathFilterIntegrationTest {
             .andExpect(status().isBadRequest());
 
         then(browseThreadsUseCase).shouldHaveNoInteractions();
-        then(getPublicThreadUseCase).shouldHaveNoInteractions();
+        then(getPublicThreadDetailUseCase).shouldHaveNoInteractions();
         then(listThreadMembersUseCase).shouldHaveNoInteractions();
         then(searchThreadInvitableUseCase).shouldHaveNoInteractions();
         then(getMessageHistoryUseCase).shouldHaveNoInteractions();

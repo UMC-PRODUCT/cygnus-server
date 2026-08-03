@@ -11,7 +11,7 @@ import java.util.function.Function;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadDetailInfo;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadSummaryInfo;
@@ -39,7 +39,7 @@ class CommunityThreadRealtimeDelivery {
     private final LoadCommunityThreadPort loadThreadPort;
     private final CommunityThreadQueryPort threadQueryPort;
     private final GetCommunityThreadMessageForRecipientsUseCase getMessageForRecipientsUseCase;
-    private final GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private final GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     private final CommunityThreadRealtimeBroadcastPort broadcastPort;
     private final CommunityThreadProperties properties;
     private final CommunityThreadRealtimeMetrics metrics;
@@ -102,7 +102,7 @@ class CommunityThreadRealtimeDelivery {
     }
 
     ThreadSummaryInfo threadSummary(Long threadId, Long memberId) {
-        ThreadDetailInfo detail = getThreadDetailUseCase.getThread(
+        ThreadDetailInfo detail = getJoinedThreadDetailUseCase.getJoinedThread(
             new GetThreadDetailQuery(threadId, memberId)
         );
         return new ThreadSummaryInfo(
