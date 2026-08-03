@@ -30,12 +30,36 @@ class RecruitingScheduleOverlapAdapterTest {
             .willReturn(List.of(new ScheduleOverlapSlotInfo(startsAt, Set.of(100L, 200L))));
         RecruitingScheduleOverlapAdapter sut = new RecruitingScheduleOverlapAdapter(getScheduleOverlapUseCase);
 
-        var result = sut.findOverlaps(10L, 20L, List.of(100L, 200L));
+        var result = sut.findOverlaps(10L, 20L, List.of(100L, 200L), null, null);
 
         assertThat(result).singleElement().satisfies(slot -> {
             assertThat(slot.startsAt()).isEqualTo(startsAt);
             assertThat(slot.availableFormResponseIds()).containsExactlyInAnyOrder(100L, 200L);
         });
         then(getScheduleOverlapUseCase).should().getOverlap(10L, 20L, Set.of(100L, 200L));
+    }
+
+    @Test
+    @DisplayName("범위가 주어지면 범위 밖 슬롯은 걸러내고, 범용 overlap 계산 자체는 그대로 위임한다")
+    void findOverlapsFiltersSlotsOutsideRequestedRange() {
+        Instant before = Instant.parse("2026-08-09T23:45:00Z");
+        Instant inside = Instant.parse("2026-08-10T00:00:00Z");
+        Instant after = Instant.parse("2026-08-11T00:00:00Z");
+        given(getScheduleOverlapUseCase.getOverlap(10L, 20L, Set.of(100L))).willReturn(List.of(
+            new ScheduleOverlapSlotInfo(before, Set.of(100L)),
+            new ScheduleOverlapSlotInfo(inside, Set.of(100L)),
+            new ScheduleOverlapSlotInfo(after, Set.of(100L))
+        ));
+        RecruitingScheduleOverlapAdapter sut = new RecruitingScheduleOverlapAdapter(getScheduleOverlapUseCase);
+
+        var result = sut.findOverlaps(
+            10L, 20L, List.of(100L),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            Instant.parse("2026-08-11T00:00:00Z")
+        );
+
+        assertThat(result).singleElement()
+            .satisfies(slot -> assertThat(slot.startsAt()).isEqualTo(inside));
+        then(getScheduleOverlapUseCase).should().getOverlap(10L, 20L, Set.of(100L));
     }
 }

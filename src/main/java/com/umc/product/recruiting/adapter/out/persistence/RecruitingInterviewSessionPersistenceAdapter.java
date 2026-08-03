@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Component;
@@ -47,6 +48,15 @@ public class RecruitingInterviewSessionPersistenceAdapter
     @Override
     public List<RecruitingInterviewSession> listByRoundId(Long roundId) {
         return repository.findAllByRoundIdOrderByStartsAtAscIdAsc(roundId);
+    }
+
+    @Override
+    public List<RecruitingInterviewSession> listByRoundIdAndStartsAtRange(
+        Long roundId,
+        Instant startInclusive,
+        Instant endExclusive
+    ) {
+        return repository.findAllByRoundIdAndStartsAtRange(roundId, startInclusive, endExclusive);
     }
 
     @Override

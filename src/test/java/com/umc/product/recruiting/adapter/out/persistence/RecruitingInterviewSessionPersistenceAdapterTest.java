@@ -59,6 +59,33 @@ class RecruitingInterviewSessionPersistenceAdapterTest extends RecruitingPersist
     }
 
     @Test
+    @DisplayName("시작 시각 범위로 조회하면 범위 밖 세션은 DB 단에서 제외된다")
+    void listSessionsByRoundIdAndStartsAtRange() {
+        RecruitingGraph graph = persistApplicationGraph(
+            103L, 1003L, 1, "session:range", RecruitingApplicationStatus.SUBMITTED
+        );
+        RecruitingInterviewSession before = sessionAdapter.save(session(
+            graph.round().getId(), "범위 이전", ROUND_START
+        ));
+        RecruitingInterviewSession inside = sessionAdapter.save(session(
+            graph.round().getId(), "범위 내부", ROUND_START.plusSeconds(3600)
+        ));
+        RecruitingInterviewSession after = sessionAdapter.save(session(
+            graph.round().getId(), "범위 이후", ROUND_START.plusSeconds(7200)
+        ));
+        em.flush();
+        em.clear();
+
+        assertThat(sessionAdapter.listByRoundIdAndStartsAtRange(
+            graph.round().getId(),
+            ROUND_START.plusSeconds(1800),
+            ROUND_START.plusSeconds(5400)
+        ))
+            .extracting(RecruitingInterviewSession::getId)
+            .containsExactly(inside.getId());
+    }
+
+    @Test
     @DisplayName("면접 세션을 hard delete 하면 더 이상 조회되지 않는다")
     void hardDeleteSession() {
         RecruitingGraph graph = persistApplicationGraph(

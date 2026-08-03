@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -17,6 +18,15 @@ import jakarta.persistence.QueryHint;
 public interface RecruitingInterviewSessionJpaRepository extends JpaRepository<RecruitingInterviewSession, Long> {
 
     List<RecruitingInterviewSession> findAllByRoundIdOrderByStartsAtAscIdAsc(Long roundId);
+
+    @Query("SELECT s FROM RecruitingInterviewSession s "
+        + "WHERE s.roundId = :roundId AND s.startsAt >= :startInclusive AND s.startsAt < :endExclusive "
+        + "ORDER BY s.startsAt ASC, s.id ASC")
+    List<RecruitingInterviewSession> findAllByRoundIdAndStartsAtRange(
+        @Param("roundId") Long roundId,
+        @Param("startInclusive") Instant startInclusive,
+        @Param("endExclusive") Instant endExclusive
+    );
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @QueryHints(@QueryHint(name = "jakarta.persistence.lock.timeout", value = "3000"))

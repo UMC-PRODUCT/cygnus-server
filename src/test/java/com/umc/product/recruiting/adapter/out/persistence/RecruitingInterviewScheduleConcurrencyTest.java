@@ -140,7 +140,9 @@ class RecruitingInterviewScheduleConcurrencyTest {
         given(findOverlapPort.findOverlaps(
             org.mockito.ArgumentMatchers.eq(300L),
             org.mockito.ArgumentMatchers.eq(301L),
-            anyList()
+            anyList(),
+            org.mockito.ArgumentMatchers.isNull(),
+            org.mockito.ArgumentMatchers.isNull()
         )).willReturn(List.of(new RecruitingScheduleOverlapSlot(
             SESSION_START,
             Set.of(fixture.responseIds().getFirst())
@@ -166,7 +168,9 @@ class RecruitingInterviewScheduleConcurrencyTest {
         given(findOverlapPort.findOverlaps(
             org.mockito.ArgumentMatchers.eq(300L),
             org.mockito.ArgumentMatchers.eq(301L),
-            anyList()
+            anyList(),
+            org.mockito.ArgumentMatchers.isNull(),
+            org.mockito.ArgumentMatchers.isNull()
         )).willAnswer(invocation -> {
             List<Long> responseIds = invocation.getArgument(2);
             Set<Long> available = Set.copyOf(responseIds);

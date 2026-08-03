@@ -72,7 +72,7 @@ class RecruitingInterviewCommandServiceTest {
                 3
             )
         );
-        given(findScheduleOverlapPort.findOverlaps(100L, 200L, List.of(1L, 2L))).willReturn(List.of(
+        given(findScheduleOverlapPort.findOverlaps(100L, 200L, List.of(1L, 2L), null, null)).willReturn(List.of(
             new RecruitingScheduleOverlapSlot(
                 Instant.parse("2026-08-12T01:00:00Z"),
                 java.util.Set.of(1L, 2L, 3L)

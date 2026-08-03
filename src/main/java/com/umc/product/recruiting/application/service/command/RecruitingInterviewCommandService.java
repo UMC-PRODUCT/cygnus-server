@@ -56,7 +56,9 @@ public class RecruitingInterviewCommandService implements
         return findScheduleOverlapPort.findOverlaps(
             command.formId(),
             command.questionId(),
-            command.formResponseIds()
+            command.formResponseIds(),
+            null,
+            null
         ).stream()
             .map(slot -> new RecruitingInterviewScheduleCandidate(
                 slot.startsAt(),

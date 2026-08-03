@@ -76,7 +76,7 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
     @DisplayName("batch 확정은 session, application, schedule 순서로 잠그고 세션 값으로 확정한다")
     void batchConfirmUsesDeterministicLocksAndSessionValues() {
         givenValidLockedState();
-        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L)))
+        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L), null, null))
             .willReturn(List.of(new RecruitingScheduleOverlapSlot(START, Set.of(700L))));
 
         sut.confirmAll(command(List.of(assignment(900L, 101L, START))));
@@ -93,7 +93,7 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
     @DisplayName("한 항목의 가능 시간이 불일치하면 어느 일정도 확정하지 않는다")
     void invalidAvailabilityLeavesWholeBatchUnchanged() {
         givenValidLockedState();
-        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L))).willReturn(List.of());
+        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L), null, null)).willReturn(List.of());
 
         assertRecruitingError(
             () -> sut.confirmAll(command(List.of(assignment(900L, 101L, START)))),
@@ -115,7 +115,7 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
     void rejectThirtyMinuteSlotWhenAvailabilityCoversOnlyFirstQuarterHour() {
         givenValidLockedState();
         given(session.getSlotDurationMinutes()).willReturn(30);
-        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L)))
+        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L), null, null))
             .willReturn(List.of(new RecruitingScheduleOverlapSlot(START, Set.of(700L))));
 
         assertRecruitingError(
@@ -160,7 +160,7 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
     @DisplayName("이미 확정된 세션 슬롯은 저장 전에 충돌로 거부한다")
     void occupiedSlotIsRejectedBeforeSave() {
         givenValidLockedState();
-        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L)))
+        given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L), null, null))
             .willReturn(List.of(new RecruitingScheduleOverlapSlot(START, Set.of(700L))));
         RecruitingInterviewSchedule occupiedSchedule = confirmedSchedule(101L, START);
         given(loadSchedulePort.getAllConfirmedByInterviewSessionIds(List.of(101L)))

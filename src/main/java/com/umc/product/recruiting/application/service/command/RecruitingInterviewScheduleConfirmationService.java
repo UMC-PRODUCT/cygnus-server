@@ -176,7 +176,8 @@ public class RecruitingInterviewScheduleConfirmationService
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_RESPONSE);
         }
         Map<Instant, Set<Long>> result = new HashMap<>();
-        for (RecruitingScheduleOverlapSlot overlap : findOverlapPort.findOverlaps(formId, questionId, responseIds)) {
+        for (RecruitingScheduleOverlapSlot overlap
+            : findOverlapPort.findOverlaps(formId, questionId, responseIds, null, null)) {
             result.computeIfAbsent(overlap.startsAt(), ignored -> new HashSet<>())
                 .addAll(overlap.availableFormResponseIds());
         }

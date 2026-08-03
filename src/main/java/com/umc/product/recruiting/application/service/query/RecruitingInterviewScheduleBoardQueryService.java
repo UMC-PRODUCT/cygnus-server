@@ -58,13 +58,10 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
 
         Instant dayStart = date.atStartOfDay(KOREA_ZONE).toInstant();
         Instant nextDayStart = date.plusDays(1).atStartOfDay(KOREA_ZONE).toInstant();
-        List<RecruitingInterviewSession> allSessions = loadSessionPort.listByRoundId(roundId);
-        Map<Long, RecruitingInterviewSession> sessionsById = allSessions.stream()
+        List<RecruitingInterviewSession> sessions = loadSessionPort
+            .listByRoundIdAndStartsAtRange(roundId, dayStart, nextDayStart);
+        Map<Long, RecruitingInterviewSession> sessionsById = sessions.stream()
             .collect(Collectors.toMap(RecruitingInterviewSession::getId, Function.identity()));
-        List<RecruitingInterviewSession> sessions = allSessions.stream()
-            .filter(session -> !session.getStartsAt().isBefore(dayStart))
-            .filter(session -> session.getStartsAt().isBefore(nextDayStart))
-            .toList();
 
         List<RecruitingInterviewScheduleBoardRow> rows = loadBoardPort.listByRoundId(roundId);
         List<RecruitingInterviewScheduleBoardRow> pendingRows = rows.stream()
@@ -82,7 +79,9 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
             ));
         Map<Instant, List<Long>> availableApplicationsByStart = loadAvailability(
             round,
-            applicationIdByResponseId
+            applicationIdByResponseId,
+            dayStart,
+            nextDayStart
         );
 
         Map<SessionSlot, ApplicantInfo> assignments = rows.stream()
@@ -118,7 +117,9 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
 
     private Map<Instant, List<Long>> loadAvailability(
         RecruitingRound round,
-        Map<Long, Long> applicationIdByResponseId
+        Map<Long, Long> applicationIdByResponseId,
+        Instant dayStart,
+        Instant nextDayStart
     ) {
         if (applicationIdByResponseId.isEmpty()) {
             return Map.of();
@@ -132,7 +133,9 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
         List<RecruitingScheduleOverlapSlot> overlaps = findOverlapPort.findOverlaps(
             formId,
             questionId,
-            responseIds
+            responseIds,
+            dayStart,
+            nextDayStart
         );
         Map<Instant, List<Long>> result = new HashMap<>();
         for (RecruitingScheduleOverlapSlot overlap : overlaps) {
@@ -153,9 +156,10 @@ public class RecruitingInterviewScheduleBoardQueryService implements GetRecruiti
         rows.stream()
             .filter(row -> row.status() == RecruitingInterviewScheduleStatus.CONFIRMED)
             .filter(row -> row.interviewSessionId() != null)
+            .filter(row -> sessionsById.containsKey(row.interviewSessionId()))
             .forEach(row -> {
                 RecruitingInterviewSession session = sessionsById.get(row.interviewSessionId());
-                if (session == null || !isCalculatedSlot(session, row.startsAt())) {
+                if (!isCalculatedSlot(session, row.startsAt())) {
                     throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID_SLOT);
                 }
             });

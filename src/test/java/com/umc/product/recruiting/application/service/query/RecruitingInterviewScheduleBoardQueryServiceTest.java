@@ -37,6 +37,7 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
 
     private static final LocalDate DATE = LocalDate.of(2026, 8, 10);
     private static final Instant KST_DAY_START = Instant.parse("2026-08-09T15:00:00Z");
+    private static final Instant KST_NEXT_DAY_START = KST_DAY_START.plusSeconds(86400);
 
     @Mock LoadRecruitingRoundPort loadRoundPort;
     @Mock LoadRecruitingInterviewSessionPort loadSessionPort;
@@ -56,9 +57,10 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
                 RecruitingInterviewScheduleStatus.CONFIRMED, 101L, KST_DAY_START.plusSeconds(900))
         );
         given(loadRoundPort.getById(1L)).willReturn(round);
-        given(loadSessionPort.listByRoundId(1L)).willReturn(List.of(session));
+        given(loadSessionPort.listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START))
+            .willReturn(List.of(session));
         given(loadBoardPort.listByRoundId(1L)).willReturn(rows);
-        given(findOverlapPort.findOverlaps(10L, 20L, List.of(5001L)))
+        given(findOverlapPort.findOverlaps(10L, 20L, List.of(5001L), KST_DAY_START, KST_NEXT_DAY_START))
             .willReturn(List.of(new RecruitingScheduleOverlapSlot(KST_DAY_START, Set.of(5001L))));
         RecruitingInterviewScheduleBoardQueryService sut = sut();
 
@@ -75,7 +77,7 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
             assertThat(info.slots().get(1).assignedApplicant().applicationId()).isEqualTo(1002L);
         });
         then(authorizeManagementUseCase).should().authorizeSeasonManagement(99L, 11L);
-        then(findOverlapPort).should().findOverlaps(10L, 20L, List.of(5001L));
+        then(findOverlapPort).should().findOverlaps(10L, 20L, List.of(5001L), KST_DAY_START, KST_NEXT_DAY_START);
     }
 
     @Test
@@ -86,7 +88,8 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
             101L, KST_DAY_START, KST_DAY_START.plusSeconds(3600), 30
         );
         given(loadRoundPort.getById(1L)).willReturn(round);
-        given(loadSessionPort.listByRoundId(1L)).willReturn(List.of(session));
+        given(loadSessionPort.listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START))
+            .willReturn(List.of(session));
         given(loadBoardPort.listByRoundId(1L)).willReturn(List.of());
 
         var result = sut().getBoard(1L, DATE, 99L);
@@ -113,9 +116,10 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
                 RecruitingInterviewScheduleStatus.AVAILABILITY_SUBMITTED, null, null)
         );
         given(loadRoundPort.getById(1L)).willReturn(round);
-        given(loadSessionPort.listByRoundId(1L)).willReturn(List.of(session));
+        given(loadSessionPort.listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START))
+            .willReturn(List.of(session));
         given(loadBoardPort.listByRoundId(1L)).willReturn(rows);
-        given(findOverlapPort.findOverlaps(10L, 20L, List.of(5003L)))
+        given(findOverlapPort.findOverlaps(10L, 20L, List.of(5003L), KST_DAY_START, KST_NEXT_DAY_START))
             .willReturn(List.of(new RecruitingScheduleOverlapSlot(KST_DAY_START, Set.of(5003L))));
 
         var result = sut().getBoard(1L, DATE, 99L);
@@ -130,40 +134,58 @@ class RecruitingInterviewScheduleBoardQueryServiceTest {
             assertThat(info.slots().get(1).assignedApplicant().applicationId()).isEqualTo(1002L);
             assertThat(info.slots().get(0).availableApplicationIds()).containsExactly(1003L);
         });
-        then(findOverlapPort).should().findOverlaps(10L, 20L, List.of(5003L));
+        then(findOverlapPort).should().findOverlaps(10L, 20L, List.of(5003L), KST_DAY_START, KST_NEXT_DAY_START);
     }
 
     @Test
-    @DisplayName("KST 날짜 경계 밖에서 시작하는 세션은 보드에서 제외한다")
-    void getBoardFiltersSessionsByKstStartDate() {
+    @DisplayName("KST 날짜 경계는 세션 조회 포트에 그대로 전달되어 DB 단에서 걸러진다")
+    void getBoardQueriesSessionsByKstDateRange() {
         RecruitingRound round = round(11L, 10L, 20L);
-        RecruitingInterviewSession before = session(100L, KST_DAY_START.minusSeconds(900), KST_DAY_START);
         RecruitingInterviewSession inside = session(101L, KST_DAY_START, KST_DAY_START.plusSeconds(900));
-        RecruitingInterviewSession nextDay = session(102L, KST_DAY_START.plusSeconds(86400), KST_DAY_START.plusSeconds(87300));
         given(loadRoundPort.getById(1L)).willReturn(round);
-        given(loadSessionPort.listByRoundId(1L)).willReturn(List.of(before, inside, nextDay));
+        given(loadSessionPort.listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START))
+            .willReturn(List.of(inside));
         given(loadBoardPort.listByRoundId(1L)).willReturn(List.of());
 
         var result = sut().getBoard(1L, DATE, 99L);
 
         assertThat(result.sessions()).extracting(info -> info.sessionId()).containsExactly(101L);
+        then(loadSessionPort).should().listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START);
         then(findOverlapPort).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("확정 일정이 세션 계산 슬롯과 일치하지 않으면 조회를 거부한다")
+    @DisplayName("확정 일정이 당일 세션의 계산 슬롯과 일치하지 않으면 조회를 거부한다")
     void getBoardRejectsInvalidConfirmedSlot() {
         RecruitingRound round = round(11L, 10L, 20L);
         RecruitingInterviewSession session = session(101L, KST_DAY_START, KST_DAY_START.plusSeconds(1800));
         given(loadRoundPort.getById(1L)).willReturn(round);
-        given(loadSessionPort.listByRoundId(1L)).willReturn(List.of(session));
+        given(loadSessionPort.listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START))
+            .willReturn(List.of(session));
         given(loadBoardPort.listByRoundId(1L)).willReturn(List.of(
             new RecruitingInterviewScheduleBoardRow(2L, 1002L, "확정 지원자", 5002L,
-                RecruitingInterviewScheduleStatus.CONFIRMED, 999L, KST_DAY_START)
+                RecruitingInterviewScheduleStatus.CONFIRMED, 101L, KST_DAY_START.plusSeconds(100))
         ));
 
         assertThatThrownBy(() -> sut().getBoard(1L, DATE, 99L))
             .isInstanceOf(RecruitingDomainException.class);
+    }
+
+    @Test
+    @DisplayName("당일 세션 범위 밖의 확정 일정은 조회 대상이 아니므로 슬롯 검증을 건너뛴다")
+    void getBoardSkipsSlotValidationForConfirmedScheduleOutsideRequestedDay() {
+        RecruitingRound round = round(11L, 10L, 20L);
+        given(loadRoundPort.getById(1L)).willReturn(round);
+        given(loadSessionPort.listByRoundIdAndStartsAtRange(1L, KST_DAY_START, KST_NEXT_DAY_START))
+            .willReturn(List.of());
+        given(loadBoardPort.listByRoundId(1L)).willReturn(List.of(
+            new RecruitingInterviewScheduleBoardRow(2L, 1002L, "다른 날짜 확정 지원자", 5002L,
+                RecruitingInterviewScheduleStatus.CONFIRMED, 999L, KST_DAY_START.minusSeconds(86400))
+        ));
+
+        var result = sut().getBoard(1L, DATE, 99L);
+
+        assertThat(result.confirmedApplicants()).isEmpty();
     }
 
     private RecruitingInterviewScheduleBoardQueryService sut() {

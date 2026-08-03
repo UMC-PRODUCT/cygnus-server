@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.port.out;
 
+import java.time.Instant;
 import java.util.List;
 
 import com.umc.product.recruiting.domain.RecruitingInterviewSession;
@@ -13,4 +14,10 @@ public interface LoadRecruitingInterviewSessionPort {
     List<RecruitingInterviewSession> getAllByIdsForUpdate(List<Long> ids);
 
     List<RecruitingInterviewSession> listByRoundId(Long roundId);
+
+    List<RecruitingInterviewSession> listByRoundIdAndStartsAtRange(
+        Long roundId,
+        Instant startInclusive,
+        Instant endExclusive
+    );
 }
