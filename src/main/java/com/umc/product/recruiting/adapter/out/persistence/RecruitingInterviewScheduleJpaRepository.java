@@ -1,6 +1,5 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,9 +26,8 @@ public interface RecruitingInterviewScheduleJpaRepository extends JpaRepository<
         @Param("applicationIds") List<Long> applicationIds
     );
 
-    boolean existsByInterviewSessionIdAndStartsAtAndStatus(
-        Long interviewSessionId,
-        Instant startsAt,
+    List<RecruitingInterviewSchedule> findAllByInterviewSessionIdInAndStatus(
+        List<Long> interviewSessionIds,
         com.umc.product.recruiting.domain.enums.RecruitingInterviewScheduleStatus status
     );
 }

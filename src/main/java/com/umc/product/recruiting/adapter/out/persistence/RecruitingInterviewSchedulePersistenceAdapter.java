@@ -1,6 +1,5 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,10 +42,9 @@ public class RecruitingInterviewSchedulePersistenceAdapter
     }
 
     @Override
-    public boolean existsConfirmedBySessionIdAndStartsAt(Long sessionId, Instant startsAt) {
-        return repository.existsByInterviewSessionIdAndStartsAtAndStatus(
-            sessionId,
-            startsAt,
+    public List<RecruitingInterviewSchedule> getAllConfirmedByInterviewSessionIds(List<Long> sessionIds) {
+        return repository.findAllByInterviewSessionIdInAndStatus(
+            sessionIds,
             RecruitingInterviewScheduleStatus.CONFIRMED
         );
     }

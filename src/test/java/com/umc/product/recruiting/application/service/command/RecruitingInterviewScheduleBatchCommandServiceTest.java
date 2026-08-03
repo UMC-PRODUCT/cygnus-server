@@ -162,7 +162,9 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
         givenValidLockedState();
         given(findOverlapPort.findOverlaps(300L, 301L, List.of(700L)))
             .willReturn(List.of(new RecruitingScheduleOverlapSlot(START, Set.of(700L))));
-        given(loadSchedulePort.existsConfirmedBySessionIdAndStartsAt(101L, START)).willReturn(true);
+        RecruitingInterviewSchedule occupiedSchedule = confirmedSchedule(101L, START);
+        given(loadSchedulePort.getAllConfirmedByInterviewSessionIds(List.of(101L)))
+            .willReturn(List.of(occupiedSchedule));
 
         assertRecruitingError(
             () -> sut.confirmAll(command(List.of(assignment(900L, 101L, START)))),
@@ -205,6 +207,13 @@ class RecruitingInterviewScheduleBatchCommandServiceTest {
 
     private Assignment assignment(Long applicationId, Long sessionId, Instant startsAt) {
         return Assignment.of(applicationId, sessionId, startsAt, "contact");
+    }
+
+    private RecruitingInterviewSchedule confirmedSchedule(Long sessionId, Instant startsAt) {
+        RecruitingInterviewSchedule confirmed = org.mockito.Mockito.mock(RecruitingInterviewSchedule.class);
+        given(confirmed.getInterviewSessionId()).willReturn(sessionId);
+        given(confirmed.getStartsAt()).willReturn(startsAt);
+        return confirmed;
     }
 
     private void assertRecruitingError(Runnable action, RecruitingErrorCode expected) {

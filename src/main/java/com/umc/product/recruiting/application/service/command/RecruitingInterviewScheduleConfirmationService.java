@@ -90,7 +90,8 @@ public class RecruitingInterviewScheduleConfirmationService
         Map<Instant, Set<Long>> availableResponses = loadAvailability(round, schedules.values().stream()
             .map(RecruitingInterviewSchedule::getAvailabilityFormResponseId)
             .toList());
-        validateAssignments(command.assignments(), sessions, schedules, availableResponses);
+        Set<SessionSlot> confirmedSlots = loadConfirmedSlots(sessionIds);
+        validateAssignments(command.assignments(), sessions, schedules, availableResponses, confirmedSlots);
 
         List<RecruitingInterviewSchedule> confirmed = command.assignments().stream()
             .map(assignment -> confirm(assignment, sessions.get(assignment.sessionId()), schedules))
@@ -186,7 +187,8 @@ public class RecruitingInterviewScheduleConfirmationService
         List<Assignment> assignments,
         Map<Long, RecruitingInterviewSession> sessions,
         Map<Long, RecruitingInterviewSchedule> schedules,
-        Map<Instant, Set<Long>> availableResponses
+        Map<Instant, Set<Long>> availableResponses,
+        Set<SessionSlot> confirmedSlots
     ) {
         for (Assignment assignment : assignments) {
             RecruitingInterviewSession session = sessions.get(assignment.sessionId());
@@ -199,10 +201,7 @@ public class RecruitingInterviewScheduleConfirmationService
                 endsAt,
                 availableResponses
             );
-            if (loadSchedulePort.existsConfirmedBySessionIdAndStartsAt(
-                assignment.sessionId(),
-                assignment.startsAt()
-            )) {
+            if (confirmedSlots.contains(new SessionSlot(assignment.sessionId(), assignment.startsAt()))) {
                 throw assignmentConflict();
             }
             schedule.validateConfirmation(
@@ -213,6 +212,12 @@ public class RecruitingInterviewScheduleConfirmationService
                 assignment.contactSnapshot()
             );
         }
+    }
+
+    private Set<SessionSlot> loadConfirmedSlots(List<Long> sessionIds) {
+        return loadSchedulePort.getAllConfirmedByInterviewSessionIds(sessionIds).stream()
+            .map(schedule -> new SessionSlot(schedule.getInterviewSessionId(), schedule.getStartsAt()))
+            .collect(Collectors.toSet());
     }
 
     private void validateSlot(RecruitingInterviewSession session, Instant startsAt, Instant endsAt) {

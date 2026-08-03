@@ -13,5 +13,5 @@ public interface LoadRecruitingInterviewSchedulePort {
 
     List<RecruitingInterviewSchedule> getAllByApplicationIdsForUpdate(List<Long> applicationIds);
 
-    boolean existsConfirmedBySessionIdAndStartsAt(Long sessionId, java.time.Instant startsAt);
+    List<RecruitingInterviewSchedule> getAllConfirmedByInterviewSessionIds(List<Long> sessionIds);
 }
