@@ -31,14 +31,17 @@ REPO
 dnf -y install k6
 
 # generator 자체가 먼저 병목나는지 보기 위해 node-exporter 를 같이 올린다.
+# --network host 가 없으면 /proc/net/* 이 컨테이너 netns 를 보므로 NIC throughput 과
+# TCP 재전송·accept 큐 지표가 실제 호스트 값이 아니다. host netns 라 -p 매핑은 불필요.
 docker run -d \
   --name umc-load-test-generator-node-exporter \
   --restart unless-stopped \
   --pid host \
-  -p 9100:9100 \
+  --network host \
   -v /:/host:ro,rslave \
   prom/node-exporter:v1.11.1 \
   --path.rootfs=/host \
+  '--collector.vmstat.fields=^(oom_kill|pgpg|pswp|pg.*fault|pgscan|pgsteal).*' \
   '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
 
 # k6 스크립트를 올릴 디렉터리만 만들어 둔다.

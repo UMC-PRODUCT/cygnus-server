@@ -95,14 +95,19 @@ services:
     # SUT host 의 CPU/memory/network 를 Prometheus 에 노출해 USE 분석에 사용한다.
     image: prom/node-exporter:v1.11.1
     restart: unless-stopped
+    # network_mode: host 가 없으면 /proc/net/* 이 컨테이너 netns 를 가리켜
+    # node_network_* 는 veth 트래픽만, node_netstat_* 는 컨테이너 소켓만 집계된다.
+    # host netns 로 붙여야 NIC throughput 과 TCP accept 큐 오버플로가 실제 값이 된다.
+    # host 네트워크에서는 포트를 직접 바인딩하므로 ports 매핑을 두지 않는다.
+    network_mode: host
     command:
       - --path.rootfs=/host
+      # 기본 vmstat 필드 정규식에는 pgscan/pgsteal 이 없어 직접 회수(direct reclaim) 판별이 불가능하다.
+      - --collector.vmstat.fields=^(oom_kill|pgpg|pswp|pg.*fault|pgscan|pgsteal).*
       - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
     pid: host
     volumes:
       - /:/host:ro,rslave
-    ports:
-      - "9100:9100"
 
 volumes:
   valkey-data:
