@@ -45,6 +45,7 @@ import com.umc.product.support.PersistenceAdapterTest;
     RecruitingSeasonPersistenceAdapter.class,
     RecruitingSeasonTrackQuotaPersistenceAdapter.class,
     RecruitingRoundPersistenceAdapter.class,
+    RecruitingInterviewSessionPersistenceAdapter.class,
     RecruitingRoundCommandService.class
 })
 class RecruitingRoundCreationConcurrencyTest {
