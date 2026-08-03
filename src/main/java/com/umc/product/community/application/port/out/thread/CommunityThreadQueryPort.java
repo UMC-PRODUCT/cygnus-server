@@ -11,8 +11,8 @@ import com.umc.product.community.application.port.out.thread.dto.CommunityThread
 public interface CommunityThreadQueryPort {
 
     /**
-     * @deprecated 전체 공개 통합 리스트로 전환되어 {@link #browseThreads}로 대체된다.
-     *     초대받은 멤버의 스레드만 반환한다.
+     * @deprecated 스레드 목록은 {@link #browseThreads}를 사용한다. requester가 ACTIVE 멤버인 스레드만 반환하는 이 조회는 "내 참여 스레드만 모아보기" 재사용을 위해
+     * 보류한 상태다.
      */
     @Deprecated
     CommunityThreadListRows searchThreads(CommunityThreadListCondition condition);
