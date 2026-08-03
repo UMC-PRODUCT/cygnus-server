@@ -206,17 +206,11 @@ public class CommunityThreadQueryRepository {
         return count == null ? 0L : count;
     }
 
-    private BooleanBuilder listCondition(
-        CommunityThreadListCondition condition,
-        QCommunityThreadMember requesterMembership
-    ) {
+    private BooleanBuilder baseCondition(CommunityThreadListCondition condition) {
         BooleanBuilder where = new BooleanBuilder()
             .and(communityThread.deletedAt.isNull());
         if (condition.category() != null) {
             where.and(communityThread.category.eq(condition.category()));
-        }
-        if (condition.unreadOnly()) {
-            where.and(requesterMembership.unreadCount.gt(0L));
         }
         if (condition.keyword() != null) {
             where.and(keywordContains(condition.keyword()));
@@ -224,14 +218,13 @@ public class CommunityThreadQueryRepository {
         return where;
     }
 
-    private BooleanBuilder browseCondition(CommunityThreadListCondition condition) {
-        BooleanBuilder where = new BooleanBuilder()
-            .and(communityThread.deletedAt.isNull());
-        if (condition.category() != null) {
-            where.and(communityThread.category.eq(condition.category()));
-        }
-        if (condition.keyword() != null) {
-            where.and(keywordContains(condition.keyword()));
+    private BooleanBuilder listCondition(
+        CommunityThreadListCondition condition,
+        QCommunityThreadMember requesterMembership
+    ) {
+        BooleanBuilder where = baseCondition(condition);
+        if (condition.unreadOnly()) {
+            where.and(requesterMembership.unreadCount.gt(0L));
         }
         return where;
     }
@@ -240,7 +233,7 @@ public class CommunityThreadQueryRepository {
         CommunityThreadListCondition condition,
         QCommunityThreadMember requesterMembership
     ) {
-        BooleanBuilder where = browseCondition(condition)
+        BooleanBuilder where = baseCondition(condition)
             .and(requesterMembership.pinned.isNull().or(requesterMembership.pinned.isFalse()));
         if (condition.unreadOnly()) {
             where.and(requesterMembership.unreadCount.gt(0L));
