@@ -18,8 +18,14 @@
 | ⑤ DiskQueueDepth 상승 + IOPS 평탄 | 디스크 한계 (gp3 baseline 소진) | 스토리지/IOPS 설정 |
 | ③ 캐시 적중률 하락 + temp bytes 증가 | 워킹셋 > shared_buffers, 정렬/해시가 work_mem 초과 | 쿼리·메모리 파라미터 |
 | 에러율 급등 + k6 dropped iterations | k6 VU 풀(maxVUs) 고갈 — 생성기 설정 문제이지 SUT 문제 아님 | profiles.js vuPool 상향 |
+| 요청이 **시작조차 못 함**(connection reset/timeout) + ④ accept 큐 오버플로 > 0 | **accept 큐 넘침** — Tomcat 이 accept 를 못 따라가 연결이 큐에서 버려짐. 커넥션 pending·run queue 에 이은 세 번째 대기열 | `server.tomcat.accept-count`(기본 100) 와 `net.core.somaxconn`. ② Tomcat busy=max 동반이면 스레드풀이 원인, 아니면 accept 경로 자체 |
+| ④ PSI memory some 상승 + pgsteal **direct** > 0 | **메모리 부족** — 앱 스레드가 할당 도중 멈춰 직접 회수. 그 지연이 응답시간에 그대로 얹힘 | Memory U 구성에서 페이지 캐시가 얇아지는 시각과 일치 확인. majflt 동반이면 코드 페이지까지 evict 된 상태 |
+| pswpout > 0 | 스왑 아웃 — 힙이 디스크로 나가는 중. GC 가 디스크를 훑기 시작하면 회복 불가 | 즉시 중단. 스왑을 껐는데도 0 이 아니면 설정 오류 |
+| ④ run queue 높음 + **CPU 사용률은 낮음** + steal 상승 | **버스터블 스로틀링** — 하이퍼바이저가 코어를 회수 중 | 'CPU 크레딧 — EC2' 잔고. 소진 상태면 그 구간 측정은 무효 |
+| ② JVM blocked 스레드 급증 | 락 또는 커넥션 대기 — run queue 의 JVM 판 | Hikari pending 과 시각 비교. runnable 이 코어 수보다 훨씬 높으면 CPU 경쟁 |
 
 읽는 순서: 헤더 스탯으로 이상 감지 → ① 행에서 증상 확정 → 공유 크로스헤어로 같은 시각의 ②~⑤ 를 위에서 아래로.
+④ 행은 **PSI 패널이 관문**이다 — memory/io/cpu 가 모두 0 이면 그 자원은 무죄이므로 아래 패널을 볼 필요 없다.
 
 ## 2. 커넥션 풀은 어떤 자원을 먹나
 

@@ -1339,13 +1339,175 @@
       ]
     },
     {
+      "id": 47,
+      "type": "timeseries",
+      "title": "JVM 스레드 상태",
+      "description": "run queue 의 JVM 판. blocked 상승 = 락/커넥션 대기, runnable 이 코어 수보다 크게 높으면 CPU 경쟁 — 호스트 run queue 패널과 교차검증한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 49,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (state) (jvm_threads_states_threads)",
+          "legendFormat": "{{state}}"
+        }
+      ]
+    },
+    {
+      "id": 48,
+      "type": "timeseries",
+      "title": "FD 사용 (열린 파일 디스크립터)",
+      "description": "커넥션이 많은 실험의 복병. max 에 닿으면 accept 자체가 실패한다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 49,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "process_files_open_files",
+          "legendFormat": "open"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "process_files_max_files",
+          "legendFormat": "max"
+        }
+      ]
+    },
+    {
+      "id": 49,
+      "type": "timeseries",
+      "title": "uri별 p99 (앱 HTTP)",
+      "description": "큐잉 대기는 꼬리에 몰리므로 ρ→1 의 폭발은 평균이 아니라 p99 에서 먼저 보인다. percentiles-histogram 은 application.yml 에서 이미 활성.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 49,
+        "w": 8,
+        "h": 7
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.99, sum by (uri, le) (rate(http_server_requests_milliseconds_bucket[$__rate_interval])))",
+          "legendFormat": "{{uri}}"
+        }
+      ]
+    },
+    {
       "id": 22,
       "type": "row",
       "title": "③ DB 내부 (postgres-exporter)",
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 49,
+        "y": 56,
         "w": 24,
         "h": 1
       },
@@ -1362,7 +1524,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 50,
+        "y": 57,
         "w": 8,
         "h": 7
       },
@@ -1422,7 +1584,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 50,
+        "y": 57,
         "w": 8,
         "h": 7
       },
@@ -1498,7 +1660,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 50,
+        "y": 57,
         "w": 8,
         "h": 7
       },
@@ -1552,7 +1714,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 57,
+        "y": 64,
         "w": 8,
         "h": 7
       },
@@ -1603,7 +1765,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 57,
+        "y": 64,
         "w": 8,
         "h": 7
       },
@@ -1654,7 +1816,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 57,
+        "y": 64,
         "w": 8,
         "h": 7
       },
@@ -1726,24 +1888,118 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 64,
+        "y": 71,
         "w": 24,
         "h": 1
       },
       "panels": []
     },
     {
-      "id": 30,
+      "id": 50,
       "type": "timeseries",
-      "title": "CPU — U 사용률",
-      "description": "generator 가 먼저 상한에 붙으면 측정 무효(생성기 병목).",
+      "title": "PSI — 잃어버린 시간 (memory · io · cpu)",
+      "description": "판정 지표. some = 누군가 멈춰 있던 시간 비율, full = 전원이 동시에 멈춰 있던 비율. 이 패널이 0 이면 아래 자원 패널은 볼 필요 없다. 임계 some 0.05 / full 0.01. 커널 4.20+ 필요 — /proc/pressure 가 없으면 빈 그래프이며 그때는 '회수 kswapd vs direct' 로 판정한다.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 0,
-        "y": 65,
+        "y": 72,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 0.05
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_pressure_memory_waiting_seconds_total{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "mem some {{role}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_pressure_memory_stalled_seconds_total{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "mem full {{role}}"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_pressure_io_waiting_seconds_total{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "io some {{role}}"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_pressure_cpu_waiting_seconds_total{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "cpu some {{role}}"
+        }
+      ]
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "CPU — U 사용률",
+      "description": "generator 가 먼저 상한에 붙으면 측정 무효(생성기 병목). steal = 하이퍼바이저가 코어를 뺏은 시간 — 버스터블 스로틀링의 직접 증거.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 72,
         "w": 6,
         "h": 6
       },
@@ -1799,6 +2055,15 @@
           },
           "expr": "1 - avg by (role) (rate(node_cpu_seconds_total{mode=\"idle\",role=~\"sut|generator\"}[$__rate_interval]))",
           "legendFormat": "{{role}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "avg by (role) (rate(node_cpu_seconds_total{mode=\"steal\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "legendFormat": "steal {{role}}"
         }
       ]
     },
@@ -1812,8 +2077,8 @@
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 6,
-        "y": 65,
+        "x": 12,
+        "y": 72,
         "w": 6,
         "h": 6
       },
@@ -1870,47 +2135,28 @@
       ]
     },
     {
-      "id": 32,
+      "id": 51,
       "type": "timeseries",
-      "title": "Memory — U 사용률",
-      "description": "MemAvailable 기준(회수 가능한 캐시 제외).",
+      "title": "CPU — S 컨텍스트 스위치",
+      "description": "스레드 200개를 코어 2개에 태울 때 내는 스위칭 세금. 사용률이 안 올라가는데 이 값만 치솟으면 일 대신 전환에 시간을 쓰는 중.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
-        "x": 12,
-        "y": 65,
+        "x": 18,
+        "y": 72,
         "w": 6,
         "h": 6
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "percentunit",
+          "unit": "short",
           "custom": {
             "drawStyle": "line",
             "lineWidth": 2,
             "fillOpacity": 10,
-            "showPoints": "never",
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "max": 1,
-          "min": 0,
-          "decimals": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "transparent",
-                "value": null
-              },
-              {
-                "color": "#F2495C",
-                "value": 0.9
-              }
-            ]
+            "showPoints": "never"
           }
         },
         "overrides": []
@@ -1934,8 +2180,311 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "1 - node_memory_MemAvailable_bytes{role=~\"sut|generator\"} / node_memory_MemTotal_bytes{role=~\"sut|generator\"}",
+          "expr": "rate(node_context_switches_total{role=~\"sut|generator\"}[$__rate_interval])",
           "legendFormat": "{{role}}"
+        }
+      ]
+    },
+    {
+      "id": 52,
+      "type": "timeseries",
+      "title": "CPU 크레딧 — EC2 (버스터블)",
+      "description": "SUT 는 t4g.small — 크레딧이 마르면 baseline 으로 스로틀된다. 'run queue 는 높은데 사용률은 낮음' 패턴의 원인을 여기서 확인한다. 정적 JSON 이라 InstanceId 를 박을 수 없어 리전 내 버스터블 인스턴스를 모두 그린다.",
+      "datasource": {
+        "type": "cloudwatch",
+        "uid": "cloudwatch"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 78,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/EC2",
+          "metricName": "CPUCreditBalance",
+          "statistic": "Average",
+          "dimensions": {},
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "{{InstanceId}} balance",
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "cloudwatch",
+            "uid": "cloudwatch"
+          },
+          "queryMode": "Metrics",
+          "namespace": "AWS/EC2",
+          "metricName": "CPUSurplusCreditBalance",
+          "statistic": "Average",
+          "dimensions": {},
+          "region": "ap-northeast-2",
+          "period": "",
+          "id": "",
+          "expression": "",
+          "alias": "{{InstanceId}} surplus",
+          "matchExact": false,
+          "metricQueryType": 0,
+          "metricEditorMode": 0
+        }
+      ]
+    },
+    {
+      "id": 32,
+      "type": "timeseries",
+      "title": "Memory — U 구성 (앱 · 캐시 · free)",
+      "description": "사용률 % 한 숫자가 숨기던 것을 세 겹으로 분해한다. 부하 중 앱 점유가 자라며 페이지 캐시를 밀어내는 과정이 보이고, majflt 급등 시각과 캐시 층이 얇아지는 시각이 겹치면 '캐시 회수 → 코드 페이지 eviction → major fault' 가설이 확인된다. 스택 해석이 섞이지 않도록 SUT 만 그린다 — generator 는 PSI/paging 패널로 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 78,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 40,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            },
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "max": 1,
+          "min": 0,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "#F2495C",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "available (커널 계산)"
+            },
+            "properties": [
+              {
+                "id": "custom.stacking",
+                "value": {
+                  "mode": "none"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    8,
+                    4
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_memory_MemTotal_bytes{role=\"sut\"} - node_memory_MemFree_bytes{role=\"sut\"} - node_memory_Cached_bytes{role=\"sut\"} - node_memory_Buffers_bytes{role=\"sut\"}",
+          "legendFormat": "앱 점유 (근사)"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_memory_Cached_bytes{role=\"sut\"} + node_memory_Buffers_bytes{role=\"sut\"}",
+          "legendFormat": "페이지 캐시"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_memory_MemFree_bytes{role=\"sut\"}",
+          "legendFormat": "free"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "node_memory_MemAvailable_bytes{role=\"sut\"}",
+          "legendFormat": "available (커널 계산)"
+        }
+      ]
+    },
+    {
+      "id": 53,
+      "type": "timeseries",
+      "title": "Memory — S 회수 (kswapd vs direct)",
+      "description": "kswapd 만 움직이면 커널이 여유 있게 청소 중(무해). direct 가 0 에서 떨어지는 순간부터 앱 스레드가 할당 도중 멈춰 직접 회수하는 것 — 그 지연이 응답시간에 얹힌다. node-exporter 에 --collector.vmstat.fields 로 pgsteal/pgscan 을 열어야 나온다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 78,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kswapd sut"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "direct sut"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_vmstat_pgsteal_kswapd{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "kswapd {{role}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_vmstat_pgsteal_direct{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "direct {{role}}"
         }
       ]
     },
@@ -1950,7 +2499,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 65,
+        "y": 78,
         "w": 6,
         "h": 6
       },
@@ -2010,7 +2559,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 71,
+        "y": 84,
         "w": 6,
         "h": 6
       },
@@ -2064,7 +2613,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 71,
+        "y": 84,
         "w": 6,
         "h": 6
       },
@@ -2124,14 +2673,14 @@
       "id": 36,
       "type": "timeseries",
       "title": "Network — U throughput",
-      "description": "",
+      "description": "node-exporter 가 host netns 여야 실제 NIC 값이 나온다 (bridge netns 면 veth 트래픽만 잡혀 수백 B/s 로 보인다).",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "x": 12,
-        "y": 71,
+        "y": 84,
         "w": 6,
         "h": 6
       },
@@ -2166,7 +2715,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (role) (rate(node_network_receive_bytes_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "expr": "sum by (role) (rate(node_network_receive_bytes_total{device=~\"e(th|ns|n)[0-9a-z]*\",role=~\"sut|generator\"}[$__rate_interval]))",
           "legendFormat": "rx {{role}}"
         },
         {
@@ -2175,7 +2724,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (role) (rate(node_network_transmit_bytes_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "expr": "sum by (role) (rate(node_network_transmit_bytes_total{device=~\"e(th|ns|n)[0-9a-z]*\",role=~\"sut|generator\"}[$__rate_interval]))",
           "legendFormat": "tx {{role}}"
         }
       ]
@@ -2191,7 +2740,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 71,
+        "y": 84,
         "w": 6,
         "h": 6
       },
@@ -2226,7 +2775,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (role) (rate(node_network_receive_drop_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_drop_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "expr": "sum by (role) (rate(node_network_receive_drop_total{device=~\"e(th|ns|n)[0-9a-z]*\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_drop_total{device=~\"e(th|ns|n)[0-9a-z]*\",role=~\"sut|generator\"}[$__rate_interval]))",
           "legendFormat": "drop {{role}}"
         },
         {
@@ -2235,8 +2784,119 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "sum by (role) (rate(node_network_receive_errs_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_errs_total{device!=\"lo\",role=~\"sut|generator\"}[$__rate_interval]))",
+          "expr": "sum by (role) (rate(node_network_receive_errs_total{device=~\"e(th|ns|n)[0-9a-z]*\",role=~\"sut|generator\"}[$__rate_interval]) + rate(node_network_transmit_errs_total{device=~\"e(th|ns|n)[0-9a-z]*\",role=~\"sut|generator\"}[$__rate_interval]))",
           "legendFormat": "err {{role}}"
+        }
+      ]
+    },
+    {
+      "id": 54,
+      "type": "timeseries",
+      "title": "Network — S accept 큐 오버플로",
+      "description": "세 번째 대기열. 톰캣이 accept 를 못 따라가면 acceptCount(기본 100) 를 넘은 연결이 여기서 버려진다 — '시작조차 못 한 요청' 의 사인. 0 이 아니면 그 자체로 알람감. node-exporter 가 host netns 여야 유효한 값이다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 90,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_netstat_TcpExt_ListenOverflows{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "overflow {{role}}"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_netstat_TcpExt_ListenDrops{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "listen drop {{role}}"
+        }
+      ]
+    },
+    {
+      "id": 55,
+      "type": "timeseries",
+      "title": "Network — E 재전송률",
+      "description": "재전송 비율 = 링크 품질. 대역폭이 남는데 지연이 늘면 여기부터 본다.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 90,
+        "w": 6,
+        "h": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": true,
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "rate(node_netstat_Tcp_RetransSegs{role=~\"sut|generator\"}[$__rate_interval]) / rate(node_netstat_Tcp_OutSegs{role=~\"sut|generator\"}[$__rate_interval])",
+          "legendFormat": "retrans {{role}}"
         }
       ]
     },
@@ -2247,7 +2907,7 @@
       "collapsed": false,
       "gridPos": {
         "x": 0,
-        "y": 77,
+        "y": 96,
         "w": 24,
         "h": 1
       },
@@ -2264,7 +2924,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 78,
+        "y": 97,
         "w": 8,
         "h": 6
       },
@@ -2344,7 +3004,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 78,
+        "y": 97,
         "w": 8,
         "h": 6
       },
@@ -2430,7 +3090,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 78,
+        "y": 97,
         "w": 8,
         "h": 6
       },
@@ -2494,7 +3154,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 84,
+        "y": 103,
         "w": 6,
         "h": 6
       },
@@ -2580,7 +3240,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 84,
+        "y": 103,
         "w": 6,
         "h": 6
       },
@@ -2644,7 +3304,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 84,
+        "y": 103,
         "w": 6,
         "h": 6
       },
@@ -2730,7 +3390,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 84,
+        "y": 103,
         "w": 6,
         "h": 6
       },
@@ -2809,14 +3469,14 @@
       "id": 46,
       "type": "timeseries",
       "title": "CPU 크레딧 (버스터블)",
-      "description": "t4g 는 크레딧 소진 시 baseline(vCPU당 20%)으로 추락. 실행 전 잔고 = 실험 조건 — 연속 실험 시 앞 실험이 뒤 실험 조건을 바꾼다. SUT(EC2) 크레딧은 콘솔에서 확인.",
+      "description": "t4g 는 크레딧 소진 시 baseline(vCPU당 20%)으로 추락. 실행 전 잔고 = 실험 조건 — 연속 실험 시 앞 실험이 뒤 실험 조건을 바꾼다. SUT(EC2) 크레딧은 ④ 섹션의 'CPU 크레딧 — EC2' 패널 참고.",
       "datasource": {
         "type": "cloudwatch",
         "uid": "cloudwatch"
       },
       "gridPos": {
         "x": 0,
-        "y": 90,
+        "y": 109,
         "w": 8,
         "h": 6
       },
