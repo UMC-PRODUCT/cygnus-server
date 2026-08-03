@@ -8,6 +8,7 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
 import com.umc.product.recruiting.domain.RecruitingInterviewSession;
@@ -50,8 +51,8 @@ class RecruitingInterviewScheduleSessionPersistenceTest extends RecruitingPersis
     }
 
     @Test
-    @DisplayName("기존 확정 일정은 세션 연결 없이 저장할 수 있다")
-    void 기존_확정_일정은_세션_연결_없이_저장할_수_있다() {
+    @DisplayName("세션 도입 이전 레거시 확정 일정(세션 미연결)도 계속 저장할 수 있다")
+    void 세션_도입_이전_레거시_확정_일정도_계속_저장할_수_있다() {
         RecruitingGraph graph = persistApplicationGraph(
             93L, 903L, 1, "session:legacy", RecruitingApplicationStatus.INTERVIEW_ASSIGNED
         );
@@ -60,7 +61,10 @@ class RecruitingInterviewScheduleSessionPersistenceTest extends RecruitingPersis
             "카카오톡 @umc"
         );
         schedule.submitAvailability(700L);
-        schedule.confirm(SLOT_START, SLOT_END, "온라인", "카카오톡 @umc");
+        schedule.confirm(1L, SLOT_START, SLOT_END, "온라인", "카카오톡 @umc");
+        // 세션 도입 이전에 확정된 레거시 데이터를 재현한다.
+        // 도메인 confirm()은 세션 ID를 필수로 요구하므로 API로는 더 이상 이 상태를 만들 수 없다.
+        ReflectionTestUtils.setField(schedule, "interviewSessionId", null);
 
         em.persist(schedule);
 

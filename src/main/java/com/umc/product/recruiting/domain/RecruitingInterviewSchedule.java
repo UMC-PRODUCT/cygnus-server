@@ -126,10 +126,6 @@ public class RecruitingInterviewSchedule extends BaseEntity {
         this.status = RecruitingInterviewScheduleStatus.AVAILABILITY_SUBMITTED;
     }
 
-    public void confirm(Instant startsAt, Instant endsAt, String location, String contactSnapshot) {
-        confirm(null, startsAt, endsAt, location, contactSnapshot);
-    }
-
     public void confirm(
         Long interviewSessionId,
         Instant startsAt,
@@ -227,7 +223,7 @@ public class RecruitingInterviewSchedule extends BaseEntity {
     }
 
     private static void validateInterviewSessionId(Long interviewSessionId) {
-        if (interviewSessionId != null && interviewSessionId <= 0) {
+        if (interviewSessionId == null || interviewSessionId <= 0) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID);
         }
     }

@@ -40,7 +40,7 @@ class RecruitingInterviewScheduleDomainTest {
         Instant endsAt = Instant.parse("2026-08-12T01:30:00Z");
 
         schedule.submitAvailability(700L);
-        schedule.confirm(startsAt, endsAt, "온라인", "카카오톡 @umc");
+        schedule.confirm(800L, startsAt, endsAt, "온라인", "카카오톡 @umc");
 
         assertThat(schedule.getStatus()).isEqualTo(RecruitingInterviewScheduleStatus.CONFIRMED);
         assertThat(schedule.getAvailabilityFormResponseId()).isEqualTo(700L);
@@ -72,6 +72,7 @@ class RecruitingInterviewScheduleDomainTest {
         RecruitingInterviewSchedule schedule = schedule();
 
         assertThatThrownBy(() -> schedule.confirm(
+            800L,
             Instant.parse("2026-08-12T01:00:00Z"),
             Instant.parse("2026-08-12T01:30:00Z"),
             "온라인",
@@ -80,6 +81,35 @@ class RecruitingInterviewScheduleDomainTest {
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_TRANSITION);
+    }
+
+    @Test
+    @DisplayName("세션 ID 없이는 면접 일정을 확정할 수 없다")
+    void 세션_ID_없이는_면접_일정을_확정할_수_없다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+
+        assertThatThrownBy(() -> schedule.confirm(
+            null,
+            Instant.parse("2026-08-12T01:00:00Z"),
+            Instant.parse("2026-08-12T01:30:00Z"),
+            "온라인",
+            "카카오톡 @umc"
+        ))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID);
+
+        assertThatThrownBy(() -> schedule.confirm(
+            0L,
+            Instant.parse("2026-08-12T01:00:00Z"),
+            Instant.parse("2026-08-12T01:30:00Z"),
+            "온라인",
+            "카카오톡 @umc"
+        ))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID);
     }
 
     @Test
@@ -131,6 +161,7 @@ class RecruitingInterviewScheduleDomainTest {
         schedule.submitAvailability(700L);
 
         assertThatThrownBy(() -> schedule.confirm(
+            800L,
             Instant.parse("2026-08-12T01:30:00Z"),
             Instant.parse("2026-08-12T01:00:00Z"),
             "온라인",
