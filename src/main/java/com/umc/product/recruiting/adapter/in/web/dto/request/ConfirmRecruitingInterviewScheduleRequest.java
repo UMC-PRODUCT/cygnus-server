@@ -8,10 +8,12 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 @Schema(description = "면접 일정 확정 요청")
 public record ConfirmRecruitingInterviewScheduleRequest(
+    @Schema(description = "면접 세션 ID", example = "10") @NotNull @Positive Long sessionId,
     @Schema(description = "면접 시작 시각") @NotNull Instant startsAt,
     @Schema(description = "면접 종료 시각") @NotNull Instant endsAt,
     @Schema(description = "면접 장소 또는 접속 링크", example = "온라인 회의실 A")
@@ -28,6 +30,7 @@ public record ConfirmRecruitingInterviewScheduleRequest(
         return ConfirmRecruitingInterviewScheduleCommand.of(
             applicationId,
             requesterMemberId,
+            sessionId,
             startsAt,
             endsAt,
             location,

@@ -32,6 +32,7 @@ public final class RecruitingInterviewScheduleGraphQlRequest {
     }
 
     public record Confirm(
+        @NotNull Long sessionId,
         Instant startsAt,
         Instant endsAt,
         String location,
@@ -42,6 +43,7 @@ public final class RecruitingInterviewScheduleGraphQlRequest {
             return ConfirmRecruitingInterviewScheduleCommand.of(
                 applicationId,
                 requesterMemberId,
+                sessionId,
                 startsAt,
                 endsAt,
                 location,

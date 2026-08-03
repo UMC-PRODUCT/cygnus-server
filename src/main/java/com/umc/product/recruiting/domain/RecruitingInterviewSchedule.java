@@ -51,6 +51,9 @@ public class RecruitingInterviewSchedule extends BaseEntity {
     @Column(name = "availability_form_response_id")
     private Long availabilityFormResponseId;
 
+    @Column(name = "interview_session_id")
+    private Long interviewSessionId;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private RecruitingInterviewScheduleStatus status;
@@ -123,11 +126,15 @@ public class RecruitingInterviewSchedule extends BaseEntity {
         this.status = RecruitingInterviewScheduleStatus.AVAILABILITY_SUBMITTED;
     }
 
-    public void confirm(Instant startsAt, Instant endsAt, String location, String contactSnapshot) {
-        requireStatus(RecruitingInterviewScheduleStatus.AVAILABILITY_SUBMITTED);
-        validatePeriod(startsAt, endsAt);
-        validateLocation(location);
-        validateContactSnapshot(contactSnapshot);
+    public void confirm(
+        Long interviewSessionId,
+        Instant startsAt,
+        Instant endsAt,
+        String location,
+        String contactSnapshot
+    ) {
+        validateConfirmation(interviewSessionId, startsAt, endsAt, location, contactSnapshot);
+        this.interviewSessionId = interviewSessionId;
         this.startsAt = startsAt;
         this.endsAt = endsAt;
         this.location = location;
@@ -136,6 +143,20 @@ public class RecruitingInterviewSchedule extends BaseEntity {
         this.confirmationMailStatus = RecruitingMailDeliveryStatus.PENDING;
         this.confirmationMailError = null;
         this.confirmationMailSentAt = null;
+    }
+
+    public void validateConfirmation(
+        Long interviewSessionId,
+        Instant startsAt,
+        Instant endsAt,
+        String location,
+        String contactSnapshot
+    ) {
+        requireStatus(RecruitingInterviewScheduleStatus.AVAILABILITY_SUBMITTED);
+        validateInterviewSessionId(interviewSessionId);
+        validatePeriod(startsAt, endsAt);
+        validateLocation(location);
+        validateContactSnapshot(contactSnapshot);
     }
 
     public void cancel() {
@@ -198,6 +219,12 @@ public class RecruitingInterviewSchedule extends BaseEntity {
     private static void validateApplication(RecruitingApplication application) {
         if (application == null) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID);
+        }
+    }
+
+    private static void validateInterviewSessionId(Long interviewSessionId) {
+        if (interviewSessionId == null || interviewSessionId <= 0) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID);
         }
     }
 

@@ -41,6 +41,7 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterv
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingFormSectionPolicyPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
@@ -58,6 +59,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
 
     @Mock LoadRecruitingRoundPort loadRoundPort;
     @Mock SaveRecruitingRoundPort saveRoundPort;
+    @Mock SaveRecruitingInterviewSessionPort saveInterviewSessionPort;
     @Mock LoadRecruitingApplicationPort loadApplicationPort;
     @Mock LoadRecruitingApplicationFormPort loadApplicationFormPort;
     @Mock SaveRecruitingApplicationFormPort saveApplicationFormPort;
@@ -81,6 +83,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         sut = new RecruitingRoundLifecycleCommandService(
             loadRoundPort,
             saveRoundPort,
+            saveInterviewSessionPort,
             loadApplicationPort,
             loadApplicationFormPort,
             saveApplicationFormPort,
@@ -140,6 +143,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         InOrder order = inOrder(
             saveEvaluatorPort,
             saveQuestionPort,
+            saveInterviewSessionPort,
             savePolicyPort,
             saveApplicationFormPort,
             manageFormUseCase,
@@ -147,6 +151,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         );
         then(saveEvaluatorPort).should(order).deleteByRoundId(20L);
         then(saveQuestionPort).should(order).deleteByRoundId(20L);
+        then(saveInterviewSessionPort).should(order).deleteByRoundId(20L);
         then(savePolicyPort).should(order).deleteByApplicationFormId(200L);
         then(saveApplicationFormPort).should(order).delete(form);
         then(manageFormUseCase).should(order).deleteForm(any());

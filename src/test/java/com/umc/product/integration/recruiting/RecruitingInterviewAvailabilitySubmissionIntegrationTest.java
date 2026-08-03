@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -13,6 +14,7 @@ import java.util.concurrent.Executors;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormSectionUseCase;
@@ -27,12 +29,18 @@ import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswer
 import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
+import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewSchedulesCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleBoardUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingInterviewScheduleBoardInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonPort;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
@@ -40,9 +48,11 @@ import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
+import com.umc.product.recruiting.domain.RecruitingInterviewSession;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
+import com.umc.product.recruiting.domain.enums.RecruitingInterviewMode;
 import com.umc.product.recruiting.domain.enums.RecruitingInterviewScheduleStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -51,7 +61,9 @@ import com.umc.product.support.IntegrationTestSupport;
 class RecruitingInterviewAvailabilitySubmissionIntegrationTest extends IntegrationTestSupport {
 
     private static final Long APPLICANT_MEMBER_ID = 1001L;
+    private static final Long REQUESTER_MEMBER_ID = 9001L;
     private static final Instant INTERVIEW_START_AT = Instant.parse("2026-08-11T00:00:00Z");
+    private static final Instant INTERVIEW_END_AT = Instant.parse("2026-08-15T00:00:00Z");
 
     @Autowired
     ManageFormUseCase manageFormUseCase;
@@ -85,6 +97,18 @@ class RecruitingInterviewAvailabilitySubmissionIntegrationTest extends Integrati
 
     @Autowired
     LoadRecruitingInterviewSchedulePort loadSchedulePort;
+
+    @Autowired
+    SaveRecruitingInterviewSessionPort saveSessionPort;
+
+    @Autowired
+    GetRecruitingInterviewScheduleBoardUseCase getScheduleBoardUseCase;
+
+    @Autowired
+    ConfirmRecruitingInterviewSchedulesUseCase confirmSchedulesUseCase;
+
+    @MockitoBean
+    AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
 
     @Test
     @DisplayName("면접 가능 시간을 실제 Form SCHEDULE 응답으로 최종 제출하고 일정을 전이한다")
@@ -169,6 +193,55 @@ class RecruitingInterviewAvailabilitySubmissionIntegrationTest extends Integrati
             .isEqualTo(RecruitingInterviewScheduleStatus.AVAILABILITY_SUBMITTED);
     }
 
+    @Test
+    @DisplayName("실제 Form 가능 시간을 보드에 표시하고 batch 확정 결과를 지원자 일정에 반영한다")
+    void 실제_Form_가능_시간을_보드에_표시하고_batch_확정_결과를_지원자_일정에_반영한다() {
+        Fixture fixture = fixture();
+        List<Instant> availableTimes = List.of(INTERVIEW_START_AT, INTERVIEW_START_AT.plusSeconds(900));
+        manageScheduleUseCase.submitAvailability(command(fixture.applicationId(), availableTimes));
+        Long sessionId = saveSessionPort.save(RecruitingInterviewSession.create(
+            fixture.roundId(),
+            "온라인 면접",
+            INTERVIEW_START_AT,
+            INTERVIEW_START_AT.plusSeconds(1800),
+            15,
+            RecruitingInterviewMode.ONLINE,
+            "https://meet.example.com/interview",
+            INTERVIEW_START_AT,
+            INTERVIEW_END_AT
+        )).getId();
+
+        RecruitingInterviewScheduleBoardInfo board = getScheduleBoardUseCase.getBoard(
+            fixture.roundId(),
+            LocalDate.of(2026, 8, 11),
+            REQUESTER_MEMBER_ID
+        );
+
+        assertThat(board.sessions()).singleElement().satisfies(session -> {
+            assertThat(session.slots()).hasSize(2);
+            assertThat(session.slots()).allSatisfy(slot ->
+                assertThat(slot.availableApplicationIds()).containsExactly(fixture.applicationId())
+            );
+        });
+        confirmSchedulesUseCase.confirmAll(ConfirmRecruitingInterviewSchedulesCommand.of(
+            fixture.roundId(),
+            REQUESTER_MEMBER_ID,
+            List.of(ConfirmRecruitingInterviewSchedulesCommand.Assignment.of(
+                fixture.applicationId(),
+                sessionId,
+                INTERVIEW_START_AT,
+                "카카오톡 @umc"
+            ))
+        ));
+
+        RecruitingInterviewSchedule schedule = loadSchedulePort.getByApplicationId(fixture.applicationId());
+        assertThat(schedule.getStatus()).isEqualTo(RecruitingInterviewScheduleStatus.CONFIRMED);
+        assertThat(schedule.getInterviewSessionId()).isEqualTo(sessionId);
+        assertThat(schedule.getStartsAt()).isEqualTo(INTERVIEW_START_AT);
+        assertThat(schedule.getEndsAt()).isEqualTo(INTERVIEW_START_AT.plusSeconds(900));
+        assertThat(schedule.getLocation()).isEqualTo("https://meet.example.com/interview");
+    }
+
     private Fixture fixture() {
         Long formId = manageFormUseCase.createDraft(CreateDraftFormCommand.builder()
             .createdMemberId(9001L)
@@ -204,7 +277,7 @@ class RecruitingInterviewAvailabilitySubmissionIntegrationTest extends Integrati
                 Instant.parse("2026-08-10T00:00:00Z"),
                 true,
                 INTERVIEW_START_AT,
-                Instant.parse("2026-08-15T00:00:00Z"),
+                INTERVIEW_END_AT,
                 Instant.parse("2026-08-16T00:00:00Z"),
                 formId,
                 questionId,
@@ -235,13 +308,13 @@ class RecruitingInterviewAvailabilitySubmissionIntegrationTest extends Integrati
             application,
             "카카오톡 @umc"
         ));
-        return new Fixture(formId, questionId, application.getId());
+        return new Fixture(formId, questionId, round.getId(), application.getId());
     }
 
     private SubmitRecruitingInterviewAvailabilityCommand command(Long applicationId, List<Instant> times) {
         return SubmitRecruitingInterviewAvailabilityCommand.of(applicationId, APPLICANT_MEMBER_ID, times);
     }
 
-    private record Fixture(Long formId, Long questionId, Long applicationId) {
+    private record Fixture(Long formId, Long questionId, Long roundId, Long applicationId) {
     }
 }

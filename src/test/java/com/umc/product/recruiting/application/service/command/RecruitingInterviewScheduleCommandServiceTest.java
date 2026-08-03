@@ -16,8 +16,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
@@ -30,10 +32,12 @@ import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.form.domain.exception.FormDomainException;
 import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
+import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
@@ -56,6 +60,9 @@ class RecruitingInterviewScheduleCommandServiceTest {
     LoadRecruitingInterviewSchedulePort loadSchedulePort;
 
     @Mock
+    LoadRecruitingInterviewSessionPort loadSessionPort;
+
+    @Mock
     SaveRecruitingInterviewSchedulePort saveSchedulePort;
 
     @Mock
@@ -73,6 +80,9 @@ class RecruitingInterviewScheduleCommandServiceTest {
     @Mock
     ManageFormResponseUseCase manageFormResponseUseCase;
 
+    @Mock
+    ConfirmRecruitingInterviewSchedulesUseCase confirmSchedulesUseCase;
+
     RecruitingInterviewScheduleCommandService sut;
 
     RecruitingApplication application;
@@ -86,7 +96,9 @@ class RecruitingInterviewScheduleCommandServiceTest {
             availabilityRequestCoordinator,
             concurrencyLockService,
             getFormUseCase,
-            manageFormResponseUseCase
+            manageFormResponseUseCase,
+            loadSessionPort,
+            confirmSchedulesUseCase
         );
         application = application();
     }
@@ -385,28 +397,166 @@ class RecruitingInterviewScheduleCommandServiceTest {
     }
 
     @Test
-    @DisplayName("가능 시간 응답이 제출된 일정은 면접 기간 안에서 확정한다")
-    void 가능_시간_응답이_제출된_일정은_면접_기간_안에서_확정한다() {
+    @DisplayName("세션 값과 일치하는 단건 확정은 공통 batch 확정에 요청 슬롯으로 위임한다")
+    void 세션_값과_일치하는_단건_확정은_공통_batch_확정에_요청_슬롯으로_위임한다() {
         RecruitingInterviewSchedule schedule = schedule();
         schedule.submitAvailability(700L);
         given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule);
+        givenSessionValues();
 
         sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
             900L,
             99L,
-            Instant.parse("2026-08-12T01:00:00Z"),
-            Instant.parse("2026-08-12T01:30:00Z"),
-            "온라인",
+            101L,
+            sessionStartsAt(),
+            sessionEndsAt(),
+            "서버 회의실",
             "이메일 contact@example.com"
         ));
 
-        assertThat(schedule.getStatus()).isEqualTo(RecruitingInterviewScheduleStatus.CONFIRMED);
-        assertThat(schedule.getContactSnapshot()).isEqualTo("이메일 contact@example.com");
-        verify(saveSchedulePort).saveSchedule(schedule);
+        ArgumentCaptor<com.umc.product.recruiting.application.port.in.command.dto
+            .ConfirmRecruitingInterviewSchedulesCommand> captor = ArgumentCaptor.forClass(
+                com.umc.product.recruiting.application.port.in.command.dto
+                    .ConfirmRecruitingInterviewSchedulesCommand.class
+            );
+        verify(confirmSchedulesUseCase).confirmAll(captor.capture());
+        assertThat(captor.getValue().roundId()).isEqualTo(800L);
+        assertThat(captor.getValue().assignments()).singleElement().satisfies(assignment -> {
+            assertThat(assignment.applicationId()).isEqualTo(900L);
+            assertThat(assignment.sessionId()).isEqualTo(101L);
+            assertThat(assignment.startsAt()).isEqualTo(sessionStartsAt());
+            assertThat(assignment.contactSnapshot()).isEqualTo("이메일 contact@example.com");
+        });
+        verifyNoInteractions(saveSchedulePort);
+    }
+
+    @Test
+    @DisplayName("단건 확정은 세션을 조회하기 전에 지원서 Season 관리 권한을 확인한다")
+    void 단건_확정은_세션을_조회하기_전에_지원서_Season_관리_권한을_확인한다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule);
+        givenSessionValues();
+
+        sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+            900L, 99L, 101L, sessionStartsAt(), sessionEndsAt(), "서버 회의실", "운영진 연락처"
+        ));
+
+        InOrder order = org.mockito.Mockito.inOrder(loadSchedulePort, authorizeManagementUseCase, loadSessionPort);
+        order.verify(loadSchedulePort).getByApplicationId(900L);
+        order.verify(authorizeManagementUseCase).authorizeSeasonManagement(99L, 700L);
+        order.verify(loadSessionPort).getById(101L);
+    }
+
+    @Test
+    @DisplayName("단건 확정 권한이 없으면 세션을 조회하지 않는다")
+    void 단건_확정_권한이_없으면_세션을_조회하지_않는다() {
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule());
+        org.mockito.BDDMockito.willThrow(new AccessDeniedException("권한 없음"))
+            .given(authorizeManagementUseCase)
+            .authorizeSeasonManagement(99L, 700L);
+
+        assertThatThrownBy(() -> sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+            900L, 99L, 101L, sessionStartsAt(), sessionEndsAt(), "서버 회의실", "운영진 연락처"
+        ))).isInstanceOf(AccessDeniedException.class);
+
+        verifyNoInteractions(loadSessionPort, confirmSchedulesUseCase);
+    }
+
+    @Test
+    @DisplayName("단건 확정은 세션 안의 다음 슬롯도 공통 batch 확정에 위임한다")
+    void 단건_확정은_세션_안의_다음_슬롯도_공통_batch_확정에_위임한다() {
+        RecruitingInterviewSchedule schedule = schedule();
+        schedule.submitAvailability(700L);
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule);
+        givenSessionValues();
+
+        Instant startsAt = sessionStartsAt().plusSeconds(900);
+        sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+            900L,
+            99L,
+            101L,
+            startsAt,
+            startsAt.plusSeconds(1800),
+            "서버 회의실",
+            "이메일 contact@example.com"
+        ));
+
+        ArgumentCaptor<com.umc.product.recruiting.application.port.in.command.dto
+            .ConfirmRecruitingInterviewSchedulesCommand> captor = ArgumentCaptor.forClass(
+                com.umc.product.recruiting.application.port.in.command.dto
+                    .ConfirmRecruitingInterviewSchedulesCommand.class
+            );
+        verify(confirmSchedulesUseCase).confirmAll(captor.capture());
+        assertThat(captor.getValue().assignments()).singleElement().satisfies(assignment ->
+            assertThat(assignment.startsAt()).isEqualTo(startsAt)
+        );
+    }
+
+    @Test
+    @DisplayName("단건 확정 요청의 종료 시각이 세션 슬롯과 다르면 충돌로 거부한다")
+    void 단건_확정_요청의_종료_시각이_세션_슬롯과_다르면_충돌로_거부한다() {
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule());
+        givenSessionValues();
+
+        assertRecruitingError(
+            () -> sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+                900L,
+                99L,
+                101L,
+                sessionStartsAt(),
+                sessionEndsAt().plusSeconds(900),
+                "서버 회의실",
+                "이메일 contact@example.com"
+            )),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT
+        );
+
+        verifyNoInteractions(confirmSchedulesUseCase);
+    }
+
+    @Test
+    @DisplayName("단건 확정 요청의 장소가 세션과 다르면 충돌로 거부한다")
+    void 단건_확정_요청의_장소가_세션과_다르면_충돌로_거부한다() {
+        given(loadSchedulePort.getByApplicationId(900L)).willReturn(schedule());
+        givenSessionValues();
+
+        assertRecruitingError(
+            () -> sut.confirm(ConfirmRecruitingInterviewScheduleCommand.of(
+                900L,
+                99L,
+                101L,
+                sessionStartsAt(),
+                sessionEndsAt(),
+                "클라이언트 장소",
+                "이메일 contact@example.com"
+            )),
+            RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT
+        );
+
+        verifyNoInteractions(confirmSchedulesUseCase);
     }
 
     private RecruitingInterviewSchedule schedule() {
         return RecruitingInterviewSchedule.requestAvailability(application, "카카오톡 @umc");
+    }
+
+    private void givenSessionValues() {
+        com.umc.product.recruiting.domain.RecruitingInterviewSession session = org.mockito.Mockito.mock(
+            com.umc.product.recruiting.domain.RecruitingInterviewSession.class
+        );
+        given(loadSessionPort.getById(101L)).willReturn(session);
+        org.mockito.Mockito.lenient().when(session.getStartsAt()).thenReturn(sessionStartsAt());
+        org.mockito.Mockito.lenient().when(session.getSlotDurationMinutes()).thenReturn(30);
+        org.mockito.Mockito.lenient().when(session.getLocation()).thenReturn("서버 회의실");
+    }
+
+    private Instant sessionStartsAt() {
+        return Instant.parse("2026-08-12T01:00:00Z");
+    }
+
+    private Instant sessionEndsAt() {
+        return Instant.parse("2026-08-12T01:30:00Z");
     }
 
     private RecruitingInterviewSchedule givenRequestedSchedule() {
@@ -500,6 +650,7 @@ class RecruitingInterviewScheduleCommandServiceTest {
                 "문의 채널"
             )
         );
+        ReflectionTestUtils.setField(round, "id", 800L);
         RecruitingApplicationForm form = RecruitingApplicationForm.create(round, 100L);
         RecruitingApplication result = RecruitingApplication.createMemberDraft(
             form,

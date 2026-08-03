@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.service.command;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 
@@ -15,11 +16,14 @@ import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo.
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitingManagementUseCase;
+import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewScheduleCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.ConfirmRecruitingInterviewSchedulesCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RequestRecruitingInterviewScheduleCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.SubmitRecruitingInterviewAvailabilityCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSchedulePort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSchedulePort;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
@@ -42,6 +46,8 @@ public class RecruitingInterviewScheduleCommandService implements ManageRecruiti
     private final RecruitingConcurrencyLockService concurrencyLockService;
     private final GetFormUseCase getFormUseCase;
     private final ManageFormResponseUseCase manageFormResponseUseCase;
+    private final LoadRecruitingInterviewSessionPort loadSessionPort;
+    private final ConfirmRecruitingInterviewSchedulesUseCase confirmSchedulesUseCase;
 
     @Override
     public Long requestAvailability(RequestRecruitingInterviewScheduleCommand command) {
@@ -89,21 +95,40 @@ public class RecruitingInterviewScheduleCommandService implements ManageRecruiti
 
     @Override
     public void confirm(ConfirmRecruitingInterviewScheduleCommand command) {
+        if (command.sessionId() == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SESSION_INVALID);
+        }
         RecruitingInterviewSchedule schedule = loadSchedulePort.getByApplicationId(command.applicationId());
+        Long roundId = schedule.getApplication().getRound().getId();
         authorizeManagementUseCase.authorizeSeasonManagement(
             command.requesterMemberId(),
             schedule.getApplication().getRound().getSeason().getId()
         );
-        validateInterviewAssigned(schedule.getApplication());
-        // TODO(#1146): Form 일정 교집합 계약이 제공되면 확정 전에 실제 겹침을 검증한다.
-        schedule.confirm(
-            command.startsAt(),
-            command.endsAt(),
-            command.location(),
-            command.contactSnapshot()
-        );
-        saveSchedulePort.saveSchedule(schedule);
+        var session = loadSessionPort.getById(command.sessionId());
+        validateSessionDerivedValues(command, session);
+        confirmSchedulesUseCase.confirmAll(ConfirmRecruitingInterviewSchedulesCommand.of(
+            roundId,
+            command.requesterMemberId(),
+            List.of(ConfirmRecruitingInterviewSchedulesCommand.Assignment.of(
+                command.applicationId(),
+                command.sessionId(),
+                command.startsAt(),
+                command.contactSnapshot()
+            ))
+        ));
         // TODO(#1147): HTML 메일 계약이 제공되면 확정 메일을 발송하고 delivery 상태를 기록한다.
+    }
+
+    private void validateSessionDerivedValues(
+        ConfirmRecruitingInterviewScheduleCommand command,
+        com.umc.product.recruiting.domain.RecruitingInterviewSession session
+    ) {
+        if (command.startsAt() == null
+            || command.endsAt() == null
+            || !command.startsAt().plus(Duration.ofMinutes(session.getSlotDurationMinutes())).equals(command.endsAt())
+            || !session.getLocation().equals(command.location())) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_ASSIGNMENT_CONFLICT);
+        }
     }
 
     private void validateInterviewAssigned(RecruitingApplication application) {

@@ -27,6 +27,13 @@ extend type Query {
     stage: RecruitingEvaluatorStage!
   ): [RecruitingApplicationEvaluation!]!
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
+  recruitingInterviewSession(seasonId: ID!, roundId: ID!, sessionId: ID!): RecruitingInterviewSession!
+  recruitingInterviewSessions(seasonId: ID!, roundId: ID!): [RecruitingInterviewSession!]!
+  recruitingInterviewScheduleBoard(
+    seasonId: ID!
+    roundId: ID!
+    date: String!
+  ): RecruitingInterviewScheduleBoard!
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
   recruitingEvaluationStatistics(input: RecruitingEvaluationStatisticsInput!): RecruitingEvaluationStatistics!
   recruitingDecisionHistories(input: RecruitingDecisionHistorySearchInput!): RecruitingDecisionHistoryPage!
@@ -129,6 +136,23 @@ type Mutation {
   confirmRecruitingInterviewSchedule(
     applicationId: ID!
     input: ConfirmRecruitingInterviewScheduleInput!
+  ): Boolean!
+  createRecruitingInterviewSession(
+    seasonId: ID!
+    roundId: ID!
+    input: RecruitingInterviewSessionInput!
+  ): RecruitingIdPayload!
+  updateRecruitingInterviewSession(
+    seasonId: ID!
+    roundId: ID!
+    sessionId: ID!
+    input: RecruitingInterviewSessionInput!
+  ): Boolean!
+  deleteRecruitingInterviewSession(seasonId: ID!, roundId: ID!, sessionId: ID!): Boolean!
+  confirmRecruitingInterviewSchedules(
+    seasonId: ID!
+    roundId: ID!
+    input: ConfirmRecruitingInterviewSchedulesInput!
   ): Boolean!
   submitRecruitingApplicationEvaluation(
     applicationId: ID!
@@ -384,9 +408,30 @@ input RequestRecruitingInterviewAvailabilityInput {
 }
 
 input ConfirmRecruitingInterviewScheduleInput {
+  sessionId: ID!
   startsAt: Instant!
   endsAt: Instant!
   location: String
+  contactSnapshot: String!
+}
+
+input RecruitingInterviewSessionInput {
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  slotDurationMinutes: Int!
+  mode: RecruitingInterviewMode!
+  location: String!
+}
+
+input ConfirmRecruitingInterviewSchedulesInput {
+  assignments: [ConfirmRecruitingInterviewScheduleAssignmentInput!]!
+}
+
+input ConfirmRecruitingInterviewScheduleAssignmentInput {
+  applicationId: ID!
+  sessionId: ID!
+  startsAt: Instant!
   contactSnapshot: String!
 }
 
@@ -594,6 +639,52 @@ type RecruitingInterviewSchedule {
   endsAt: Instant
   location: String
   contactSnapshot: String!
+}
+
+enum RecruitingInterviewMode {
+  ONLINE
+  OFFLINE
+}
+
+type RecruitingInterviewSession {
+  id: ID!
+  roundId: ID!
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  slotDurationMinutes: Int!
+  mode: RecruitingInterviewMode!
+  location: String!
+}
+
+type RecruitingInterviewScheduleBoard {
+  roundId: ID!
+  date: String!
+  sessions: [RecruitingInterviewScheduleBoardSession!]!
+  pendingApplicants: [RecruitingInterviewScheduleBoardApplicant!]!
+  confirmedApplicants: [RecruitingInterviewScheduleBoardApplicant!]!
+}
+
+type RecruitingInterviewScheduleBoardSession {
+  sessionId: ID!
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  mode: RecruitingInterviewMode!
+  location: String!
+  slots: [RecruitingInterviewScheduleBoardSlot!]!
+}
+
+type RecruitingInterviewScheduleBoardSlot {
+  startsAt: Instant!
+  endsAt: Instant!
+  availableApplicationIds: [ID!]!
+  assignedApplicant: RecruitingInterviewScheduleBoardApplicant
+}
+
+type RecruitingInterviewScheduleBoardApplicant {
+  applicationId: ID!
+  applicantName: String!
 }
 
 type RecruitingStatusSummary {

@@ -63,6 +63,9 @@ class RecruitingGraphQlSurfaceTest {
                     "recruitingApplicationInterviewQuestions",
                     "recruitingApplicationEvaluations",
                     "recruitingInterviewSchedule",
+                    "recruitingInterviewSession",
+                    "recruitingInterviewSessions",
+                    "recruitingInterviewScheduleBoard",
                     "recruitingStatusSummary",
                     "recruitingEvaluationStatistics"
                     , "recruitingRoundApplications"
@@ -86,6 +89,10 @@ class RecruitingGraphQlSurfaceTest {
                     "requestRecruitingInterviewAvailability",
                     "submitRecruitingInterviewAvailability",
                     "confirmRecruitingInterviewSchedule",
+                    "createRecruitingInterviewSession",
+                    "updateRecruitingInterviewSession",
+                    "deleteRecruitingInterviewSession",
+                    "confirmRecruitingInterviewSchedules",
                     "submitRecruitingApplicationEvaluation"
                 );
             assertThat(allFieldNames(data)).doesNotContainAnyElementsOf(REMOVED_FIELDS);
@@ -121,6 +128,12 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("ChallengerTrack");
             assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability")).isEqualTo("Boolean!");
             assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times")).isEqualTo("[Instant!]!");
+            assertThat(inputFieldType(data, "ConfirmRecruitingInterviewScheduleInput", "sessionId")).isEqualTo("ID!");
+            assertThat(inputFieldType(data, "RecruitingInterviewSessionInput", "slotDurationMinutes"))
+                .isEqualTo("Int!");
+            assertThat(fieldType(data, "RecruitingInterviewSession", "slotDurationMinutes")).isEqualTo("Int!");
+            assertThat(fieldType(data, "RecruitingInterviewScheduleBoard", "sessions"))
+                .isEqualTo("[RecruitingInterviewScheduleBoardSession!]!");
             assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
             assertThat(inputFieldNames(data, "RecruitingDecisionHistorySearchInput"))
                 .contains("chapterIds", "schoolIds")

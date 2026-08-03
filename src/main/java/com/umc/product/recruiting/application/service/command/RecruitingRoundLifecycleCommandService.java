@@ -34,6 +34,7 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterv
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingFormSectionPolicyPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
@@ -56,6 +57,7 @@ public class RecruitingRoundLifecycleCommandService implements
 
     private final LoadRecruitingRoundPort loadRoundPort;
     private final SaveRecruitingRoundPort saveRoundPort;
+    private final SaveRecruitingInterviewSessionPort saveInterviewSessionPort;
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final SaveRecruitingApplicationFormPort saveApplicationFormPort;
@@ -90,6 +92,7 @@ public class RecruitingRoundLifecycleCommandService implements
 
         saveEvaluatorPort.deleteByRoundId(round.getId());
         saveQuestionPort.deleteByRoundId(round.getId());
+        saveInterviewSessionPort.deleteByRoundId(round.getId());
         if (applicationForm != null) {
             savePolicyPort.deleteByApplicationFormId(applicationForm.getId());
             saveApplicationFormPort.delete(applicationForm);

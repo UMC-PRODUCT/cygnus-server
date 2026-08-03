@@ -42,10 +42,12 @@ import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingFinalUseCase;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewScheduleUseCase;
+import com.umc.product.recruiting.application.port.in.command.ManageRecruitingInterviewSessionUseCase;
 import com.umc.product.recruiting.application.port.in.command.PrepareRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.SkipRecruitingInterviewUseCase;
@@ -59,6 +61,8 @@ import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvU
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingDecisionHistoryCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleBoardUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewSessionUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
@@ -116,11 +120,19 @@ class RecruitingAdminControllerTest {
     @MockitoBean
     ManageRecruitingInterviewScheduleUseCase manageScheduleUseCase;
     @MockitoBean
+    ManageRecruitingInterviewSessionUseCase manageInterviewSessionUseCase;
+    @MockitoBean
+    ConfirmRecruitingInterviewSchedulesUseCase confirmInterviewSchedulesUseCase;
+    @MockitoBean
     GetRecruitingApplicationQueryUseCase getApplicationQueryUseCase;
     @MockitoBean
     ExportRecruitingCsvUseCase exportRecruitingCsvUseCase;
     @MockitoBean
     GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
+    @MockitoBean
+    GetRecruitingInterviewSessionUseCase getInterviewSessionUseCase;
+    @MockitoBean
+    GetRecruitingInterviewScheduleBoardUseCase getInterviewScheduleBoardUseCase;
     @MockitoBean
     SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     @MockitoBean

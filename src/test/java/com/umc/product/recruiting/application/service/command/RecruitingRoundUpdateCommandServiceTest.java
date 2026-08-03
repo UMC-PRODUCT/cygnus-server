@@ -36,14 +36,17 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingInterviewSession;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
+import com.umc.product.recruiting.domain.enums.RecruitingInterviewMode;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -61,6 +64,8 @@ class RecruitingRoundUpdateCommandServiceTest {
     LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     @Mock
     LoadRecruitingApplicationPort loadApplicationPort;
+    @Mock
+    LoadRecruitingInterviewSessionPort loadInterviewSessionPort;
     @Mock
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
     @Mock
@@ -83,7 +88,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     void updateRoundConfiguration() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = round(20L, season);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 4)
         ));
@@ -104,7 +109,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     void updateDraftInterviewRoundWithoutAvailabilityMapping() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = round(20L, season);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
         ));
@@ -124,11 +129,60 @@ class RecruitingRoundUpdateCommandServiceTest {
     }
 
     @Test
+    @DisplayName("기존 면접 세션을 제외하는 기간으로 면접 차수를 변경할 수 없다")
+    void rejectInterviewWindowUpdateThatExcludesExistingSession() {
+        RecruitingSeason season = season(10L);
+        RecruitingRound round = interviewRound(20L, season, null, null);
+        RecruitingInterviewSession session = RecruitingInterviewSession.create(
+            round.getId(),
+            "오전 면접",
+            Instant.parse("2026-08-11T00:00:00Z"),
+            Instant.parse("2026-08-11T01:00:00Z"),
+            15,
+            RecruitingInterviewMode.ONLINE,
+            "https://meet.example.com/room",
+            round.getInterviewStartAt(),
+            round.getInterviewEndAt()
+        );
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
+        ));
+        given(loadInterviewSessionPort.listByRoundId(20L)).willReturn(List.of(session));
+
+        assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(RecruitingRoundConfigurationCommand.of(
+                List.of(ChallengerTrack.PLAN),
+                false,
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-08T00:00:00Z"),
+                Instant.parse("2026-08-10T00:00:00Z"),
+                true,
+                Instant.parse("2026-08-11T00:15:00Z"),
+                Instant.parse("2026-08-14T00:00:00Z"),
+                Instant.parse("2026-08-16T00:00:00Z"),
+                null,
+                null,
+                null,
+                null
+            ))
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(saveRoundPort).should(never()).save(any());
+    }
+
+    @Test
     @DisplayName("지원서가 있으면 DRAFT 차수의 모집 트랙을 변경할 수 없다")
     void rejectRecruitableTrackChangeWhenApplicationExists() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 4)
@@ -152,7 +206,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     void rejectSecondChoicePolicyChangeWhenApplicationExists() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
@@ -177,7 +231,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
         round.open();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 4)
         ));
@@ -201,7 +255,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
         round.open();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
@@ -225,7 +279,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingSeason season = season(10L);
         RecruitingRound round = interviewRound(20L, season, 500L, 600L);
         round.open();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
         ));
@@ -274,7 +328,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     @DisplayName("OPEN 면접 차수는 유효한 기명 availability Form 매핑으로 변경할 수 있다")
     void updateOpenRoundWithValidAvailabilityMapping() {
         RecruitingRound round = openInterviewRound();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(round.getSeason(), ChallengerTrack.PLAN, 4)
@@ -303,7 +357,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     @DisplayName("OPEN 면접 차수는 기존의 유효한 availability Form 매핑을 유지할 수 있다")
     void updateOpenRoundKeepingValidAvailabilityMapping() {
         RecruitingRound round = openInterviewRound();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(round.getSeason(), ChallengerTrack.PLAN, 4)
@@ -332,7 +386,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
         round.open();
         round.close();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
@@ -354,7 +408,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     @DisplayName("다른 시즌의 차수 설정을 변경할 수 없다")
     void updateRoundRejectsDifferentSeason() {
         RecruitingRound round = round(20L, season(10L));
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
 
         assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(999L)
@@ -765,7 +819,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         FormWithStructureInfo form
     ) {
         RecruitingRound round = openInterviewRound();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(round.getSeason(), ChallengerTrack.PLAN, 4)
         ));
