@@ -47,6 +47,27 @@ terraform -chdir=loadtest/terraform apply     # yes
 curl $(terraform -chdir=loadtest/terraform output -raw sut_app_url)/actuator/health
 ```
 
+### 1.5 관측 점검 (apply 직후 1회 — 측정 전에)
+
+node-exporter 가 host netns 로 떠야 네트워크·TCP 지표가 실제 값이다. SUT 에 SSH 해서 확인한다.
+
+```bash
+ssh -i <pem> ec2-user@$(terraform -chdir=loadtest/terraform output -raw sut_public_ip)
+
+# (1) NIC / accept 큐 / 회수 지표가 모두 나오는지 — 셋 다 값이 있어야 정상
+curl -s localhost:9100/metrics | grep -E 'node_network_receive_bytes_total\{device="e|ListenOverflows|pgsteal_direct'
+
+# (2) PSI 커널 지원 — 파일 없으면 PSI 패널은 빈 그래프, 'Memory — S 회수' 로 판정
+cat /proc/pressure/memory
+
+# (3) accept 큐 임계값 기록 — ListenOverflows 해석에 필요
+ss -ltn 'sport = :8080'          # Send-Q = accept 큐 크기
+sysctl net.core.somaxconn
+```
+
+`node_network_receive_bytes_total` 이 수백 B/s 수준이면 컨테이너 netns 를 보고 있는 것 —
+`sudo docker inspect` 로 node-exporter 의 `NetworkMode` 가 `host` 인지 확인한다.
+
 ---
 
 ## 2-A. smoke 경로 (소규모 검증 — 시나리오 개발·회귀 확인용)
@@ -109,6 +130,24 @@ export RUN_DIR=docs/loadtest/runs/<방금 생성된 디렉터리>   # 이후 run
 실행 **전**에 만들어 가설부터 적는다. `RUN_DIR` 를 설정하면 run-k6.sh 가 콘솔 로그(.log)와
 k6 요약(.summary.json)을 실행마다 이 디렉터리에 자동 저장한다 — destroy 해도 결과가 남는다.
 끝나면 summary.md 에 결론·Grafana 스크린샷을 채운다. 규칙: `docs/loadtest/README.md`.
+
+---
+
+## 2.6 프로파일링 (선택 — "CPU 를 누가 태우나")
+
+Grafana 는 "CPU 90%" 까지만 답한다. "그 90% 중 40% 가 ObjectMapper" 는 프로파일러 영역.
+
+```bash
+# 부하가 포화에 안착한 걸 Grafana 에서 확인한 뒤, 다른 터미널에서
+loadtest/scripts/profile-sut.sh 60             # cpu + wall 60초씩
+loadtest/scripts/profile-sut.sh 60 wall        # 대기 시간 분해만
+```
+
+- 프로파일러(async-profiler)는 최초 1회만 자동 설치되고 인스턴스를 재생성하기 전까지 재사용된다
+- 결과는 `$RUN_DIR`(미설정 시 `loadtest/k6/out`)에 `flame-<이벤트>-<시각>.html` — 브라우저로 열면 검색·확대 동작
+- **폭이 전부다.** X축 폭 = 샘플 비율 = CPU 몫. 높이·색은 의미 없음
+- 이벤트 선택: CPU 포화면 `cpu`, Hikari pending 이 쌓이면 `wall`(대기 중인 스레드까지 샘플)
+- 부하는 `breakpoint` 말고 `load`/`stress`(constant-arrival-rate)로 고정한 상태에서 뜬다 — 저부하 구간 샘플이 섞이면 판정이 흐려진다
 
 ## 3. 결과 보기
 
