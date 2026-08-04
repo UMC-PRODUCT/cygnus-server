@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -494,12 +496,92 @@ class StudyGroupQueryServiceTest {
         assertThat(result).containsExactlyInAnyOrder(100L, 200L);
     }
 
+    @Test
+    @DisplayName("회장단과 파트장을 겸직하면 두 역할의 scope 합집합으로 스터디 그룹을 조회한다")
+    void findVisibleStudyGroupIdsMergesScopesWhenMemberHoldsBothRoles() {
+        // given
+        Long memberId = 1L;
+        Long schoolId = 100L;
+        Long gisuId = 10L;
+        Set<Long> schoolMemberIds = Set.of(101L, 102L);
+
+        given(getMemberUseCase.getById(memberId)).willReturn(memberInfo(memberId, schoolId));
+        given(getGisuUseCase.getActiveGisuId()).willReturn(gisuId);
+        given(getChallengerRoleUseCase.isSchoolCoreInGisu(memberId, gisuId, schoolId)).willReturn(true);
+        given(getMemberUseCase.listIdsBySchoolId(schoolId)).willReturn(schoolMemberIds);
+        given(getChallengerRoleUseCase.hasRoleTypeInGisu(memberId, gisuId, ChallengerRoleType.SCHOOL_PART_LEADER))
+            .willReturn(true);
+        given(loadStudyGroupPort.findStudyGroupIds(any(), eq(gisuId))).willReturn(Set.of(100L, 200L));
+
+        // when
+        Set<Long> result = sut.findVisibleStudyGroupIds(memberId);
+
+        // then
+        assertThat(result).containsExactlyInAnyOrder(100L, 200L);
+        assertThat(captureVisibleScopes())
+            .hasSize(2)
+            .hasAtLeastOneElementOfType(AsSchoolCore.class)
+            .hasAtLeastOneElementOfType(AsPartLeader.class);
+    }
+
+    @Test
+    @DisplayName("회장단도 파트장도 아니면 port 호출 없이 빈 Set을 반환한다")
+    void findVisibleStudyGroupIdsReturnsEmptyWithoutPortCallWhenNoRole() {
+        // given
+        Long memberId = 1L;
+        Long schoolId = 100L;
+        Long gisuId = 10L;
+
+        given(getMemberUseCase.getById(memberId)).willReturn(memberInfo(memberId, schoolId));
+        given(getGisuUseCase.getActiveGisuId()).willReturn(gisuId);
+        given(getChallengerRoleUseCase.isSchoolCoreInGisu(memberId, gisuId, schoolId)).willReturn(false);
+        given(getChallengerRoleUseCase.hasRoleTypeInGisu(memberId, gisuId, ChallengerRoleType.SCHOOL_PART_LEADER))
+            .willReturn(false);
+
+        // when
+        Set<Long> result = sut.findVisibleStudyGroupIds(memberId);
+
+        // then
+        assertThat(result).isEmpty();
+        verify(loadStudyGroupPort, never()).findStudyGroupIds(any(), any());
+    }
+
+    @Test
+    @DisplayName("활성 기수를 한 번만 읽어 scope 판단 기수와 조회 기수가 어긋나지 않는다")
+    void findVisibleStudyGroupIdsReadsActiveGisuOnce() {
+        // given - scope 조립과 그룹 조회가 서로 다른 기수를 보면 권한 범위가 어긋난다
+        Long memberId = 1L;
+        Long schoolId = 100L;
+        Long activeGisuId = 10L;
+
+        given(getMemberUseCase.getById(memberId)).willReturn(memberInfo(memberId, schoolId));
+        given(getGisuUseCase.getActiveGisuId()).willReturn(activeGisuId);
+        given(getChallengerRoleUseCase.isSchoolCoreInGisu(memberId, activeGisuId, schoolId)).willReturn(false);
+        given(getChallengerRoleUseCase.hasRoleTypeInGisu(
+            memberId, activeGisuId, ChallengerRoleType.SCHOOL_PART_LEADER)).willReturn(true);
+        given(loadStudyGroupPort.findStudyGroupIds(any(), eq(activeGisuId))).willReturn(Set.of(100L));
+
+        // when
+        sut.findVisibleStudyGroupIds(memberId);
+
+        // then
+        verify(getGisuUseCase, times(1)).getActiveGisuId();
+        verify(loadStudyGroupPort).findStudyGroupIds(any(), eq(activeGisuId));
+    }
+
     // ========== Helper Methods ==========
 
     @SuppressWarnings("unchecked")
     private List<OrganizationRoleScope> captureScopes() {
         ArgumentCaptor<List<OrganizationRoleScope>> captor = ArgumentCaptor.forClass(List.class);
         verify(loadStudyGroupPort).findStudyGroupHeaders(captor.capture(), any(), any(), anyInt());
+        return captor.getValue();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<OrganizationRoleScope> captureVisibleScopes() {
+        ArgumentCaptor<List<OrganizationRoleScope>> captor = ArgumentCaptor.forClass(List.class);
+        verify(loadStudyGroupPort).findStudyGroupIds(captor.capture(), any());
         return captor.getValue();
     }
 
