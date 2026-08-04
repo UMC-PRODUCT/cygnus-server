@@ -138,6 +138,25 @@ class ProjectAccessScopeResolverTest {
             .isInstanceOf(com.umc.product.project.domain.exception.ProjectDomainException.class);
     }
 
+    @Test
+    void publicSearch_은_비회원이면_PublicOnly() {
+        Long gisuId = 1L;
+
+        ProjectAccessScope scope = sut.resolveForPublicSearch(
+            null, gisuId, Set.of(ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED));
+
+        assertThat(scope).isInstanceOf(PublicOnly.class);
+    }
+
+    @Test
+    void publicSearch_은_비회원이_비공개_status_요청하면_거부() {
+        Long gisuId = 1L;
+
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                sut.resolveForPublicSearch(null, gisuId, Set.of(ProjectStatus.PENDING_REVIEW)))
+            .isInstanceOf(com.umc.product.project.domain.exception.ProjectDomainException.class);
+    }
+
     // --- resolveForManagement ---
 
     @Test
