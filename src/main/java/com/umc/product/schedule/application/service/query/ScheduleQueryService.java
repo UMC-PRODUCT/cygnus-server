@@ -14,6 +14,7 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.GetStudyGroupScheduleUseCase;
 import com.umc.product.schedule.application.port.in.query.GetScheduleUseCase;
 import com.umc.product.schedule.application.port.in.query.dto.AdminScheduleInfo;
 import com.umc.product.schedule.application.port.in.query.dto.ScheduleBaseInfo;
@@ -39,6 +40,7 @@ public class ScheduleQueryService implements GetScheduleUseCase {
     // 역할 기반 필터링을 위한 외부 도메인 UseCase
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetGisuUseCase getGisuUseCase;
+    private final GetStudyGroupScheduleUseCase getStudyGroupScheduleUseCase;
 
     // 내 일정 조회
     @Override
@@ -203,6 +205,10 @@ public class ScheduleQueryService implements GetScheduleUseCase {
             .filter(role -> role.gisuId().equals(activeGisuId))
             .toList();
 
+        // 스터디 그룹 일정까지 봐야 하는 역할인지 여부
+        // 회장단과 파트장을 겸직해도 조회는 한 번만 하면 되므로, 루프에서는 플래그만 세우고 뒤에서 한 번 조회한다.
+        boolean needsStudyGroupSchedules = false;
+
         for (ChallengerRoleInfo role : currentGisuRoles) {
             ChallengerRoleType roleType = role.roleType();
 
@@ -213,17 +219,22 @@ public class ScheduleQueryService implements GetScheduleUseCase {
             // 학교 회장단 : 본인 생성 일정 + 교내 인원이 포함된 스터디 그룹 일정 + 교내 파트장이 멘토인 스터디 그룹 일정
             else if (roleType.isAtLeastSchoolCore()) {
                 targetScheduleIds.addAll(loadSchedulePort.findScheduleIdsByAuthor(memberId));
-                // TODO : Organization UseCase로 교내 스터디 그룹 일정 ID 조회
+                needsStudyGroupSchedules = true;
             }
             // 교내 파트장: 본인 생성 일정 + 본인 멘토 스터디 그룹 일정
             else if (roleType == ChallengerRoleType.SCHOOL_PART_LEADER) {
                 targetScheduleIds.addAll(loadSchedulePort.findScheduleIdsByAuthor(memberId));
-                // TODO : Organization UseCase로 본인 멘토 스터디 그룹 일정 ID 조회
+                needsStudyGroupSchedules = true;
             }
             // 기타 운영진 : 본인 생성 일정
             else if (roleType == ChallengerRoleType.SCHOOL_ETC_ADMIN) {
                 targetScheduleIds.addAll(loadSchedulePort.findScheduleIdsByAuthor(memberId));
             }
+        }
+
+        // 어떤 스터디 그룹 일정이 보이는지(회장단이면 교내 그룹, 파트장이면 본인 멘토 그룹)는 Organization이 판단한다.
+        if (needsStudyGroupSchedules) {
+            targetScheduleIds.addAll(getStudyGroupScheduleUseCase.findVisibleScheduleIdsByMemberId(memberId));
         }
 
         return targetScheduleIds;
