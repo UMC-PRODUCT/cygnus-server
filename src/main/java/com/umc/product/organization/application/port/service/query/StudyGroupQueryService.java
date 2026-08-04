@@ -156,6 +156,22 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
     }
 
     /**
+     * memberId 만으로 "사용자에게 보이는 활성 기수 스터디 그룹 ID" 를 반환 (UseCase 표면).
+     * <p>
+     * Scope 조립과 그룹 조회에 같은 activeGisuId 를 쓰기 위해 기수를 한 번만 읽는다. 두 단계를 나눠 부르면 그 사이에 활성 기수가 바뀌었을 때 scope 와 조회 기수가
+     * 어긋날 수 있어 여기서 묶는다.
+     */
+    @Override
+    public Set<Long> findVisibleStudyGroupIds(Long memberId) {
+        Long schoolId = getMemberUseCase.getById(memberId).schoolId();
+        Long activeGisuId = getGisuUseCase.getActiveGisuId();
+
+        List<OrganizationRoleScope> scopes = resolveScopes(memberId, activeGisuId, schoolId);
+
+        return findStudyGroupIds(scopes, activeGisuId);
+    }
+
+    /**
      * 활성 기수 내 역할을 검사해 조회 Scope 리스트 구성 (내부 helper).
      * <p>
      * 새 역할 추가 시 이 메서드에만 분기 추가. 학교 회장단 Scope 의 학교 멤버 집합이 비어있으면 EXISTS subquery 가 항상 false 이므로 Scope 자체를 생략 (쿼리 비용 절감).

@@ -102,4 +102,17 @@ public interface GetStudyGroupUseCase {
      * 알아내 schedule 필터링에 사용하는 케이스 등을 위해 분리.
      */
     Set<Long> findStudyGroupIds(List<OrganizationRoleScope> scopes, Long gisuId);
+
+    /**
+     * 사용자에게 보이는 활성 기수 스터디 그룹 ID 집합을 반환한다.
+     * <p>
+     * 호출자는 memberId 만 넘기면 된다. 역할별 Scope 판단, 회장단·파트장 겸직 시 합집합 처리, 활성 기수 결정을 모두 Organization 안에서 하므로 호출자가
+     * Organization 의 권한 계산 방식을 알 필요가 없다.
+     * <p>
+     * Schedule 등 다른 aggregate 가 "사용자에게 보이는 스터디 그룹" 만 필요할 때 사용한다. 권한 없는 일반 챌린저는 빈 Set.
+     *
+     * @param memberId 요청 주체 memberId
+     * @return 조회 가능한 스터디 그룹 ID 집합 (권한 없으면 빈 Set)
+     */
+    Set<Long> findVisibleStudyGroupIds(Long memberId);
 }
