@@ -15,12 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMembersByIdsUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
+import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadMembersByIdsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ListThreadMembersQuery;
@@ -61,7 +64,9 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class CommunityThreadQueryService implements
     ListCommunityThreadsUseCase,
-    GetCommunityThreadDetailUseCase,
+    BrowseCommunityThreadsUseCase,
+    GetJoinedCommunityThreadDetailUseCase,
+    GetPublicCommunityThreadDetailUseCase,
     GetCommunityThreadMembersByIdsUseCase,
     GetCommunityThreadMutationDetailUseCase,
     ListCommunityThreadMembersUseCase,
@@ -77,6 +82,7 @@ public class CommunityThreadQueryService implements
     private final SearchMemberInvitationUseCase searchInvitationUseCase;
     private final CommunityThreadProperties threadProperties;
 
+    @Deprecated
     @Override
     public ThreadListInfo listThreads(ListThreadsQuery query) {
         CommunityThreadListRows rows = threadQueryPort.searchThreads(new CommunityThreadListCondition(
@@ -100,8 +106,41 @@ public class CommunityThreadQueryService implements
     }
 
     @Override
-    public ThreadDetailInfo getThread(GetThreadDetailQuery query) {
+    public ThreadListInfo browseThreads(BrowseThreadsQuery query) {
+        CommunityThreadListRows rows = threadQueryPort.browseThreads(new CommunityThreadListCondition(
+            query.requesterMemberId(),
+            categoryOf(query.filter()),
+            query.filter() == ThreadListFilter.UNREAD,
+            query.q(),
+            query.offset(),
+            query.limit()
+        ));
+        Map<Long, MemberInfo> senders = loadVisibleSenders(rows.pinned(), rows.unpinned());
+        List<ThreadSummaryInfo> pinned = rows.pinned().stream()
+            .map(row -> toSummary(row, senders))
+            .toList();
+        List<ThreadSummaryInfo> threads = rows.unpinned().stream()
+            .map(row -> toSummary(row, senders))
+            .toList();
+        int consumed = Math.addExact(query.offset(), threads.size());
+        Integer nextOffset = consumed < rows.unpinnedTotal() ? consumed : null;
+        return new ThreadListInfo(pinned, threads, nextOffset, rows.unpinnedTotal());
+    }
+
+    @Override
+    public ThreadDetailInfo getJoinedThread(GetThreadDetailQuery query) {
         CommunityThreadQueryRow row = getReadableThread(query.threadId(), query.requesterMemberId());
+        Map<Long, MemberInfo> senders = loadVisibleSenders(List.of(row), List.of());
+        return ThreadDetailInfo.from(
+            toSummary(row, senders),
+            SHARE_PATH_PREFIX + row.threadId(),
+            row.deletedAt()
+        );
+    }
+
+    @Override
+    public ThreadDetailInfo getPublicThread(GetThreadDetailQuery query) {
+        CommunityThreadQueryRow row = getPublicReadableThread(query.threadId(), query.requesterMemberId());
         Map<Long, MemberInfo> senders = loadVisibleSenders(List.of(row), List.of());
         return ThreadDetailInfo.from(
             toSummary(row, senders),
@@ -152,7 +191,7 @@ public class CommunityThreadQueryService implements
 
     @Override
     public ThreadMemberPageInfo listMembers(ListThreadMembersQuery query) {
-        CommunityThreadQueryRow thread = getReadableThread(query.threadId(), query.requesterMemberId());
+        CommunityThreadQueryRow thread = getPublicReadableThread(query.threadId(), query.requesterMemberId());
         List<CommunityThreadMemberRow> rows = threadQueryPort.listActiveThreadMembers(query.threadId());
         if (rows.isEmpty()) {
             return new ThreadMemberPageInfo(List.of(), null, 0L);
@@ -213,6 +252,15 @@ public class CommunityThreadQueryService implements
         }
         if (row.requesterState() != CommunityThreadMemberState.ACTIVE) {
             throw new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        }
+        return row;
+    }
+
+    private CommunityThreadQueryRow getPublicReadableThread(Long threadId, Long requesterMemberId) {
+        CommunityThreadQueryRow row = threadQueryPort.findThread(threadId, requesterMemberId)
+            .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.THREAD_NOT_FOUND));
+        if (row.deletedAt() != null) {
+            throw new CommunityDomainException(CommunityErrorCode.THREAD_DELETED);
         }
         return row;
     }
@@ -320,10 +368,11 @@ public class CommunityThreadQueryService implements
                 row.lastMessageCreatedAt()
             );
         }
+        boolean joined = row.requesterState() == CommunityThreadMemberState.ACTIVE;
         return new ThreadSummaryInfo(
             row.threadId(), row.title(), row.description(), row.category(), row.icon(),
             row.memberCount(), row.unreadCount(), threadProperties.maxMembers(),
-            row.pinned(), row.muted(), row.requesterRole(), lastMessage,
+            row.pinned(), row.muted(), joined, row.requesterRole(), lastMessage,
             row.creatorMemberId(), row.createdAt(), row.updatedAt()
         );
     }

@@ -24,6 +24,7 @@ import com.umc.product.community.application.port.out.thread.dto.CommunityThread
 import com.umc.product.community.domain.CommunityThread;
 import com.umc.product.community.domain.CommunityThreadMember;
 import com.umc.product.community.domain.enums.CommunityThreadCategory;
+import com.umc.product.community.domain.enums.CommunityThreadMemberState;
 import com.umc.product.support.PersistenceAdapterTest;
 
 import jakarta.persistence.EntityManagerFactory;
@@ -149,6 +150,74 @@ class CommunityThreadReadQueryRepositoryTest {
         // then
         assertThat(result).extracting(CommunityThreadMemberRow::memberId).containsExactly(10L, 30L);
         assertThat(statistics.getPrepareStatementCount()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("browse는 공개 스레드 전체를 반환하고 내 핀은 고정으로 분리하며 비멤버 스레드도 전체에 포함한다")
+    void browseThreads_공개_전체와_내_핀_고정을_분리한다() {
+        // given
+        CommunityThread myPinned = persistThread(2_001L, "내 핀", CommunityThreadCategory.STUDY);
+        CommunityThread myUnpinned = persistThread(2_002L, "내 일반", CommunityThreadCategory.STUDY);
+        CommunityThread foreign = persistThread(2_003L, "남의 스레드", CommunityThreadCategory.STUDY);
+        CommunityThread deleted = persistThread(2_004L, "삭제됨", CommunityThreadCategory.STUDY);
+        persistRequesterMembership(myPinned, true, 0L);
+        persistRequesterMembership(myUnpinned, false, 0L);
+        persistMembership(foreign, 999L);
+        persistRequesterMembership(deleted, false, 0L);
+        deleted.delete(NOW.plusSeconds(1));
+        threadRepository.save(deleted);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, null, false, null, 0, 20
+        ));
+
+        // then
+        assertThat(result.pinned()).extracting(row -> row.threadId())
+            .containsExactly(myPinned.getId());
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactlyInAnyOrder(myUnpinned.getId(), foreign.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(2L);
+        assertThat(result.unpinned())
+            .filteredOn(row -> row.threadId().equals(foreign.getId()))
+            .singleElement()
+            .satisfies(row -> assertThat(row.requesterState()).isNull());
+        assertThat(result.unpinned())
+            .filteredOn(row -> row.threadId().equals(myUnpinned.getId()))
+            .singleElement()
+            .satisfies(row -> assertThat(row.requesterState())
+                .isEqualTo(CommunityThreadMemberState.ACTIVE));
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(3L);
+    }
+
+    @Test
+    @DisplayName("browse 안읽음 필터는 가입해 안 읽은 스레드만 고정/전체에 남기고 비멤버 스레드는 제외한다")
+    void browseThreads_안읽음_필터를_적용한다() {
+        // given
+        CommunityThread joinedUnread = persistThread(2_101L, "안읽음 일반", CommunityThreadCategory.QNA);
+        CommunityThread joinedRead = persistThread(2_102L, "읽음 일반", CommunityThreadCategory.QNA);
+        CommunityThread foreign = persistThread(2_103L, "남의 스레드", CommunityThreadCategory.QNA);
+        CommunityThread pinnedUnread = persistThread(2_104L, "안읽음 핀", CommunityThreadCategory.QNA);
+        CommunityThread pinnedRead = persistThread(2_105L, "읽음 핀", CommunityThreadCategory.QNA);
+        persistRequesterMembership(joinedUnread, false, 2L);
+        persistRequesterMembership(joinedRead, false, 0L);
+        persistMembership(foreign, 999L);
+        persistRequesterMembership(pinnedUnread, true, 3L);
+        persistRequesterMembership(pinnedRead, true, 0L);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, null, true, null, 0, 20
+        ));
+
+        // then
+        assertThat(result.pinned()).extracting(row -> row.threadId())
+            .containsExactly(pinnedUnread.getId());
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactly(joinedUnread.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(1L);
     }
 
     private CommunityThread persistThread(

@@ -21,6 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ListThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadListFilter;
@@ -116,7 +117,7 @@ class CommunityThreadListDetailQueryServiceTest {
 
     @Test
     @DisplayName("삭제된 스레드 상세는 THREAD_DELETED로 거절하고 발신자를 조회하지 않는다")
-    void getThread_삭제된_스레드를_거절한다() {
+    void getJoinedThread_삭제된_스레드를_거절한다() {
         // given
         CommunityThreadQueryRow deleted = restrictedRow(
             CommunityThreadMemberState.ACTIVE,
@@ -125,7 +126,7 @@ class CommunityThreadListDetailQueryServiceTest {
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(deleted));
 
         // when & then
-        assertThatThrownBy(() -> sut.getThread(new GetThreadDetailQuery(1L, 10L)))
+        assertThatThrownBy(() -> sut.getJoinedThread(new GetThreadDetailQuery(1L, 10L)))
             .isInstanceOf(CommunityDomainException.class)
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_DELETED);
@@ -134,13 +135,13 @@ class CommunityThreadListDetailQueryServiceTest {
 
     @Test
     @DisplayName("ACTIVE 멤버가 아닌 요청자의 상세 조회는 THREAD_ACCESS_DENIED로 거절한다")
-    void getThread_비활성_멤버를_거절한다() {
+    void getJoinedThread_비활성_멤버를_거절한다() {
         // given
         CommunityThreadQueryRow left = restrictedRow(CommunityThreadMemberState.LEFT, null);
         given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(left));
 
         // when & then
-        assertThatThrownBy(() -> sut.getThread(new GetThreadDetailQuery(1L, 10L)))
+        assertThatThrownBy(() -> sut.getJoinedThread(new GetThreadDetailQuery(1L, 10L)))
             .isInstanceOf(CommunityDomainException.class)
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
@@ -222,6 +223,81 @@ class CommunityThreadListDetailQueryServiceTest {
             .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
         verifyNoInteractions(getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("browse는 고정/전체를 분리하고 비멤버 행은 isJoined=false로 매핑하며 안읽음 필터를 전달한다")
+    void browseThreads_공개_목록을_매핑하고_isJoined를_계산한다() {
+        // given
+        CommunityThreadQueryRow pinned = activeRow(1L, true, null);
+        CommunityThreadQueryRow joined = activeRow(2L, false, null);
+        CommunityThreadQueryRow nonMember = nonMemberRow(3L);
+        given(threadQueryPort.browseThreads(org.mockito.ArgumentMatchers.any()))
+            .willReturn(new CommunityThreadListRows(List.of(pinned), List.of(joined, nonMember), 2L));
+
+        // when
+        ThreadListInfo result = sut.browseThreads(new BrowseThreadsQuery(
+            10L,
+            ThreadListFilter.UNREAD,
+            null,
+            0,
+            20
+        ));
+
+        // then
+        assertThat(result.pinned()).extracting(info -> info.threadId()).containsExactly(1L);
+        assertThat(result.pinned().get(0).isJoined()).isTrue();
+        assertThat(result.threads()).extracting(info -> info.threadId()).containsExactly(2L, 3L);
+        assertThat(result.threads().get(0).isJoined()).isTrue();
+        assertThat(result.threads().get(1).isJoined()).isFalse();
+        assertThat(result.threads().get(1).myRole()).isNull();
+
+        ArgumentCaptor<CommunityThreadListCondition> captor =
+            ArgumentCaptor.forClass(CommunityThreadListCondition.class);
+        verify(threadQueryPort).browseThreads(captor.capture());
+        assertThat(captor.getValue().unreadOnly()).isTrue();
+    }
+
+    @Test
+    @DisplayName("getPublicThread는 비멤버 요청자에게도 상세를 반환하고 isJoined=false로 매핑한다")
+    void getPublicThread_비멤버도_허용한다() {
+        // given
+        CommunityThreadQueryRow nonMember = nonMemberRow(1L);
+        given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(nonMember));
+
+        // when
+        var result = sut.getPublicThread(new GetThreadDetailQuery(1L, 10L));
+
+        // then
+        assertThat(result.threadId()).isEqualTo(1L);
+        assertThat(result.isJoined()).isFalse();
+        assertThat(result.myRole()).isNull();
+    }
+
+    @Test
+    @DisplayName("getPublicThread는 삭제된 스레드를 THREAD_DELETED로 거절한다")
+    void getPublicThread_삭제된_스레드를_거절한다() {
+        // given
+        CommunityThreadQueryRow deleted = restrictedRow(
+            CommunityThreadMemberState.ACTIVE,
+            NOW.plusSeconds(1)
+        );
+        given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(deleted));
+
+        // when & then
+        assertThatThrownBy(() -> sut.getPublicThread(new GetThreadDetailQuery(1L, 10L)))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_DELETED);
+        verifyNoInteractions(getMemberUseCase);
+    }
+
+    private CommunityThreadQueryRow nonMemberRow(Long threadId) {
+        return new CommunityThreadQueryRow(
+            threadId, "스레드 " + threadId, "설명", CommunityThreadCategory.STUDY, "📚",
+            5L, 0L, false, false, null, null,
+            null, null, null, 10L, NOW, null, NOW, NOW
+        );
     }
 
     private CommunityThreadQueryRow activeRow(Long threadId, boolean pinned, Long senderId) {

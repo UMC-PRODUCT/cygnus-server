@@ -30,10 +30,22 @@ public class CommunityThreadQueryRepository {
 
     private final JPAQueryFactory queryFactory;
 
+    /**
+     * @deprecated 스레드 목록은 {@link #browseThreads}를 사용한다. requester가 ACTIVE 멤버인 스레드만 반환하는 이 조회는 "내 참여 스레드만 모아보기" 재사용을 위해
+     * 보류한 상태다.
+     */
+    @Deprecated
     public CommunityThreadListRows searchThreads(CommunityThreadListCondition condition) {
         List<CommunityThreadQueryRow> pinned = fetchThreadRows(condition, true);
         List<CommunityThreadQueryRow> unpinned = fetchThreadRows(condition, false);
         long unpinnedTotal = countUnpinned(condition);
+        return new CommunityThreadListRows(pinned, unpinned, unpinnedTotal);
+    }
+
+    public CommunityThreadListRows browseThreads(CommunityThreadListCondition condition) {
+        List<CommunityThreadQueryRow> pinned = fetchThreadRows(condition, true);
+        List<CommunityThreadQueryRow> unpinned = fetchBrowseRows(condition);
+        long unpinnedTotal = countBrowse(condition);
         return new CommunityThreadListRows(pinned, unpinned, unpinnedTotal);
     }
 
@@ -139,6 +151,43 @@ public class CommunityThreadQueryRepository {
             .toList();
     }
 
+    private List<CommunityThreadQueryRow> fetchBrowseRows(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("browseRequesterMembership");
+        JPQLQuery<Long> memberCount = activeMemberCount("browseActiveMembership");
+
+        return queryFactory
+            .select(threadProjection(requesterMembership, memberCount))
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(browseUnpinnedCondition(condition, requesterMembership))
+            .orderBy(communityThread.lastActivityAt.desc(), communityThread.id.desc())
+            .offset(condition.offset())
+            .limit(condition.limit())
+            .fetch()
+            .stream()
+            .map(row -> toThreadRow(row, requesterMembership, memberCount))
+            .toList();
+    }
+
+    private long countBrowse(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countBrowseMembership");
+        Long count = queryFactory
+            .select(communityThread.id.count())
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(browseUnpinnedCondition(condition, requesterMembership))
+            .fetchOne();
+        return count == null ? 0L : count;
+    }
+
     private long countUnpinned(CommunityThreadListCondition condition) {
         QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countRequesterMembership");
         Long count = queryFactory
@@ -157,20 +206,37 @@ public class CommunityThreadQueryRepository {
         return count == null ? 0L : count;
     }
 
-    private BooleanBuilder listCondition(
-        CommunityThreadListCondition condition,
-        QCommunityThreadMember requesterMembership
-    ) {
+    private BooleanBuilder baseCondition(CommunityThreadListCondition condition) {
         BooleanBuilder where = new BooleanBuilder()
             .and(communityThread.deletedAt.isNull());
         if (condition.category() != null) {
             where.and(communityThread.category.eq(condition.category()));
         }
+        if (condition.keyword() != null) {
+            where.and(keywordContains(condition.keyword()));
+        }
+        return where;
+    }
+
+    private BooleanBuilder listCondition(
+        CommunityThreadListCondition condition,
+        QCommunityThreadMember requesterMembership
+    ) {
+        BooleanBuilder where = baseCondition(condition);
         if (condition.unreadOnly()) {
             where.and(requesterMembership.unreadCount.gt(0L));
         }
-        if (condition.keyword() != null) {
-            where.and(keywordContains(condition.keyword()));
+        return where;
+    }
+
+    private BooleanBuilder browseUnpinnedCondition(
+        CommunityThreadListCondition condition,
+        QCommunityThreadMember requesterMembership
+    ) {
+        BooleanBuilder where = baseCondition(condition)
+            .and(requesterMembership.pinned.isNull().or(requesterMembership.pinned.isFalse()));
+        if (condition.unreadOnly()) {
+            where.and(requesterMembership.unreadCount.gt(0L));
         }
         return where;
     }

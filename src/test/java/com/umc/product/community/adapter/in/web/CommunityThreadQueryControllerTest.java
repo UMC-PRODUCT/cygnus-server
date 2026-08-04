@@ -28,11 +28,11 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
-import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
-import com.umc.product.community.application.port.in.query.thread.dto.ListThreadsQuery;
+import com.umc.product.community.application.port.in.query.thread.dto.BrowseThreadsQuery;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadDetailInfo;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadInvitableInfo;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadInvitablePageInfo;
@@ -74,10 +74,10 @@ class CommunityThreadQueryControllerTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
-    private ListCommunityThreadsUseCase listThreadsUseCase;
+    private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadDetailUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -99,7 +99,7 @@ class CommunityThreadQueryControllerTest {
     @Test
     @DisplayName("thread 목록 기본 query와 숫자 문자열 응답을 보존한다")
     void listThreads_usesDefaultsAndSerializesNumericValuesAsStrings() throws Exception {
-        given(listThreadsUseCase.listThreads(any())).willReturn(new ThreadListInfo(
+        given(browseThreadsUseCase.browseThreads(any())).willReturn(new ThreadListInfo(
             List.of(summary(42L, true)), List.of(summary(43L, false)), 20, 21L
         ));
 
@@ -113,8 +113,8 @@ class CommunityThreadQueryControllerTest {
             .andExpect(jsonPath("$.result.nextOffset").value("20"))
             .andExpect(jsonPath("$.result.total").value("21"));
 
-        ArgumentCaptor<ListThreadsQuery> captor = ArgumentCaptor.forClass(ListThreadsQuery.class);
-        then(listThreadsUseCase).should().listThreads(captor.capture());
+        ArgumentCaptor<BrowseThreadsQuery> captor = ArgumentCaptor.forClass(BrowseThreadsQuery.class);
+        then(browseThreadsUseCase).should().browseThreads(captor.capture());
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(REQUESTER_ID);
         assertThat(captor.getValue().filter().name()).isEqualTo("ALL");
         assertThat(captor.getValue().offset()).isZero();
@@ -133,24 +133,24 @@ class CommunityThreadQueryControllerTest {
     @DisplayName("문서화된 여섯 filter 값을 명시적으로 application enum으로 변환한다")
     void listThreads_parsesDocumentedFilterValues(String rawFilter, ThreadListFilter expectedFilter)
         throws Exception {
-        given(listThreadsUseCase.listThreads(any())).willReturn(
+        given(browseThreadsUseCase.browseThreads(any())).willReturn(
             new ThreadListInfo(List.of(), List.of(), null, 0L)
         );
 
         mockMvc.perform(get("/api/v1/community/threads").param("filter", rawFilter))
             .andExpect(status().isOk());
 
-        ArgumentCaptor<ListThreadsQuery> captor = ArgumentCaptor.forClass(ListThreadsQuery.class);
-        then(listThreadsUseCase).should().listThreads(captor.capture());
+        ArgumentCaptor<BrowseThreadsQuery> captor = ArgumentCaptor.forClass(BrowseThreadsQuery.class);
+        then(browseThreadsUseCase).should().browseThreads(captor.capture());
         assertThat(captor.getValue().filter()).isEqualTo(expectedFilter);
     }
 
     @Test
     @DisplayName("thread 상세의 nullable 값과 boolean은 JSON 원시 타입을 유지한다")
     void getThread_keepsNullAndBooleanJsonTypes() throws Exception {
-        given(getThreadDetailUseCase.getThread(any())).willReturn(new ThreadDetailInfo(
+        given(getPublicThreadDetailUseCase.getPublicThread(any())).willReturn(new ThreadDetailInfo(
             42L, "스터디", null, CommunityThreadCategory.STUDY, "📚",
-            3L, 0L, 100, false, true, CommunityThreadMemberRole.OWNER,
+            3L, 0L, 100, false, true, true, CommunityThreadMemberRole.OWNER,
             null, 99L, NOW, NOW, "/api/v1/community/threads/42", null
         ));
 
@@ -247,7 +247,7 @@ class CommunityThreadQueryControllerTest {
     private ThreadSummaryInfo summary(Long threadId, boolean pinned) {
         return new ThreadSummaryInfo(
             threadId, "스터디", null, CommunityThreadCategory.STUDY, "📚",
-            3L, 2L, 100, pinned, false, CommunityThreadMemberRole.OWNER,
+            3L, 2L, 100, pinned, false, true, CommunityThreadMemberRole.OWNER,
             new ThreadLastMessageInfo("최근 메시지", "하늘", NOW), 99L, NOW, NOW
         );
     }

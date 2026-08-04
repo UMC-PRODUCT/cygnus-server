@@ -18,9 +18,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.BrowseCommunityThreadsUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetPublicCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadMembersUseCase;
-import com.umc.product.community.application.port.in.query.thread.ListCommunityThreadsUseCase;
 import com.umc.product.community.application.port.in.query.thread.SearchCommunityThreadInvitableUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageHistoryUseCase;
 import com.umc.product.global.config.JacksonConfig;
@@ -40,10 +40,10 @@ class CommunityThreadQueryValidationTest {
     private JwtTokenProvider jwtTokenProvider;
 
     @MockitoBean
-    private ListCommunityThreadsUseCase listThreadsUseCase;
+    private BrowseCommunityThreadsUseCase browseThreadsUseCase;
 
     @MockitoBean
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetPublicCommunityThreadDetailUseCase getPublicThreadDetailUseCase;
 
     @MockitoBean
     private ListCommunityThreadMembersUseCase listThreadMembersUseCase;
@@ -69,7 +69,7 @@ class CommunityThreadQueryValidationTest {
         mockMvc.perform(get("/api/v1/community/threads/{threadId}", threadId))
             .andExpect(status().is4xxClientError());
 
-        then(getThreadDetailUseCase).shouldHaveNoInteractions();
+        then(getPublicThreadDetailUseCase).shouldHaveNoInteractions();
     }
 
     @ParameterizedTest
@@ -88,7 +88,7 @@ class CommunityThreadQueryValidationTest {
         mockMvc.perform(get("/api/v1/community/threads").param("q", "가".repeat(81)))
             .andExpect(status().isBadRequest());
 
-        then(listThreadsUseCase).shouldHaveNoInteractions();
+        then(browseThreadsUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -97,7 +97,7 @@ class CommunityThreadQueryValidationTest {
         mockMvc.perform(get("/api/v1/community/threads").param("offset", "-1"))
             .andExpect(status().isBadRequest());
 
-        then(listThreadsUseCase).shouldHaveNoInteractions();
+        then(browseThreadsUseCase).shouldHaveNoInteractions();
     }
 
     @ParameterizedTest
@@ -107,6 +107,6 @@ class CommunityThreadQueryValidationTest {
         mockMvc.perform(get("/api/v1/community/threads").param("filter", filter))
             .andExpect(status().isBadRequest());
 
-        then(listThreadsUseCase).shouldHaveNoInteractions();
+        then(browseThreadsUseCase).shouldHaveNoInteractions();
     }
 }

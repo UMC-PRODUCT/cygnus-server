@@ -21,7 +21,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadDetailInfo;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageForRecipientsUseCase;
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimeEvent;
@@ -58,7 +58,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
     @Mock
     GetCommunityThreadMessageForRecipientsUseCase getMessageForRecipientsUseCase;
     @Mock
-    GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     @Mock
     CommunityThreadRealtimeBroadcastPort broadcastPort;
     @Mock
@@ -75,7 +75,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
             loadThreadPort,
             threadQueryPort,
             getMessageForRecipientsUseCase,
-            getThreadDetailUseCase,
+            getJoinedThreadDetailUseCase,
             broadcastPort,
             new CommunityThreadProperties(100),
             metrics
@@ -201,7 +201,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         given(loadThreadPort.findById(11L)).willReturn(Optional.of(thread));
         given(threadQueryPort.listActiveMemberIdsByThreadId(11L, 101))
             .willReturn(List.of(10L, 20L, 30L));
-        given(getThreadDetailUseCase.getThread(any())).willReturn(threadDetail());
+        given(getJoinedThreadDetailUseCase.getJoinedThread(any())).willReturn(threadDetail());
         CommunityThreadInvitedEvent event = CommunityThreadInvitedEvent.of(
             11L,
             10L,
@@ -224,7 +224,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
         given(loadThreadPort.findById(11L)).willReturn(Optional.of(thread));
         given(threadQueryPort.listActiveMemberIdsByThreadId(11L, 101))
             .willReturn(List.of(10L, 20L));
-        given(getThreadDetailUseCase.getThread(any())).willReturn(threadDetail());
+        given(getJoinedThreadDetailUseCase.getJoinedThread(any())).willReturn(threadDetail());
         CommunityThreadInvitedEvent event = CommunityThreadInvitedEvent.of(
             11L,
             10L,
@@ -280,6 +280,7 @@ class CommunityThreadLifecycleRealtimeRelayTest {
             100,
             false,
             false,
+            true,
             CommunityThreadMemberRole.MEMBER,
             null,
             10L,
