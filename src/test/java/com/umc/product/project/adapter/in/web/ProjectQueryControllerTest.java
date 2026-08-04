@@ -90,4 +90,15 @@ class ProjectQueryControllerTest {
 
         then(assembler).should().searchFor(any(SearchProjectQuery.class), isNull());
     }
+
+    @Test
+    void GET_프로젝트_상세_비회원도_조회_가능() throws Exception {
+        SecurityContextHolder.clearContext();
+        given(assembler.detailFor(42L)).willReturn(null);
+
+        mockMvc.perform(get("/api/v1/projects/42"))
+            .andExpect(status().isOk());
+
+        then(assembler).should().detailFor(42L);
+    }
 }

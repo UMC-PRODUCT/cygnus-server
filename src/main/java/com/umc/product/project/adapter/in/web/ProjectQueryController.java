@@ -62,19 +62,13 @@ public class ProjectQueryController {
     }
 
     @GetMapping("/{projectId}")
+    @Public
     @Operation(
         operationId = "PROJECT-002",
         summary = "프로젝트 상세 조회",
-        description = "단건 프로젝트 상세 정보를 조회합니다. 권한에 따라 실명 정보가 마스킹됩니다."
-    )
-    @CheckAccess(
-        resourceType = ResourceType.PROJECT,
-        resourceId = "#projectId",
-        permission = PermissionType.READ,
-        message = "프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+        description = "단건 프로젝트 상세 정보를 조회합니다. 비회원도 조회 가능합니다."
     )
     public ProjectDetailResponse getDetail(
-        @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long projectId
     ) {
         return assembler.detailFor(projectId);
