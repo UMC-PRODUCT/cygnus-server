@@ -102,18 +102,6 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
     }
 
     /**
-     * 사용자의 활성 기수 내 역할을 검사해 {@link OrganizationRoleScope} 리스트를 반환한다 (UseCase 표면).
-     * <p>
-     * Schedule 등 다른 aggregate 가 "사용자에게 보이는 데이터" 를 필터링할 때 이 scope 들을 받아 자기 데이터에 적용한다.
-     */
-    @Override
-    public List<OrganizationRoleScope> resolveOrganizationRoleScopes(Long memberId) {
-        Long schoolId = getMemberUseCase.getById(memberId).schoolId();
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
-        return resolveScopes(memberId, activeGisuId, schoolId);
-    }
-
-    /**
      * 권한 범위 내 스터디원 목록 (커서 페이지네이션).
      * <p>
      * {@code studyGroupId} 가 주어지면 그 그룹이 권한 범위에 있는지 먼저 확인한다. 범위 밖이면 빈 목록이 아니라 403 으로 끊는다 — 존재하지 않는 그룹과
@@ -145,17 +133,6 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
     }
 
     /**
-     * Scope + gisuId 로 조회 가능한 스터디 그룹 ID 집합 반환 (UseCase 표면). cross-aggregate 호출자가 사용.
-     */
-    @Override
-    public Set<Long> findStudyGroupIds(List<OrganizationRoleScope> scopes, Long gisuId) {
-        if (scopes == null || scopes.isEmpty()) {
-            return Set.of();
-        }
-        return loadStudyGroupPort.findStudyGroupIds(scopes, gisuId);
-    }
-
-    /**
      * memberId 만으로 "사용자에게 보이는 활성 기수 스터디 그룹 ID" 를 반환 (UseCase 표면).
      * <p>
      * Scope 조립과 그룹 조회에 같은 activeGisuId 를 쓰기 위해 기수를 한 번만 읽는다. 두 단계를 나눠 부르면 그 사이에 활성 기수가 바뀌었을 때 scope 와 조회 기수가
@@ -168,7 +145,19 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
 
         List<OrganizationRoleScope> scopes = resolveScopes(memberId, activeGisuId, schoolId);
 
-        return findStudyGroupIds(scopes, activeGisuId);
+        return findStudyGroupIdsByScopes(scopes, activeGisuId);
+    }
+
+    /**
+     * Scope + gisuId 로 조회 가능한 스터디 그룹 ID 집합 반환 (내부 helper).
+     * <p>
+     * Scope 가 하나도 없으면 조회할 것이 없으므로 쿼리 없이 빈 Set 을 반환한다 (풀스캔 방지).
+     */
+    private Set<Long> findStudyGroupIdsByScopes(List<OrganizationRoleScope> scopes, Long gisuId) {
+        if (scopes.isEmpty()) {
+            return Set.of();
+        }
+        return loadStudyGroupPort.findStudyGroupIds(scopes, gisuId);
     }
 
     /**
