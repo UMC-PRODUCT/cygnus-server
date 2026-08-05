@@ -149,6 +149,53 @@ class CommunityThreadMessageInfoAssemblerTest {
         then(getMemberUseCase).should(times(2)).findAllByIds(Set.of(10L));
     }
 
+    @Test
+    @DisplayName("첨부 파일은 한 번의 batch 조회로 URL을 채우고, storage에서 누락된 파일은 건너뛰되 원본 순서를 유지한다")
+    void assembleResolvesFileUrlsInOneBatchAndKeepsOrderWhenSomeAreMissing() {
+        CommunityThreadMessageInfoAssembler sut =
+            new CommunityThreadMessageInfoAssembler(getMemberUseCase, getFileUseCase);
+        ChatMessageInfo first = imageMessage(900L, List.of("file-a", "file-b", "file-c"));
+        ChatMessageInfo second = imageMessage(901L, List.of("file-d"));
+        given(getMemberUseCase.findAllByIds(Set.of(10L))).willReturn(Map.of(10L, mockMember(10L, "보낸이")));
+        // file-b 는 삭제되어 storage 조회 결과에서 빠진다.
+        given(getFileUseCase.findAllByIds(List.of("file-a", "file-b", "file-c", "file-d")))
+            .willReturn(Map.of(
+                "file-a", fileInfo("file-a", "a.png", 1L),
+                "file-c", fileInfo("file-c", "c.png", 3L),
+                "file-d", fileInfo("file-d", "d.png", 4L)
+            ));
+
+        List<CommunityThreadMessageInfo> result = sut.assemble(THREAD_ID, List.of(first, second));
+
+        assertThat(result.get(0).files()).extracting("fileId", "fileUrl")
+            .containsExactly(
+                org.assertj.core.groups.Tuple.tuple("file-a", "https://cdn/file-a"),
+                org.assertj.core.groups.Tuple.tuple("file-c", "https://cdn/file-c")
+        );
+        assertThat(result.get(1).files()).extracting("fileId")
+            .containsExactly("file-d");
+        then(getFileUseCase).should(times(1)).findAllByIds(List.of("file-a", "file-b", "file-c", "file-d"));
+    }
+
+    private ChatMessageInfo imageMessage(Long messageId, List<String> fileIds) {
+        return new ChatMessageInfo(
+            messageId,
+            ROOM_ID,
+            10L,
+            MessageContentType.IMAGE,
+            "캡션",
+            fileIds,
+            CREATED_AT,
+            null,
+            UUID.fromString("00000000-0000-0000-0000-00000000000" + (messageId - 899L)),
+            null,
+            null,
+            List.of(),
+            null,
+            List.of()
+        );
+    }
+
     private ChatMessageInfo chatMessage(
         Long messageId,
         Long senderId,
