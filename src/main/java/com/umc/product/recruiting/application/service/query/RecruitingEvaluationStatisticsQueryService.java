@@ -14,7 +14,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
@@ -63,7 +64,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
 
     private final LoadRecruitingEvaluationStatisticsPort loadStatisticsPort;
     private final GetSchoolUseCase getSchoolUseCase;
-    private final CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
+    private final GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
     private final Clock clock;
 
     @Override
@@ -121,21 +122,14 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
         Long gisuId,
         List<SchoolChapterNameInfo> schools
     ) {
-        if (checkChallengerAuthorityUseCase.isSuperAdmin(requesterMemberId)
-            || checkChallengerAuthorityUseCase.isCentralCoreInGisu(requesterMemberId, gisuId)) {
+        GisuAuthorityScopeInfo authorityScope = getGisuAuthorityScopeUseCase
+            .getByMemberIdAndGisuId(requesterMemberId, gisuId);
+        if (authorityScope.allSchoolsAccessible()) {
             return null;
         }
 
         Set<Long> accessibleSchoolIds = schools.stream()
-            .filter(school -> checkChallengerAuthorityUseCase.isChapterPresidentInGisu(
-                requesterMemberId,
-                gisuId,
-                school.chapterId()
-            ) || checkChallengerAuthorityUseCase.isSchoolAdminInGisu(
-                requesterMemberId,
-                gisuId,
-                school.schoolId()
-            ))
+            .filter(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()))
             .map(SchoolChapterNameInfo::schoolId)
             .collect(Collectors.toSet());
 

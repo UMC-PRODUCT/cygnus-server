@@ -18,7 +18,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
@@ -52,7 +53,7 @@ class RecruitingQueryServiceTest {
     LoadRecruitingApplicationPort loadApplicationPort;
 
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
 
     @Mock
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
@@ -84,7 +85,7 @@ class RecruitingQueryServiceTest {
     @DisplayName("상태_요약은_summary_row의_지원서_상태를_집계한다")
     void summarizeApplicationStatuses() {
         // Given
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         givenSummaryScope();
         given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES)).willReturn(List.of(
             row("지원자1", RecruitingApplicationStatus.SUBMITTED),
@@ -111,7 +112,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 DRAFT·CANCELLED를 제외한 상태만 집계 대상으로 조회한다")
     void statusSummaryExcludesDraftAndCancelledFromQuery() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         givenSummaryScope();
         given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES))
             .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
@@ -126,7 +127,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 1지망 파트별로 상태를 교차집계하고 sortOrder 순으로 정렬한다")
     void statusSummaryAggregatesByFirstChoicePart() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         givenSummaryScope();
         given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES)).willReturn(List.of(
             row("웹1", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.WEB_PRODUCT_ENGINEER),
@@ -170,7 +171,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 지원서가 전혀 없어도 전체·학교·Round 모두에서 4개 파트 슬롯을 0건으로 반환한다")
     void statusSummaryReturnsAllPartSlotsWhenNoApplications() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         givenSummaryScope();
         given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES))
             .willReturn(List.of());
@@ -204,7 +205,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 학교·Round가 여러 개일 때도 각 계층의 parts를 해당 그룹 rows로만 집계한다")
     void statusSummaryAggregatesPartsPerSchoolAndRound() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         RecruitingSeason season10 = RecruitingSeason.create(1L, 10L);
         ReflectionTestUtils.setField(season10, "id", 5L);
         RecruitingSeason season11 = RecruitingSeason.create(1L, 11L);
@@ -305,8 +306,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("다른 기수의 중앙 총괄단은 상태 요약을 조회할 수 없다")
     void rejectStatusSummaryForCentralCoreFromDifferentGisu() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(false);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeWithoutAccess());
 
         assertThatThrownBy(() -> sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of())))
             .isInstanceOf(com.umc.product.recruiting.domain.exception.RecruitingDomainException.class);
@@ -316,8 +316,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("SUPER_ADMIN은 기수와 무관하게 상태 요약을 조회할 수 있다")
     void superAdminReadsStatusSummaryAcrossGisu() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
-        given(getChallengerRoleUseCase.isSuperAdmin(99L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
 
         RecruitingStatusSummaryInfo result = sut.getStatusSummary(summaryQuery(Set.of(10L), Set.of()));
 
@@ -327,7 +326,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 선택한 Round ID를 persistence 조회에 전달한다")
     void filterStatusSummaryByRound() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         givenSummaryScope();
         given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), Set.of(20L), SUMMARY_STATUSES))
             .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
@@ -341,7 +340,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 학교명으로 검색하고 지원서가 없는 학교와 Round도 0건으로 반환한다")
     void statusSummaryIncludesZeroCountGroupsAfterSchoolNameFilter() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         RecruitingSeason season = RecruitingSeason.create(1L, 10L);
         ReflectionTestUtils.setField(season, "id", 5L);
         RecruitingRound firstRound = summaryRound(season, 20L, "15기 본모집");
@@ -377,7 +376,7 @@ class RecruitingQueryServiceTest {
     @Test
     @DisplayName("상태 요약은 시즌이 없는 선택 학교도 0건 그룹으로 반환한다")
     void statusSummaryIncludesSchoolWithoutSeason() {
-        given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
         given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(school(10L, "빈 학교")));
         given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of());
 
@@ -547,5 +546,13 @@ class RecruitingQueryServiceTest {
             .roundIds(roundIds)
             .requesterMemberId(99L)
             .build();
+    }
+
+    private GisuAuthorityScopeInfo scopeForAllSchools() {
+        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of());
+    }
+
+    private GisuAuthorityScopeInfo scopeWithoutAccess() {
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
     }
 }

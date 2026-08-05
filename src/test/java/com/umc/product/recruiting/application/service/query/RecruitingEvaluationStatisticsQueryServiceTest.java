@@ -9,6 +9,7 @@ import static org.mockito.BDDMockito.then;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +18,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
@@ -45,7 +47,7 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     GetSchoolUseCase getSchoolUseCase;
 
     @Mock
-    CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
+    GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
 
     @Mock
     Clock clock;
@@ -56,8 +58,8 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     @Test
     @DisplayName("기수_운영진이_아니면_평가_현황을_조회할_수_없다")
     void denyWithoutAnyStaffRole() {
-        given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(false);
-        given(checkChallengerAuthorityUseCase.isCentralCoreInGisu(MEMBER_ID, GISU_ID)).willReturn(false);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(scopeWithoutAccess());
 
         assertThatThrownBy(() -> sut.getEvaluationStatistics(query()))
             .isInstanceOf(RecruitingDomainException.class);
@@ -67,7 +69,8 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     @Test
     @DisplayName("SUPER_ADMIN은_기수_역할이_없어도_조회할_수_있다")
     void allowSuperAdminWithoutGisuRole() {
-        given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(scopeForAllSchools());
         given(clock.instant()).willReturn(NOW);
         given(loadStatisticsPort.listByGisuId(GISU_ID)).willReturn(List.of());
         given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of());
@@ -189,7 +192,16 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     }
 
     private void givenStaffAccess() {
-        given(checkChallengerAuthorityUseCase.isCentralCoreInGisu(MEMBER_ID, GISU_ID)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(scopeForAllSchools());
+    }
+
+    private GisuAuthorityScopeInfo scopeForAllSchools() {
+        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of());
+    }
+
+    private GisuAuthorityScopeInfo scopeWithoutAccess() {
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
     }
 
     private RecruitingEvaluationStatisticsQuery query() {

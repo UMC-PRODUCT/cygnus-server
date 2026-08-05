@@ -13,7 +13,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
@@ -72,7 +73,7 @@ public class RecruitingQueryService implements
     private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final GetSchoolUseCase getSchoolUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
     private final GetFormUseCase getFormUseCase;
     private final GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
 
@@ -205,17 +206,14 @@ public class RecruitingQueryService implements
     private Set<Long> resolveSummarySchoolScope(RecruitingStatusSummaryQuery query) {
         Long memberId = query.requesterMemberId();
         Long gisuId = query.gisuId();
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(memberId, gisuId)
-            || getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+        GisuAuthorityScopeInfo authorityScope = getGisuAuthorityScopeUseCase
+            .getByMemberIdAndGisuId(memberId, gisuId);
+        if (authorityScope.allSchoolsAccessible()) {
             return null;
         }
 
         Set<Long> accessibleSchoolIds = getSchoolUseCase.getSchoolListByGisuId(gisuId).stream()
-            .filter(school -> getChallengerRoleUseCase.isChapterPresidentInGisu(
-                memberId,
-                gisuId,
-                school.chapterId()
-            ) || getChallengerRoleUseCase.isSchoolAdminInGisu(memberId, gisuId, school.schoolId()))
+            .filter(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()))
             .map(SchoolDetailInfo::schoolId)
             .collect(java.util.stream.Collectors.toSet());
 
