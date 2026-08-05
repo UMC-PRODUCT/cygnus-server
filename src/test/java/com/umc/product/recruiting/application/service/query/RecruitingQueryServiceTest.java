@@ -376,6 +376,68 @@ class RecruitingQueryServiceTest {
     }
 
     @Test
+    @DisplayName("지부장은 schoolIds·학교명 필터와 함께 자신이 관리하는 지부의 학교 지원현황만 조회한다")
+    void chapterPresidentReadsStatusSummaryWithinChapterScopeBeforeFilters() {
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L))
+            .willReturn(scopeForChapter(3L));
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(
+            school(10L, 3L, "Alpha 대학교"),
+            school(11L, 3L, "Beta 대학교"),
+            school(12L, 4L, "Gamma 대학교")
+        ));
+        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
+        ReflectionTestUtils.setField(season, "id", 5L);
+        RecruitingRound round = summaryRound(season, 20L, "15기 본모집");
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(loadRoundPort.listBySeasonIds(List.of(5L))).willReturn(List.of(round));
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES))
+            .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED)));
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(RecruitingStatusSummaryQuery.builder()
+            .gisuId(1L)
+            .schoolIds(Set.of(10L, 12L))
+            .schoolName("대학교")
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(result.schools()).extracting(RecruitingSchoolStatusSummaryInfo::schoolId)
+            .containsExactly(10L);
+        then(loadApplicationPort).should()
+            .searchSummaryRows(1L, Set.of(10L), null, SUMMARY_STATUSES);
+    }
+
+    @Test
+    @DisplayName("교내 운영진은 schoolIds·학교명 필터와 함께 자신이 관리하는 학교의 지원현황만 조회한다")
+    void schoolAdminReadsStatusSummaryWithinSchoolScopeBeforeFilters() {
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L))
+            .willReturn(scopeForSchools(11L));
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(
+            school(10L, 3L, "Alpha 대학교"),
+            school(11L, 3L, "Beta 대학교"),
+            school(12L, 4L, "Gamma 대학교")
+        ));
+        RecruitingSeason season = RecruitingSeason.create(1L, 11L);
+        ReflectionTestUtils.setField(season, "id", 6L);
+        RecruitingRound round = summaryRound(season, 21L, "15기 본모집");
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(loadRoundPort.listBySeasonIds(List.of(6L))).willReturn(List.of(round));
+        given(loadApplicationPort.searchSummaryRows(1L, Set.of(11L), null, SUMMARY_STATUSES))
+            .willReturn(List.of(row("지원자", RecruitingApplicationStatus.SUBMITTED, ChallengerTrack.PLAN, 11L, 21L)));
+
+        RecruitingStatusSummaryInfo result = sut.getStatusSummary(RecruitingStatusSummaryQuery.builder()
+            .gisuId(1L)
+            .schoolIds(Set.of(10L, 11L))
+            .schoolName("대학교")
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(result.schools()).extracting(RecruitingSchoolStatusSummaryInfo::schoolId)
+            .containsExactly(11L);
+        then(loadApplicationPort).should()
+            .searchSummaryRows(1L, Set.of(11L), null, SUMMARY_STATUSES);
+    }
+
+    @Test
     @DisplayName("상태 요약은 시즌이 없는 선택 학교도 0건 그룹으로 반환한다")
     void statusSummaryIncludesSchoolWithoutSeason() {
         given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(99L, 1L)).willReturn(scopeForAllSchools());
@@ -541,6 +603,12 @@ class RecruitingQueryServiceTest {
         );
     }
 
+    private SchoolDetailInfo school(Long schoolId, Long chapterId, String schoolName) {
+        return new SchoolDetailInfo(
+            chapterId, "지부-" + chapterId, schoolName, null, schoolId, null, null, List.of(), true, null, null
+        );
+    }
+
     private RecruitingStatusSummaryQuery summaryQuery(Set<Long> schoolIds, Set<Long> roundIds) {
         return RecruitingStatusSummaryQuery.builder()
             .gisuId(1L)
@@ -556,5 +624,13 @@ class RecruitingQueryServiceTest {
 
     private GisuAuthorityScopeInfo scopeWithoutAccess() {
         return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
+    }
+
+    private GisuAuthorityScopeInfo scopeForChapter(Long chapterId) {
+        return new GisuAuthorityScopeInfo(false, Set.of(chapterId), Set.of());
+    }
+
+    private GisuAuthorityScopeInfo scopeForSchools(Long... schoolIds) {
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of(schoolIds));
     }
 }
