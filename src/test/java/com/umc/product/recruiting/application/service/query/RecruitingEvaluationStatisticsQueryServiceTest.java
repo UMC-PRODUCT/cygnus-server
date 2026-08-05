@@ -18,7 +18,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
@@ -58,8 +57,7 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     @DisplayName("기수_운영진이_아니면_평가_현황을_조회할_수_없다")
     void denyWithoutAnyStaffRole() {
         given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(false);
-        given(checkChallengerAuthorityUseCase.hasAnyRoleTypeInGisu(MEMBER_ID, GISU_ID, ChallengerRoleType.values()))
-            .willReturn(false);
+        given(checkChallengerAuthorityUseCase.isCentralCoreInGisu(MEMBER_ID, GISU_ID)).willReturn(false);
 
         assertThatThrownBy(() -> sut.getEvaluationStatistics(query()))
             .isInstanceOf(RecruitingDomainException.class);
@@ -191,9 +189,7 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     }
 
     private void givenStaffAccess() {
-        given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(false);
-        given(checkChallengerAuthorityUseCase.hasAnyRoleTypeInGisu(MEMBER_ID, GISU_ID, ChallengerRoleType.values()))
-            .willReturn(true);
+        given(checkChallengerAuthorityUseCase.isCentralCoreInGisu(MEMBER_ID, GISU_ID)).willReturn(true);
     }
 
     private RecruitingEvaluationStatisticsQuery query() {
