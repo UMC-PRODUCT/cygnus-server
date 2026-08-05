@@ -868,7 +868,7 @@ components:
         - content
         - type
         - status
-        - fileMetadataIds
+        - files
         - mentions
         - replyTo
         - reactions
@@ -893,10 +893,13 @@ components:
         status:
           type: string
           enum: [SENT]
-        fileMetadataIds:
+        files:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/MessageFile"
+          description: >-
+            첨부 파일. fileId 와 접근 URL 을 한 객체로 묶어 내려주므로 인덱스 매칭이 필요 없습니다.
+            storage 에서 누락된 파일은 목록에서 제외되며, 남은 파일의 순서는 전송 시점 순서를 유지합니다.
         mentions:
           type: array
           items:
@@ -918,6 +921,21 @@ components:
           $ref: "#/components/schemas/NullableDateTime"
         deletedAt:
           $ref: "#/components/schemas/NullableDateTime"
+
+    MessageFile:
+      type: object
+      additionalProperties: false
+      required: [fileId, fileName, fileSize, fileUrl]
+      properties:
+        fileId:
+          type: string
+        fileName:
+          $ref: "#/components/schemas/NullableString"
+        fileSize:
+          $ref: "#/components/schemas/NullableString"
+        fileUrl:
+          $ref: "#/components/schemas/NullableString"
+          description: 유효기간 60분의 서명 URL 입니다. 조회할 때마다 새로 발급되므로 장기 캐싱하면 만료됩니다.
 
     MessageMention:
       type: object

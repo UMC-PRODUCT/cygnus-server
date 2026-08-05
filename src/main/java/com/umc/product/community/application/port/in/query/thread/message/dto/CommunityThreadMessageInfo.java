@@ -12,7 +12,7 @@ public record CommunityThreadMessageInfo(
     String content,
     CommunityThreadMessageType type,
     CommunityThreadMessageStatus status,
-    List<String> fileMetadataIds,
+    List<CommunityThreadMessageFileInfo> files,
     List<CommunityThreadMessageMentionInfo> mentions,
     CommunityThreadMessageReplyInfo replyTo,
     List<CommunityThreadReactionInfo> reactions,
@@ -26,7 +26,7 @@ public record CommunityThreadMessageInfo(
         messageId = requirePositive(messageId, "messageId");
         threadId = requirePositive(threadId, "threadId");
         senderId = requirePositive(senderId, "senderId");
-        fileMetadataIds = fileMetadataIds == null ? List.of() : List.copyOf(fileMetadataIds);
+        files = files == null ? List.of() : List.copyOf(files);
         mentions = mentions == null ? List.of() : List.copyOf(mentions);
         reactions = reactions == null ? List.of() : List.copyOf(reactions);
     }
