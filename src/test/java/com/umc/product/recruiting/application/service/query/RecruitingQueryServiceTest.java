@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.times;
 
 import java.time.Instant;
 import java.util.EnumSet;
@@ -335,6 +336,7 @@ class RecruitingQueryServiceTest {
 
         assertThat(result.totalCount()).isEqualTo(1L);
         then(loadApplicationPort).should().searchSummaryRows(1L, Set.of(10L), Set.of(20L), SUMMARY_STATUSES);
+        then(getSchoolUseCase).should(times(1)).getSchoolListByGisuId(1L);
     }
 
     @Test

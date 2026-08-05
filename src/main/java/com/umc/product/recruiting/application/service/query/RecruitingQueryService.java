@@ -150,8 +150,9 @@ public class RecruitingQueryService implements
 
     @Override
     public RecruitingStatusSummaryInfo getStatusSummary(RecruitingStatusSummaryQuery query) {
-        Set<Long> accessibleSchoolIds = resolveSummarySchoolScope(query);
-        List<SchoolDetailInfo> schools = listSummarySchools(query, accessibleSchoolIds);
+        List<SchoolDetailInfo> schoolsByGisu = getSchoolUseCase.getSchoolListByGisuId(query.gisuId());
+        Set<Long> accessibleSchoolIds = resolveSummarySchoolScope(query, schoolsByGisu);
+        List<SchoolDetailInfo> schools = listSummarySchools(query, schoolsByGisu, accessibleSchoolIds);
         Set<Long> schoolIds = schools.stream().map(SchoolDetailInfo::schoolId).collect(java.util.stream.Collectors.toSet());
         List<RecruitingRound> rounds = listSummaryRounds(query, schoolIds);
         Set<Long> roundIds = rounds.stream().map(RecruitingRound::getId).collect(java.util.stream.Collectors.toSet());
@@ -187,10 +188,11 @@ public class RecruitingQueryService implements
 
     private List<SchoolDetailInfo> listSummarySchools(
         RecruitingStatusSummaryQuery query,
+        List<SchoolDetailInfo> schoolsByGisu,
         Set<Long> accessibleSchoolIds
     ) {
         String schoolName = query.schoolName() == null ? null : query.schoolName().toLowerCase(Locale.ROOT);
-        return getSchoolUseCase.getSchoolListByGisuId(query.gisuId()).stream()
+        return schoolsByGisu.stream()
             .filter(school -> accessibleSchoolIds == null
                 || accessibleSchoolIds.contains(school.schoolId()))
             .filter(school -> query.schoolIds().isEmpty() || query.schoolIds().contains(school.schoolId()))
@@ -203,7 +205,10 @@ public class RecruitingQueryService implements
      * 중앙 운영진은 기수 전체, 지부장과 교내 운영진은 자신이 관리하는 학교만 조회합니다.
      * 반환값이 null이면 전체 학교 범위를 의미합니다.
      */
-    private Set<Long> resolveSummarySchoolScope(RecruitingStatusSummaryQuery query) {
+    private Set<Long> resolveSummarySchoolScope(
+        RecruitingStatusSummaryQuery query,
+        List<SchoolDetailInfo> schoolsByGisu
+    ) {
         Long memberId = query.requesterMemberId();
         Long gisuId = query.gisuId();
         GisuAuthorityScopeInfo authorityScope = getGisuAuthorityScopeUseCase
@@ -212,7 +217,7 @@ public class RecruitingQueryService implements
             return null;
         }
 
-        Set<Long> accessibleSchoolIds = getSchoolUseCase.getSchoolListByGisuId(gisuId).stream()
+        Set<Long> accessibleSchoolIds = schoolsByGisu.stream()
             .filter(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()))
             .map(SchoolDetailInfo::schoolId)
             .collect(java.util.stream.Collectors.toSet());
