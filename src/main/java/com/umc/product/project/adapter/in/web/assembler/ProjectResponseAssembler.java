@@ -89,7 +89,7 @@ public class ProjectResponseAssembler {
             : getMemberUseCase.findAllByIds(ownerIds);
 
         return PageResponse.of(page, info -> {
-            MemberBrief owner = toBrief(memberMap.get(info.productOwnerMemberId()));
+            MemberBrief owner = toPublicBrief(memberMap.get(info.productOwnerMemberId()));
             return ProjectSummaryResponse.from(info, owner);
         });
     }
@@ -102,9 +102,9 @@ public class ProjectResponseAssembler {
 
         Map<Long, MemberInfo> memberMap = loadMembers(info);
 
-        MemberBrief owner = toBrief(memberMap.get(info.productOwnerMemberId()));
+        MemberBrief owner = toPublicBrief(memberMap.get(info.productOwnerMemberId()));
         List<MemberBrief> coOwners = info.coProductOwnerMemberIds().stream()
-            .map(id -> toBrief(memberMap.get(id)))
+            .map(id -> toPublicBrief(memberMap.get(id)))
             .toList();
 
         return ProjectDetailResponse.from(info, owner, coOwners, resolveApplicationFormId(projectId));
@@ -354,6 +354,16 @@ public class ProjectResponseAssembler {
 
     private MemberBrief toBrief(MemberInfo info) {
         return info == null ? null : MemberBrief.from(info);
+    }
+
+    /**
+     * PROJECT-001/002 등 비인증 노출 경로에서 사용. 실명·학교명은 요청자 권한과 무관하게 항상 제외한다.
+     */
+    private MemberBrief toPublicBrief(MemberInfo info) {
+        return info == null ? null : MemberBrief.builder()
+            .memberId(info.id())
+            .nickname(info.nickname())
+            .build();
     }
 
     private ProjectMemberBrief toProjectMemberBrief(MemberInfo info, MatchedRoundInfo matchedRoundInfo) {

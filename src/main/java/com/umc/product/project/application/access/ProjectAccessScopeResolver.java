@@ -46,12 +46,17 @@ public class ProjectAccessScopeResolver {
      * <ul>
      *   <li>SUPER_ADMIN ∪ 총괄단(총괄/부총괄) ∪ 지부장: DRAFT 제외 전체 (PR/IP/COMPLETED/ABORTED)</li>
      *   <li>그 외(일반 챌린저, 학교 회장단): 공개 status (IN_PROGRESS / COMPLETED)</li>
+     *   <li>비회원(memberId == null): 공개 status (IN_PROGRESS / COMPLETED)</li>
      * </ul>
      * 호출자가 본인 권한 외 status 를 요청하면 {@link ProjectErrorCode#PROJECT_ACCESS_DENIED} 로 거부한다.
      */
     public ProjectAccessScope resolveForPublicSearch(
         Long memberId, Long gisuId, Set<ProjectStatus> requestedStatuses
     ) {
+        if (memberId == null) {
+            return publicOnlyOrDeny(requestedStatuses);
+        }
+
         if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
             if (requestedStatuses.contains(ProjectStatus.DRAFT)) {
                 throw new ProjectDomainException(ProjectErrorCode.PROJECT_ACCESS_DENIED);
@@ -74,6 +79,10 @@ public class ProjectAccessScopeResolver {
             return new All(requestedStatuses);
         }
 
+        return publicOnlyOrDeny(requestedStatuses);
+    }
+
+    private ProjectAccessScope publicOnlyOrDeny(Set<ProjectStatus> requestedStatuses) {
         boolean publicAllowed = requestedStatuses.stream()
             .allMatch(s -> s == ProjectStatus.IN_PROGRESS || s == ProjectStatus.COMPLETED);
         if (!publicAllowed) {
