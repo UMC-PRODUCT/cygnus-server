@@ -9,16 +9,19 @@ import static org.mockito.BDDMockito.then;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.LoggerFactory;
 
-import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
@@ -31,6 +34,11 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingEvaluationS
 import com.umc.product.recruiting.application.port.out.dto.RecruitingEvaluationStatisticsRow;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 @ExtendWith(MockitoExtension.class)
 class RecruitingEvaluationStatisticsQueryServiceTest {
@@ -46,7 +54,7 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     GetSchoolUseCase getSchoolUseCase;
 
     @Mock
-    CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
+    GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
 
     @Mock
     Clock clock;
@@ -54,12 +62,22 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     @InjectMocks
     RecruitingEvaluationStatisticsQueryService sut;
 
+    private ListAppender<ILoggingEvent> logAppender;
+
+    @AfterEach
+    void detachLogAppender() {
+        if (logAppender != null) {
+            ((Logger) LoggerFactory.getLogger(RecruitingEvaluationStatisticsQueryService.class))
+                .detachAppender(logAppender);
+            logAppender.stop();
+        }
+    }
+
     @Test
     @DisplayName("기수_운영진이_아니면_평가_현황을_조회할_수_없다")
     void denyWithoutAnyStaffRole() {
-        given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(false);
-        given(checkChallengerAuthorityUseCase.hasAnyRoleTypeInGisu(MEMBER_ID, GISU_ID, ChallengerRoleType.values()))
-            .willReturn(false);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(scopeWithoutAccess());
 
         assertThatThrownBy(() -> sut.getEvaluationStatistics(query()))
             .isInstanceOf(RecruitingDomainException.class);
@@ -69,7 +87,8 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     @Test
     @DisplayName("SUPER_ADMIN은_기수_역할이_없어도_조회할_수_있다")
     void allowSuperAdminWithoutGisuRole() {
-        given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(scopeForAllSchools());
         given(clock.instant()).willReturn(NOW);
         given(loadStatisticsPort.listByGisuId(GISU_ID)).willReturn(List.of());
         given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of());
@@ -190,10 +209,106 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
         assertThat(info.chapters().get(0).applicantCount()).isEqualTo(3L);
     }
 
+    @Test
+    @DisplayName("지부장 권한은 해당 지부의 모든 학교만 조회한다")
+    void chapterPresidentReadsSchoolsInOwnChapter() {
+        givenStaffScope(Set.of(10L), Set.of());
+        given(clock.instant()).willReturn(NOW);
+        given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
+            schoolName(10L, "가온", 100L, "가온대학교"),
+            schoolName(20L, "나래", 200L, "나래대학교")
+        ));
+        given(loadStatisticsPort.listByGisuId(GISU_ID)).willReturn(List.of(
+            row(100L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 3L),
+            row(200L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 5L)
+        ));
+
+        RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
+
+        assertThat(info.applicantCount()).isEqualTo(3L);
+        assertThat(info.chapters()).extracting(RecruitingChapterEvaluationStatisticsInfo::chapterName)
+            .containsExactly("가온");
+    }
+
+    @Test
+    @DisplayName("교내 운영진 권한은 해당 학교만 조회한다")
+    void schoolAdminReadsOwnSchoolOnly() {
+        givenStaffScope(Set.of(), Set.of(100L));
+        given(clock.instant()).willReturn(NOW);
+        given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
+            schoolName(10L, "가온", 100L, "가온대학교"),
+            schoolName(20L, "나래", 200L, "나래대학교")
+        ));
+        given(loadStatisticsPort.listByGisuId(GISU_ID)).willReturn(List.of(
+            row(100L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 3L),
+            row(200L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 5L)
+        ));
+
+        RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
+
+        assertThat(info.applicantCount()).isEqualTo(3L);
+        assertThat(info.chapters()).extracting(RecruitingChapterEvaluationStatisticsInfo::chapterName)
+            .containsExactly("가온");
+    }
+
+    @Test
+    @DisplayName("접근 가능한 학교가 없으면 평가 현황 조회를 거부한다")
+    void denyWhenNoSchoolIsAccessible() {
+        givenStaffScope(Set.of(), Set.of());
+        given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
+            schoolName(10L, "가온", 100L, "가온대학교")
+        ));
+
+        assertThatThrownBy(() -> sut.getEvaluationStatistics(query()))
+            .isInstanceOf(RecruitingDomainException.class);
+        then(loadStatisticsPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("권한 밖의 등록 학교는 unknown school 로그 없이 집계에서만 제외한다")
+    void excludeOutOfScopeSchoolWithoutUnknownSchoolLog() {
+        givenStaffScope(Set.of(), Set.of(100L));
+        given(clock.instant()).willReturn(NOW);
+        given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
+            schoolName(10L, "가온", 100L, "가온대학교"),
+            schoolName(20L, "나래", 200L, "나래대학교")
+        ));
+        given(loadStatisticsPort.listByGisuId(GISU_ID)).willReturn(List.of(
+            row(100L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 3L),
+            row(200L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 5L),
+            row(999L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 7L)
+        ));
+        logAppender = new ListAppender<>();
+        logAppender.setContext(((Logger) LoggerFactory.getLogger(RecruitingEvaluationStatisticsQueryService.class))
+            .getLoggerContext());
+        logAppender.start();
+        ((Logger) LoggerFactory.getLogger(RecruitingEvaluationStatisticsQueryService.class))
+            .addAppender(logAppender);
+
+        RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
+
+        assertThat(info.applicantCount()).isEqualTo(3L);
+        assertThat(logAppender.list).hasSize(1);
+        assertThat(logAppender.list.get(0).getLevel()).isEqualTo(Level.ERROR);
+        assertThat(logAppender.list.get(0).getFormattedMessage()).contains("999=7").doesNotContain("200=5");
+    }
+
     private void givenStaffAccess() {
-        given(checkChallengerAuthorityUseCase.isSuperAdmin(MEMBER_ID)).willReturn(false);
-        given(checkChallengerAuthorityUseCase.hasAnyRoleTypeInGisu(MEMBER_ID, GISU_ID, ChallengerRoleType.values()))
-            .willReturn(true);
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(scopeForAllSchools());
+    }
+
+    private void givenStaffScope(Set<Long> chapterIds, Set<Long> schoolIds) {
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(new GisuAuthorityScopeInfo(false, chapterIds, schoolIds));
+    }
+
+    private GisuAuthorityScopeInfo scopeForAllSchools() {
+        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of());
+    }
+
+    private GisuAuthorityScopeInfo scopeWithoutAccess() {
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
     }
 
     private RecruitingEvaluationStatisticsQuery query() {

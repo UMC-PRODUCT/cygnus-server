@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
@@ -64,21 +64,30 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
 
     private final LoadRecruitingEvaluationStatisticsPort loadStatisticsPort;
     private final GetSchoolUseCase getSchoolUseCase;
-    private final CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
+    private final GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
     private final Clock clock;
 
     @Override
     public RecruitingEvaluationStatisticsInfo getEvaluationStatistics(RecruitingEvaluationStatisticsQuery query) {
-        validateReadAccess(query.requesterMemberId(), query.gisuId());
-
-        List<SchoolChapterNameInfo> schools = getSchoolUseCase.getSchoolChapterNamesByGisuId(query.gisuId());
+        List<SchoolChapterNameInfo> allSchools = getSchoolUseCase.getSchoolChapterNamesByGisuId(query.gisuId());
+        Set<Long> accessibleSchoolIds = resolveAccessibleSchoolIds(
+            query.requesterMemberId(),
+            query.gisuId(),
+            allSchools
+        );
+        List<SchoolChapterNameInfo> schools = allSchools.stream()
+            .filter(school -> accessibleSchoolIds == null || accessibleSchoolIds.contains(school.schoolId()))
+            .toList();
+        Set<Long> allKnownSchoolIds = allSchools.stream()
+            .map(SchoolChapterNameInfo::schoolId)
+            .collect(Collectors.toSet());
         Set<Long> knownSchoolIds = schools.stream()
             .map(SchoolChapterNameInfo::schoolId)
             .collect(Collectors.toSet());
 
         List<RecruitingEvaluationStatisticsRow> loadedRows = loadStatisticsPort.listByGisuId(query.gisuId());
         Map<Long, Long> unknownSchoolCounts = loadedRows.stream()
-            .filter(row -> !knownSchoolIds.contains(row.schoolId()))
+            .filter(row -> !allKnownSchoolIds.contains(row.schoolId()))
             .collect(Collectors.groupingBy(
                 RecruitingEvaluationStatisticsRow::schoolId,
                 Collectors.summingLong(RecruitingEvaluationStatisticsRow::count)
@@ -91,7 +100,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
             );
         }
 
-        // 학교 목록에 없는 학교의 row는 제외해 전체 합계와 지부·학교 합계의 정합성을 보장한다.
+        // 권한 범위 밖이거나 학교 목록에 없는 row는 제외해 범위와 집계 정합성을 보장한다.
         List<RecruitingEvaluationStatisticsRow> rows = loadedRows.stream()
             .filter(row -> knownSchoolIds.contains(row.schoolId()))
             .toList();
@@ -108,13 +117,26 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
         );
     }
 
-    private void validateReadAccess(Long requesterMemberId, Long gisuId) {
-        if (checkChallengerAuthorityUseCase.isSuperAdmin(requesterMemberId)
-            || checkChallengerAuthorityUseCase.hasAnyRoleTypeInGisu(
-                requesterMemberId, gisuId, ChallengerRoleType.values())) {
-            return;
+    private Set<Long> resolveAccessibleSchoolIds(
+        Long requesterMemberId,
+        Long gisuId,
+        List<SchoolChapterNameInfo> schools
+    ) {
+        GisuAuthorityScopeInfo authorityScope = getGisuAuthorityScopeUseCase
+            .getByMemberIdAndGisuId(requesterMemberId, gisuId);
+        if (authorityScope.allSchoolsAccessible()) {
+            return null;
         }
-        throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_STATISTICS_ACCESS_DENIED);
+
+        Set<Long> accessibleSchoolIds = schools.stream()
+            .filter(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()))
+            .map(SchoolChapterNameInfo::schoolId)
+            .collect(Collectors.toSet());
+
+        if (accessibleSchoolIds.isEmpty()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_STATISTICS_ACCESS_DENIED);
+        }
+        return accessibleSchoolIds;
     }
 
     private List<RecruitingChapterEvaluationStatisticsInfo> toChapterInfos(
