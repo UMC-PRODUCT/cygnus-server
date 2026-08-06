@@ -1,0 +1,73 @@
+-- recruiting_round 에 면접 가능 일정(SCHEDULE) 질문 ID 컬럼을 추가한다.
+--
+-- 배경(#1219):
+--   #1208 이 이미 프로드에 적용된 V2026.07.15.13.30__create_recruiting_domain.sql 을
+--   직접 수정해 이 컬럼을 끼워 넣었고, 그 결과 Flyway 체크섬 불일치로 앱 부팅이 실패해
+--   Instance Refresh 가 반복 롤백되었다. 해당 마이그레이션은 원본으로 되돌리고,
+--   컬럼 추가는 본 전진 마이그레이션으로 정석 처리한다.
+--
+-- form_id <-> schedule_question_id 짝(XOR) 무결성은 도메인 계층
+--   (RecruitingRoundConfiguration) 이 이미 강제하므로, 여기서는 컬럼만 추가한다.
+--   DB CHECK 제약으로도 이중 방어하려면 기존 프로드 데이터 점검 후
+--   후속 마이그레이션으로 추가한다 (아래 주석 참고).
+
+ALTER TABLE public.recruiting_round
+    ADD COLUMN availability_schedule_question_id BIGINT;
+
+-- ── 후속 과제(데이터 점검 후 별도 마이그레이션으로 적용) ─────────────────────────
+-- 기존 행 중 availability_form_id 는 설정됐으나 availability_schedule_question_id 가
+-- NULL 인 행이 없음을 확인한 뒤에만 아래 제약을 추가할 수 있다. 위반 행이 하나라도
+-- 있으면 ADD CONSTRAINT 가 실패한다(NOT VALID 로 grandfathering 하는 방법도 있음).
+--
+-- ALTER TABLE public.recruiting_round DROP CONSTRAINT recruiting_round_schedule_check;
+-- ALTER TABLE public.recruiting_round ADD CONSTRAINT recruiting_round_schedule_check CHECK (
+--     (
+--         document_start_at IS NULL
+--         AND document_end_at IS NULL
+--         AND document_result_published_at IS NULL
+--         AND interview_start_at IS NULL
+--         AND interview_end_at IS NULL
+--         AND final_result_published_at IS NULL
+--         AND availability_form_id IS NULL
+--         AND availability_schedule_question_id IS NULL
+--         AND NOT interview_required
+--     )
+--     OR (
+--         document_start_at IS NOT NULL
+--         AND document_end_at IS NOT NULL
+--         AND document_result_published_at IS NOT NULL
+--         AND final_result_published_at IS NOT NULL
+--         AND document_start_at < document_end_at
+--         AND document_end_at <= document_result_published_at
+--         AND (
+--             (
+--                 availability_form_id IS NULL
+--                 AND availability_schedule_question_id IS NULL
+--             )
+--             OR (
+--                 availability_form_id IS NOT NULL
+--                 AND availability_schedule_question_id IS NOT NULL
+--                 AND availability_form_id > 0
+--                 AND availability_schedule_question_id > 0
+--             )
+--         )
+--         AND (
+--             (
+--                 interview_required
+--                 AND interview_start_at IS NOT NULL
+--                 AND interview_end_at IS NOT NULL
+--                 AND document_result_published_at <= interview_start_at
+--                 AND interview_start_at < interview_end_at
+--                 AND interview_end_at <= final_result_published_at
+--             )
+--             OR (
+--                 NOT interview_required
+--                 AND interview_start_at IS NULL
+--                 AND interview_end_at IS NULL
+--                 AND availability_form_id IS NULL
+--                 AND availability_schedule_question_id IS NULL
+--                 AND document_result_published_at <= final_result_published_at
+--             )
+--         )
+--     )
+-- );
