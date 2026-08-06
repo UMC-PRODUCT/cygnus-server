@@ -276,8 +276,8 @@ class RecruitingRoundUpdateCommandServiceTest {
     }
 
     @Test
-    @DisplayName("OPEN 면접 차수는 availability 매핑을 제거할 수 없다")
-    void rejectRemovingAvailabilityMappingWhileOpen() {
+    @DisplayName("OPEN 면접 차수는 요청에 availability 매핑이 없어도 기존 매핑을 유지한다")
+    void inheritAvailabilityMappingWhenOmittedWhileOpen() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = interviewRound(20L, season, 500L, 600L);
         round.open();
@@ -285,18 +285,21 @@ class RecruitingRoundUpdateCommandServiceTest {
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
         ));
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(availabilityForm(
+            FormStatus.PUBLISHED,
+            question(600L, QuestionType.SCHEDULE, true)
+        ));
 
-        assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
+        sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(10L)
             .roundId(20L)
             .title("본모집")
             .configuration(interviewConfiguration(null, null))
-            .build()))
-            .isInstanceOf(RecruitingDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+            .build());
 
-        then(saveRoundPort).should(never()).save(any());
+        assertThat(round.getAvailabilityFormId()).isEqualTo(500L);
+        assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(600L);
+        then(saveRoundPort).should().save(round);
     }
 
     @Test

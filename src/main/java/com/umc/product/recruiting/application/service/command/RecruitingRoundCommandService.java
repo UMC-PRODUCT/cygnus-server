@@ -93,7 +93,10 @@ public class RecruitingRoundCommandService implements
     public void updateRound(UpdateRecruitingRoundCommand command) {
         RecruitingRound round = getRoundInSeasonForUpdate(command.roundId(), command.seasonId());
         validateTitleAvailable(command.seasonId(), command.title(), command.roundId());
-        RecruitingRoundConfiguration configuration = command.configuration().toDomain();
+        RecruitingRoundConfiguration configuration = inheritAvailabilityForm(
+            round,
+            command.configuration().toDomain()
+        );
         validateRecruitableTrackSubset(command.seasonId(), configuration.recruitableTracks());
         validateInterviewSessions(round, configuration);
         if (round.getStatus() == RecruitingRoundStatus.OPEN && configuration.interviewRequired()) {
@@ -157,6 +160,37 @@ public class RecruitingRoundCommandService implements
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRANSITION);
         }
         saveRoundPort.save(round);
+    }
+
+    /**
+     * 자동 생성한 조율 Form 매핑은 요청에 없어도 유지한다.
+     * configuration을 통째로 교체하는 구조라 승계하지 않으면 수정 한 번에 매핑이 사라진다.
+     */
+    private RecruitingRoundConfiguration inheritAvailabilityForm(
+        RecruitingRound round,
+        RecruitingRoundConfiguration configuration
+    ) {
+        boolean nothingToInherit = !configuration.interviewRequired()
+            || configuration.availabilityFormId() != null
+            || round.getAvailabilityFormId() == null;
+        if (nothingToInherit) {
+            return configuration;
+        }
+        return RecruitingRoundConfiguration.of(
+            configuration.recruitableTracks(),
+            configuration.secondChoiceEnabled(),
+            configuration.documentStartAt(),
+            configuration.documentEndAt(),
+            configuration.documentResultPublishedAt(),
+            configuration.interviewRequired(),
+            configuration.interviewStartAt(),
+            configuration.interviewEndAt(),
+            configuration.finalResultPublishedAt(),
+            round.getAvailabilityFormId(),
+            round.getAvailabilityScheduleQuestionId(),
+            configuration.announcement(),
+            configuration.contactText()
+        );
     }
 
     /**
