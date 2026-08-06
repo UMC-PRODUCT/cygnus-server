@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -160,18 +161,27 @@ public class RecruitingSeasonQueryService implements
                 LinkedHashMap::new,
                 Collectors.mapping(RecruitingRoundConfigurationInfo::from, Collectors.toList())
             ));
-        return roundsBySeason.entrySet().stream()
-            .map(entry -> {
-                VisibleSeason visible = seasonById.get(entry.getKey());
-                return RecruitingSeasonSummaryInfo.of(
-                    visible.season(),
-                    visible.school().chapterId(),
-                    visible.school().chapterName(),
-                    visible.school().schoolName(),
-                    entry.getValue()
-                );
-            })
+        List<RecruitingSeasonSummaryInfo> populatedSeasons = roundsBySeason.entrySet().stream()
+            .map(entry -> toSummary(seasonById.get(entry.getKey()), entry.getValue()))
             .toList();
+        List<RecruitingSeasonSummaryInfo> emptySeasons = visibleSeasons.stream()
+            .filter(visible -> !roundsBySeason.containsKey(visible.season().getId()))
+            .map(visible -> toSummary(visible, List.of()))
+            .toList();
+        return Stream.concat(populatedSeasons.stream(), emptySeasons.stream()).toList();
+    }
+
+    private RecruitingSeasonSummaryInfo toSummary(
+        VisibleSeason visible,
+        List<RecruitingRoundConfigurationInfo> rounds
+    ) {
+        return RecruitingSeasonSummaryInfo.of(
+            visible.season(),
+            visible.school().chapterId(),
+            visible.school().chapterName(),
+            visible.school().schoolName(),
+            rounds
+        );
     }
 
     @Override
