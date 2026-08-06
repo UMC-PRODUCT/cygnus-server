@@ -19,6 +19,7 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.global.response.PageResponse;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.global.security.annotation.Public;
 import com.umc.product.project.adapter.in.web.assembler.ProjectResponseAssembler;
 import com.umc.product.project.adapter.in.web.dto.request.SearchProjectRequest;
 import com.umc.product.project.adapter.in.web.dto.response.DraftProjectResponse;
@@ -43,15 +44,11 @@ public class ProjectQueryController {
     private final ProjectResponseAssembler assembler;
 
     @GetMapping
+    @Public
     @Operation(
         operationId = "PROJECT-001",
         summary = "프로젝트 목록 조회",
-        description = "기수/지부/파트 등으로 필터링된 프로젝트 목록을 페이지 조회합니다."
-    )
-    @CheckAccess(
-        resourceType = ResourceType.PROJECT,
-        permission = PermissionType.READ,
-        message = "프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+        description = "기수/지부/파트 등으로 필터링된 프로젝트 목록을 페이지 조회합니다. 비회원도 조회 가능하며, 이 경우 공개 상태(IN_PROGRESS/COMPLETED) 프로젝트만 노출됩니다."
     )
     public PageResponse<ProjectSummaryResponse> searchProjects(
         @CurrentMember MemberPrincipal memberPrincipal,
@@ -60,23 +57,18 @@ public class ProjectQueryController {
         Pageable pageable
     ) {
         SearchProjectQuery query = request.toQuery(pageable);
-        return assembler.searchFor(query, memberPrincipal.getMemberId());
+        Long requesterMemberId = memberPrincipal == null ? null : memberPrincipal.getMemberId();
+        return assembler.searchFor(query, requesterMemberId);
     }
 
     @GetMapping("/{projectId}")
+    @Public
     @Operation(
         operationId = "PROJECT-002",
         summary = "프로젝트 상세 조회",
-        description = "단건 프로젝트 상세 정보를 조회합니다. 권한에 따라 실명 정보가 마스킹됩니다."
-    )
-    @CheckAccess(
-        resourceType = ResourceType.PROJECT,
-        resourceId = "#projectId",
-        permission = PermissionType.READ,
-        message = "프로젝트를 볼 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."
+        description = "단건 프로젝트 상세 정보를 조회합니다. 비회원도 조회 가능합니다."
     )
     public ProjectDetailResponse getDetail(
-        @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable Long projectId
     ) {
         return assembler.detailFor(projectId);

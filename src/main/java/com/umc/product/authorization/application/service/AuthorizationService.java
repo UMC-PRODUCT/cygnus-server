@@ -1,7 +1,11 @@
 package com.umc.product.authorization.application.service;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -11,18 +15,28 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.application.port.out.LoadChallengerRolePort;
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
+import com.umc.product.authorization.domain.AuthoritySnapshot;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.authorization.domain.exception.AuthorizationErrorCode;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.global.cache.application.port.in.CacheUseCase;
+import com.umc.product.global.cache.domain.CacheKey;
+import com.umc.product.global.cache.domain.CacheLookup;
+import com.umc.product.global.cache.domain.CacheNamespace;
+import com.umc.product.global.cache.domain.CacheSpec;
 import com.umc.product.global.logging.OperationalMetrics;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.ListMemberSystemRoleUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 
 import lombok.extern.slf4j.Slf4j;
@@ -32,13 +46,23 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class AuthorizationService implements CheckPermissionUseCase {
 
+    private static final CacheSpec<String> AUTHORITY_SNAPSHOT_CACHE_SPEC = CacheSpec.of(
+        CacheNamespace.AUTHORITY_SNAPSHOT,
+        String.class,
+        Duration.ofSeconds(30),
+        10_000L
+    );
+
     private final LoadChallengerRolePort loadChallengerRolePort;
     private final Map<ResourceType, ResourcePermissionEvaluator> evaluators;
 
     private final GetMemberUseCase getMemberUseCase;
+    private final ListMemberSystemRoleUseCase listMemberSystemRoleUseCase;
     private final GetChapterUseCase getChapterUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final OperationalMetrics operationalMetrics;
+    private final CacheUseCase cacheUseCase;
+    private final AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer;
 
     /**
      * ResourcePermissionEvaluator에 대한 생성자 주입
@@ -47,13 +71,18 @@ public class AuthorizationService implements CheckPermissionUseCase {
      */
     public AuthorizationService(LoadChallengerRolePort loadChallengerRolePort,
                                 List<ResourcePermissionEvaluator> evaluatorList, GetMemberUseCase getMemberUseCase,
+                                ListMemberSystemRoleUseCase listMemberSystemRoleUseCase,
                                 GetChapterUseCase getChapterUseCase, GetChallengerUseCase getChallengerUseCase,
-                                OperationalMetrics operationalMetrics) {
+                                OperationalMetrics operationalMetrics, CacheUseCase cacheUseCase,
+                                AuthoritySnapshotCacheSerializer authoritySnapshotCacheSerializer) {
         this.loadChallengerRolePort = loadChallengerRolePort;
         this.getMemberUseCase = getMemberUseCase;
+        this.listMemberSystemRoleUseCase = listMemberSystemRoleUseCase;
         this.getChapterUseCase = getChapterUseCase;
         this.getChallengerUseCase = getChallengerUseCase;
         this.operationalMetrics = operationalMetrics;
+        this.cacheUseCase = cacheUseCase;
+        this.authoritySnapshotCacheSerializer = authoritySnapshotCacheSerializer;
         this.evaluators = evaluatorList.stream()
             .collect(Collectors.toMap(
                 ResourcePermissionEvaluator::supportedResourceType,
@@ -72,7 +101,19 @@ public class AuthorizationService implements CheckPermissionUseCase {
     @Override
     public SubjectAttributes loadSubject(Long memberId) {
         log.debug("권한 평가 시작: memberId={}", memberId);
+        CacheKey cacheKey = authoritySnapshotCacheKey(memberId);
 
+        Optional<SubjectAttributes> cachedSubject = readCachedSubject(cacheKey, memberId);
+        if (cachedSubject.isPresent()) {
+            return cachedSubject.get();
+        }
+
+        SubjectAttributes subjectAttributes = loadFreshSubject(memberId);
+        cacheSubject(cacheKey, memberId, subjectAttributes);
+        return subjectAttributes;
+    }
+
+    private SubjectAttributes loadFreshSubject(Long memberId) {
         // 사용자가 활동한 모든 기수를 확인
         // 해당 기수마다 chapterId, challengerRoleId를 가져옴
         MemberInfo memberInfo = getMemberUseCase.getById(memberId);
@@ -92,14 +133,16 @@ public class AuthorizationService implements CheckPermissionUseCase {
                 .challengerId(challengerInfo.challengerId())
                 .build()
         ).toList();
-        List<RoleAttribute> roles = loadChallengerRolePort.findByMemberId(memberId)
-            .stream().map(RoleAttribute::from).toList();
+        List<RoleAttribute> roles = loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(RoleAttribute::from)
+            .toList();
 
         SubjectAttributes subjectAttributes = SubjectAttributes.builder()
             .memberId(memberId)
             .schoolId(schoolId)
             .gisuChallengerInfos(chapterIds)
             .roleAttributes(roles)
+            .systemRoles(listSystemRoles(memberId))
             .build();
 
         log.debug("권한 평가 subject를 로드했습니다: memberId={}, roleCount={}, challengerCount={}",
@@ -107,6 +150,51 @@ public class AuthorizationService implements CheckPermissionUseCase {
             subjectAttributes.gisuChallengerInfos().size());
 
         return subjectAttributes;
+    }
+
+    private Set<SystemRoleType> listSystemRoles(Long memberId) {
+        return listMemberSystemRoleUseCase.listByMemberId(memberId).stream()
+            .map(role -> SystemRoleType.from(role.roleType()))
+            .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private Optional<SubjectAttributes> readCachedSubject(CacheKey cacheKey, Long memberId) {
+        CacheLookup<String> lookup = cacheUseCase.get(AUTHORITY_SNAPSHOT_CACHE_SPEC, cacheKey);
+        if (lookup instanceof CacheLookup.Hit<String> hit) {
+            if (!getMemberUseCase.existsById(memberId)) {
+                cacheUseCase.evict(CacheNamespace.AUTHORITY_SNAPSHOT, cacheKey);
+                throw new MemberDomainException(MemberErrorCode.MEMBER_NOT_FOUND);
+            }
+            try {
+                log.debug("권한 평가 subject 캐시 hit: memberId={}", memberId);
+                AuthoritySnapshot snapshot = authoritySnapshotCacheSerializer.deserialize(hit.value());
+                if (!Objects.equals(snapshot.memberId(), memberId)) {
+                    throw new AuthorizationDomainException(
+                        AuthorizationErrorCode.POLICY_EVALUATION_FAILED,
+                        "권한 snapshot 캐시의 회원 정보가 일치하지 않습니다."
+                    );
+                }
+                return Optional.of(snapshot.toSubjectAttributes());
+            } catch (AuthorizationDomainException e) {
+                log.warn("권한 평가 subject 캐시 역직렬화 실패로 캐시를 제거합니다: memberId={}", memberId);
+                cacheUseCase.evict(CacheNamespace.AUTHORITY_SNAPSHOT, cacheKey);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private void cacheSubject(CacheKey cacheKey, Long memberId, SubjectAttributes subjectAttributes) {
+        try {
+            AuthoritySnapshot snapshot = subjectAttributes.toAuthoritySnapshot();
+            String payload = authoritySnapshotCacheSerializer.serialize(snapshot);
+            cacheUseCase.put(AUTHORITY_SNAPSHOT_CACHE_SPEC, cacheKey, payload);
+        } catch (AuthorizationDomainException e) {
+            log.warn("권한 평가 subject 캐시 저장을 건너뜁니다: memberId={}", memberId);
+        }
+    }
+
+    private CacheKey authoritySnapshotCacheKey(Long memberId) {
+        return AuthoritySnapshotCacheKeys.member(memberId);
     }
 
     @Override

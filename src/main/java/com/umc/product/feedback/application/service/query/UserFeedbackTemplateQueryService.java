@@ -15,8 +15,8 @@ import com.umc.product.feedback.application.port.in.query.dto.UserFeedbackTempla
 import com.umc.product.feedback.application.port.out.LoadUserFeedbackTemplatePort;
 import com.umc.product.feedback.domain.enums.UserFeedbackContext;
 import com.umc.product.feedback.domain.enums.UserFeedbackTargetType;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
 
 import lombok.RequiredArgsConstructor;
 
@@ -24,7 +24,7 @@ import lombok.RequiredArgsConstructor;
  * 사용자 피드백 템플릿 조회 서비스.
  * <p>
  * 요청자의 챌린저 이력과 운영진 역할을 기반으로 UserFeedbackTargetType을 판별하고,
- * 해당 context + targetType 조합의 활성 UserFeedbackTemplate을 조회하여 Survey 폼 구조와 함께 반환합니다.
+ * 해당 context + targetType 조합의 활성 UserFeedbackTemplate을 조회하여 Form 폼 구조와 함께 반환합니다.
  * <p>
  * <b>이번 기수 특수 케이스:</b> 신규 PM(기획 파트)은 이번 기수에서 기획-디자인 매칭을 경험했으므로 챌린저 이력이 이번 기수 하나뿐이더라도 EXPERIENCED_CHALLENGER로 분류합니다.
  * 이 판별 기준은 코드에 하드코딩되어 있어, 기수별 기준 변경 시 배포가 필요합니다.

@@ -19,13 +19,13 @@ import graphql.analysis.MaxQueryDepthInstrumentation;
 class GraphQlRuntimeWiringConfigTest {
 
     @Test
-    @DisplayName("Project GraphQL schema는 Long scalar wiring과 함께 로드된다")
-    void projectGraphQlSchemaLoadsWithLongScalar() throws IOException {
+    @DisplayName("Project와 Recruiting GraphQL schema는 Long scalar wiring과 함께 로드된다")
+    void project와_Recruiting_GraphQL_schema는_Long_scalar_wiring과_함께_로드된다() throws IOException {
         Resource[] schemaResources = new PathMatchingResourcePatternResolver()
             .getResources("classpath*:graphql/**/*.graphqls");
 
         assertThat(Arrays.stream(schemaResources).map(Resource::getFilename))
-            .contains("organization.graphqls", "project.graphqls");
+            .contains("organization.graphqls", "project.graphqls", "recruiting.graphqls");
 
         GraphQlSource graphQlSource = GraphQlSource.schemaResourceBuilder()
             .schemaResources(schemaResources)
@@ -33,6 +33,7 @@ class GraphQlRuntimeWiringConfigTest {
             .build();
 
         assertThat(graphQlSource.schema().getType("Project")).isNotNull();
+        assertThat(graphQlSource.schema().getType("RecruitingApplicationForm")).isNotNull();
         assertThat(graphQlSource.schema().getType("Long")).isNotNull();
     }
 

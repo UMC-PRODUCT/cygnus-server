@@ -5,25 +5,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.BDDMockito.given;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
-import com.umc.product.common.domain.enums.ChallengerStatus;
-import com.umc.product.common.domain.enums.MemberStatus;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
-import com.umc.product.member.application.port.in.query.dto.SearchMemberV2Result;
-import com.umc.product.member.application.port.out.SearchMemberPort;
-import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,17 +22,43 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.common.domain.enums.MemberStatus;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
+import com.umc.product.member.application.port.in.query.dto.SearchMemberV2Result;
+import com.umc.product.member.application.port.out.SearchMemberPort;
+import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
+
 @ExtendWith(MockitoExtension.class)
 @DisplayName("MemberSearchService.searchByV2 — 회원 단위 v2 검색")
 class MemberSearchServiceV2Test {
 
+    private static final Long REQUESTER_MEMBER_ID = 1L;
+
     @Mock SearchMemberPort searchMemberPort;
     @Mock GetMemberUseCase getMemberUseCase;
+    @Mock CheckChallengerHistoryUseCase checkChallengerHistoryUseCase;
     @Mock GetChallengerUseCase getChallengerUseCase;
     @Mock GetChallengerRoleUseCase getChallengerRoleUseCase;
     @Mock GetGisuUseCase getGisuUseCase;
 
     @InjectMocks MemberSearchService memberSearchService;
+
+    @BeforeEach
+    void setUp() {
+        given(checkChallengerHistoryUseCase.hasChallengerHistory(REQUESTER_MEMBER_ID)).willReturn(true);
+    }
 
     private MemberInfo profile(Long id, String name) {
         return MemberInfo.builder()
@@ -66,7 +79,14 @@ class MemberSearchServiceV2Test {
         ChallengerPart part,
         ChallengerStatus status
     ) {
-        return new ChallengerBasicInfo(id, memberId, gisuId, part, status);
+        return new ChallengerBasicInfo(
+            id,
+            memberId,
+            gisuId,
+            part,
+            List.of(ChallengerTrack.from(part)),
+            status
+        );
     }
 
     private GisuInfo gisu(Long gisuId, Long generation, boolean active) {
@@ -98,7 +118,7 @@ class MemberSearchServiceV2Test {
 
         // when
         SearchMemberV2Result result = memberSearchService.searchByV2(
-            new SearchMemberQuery(null, null, null, null, null), pageable
+            new SearchMemberQuery(null, null, null, null, null), REQUESTER_MEMBER_ID, pageable
         );
 
         // then: 회원 1명 = row 1개, participations에 3개 챌린저 요약
@@ -132,7 +152,7 @@ class MemberSearchServiceV2Test {
         ));
 
         SearchMemberV2Result result = memberSearchService.searchByV2(
-            new SearchMemberQuery(null, null, null, null, null), pageable
+            new SearchMemberQuery(null, null, null, null, null), REQUESTER_MEMBER_ID, pageable
         );
 
         SearchMemberItemV2Info item = result.page().getContent().get(0);
@@ -160,7 +180,7 @@ class MemberSearchServiceV2Test {
             .willReturn(Map.of(101L, List.of(ChallengerRoleType.SCHOOL_PRESIDENT)));
 
         SearchMemberV2Result result = memberSearchService.searchByV2(
-            new SearchMemberQuery(null, null, null, null, null), pageable
+            new SearchMemberQuery(null, null, null, null, null), REQUESTER_MEMBER_ID, pageable
         );
 
         assertThat(result.page().getContent().get(0).isAdminInActiveGisu()).isTrue();
@@ -180,7 +200,7 @@ class MemberSearchServiceV2Test {
         given(getGisuUseCase.getByIds(anySet())).willReturn(List.of(gisu(7L, 8L, false)));
 
         SearchMemberV2Result result = memberSearchService.searchByV2(
-            new SearchMemberQuery(null, null, null, null, null), pageable
+            new SearchMemberQuery(null, null, null, null, null), REQUESTER_MEMBER_ID, pageable
         );
 
         assertThat(result.page().getContent().get(0).isAdminInActiveGisu()).isFalse();
@@ -193,7 +213,7 @@ class MemberSearchServiceV2Test {
         given(searchMemberPort.searchMemberIds(any(), any())).willReturn(emptyPage);
 
         SearchMemberV2Result result = memberSearchService.searchByV2(
-            new SearchMemberQuery(null, null, null, null, null), pageable
+            new SearchMemberQuery(null, null, null, null, null), REQUESTER_MEMBER_ID, pageable
         );
 
         assertThat(result.page().getContent()).isEmpty();

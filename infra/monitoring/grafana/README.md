@@ -78,6 +78,17 @@ HTTP request counter / duration histogram 에서 요청 총량, 요청 수 Top 1
 p95 latency Top 10 을 계산한다. Top 10 테이블의 행 링크는 해당 `uri` 에 대응하는
 Loki 로그를 열며, 로그의 `traceId` derived field 를 통해 Tempo 요청 flow 로 이동할 수 있다.
 
+## GraphQL 대시보드
+
+Grafana 의 **UMC PRODUCT** 폴더 > **UMC PRODUCT — GraphQL** 대시보드
+(`config/grafana/dashboards/graphql.json`)에서 GraphQL 요청률, 오류율, p95/p99 지연,
+operation type/outcome 분포, resolver와 DataLoader의 호출량·지연·오류를 확인할 수 있다.
+
+GraphQL metric에는 요청 본문, variables, raw query를 넣지 않는다. `operationName`과
+`executionId`는 trace의 high-cardinality attribute로만 기록되므로 Prometheus 패널에는
+노출하지 않는다. 개별 요청의 operation name과 실행 흐름이 필요하면 대시보드 상단의
+Tempo 링크에서 해당 trace를 확인한다.
+
 ## API 처리 흐름 보기 (Tempo + Node graph)
 
 각 API 요청이 어떤 계층을 거치는지(`controller -> usecase -> adapter -> db`)와, 아웃박스 relay 가 원 요청 trace 와 어떻게 span link 로 이어지는지를 Tempo 로 추적한다. 계층별 span 은 앱의 `TraceFlowAspect` 가 자동 생성하며 `app.layer` / `app.domain` / `app.usecase` / `app.adapter.type` 태그를 단다.
@@ -96,11 +107,11 @@ Grafana > **Explore** > 데이터소스 **Tempo** > **TraceQL** 탭에서 아래
 | 특정 API 한 요청 (이메일 인증)         | `{ name = "http post /api/v1/auth/email-verification" }` |
 | 도메인별 처리 흐름                   | `{ span.app.domain = "organization" }`              |
 | 유스케이스 span 만                 | `{ span.app.usecase != "" }`                        |
-| 아웃박스 relay (원 요청과 span link) — *`app.event-outbox.enabled=true` 일 때만* | `{ name = "outbox.relay.publish" }`                 |
+| 아웃박스 relay (원 요청과 span link) | `{ name = "outbox.relay.publish" }`                 |
 
 > HTTP 서버 root span 이름은 **`http <method> <path>`** 형식이다(대문자 `GET` 이 아니라 소문자, 예: `http get /api/v1/schools/all`). trace 샘플링이 1.0 미만이면 HTTP 요청 일부가 누락될 수 있으니, 시연 시 같은 API 를 여러 번 호출한다.
 >
-> 계층 흐름 쿼리(`app.domain` / `app.usecase` 등)는 `TraceFlowAspect` 가 **모든 요청에 자동 생성**하므로 아웃박스 on/off 와 무관하게 동작한다. 반면 `outbox.relay.publish` span 은 **아웃박스가 활성화(`app.event-outbox.enabled=true`)된 경우에만** 생성되므로, 비활성 상태에서는 결과가 비어 있는 것이 정상이다.
+> 계층 흐름 쿼리(`app.domain` / `app.usecase` 등)는 `TraceFlowAspect`가 모든 요청에 자동 생성한다. `outbox.relay.publish` span은 poller가 처리한 domain event가 있을 때 생성된다.
 >
 > 집계형 서비스 토폴로지(여러 trace 를 합친 service graph)는 Tempo `metrics_generator` 활성화가 필요한 Phase 2 과제다. 위는 **요청 단위(per-trace) 처리 흐름**을 보는 방법이다.
 

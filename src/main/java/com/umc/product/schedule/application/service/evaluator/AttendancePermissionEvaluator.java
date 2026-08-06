@@ -1,5 +1,7 @@
 package com.umc.product.schedule.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
@@ -12,8 +14,8 @@ import com.umc.product.schedule.application.port.out.LoadSchedulePort;
 import com.umc.product.schedule.domain.Schedule;
 import com.umc.product.schedule.domain.exception.ScheduleDomainException;
 import com.umc.product.schedule.domain.exception.ScheduleErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 /**
  * Attendance(출석) 리소스에 대한 권한 평가
@@ -95,6 +97,9 @@ public class AttendancePermissionEvaluator implements ResourcePermissionEvaluato
 
     // 특정 일정(scheduleId)이 진행되는 기수의 운영진인지 검사
     private boolean isTargetGisuAdmin(Long scheduleId, SubjectAttributes subjectAttributes) {
+        if (subjectAttributes.toAuthoritySnapshot().isSuperAdmin()) {
+            return true;
+        }
 
         Schedule schedule = loadSchedulePort.findById(scheduleId)
             .orElseThrow(() -> new ScheduleDomainException(ScheduleErrorCode.SCHEDULE_NOT_FOUND));
@@ -109,7 +114,8 @@ public class AttendancePermissionEvaluator implements ResourcePermissionEvaluato
 
     // 사용자가 가지고 있는 역할 중 하나라도 운영진 역할이 있는지 검사
     private boolean isAnyAdmin(SubjectAttributes subjectAttributes) {
-        return subjectAttributes.roleAttributes().stream()
+        return subjectAttributes.toAuthoritySnapshot().isSuperAdmin()
+            || subjectAttributes.roleAttributes().stream()
             .anyMatch(role -> isOperatingRole(role.roleType()));
     }
 

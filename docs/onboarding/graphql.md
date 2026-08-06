@@ -9,7 +9,7 @@ GraphQL은 아직 pilot 범위다. 현재는 Query만 제공하고 Mutation은 �
 제공 중인 도메인은 다음이다.
 
 - `organization`: `gisu`, `chapter`, `school` 공개 조회
-- `member`: `me`, `member`, `members` 조회와 `school`, `challengers`, `gisu` nested field
+- `member`: `me`, `member`, `members`, `memberSearch` 조회와 `school`, `challengers`, `gisu` nested field
 - `project`: `project`, `projects` 조회와 `members`, `application`, `applicationForm` nested field
 
 스키마 파일은 `src/main/resources/graphql` 아래에 있다.
@@ -22,6 +22,157 @@ src/main/resources/graphql/project.graphqls
 
 Spring GraphQL은 이 디렉터리의 `*.graphqls` 파일을 합쳐 하나의 schema로 로드한다. `extend type Query`로 root query를 도메인별 파일에서 확장한다.
 
+## Schema 구성 및 연관 관계
+
+### 통합 schema 조립
+
+파일은 도메인별로 나뉘지만 endpoint와 실행 schema는 하나다. `organization.graphqls`가 root `Query`를 선언하고,
+`member.graphqls`와 `project.graphqls`가 `extend type Query`로 field를 추가한다.
+
+```mermaid
+flowchart TB
+    ORG["organization.graphqls<br/>type Query<br/>organization types"]
+    MEMBER["member.graphqls<br/>extend type Query<br/>member types"]
+    PROJECT["project.graphqls<br/>extend type Query<br/>project types<br/>shared scalar and enums"]
+    LOADER["Spring GraphQL schema loader<br/>classpath graphql/*.graphqls"]
+    QUERY["통합 Query"]
+
+    ORG --> LOADER
+    MEMBER --> LOADER
+    PROJECT --> LOADER
+    LOADER --> QUERY
+
+    QUERY --> OQ["gisuOrganizations, gisu, activeGisu<br/>chapters, chapter, schools, school"]
+    QUERY --> MQ["me, member, members, memberSearch"]
+    QUERY --> PQ["project, projects"]
+```
+
+SDL 파일 경계는 Java package나 Hexagonal Architecture의 의존성 경계가 아니다. 모든 파일이 합쳐진 뒤 type 이름은
+전역 namespace를 사용한다. 따라서 다른 파일에 선언된 type, scalar, enum도 이름으로 참조할 수 있다.
+
+현재 공유 선언 위치는 다음과 같다.
+
+| 공유 선언 | 선언 파일 | 사용하는 schema |
+| --- | --- | --- |
+| `Gisu`, `SchoolDetail` | `organization.graphqls` | `organization`, `member` |
+| `Long`, `ChallengerPart` | `project.graphqls` | `project`, `member` |
+
+### 주요 type 관계
+
+실선은 object field가 다른 object type을 선택하는 관계이고, 점선은 input, scalar, enum을 공유하는 관계다.
+`Project`는 `Member` type을 직접 재사용하지 않고 project 조회 목적에 맞춘 `MemberBrief`, `ProjectApplicant`를 사용한다.
+
+```mermaid
+flowchart LR
+    subgraph ORG_SCHEMA["organization.graphqls"]
+        Gisu["Gisu"]
+        GisuChapter["GisuChapter"]
+        ChapterSchool["ChapterSchool"]
+        GisuSchool["GisuSchool"]
+        SchoolDetail["SchoolDetail"]
+        SchoolLink["SchoolLink"]
+
+        Gisu -->|"chapters"| GisuChapter
+        Gisu -->|"schools"| GisuSchool
+        GisuChapter -->|"schools"| ChapterSchool
+        GisuSchool -->|"links"| SchoolLink
+        SchoolDetail -->|"links"| SchoolLink
+    end
+
+    subgraph MEMBER_SCHEMA["member.graphqls"]
+        Member["Member"]
+        MemberChallenger["MemberChallenger"]
+        MemberPage["MemberPage"]
+        MemberSearchResult["MemberSearchResult"]
+        MemberSearchChallenger["MemberSearchChallenger"]
+        MemberSearchInput["MemberSearchInput"]
+
+        Member -->|"challengers"| MemberChallenger
+        MemberPage -->|"content"| MemberSearchResult
+        MemberSearchResult -->|"currentChallenger"| MemberSearchChallenger
+        MemberSearchResult -->|"challengerRecords"| MemberSearchChallenger
+    end
+
+    subgraph PROJECT_SCHEMA["project.graphqls"]
+        ProjectPage["ProjectPage"]
+        Project["Project"]
+        ProjectMember["ProjectMember"]
+        MemberBrief["MemberBrief"]
+        ProjectApplication["ProjectApplication"]
+        ProjectApplicationForm["ProjectApplicationForm"]
+        FormSection["ApplicationFormSection"]
+        FormQuestion["ApplicationFormQuestion"]
+        LongScalar["scalar Long"]
+        ChallengerPart["enum ChallengerPart"]
+
+        ProjectPage -->|"content"| Project
+        Project -->|"productOwner, coProductOwners"| MemberBrief
+        Project -->|"members"| ProjectMember
+        Project -->|"applicationForm"| ProjectApplicationForm
+        ProjectMember -->|"member"| MemberBrief
+        ProjectMember -->|"application"| ProjectApplication
+        ProjectApplicationForm -->|"sections"| FormSection
+        FormSection -->|"questions"| FormQuestion
+    end
+
+    Member -->|"school"| SchoolDetail
+    MemberChallenger -->|"gisu"| Gisu
+    MemberSearchResult -->|"school"| SchoolDetail
+    MemberSearchChallenger -->|"gisu"| Gisu
+    MemberSearchInput -.->|"part"| ChallengerPart
+    MemberPage -.->|"totalElements"| LongScalar
+```
+
+### Resolver와 BatchMapping 연결
+
+root field는 같은 도메인의 `@QueryMapping`이 처리한다. nested field는 selection set에 포함된 경우에만
+`@BatchMapping`이 실행되며, 여러 parent의 ID를 모아 application query usecase를 한 번에 호출한다.
+
+```mermaid
+flowchart TB
+    CLIENT["Client selection set"]
+    SCHEMA["통합 GraphQL schema"]
+
+    subgraph MEMBER_ADAPTER["MemberGraphQlController"]
+        MEMBER_QUERY["QueryMapping<br/>me, member, members, memberSearch"]
+        MEMBER_BATCH["BatchMapping<br/>Member.school<br/>Member.challengers<br/>MemberChallenger.gisu<br/>MemberSearchResult.school<br/>MemberSearchChallenger.gisu"]
+    end
+
+    subgraph ORG_ADAPTER["OrganizationGraphQlController"]
+        ORG_QUERY["QueryMapping<br/>organization root fields"]
+        ORG_BATCH["BatchMapping<br/>Gisu.chapters<br/>Gisu.schools<br/>GisuChapter.schools"]
+    end
+
+    subgraph PROJECT_ADAPTER["ProjectGraphQlController"]
+        PROJECT_QUERY["QueryMapping<br/>project, projects"]
+        PROJECT_BATCH["BatchMapping<br/>Project.members<br/>Project.applicationForm<br/>Project.productOwner<br/>Project.coProductOwners<br/>ProjectMember.member<br/>ProjectMember.application"]
+    end
+
+    PORTS["application/port/in/query<br/>Query UseCases"]
+
+    CLIENT --> SCHEMA
+    SCHEMA --> MEMBER_QUERY
+    SCHEMA --> ORG_QUERY
+    SCHEMA --> PROJECT_QUERY
+    SCHEMA --> MEMBER_BATCH
+    SCHEMA --> ORG_BATCH
+    SCHEMA --> PROJECT_BATCH
+
+    MEMBER_QUERY --> PORTS
+    MEMBER_BATCH --> PORTS
+    ORG_QUERY --> PORTS
+    ORG_BATCH --> PORTS
+    PROJECT_QUERY --> PORTS
+    PROJECT_BATCH --> PORTS
+
+    MEMBER_BATCH -->|"MemberSearchChallenger.gisu returns Gisu"| ORG_BATCH
+```
+
+마지막 연결은 controller끼리 직접 호출한다는 뜻이 아니다. `MemberGraphQlController`가
+`MemberSearchChallenger.gisu`를 공용 GraphQL type인 `Gisu`로 반환하면, 더 깊은 `Gisu.chapters` 또는
+`Gisu.schools` selection은 GraphQL runtime이 `OrganizationGraphQlController`의 BatchMapping에 전달한다.
+각 adapter는 서로를 주입하지 않고 필요한 application inbound port만 사용한다.
+
 ## 실행 경로
 
 GraphQL endpoint는 하나다.
@@ -29,6 +180,9 @@ GraphQL endpoint는 하나다.
 ```text
 POST /graphql
 ```
+
+`/graphql`은 transport 계층 rate limit 대상이다. 기본 한도는 인증 요청 초당 20회·분당 300회,
+익명 요청 초당 5회·분당 60회이며, 한도 초과 시 HTTP 429를 반환한다. `OPTIONS`와 제외 경로에는 적용하지 않는다.
 
 로컬 실행 예시는 다음과 같다.
 
@@ -255,6 +409,72 @@ query {
 ```
 
 `members`는 입력 ID를 중복 제거한 뒤 batch 조회한다.
+
+회원 검색은 `memberSearch`에 검색 조건과 페이지를 전달한다. 관계 필드는 필요한 항목만 선택할 수 있으며,
+`school`, `currentChallenger.gisu`, `challengerRecords.gisu`는 batch resolver로 조회한다.
+
+```graphql
+query {
+  memberSearch(
+    input: { keyword: "kim", part: SPRINGBOOT }
+    page: { page: 0, size: 20 }
+  ) {
+    content {
+      memberId
+      name
+      nickname
+      email
+      school {
+        schoolId
+        schoolName
+      }
+      currentChallenger {
+        challengerId
+        part
+        challengerStatus
+        gisu {
+          gisuId
+          generation
+        }
+      }
+      challengerRecords {
+        challengerId
+        part
+        challengerStatus
+        gisu {
+          gisuId
+          generation
+        }
+      }
+    }
+    page
+    size
+    totalElements
+    totalPages
+    hasNext
+  }
+}
+```
+
+`memberSearch`의 검색 가능 범위는 현재 활성 기수가 아니라 요청자의 전체 챌린저·운영진 이력을 기준으로 계산한다.
+
+| 요청자 이력 또는 역할 | 검색 가능 범위 |
+| --- | --- |
+| 챌린저 이력과 상위 역할이 모두 없는 단순 회원 | 검색 거부 |
+| 챌린저 이력 보유 | 본인이 보유한 기수 ID에 속한 회원만 조회 |
+| 과거 교내 회장 또는 부회장 | 본인 학교의 모든 기수 조회 |
+| 중앙운영사무국 총괄 또는 부총괄 기록, `SUPER_ADMIN` | 기존 member-search 모집단 내 제한 없이 조회 |
+
+학교 범위와 기수 범위를 동시에 가지면 두 범위를 OR로 결합한다. 사용자 검색 조건은 이 권한 범위와
+AND로 결합되며, 권한 scope는 pagination과 count보다 먼저 DB query에 적용된다. 따라서
+`totalElements`, `totalPages`, `hasNext`는 응답 후 필터링된 값이 아니라 동일한 scoped DB count를 반영한다.
+
+페이지 입력을 생략하면 `page: 0`, `size: 20`을 사용한다. `size`는 최대 100이며 첫 버전은 sort 입력을
+지원하지 않고 서버의 안정 정렬을 따른다. `page * size`로 계산한 offset은 최대 10,000이며, 10,000은 허용하고
+초과하면 `BAD_REQUEST`로 거부한다. 검색 결과의 `email`은 `null`이면 `null`로 유지하고, 값이 있으면
+원문을 마스킹해 반환한다. 한 글자 local-part처럼 원문과 달라지지 않는 값은 `[masked-email]`으로 대체하며,
+raw email은 응답하지 않는다. `memberSearch` 복잡도는 요청한 `size`에 가중되며, alias별 비용은 전역 최대 복잡도까지
+누적된다. 잘못된 입력은 최대 크기 비용으로 처리한다.
 
 ## Project 예시
 

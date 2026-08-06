@@ -144,7 +144,7 @@ public class SeedController {
         summary = "테스트 챌린저 역할 단건 생성",
         description = """
             challengerId, roleType, gisuId 를 받아 운영진 역할을 1개 부여합니다.
-            SUPER_ADMIN 및 중앙 운영진 역할은 organizationId 없이 생성할 수 있고,
+            중앙 운영진 역할은 organizationId 없이 생성할 수 있고,
             CHAPTER_PRESIDENT 는 organizationId 에 chapterId, SCHOOL_PRESIDENT 등 학교 역할은
             organizationId 에 schoolId 를 전달합니다.
             """
@@ -179,7 +179,7 @@ public class SeedController {
             특정 기수의 프로젝트 관련 데이터를 물리 삭제합니다.
             삭제 범위는 Project, ProjectMember, ProjectPartQuota, ProjectApplication,
             ProjectApplicationForm/Policy, 해당 기수 Chapter 의 ProjectMatchingRound,
-            그리고 프로젝트 지원 폼이 생성한 survey Form/FormSection/Question/QuestionOption/
+            그리고 프로젝트 지원 폼이 생성한 form Form/FormSection/Question/QuestionOption/
             FormResponse/Answer/AnswerChoice/legacy SingleAnswer 입니다.
             gisuId 가 null 이면 활성 기수를 대상으로 합니다. prod 환경에서는 노출되지 않습니다.
             """

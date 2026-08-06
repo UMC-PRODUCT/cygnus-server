@@ -5,9 +5,9 @@ import java.util.List;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 import lombok.Builder;
-
 
 /**
  * 챌린저 정보를 담고 있는 Info단 DTO 입니다.
@@ -20,6 +20,7 @@ public record ChallengerInfo(
     Long memberId,
     Long gisuId,
     ChallengerPart part,
+    List<ChallengerTrack> tracks,
     List<ChallengerPointInfo> challengerPoints,
     Double totalPoints,
     ChallengerStatus challengerStatus
@@ -33,6 +34,7 @@ public record ChallengerInfo(
             .memberId(challenger.getMemberId())
             .gisuId(challenger.getGisuId())
             .part(challenger.getPart())
+            .tracks(challenger.getEffectiveTracks())
             .build();
     }
 
@@ -46,6 +48,7 @@ public record ChallengerInfo(
             .memberId(challenger.getMemberId())
             .gisuId(challenger.getGisuId())
             .part(challenger.getPart())
+            .tracks(challenger.getEffectiveTracks())
             .challengerPoints(challengerPoints)
             .totalPoints(totalPoints)
             .challengerStatus(challenger.getStatus())

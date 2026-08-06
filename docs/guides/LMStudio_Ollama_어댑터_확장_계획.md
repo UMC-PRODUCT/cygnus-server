@@ -48,7 +48,7 @@ dependency: `spring-ai-starter-model-openai` / `spring-ai-starter-model-vertex-a
 | Token usage | `usage` 필드 채움 | v0.1.32+ 채움 (이전 버전은 누락) |
 | 한국어 모델 가용성 | gguf 변환 모델 다양 | `ollama pull mistral / llama3 / qwen2.5` 등 |
 
-핵심 사실: **두 서버 모두 OpenAI-compat 만으로 분류 호출 (`/v1/chat/completions`) 을 100% 만족한다.** Ollama 의 native API 가 모델 관리 등 추가 기능을 주지만, figma 분류 use case 에는 OpenAI-compat 으로 충분.
+핵심 사실: **두 서버 모두 OpenAI-compat 만으로 분류 호출 (`/v1/chat/completions`) 을 100% 만족한다.** Ollama 의 native API 가 모델 관리 등 추가 기능을 주지만, 일반 배치 분류 use case 에는 OpenAI-compat 으로 충분.
 
 ## 3. 어댑터 변경 필요성 평가
 
@@ -116,7 +116,7 @@ LMStudio 면 `OPENAI_BASE_URL=http://localhost:1234` + dummy api-key.
 단점:
 - LMStudio 와 Ollama 의 path 가 다름 → 코드 분기 증가, 메트릭 라벨 / 디버깅도 두 갈래.
 - starter 의존성 추가는 build size + 빌드 시간 증가.
-- figma 분류 use case 는 native API 의 추가 기능을 거의 안 씀 → 도입 가치 낮음.
+- 현재 배치 분류 use case 는 native API 의 추가 기능을 거의 안 씀 → 도입 가치 낮음.
 
 선택 안 함: 현재 use case 에는 OpenAI-compat 으로 충분. 향후 Ollama native 가 정말 필요해지면 별도 어댑터로 분리 (본 옵션 D 를 그때 다시 채택).
 
@@ -313,7 +313,7 @@ log.warn(
   - 권장 한국어 분류 모델 (예: `qwen2.5:7b`, `mistral`, `llama3.1`) 과 분류 정확도 기대치.
   - mock 모드와의 차이 (실제 분류 vs 무작위 echo).
   - 알려진 한계: Ollama 0.x 의 token usage 누락 → `llm.chat.completion.tokens.total` 메트릭 0 으로 찍힘. 회피 방법 (Ollama 0.4+ 업그레이드).
-  - 로컬 모델의 분류 정확도가 GPT-4 / Gemini 보다 낮을 수 있음 → figma fallback 채널 모니터링 권고.
+  - 로컬 모델의 분류 정확도가 GPT-4 / Gemini 보다 낮을 수 있음 → 업무 fallback 채널 모니터링 권고.
   - 회로 차단 / rate limiter 가 그대로 적용됨을 명시.
 - 영향 파일: ADR-008.md (편집), 신규 운영 가이드.
 
@@ -321,7 +321,7 @@ log.warn(
 
 | 항목 | 영향 | 완화책 |
 |------|------|--------|
-| 로컬 모델의 분류 정확도가 GPT-4 / Gemini 보다 낮음 | figma fallback 채널이 평소보다 채워짐 | preview API 로 분류 결과 사전 검증, fallback 채널 모니터링 강화. |
+| 로컬 모델의 분류 정확도가 GPT-4 / Gemini 보다 낮음 | 업무 fallback 채널이 평소보다 채워짐 | preview API 로 분류 결과 사전 검증, fallback 채널 모니터링 강화. |
 | 로컬 모델 응답 latency 가 GPU/CPU 에 의존 (단건 5~30s 가능) | LLM 호출 caller thread 차단 시간 증가 | ADR-012 의 비동기화 (Phase 1) 가 같이 머지되면 영향 흡수. |
 | Ollama 0.x 의 token usage 필드 누락 | `llm_chat_completion_tokens_total` 메트릭 0 | 운영 가이드에 Ollama 0.4+ 업그레이드 권고. token 비용은 어차피 self-hosted 에선 의미 작음. |
 | LMStudio / Ollama 가 OpenAI-compat 응답을 100% 모방하지 않을 가능성 | 응답 파싱 실패 → `LlmDomainException` | Commit 4 의 통합 테스트가 응답 호환성 검증. 운영 환경에선 부팅 직후 admin preview 1 회로 smoke test. |
@@ -333,7 +333,7 @@ log.warn(
 
 다음은 본 계획에서 의도적으로 다루지 않는다 — 별도 결정 / 별도 ADR 사항.
 
-- **Ollama native API 어댑터** (`/api/chat`, `/api/generate`). model 관리 / structured output / streaming 의 추가 기능이 figma 분류 use case 에 가치를 주는 시점에 별도 어댑터로 분리. 본 계획 머지 후에도 옵션 D 는 항상 살아 있다.
+- **Ollama native API 어댑터** (`/api/chat`, `/api/generate`). model 관리 / structured output / streaming 의 추가 기능이 배치 분류 use case 에 가치를 주는 시점에 별도 어댑터로 분리. 본 계획 머지 후에도 옵션 D 는 항상 살아 있다.
 - **로컬 모델 자동 다운로드 / Docker 이미지 내 ollama pull**. 운영 인프라 결정 (Docker 컴포즈 / k8s 사이드카) 과 결합하므로 분리.
 - **로컬 모델 정확도 평가 + 분류 품질 기준 정의**. 모델별 정확도 비교 / fallback 채널 noise 감내 정책은 운영 데이터 누적 후 별도.
 - **multi-provider race / fallback chaining** (실 OpenAI 가 실패하면 Ollama 로 자동 fallback). 본 계획은 단일 활성 어댑터 모델을 유지.
@@ -345,7 +345,7 @@ log.warn(
 2. application 환경변수: `LLM_PROVIDER=openai-compatible` (그 외는 default).
 3. application 부팅 → 시작 로그에서 `LLM 활성 provider=local-lmstudio (어댑터=SpringAiOpenAiCompatibleChatCompletionAdapter, configured=openai-compatible, fallbackEngaged=false)` 확인.
 4. `/actuator/prometheus` 에서 `llm_active_provider_info{provider="local-lmstudio",fallback="false"} 1` 노출 확인.
-5. admin preview 호출 (`GET /api/v1/admin/figma/preview?from=...&to=...`) → 응답에서 분류된 댓글이 후보 도메인 키에 매칭되는지 확인.
+5. LLM 호출이 붙은 preview 또는 smoke API 호출 → 응답에서 분류 결과가 후보 도메인 키에 매칭되는지 확인.
 6. 환경변수만 `LLM_OPENAI_COMPAT_BASE_URL=http://localhost:11434/v1` + `LLM_OPENAI_COMPAT_LABEL=local-ollama` 로 바꿔 Ollama 로 교체 → 동일 흐름이 정상 동작 + provider 라벨이 `local-ollama` 로 자동 변경되는지 확인.
 
 ## 9. 참고
@@ -353,8 +353,7 @@ log.warn(
 - 관련 ADR / 보고서
     - [ADR-008: LLM 도메인 provider 전략](../adr/008-llm-domain-provider-strategy.md) — 본 계획의 amendment 대상.
     - [ADR-012: LLM 호출 동기 대기 병목 완화](../adr/012-llm-call-blocking-bottleneck-mitigation.md) — 로컬 모델 latency 증가 시 같이 머지되면 영향 흡수.
-    - [Figma ↔ LLM 도메인 캐싱 구조 분석](Figma_LLM_캐시_구조_분석.md) — provider 라벨이 메트릭에 어떻게 노출되는지.
-    - [LLM 분류 캐시 점검 보고서](LLM_분류_캐시_점검_보고서.md) — LlmFallbackConfig / provider 라벨 관련 결함 분석.
+    - [LLM 결제 시 rate limit / 요금 보고서](LLM_결제_요금_및_RATE_LIMIT_보고서.md) — provider 별 rate limit / 단가 변화 정리.
 - 핵심 코드
     - [SpringAiOpenAiChatCompletionAdapter](../../src/main/java/com/umc/product/llm/adapter/out/external/SpringAiOpenAiChatCompletionAdapter.java) — 신규 어댑터의 base 가 되는 기존 OpenAI 어댑터.
     - [LlmProperties](../../src/main/java/com/umc/product/llm/adapter/out/external/LlmProperties.java) — `OpenaiCompatible` 추가 대상.

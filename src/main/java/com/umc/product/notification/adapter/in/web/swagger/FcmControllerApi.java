@@ -15,18 +15,32 @@ public interface FcmControllerApi {
 
     @Operation(
         operationId = "FCM-001",
-        summary = "FCM 토큰 등록",
-        description = "사용자의 FCM 토큰을 등록하거나 업데이트합니다. 이미 등록된 토큰이 있으면 갱신됩니다."
+        summary = "FCM installation 등록",
+        description = "앱 installation의 현재 회원과 FCM 토큰을 등록하거나 갱신합니다."
     )
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "토큰 등록 성공"),
-        @ApiResponse(responseCode = "404", description = "MEMBER-0001: 사용자를 찾을 수 없습니다."),
-        @ApiResponse(responseCode = "500", description = "FCM-0004: FCM 토픽 구독에 실패했습니다.")
+        @ApiResponse(responseCode = "400", description = "installationId 또는 FCM 토큰 형식 오류")
     })
-    void refreshFcmToken(
+    void registerFcmInstallation(
         @Parameter(hidden = true)
         @CurrentMember MemberPrincipal memberPrincipal,
         FcmRegistrationRequest request
+    );
+
+    @Operation(
+        operationId = "FCM-004",
+        summary = "FCM installation 해제",
+        description = "현재 회원이 소유한 앱 installation의 FCM 토큰을 비활성화합니다."
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "토큰 해제 성공")
+    })
+    void unregisterFcmInstallation(
+        @Parameter(hidden = true)
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @Parameter(description = "Firebase Installation ID")
+        String installationId
     );
 
     @Operation(

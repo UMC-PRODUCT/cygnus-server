@@ -318,6 +318,45 @@ public class JwtTokenProvider {
         return getClientContextClaims(parseAccessTokenClaims(token));
     }
 
+    /**
+     * JWT 서명 검증(HMAC-SHA)을 요청당 1회로 한정하여 memberId, roles, clientType을 반환한다. clientType claim이 없거나 알 수 없는 값이면 null을
+     * 반환한다.
+     */
+    @SuppressWarnings("unchecked")
+    public ParsedAccessToken parseAndValidateAccessToken(String token) {
+        try {
+            Claims claims = parseAccessTokenClaims(token);
+            Long memberId = Long.parseLong(claims.getSubject());
+
+            Object rolesObj = claims.get(AUTHORITIES_KEY);
+            List<String> roles = (rolesObj instanceof List<?>) ? (List<String>) rolesObj : Collections.emptyList();
+
+            String clientTypeStr = claims.get(CLIENT_TYPE_KEY, String.class);
+            ClientType clientType = null;
+            if (clientTypeStr != null) {
+                try {
+                    clientType = ClientType.valueOf(clientTypeStr);
+                } catch (IllegalArgumentException e) {
+                    log.warn("AccessToken 의 clientType claim 값을 해석할 수 없습니다: {}", clientTypeStr);
+                }
+            }
+
+            return new ParsedAccessToken(memberId, roles, clientType);
+        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+            log.info("잘못된 JWT 서명입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.WRONG_JWT_SIGNATURE);
+        } catch (ExpiredJwtException e) {
+            log.info("만료된 JWT 토큰입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.EXPIRED_JWT_TOKEN);
+        } catch (UnsupportedJwtException e) {
+            log.info("지원되지 않는 JWT 토큰입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.UNSUPPORTED_JWT);
+        } catch (IllegalArgumentException e) {
+            log.info("JWT 토큰이 잘못되었습니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_JWT);
+        }
+    }
+
     public boolean validateAccessToken(String token) {
         try {
             parseAccessTokenClaims(token);

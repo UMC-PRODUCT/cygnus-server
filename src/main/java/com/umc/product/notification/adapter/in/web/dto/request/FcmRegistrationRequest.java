@@ -1,8 +1,18 @@
 package com.umc.product.notification.adapter.in.web.dto.request;
 
+import com.umc.product.notification.application.port.in.dto.RegisterFcmTokenCommand;
+
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public record FcmRegistrationRequest(
-        @NotBlank String fcmToken
+    @NotBlank @Size(max = 100) String installationId,
+    @NotBlank @Size(max = 4096) String fcmToken,
+    @Size(max = 30) String platform,
+    @Size(max = 50) String appVersion
 ) {
+
+    public RegisterFcmTokenCommand toCommand(Long memberId) {
+        return RegisterFcmTokenCommand.of(memberId, installationId, fcmToken, platform, appVersion);
+    }
 }

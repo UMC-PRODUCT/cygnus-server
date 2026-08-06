@@ -58,6 +58,8 @@ public interface StoragePort {
      */
     String generateAccessUrl(String storageKey, long durationMinutes);
 
+    void uploadObject(String storageKey, String contentType, byte[] content);
+
     /**
      * 파일이 존재하는지 확인합니다.
      *

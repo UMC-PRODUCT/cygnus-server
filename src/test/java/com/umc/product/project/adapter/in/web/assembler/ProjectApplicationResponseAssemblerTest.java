@@ -26,6 +26,8 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.MemberStatus;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.project.adapter.in.web.dto.common.MatchingRoundPhaseView;
@@ -57,8 +59,6 @@ import com.umc.product.project.domain.enums.PartQuotaStatus;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.survey.domain.enums.FormResponseStatus;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationResponseAssemblerTest {

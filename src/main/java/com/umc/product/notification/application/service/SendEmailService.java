@@ -6,6 +6,7 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import com.umc.product.notification.application.port.in.SendEmailUseCase;
+import com.umc.product.notification.application.port.in.dto.SendHtmlEmailCommand;
 import com.umc.product.notification.application.port.in.dto.SendVerificationEmailCommand;
 import com.umc.product.notification.application.port.out.SendEmailPort;
 import com.umc.product.notification.application.port.out.dto.EmailMessage;
@@ -50,6 +51,24 @@ public class SendEmailService implements SendEmailUseCase {
         }
     }
 
+    @Override
+    public void sendHtmlEmail(SendHtmlEmailCommand command) {
+        String htmlContent = renderHtmlTemplate(command);
+        EmailMessage message = new EmailMessage(
+            senderProperties.noReplyAddress(),
+            senderProperties.noReplyDisplayName(),
+            command.to(),
+            command.subject(),
+            htmlContent
+        );
+        try {
+            sendEmailPort.send(message);
+        } catch (EmailDomainException e) {
+            log.error("HTML 이메일 발송 실패: recipientPresent={}", hasRecipient(command.to()), e);
+            throw e;
+        }
+    }
+
     private String renderVerificationTemplate(SendVerificationEmailCommand command) {
         try {
             Context context = new Context();
@@ -58,6 +77,17 @@ public class SendEmailService implements SendEmailUseCase {
         } catch (RuntimeException e) {
             // 예외 삼킴 방지: 비동기 컨텍스트에서도 원인 추적이 가능하도록 stacktrace 와 컨텍스트를 로그에 남긴다.
             log.error("이메일 템플릿 렌더링 실패: recipientPresent={}", hasRecipient(command.to()), e);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED, e);
+        }
+    }
+
+    private String renderHtmlTemplate(SendHtmlEmailCommand command) {
+        try {
+            Context context = new Context();
+            context.setVariables(command.variables());
+            return templateEngine.process(command.templateName(), context);
+        } catch (RuntimeException e) {
+            log.error("HTML 이메일 템플릿 렌더링 실패: recipientPresent={}", hasRecipient(command.to()), e);
             throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED, e);
         }
     }

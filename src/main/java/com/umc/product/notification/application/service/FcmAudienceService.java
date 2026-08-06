@@ -9,11 +9,6 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
-import com.google.firebase.messaging.BatchResponse;
-import com.google.firebase.messaging.FirebaseMessaging;
-import com.google.firebase.messaging.FirebaseMessagingException;
-import com.google.firebase.messaging.MulticastMessage;
-import com.google.firebase.messaging.Notification;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.global.config.FcmProperties;
@@ -24,7 +19,13 @@ import com.umc.product.notification.application.port.in.SendNotificationToAudien
 import com.umc.product.notification.application.port.in.dto.AudienceNotificationCommand;
 import com.umc.product.notification.application.port.in.dto.NotificationCommand;
 import com.umc.product.notification.application.port.out.LoadFcmPort;
+import com.umc.product.notification.application.port.out.SaveFcmPort;
+import com.umc.product.notification.application.port.out.SendFcmMessagePort;
+import com.umc.product.notification.application.port.out.dto.FcmSendRequest;
+import com.umc.product.notification.application.port.out.dto.FcmSendResult;
+import com.umc.product.notification.application.port.out.dto.FcmSendTarget;
 import com.umc.product.notification.domain.FcmToken;
+import com.umc.product.notification.domain.exception.FcmDomainException;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 
@@ -39,9 +40,9 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
     private static final int FCM_MULTICAST_BATCH_SIZE = 500;
 
     private final FcmProperties fcmProperties;
-    private final FirebaseMessaging firebaseMessaging;
+    private final SendFcmMessagePort sendFcmMessagePort;
     private final LoadFcmPort loadFcmPort;
-    private final FcmTokenDeactivator fcmTokenDeactivator;
+    private final SaveFcmPort saveFcmPort;
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final GetChapterUseCase getChapterUseCase;
@@ -61,7 +62,7 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
             return;
         }
 
-        List<FcmToken> tokens = loadFcmPort.findAllActiveByMemberIds(memberIds);
+        List<FcmToken> tokens = loadFcmPort.listActiveByMemberIds(memberIds);
         if (tokens.isEmpty()) {
             log.info("활성 FCM 토큰 없음. memberIds count={}", memberIds.size());
             return;
@@ -80,7 +81,7 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
             return;
         }
 
-        List<FcmToken> tokens = loadFcmPort.findAllActiveByMemberId(command.memberId());
+        List<FcmToken> tokens = loadFcmPort.listActiveByMemberId(command.memberId());
         if (tokens.isEmpty()) {
             log.warn("활성 FCM 토큰 없음. memberId={}", command.memberId());
             return;
@@ -102,7 +103,7 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
             return;
         }
 
-        List<FcmToken> tokens = loadFcmPort.findAllActiveByMemberIds(memberIds);
+        List<FcmToken> tokens = loadFcmPort.listActiveByMemberIds(memberIds);
         if (tokens.isEmpty()) {
             log.info("활성 FCM 토큰 없음. memberIds count={}", memberIds.size());
             return;
@@ -116,35 +117,42 @@ public class FcmAudienceService implements SendNotificationToAudienceUseCase {
     // =========== PRIVATE ===========
 
     private SendBatchResult sendBatch(List<FcmToken> tokens, String title, String body) {
-        Notification notification = Notification.builder()
-            .setTitle(title)
-            .setBody(body)
-            .build();
-
         int totalSuccess = 0;
         int totalFail = 0;
 
         for (List<FcmToken> batch : partition(tokens, FCM_MULTICAST_BATCH_SIZE)) {
-            List<String> tokenStrings = batch.stream().map(FcmToken::getFcmToken).toList();
             try {
-                MulticastMessage message = MulticastMessage.builder()
-                    .addAllTokens(tokenStrings)
-                    .setNotification(notification)
-                    .build();
-
-                BatchResponse response = firebaseMessaging.sendEachForMulticast(message);
-                totalSuccess += response.getSuccessCount();
-                totalFail += response.getFailureCount();
-
-                fcmTokenDeactivator.deactivateInvalidTokens(batch, response.getResponses());
-            } catch (FirebaseMessagingException e) {
-                log.warn("FCM 배치 발송 실패 batchSize={}", batch.size(), e);
+                FcmSendResult response = sendFcmMessagePort.send(FcmSendRequest.of(
+                    batch.stream()
+                        .map(token -> FcmSendTarget.of(token.getId(), token.getFcmToken()))
+                        .toList(),
+                    title,
+                    body,
+                    Map.of(),
+                    null,
+                    null
+                ));
+                totalSuccess += response.successCount();
+                totalFail += response.failureCount();
+                deactivateInvalidTokens(batch, response.invalidTokenIds());
+            } catch (FcmDomainException e) {
+                log.error("FCM 배치 발송 실패 batchSize={}", batch.size(), e);
                 totalFail += batch.size();
             }
         }
 
         log.info("FCM 발송 결과: success={}, failure={}", totalSuccess, totalFail);
         return new SendBatchResult(totalSuccess, totalFail);
+    }
+
+    private void deactivateInvalidTokens(List<FcmToken> tokens, List<Long> invalidTokenIds) {
+        Set<Long> invalidTokenIdSet = new HashSet<>(invalidTokenIds);
+        tokens.stream()
+            .filter(token -> invalidTokenIdSet.contains(token.getId()))
+            .forEach(token -> {
+                token.deactivate();
+                saveFcmPort.save(token);
+            });
     }
 
     private void recordFcmMetric(String operation, SendBatchResult result) {

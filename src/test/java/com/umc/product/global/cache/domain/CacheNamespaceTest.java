@@ -1,5 +1,6 @@
 package com.umc.product.global.cache.domain;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 import org.junit.jupiter.api.DisplayName;
@@ -15,9 +16,9 @@ class CacheNamespaceTest {
     }
 
     @Test
-    @DisplayName("Figma 분류 캐시는 기존 Prometheus metric name을 유지한다")
-    void figma_cache_metric_name() {
-        org.assertj.core.api.Assertions.assertThat(CacheNamespace.FIGMA_CLASSIFICATION.metricName())
-            .isEqualTo("figma.classifier.l1");
+    @DisplayName("Google JWKS 캐시는 기존 Prometheus metric name을 유지한다")
+    void google_jwks_cache_metric_name() {
+        assertThat(CacheNamespace.GOOGLE_JWKS.metricName())
+            .isEqualTo("authentication.google.jwks.l1");
     }
 }

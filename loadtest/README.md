@@ -2,12 +2,21 @@
 
 **실행하려면 `loadtest/RUNBOOK.md`** — 명령어는 전부 거기에만 있다. 이 문서는 "왜 이렇게 생겼나"의 기록이다.
 
+현재 이 디렉터리에는 **두 개의 하네스**가 공존한다:
+
+1. **리그 하네스** (`k6/` + `terraform/` + `scripts/`) — AWS ephemeral 리그에서 breakpoint·spike 등 한계 실측. 이 문서의 본체.
+2. **notice 전/후 비교 하네스** (`run.sh` + `lib/` + `scenarios/notice/`) — 로컬에서 notice 성능 리팩토링 전/후를 동일 부하로 비교하는 미니 하네스. [아래 별도 섹션](#notice-전후-비교-하네스-runsh) 참조.
+
+두 하네스는 진입점·시나리오·결과 기록 방식이 다르다. 시나리오가 늘어나면 리그 하네스(`k6/`) 쪽으로 통합하는 것이 방향이다.
+
 | 위치 | 역할 |
 |------|------|
-| `loadtest/RUNBOOK.md` | 실행 절차 (명령어 복붙, 트러블슈팅) |
-| `loadtest/k6/` | k6 실행 코드 (구조는 `loadtest/k6/README.md`) |
+| `loadtest/RUNBOOK.md` | 리그 하네스 실행 절차 (명령어 복붙, 트러블슈팅) |
+| `loadtest/k6/` | 리그용 k6 실행 코드 (구조는 `loadtest/k6/README.md`) |
 | `loadtest/terraform/` | 리그 인프라 (SUT·generator·monitoring·RDS·ALB) |
-| `docs/loadtest/runs/` | 실행 기록 (가설→환경→결과→결론, `new-run.sh` 로 스캐폴드) |
+| `loadtest/run.sh` · `lib/` · `scenarios/notice/` | notice 전/후 비교 미니 하네스 (로컬 실행) |
+| `loadtest/compare.sh` | 두 실행(summary.json)의 p95/p99/에러율/RPS 비교 (jq 필요) |
+| `docs/loadtest/runs/` | 실행 기록 (가설→환경→결과→결론) |
 | `docs/adr/013` | 도구 선택·시나리오 우선순위의 원 전략 |
 
 ## 핵심 결정 기록
@@ -73,3 +82,62 @@
    - 대규모 → `BulkSeedService` 에 seedXxx 단계. 새 테이블당 3곳: Row record → 포트 메서드+어댑터 SQL → 서비스 생성 로직(기존 rng 재사용). `ANALYZE_TABLES`·Result 카운트 갱신.
    - 벌크는 시나리오별 픽스처가 아니라 **공유 월드 1개** — 필요 없는 모양은 `app.bulk-seed.*` 0 으로 끄고, 새 모양은 월드에 추가.
 3. **k6 가 고를 ID (필요할 때만)** — seed.json `targets` + `lib/data.js` pick 함수 (`pickProjectId` 참조).
+
+---
+
+## notice 전/후 비교 하네스 (run.sh)
+
+**notice 도메인 성능 리팩토링의 전/후 비교** 전용 미니 하네스. 리그 없이 로컬(bootRun + docker-compose PostgreSQL)에서 돌린다.
+
+```text
+loadtest/
+├── run.sh          # 실행 래퍼: 사전조건 확인 + k6 버전/GitSHA/env 기록 + 결과 디렉토리 생성
+├── compare.sh      # 두 실행(summary.json)의 p95/p99/에러율/RPS 비교 (jq 필요)
+├── lib/            # config.js(env 주입) / auth.js(setup 토큰 발급) / checks.js / summary.js(handleSummary)
+└── scenarios/notice/
+    ├── read-status.smoke.js   # VU=1, 1분 — 정상 동작 확인
+    └── read-status.load.js    # 평시 부하 — 전/후 비교 본체
+```
+
+결과는 `docs/loadtest/runs/<YYYY-MM-DD-HHmmss>-<label>/` 에 `summary.md`·`summary.json`·`run-meta.txt` 로 자동 저장된다(시각 포함 → 재실행해도 덮어쓰지 않음).
+
+### 실행
+
+인증 우선순위는 `K6_TOKEN > K6_MEMBER_ID > K6_EMAIL/K6_PASSWORD`. local 에서는 `K6_MEMBER_ID`(권장)로 `GET /test/token/access?memberId=` 를 통해 비밀번호 없이 토큰을 발급한다. 대상 공지·챌린저 데이터는 시딩 API(ADR-017)로 준비한다.
+
+```bash
+# smoke — 먼저 토큰/경로/응답 정상 확인
+K6_MEMBER_ID=1 K6_NOTICE_ID=1 \
+  loadtest/run.sh loadtest/scenarios/notice/read-status.smoke.js notice-read-status-smoke
+
+# load — 전/후 비교 본체
+K6_MEMBER_ID=1 K6_NOTICE_ID=1 K6_RATE=20 \
+  loadtest/run.sh loadtest/scenarios/notice/read-status.load.js notice-read-status-before
+
+# 리팩토링 후 동일 조건으로 재실행 → -after
+
+# 전/후 비교 (run.sh 가 출력한 실제 디렉토리 경로 사용)
+loadtest/compare.sh \
+  docs/loadtest/runs/<...>-before \
+  docs/loadtest/runs/<...>-after
+```
+
+주요 env:
+
+| 변수 | 기본값 | 설명 |
+|------|--------|------|
+| `K6_BASE_URL` | `http://localhost:8080` | 대상 서버 origin |
+| `K6_NOTICE_ID` | `1` | 테스트 대상 공지 ID |
+| `K6_MEMBER_ID` | (없음) | (권장, local) `/test/token/access` 로 토큰 발급할 memberId |
+| `K6_EMAIL` / `K6_PASSWORD` | (없음) | 이메일 로그인 계정 (test 토큰 API 가 없는 staging 등) |
+| `K6_TOKEN` | (없음) | 직접 주입 시 발급 과정 생략 |
+| `K6_TOKEN_TTL_MIN` | (없음) | 발급 토큰 만료(분). soak 시 테스트 길이보다 크게 |
+| `K6_RATE` | `20` | (load) 목표 RPS |
+| `K6_DURATION` | `2m` | (load) 평시 부하 유지 구간 |
+| `K6_PREALLOC_VUS` / `K6_MAX_VUS` | `50` / `200` | (load) arrival-rate 용 VU 풀 |
+| `K6_TESTID` | `local-adhoc` | 실행 식별 태그(전/후 구분) |
+
+### 부하 모델과 지표 범위
+
+- executor 는 `ramping-arrival-rate` — 위 "부하 방식" 결정과 동일한 이유(coordinated omission 회피). 전/후를 **동일 부하**에서 비교하는 것이 목적이므로 `K6_RATE`·`K6_DURATION`·시드 규모를 두 실행에서 동일하게 고정한다.
+- **k6 로 측정되지 않는 것**: 요청당 SQL 실행 수, DB connection 사용량 등 서버 내부 지표. **P6Spy 로그 / Actuator / Prometheus** 에서 별도 확인해 각 `summary.md` 의 "서버측 지표" 칸에 기입한다. (P0 리팩토링의 "쿼리 수 감소" 근거는 여기서 나온다.)

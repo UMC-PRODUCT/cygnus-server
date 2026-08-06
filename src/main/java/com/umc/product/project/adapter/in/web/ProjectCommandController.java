@@ -216,7 +216,7 @@ public class ProjectCommandController {
     @Operation(
         operationId = "PROJECT-109",
         summary = "프로젝트 삭제",
-        description = "DRAFT / PENDING_REVIEW 상태의 프로젝트를 hard delete 합니다. 연관 ProjectMember / PartQuota / ApplicationForm + survey Form 까지 cascade 삭제. PO 본인 또는 운영진(본인 지부장 / 해당 기수 총괄단)만 호출 가능. IN_PROGRESS 이상은 abort 엔드포인트 사용."
+        description = "DRAFT / PENDING_REVIEW 상태의 프로젝트를 hard delete 합니다. 연관 ProjectMember / PartQuota / ApplicationForm + form Form 까지 cascade 삭제. PO 본인 또는 운영진(본인 지부장 / 해당 기수 총괄단)만 호출 가능. IN_PROGRESS 이상은 abort 엔드포인트 사용."
     )
     @CheckAccess(
         resourceType = ResourceType.PROJECT,

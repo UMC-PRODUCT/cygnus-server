@@ -5,7 +5,6 @@ import java.util.List;
 
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
@@ -17,7 +16,6 @@ import com.umc.product.global.observability.W3CTraceparent;
 import io.micrometer.tracing.Tracer;
 
 @Component
-@ConditionalOnProperty(name = "app.event-outbox.enabled", havingValue = "true")
 public class OutboxDomainEventPublisher implements DomainEventPublisher {
 
     private final SaveEventOutboxPort saveEventOutboxPort;

@@ -7,7 +7,7 @@ public interface ManageNoticeVoteResponseUseCase {
 
     /**
      * 공지사항 투표에 응답을 제출합니다.
-     * 투표 기간(OPEN) 및 중복 응답 여부를 검증한 후 Survey UseCase로 위임합니다.
+     * 투표 기간(OPEN) 및 중복 응답 여부를 검증한 후 Form UseCase로 위임합니다.
      *
      * @return 생성된 FormResponse ID
      */

@@ -49,7 +49,7 @@ public class ScheduledTaskTracer {
             try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {
                 task.run();
             } catch (RuntimeException e) {
-                span.error(e);
+                ObservabilityErrorSanitizer.record(span, e);
                 throw e;
             } finally {
                 span.end();

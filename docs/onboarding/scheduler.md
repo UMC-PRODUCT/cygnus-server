@@ -22,9 +22,8 @@
 | authentication | `EmailVerificationRetentionScheduler` | 매일 03:00 KST | scheduling enabled profile | 만료 인증 세션 회수. 저빈도 정리 잡으로 적절하다. |
 | curriculum | `WorkbookAutoReleaseScheduler` | 매일 00:00 KST | scheduling enabled profile | 워크북 자동 배포. 저빈도 도메인 batch로 적절하다. |
 | notification | `FcmOutboxScheduler` | `app.fcm.outbox-interval-ms` | `app.fcm.enabled=true` | FCM outbox polling. FCM 미사용 환경에서는 scheduler bean 자체를 등록하지 않는다. |
-| global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.enabled=true` | persistent event outbox relay. 외부 broker 전환 전까지 허용되는 polling 작업이다. |
-| figma | `FigmaCommentSyncScheduler` | `app.figma.sync.poll-interval` | `app.figma.sync.enabled=true` | Figma comment window sync. 외부 API/LLM 호출이 포함되므로 interval과 실행 시간을 운영에서 모니터링해야 한다. |
-| figma | `FigmaCommentDispatchRetentionScheduler` | `app.figma.summary.retention-poll-interval` | `app.figma.sync.enabled=true` | dispatch dedup row 회수. sync가 꺼진 환경에서는 등록하지 않는다. |
+| notification | `FcmTokenValidationScheduler` | `app.fcm.token-validation-interval-ms` | `app.fcm.enabled=true`, `app.fcm.token-validation-enabled=true` | 오래 검증되지 않은 활성 토큰을 batch dry-run으로 검증한다. 다중 인스턴스에서는 전용 batch 인스턴스 한 곳에서만 활성화한다. |
+| global event | `EventOutboxPoller` | `app.event-outbox.poll-interval-ms` | `app.event-outbox.relay-enabled=true` (기본값) | persistent event outbox relay. 중지해도 publisher는 outbox 적재를 계속하며, 외부 broker 전환 전까지 허용되는 polling 작업이다. |
 
 ## Project 매칭 데드라인
 
@@ -51,13 +50,25 @@
 
 이 구조는 트랜잭션 rollback 후 유령 알림이 나가는 문제와 scheduler thread에서 외부 webhook I/O를 수행하는 문제를 줄인다. 여러 알림을 하나의 메시지로 묶는 기능이 다시 필요하면 메모리 큐가 아니라 event outbox 또는 별도 persistent aggregation 테이블을 사용한다.
 
+## FCM 배치 발송
+
+`FcmNotificationRequestedEvent`는 `TRANSACTIONAL` mode로 대상 조회와 batch outbox 저장을 현재 요청 outbox의 `PUBLISHED` 변경과 함께 commit한다. 실제 Firebase I/O를 수행하는 `FcmSendBatchRequestedEvent`만 `NON_TRANSACTIONAL` mode를 사용한다. batch listener는 DB 트랜잭션 밖에서 동기 실행되어 transient 발송 실패를 공용 event outbox 재시도로 연결하고, Firebase 응답 대기 중 JDBC connection을 점유하지 않는다. 무효 토큰의 `saveAll`과 event outbox 상태 변경만 각각 짧은 쓰기 트랜잭션으로 처리한다.
+
+발송 보장은 at-least-once다. Firebase 발송 성공 후 event outbox의 `PUBLISHED` 커밋이 실패하면 같은 batch 전체가 재시도되어 최대 500개 토큰에 중복 푸시가 발생할 수 있다. FCM API가 batch 요청의 멱등성 키를 제공하지 않으므로 현재 `requestId`는 서버 추적 용도로만 사용하며, 중복보다 누락 방지를 우선한다.
+
+Firebase multicast가 전체 예외를 던지면 현재 batch outbox가 `PENDING`으로 돌아가 공용 backoff 정책에 따라 재시도된다. 응답 안에서 일부 token만 `INTERNAL`, `UNAVAILABLE`, `QUOTA_EXCEEDED`로 실패하면 성공 token을 다시 보내지 않고 해당 token ID만 새 batch outbox에 저장한다. `UNREGISTERED` token은 재시도하지 않고 비활성화한다.
+
 ## 추가 기준
+
+Event Outbox의 생성부터 listener 소비, 실패 재시도까지의 상세 흐름은
+[Event Outbox 발행 및 소비 흐름](event-outbox-flow.md)을 참고한다.
 
 새 스케줄러를 추가할 때는 다음 기준을 따른다.
 
 - `@Scheduled` 진입점은 `adapter/in/scheduler`에 둔다.
 - disabled 상태에서 no-op polling만 반복하는 작업은 만들지 않는다. `@ConditionalOnProperty`로 bean 등록 자체를 막는다.
 - 외부 API, webhook, LLM처럼 지연 시간이 긴 I/O는 scheduler thread에서 직접 오래 점유하지 않는다. 필요하면 event listener나 전용 executor로 분리한다.
+- outbox listener에서 외부 I/O를 동기 실행해야 하면 `NON_TRANSACTIONAL` dispatch를 사용해 DB connection 점유를 피하고 예외를 relay 재시도로 연결한다.
 - 도메인별 1회성 동적 task가 필요하면 전역 `taskScheduler`를 공유할지 전용 `TaskScheduler`가 필요한지 먼저 판단한다.
 - 다중 인스턴스에서 중복 실행되면 안 되는 작업은 DB lease, unique constraint, outbox claim, ShedLock 중 하나로 방어한다.
 - 새 작업은 실행 주기, 활성 property, 멱등성 전략, 실패 재시도 전략을 이 문서에 추가한다.

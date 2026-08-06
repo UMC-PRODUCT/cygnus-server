@@ -1,14 +1,14 @@
 package com.umc.product.organization.application.port.in.command.dto;
 
-import java.time.Instant;
+import java.time.LocalDate;
 
 public record CreateUmcProductSquadCommand(
     Long requesterMemberId,
     String code,
     String name,
     String description,
-    Instant startAt,
-    Instant endAt,
+    LocalDate startDate,
+    LocalDate endDate,
     int sortOrder,
     boolean active
 ) {
@@ -17,8 +17,8 @@ public record CreateUmcProductSquadCommand(
         String code,
         String name,
         String description,
-        Instant startAt,
-        Instant endAt,
+        LocalDate startDate,
+        LocalDate endDate,
         int sortOrder,
         boolean active
     ) {
@@ -27,8 +27,8 @@ public record CreateUmcProductSquadCommand(
             code,
             name,
             description,
-            startAt,
-            endAt,
+            startDate,
+            endDate,
             sortOrder,
             active
         );

@@ -3,6 +3,7 @@ package com.umc.product.project.application.port.in.query;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 
@@ -20,4 +21,8 @@ public interface GetProjectMemberUseCase {
      * 여러 프로젝트의 활성 멤버 목록을 projectId 기준으로 조회합니다.
      */
     Map<Long, List<ProjectMemberInfo>> listByProjectIds(Collection<Long> projectIds);
+
+    ProjectMemberInfo getByProjectIdAndMemberId(Long projectId, Long memberId);
+
+    Optional<ProjectMemberInfo> findByProjectIdAndMemberId(Long projectId, Long memberId);
 }

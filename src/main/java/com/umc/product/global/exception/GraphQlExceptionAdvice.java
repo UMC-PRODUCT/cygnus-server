@@ -1,8 +1,10 @@
 package com.umc.product.global.exception;
 
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import org.springframework.beans.BeanInstantiationException;
 import org.springframework.graphql.data.method.annotation.GraphQlExceptionHandler;
 import org.springframework.graphql.execution.ErrorType;
 import org.springframework.security.access.AccessDeniedException;
@@ -46,12 +48,24 @@ public class GraphQlExceptionAdvice {
     @GraphQlExceptionHandler({
         IllegalArgumentException.class,
         BindException.class,
-        ConstraintViolationException.class
+        ConstraintViolationException.class,
+        DateTimeParseException.class
     })
     public GraphQLError handleBadRequestException(Exception exception, DataFetchingEnvironment env) {
         log.warn("[GRAPHQL BAD REQUEST] path={}, message={}", env.getExecutionStepInfo().getPath(),
             exception.getMessage());
         return buildError(env, ErrorType.BAD_REQUEST, CommonErrorCode.BAD_REQUEST, exception.getMessage());
+    }
+
+    @GraphQlExceptionHandler(BeanInstantiationException.class)
+    public GraphQLError handleBeanInstantiationException(
+        BeanInstantiationException exception,
+        DataFetchingEnvironment env
+    ) {
+        if (exception.getCause() instanceof IllegalArgumentException cause) {
+            return handleBadRequestException(cause, env);
+        }
+        return handleUnhandledException(exception, env);
     }
 
     @GraphQlExceptionHandler(Exception.class)

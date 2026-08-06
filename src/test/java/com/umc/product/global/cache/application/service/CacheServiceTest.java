@@ -2,14 +2,16 @@ package com.umc.product.global.cache.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Duration;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
 import com.umc.product.global.cache.application.port.out.CacheStorePort;
 import com.umc.product.global.cache.domain.CacheKey;
 import com.umc.product.global.cache.domain.CacheLookup;
 import com.umc.product.global.cache.domain.CacheNamespace;
 import com.umc.product.global.cache.domain.CacheSpec;
-import java.time.Duration;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
 
 @DisplayName("CacheService")
 class CacheServiceTest {
@@ -20,16 +22,16 @@ class CacheServiceTest {
         FakeCacheStorePort storePort = new FakeCacheStorePort();
         CacheService cacheService = new CacheService(storePort);
         CacheSpec<String> spec = CacheSpec.of(
-            CacheNamespace.FIGMA_CLASSIFICATION,
+            CacheNamespace.GOOGLE_JWKS,
             String.class,
             Duration.ofMinutes(5),
             100L
         );
-        CacheKey key = CacheKey.from("comment-1");
+        CacheKey key = CacheKey.from("google");
 
         cacheService.put(spec, key, "auth");
         CacheLookup<String> hit = cacheService.get(spec, key);
-        cacheService.evict(CacheNamespace.FIGMA_CLASSIFICATION, key);
+        cacheService.evict(CacheNamespace.GOOGLE_JWKS, key);
         CacheLookup<String> miss = cacheService.get(spec, key);
 
         assertThat(hit).isInstanceOf(CacheLookup.Hit.class);

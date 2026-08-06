@@ -186,6 +186,8 @@ decorator:
   datasource:
     p6spy:
       enable-logging: ${P6SPY_ENABLE_LOGGING:false}
+      tracing:
+        include-parameter-values: false
 
 logging:
   level:
@@ -289,7 +291,6 @@ management:
         enabled: true
 
 app:
-  # Figma_댓글_dev_prod_중복_방지_계획 §L4: Discord embed footer 의 환경 라벨 ([ENV: ...]) 으로 노출됨.
   # spring.profiles.active 가 콤마 구분 다중 profile 일 수 있으므로 운영자가 단일 라벨을 명시적으로 override 가능.
   environment: ${APP_ENVIRONMENT:${SPRING_PROFILES_ACTIVE:local}}
 
@@ -396,6 +397,7 @@ app:
     enabled: ${API_RATE_LIMIT_ENABLED:true}
     include-paths:
       - /api/**
+      - /graphql
     exclude-paths:
       - /actuator/**
       - /docs
@@ -416,16 +418,36 @@ app:
       maximum-size: ${API_RATE_LIMIT_CACHE_MAXIMUM_SIZE:100000}
       expire-after-access: ${API_RATE_LIMIT_CACHE_EXPIRE_AFTER_ACCESS:PT10M}
 
+  websocket:
+    broker:
+      mode: ${WEBSOCKET_BROKER_MODE:simple}
+      relay:
+        host: ${WEBSOCKET_BROKER_RELAY_HOST:}
+        port: ${WEBSOCKET_BROKER_RELAY_PORT:}
+        tls-enabled: ${WEBSOCKET_BROKER_RELAY_TLS_ENABLED:true}
+        virtual-host: ${WEBSOCKET_BROKER_RELAY_VIRTUAL_HOST:}
+        system-login: ${WEBSOCKET_BROKER_RELAY_SYSTEM_LOGIN:}
+        system-password: ${WEBSOCKET_BROKER_RELAY_SYSTEM_PASSWORD:}
+        client-login: ${WEBSOCKET_BROKER_RELAY_CLIENT_LOGIN:}
+        client-password: ${WEBSOCKET_BROKER_RELAY_CLIENT_PASSWORD:}
+        system-heartbeat-send-interval: ${WEBSOCKET_BROKER_RELAY_HEARTBEAT_SEND_INTERVAL:PT10S}
+        system-heartbeat-receive-interval: ${WEBSOCKET_BROKER_RELAY_HEARTBEAT_RECEIVE_INTERVAL:PT10S}
+        startup-timeout: ${WEBSOCKET_BROKER_RELAY_STARTUP_TIMEOUT:PT5S}
+
   event-outbox:
-    enabled: ${EVENT_OUTBOX_ENABLED:false}
-    poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:5000}
+    relay-enabled: ${EVENT_OUTBOX_RELAY_ENABLED:true}
+    poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${EVENT_OUTBOX_BATCH_SIZE:100}
     max-attempts: ${EVENT_OUTBOX_MAX_ATTEMPTS:5}
 
   fcm:
     enabled: ${FCM_ENABLED:false}
     outbox-interval-ms: ${FCM_OUTBOX_INTERVAL_MS:60000}
-    firebase-configuration: ${FIREBASE_CONFIGURATION}
+    token-validation-enabled: ${FCM_TOKEN_VALIDATION_ENABLED:true}
+    token-validation-interval-ms: ${FCM_TOKEN_VALIDATION_INTERVAL_MS:86400000}
+    token-validation-batch-size: ${FCM_TOKEN_VALIDATION_BATCH_SIZE:500}
+    token-validation-stale-duration: ${FCM_TOKEN_VALIDATION_STALE_DURATION:P30D}
+    firebase-configuration: ${FIREBASE_CONFIGURATION:}
 
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}
@@ -489,31 +511,6 @@ app:
       requests-per-minute: ${LLM_RATE_LIMIT_RPM:10}
       burst: ${LLM_RATE_LIMIT_BURST:5}
 
-  figma:
-    oauth:
-      client-id: ${FIGMA_OAUTH_CLIENT_ID:}
-      client-secret: ${FIGMA_OAUTH_CLIENT_SECRET:}
-      redirect-uri: ${FIGMA_OAUTH_REDIRECT_URI:http://localhost:8080/api/v1/admin/figma/oauth/callback}
-      scope: ${FIGMA_OAUTH_SCOPE:}
-      authorize-uri: https://www.figma.com/oauth
-      token-uri: https://api.figma.com/v1/oauth/token
-      refresh-uri: https://api.figma.com/v1/oauth/refresh
-      token-encryption-key: ${FIGMA_TOKEN_ENCRYPTION_KEY} # 필수 — 기본값 없음. 미설정 시 애플리케이션 기동 실패.
-    sync:
-      enabled: ${FIGMA_SYNC_ENABLED:false}
-      poll-interval: ${FIGMA_SYNC_POLL_INTERVAL:PT5M}
-      max-files-per-run: ${FIGMA_SYNC_MAX_FILES_PER_RUN:50}
-    summary:
-      # ADR-004 §Implementation Plan §7: dispatch 회수 보존 기간 (90일 기본)
-      dispatch-retention: ${FIGMA_DISPATCH_RETENTION:P90D}
-      # 회수 잡 실행 주기 (기본 24시간)
-      retention-poll-interval: ${FIGMA_RETENTION_POLL_INTERVAL:PT24H}
-    classifier:
-      # LLM_분류_캐시_점검_보고서 §3.7: 운영 중 튜닝을 위한 외부화 (기본값은 보고서 §1.3 과 동일)
-      cache:
-        max-size: ${FIGMA_CLASSIFIER_CACHE_MAX_SIZE:10000}
-        ttl: ${FIGMA_CLASSIFIER_CACHE_TTL:PT5M}
-
   notification:
     # 인증 이메일 등 SES v2 발송 설정.
     # access-key/secret을 비워두면 DefaultCredentialsProvider 체인(IAM Role / IRSA / 환경변수 등)으로 폴백한다.
@@ -529,6 +526,14 @@ app:
         no-reply-address: ${EMAIL_NO_REPLY_ADDRESS}
         no-reply-display-name: ${EMAIL_NO_REPLY_DISPLAY_NAME:University MakeUs Challenge}
 
+  ssm:
+    region: ${SSM_REGION:${S3_REGION:ap-northeast-2}}
+    access-key-id: ${SSM_ACCESS_KEY_ID:}
+    secret-access-key: ${SSM_SECRET_ACCESS_KEY:}
+
+certificate:
+  verification-url-template: "${CERTIFICATE_VERIFICATION_URL_TEMPLATE:/api/v1/certificates/verify/{serialNumber}}"
+
 storage:
   provider: ${STORAGE_PROVIDER:s3}
 
@@ -540,8 +545,9 @@ storage:
     cloudfront:
       enabled: ${AWS_CLOUDFRONT_ENABLED:false}
       distribution-domain: ${AWS_CLOUDFRONT_DISTRIBUTION_DOMAIN:cdn.umc.it.kr}
-      private-key: ${CDN_PRIVATE_KEY}
-      key-pair-id: ${CDN_KEY_PAIR_ID}
+      key-pair-id: ${CDN_KEY_PAIR_ID:}
+      private-key: ${CDN_PRIVATE_KEY:}
+      private-key-parameter-name: ${CDN_PRIVATE_KEY_PARAMETER_NAME:/umc/common/cloudfront/private-key}
 
 
 # ==================================================================
@@ -633,3 +639,8 @@ decorator:
   datasource:
     p6spy:
       enable-logging: ${P6SPY_ENABLE_LOGGING:true}
+
+app:
+  websocket:
+    broker:
+      mode: ${WEBSOCKET_BROKER_MODE:simple}

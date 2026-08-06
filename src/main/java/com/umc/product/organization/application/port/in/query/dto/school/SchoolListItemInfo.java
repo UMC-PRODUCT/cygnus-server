@@ -5,6 +5,7 @@ import java.time.Instant;
 public record SchoolListItemInfo(
     Long schoolId,
     String schoolName,
+    String shortName,
     Long chapterId,        // 활성 기수에 속하지 않으면 null
     String chapterName,    // 활성 기수에 속하지 않으면 null
     Instant createdAt,
@@ -15,7 +16,7 @@ public record SchoolListItemInfo(
 
     public SchoolListItemInfo withLogoImageUrl(String logoImageUrl) {
         return new SchoolListItemInfo(
-            schoolId, schoolName, chapterId, chapterName,
+            schoolId, schoolName, shortName, chapterId, chapterName,
             createdAt, isActive, remark, logoImageUrl
         );
     }

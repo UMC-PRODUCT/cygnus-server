@@ -7,6 +7,10 @@ public final class SecurityPathConfig {
 
     public static final String SCALAR_ENTRY_PATH = "/docs";
     public static final String SCALAR_ENTRY_SLASH_PATH = "/docs/";
+    public static final String ASYNCAPI_ENTRY_PATH = "/docs/asyncapi";
+    public static final String ASYNCAPI_ENTRY_SLASH_PATH = "/docs/asyncapi/";
+    public static final String ASYNCAPI_HTML_PATH = "/docs/asyncapi.html";
+    public static final String ASYNCAPI_DOCUMENT_PATH = "/docs/asyncapi.yaml";
     public static final String SCALAR_DOCUMENTATION_PATTERN = "/docs/**";
     public static final String OPENAPI_JSON_PATH = "/docs-json";
     public static final String OPENAPI_JSON_PATTERN = "/docs-json/**";
@@ -45,7 +49,8 @@ public final class SecurityPathConfig {
         Stream.concat(
             Stream.of(
                 "/actuator/**",
-                "/error"
+                "/error",
+                "/ws/**"
             ),
             DOCUMENTATION_PATHS.stream()
         ),
@@ -55,7 +60,7 @@ public final class SecurityPathConfig {
     public static final List<String> MAINTENANCE_ALWAYS_ALLOW_PATHS = Stream.concat(
         Stream.of(
             "/api/v1/system/status",
-            "/api/v1/admin/maintenance/**",
+            "/api/v1/maintenance/admin/**",
             "/api/v1/auth/sso/oauth/**",
             "/api/v1/auth/sso/**",
             "/api/v1/auth/**",

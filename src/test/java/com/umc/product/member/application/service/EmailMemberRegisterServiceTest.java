@@ -80,6 +80,7 @@ class EmailMemberRegisterServiceTest {
             10L,
             "중앙",
             "테스트대학교",
+            null,
             1L,
             null,
             null,

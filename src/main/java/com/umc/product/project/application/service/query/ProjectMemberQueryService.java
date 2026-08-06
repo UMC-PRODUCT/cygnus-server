@@ -80,4 +80,15 @@ public class ProjectMemberQueryService implements GetRandomMatchedProjectMemberU
                 LinkedHashMap::new
             ));
     }
+
+    @Override
+    public ProjectMemberInfo getByProjectIdAndMemberId(Long projectId, Long memberId) {
+        return ProjectMemberInfo.from(loadProjectMemberPort.getByProjectIdAndMemberId(projectId, memberId));
+    }
+
+    @Override
+    public Optional<ProjectMemberInfo> findByProjectIdAndMemberId(Long projectId, Long memberId) {
+        return loadProjectMemberPort.findByProjectIdAndMemberId(projectId, memberId)
+            .map(ProjectMemberInfo::from);
+    }
 }

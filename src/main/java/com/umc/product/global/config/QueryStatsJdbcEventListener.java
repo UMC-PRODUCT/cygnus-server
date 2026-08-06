@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import com.p6spy.engine.common.PreparedStatementInformation;
 import com.p6spy.engine.common.StatementInformation;
 import com.p6spy.engine.event.JdbcEventListener;
+import com.umc.product.global.observability.ObservabilityErrorSanitizer;
 import com.umc.product.global.observability.ObservabilityTracingProperties;
 
 import io.micrometer.tracing.Span;
@@ -170,7 +171,7 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
             .start();
 
         if (tracingProperties.isIncludeSql()) {
-            span.tag("db.statement", limitSql(sql));
+            span.tag("db.statement", limitSql(SqlLogRedactor.redact(sql)));
         }
 
         Tracer.SpanInScope scope = tracer.withSpan(span);
@@ -188,7 +189,7 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
         try {
             context.span().tag("db.query.elapsed_ms", String.valueOf(timeElapsedNanos / 1_000_000L));
             if (e != null) {
-                context.span().error(e);
+                ObservabilityErrorSanitizer.record(context.span(), e);
             }
         } finally {
             context.scope().close();

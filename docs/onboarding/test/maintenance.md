@@ -53,11 +53,11 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [64](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L64) | AdminMaintenanceController 통합 테스트 / SUPER ADMIN 은 점검을 생성하고 종료할 수 있다 | HTTP POST /api/v1/admin/maintenance; HTTP PATCH /api/v1/admin/maintenance/ | 성공: HTTP 200 OK |
-| [93](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L93) | AdminMaintenanceController 통합 테스트 / 일반 사용자는 점검 생성 시도시 403 | HTTP POST /api/v1/admin/maintenance | 실패: HTTP 403 Forbidden |
-| [110](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L110) | 겹치는 시간대의 점검을 만들면 409 | HTTP POST /api/v1/admin/maintenance | 실패: HTTP 200 OK; HTTP 409 Conflict |
-| [138](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L138) | 종료가 시작보다 빠르면 400 | HTTP POST /api/v1/admin/maintenance | 실패: HTTP 400 Bad Request |
-| [156](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L156) | 윈도우 목록은 SUPER ADMIN 만 조회 가능 | HTTP GET /api/v1/admin/maintenance | 실패: HTTP 200 OK; HTTP 403 Forbidden |
+| [64](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L64) | AdminMaintenanceController 통합 테스트 / SUPER ADMIN 은 점검을 생성하고 종료할 수 있다 | HTTP POST /api/v1/maintenance/admin; HTTP PATCH /api/v1/maintenance/admin/ | 성공: HTTP 200 OK |
+| [93](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L93) | AdminMaintenanceController 통합 테스트 / 일반 사용자는 점검 생성 시도시 403 | HTTP POST /api/v1/maintenance/admin | 실패: HTTP 403 Forbidden |
+| [110](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L110) | 겹치는 시간대의 점검을 만들면 409 | HTTP POST /api/v1/maintenance/admin | 실패: HTTP 200 OK; HTTP 409 Conflict |
+| [138](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L138) | 종료가 시작보다 빠르면 400 | HTTP POST /api/v1/maintenance/admin | 실패: HTTP 400 Bad Request |
+| [156](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/AdminMaintenanceControllerIntegrationTest.java#L156) | 윈도우 목록은 SUPER ADMIN 만 조회 가능 | HTTP GET /api/v1/maintenance/admin | 실패: HTTP 200 OK; HTTP 403 Forbidden |
 
 ### MaintenanceFilterIntegrationTest
 - 테스트 설명: MaintenanceFilter 통합 테스트
@@ -71,7 +71,7 @@
 | [82](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L82) | MaintenanceFilter 통합 테스트 / FULL 점검중 SUPER ADMIN 토큰이면 필터를 통과한다 | HTTP GET /api/v1/challenger/me | 성공: 검증 assertThat(actualStatus).isNotEqualTo(503); |
 | [101](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L101) | MaintenanceFilter 통합 테스트 / PER DOMAIN 점검은 지정되지 않은 도메인 요청을 차단하지 않는다 | HTTP GET /api/v1/challenger/me | 성공: 검증 assertThat(actualStatus).isNotEqualTo(503); |
 | [112](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L112) | PER DOMAIN 점검은 지정된 도메인 요청을 503으로 차단 | HTTP GET /api/v1/notices/1 | 성공: isServiceUnavailable |
-| [123](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L123) | 어드민 점검 관리 경로는 점검중에도 항상 통과 | HTTP GET /api/v1/admin/maintenance | 성공: 검증 assertThat(actualStatus).isNotEqualTo(503); |
+| [123](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L123) | 어드민 점검 관리 경로는 점검중에도 항상 통과 | HTTP GET /api/v1/maintenance/admin | 성공: 검증 assertThat(actualStatus).isNotEqualTo(503); |
 | [135](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L135) | Actuator 경로는 점검중에도 항상 통과 | HTTP GET /actuator/health | 성공: 검증 assertThat(actualStatus).isNotEqualTo(503); |
 | [145](../../../src/test/java/com/umc/product/maintenance/adapter/in/web/filter/MaintenanceFilterIntegrationTest.java#L145) | FULL 점검 중에도 약관 조회는 점검 필터를 통과한다 | HTTP GET /api/v1/terms | 성공: HTTP 200 OK |
 

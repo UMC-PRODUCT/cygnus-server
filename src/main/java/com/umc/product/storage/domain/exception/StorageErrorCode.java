@@ -17,6 +17,7 @@ public enum StorageErrorCode implements BaseCode {
     FILE_ALREADY_UPLOADED(HttpStatus.BAD_REQUEST, "STORAGE-0003", "이미 업로드가 끝난 파일이에요. 파일 정보를 확인해주세요."),
     FILE_DELETE_FORBIDDEN(HttpStatus.FORBIDDEN, "STORAGE-0013",
         "파일을 삭제할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."),
+    FILE_USE_FORBIDDEN(HttpStatus.FORBIDDEN, "STORAGE-0016", "이 파일을 사용할 권한이 없어요. 본인이 업로드한 파일만 사용할 수 있어요."),
 
     // 파일 검증 에러
     INVALID_FILE_EXTENSION(HttpStatus.BAD_REQUEST, "STORAGE-0004", "지원하지 않는 파일 형식이에요. 다른 파일을 선택해주세요."),

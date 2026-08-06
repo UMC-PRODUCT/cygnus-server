@@ -2,6 +2,7 @@ package com.umc.product.member.adapter.out.persistence;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -16,7 +17,12 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.challenger.domain.QChallenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.MemberStatus;
+import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
+import com.umc.product.member.application.port.out.dto.MemberInvitationCandidate;
+import com.umc.product.member.application.port.out.dto.MemberInvitationCandidatePage;
+import com.umc.product.member.application.port.out.dto.SearchMemberInvitationCondition;
 import com.umc.product.member.domain.Member;
 import com.umc.product.member.domain.QMember;
 import com.umc.product.organization.domain.QChapterSchool;
@@ -121,6 +127,97 @@ public class MemberQueryRepository {
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
+    public Page<Long> searchMemberIdsBy(
+        SearchMemberQuery query,
+        MemberSearchAccessScope scope,
+        Pageable pageable
+    ) {
+        if (scope.denied()) {
+            return Page.empty(pageable);
+        }
+        if (scope.unrestricted()) {
+            return searchMemberIdsBy(query, pageable);
+        }
+
+        QChallenger challenger = QChallenger.challenger;
+        QMember member = QMember.member;
+        BooleanBuilder condition = buildSearchCondition(query, challenger, member);
+        condition.and(buildAccessCondition(scope, challenger, member));
+
+        List<Tuple> rows = queryFactory
+            .select(member.id, member.schoolId, member.name)
+            .distinct()
+            .from(member)
+            .leftJoin(challenger).on(challenger.memberId.eq(member.id))
+            .where(condition)
+            .orderBy(member.schoolId.asc(), member.name.asc(), member.id.asc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
+
+        List<Long> content = rows.stream()
+            .map(tuple -> tuple.get(member.id))
+            .toList();
+
+        Long total = queryFactory
+            .select(member.id.countDistinct())
+            .from(member)
+            .leftJoin(challenger).on(challenger.memberId.eq(member.id))
+            .where(condition)
+            .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    public MemberInvitationCandidatePage searchInvitationCandidates(
+        SearchMemberInvitationCondition condition
+    ) {
+        QMember member = QMember.member;
+        BooleanBuilder predicate = new BooleanBuilder()
+            .and(member.status.eq(MemberStatus.ACTIVE))
+            .and(memberNameContains(condition.keyword(), member))
+            .and(memberIdNotIn(condition.excludedMemberIds(), member));
+
+        List<MemberInvitationCandidate> items = queryFactory
+            .select(member.id, member.name)
+            .from(member)
+            .where(predicate)
+            .orderBy(member.name.asc(), member.id.asc())
+            .offset(condition.offset())
+            .limit(condition.limit())
+            .fetch()
+            .stream()
+            .map(row -> new MemberInvitationCandidate(
+                row.get(member.id),
+                row.get(member.name)
+            ))
+            .toList();
+
+        Long total = queryFactory
+            .select(member.count())
+            .from(member)
+            .where(predicate)
+            .fetchOne();
+
+        return new MemberInvitationCandidatePage(items, total != null ? total : 0L);
+    }
+
+    public Set<Long> findActiveMemberIds(Set<Long> memberIds) {
+        if (memberIds.isEmpty()) {
+            return Set.of();
+        }
+
+        QMember member = QMember.member;
+        return Set.copyOf(queryFactory
+            .select(member.id)
+            .from(member)
+            .where(
+                member.id.in(memberIds),
+                member.status.eq(MemberStatus.ACTIVE)
+            )
+            .fetch());
+    }
+
     // ========= PRIVATE ============
 
     // 필터링
@@ -136,6 +233,24 @@ public class MemberQueryRepository {
         return builder;
     }
 
+    private BooleanExpression buildAccessCondition(
+        MemberSearchAccessScope scope,
+        QChallenger challenger,
+        QMember member
+    ) {
+        BooleanExpression schoolCondition = scope.allowedSchoolIds().isEmpty()
+            ? null
+            : member.schoolId.in(scope.allowedSchoolIds());
+        BooleanExpression gisuCondition = scope.allowedGisuIds().isEmpty()
+            ? null
+            : challenger.gisuId.in(scope.allowedGisuIds());
+
+        if (schoolCondition == null) {
+            return gisuCondition != null ? gisuCondition : member.id.isNull();
+        }
+        return gisuCondition == null ? schoolCondition : schoolCondition.or(gisuCondition);
+    }
+
     // 검색 관련 조건
     private BooleanExpression keywordContains(String keyword, QMember member) {
         if (keyword == null || keyword.isBlank()) {
@@ -145,6 +260,18 @@ public class MemberQueryRepository {
         return member.name.containsIgnoreCase(keyword)
             .or(member.nickname.containsIgnoreCase(keyword))
             .or(member.email.containsIgnoreCase(keyword));
+    }
+
+    private BooleanExpression memberNameContains(String keyword, QMember member) {
+        return keyword == null || keyword.isBlank()
+            ? null
+            : member.name.containsIgnoreCase(keyword);
+    }
+
+    private BooleanExpression memberIdNotIn(Set<Long> excludedMemberIds, QMember member) {
+        return excludedMemberIds == null || excludedMemberIds.isEmpty()
+            ? null
+            : member.id.notIn(excludedMemberIds);
     }
 
     private BooleanExpression chapterIdExists(Long chapterId, QMember member) {
@@ -175,4 +302,5 @@ public class MemberQueryRepository {
     private BooleanExpression schoolIdEq(Long schoolId, QMember member) {
         return schoolId != null ? member.schoolId.eq(schoolId) : null;
     }
+
 }

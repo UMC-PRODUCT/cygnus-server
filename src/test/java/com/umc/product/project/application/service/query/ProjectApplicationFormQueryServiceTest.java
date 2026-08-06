@@ -22,6 +22,10 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.FormStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
@@ -32,10 +36,6 @@ import com.umc.product.project.domain.enums.FormSectionType;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.domain.enums.FormStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationFormQueryServiceTest {

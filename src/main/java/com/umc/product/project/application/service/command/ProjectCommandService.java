@@ -14,6 +14,9 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.form.application.port.in.command.ManageFormUseCase;
+import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
+import com.umc.product.form.application.port.in.command.dto.PublishFormCommand;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
@@ -52,9 +55,6 @@ import com.umc.product.project.domain.ProjectPartQuota;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormUseCase;
-import com.umc.product.survey.application.port.in.command.dto.DeleteFormCommand;
-import com.umc.product.survey.application.port.in.command.dto.PublishFormCommand;
 
 import lombok.RequiredArgsConstructor;
 
@@ -139,7 +139,7 @@ public class ProjectCommandService implements
     /**
      * 호출자가 다른 챌린저를 PO 로 지정하는 경우 — 호출자의 운영진 role 과 target 의 scope 일치를 검증한다.
      * <ul>
-     *   <li>총괄단 이상(SUPER_ADMIN/총괄/부총괄): scope 무관 통과</li>
+     *   <li>전역 SUPER_ADMIN 또는 총괄단(총괄/부총괄): scope 무관 통과</li>
      *   <li>지부장(CHAPTER_PRESIDENT): target 의 chapter 가 본인 지부와 일치해야 함</li>
      *   <li>학교 회장단(회장/부회장): target 의 school 이 본인 학교와 일치해야 함</li>
      *   <li>그 외(일반 PLAN 챌린저 등): 다른 사람 임명 권한 없음 — 거부</li>
@@ -148,6 +148,10 @@ public class ProjectCommandService implements
     private void validateRequesterCanAssignTarget(
         Long requesterId, Long gisuId, Long targetSchoolId, Long targetChapterId
     ) {
+        if (getChallengerRoleUseCase.isSuperAdmin(requesterId)) {
+            return;
+        }
+
         List<ChallengerRoleInfo> requesterRoles = getChallengerRoleUseCase.findAllByMemberId(requesterId).stream()
             .filter(r -> Objects.equals(r.gisuId(), gisuId))
             .toList();
@@ -260,8 +264,8 @@ public class ProjectCommandService implements
     /**
      * 프로젝트 hard delete. DRAFT/PENDING_REVIEW 상태에서만 호출 가능하며 자식 row 들을 순서대로 정리한다.
      * <ol>
-     *   <li>ProjectApplicationForm 이 등록되어 있으면 Policy → ApplicationForm row → survey Form 순으로 정리.
-     *       (Form 삭제는 survey 도메인의 cascade 가 보장)</li>
+     *   <li>ProjectApplicationForm 이 등록되어 있으면 Policy → ApplicationForm row → form Form 순으로 정리.
+     *       (Form 삭제는 form 도메인의 cascade 가 보장)</li>
      *   <li>ProjectPartQuota 일괄 삭제</li>
      *   <li>ProjectMember 일괄 삭제</li>
      *   <li>Project 삭제</li>

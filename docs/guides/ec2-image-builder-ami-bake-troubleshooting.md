@@ -1,8 +1,8 @@
-# EC2 Image Builder로 UMC Product 서버 AMI Bake 하기
+# EC2 Image Builder로 UMC PRODUCT 서버 AMI Bake 하기
 
 ## 시작 상황
 
-UMC Product 서버를 EC2에서 Docker 컨테이너로 실행하려고 했어요. 처음에는 인스턴스 부팅 시 `user-data`에서 필요한 패키지를 설치하고, ECR에서 이미지를 받아 서버를 띄우는 방식이었어요.
+UMC PRODUCT 서버를 EC2에서 Docker 컨테이너로 실행하려고 했어요. 처음에는 인스턴스 부팅 시 `user-data`에서 필요한 패키지를 설치하고, ECR에서 이미지를 받아 서버를 띄우는 방식이었어요.
 
 대략 이런 흐름이었어요.
 
@@ -161,13 +161,13 @@ Pipeline = 이 과정을 언제 실행할지
 
 ## Component는 설치 스크립트 묶음이에요
 
-UMC Product 서버용 Component는 Docker, Compose v2, AWS CLI v2를 설치하고 검증하는 역할이에요.
+UMC PRODUCT 서버용 Component는 Docker, Compose v2, AWS CLI v2를 설치하고 검증하는 역할이에요.
 
 예시는 아래와 같아요.
 
 ```yaml
 name: install-umc-product-runtime
-description: Install runtime packages for UMC Product server
+description: Install runtime packages for UMC PRODUCT server
 schemaVersion: 1.0
 
 phases:

@@ -1,11 +1,13 @@
 package com.umc.product.llm.application.service;
 
+import java.time.Duration;
+
+import org.springframework.stereotype.Component;
+
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
-import java.time.Duration;
-import org.springframework.stereotype.Component;
 
 /**
  * LLM 호출 관측 메트릭 등록자.
@@ -55,7 +57,7 @@ public class LlmMetrics {
     }
 
     /**
-     * 활성 LLM provider 와 fallback 어댑터 진입 여부를 항상 노출되는 gauge 로 등록한다 (LLM_분류_캐시_점검_보고서 §3.6).
+     * 활성 LLM provider 와 fallback 어댑터 진입 여부를 항상 노출되는 gauge 로 등록한다.
      * <p>
      * {@code llm_active_provider_info{provider, fallback}} 으로 노출되며 값은 항상 1. 운영자는 라벨만으로 활성 provider 와 fallback 진입 사실을 즉시
      * 확인할 수 있다.

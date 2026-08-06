@@ -1,5 +1,16 @@
 package com.umc.product.organization.application.port.service.command;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.command.ManageChapterUseCase;
 import com.umc.product.organization.application.port.in.command.dto.CreateChapterCommand;
 import com.umc.product.organization.application.port.out.command.SaveChapterPort;
@@ -14,13 +25,8 @@ import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +39,8 @@ public class ChapterService implements ManageChapterUseCase {
     private final LoadChapterSchoolPort loadChapterSchoolPort;
     private final SaveChapterPort saveChapterPort;
     private final SaveChapterSchoolPort saveChapterSchoolPort;
+    private final GetMemberUseCase getMemberUseCase;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @Override
     public Long create(CreateChapterCommand command) {
@@ -52,6 +60,7 @@ public class ChapterService implements ManageChapterUseCase {
                 ChapterSchool chapterSchool = ChapterSchool.create(savedChapter, school);
                 saveChapterSchoolPort.save(chapterSchool);
             }
+            evictAuthoritySnapshotsBySchoolIds(new HashSet<>(command.schoolIds()));
         }
 
         return savedChapter.getId();
@@ -60,9 +69,14 @@ public class ChapterService implements ManageChapterUseCase {
     @Override
     public void delete(Long chapterId) {
         Chapter chapter = loadChapterPort.findById(chapterId);
+        Set<Long> schoolIds = loadChapterSchoolPort.findByGisuId(chapter.getGisu().getId()).stream()
+            .filter(chapterSchool -> Objects.equals(chapterSchool.getChapter().getId(), chapterId))
+            .map(chapterSchool -> chapterSchool.getSchool().getId())
+            .collect(Collectors.toSet());
 
         saveChapterSchoolPort.deleteAllByChapterId(chapterId);
         saveChapterPort.delete(chapter);
+        evictAuthoritySnapshotsBySchoolIds(schoolIds);
     }
 
     private void validateAllSchoolsExist(List<Long> requestedIds, List<School> foundSchools) {
@@ -97,5 +111,17 @@ public class ChapterService implements ManageChapterUseCase {
         if (!requestedSet.isEmpty()) {
             throw new OrganizationDomainException(OrganizationErrorCode.SCHOOL_ALREADY_ASSIGNED_TO_CHAPTER);
         }
+    }
+
+    private void evictAuthoritySnapshotsBySchoolIds(Set<Long> schoolIds) {
+        if (schoolIds.isEmpty()) {
+            return;
+        }
+
+        Set<Long> memberIds = getMemberUseCase.listIdsBySchoolIds(schoolIds).values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
+
+        evictAuthoritySnapshotCacheUseCase.evictByMemberIds(memberIds);
     }
 }

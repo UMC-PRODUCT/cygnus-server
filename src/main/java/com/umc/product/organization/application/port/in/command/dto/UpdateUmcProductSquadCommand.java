@@ -1,6 +1,6 @@
 package com.umc.product.organization.application.port.in.command.dto;
 
-import java.time.Instant;
+import java.time.LocalDate;
 
 public record UpdateUmcProductSquadCommand(
     Long squadId,
@@ -8,8 +8,8 @@ public record UpdateUmcProductSquadCommand(
     String code,
     String name,
     String description,
-    Instant startAt,
-    Instant endAt,
+    LocalDate startDate,
+    LocalDate endDate,
     Integer sortOrder,
     Boolean active
 ) {
@@ -19,8 +19,8 @@ public record UpdateUmcProductSquadCommand(
         String code,
         String name,
         String description,
-        Instant startAt,
-        Instant endAt,
+        LocalDate startDate,
+        LocalDate endDate,
         Integer sortOrder,
         Boolean active
     ) {
@@ -30,8 +30,8 @@ public record UpdateUmcProductSquadCommand(
             code,
             name,
             description,
-            startAt,
-            endAt,
+            startDate,
+            endDate,
             sortOrder,
             active
         );

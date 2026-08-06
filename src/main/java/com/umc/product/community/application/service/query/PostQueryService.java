@@ -1,5 +1,15 @@
 package com.umc.product.community.application.service.query;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -22,15 +32,8 @@ import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -78,7 +81,12 @@ public class PostQueryService implements GetPostDetailUseCase, GetPostListUseCas
 
         int commentCount = loadCommentPort.countByPostId(postId);
 
-        PostInfo postInfo = PostInfo.from(postWithAuthor.post(), memberProfile, authorChallengerInfo);
+        PostInfo postInfo = PostInfo.from(
+            postWithAuthor.post(),
+            memberProfile,
+            authorChallengerInfo,
+            postWithAuthor.liked()
+        );
 
         // 스크랩 정보 조회
         boolean isScrapped = loadScrapPort.existsByPostIdAndChallengerId(postId, challengerId);
@@ -142,7 +150,7 @@ public class PostQueryService implements GetPostDetailUseCase, GetPostListUseCas
 
         // 1. 게시글 ID 목록 추출
         List<Long> postIds = posts.stream()
-            .map(post -> post.getPostId().id())
+            .map(Post::getId)
             .toList();
 
         // 2. 게시글 ID -> 작성자 챌린저 ID 매핑 (1 query)
@@ -180,7 +188,7 @@ public class PostQueryService implements GetPostDetailUseCase, GetPostListUseCas
 
         // 9. PostInfo로 변환
         return posts.map(post -> {
-            Long postId = post.getPostId().id();
+            Long postId = post.getId();
             Long authorChallengerId = postIdToAuthorId.get(postId);
             AuthorDetails authorDetails = authorChallengerId != null ? authorDetailsMap.get(authorChallengerId) : null;
             String authorName = authorDetails != null ? authorDetails.name() : "알 수 없음";

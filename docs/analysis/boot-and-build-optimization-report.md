@@ -20,10 +20,10 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 ### 2.1 현황 분석
 
 #### 2.1.1 기본 정보
-- Spring Boot 버전: **3.5.9** (`build.gradle.kts:3`)
-- Java 버전: **21** (`build.gradle.kts:15`)
-- 주요 starter (10종): `web`, `validation`, `aop`, `actuator`, `security`, `data-jpa`, `mail`, `thymeleaf`, `cache`, `docker-compose` (`build.gradle.kts:56-156`)
-- 주요 외부 라이브러리: QueryDSL 5.1.0, jjwt 0.12.5, Flyway + PostGIS, p6spy 1.10.0, springdoc-openapi 2.8.17, AWS SDK v2 BOM, Google Cloud Storage, Firebase Admin SDK 9.7.1, **Spring AI 1.1.5 (OpenAI + VertexAI Gemini + Google GenAI 3종 동시 starter)**, micrometer-tracing-bridge-otel + OTLP exporter + Loki4j + Sentry + logstash-encoder, Caffeine, datafaker, BouncyCastle, hibernate-spatial/JTS
+- Spring Boot 버전: **3.5.15** ([Version Catalog](../../gradle/libs.versions.toml))
+- Java 버전: **21** ([build.gradle.kts](../../build.gradle.kts))
+- 주요 starter (11종): `web`, `validation`, `websocket`, `aop`, `actuator`, `security`, `data-jpa`, `graphql`, `thymeleaf`, `cache`, `docker-compose` ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts))
+- 주요 외부 라이브러리: QueryDSL 5.1.0, jjwt 0.13.0, Flyway + PostGIS, p6spy 1.10.0, springdoc-openapi 2.8.17, AWS SDK v2 BOM, Firebase Admin SDK 9.7.1, **Spring AI 1.1.8 (OpenAI + VertexAI Gemini + Google GenAI 3종 동시 starter)**, micrometer-tracing-bridge-otel + OTLP exporter + logstash-encoder 9.0, Caffeine, datafaker, BouncyCastle, hibernate-spatial/JTS ([Version Catalog](../../gradle/libs.versions.toml))
 
 #### 2.1.2 부팅 시간에 영향을 미치는 요소
 - `@SpringBootApplication` 위치: `src/main/java/com/umc/product/UmcProductApplication.java:7` → base package `com.umc.product` 전체(Java 소스 1,518개)를 component scan + `@ConfigurationPropertiesScan`
@@ -36,9 +36,9 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 - `ddl-auto: validate` (`application.yml:87`) — 73개 엔티티 metadata 검증
 - `hibernate.boot.allow_jdbc_metadata_access`, `temp.use_jdbc_metadata_defaults` 모두 **미설정**
 - AOT/Native, Lazy init: **미적용**
-- p6spy: 운영 환경 포함 모든 환경에서 활성화 (`build.gradle.kts:110`, `P6SpyConfig.java:11`)
+- p6spy: 운영 환경 포함 모든 환경에서 활성화 ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts), `P6SpyConfig.java:11`)
 - Actuator: `health,info,metrics,prometheus,tracing` 5종 노출 (`application.yml:237`), tracing sampling 1.0
-- Spring AI 3종 starter 동시 의존: 실제로는 단일 `LLM_PROVIDER` 사용 (`build.gradle.kts:151-153`, `application.yml:127-154`)
+- Spring AI 3종 starter 동시 의존: 실제로는 단일 `LLM_PROVIDER` 사용 ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts), `application.yml:127-154`)
 
 #### 2.1.3 현재 측정값
 - 로컬 부팅 시간: **미측정**
@@ -48,7 +48,7 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 ### 2.2 최적화 방안
 
 #### 2.2.1 Spring AI 멀티 provider starter 정리 — P1
-- **현황**: 동시 의존 3종 (`build.gradle.kts:151-153`). 실제 활성 provider는 `LLM_PROVIDER` 단일 값으로 결정. 미사용 starter도 `ChatModel`, `RetryTemplate`, WebClient/HTTP client, JSON parser 자동구성이 부팅 단계에서 평가됨.
+- **현황**: 동시 의존 3종 ([dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)). 실제 활성 provider는 `LLM_PROVIDER` 단일 값으로 결정. 미사용 starter도 `ChatModel`, `RetryTemplate`, WebClient/HTTP client, JSON parser 자동구성이 부팅 단계에서 평가됨.
 - **기대 효과**: starter 1~2개 제거 시 **-1.0~2.5초** (각 starter 자동구성 ≈ 300~800ms × 2~3, ChatClient/HttpClient init 포함).
 - **적용 난이도**: Low
 - **리스크**: provider 전환 시 빌드/배포 분리 또는 `@SpringBootApplication(exclude={...})` 누락 위험.
@@ -90,7 +90,7 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 - **우선순위**: **P2**
 
 #### 2.2.7 p6spy 운영 환경 비활성화 — P2
-- **현황**: `build.gradle.kts:110` `p6spy-spring-boot-starter`가 `implementation`으로 포함 → 모든 환경에서 DataSource가 P6DataSource로 wrapping. `P6SpyConfig.java:11` `@PostConstruct` 항상 실행.
+- **현황**: [dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)의 `p6spy-spring-boot-starter`가 `implementation`으로 포함 → 모든 환경에서 DataSource가 P6DataSource로 wrapping. `P6SpyConfig.java:11` `@PostConstruct` 항상 실행.
 - **기대 효과**: prod에서 비활성화 시 DataSource proxy 초기화 + per-query reflection wrapping 제거. 부팅 **-0.1~0.3초**, 운영 query latency **5~10% 개선** (보너스).
 - **적용 난이도**: Low (`decorator.datasource.p6spy.enable-logging: false` + `decorator.datasource.enabled: false` 프로필 분기)
 - **리스크**: prod 쿼리 로깅 필요 시 대체 수단 마련 — 이미 OTel tracing으로 SQL span 수집 가능.
@@ -140,7 +140,7 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 #### 2.2.14 이미 적용된 항목
 - `spring.jpa.open-in-view: false` (`application.yml:88`)
 - `server.shutdown: graceful` (`application.yml:9`)
-- QueryDSL Q클래스 compile-time 생성 (`build.gradle.kts:182`)
+- QueryDSL Q클래스 compile-time 생성 ([querydsl.gradle.kts](../../gradle/querydsl.gradle.kts))
 - `springdoc-openapi` 기본 비활성화 (`application.yml:175,198` `enabled=false`)
 
 ### 2.3 부팅 시간 최적화 요약표
@@ -173,7 +173,7 @@ UMC PRODUCT 백엔드의 **SpringBoot 부팅 시간**과 **Docker 빌드 시간*
 - Dockerfile 위치: `docker/app/dockerfile` (운영), `docker/dev/dockerfile` (개발용, 현재 미사용 추정)
 - 베이스 이미지: `amazoncorretto:21-alpine` (`docker/app/dockerfile:1`) — JDK 포함 (~330MB)
 - Multi-stage: **미사용** (CI에서 host의 `bootJar` 산출물만 COPY)
-- Layered jar: **미적용** (`build.gradle.kts`에 `bootJar { layered { } }` 블록 없음)
+- Layered jar: Gradle `bootJar` 설정은 **적용됨** ([build.gradle.kts](../../build.gradle.kts)). Dockerfile은 아직 fat jar 단일 COPY 방식이다.
 - BuildKit: CI에서 `docker/setup-buildx-action@v3` 적용 (`.github/workflows/ci.yml:152-153`)
 - Docker plugin (Jib/bootBuildImage): **미적용**
 
@@ -206,9 +206,9 @@ ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
 ### 3.2 최적화 방안
 
 #### 3.2.1 Spring Boot Layered Jar + Dockerfile 분리 COPY — P1
-- **현황**: 미적용. `build.gradle.kts:1-7`의 Spring Boot plugin은 있으나 `bootJar { layered { enabled = true } }` 블록 부재. `docker/app/dockerfile:15`에서 fat jar 단일 레이어 COPY.
+- **현황**: Gradle의 `bootJar { layered { enabled = true } }`는 적용되어 있다 ([build.gradle.kts](../../build.gradle.kts)). 다만 `docker/app/dockerfile:15`에서 fat jar를 단일 레이어로 COPY해 Docker layer 분리 효과는 아직 사용하지 않는다.
 - **기대 효과**: 의존성(`dependencies`, `snapshot-dependencies`, `spring-boot-loader`)과 `application` 클래스 분리 시 **재빌드에서 application 레이어(~5MB)만 갱신**. 일반 소스 변경 PR에서 push/pull 시간 60~80% 감소. ECR push 시 변경 레이어만 업로드되어 CI 후반부 **1~3분 단축** 예상.
-- **적용 난이도**: Low (Gradle 1줄 + Dockerfile 4~5줄 재구성)
+- **적용 난이도**: Low (남은 Dockerfile 4~5줄 재구성)
 - **리스크**: 거의 없음. `JarLauncher` 메인 클래스 변경 필요 (`org.springframework.boot.loader.launch.JarLauncher`).
 - **우선순위**: **P1**
 
@@ -276,7 +276,7 @@ ENTRYPOINT ["sh", "-c", "exec java $JAVA_OPTS -jar app.jar"]
 - **우선순위**: **P3**
 
 #### 3.2.11 `bootBuildImage` (Buildpacks) — P3 (비권장)
-- **현황**: 미적용. `build.gradle.kts:176-178`은 `springBoot { buildInfo() }`만 설정.
+- **현황**: 미적용. [build.gradle.kts](../../build.gradle.kts)는 `springBoot { buildInfo() }`와 layered `bootJar`만 설정한다.
 - **기대 효과**: Paketo Buildpack 기반 자동 layered + Memory Calculator. 다만 첫 빌드 시간이 길고, layered jar + Dockerfile 조합이 더 가벼운 경우 많음.
 - **적용 난이도**: Low
 - **리스크**: 베이스 이미지 통제력 약화, 한국어 timezone 등 커스터마이징 까다로움. 현 Dockerfile 커스텀 사항(`docker/app/dockerfile:8-12, 28-35`) 이전 어려움.

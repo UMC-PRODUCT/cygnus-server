@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
@@ -130,7 +132,7 @@ class ProjectPermissionEvaluatorTest {
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.DRAFT)));
 
-        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
         assertThat(sut.evaluate(subject, permission)).isFalse();
@@ -143,7 +145,7 @@ class ProjectPermissionEvaluatorTest {
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.DRAFT)));
 
-        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
@@ -310,8 +312,7 @@ class ProjectPermissionEvaluatorTest {
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.PENDING_REVIEW)));
 
-        // SUPER_ADMIN 은 과거 기수 role 이라도 글로벌 권한
-        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
@@ -350,6 +351,14 @@ class ProjectPermissionEvaluatorTest {
     @Test
     void WRITE는_총괄단_허용() {
         SubjectAttributes subject = subjectWith(1L, List.of(), List.of(centralCoreRole()));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
+
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    void WRITE는_SUPER_ADMIN_허용() {
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
@@ -863,6 +872,16 @@ class ProjectPermissionEvaluatorTest {
             .build();
     }
 
+    private SubjectAttributes superAdminSubject(Long memberId) {
+        return SubjectAttributes.builder()
+            .memberId(memberId)
+            .schoolId(1L)
+            .gisuChallengerInfos(List.of())
+            .roleAttributes(List.of())
+            .systemRoles(Set.of(SystemRoleType.SUPER_ADMIN))
+            .build();
+    }
+
     private GisuChallengerInfo gisuInfo(Long gisuId, Long chapterId,
                                         ChallengerPart part, Long challengerId) {
         return GisuChallengerInfo.builder()
@@ -880,14 +899,6 @@ class ProjectPermissionEvaluatorTest {
     private RoleAttribute centralCoreRoleInGisu(Long gisuId) {
         return new RoleAttribute(
             ChallengerRoleType.CENTRAL_PRESIDENT,
-            OrganizationType.CENTRAL,
-            null, null, gisuId
-        );
-    }
-
-    private RoleAttribute superAdminRoleInGisu(Long gisuId) {
-        return new RoleAttribute(
-            ChallengerRoleType.SUPER_ADMIN,
             OrganizationType.CENTRAL,
             null, null, gisuId
         );

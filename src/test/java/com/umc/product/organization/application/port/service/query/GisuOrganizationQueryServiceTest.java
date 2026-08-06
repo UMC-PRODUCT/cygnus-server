@@ -170,6 +170,7 @@ class GisuOrganizationQueryServiceTest {
             chapterId,
             chapterName,
             schoolName,
+            null,
             schoolId,
             "비고",
             "https://cdn.example.com/logo.png",

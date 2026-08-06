@@ -17,9 +17,11 @@ import com.umc.product.community.application.port.in.command.post.dto.CreatePost
 import com.umc.product.community.application.port.in.command.post.dto.UpdateLightningCommand;
 import com.umc.product.community.application.port.in.command.post.dto.UpdatePostCommand;
 import com.umc.product.community.application.port.in.query.dto.PostInfo;
+import com.umc.product.community.application.port.out.comment.SaveCommentPort;
 import com.umc.product.community.application.port.out.dto.PostWithAuthor;
 import com.umc.product.community.application.port.out.post.LoadPostPort;
 import com.umc.product.community.application.port.out.post.SavePostPort;
+import com.umc.product.community.application.port.out.scrap.SaveScrapPort;
 import com.umc.product.community.application.service.AuthorInfoProvider;
 import com.umc.product.community.domain.Post;
 import com.umc.product.community.domain.Post.LightningInfo;
@@ -37,6 +39,8 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
 
     private final LoadPostPort loadPostPort;
     private final SavePostPort savePostPort;
+    private final SaveCommentPort saveCommentPort;
+    private final SaveScrapPort saveScrapPort;
     private final AuthorInfoProvider authorInfoProvider;
 
     @Audited(
@@ -55,7 +59,7 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
             command.authorChallengerId()
         );
 
-        Post savedPost = savePostPort.save(post, command.authorChallengerId());
+        Post savedPost = savePostPort.save(post);
         String authorName = authorInfoProvider.getAuthorName(command.authorChallengerId());
         return PostInfo.from(savedPost, command.authorChallengerId(), authorName);
     }
@@ -86,7 +90,7 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
             command.authorChallengerId()
         );
 
-        Post savedPost = savePostPort.save(post, command.authorChallengerId());
+        Post savedPost = savePostPort.save(post);
         String authorName = authorInfoProvider.getAuthorName(command.authorChallengerId());
         return PostInfo.from(savedPost, command.authorChallengerId(), authorName);
     }
@@ -159,10 +163,12 @@ public class PostCommandService implements CreatePostUseCase, UpdatePostUseCase,
     )
     @Override
     public void deletePost(Long postId) {
-        loadPostPort.findById(postId)
+        Post post = loadPostPort.findById(postId)
             .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.POST_NOT_FOUND));
 
-        savePostPort.deleteById(postId);
+        saveCommentPort.deleteByPostId(postId);
+        saveScrapPort.deleteByPostId(postId);
+        savePostPort.delete(post);
     }
 
     @Override

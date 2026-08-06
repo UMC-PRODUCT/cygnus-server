@@ -3,6 +3,7 @@ package com.umc.product.global.security;
 import java.util.Collection;
 import java.util.Collections;
 
+import org.springframework.security.core.AuthenticatedPrincipal;
 import org.springframework.security.core.GrantedAuthority;
 
 import com.umc.product.common.domain.enums.ClientType;
@@ -12,7 +13,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-public class MemberPrincipal {
+public class MemberPrincipal implements AuthenticatedPrincipal {
 
     private final Long memberId;
 
@@ -39,6 +40,11 @@ public class MemberPrincipal {
 
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Collections.emptyList();
+    }
+
+    @Override
+    public String getName() {
+        return String.valueOf(memberId);
     }
 
     @Override

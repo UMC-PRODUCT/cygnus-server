@@ -15,21 +15,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
-import com.umc.product.authorization.domain.ChallengerRole;
-import com.umc.product.challenger.domain.Challenger;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.maintenance.application.port.out.SaveMaintenanceWindowPort;
 import com.umc.product.maintenance.application.service.MaintenanceStateHolder;
 import com.umc.product.maintenance.domain.MaintenanceDomain;
 import com.umc.product.maintenance.domain.MaintenanceScope;
 import com.umc.product.maintenance.domain.MaintenanceWindow;
+import com.umc.product.member.adapter.out.persistence.MemberSystemRoleJpaRepository;
 import com.umc.product.member.domain.Member;
-import com.umc.product.organization.domain.Gisu;
+import com.umc.product.member.domain.MemberSystemRole;
+import com.umc.product.member.domain.MemberSystemRoleType;
 import com.umc.product.support.IntegrationTestSupport;
-import com.umc.product.support.fixture.ChallengerFixture;
-import com.umc.product.support.fixture.GisuFixture;
 import com.umc.product.support.fixture.MemberFixture;
 
 @DisplayName("MaintenanceFilter 통합 테스트")
@@ -42,16 +37,10 @@ class MaintenanceFilterIntegrationTest extends IntegrationTestSupport {
     MaintenanceStateHolder maintenanceStateHolder;
 
     @Autowired
-    SaveChallengerRolePort saveChallengerRolePort;
-
-    @Autowired
     MemberFixture memberFixture;
 
     @Autowired
-    ChallengerFixture challengerFixture;
-
-    @Autowired
-    GisuFixture gisuFixture;
+    MemberSystemRoleJpaRepository memberSystemRoleJpaRepository;
 
     @Test
     void 점검중이_아닐_때_시스템_상태_조회는_정상_200() throws Exception {
@@ -128,7 +117,7 @@ class MaintenanceFilterIntegrationTest extends IntegrationTestSupport {
 
         // 비인증 호출이라 권한 검증으로 인해 403/401 등 다른 코드가 반환되어도
         // 필터에서 차단되지 않았음을 확인한다.
-        int actualStatus = mockMvc.perform(get("/api/v1/admin/maintenance"))
+        int actualStatus = mockMvc.perform(get("/api/v1/maintenance/admin"))
             .andReturn().getResponse().getStatus();
 
         assertThat(actualStatus).isNotEqualTo(503);
@@ -187,16 +176,8 @@ class MaintenanceFilterIntegrationTest extends IntegrationTestSupport {
     }
 
     private Long setUpSuperAdmin() {
-        Gisu gisu = gisuFixture.비활성_기수(99L);
         Member member = memberFixture.일반("super-admin-fixture");
-        Challenger challenger = challengerFixture.챌린저(member.getId(), ChallengerPart.WEB, gisu.getId());
-        saveChallengerRolePort.save(ChallengerRole.create(
-            challenger.getId(),
-            ChallengerRoleType.SUPER_ADMIN,
-            null,
-            null,
-            gisu.getId()
-        ));
+        memberSystemRoleJpaRepository.save(MemberSystemRole.create(member.getId(), MemberSystemRoleType.SUPER_ADMIN));
         return member.getId();
     }
 }
