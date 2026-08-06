@@ -51,7 +51,6 @@ CREATE TABLE public.recruiting_round
     interview_end_at             TIMESTAMP WITH TIME ZONE,
     final_result_published_at     TIMESTAMP WITH TIME ZONE,
     availability_form_id         BIGINT,
-    availability_schedule_question_id BIGINT,
     announcement                 TEXT,
     contact_text                 TEXT,
     CONSTRAINT pk_recruiting_round PRIMARY KEY (id),
@@ -85,7 +84,6 @@ CREATE TABLE public.recruiting_round
             AND interview_end_at IS NULL
             AND final_result_published_at IS NULL
             AND availability_form_id IS NULL
-            AND availability_schedule_question_id IS NULL
             AND NOT interview_required
         )
         OR (
@@ -95,18 +93,6 @@ CREATE TABLE public.recruiting_round
             AND final_result_published_at IS NOT NULL
             AND document_start_at < document_end_at
             AND document_end_at <= document_result_published_at
-            AND (
-                (
-                    availability_form_id IS NULL
-                    AND availability_schedule_question_id IS NULL
-                )
-                OR (
-                    availability_form_id IS NOT NULL
-                    AND availability_schedule_question_id IS NOT NULL
-                    AND availability_form_id > 0
-                    AND availability_schedule_question_id > 0
-                )
-            )
             AND (
                 (
                     interview_required
@@ -121,7 +107,6 @@ CREATE TABLE public.recruiting_round
                     AND interview_start_at IS NULL
                     AND interview_end_at IS NULL
                     AND availability_form_id IS NULL
-                    AND availability_schedule_question_id IS NULL
                     AND document_result_published_at <= final_result_published_at
                 )
             )
