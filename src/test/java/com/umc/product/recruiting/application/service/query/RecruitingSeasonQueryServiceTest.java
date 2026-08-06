@@ -24,9 +24,11 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
@@ -164,6 +166,44 @@ class RecruitingSeasonQueryServiceTest {
             assertThat(found.seasonId()).isEqualTo(100L);
             assertThat(found.round().id()).isEqualTo(200L);
         });
+    }
+
+    @Test
+    @DisplayName("차수 그룹 조회는 차수가 없는 시즌을 빈 차수 목록으로 포함하되, "
+        + "차수가 있는 시즌들의 기존 정렬(차수 등장 순서)은 그대로 유지하고 뒤에 덧붙인다")
+    void searchRoundGroupsIncludesEmptySeasonAfterPopulatedSeasonsInOriginalOrder() {
+        RecruitingSeason olderSeason = season(100L, 1L, 10L);
+        RecruitingSeason newerSeason = season(102L, 1L, 30L);
+        RecruitingSeason emptySeason = season(101L, 1L, 20L);
+        RecruitingRound olderRound = regularRound(olderSeason, 200L);
+        ReflectionTestUtils.setField(olderRound, "createdAt", Instant.parse("2026-07-01T00:00:00Z"));
+        RecruitingRound newerRound = regularRound(newerSeason, 201L);
+        ReflectionTestUtils.setField(newerRound, "createdAt", Instant.parse("2026-08-01T00:00:00Z"));
+        SubjectAttributes subject = SubjectAttributes.builder().memberId(99L).build();
+        given(getSchoolUseCase.getSchoolListByGisuId(1L)).willReturn(List.of(
+            school(7L, "A 지부", 10L, "A 학교"),
+            school(7L, "A 지부", 20L, "B 학교"),
+            school(7L, "A 지부", 30L, "C 학교")
+        ));
+        given(loadSeasonPort.listByGisuId(1L))
+            .willReturn(List.of(olderSeason, newerSeason, emptySeason));
+        given(checkPermissionUseCase.loadSubject(99L)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, readPermission(100L))).willReturn(true);
+        given(checkPermissionUseCase.check(subject, readPermission(101L))).willReturn(true);
+        given(checkPermissionUseCase.check(subject, readPermission(102L))).willReturn(true);
+        given(loadRoundPort.listBySeasonIds(List.of(100L, 102L, 101L)))
+            .willReturn(List.of(olderRound, newerRound));
+
+        var result = sut.searchRoundGroups(RecruitingRoundGroupSearchQuery.builder()
+            .gisuId(1L)
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(result).extracting(RecruitingSeasonSummaryInfo::seasonId)
+            .containsExactly(102L, 100L, 101L);
+        assertThat(result).filteredOn(found -> found.seasonId().equals(101L))
+            .singleElement()
+            .satisfies(found -> assertThat(found.rounds()).isEmpty());
     }
 
     @Test
