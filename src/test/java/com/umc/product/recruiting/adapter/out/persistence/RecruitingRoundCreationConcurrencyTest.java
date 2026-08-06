@@ -30,6 +30,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.service.command.RecruitingInterviewAvailabilityFormProvisioner;
 import com.umc.product.recruiting.application.service.command.RecruitingRoundCommandService;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
@@ -77,6 +78,8 @@ class RecruitingRoundCreationConcurrencyTest {
     GetFormUseCase getFormUseCase;
     @MockitoBean
     GetFormResponseUseCase getFormResponseUseCase;
+    @MockitoBean
+    RecruitingInterviewAvailabilityFormProvisioner availabilityFormProvisioner;
 
     @Test
     @DisplayName("동시 추가모집 생성은 Season lock으로 차수를 1부터 순차 배정한다")
