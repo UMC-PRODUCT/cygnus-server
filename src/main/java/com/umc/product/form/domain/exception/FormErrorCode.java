@@ -49,6 +49,20 @@ public enum FormErrorCode implements BaseCode {
         "조건부 섹션 이동은 자기 자신을 대상으로 할 수 없어요. 이동 대상 섹션을 다시 선택해주세요."),
     FORM_INVALID_TRANSITION(HttpStatus.CONFLICT, "FORM-0038", "현재 폼 상태에서는 할 수 없는 작업이에요."),
     FORM_HAS_RESPONSES(HttpStatus.CONFLICT, "FORM-0039", "응답이 있는 폼은 초안 상태로 되돌릴 수 없어요."),
+    INVALID_NEXT_SECTION_BACKWARD(HttpStatus.BAD_REQUEST, "FORM-0040",
+        "조건부 섹션 이동은 뒤 섹션으로만 갈 수 있어요. 앞이나 같은 위치 섹션은 선택할 수 없어요."),
+    MULTIPLE_BRANCHING_QUESTIONS_IN_SECTION(HttpStatus.BAD_REQUEST, "FORM-0041",
+        "한 섹션에는 조건부 이동을 지정한 질문을 하나만 둘 수 있어요. 다른 질문의 이동 설정을 먼저 해제해주세요."),
+    FORM_RESPONSE_ALREADY_CLAIMED(HttpStatus.CONFLICT, "FORM-0042",
+        "이미 다른 사용자에게 등록된 응답이에요. 응답을 다시 확인해주세요."),
+    DRAFT_SCHEMA_MISMATCH(HttpStatus.BAD_REQUEST, "FORM-0043",
+        "폼이 수정되었어요. 아래 질문의 답변을 다시 확인해주세요."),
+    FORM_RESPONSE_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "FORM-0044",
+        "이 응답이 방금 다른 곳에서 수정됐어요. 새로고침 후 다시 시도해주세요."),
+    FORM_RESPONSE_NOT_IN_FORM(HttpStatus.BAD_REQUEST, "FORM-0045",
+        "요청한 응답이 이 폼에 속해 있지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    FORM_RESPONSE_NOT_SUBMITTED(HttpStatus.BAD_REQUEST, "FORM-0046",
+        "아직 제출되지 않은 응답이 포함되어 있어요. 제출된 응답으로 다시 시도해주세요."),
     ;
 
     private final HttpStatus httpStatus;

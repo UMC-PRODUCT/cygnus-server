@@ -54,8 +54,8 @@ class AdminSchoolAnalyticsQueryRepositoryTest {
         Gisu gisu = em.persist(Gisu.create(7L, Instant.now().minusSeconds(3600), Instant.now().plusSeconds(86400), false));
         Chapter chapterA = em.persist(Chapter.create(gisu, "A지부"));
         Chapter chapterB = em.persist(Chapter.create(gisu, "B지부"));
-        School schoolA = em.persist(School.create("가천대학교", null));
-        School schoolB = em.persist(School.create("숭실대학교", null));
+        School schoolA = em.persist(School.create("가천대학교", null, null));
+        School schoolB = em.persist(School.create("숭실대학교", null, null));
         em.persist(ChapterSchool.create(chapterA, schoolA));
         em.persist(ChapterSchool.create(chapterB, schoolB));
         em.flush();

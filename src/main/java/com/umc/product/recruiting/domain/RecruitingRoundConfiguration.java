@@ -20,6 +20,7 @@ public record RecruitingRoundConfiguration(
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
     Long availabilityFormId,
+    Long availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
@@ -36,7 +37,8 @@ public record RecruitingRoundConfiguration(
             interviewRequired,
             interviewStartAt,
             interviewEndAt,
-            availabilityFormId
+            availabilityFormId,
+            availabilityScheduleQuestionId
         );
         boolean interviewWindowComplete = interviewStartAt != null && interviewEndAt != null;
         if (interviewRequired && interviewWindowComplete) {
@@ -64,6 +66,7 @@ public record RecruitingRoundConfiguration(
         Instant interviewEndAt,
         Instant finalResultPublishedAt,
         Long availabilityFormId,
+        Long availabilityScheduleQuestionId,
         String announcement,
         String contactText
     ) {
@@ -78,6 +81,38 @@ public record RecruitingRoundConfiguration(
             interviewEndAt,
             finalResultPublishedAt,
             availabilityFormId,
+            availabilityScheduleQuestionId,
+            announcement,
+            contactText
+        );
+    }
+
+    public static RecruitingRoundConfiguration of(
+        List<ChallengerTrack> recruitableTracks,
+        boolean secondChoiceEnabled,
+        Instant documentStartAt,
+        Instant documentEndAt,
+        Instant documentResultPublishedAt,
+        boolean interviewRequired,
+        Instant interviewStartAt,
+        Instant interviewEndAt,
+        Instant finalResultPublishedAt,
+        Long availabilityFormId,
+        String announcement,
+        String contactText
+    ) {
+        return of(
+            recruitableTracks,
+            secondChoiceEnabled,
+            documentStartAt,
+            documentEndAt,
+            documentResultPublishedAt,
+            interviewRequired,
+            interviewStartAt,
+            interviewEndAt,
+            finalResultPublishedAt,
+            availabilityFormId,
+            null,
             announcement,
             contactText
         );
@@ -134,7 +169,8 @@ public record RecruitingRoundConfiguration(
         boolean interviewRequired,
         Instant interviewStartAt,
         Instant interviewEndAt,
-        Long availabilityFormId
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
     ) {
         boolean interviewTimeMissing = interviewStartAt == null || interviewEndAt == null;
         if (interviewRequired && interviewTimeMissing) {
@@ -143,6 +179,18 @@ public record RecruitingRoundConfiguration(
 
         boolean interviewTimePresent = interviewStartAt != null || interviewEndAt != null;
         if (!interviewRequired && interviewTimePresent) {
+            throw invalidSchedule();
+        }
+
+        boolean availabilityMappingMissingPart = (availabilityFormId == null)
+            != (availabilityScheduleQuestionId == null);
+        if (availabilityMappingMissingPart) {
+            throw invalidSchedule();
+        }
+
+        boolean availabilityMappingNotPositive = availabilityFormId != null
+            && (availabilityFormId <= 0 || availabilityScheduleQuestionId <= 0);
+        if (availabilityMappingNotPositive) {
             throw invalidSchedule();
         }
 

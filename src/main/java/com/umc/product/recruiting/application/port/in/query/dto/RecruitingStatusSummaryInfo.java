@@ -8,6 +8,7 @@ import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 public record RecruitingStatusSummaryInfo(
     Long totalCount,
     Map<RecruitingApplicationStatus, Long> countByStatus,
+    List<RecruitingPartStatusSummaryInfo> parts,
     List<RecruitingSchoolStatusSummaryInfo> schools
 ) {
 }

@@ -80,7 +80,7 @@ class MemberServiceAuthorityCacheTest {
         given(loadMemberPort.findById(MEMBER_ID)).willReturn(Optional.of(member));
         given(getMemberOAuthUseCase.getOAuthList(MEMBER_ID)).willReturn(List.of());
         given(getSchoolUseCase.getSchoolDetail(SCHOOL_ID)).willReturn(new SchoolDetailInfo(
-            null, null, "테스트대학교", SCHOOL_ID, null, null, List.of(), true, null, null
+            null, null, "테스트대학교", null, SCHOOL_ID, null, null, List.of(), true, null, null
         ));
 
         sut.deleteMember(DeleteMemberCommand.builder().memberId(MEMBER_ID).build());

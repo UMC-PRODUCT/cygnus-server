@@ -89,7 +89,7 @@ class SchoolServiceTest {
         given(loadChapterPort.findById(CHAPTER_ID)).willReturn(chapter());
         given(getMemberUseCase.listIdsBySchoolId(SCHOOL_ID)).willReturn(Set.of(1L, 2L));
 
-        sut.updateSchool(SCHOOL_ID, new UpdateSchoolCommand("변경 학교", CHAPTER_ID, null, null, null));
+        sut.updateSchool(SCHOOL_ID, new UpdateSchoolCommand("변경 학교", null, CHAPTER_ID, null, null, null));
 
         then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberIds(Set.of(1L, 2L));
     }
@@ -109,7 +109,7 @@ class SchoolServiceTest {
     }
 
     private School school() {
-        School school = School.create("테스트 학교", null);
+        School school = School.create("테스트 학교", null, null);
         ReflectionTestUtils.setField(school, "id", SCHOOL_ID);
         return school;
     }

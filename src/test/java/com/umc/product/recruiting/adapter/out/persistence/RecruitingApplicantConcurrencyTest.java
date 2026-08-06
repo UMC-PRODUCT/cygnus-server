@@ -27,15 +27,20 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DecideRecruitingFinalCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingDecisionStatus;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingDecisionHistoryPort;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationCommandService;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationKeyIssuer;
 import com.umc.product.recruiting.application.service.command.RecruitingApplicationValidationService;
 import com.umc.product.recruiting.application.service.command.RecruitingConcurrencyLockService;
 import com.umc.product.recruiting.application.service.command.RecruitingDecisionCommandService;
+import com.umc.product.recruiting.application.service.command.RecruitingDecisionHistoryRecorder;
 import com.umc.product.recruiting.application.service.command.RecruitingInterviewAvailabilityRequestCoordinator;
 import com.umc.product.recruiting.domain.RecruitingApplicantEmail;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
@@ -62,7 +67,8 @@ import com.umc.product.term.application.port.in.query.GetTermUseCase;
     RecruitingConcurrencyLockService.class,
     RecruitingApplicationValidationService.class,
     RecruitingApplicationCommandService.class,
-    RecruitingDecisionCommandService.class
+    RecruitingDecisionCommandService.class,
+    RecruitingDecisionHistoryRecorder.class
 })
 class RecruitingApplicantConcurrencyTest {
 
@@ -99,6 +105,12 @@ class RecruitingApplicantConcurrencyTest {
     @MockitoBean
     GetChallengerRoleUseCase getChallengerRoleUseCase;
     @MockitoBean
+    GetMemberUseCase getMemberUseCase;
+    @MockitoBean
+    GetSchoolUseCase getSchoolUseCase;
+    @MockitoBean
+    SaveRecruitingDecisionHistoryPort saveDecisionHistoryPort;
+    @MockitoBean
     RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
     @MockitoBean
     GetTermUseCase getTermUseCase;
@@ -134,6 +146,13 @@ class RecruitingApplicantConcurrencyTest {
         DecisionFixture fixture = persistDecisionFixture();
         given(getChallengerRoleUseCase.isCentralCoreInGisu(DECIDER_MEMBER_ID, DECISION_GISU_ID))
             .willReturn(true);
+        given(getChallengerRoleUseCase.listByMemberIdAndGisuId(DECIDER_MEMBER_ID, DECISION_GISU_ID))
+            .willReturn(List.of());
+        given(getMemberUseCase.getById(DECIDER_MEMBER_ID)).willReturn(MemberInfo.builder()
+            .id(DECIDER_MEMBER_ID)
+            .name("판정자")
+            .nickname("판정자")
+            .build());
 
         List<Boolean> outcomes = race(
             () -> decideFinal(fixture.firstApplicationId()),

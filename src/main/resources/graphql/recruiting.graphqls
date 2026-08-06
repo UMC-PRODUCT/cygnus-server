@@ -27,7 +27,16 @@ extend type Query {
     stage: RecruitingEvaluatorStage!
   ): [RecruitingApplicationEvaluation!]!
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
+  recruitingInterviewSession(seasonId: ID!, roundId: ID!, sessionId: ID!): RecruitingInterviewSession!
+  recruitingInterviewSessions(seasonId: ID!, roundId: ID!): [RecruitingInterviewSession!]!
+  recruitingInterviewScheduleBoard(
+    seasonId: ID!
+    roundId: ID!
+    date: String!
+  ): RecruitingInterviewScheduleBoard!
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
+  recruitingEvaluationStatistics(input: RecruitingEvaluationStatisticsInput!): RecruitingEvaluationStatistics!
+  recruitingDecisionHistories(input: RecruitingDecisionHistorySearchInput!): RecruitingDecisionHistoryPage!
   recruitingRoundApplications(
     roundId: ID!
     input: RecruitingApplicationSearchInput
@@ -122,10 +131,28 @@ type Mutation {
   ): RecruitingIdPayload!
   submitRecruitingInterviewAvailability(
     applicationId: ID!
+    input: SubmitRecruitingInterviewAvailabilityInput!
   ): Boolean!
   confirmRecruitingInterviewSchedule(
     applicationId: ID!
     input: ConfirmRecruitingInterviewScheduleInput!
+  ): Boolean!
+  createRecruitingInterviewSession(
+    seasonId: ID!
+    roundId: ID!
+    input: RecruitingInterviewSessionInput!
+  ): RecruitingIdPayload!
+  updateRecruitingInterviewSession(
+    seasonId: ID!
+    roundId: ID!
+    sessionId: ID!
+    input: RecruitingInterviewSessionInput!
+  ): Boolean!
+  deleteRecruitingInterviewSession(seasonId: ID!, roundId: ID!, sessionId: ID!): Boolean!
+  confirmRecruitingInterviewSchedules(
+    seasonId: ID!
+    roundId: ID!
+    input: ConfirmRecruitingInterviewSchedulesInput!
   ): Boolean!
   submitRecruitingApplicationEvaluation(
     applicationId: ID!
@@ -138,6 +165,10 @@ input RecruitingApplicationFormStructureInput {
   secondChoice: ChallengerTrack
 }
 
+input SubmitRecruitingInterviewAvailabilityInput {
+  times: [Instant!]!
+}
+
 input RecruitingApplicationCredentialInput {
   email: String!
   applicationKey: String!
@@ -148,6 +179,10 @@ input RecruitingStatusSummaryInput {
   schoolIds: [ID!]
   roundIds: [ID!]
   schoolName: String
+}
+
+input RecruitingEvaluationStatisticsInput {
+  gisuId: ID!
 }
 
 input RecruitingPublicRoundSearchInput {
@@ -204,6 +239,7 @@ input CreateRecruitingRoundInput {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -220,6 +256,7 @@ input UpdateRecruitingRoundInput {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -269,6 +306,19 @@ input UpsertRecruitingFormOptionInput {
 input RecruitingApplicationSearchInput {
   statuses: [RecruitingApplicationStatus!]
   tracks: [ChallengerTrack!]
+  page: Int
+  size: Int
+}
+
+input RecruitingDecisionHistorySearchInput {
+  gisuId: ID!
+  chapterIds: [ID!]
+  schoolIds: [ID!]
+  tracks: [ChallengerTrack!]
+  results: [RecruitingDecisionResult!]
+  searchName: String
+  sort: RecruitingDecisionHistorySortOrder
+  groupByDecider: Boolean
   page: Int
   size: Int
 }
@@ -358,9 +408,30 @@ input RequestRecruitingInterviewAvailabilityInput {
 }
 
 input ConfirmRecruitingInterviewScheduleInput {
+  sessionId: ID!
   startsAt: Instant!
   endsAt: Instant!
   location: String
+  contactSnapshot: String!
+}
+
+input RecruitingInterviewSessionInput {
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  slotDurationMinutes: Int!
+  mode: RecruitingInterviewMode!
+  location: String!
+}
+
+input ConfirmRecruitingInterviewSchedulesInput {
+  assignments: [ConfirmRecruitingInterviewScheduleAssignmentInput!]!
+}
+
+input ConfirmRecruitingInterviewScheduleAssignmentInput {
+  applicationId: ID!
+  sessionId: ID!
+  startsAt: Instant!
   contactSnapshot: String!
 }
 
@@ -497,6 +568,7 @@ type RecruitingRoundSummary {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -522,6 +594,7 @@ type RecruitingRoundConfiguration {
   interviewEndAt: Instant
   finalResultPublishedAt: Instant!
   availabilityFormId: ID
+  availabilityScheduleQuestionId: ID
   announcement: String
   contactText: String
 }
@@ -568,9 +641,56 @@ type RecruitingInterviewSchedule {
   contactSnapshot: String!
 }
 
+enum RecruitingInterviewMode {
+  ONLINE
+  OFFLINE
+}
+
+type RecruitingInterviewSession {
+  id: ID!
+  roundId: ID!
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  slotDurationMinutes: Int!
+  mode: RecruitingInterviewMode!
+  location: String!
+}
+
+type RecruitingInterviewScheduleBoard {
+  roundId: ID!
+  date: String!
+  sessions: [RecruitingInterviewScheduleBoardSession!]!
+  pendingApplicants: [RecruitingInterviewScheduleBoardApplicant!]!
+  confirmedApplicants: [RecruitingInterviewScheduleBoardApplicant!]!
+}
+
+type RecruitingInterviewScheduleBoardSession {
+  sessionId: ID!
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  mode: RecruitingInterviewMode!
+  location: String!
+  slots: [RecruitingInterviewScheduleBoardSlot!]!
+}
+
+type RecruitingInterviewScheduleBoardSlot {
+  startsAt: Instant!
+  endsAt: Instant!
+  availableApplicationIds: [ID!]!
+  assignedApplicant: RecruitingInterviewScheduleBoardApplicant
+}
+
+type RecruitingInterviewScheduleBoardApplicant {
+  applicationId: ID!
+  applicantName: String!
+}
+
 type RecruitingStatusSummary {
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  parts: [RecruitingPartStatusSummary!]!
   schools: [RecruitingSchoolStatusSummary!]!
 }
 
@@ -581,6 +701,7 @@ type RecruitingSchoolStatusSummary {
   chapterName: String!
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  parts: [RecruitingPartStatusSummary!]!
   rounds: [RecruitingRoundStatusSummary!]!
 }
 
@@ -591,6 +712,44 @@ type RecruitingRoundStatusSummary {
   roundNo: Int!
   totalCount: Long!
   countByStatus: [RecruitingStatusCount!]!
+  parts: [RecruitingPartStatusSummary!]!
+}
+
+type RecruitingPartStatusSummary {
+  part: ChallengerTrack!
+  totalCount: Long!
+  countByStatus: [RecruitingStatusCount!]!
+}
+
+type RecruitingEvaluationStatistics {
+  asOf: Instant!
+  applicantCount: Long!
+  evaluatedCount: Long!
+  byTrack: [RecruitingTrackEvaluationCount!]!
+  chapters: [RecruitingChapterEvaluationStatistics!]!
+}
+
+type RecruitingTrackEvaluationCount {
+  track: ChallengerTrack!
+  applicantCount: Long!
+  evaluatedCount: Long!
+}
+
+type RecruitingChapterEvaluationStatistics {
+  chapterId: ID!
+  chapterName: String!
+  applicantCount: Long!
+  evaluatedCount: Long!
+  byTrack: [RecruitingTrackEvaluationCount!]!
+  schools: [RecruitingSchoolEvaluationStatistics!]!
+}
+
+type RecruitingSchoolEvaluationStatistics {
+  schoolId: ID!
+  schoolName: String!
+  applicantCount: Long!
+  evaluatedCount: Long!
+  byTrack: [RecruitingTrackEvaluationCount!]!
 }
 
 type RecruitingStatusCount {
@@ -635,6 +794,49 @@ type RecruitingApplicationReviewPage {
   totalElements: Long!
   totalPages: Int!
   hasNext: Boolean!
+}
+
+type RecruitingDecisionHistoryPage {
+  asOf: Instant!
+  progressStatus: RecruitingEvaluationProgressStatus!
+  content: [RecruitingDecisionHistory!]!
+  page: Int!
+  size: Int!
+  totalElements: Long!
+  totalPages: Int!
+  hasNext: Boolean!
+}
+
+type RecruitingDecisionHistory {
+  decisionHistoryId: ID!
+  applicationId: ID!
+  decidedAt: Instant!
+  decisionStatus: RecruitingApplicationStatus!
+  result: RecruitingDecisionResult!
+  applicant: RecruitingDecisionHistoryApplicant!
+  decider: RecruitingDecisionHistoryDecider!
+}
+
+type RecruitingDecisionHistoryApplicant {
+  chapterId: ID!
+  chapterName: String!
+  schoolId: ID!
+  schoolName: String!
+  name: String!
+  firstChoice: ChallengerTrack!
+  secondChoice: ChallengerTrack
+  acceptedTrack: ChallengerTrack
+}
+
+type RecruitingDecisionHistoryDecider {
+  memberId: ID!
+  chapterId: ID
+  chapterName: String
+  schoolId: ID
+  schoolName: String
+  roleType: ChallengerRoleType
+  name: String
+  nickname: String
 }
 
 type RecruitingApplicationReview {
@@ -716,6 +918,34 @@ enum RecruitingApplicationRegistrationStatus {
   NOT_READY
   READY
   REGISTERED
+}
+
+enum RecruitingDecisionResult {
+  PASSED
+  FAILED
+}
+
+enum RecruitingDecisionHistorySortOrder {
+  LATEST
+  OLDEST
+}
+
+enum RecruitingEvaluationProgressStatus {
+  BEFORE_EVALUATION
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ChallengerRoleType {
+  CENTRAL_PRESIDENT
+  CENTRAL_VICE_PRESIDENT
+  CENTRAL_OPERATING_TEAM_MEMBER
+  CENTRAL_EDUCATION_TEAM_MEMBER
+  CHAPTER_PRESIDENT
+  SCHOOL_PRESIDENT
+  SCHOOL_VICE_PRESIDENT
+  SCHOOL_PART_LEADER
+  SCHOOL_ETC_ADMIN
 }
 
 enum RecruitingDecisionStatus {

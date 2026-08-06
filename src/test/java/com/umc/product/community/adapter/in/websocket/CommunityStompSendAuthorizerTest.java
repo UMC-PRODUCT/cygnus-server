@@ -14,7 +14,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics.Operation;
@@ -27,7 +27,7 @@ import com.umc.product.community.domain.exception.CommunityErrorCode;
 class CommunityStompSendAuthorizerTest {
 
     @Mock
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     @Mock
     private CommunityThreadRealtimeMetrics metrics;
 
@@ -85,7 +85,7 @@ class CommunityStompSendAuthorizerTest {
 
         // then
         assertThat(authorized).isTrue();
-        verify(getThreadDetailUseCase).getThread(new GetThreadDetailQuery(12L, memberId));
+        verify(getJoinedThreadDetailUseCase).getJoinedThread(new GetThreadDetailQuery(12L, memberId));
     }
 
     @Test
@@ -95,7 +95,7 @@ class CommunityStompSendAuthorizerTest {
         Long memberId = 41L;
         String destination = "/app/community/threads/12/read";
         GetThreadDetailQuery query = new GetThreadDetailQuery(12L, memberId);
-        given(getThreadDetailUseCase.getThread(query))
+        given(getJoinedThreadDetailUseCase.getJoinedThread(query))
             .willThrow(new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED));
 
         // when
@@ -117,6 +117,6 @@ class CommunityStompSendAuthorizerTest {
         // then
         assertThat(missingPrincipal).isFalse();
         assertThat(invalidDestination).isFalse();
-        verifyNoInteractions(getThreadDetailUseCase);
+        verifyNoInteractions(getJoinedThreadDetailUseCase);
     }
 }

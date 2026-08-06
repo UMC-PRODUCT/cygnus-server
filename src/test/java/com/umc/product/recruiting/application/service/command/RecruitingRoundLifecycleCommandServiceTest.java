@@ -41,6 +41,7 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterv
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingFormSectionPolicyPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
@@ -58,6 +59,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
 
     @Mock LoadRecruitingRoundPort loadRoundPort;
     @Mock SaveRecruitingRoundPort saveRoundPort;
+    @Mock SaveRecruitingInterviewSessionPort saveInterviewSessionPort;
     @Mock LoadRecruitingApplicationPort loadApplicationPort;
     @Mock LoadRecruitingApplicationFormPort loadApplicationFormPort;
     @Mock SaveRecruitingApplicationFormPort saveApplicationFormPort;
@@ -81,6 +83,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         sut = new RecruitingRoundLifecycleCommandService(
             loadRoundPort,
             saveRoundPort,
+            saveInterviewSessionPort,
             loadApplicationPort,
             loadApplicationFormPort,
             saveApplicationFormPort,
@@ -96,7 +99,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
             upsertFormUseCase,
             authorizeManagementUseCase
         );
-        source = round(10L, 20L, true, 999L);
+        source = round(10L, 20L, true, 999L, 1999L);
     }
 
     @Test
@@ -140,6 +143,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         InOrder order = inOrder(
             saveEvaluatorPort,
             saveQuestionPort,
+            saveInterviewSessionPort,
             savePolicyPort,
             saveApplicationFormPort,
             manageFormUseCase,
@@ -147,6 +151,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         );
         then(saveEvaluatorPort).should(order).deleteByRoundId(20L);
         then(saveQuestionPort).should(order).deleteByRoundId(20L);
+        then(saveInterviewSessionPort).should(order).deleteByRoundId(20L);
         then(savePolicyPort).should(order).deleteByApplicationFormId(200L);
         then(saveApplicationFormPort).should(order).delete(form);
         then(manageFormUseCase).should(order).deleteForm(any());
@@ -154,9 +159,9 @@ class RecruitingRoundLifecycleCommandServiceTest {
     }
 
     @Test
-    @DisplayName("Round 복제는 원본과 대상 Season 권한을 검증하고 availability Form을 초기화한다")
+    @DisplayName("Round 복제는 원본과 대상 Season 권한을 검증하고 availability 매핑을 초기화한다")
     void cloneRoundAuthorizesBothSeasonsAndClearsAvailabilityForm() {
-        RecruitingRound cloned = round(30L, 40L, true, null);
+        RecruitingRound cloned = round(30L, 40L, true, null, null);
         given(loadRoundPort.getById(20L)).willReturn(source);
         given(createRoundUseCase.createRound(any())).willReturn(40L);
         given(loadRoundPort.getById(40L)).willReturn(cloned);
@@ -179,13 +184,14 @@ class RecruitingRoundLifecycleCommandServiceTest {
             ArgumentCaptor.forClass(CreateRecruitingRoundCommand.class);
         then(createRoundUseCase).should().createRound(captor.capture());
         assertThat(captor.getValue().configuration().availabilityFormId()).isNull();
+        assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isNull();
         assertThat(captor.getValue().configuration().announcement()).isEqualTo("공고");
     }
 
     @Test
     @DisplayName("Round 복제는 Form 구조와 조건부 이동을 새 client key로 재매핑한다")
     void cloneRoundRemapsFormStructure() {
-        RecruitingRound cloned = round(30L, 40L, false, null);
+        RecruitingRound cloned = round(30L, 40L, false, null, null);
         RecruitingApplicationForm sourceForm = RecruitingApplicationForm.create(source, 100L);
         ReflectionTestUtils.setField(sourceForm, "id", 200L);
         given(loadRoundPort.getById(20L)).willReturn(source);
@@ -244,7 +250,13 @@ class RecruitingRoundLifecycleCommandServiceTest {
         assertThat(sections.get(1).track()).isEqualTo(ChallengerTrack.PLAN);
     }
 
-    private RecruitingRound round(Long seasonId, Long roundId, boolean interviewRequired, Long availabilityFormId) {
+    private RecruitingRound round(
+        Long seasonId,
+        Long roundId,
+        boolean interviewRequired,
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
         RecruitingSeason season = RecruitingSeason.create(1L, 2L);
         ReflectionTestUtils.setField(season, "id", seasonId);
         RecruitingRound result = RecruitingRound.createRegular(
@@ -261,6 +273,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
                 interviewRequired ? Instant.parse("2026-08-12T00:00:00Z") : null,
                 Instant.parse("2026-08-16T00:00:00Z"),
                 availabilityFormId,
+                availabilityScheduleQuestionId,
                 "공고",
                 "연락처"
             )

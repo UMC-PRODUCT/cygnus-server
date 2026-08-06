@@ -92,6 +92,16 @@ public class AnswerPersistenceAdapter implements LoadAnswerPort, SaveAnswerPort 
     }
 
     @Override
+    public int deleteByFormResponseIdAndQuestionIdIn(Long formResponseId, Set<Long> questionIds) {
+        if (questionIds == null || questionIds.isEmpty()) {
+            return 0;
+        }
+        // FK 의존성 거꾸로: AnswerChoice -> Answer 순으로 삭제
+        answerChoiceJpaRepository.deleteByFormResponseIdAndQuestionIdIn(formResponseId, questionIds);
+        return answerJpaRepository.deleteByFormResponseIdAndQuestionIdIn(formResponseId, questionIds);
+    }
+
+    @Override
     public void deleteByFormId(Long formId) {
         // FK 의존성 거꾸로: AnswerChoice -> Answer 순으로 삭제
         answerChoiceJpaRepository.deleteByFormId(formId);

@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.DisplayName;
@@ -95,7 +96,40 @@ class RecruitingRoundScheduleMigrationTest {
         RecruitingSeason season = persistSeason(16L, 160L);
 
         assertThatThrownBy(() -> insertRound(season, noInterviewSchedule(
-            DOCUMENT_START, DOCUMENT_END, DOCUMENT_RESULT, FINAL_RESULT, 123L
+            DOCUMENT_START, DOCUMENT_END, DOCUMENT_RESULT, FINAL_RESULT, 123L, 456L
+        ))).isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    @DisplayName("데이터베이스는 유효한 면접 가능 시간 매핑을 허용한다")
+    void databaseAllowsValidAvailabilityMapping() {
+        RecruitingSeason season = persistSeason(24L, 240L);
+
+        assertThatCode(() -> insertRound(season, interviewSchedule(
+            DOCUMENT_START, DOCUMENT_END, DOCUMENT_RESULT,
+            INTERVIEW_START, INTERVIEW_END, FINAL_RESULT, 123L, 456L
+        ))).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("데이터베이스는 SCHEDULE question 없는 Form 매핑을 거부한다")
+    void databaseRejectsAvailabilityFormWithoutScheduleQuestion() {
+        RecruitingSeason season = persistSeason(25L, 250L);
+
+        assertThatThrownBy(() -> insertRound(season, interviewSchedule(
+            DOCUMENT_START, DOCUMENT_END, DOCUMENT_RESULT,
+            INTERVIEW_START, INTERVIEW_END, FINAL_RESULT, 123L, null
+        ))).isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
+    @DisplayName("데이터베이스는 Form 없는 고아 SCHEDULE question 매핑을 거부한다")
+    void databaseRejectsOrphanAvailabilityScheduleQuestion() {
+        RecruitingSeason season = persistSeason(26L, 260L);
+
+        assertThatThrownBy(() -> insertRound(season, interviewSchedule(
+            DOCUMENT_START, DOCUMENT_END, DOCUMENT_RESULT,
+            INTERVIEW_START, INTERVIEW_END, FINAL_RESULT, null, 456L
         ))).isInstanceOf(PersistenceException.class);
     }
 
@@ -118,17 +152,18 @@ class RecruitingRoundScheduleMigrationTest {
     private void insertRound(RecruitingSeason season, DatabaseSchedule schedule) {
         em.getEntityManager().createNativeQuery("""
             INSERT INTO recruiting_round (
-                created_at, updated_at, recruiting_season_id, type, round_no, status,
+                created_at, updated_at, recruiting_season_id, type, round_no, title, status,
                 recruitable_tracks, second_choice_enabled, document_start_at, document_end_at,
                 document_result_published_at, interview_required, interview_start_at,
-                interview_end_at, final_result_published_at, availability_form_id
+                interview_end_at, final_result_published_at, availability_form_id,
+                availability_schedule_question_id
             ) VALUES (
-                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :seasonId, 'ADDITIONAL', 2, 'DRAFT',
+                CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, :seasonId, 'ADDITIONAL', 2, '추가모집', 'DRAFT',
                 ARRAY['PLAN']::TEXT[], FALSE,
                 CAST(:documentStartAt AS TIMESTAMPTZ), CAST(:documentEndAt AS TIMESTAMPTZ),
                 CAST(:documentResultAt AS TIMESTAMPTZ), :interviewRequired,
                 CAST(:interviewStartAt AS TIMESTAMPTZ), CAST(:interviewEndAt AS TIMESTAMPTZ),
-                CAST(:finalResultAt AS TIMESTAMPTZ), :availabilityFormId
+                CAST(:finalResultAt AS TIMESTAMPTZ), :availabilityFormId, :availabilityScheduleQuestionId
             )
             """)
             .setParameter("seasonId", season.getId())
@@ -140,6 +175,7 @@ class RecruitingRoundScheduleMigrationTest {
             .setParameter("interviewEndAt", schedule.interviewEndAt())
             .setParameter("finalResultAt", schedule.finalResultPublishedAt())
             .setParameter("availabilityFormId", schedule.availabilityFormId())
+            .setParameter("availabilityScheduleQuestionId", schedule.availabilityScheduleQuestionId())
             .executeUpdate();
     }
 
@@ -150,6 +186,24 @@ class RecruitingRoundScheduleMigrationTest {
         String finalResultPublishedAt,
         Long availabilityFormId
     ) {
+        return noInterviewSchedule(
+            documentStartAt,
+            documentEndAt,
+            documentResultPublishedAt,
+            finalResultPublishedAt,
+            availabilityFormId,
+            null
+        );
+    }
+
+    private DatabaseSchedule noInterviewSchedule(
+        String documentStartAt,
+        String documentEndAt,
+        String documentResultPublishedAt,
+        String finalResultPublishedAt,
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
         return new DatabaseSchedule(
             documentStartAt,
             documentEndAt,
@@ -158,7 +212,8 @@ class RecruitingRoundScheduleMigrationTest {
             null,
             null,
             finalResultPublishedAt,
-            availabilityFormId
+            availabilityFormId,
+            availabilityScheduleQuestionId
         );
     }
 
@@ -170,6 +225,22 @@ class RecruitingRoundScheduleMigrationTest {
         String interviewEndAt,
         String finalResultPublishedAt
     ) {
+        return interviewSchedule(
+            documentStartAt, documentEndAt, documentResultPublishedAt,
+            interviewStartAt, interviewEndAt, finalResultPublishedAt, null, null
+        );
+    }
+
+    private DatabaseSchedule interviewSchedule(
+        String documentStartAt,
+        String documentEndAt,
+        String documentResultPublishedAt,
+        String interviewStartAt,
+        String interviewEndAt,
+        String finalResultPublishedAt,
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
         return new DatabaseSchedule(
             documentStartAt,
             documentEndAt,
@@ -178,7 +249,8 @@ class RecruitingRoundScheduleMigrationTest {
             interviewStartAt,
             interviewEndAt,
             finalResultPublishedAt,
-            null
+            availabilityFormId,
+            availabilityScheduleQuestionId
         );
     }
 
@@ -190,7 +262,8 @@ class RecruitingRoundScheduleMigrationTest {
         String interviewStartAt,
         String interviewEndAt,
         String finalResultPublishedAt,
-        Long availabilityFormId
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
     ) {
     }
 }

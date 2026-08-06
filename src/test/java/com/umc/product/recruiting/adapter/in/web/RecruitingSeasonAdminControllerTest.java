@@ -49,6 +49,7 @@ import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoun
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
@@ -132,6 +133,19 @@ class RecruitingSeasonAdminControllerTest {
     }
 
     @Test
+    @DisplayName("시즌 설정 조회는 availability Form과 SCHEDULE 질문 ID를 함께 반환한다")
+    void getSeasonConfigurationIncludesAvailabilityQuestionId() throws Exception {
+        given(getSeasonConfigurationUseCase.getBySeasonId(10L)).willReturn(
+            new RecruitingSeasonConfigurationInfo(10L, 11L, 22L, "메모", List.of(), List.of(roundConfiguration()))
+        );
+
+        mockMvc.perform(get("/api/v1/recruiting/admin/seasons/{seasonId}", 10L))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.rounds[0].availabilityFormId").value(100L))
+            .andExpect(jsonPath("$.result.rounds[0].availabilityScheduleQuestionId").value(200L));
+    }
+
+    @Test
     @DisplayName("시즌 쿼터 교체 요청의 seasonId와 트랙을 command로 전달한다")
     void replaceSeasonQuotas() throws Exception {
         mockMvc.perform(put("/api/v1/recruiting/admin/seasons/{seasonId}/quotas", 10L)
@@ -190,7 +204,9 @@ class RecruitingSeasonAdminControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result[0].seasonId").value(10L))
             .andExpect(jsonPath("$.result[0].schoolName").value("A 학교"))
-            .andExpect(jsonPath("$.result[0].rounds[0].id").value(20L));
+            .andExpect(jsonPath("$.result[0].rounds[0].id").value(20L))
+            .andExpect(jsonPath("$.result[0].rounds[0].availabilityFormId").value(100L))
+            .andExpect(jsonPath("$.result[0].rounds[0].availabilityScheduleQuestionId").value(200L));
 
         ArgumentCaptor<RecruitingRoundGroupSearchQuery> captor =
             ArgumentCaptor.forClass(RecruitingRoundGroupSearchQuery.class);
@@ -226,7 +242,8 @@ class RecruitingSeasonAdminControllerTest {
             null,
             null,
             java.time.Instant.parse("2026-08-16T00:00:00Z"),
-            null,
+            100L,
+            200L,
             "공고",
             "연락처"
         );

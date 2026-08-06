@@ -408,6 +408,7 @@ class OrganizationGraphQlControllerTest {
             10L,
             "Ain 지부",
             schoolName,
+            null,
             schoolId,
             "비고",
             "https://storage.example.com/school-logo.png",

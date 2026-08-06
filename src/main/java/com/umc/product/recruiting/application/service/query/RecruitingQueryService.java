@@ -1,7 +1,9 @@
 package com.umc.product.recruiting.application.service.query;
 
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -11,7 +13,8 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.GetGisuAuthorityScopeUseCase;
+import com.umc.product.authorization.application.port.in.query.dto.GisuAuthorityScopeInfo;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
@@ -23,6 +26,7 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQue
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
@@ -52,12 +56,24 @@ public class RecruitingQueryService implements
     ValidateRecruitingApplicationScopeUseCase,
     ValidateRecruitingFormScopeUseCase {
 
+    /** 지원 현황 집계 대상 상태. 작성 중(DRAFT)·지원 취소(CANCELLED)는 제외한다. */
+    private static final Set<RecruitingApplicationStatus> SUMMARY_STATUSES = EnumSet.complementOf(EnumSet.of(
+        RecruitingApplicationStatus.DRAFT,
+        RecruitingApplicationStatus.CANCELLED
+    ));
+
+    /** 파트별 집계 고정 슬롯. 모집 불가 트랙(INFRA_PLUS)을 제외한 파트를 sortOrder 순으로 항상 노출한다. */
+    private static final List<ChallengerTrack> SUMMARY_PART_TRACKS = Arrays.stream(ChallengerTrack.values())
+        .filter(track -> track != ChallengerTrack.INFRA_PLUS)
+        .sorted(Comparator.comparingInt(ChallengerTrack::getSortOrder))
+        .toList();
+
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final GetSchoolUseCase getSchoolUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
     private final GetFormUseCase getFormUseCase;
     private final GetRecruitingApplicationQuestionScopeUseCase getQuestionScopeUseCase;
 
@@ -134,8 +150,9 @@ public class RecruitingQueryService implements
 
     @Override
     public RecruitingStatusSummaryInfo getStatusSummary(RecruitingStatusSummaryQuery query) {
-        validateCentralGisuAccess(query.requesterMemberId(), query.gisuId());
-        List<SchoolDetailInfo> schools = listSummarySchools(query);
+        List<SchoolDetailInfo> schoolsByGisu = getSchoolUseCase.getSchoolListByGisuId(query.gisuId());
+        GisuAuthorityScopeInfo authorityScope = resolveSummarySchoolScope(query, schoolsByGisu);
+        List<SchoolDetailInfo> schools = listSummarySchools(query, schoolsByGisu, authorityScope);
         Set<Long> schoolIds = schools.stream().map(SchoolDetailInfo::schoolId).collect(java.util.stream.Collectors.toSet());
         List<RecruitingRound> rounds = listSummaryRounds(query, schoolIds);
         Set<Long> roundIds = rounds.stream().map(RecruitingRound::getId).collect(java.util.stream.Collectors.toSet());
@@ -147,7 +164,7 @@ public class RecruitingQueryService implements
                 query.gisuId(),
                 schoolIds,
                 query.roundIds().isEmpty() ? null : roundIds,
-                null
+                SUMMARY_STATUSES
             );
 
         Map<Long, List<RecruitingApplicationSummaryRow>> rowsBySchool = rows.stream()
@@ -161,16 +178,50 @@ public class RecruitingQueryService implements
                 roundsBySchool.getOrDefault(school.schoolId(), List.of())
             ))
             .toList();
-        return new RecruitingStatusSummaryInfo((long) rows.size(), countByStatus(rows), schoolSummaries);
+        return new RecruitingStatusSummaryInfo(
+            (long) rows.size(),
+            countByStatus(rows),
+            partSummaries(rows),
+            schoolSummaries
+        );
     }
 
-    private List<SchoolDetailInfo> listSummarySchools(RecruitingStatusSummaryQuery query) {
+    private List<SchoolDetailInfo> listSummarySchools(
+        RecruitingStatusSummaryQuery query,
+        List<SchoolDetailInfo> schoolsByGisu,
+        GisuAuthorityScopeInfo authorityScope
+    ) {
         String schoolName = query.schoolName() == null ? null : query.schoolName().toLowerCase(Locale.ROOT);
-        return getSchoolUseCase.getSchoolListByGisuId(query.gisuId()).stream()
+        return schoolsByGisu.stream()
+            .filter(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()))
             .filter(school -> query.schoolIds().isEmpty() || query.schoolIds().contains(school.schoolId()))
             .filter(school -> schoolName == null || school.schoolName().toLowerCase(Locale.ROOT).contains(schoolName))
             .sorted(Comparator.comparing(SchoolDetailInfo::schoolId))
             .toList();
+    }
+
+    /**
+    * 중앙 운영진은 기수 전체, 지부장과 교내 운영진은 자신이 관리하는 학교만 조회합니다.
+     * 반환된 권한 범위가 학교별 접근 가능 여부와 전체 접근 여부를 명시합니다.
+     */
+    private GisuAuthorityScopeInfo resolveSummarySchoolScope(
+        RecruitingStatusSummaryQuery query,
+        List<SchoolDetailInfo> schoolsByGisu
+    ) {
+        Long memberId = query.requesterMemberId();
+        Long gisuId = query.gisuId();
+        GisuAuthorityScopeInfo authorityScope = getGisuAuthorityScopeUseCase
+            .getByMemberIdAndGisuId(memberId, gisuId);
+        if (authorityScope.allSchoolsAccessible()) {
+            return authorityScope;
+        }
+
+        boolean hasAccessibleSchool = schoolsByGisu.stream()
+            .anyMatch(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()));
+        if (!hasAccessibleSchool) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SUMMARY_ACCESS_DENIED);
+        }
+        return authorityScope;
     }
 
     private List<RecruitingRound> listSummaryRounds(RecruitingStatusSummaryQuery query, Set<Long> schoolIds) {
@@ -205,7 +256,8 @@ public class RecruitingQueryService implements
                     round.getType(),
                     round.getRoundNo(),
                     (long) roundRows.size(),
-                    countByStatus(roundRows)
+                    countByStatus(roundRows),
+                    partSummaries(roundRows)
                 );
             })
             .toList();
@@ -216,6 +268,7 @@ public class RecruitingQueryService implements
             school.chapterName(),
             (long) rows.size(),
             countByStatus(rows),
+            partSummaries(rows),
             roundSummaries
         );
     }
@@ -226,12 +279,20 @@ public class RecruitingQueryService implements
         return result;
     }
 
-    private void validateCentralGisuAccess(Long requesterMemberId, Long gisuId) {
-        if (getChallengerRoleUseCase.isCentralCoreInGisu(requesterMemberId, gisuId)
-            || getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
-            return;
-        }
-        throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SUMMARY_ACCESS_DENIED);
+    /**
+     * 1지망(firstChoice) 파트 기준으로 상태별 개수를 교차집계한다.
+     * 지원자가 없는 파트도 0건으로 항상 포함하며(SUMMARY_PART_TRACKS 고정 슬롯), 파트별 합계는 totalCount와 일치한다.
+     */
+    private List<RecruitingPartStatusSummaryInfo> partSummaries(List<RecruitingApplicationSummaryRow> rows) {
+        Map<ChallengerTrack, List<RecruitingApplicationSummaryRow>> rowsByPart = rows.stream()
+            .filter(row -> row.firstChoice() != null)
+            .collect(java.util.stream.Collectors.groupingBy(RecruitingApplicationSummaryRow::firstChoice));
+        return SUMMARY_PART_TRACKS.stream()
+            .map(track -> {
+                List<RecruitingApplicationSummaryRow> partRows = rowsByPart.getOrDefault(track, List.of());
+                return new RecruitingPartStatusSummaryInfo(track, (long) partRows.size(), countByStatus(partRows));
+            })
+            .toList();
     }
 
     @Override

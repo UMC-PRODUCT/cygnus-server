@@ -3,6 +3,7 @@ package com.umc.product.project.adapter.in.web;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -75,5 +76,29 @@ class ProjectQueryControllerTest {
             .containsExactly("createdAt", "name");
         assertThat(orders)
             .allMatch(Sort.Order::isAscending);
+    }
+
+    @Test
+    void GET_프로젝트_목록_비회원도_조회_가능() throws Exception {
+        SecurityContextHolder.clearContext();
+        given(assembler.searchFor(any(SearchProjectQuery.class), isNull()))
+            .willReturn(new PageResponse<ProjectSummaryResponse>(List.of(), 0, 20, 0, 0, false, false));
+
+        mockMvc.perform(get("/api/v1/projects")
+                .param("gisuId", "1"))
+            .andExpect(status().isOk());
+
+        then(assembler).should().searchFor(any(SearchProjectQuery.class), isNull());
+    }
+
+    @Test
+    void GET_프로젝트_상세_비회원도_조회_가능() throws Exception {
+        SecurityContextHolder.clearContext();
+        given(assembler.detailFor(42L)).willReturn(null);
+
+        mockMvc.perform(get("/api/v1/projects/42"))
+            .andExpect(status().isOk());
+
+        then(assembler).should().detailFor(42L);
     }
 }

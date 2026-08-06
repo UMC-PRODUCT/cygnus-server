@@ -33,6 +33,7 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 | `RecruitingApplicationInterviewQuestion` | Application별 개별 질문. content 비공백, `orderNo >= 0`, active. 최초 면접 평가 후 변경을 제한한다. |
 | `RecruitingApplicationEvaluation` | `(application, evaluator, stage)` 유일. `DOCUMENT` 또는 `INTERVIEW`, `APPROVED` 또는 `REJECTED`. 최종 판정 전까지 본인 row를 Upsert할 수 있다. |
 | `RecruitingInterviewSchedule` | Application당 하나. `AVAILABILITY_REQUESTED`, `AVAILABILITY_SUBMITTED`, `CONFIRMED`, `CANCELLED`. 확정 시 면접 기간 안의 시작/종료와 장소가 필요하다. 연락처는 snapshot으로 보존한다. |
+| `RecruitingInterviewSession` | Round에 속한 운영 면접 세션. 세션 시작·종료는 Round 면접 기간 안에 있고 15분 경계에 정렬한다. 지원자 1명당 면접 시간은 15분의 양의 배수로 설정하며, 확정 일정이 참조 중인 세션은 수정·삭제할 수 없다. |
 
 ## Round 생성 규칙
 
@@ -54,6 +55,8 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 - 정렬은 `NEWEST`, `REGISTERED`, `RECRUITMENT`만 허용한다.
 
 `RECRUITING-ADMIN-081`은 모집 목록이 아니라 운영 현황 집계다. `gisuId` 내에서 `schoolIds`, `roundIds`, `schoolName`으로 범위를 좁히며 전체 합계와 학교별·Round별 상태 합계를 함께 반환한다. 조건에 포함된 학교나 Round에 지원서가 없어도 0건 그룹을 반환한다.
+
+`RECRUITING-ADMIN-091` 평가 이력 목록과 `RECRUITING-ADMIN-092` CSV는 `chapterIds`와 `schoolIds`를 반복 쿼리 파라미터로 받는다(예: `chapterIds=1&chapterIds=2`). 각 목록 내부는 OR, 지부·학교 목록을 함께 주면 AND로 기수 내 학교 범위를 정한다. `[]` 접미사 키는 사용하지 않는다.
 
 ### Round와 Form 상태
 
@@ -107,7 +110,7 @@ Round evaluator는 지원서 목록, 상세와 Form 답변을 조회하고 서�
 
 Swagger `operationId`는 suffix 없이 숫자 3자리를 사용한다. 관리자 API는 Season `001~004`, Round `011~017`,
 Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061~063`, 등록 `071~073`,
-통계 `081~082` 대역으로 구분한다.
+통계 `081~082`, 히스토리 `091~092` 대역으로 구분한다.
 
 ### 공개 및 지원자
 
@@ -124,6 +127,7 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | PUT | `/api/v1/recruiting/applications/{applicationId}` | 로그인 지원서 수정 |
 | POST | `/api/v1/recruiting/applications/{applicationId}/submit` | 로그인 지원서 제출 |
 | PATCH | `/api/v1/recruiting/applications/{applicationId}/cancel` | 로그인 지원서 철회 |
+| PUT | `/api/v1/recruiting/applications/{applicationId}/interview-schedule/availability` | 로그인한 면접 대상 지원자가 본인의 면접 가능 시간 제출 (`SCHEDULE-001`) |
 | GET | `/api/v1/recruiting/rounds/{roundId}/applications` | evaluator/운영진용 지원서 페이지 조회 |
 | GET | `/api/v1/recruiting/rounds/{roundId}/applications/{applicationId}` | evaluator/운영진용 지원서 답변 상세 조회 |
 | PUT | `/api/v1/recruiting/rounds/{roundId}/applications/{applicationId}/evaluations/{stage}` | 본인 평가 Upsert |
@@ -149,15 +153,22 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | POST/DELETE/GET | `/api/v1/recruiting/admin/rounds/{roundId}/evaluators/{memberId?}` | Round evaluator 관리 |
 | POST/PUT/DELETE/GET | `/api/v1/recruiting/admin/rounds/{roundId}/questions/{questionId?}` | 공통 면접 질문 관리 |
 | POST/PUT/DELETE/GET | `/api/v1/recruiting/admin/applications/{applicationId}/questions/{questionId?}` | 개별 면접 질문 관리 |
+| GET | `/api/v1/recruiting/admin/rounds/{roundId}/interview-sessions` | Round 면접 세션 목록 조회 |
+| POST | `/api/v1/recruiting/admin/rounds/{roundId}/interview-sessions` | Round 면접 세션 생성(지원자 1명당 면접 시간을 15분 배수로 설정) |
+| PUT/DELETE | `/api/v1/recruiting/admin/rounds/{roundId}/interview-sessions/{sessionId}` | 확정 배정이 없는 세션 수정/삭제 |
+| GET | `/api/v1/recruiting/admin/rounds/{roundId}/interview-schedule-board?date=YYYY-MM-DD` | KST 날짜의 계산 슬롯·대기/확정 지원자 보드 조회 |
+| POST | `/api/v1/recruiting/admin/rounds/{roundId}/interview-schedule/confirmations` | 세션 슬롯 기준 일정 일괄 확정(한 transaction에서 원자 처리) |
 | PATCH | `/api/v1/recruiting/admin/applications/{applicationId}/document-decision` | 서류 최종 판정 |
 | POST | `/api/v1/recruiting/admin/applications/{applicationId}/interview/skip` | 면접 생략 및 일정 취소 |
 | PATCH | `/api/v1/recruiting/admin/applications/{applicationId}/final-decision` | 최종 판정과 acceptedTrack 결정 |
 | POST | `/api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/request` | 자동 요청 실패 시 멱등 재시도 |
-| PUT | `/api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/confirmation` | 면접 시각·장소 확정 |
+| PUT | `/api/v1/recruiting/admin/applications/{applicationId}/interview-schedule/confirmation` | `sessionId`를 받는 단건 facade. 선택 슬롯은 세션에서 계산하고, 현재 요청의 `startsAt`·`contactSnapshot`을 전달한다. |
 | POST/DELETE | `/api/v1/recruiting/admin/applications/{applicationId}/registration/ready` | TO 예약/반환 |
 | POST | `/api/v1/recruiting/admin/applications/{applicationId}/registration/registered` | Challenger 등록 확정 |
 | GET | `/api/v1/recruiting/admin/summary` | 복수 학교·Round 및 학교명 조건의 상태 집계 (`ADMIN-081`) |
 | GET | `/api/v1/recruiting/admin/statistics.csv` | 민감정보를 제외한 CSV 다운로드 |
+| GET | `/api/v1/recruiting/admin/decision-histories` | 중앙 전용 서류/최종 판정 이력 감사 조회 (`ADMIN-091`) |
+| GET | `/api/v1/recruiting/admin/decision-histories.csv` | 판정 이력 CSV 다운로드, 원문 email·실명 제외 (`ADMIN-092`) |
 
 ## GraphQL API
 
@@ -165,13 +176,19 @@ GraphQL은 REST와 같은 UseCase를 사용한다. CSV만 REST 전용이다.
 
 ### Query
 
-`publicRecruitingRounds`, `recruitingApplicationFormStructure`, `recruitingApplicationByCredential`, `recruitingApplication`, `recruitingRoundGroups`, `recruitingRoundTitleAvailable`, `recruitingSeasonConfiguration`, `recruitingRoundEvaluators`, `recruitingRoundInterviewQuestions`, `recruitingApplicationInterviewQuestions`, `recruitingApplicationEvaluations`, `recruitingInterviewSchedule`, `recruitingStatusSummary`, `recruitingRoundApplications`, `recruitingRoundApplication`
+`publicRecruitingRounds`, `recruitingApplicationFormStructure`, `recruitingApplicationByCredential`, `recruitingApplication`, `recruitingRoundGroups`, `recruitingRoundTitleAvailable`, `recruitingSeasonConfiguration`, `recruitingRoundEvaluators`, `recruitingRoundInterviewQuestions`, `recruitingApplicationInterviewQuestions`, `recruitingApplicationEvaluations`, `recruitingInterviewSchedule`, `recruitingInterviewSession`, `recruitingInterviewSessions`, `recruitingInterviewScheduleBoard`, `recruitingStatusSummary`, `recruitingDecisionHistories`, `recruitingRoundApplications`, `recruitingRoundApplication`
 
 ### Mutation
 
-`createRecruitingSeason`, `updateRecruitingSeason`, `replaceRecruitingSeasonTrackQuotas`, `createRecruitingRound`, `updateRecruitingRoundStatus`, `updateRecruitingRound`, `upsertRecruitingApplicationForm`, `cloneRecruitingRound`, `deleteRecruitingRound`, `addRecruitingRoundEvaluator`, `removeRecruitingRoundEvaluator`, `createRecruitingRoundInterviewQuestion`, `updateRecruitingRoundInterviewQuestion`, `deactivateRecruitingRoundInterviewQuestion`, `createRecruitingApplicationInterviewQuestion`, `updateRecruitingApplicationInterviewQuestion`, `deactivateRecruitingApplicationInterviewQuestion`, `createRecruitingApplicationDraft`, `createAnonymousRecruitingApplicationDraft`, `updateRecruitingApplicationDraft`, `updateAnonymousRecruitingApplication`, `submitRecruitingApplication`, `submitAnonymousRecruitingApplication`, `cancelRecruitingApplication`, `cancelAnonymousRecruitingApplication`, `decideRecruitingDocument`, `decideRecruitingFinal`, `prepareRecruitingRegistration`, `cancelRecruitingRegistration`, `confirmRecruitingRegistration`, `skipRecruitingInterview`, `requestRecruitingInterviewAvailability`, `confirmRecruitingInterviewSchedule`, `submitRecruitingApplicationEvaluation`
+`createRecruitingSeason`, `updateRecruitingSeason`, `replaceRecruitingSeasonTrackQuotas`, `createRecruitingRound`, `updateRecruitingRoundStatus`, `updateRecruitingRound`, `upsertRecruitingApplicationForm`, `cloneRecruitingRound`, `deleteRecruitingRound`, `addRecruitingRoundEvaluator`, `removeRecruitingRoundEvaluator`, `createRecruitingRoundInterviewQuestion`, `updateRecruitingRoundInterviewQuestion`, `deactivateRecruitingRoundInterviewQuestion`, `createRecruitingApplicationInterviewQuestion`, `updateRecruitingApplicationInterviewQuestion`, `deactivateRecruitingApplicationInterviewQuestion`, `createRecruitingApplicationDraft`, `createAnonymousRecruitingApplicationDraft`, `updateRecruitingApplicationDraft`, `updateAnonymousRecruitingApplication`, `submitRecruitingApplication`, `submitAnonymousRecruitingApplication`, `cancelRecruitingApplication`, `cancelAnonymousRecruitingApplication`, `decideRecruitingDocument`, `decideRecruitingFinal`, `prepareRecruitingRegistration`, `cancelRecruitingRegistration`, `confirmRecruitingRegistration`, `skipRecruitingInterview`, `requestRecruitingInterviewAvailability`, `submitRecruitingInterviewAvailability`, `confirmRecruitingInterviewSchedule`, `createRecruitingInterviewSession`, `updateRecruitingInterviewSession`, `deleteRecruitingInterviewSession`, `confirmRecruitingInterviewSchedules`, `submitRecruitingApplicationEvaluation`
 
-`RECRUITING-SCHEDULE-001`과 GraphQL `submitRecruitingInterviewAvailability`는 외부 FormResponse ID를 받지 않는다. Form Issue #1146 병합 전까지 REST는 `501 RECRUITING-0419`를 반환하고 GraphQL은 같은 오류 코드를 extension으로 반환한다. 이후 Recruiting이 회원·비회원 일정 draft 생성, 수정, 제출과 내부 access key 보관을 직접 중개하는 계약으로 교체한다.
+`RECRUITING-SCHEDULE-001`은 `PUT /api/v1/recruiting/applications/{applicationId}/interview-schedule/availability`로 로그인한 면접 대상 지원자 본인이 실행한다. body는 `{"times":["2026-08-12T10:00:00Z"]}`처럼 비어 있지 않은 ISO-8601 `Instant` 목록이며, `times`와 각 요소는 null일 수 없다. Round에 연결된 면접 가능 시간용 published·기명 Form에는 지정된 `SCHEDULE` 질문 하나만 필수여야 한다. 15분 단위 정렬은 이 Form의 `SCHEDULE` 답변 검증이 담당한다. 각 시간은 `interviewStartAt <= t < interviewEndAt`를 만족해야 하며, 기간 밖 시간은 `400 RECRUITING-0413`이다. 성공하면 Form에 기명 최종 응답을 즉시 제출하고 그 FormResponse ID를 일정에 저장하며 일정 상태는 `AVAILABILITY_SUBMITTED`가 된다. 일반 지원서 Form의 시간 답변, 익명/email-link, 일정 재제출은 이 계약에 포함하지 않는다.
+
+GraphQL `submitRecruitingInterviewAvailability(applicationId: ID!, input: SubmitRecruitingInterviewAvailabilityInput!): Boolean!`도 같은 인증·제출 규칙을 사용한다. `SubmitRecruitingInterviewAvailabilityInput`은 `times: [Instant!]!`이고, 성공하면 `true`를 반환한다. FormResponse ID와 일정 상세는 이 mutation의 반환값에 포함하지 않는다.
+
+운영진 면접 세션 API는 REST와 GraphQL에서 동일한 세션 CRUD를 제공한다. 세션의 `slotDurationMinutes`는 15분의 양의 배수이며, `recruitingInterviewScheduleBoard`는 `date`를 `Asia/Seoul` 자정 기준으로 해석해 세션별 슬롯 길이로 계산한다. 여러 지원자 배정은 `confirmRecruitingInterviewSchedules`(REST `.../interview-schedule/confirmations`)로 한 번에 원자 확정하고, 세션·지원자·가능 응답을 잠근 뒤 일부라도 실패하면 전체를 반영하지 않는다. 기존 단건 confirmation facade는 `sessionId`를 필수로 받아 동일한 세션 슬롯 확정 경로를 호출한다.
+
+단건 facade는 `endsAt`·`location`이 세션에서 계산한 값과 일치할 때만 확정한다. batch 확정은 실제 PostgreSQL 동시성 테스트에서 같은 슬롯 경쟁 한 건 성공, 서로 다른 슬롯의 병렬 성공, 동일 지원서 중복 방지와 부분 실패 rollback을 검증한다.
 
 정확한 input/output 계약은 [`recruiting.graphqls`](../../../src/main/resources/graphql/recruiting.graphqls)를 기준으로 한다.
 

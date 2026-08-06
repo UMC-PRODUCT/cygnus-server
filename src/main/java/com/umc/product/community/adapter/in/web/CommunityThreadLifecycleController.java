@@ -22,8 +22,8 @@ import com.umc.product.community.application.port.in.command.thread.ManageCommun
 import com.umc.product.community.application.port.in.command.thread.UpdateCommunityThreadUseCase;
 import com.umc.product.community.application.port.in.command.thread.dto.CommunityThreadLifecycleInfo;
 import com.umc.product.community.application.port.in.command.thread.dto.ThreadActorCommand;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -45,7 +45,7 @@ public class CommunityThreadLifecycleController {
     private final DeleteCommunityThreadUseCase deleteThreadUseCase;
     private final ManageCommunityThreadPinUseCase managePinUseCase;
     private final ManageCommunityThreadMuteUseCase manageMuteUseCase;
-    private final GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private final GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     private final GetCommunityThreadMutationDetailUseCase getMutationDetailUseCase;
 
     @PostMapping("/threads")
@@ -139,7 +139,7 @@ public class CommunityThreadLifecycleController {
     }
 
     private CommunityThreadDetailResponse detail(Long threadId, Long memberId) {
-        return CommunityThreadDetailResponse.from(getThreadDetailUseCase.getThread(
+        return CommunityThreadDetailResponse.from(getJoinedThreadDetailUseCase.getJoinedThread(
             new GetThreadDetailQuery(threadId, memberId)
         ));
     }

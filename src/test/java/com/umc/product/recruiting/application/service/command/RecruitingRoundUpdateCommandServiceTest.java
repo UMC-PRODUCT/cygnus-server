@@ -23,8 +23,11 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
-import com.umc.product.form.application.port.in.query.dto.FormInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.form.domain.exception.FormDomainException;
+import com.umc.product.form.domain.exception.FormErrorCode;
 import com.umc.product.recruiting.application.port.in.command.CloseRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.PublishRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.UnpublishRecruitingApplicationFormUseCase;
@@ -33,14 +36,17 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruiti
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingInterviewSessionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingInterviewSession;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
+import com.umc.product.recruiting.domain.enums.RecruitingInterviewMode;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
@@ -58,6 +64,8 @@ class RecruitingRoundUpdateCommandServiceTest {
     LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     @Mock
     LoadRecruitingApplicationPort loadApplicationPort;
+    @Mock
+    LoadRecruitingInterviewSessionPort loadInterviewSessionPort;
     @Mock
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
     @Mock
@@ -80,7 +88,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     void updateRoundConfiguration() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = round(20L, season);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 4)
         ));
@@ -97,11 +105,84 @@ class RecruitingRoundUpdateCommandServiceTest {
     }
 
     @Test
+    @DisplayName("DRAFT 면접 차수는 availability 매핑 없이 설정할 수 있다")
+    void updateDraftInterviewRoundWithoutAvailabilityMapping() {
+        RecruitingSeason season = season(10L);
+        RecruitingRound round = round(20L, season);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
+        ));
+
+        sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(interviewConfiguration(null, null))
+            .build());
+
+        assertThat(round.isInterviewRequired()).isTrue();
+        assertThat(round.getAvailabilityFormId()).isNull();
+        assertThat(round.getAvailabilityScheduleQuestionId()).isNull();
+        then(getFormUseCase).shouldHaveNoInteractions();
+        then(saveRoundPort).should().save(round);
+    }
+
+    @Test
+    @DisplayName("기존 면접 세션을 제외하는 기간으로 면접 차수를 변경할 수 없다")
+    void rejectInterviewWindowUpdateThatExcludesExistingSession() {
+        RecruitingSeason season = season(10L);
+        RecruitingRound round = interviewRound(20L, season, null, null);
+        RecruitingInterviewSession session = RecruitingInterviewSession.create(
+            round.getId(),
+            "오전 면접",
+            Instant.parse("2026-08-11T00:00:00Z"),
+            Instant.parse("2026-08-11T01:00:00Z"),
+            15,
+            RecruitingInterviewMode.ONLINE,
+            "https://meet.example.com/room",
+            round.getInterviewStartAt(),
+            round.getInterviewEndAt()
+        );
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
+        ));
+        given(loadInterviewSessionPort.listByRoundId(20L)).willReturn(List.of(session));
+
+        assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(RecruitingRoundConfigurationCommand.of(
+                List.of(ChallengerTrack.PLAN),
+                false,
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-08T00:00:00Z"),
+                Instant.parse("2026-08-10T00:00:00Z"),
+                true,
+                Instant.parse("2026-08-11T00:15:00Z"),
+                Instant.parse("2026-08-14T00:00:00Z"),
+                Instant.parse("2026-08-16T00:00:00Z"),
+                null,
+                null,
+                null,
+                null
+            ))
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(saveRoundPort).should(never()).save(any());
+    }
+
+    @Test
     @DisplayName("지원서가 있으면 DRAFT 차수의 모집 트랙을 변경할 수 없다")
     void rejectRecruitableTrackChangeWhenApplicationExists() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 4)
@@ -125,7 +206,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     void rejectSecondChoicePolicyChangeWhenApplicationExists() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
@@ -150,7 +231,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
         round.open();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.DESIGN, 4)
         ));
@@ -174,7 +255,7 @@ class RecruitingRoundUpdateCommandServiceTest {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
         round.open();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
@@ -193,13 +274,119 @@ class RecruitingRoundUpdateCommandServiceTest {
     }
 
     @Test
+    @DisplayName("OPEN 면접 차수는 availability 매핑을 제거할 수 없다")
+    void rejectRemovingAvailabilityMappingWhileOpen() {
+        RecruitingSeason season = season(10L);
+        RecruitingRound round = interviewRound(20L, season, 500L, 600L);
+        round.open();
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
+        ));
+
+        assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(interviewConfiguration(null, null))
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(saveRoundPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("OPEN 면접 차수는 게시되지 않은 availability Form으로 변경할 수 없다")
+    void rejectUpdatingOpenRoundWithDraftAvailabilityForm() {
+        assertInvalidOpenInterviewUpdate(
+            interviewConfiguration(501L, 601L),
+            availabilityForm(501L, FormStatus.DRAFT, false, question(601L, QuestionType.SCHEDULE, true))
+        );
+    }
+
+    @Test
+    @DisplayName("OPEN 면접 차수는 익명 availability Form으로 변경할 수 없다")
+    void rejectUpdatingOpenRoundWithAnonymousAvailabilityForm() {
+        assertInvalidOpenInterviewUpdate(
+            interviewConfiguration(501L, 601L),
+            availabilityForm(501L, FormStatus.PUBLISHED, true, question(601L, QuestionType.SCHEDULE, true))
+        );
+    }
+
+    @Test
+    @DisplayName("OPEN 면접 차수는 잘못된 질문 구조의 availability Form으로 변경할 수 없다")
+    void rejectUpdatingOpenRoundWithInvalidAvailabilityQuestion() {
+        assertInvalidOpenInterviewUpdate(
+            interviewConfiguration(501L, 601L),
+            availabilityForm(501L, FormStatus.PUBLISHED, false, question(601L, QuestionType.SHORT_TEXT, true))
+        );
+    }
+
+    @Test
+    @DisplayName("OPEN 면접 차수는 유효한 기명 availability Form 매핑으로 변경할 수 있다")
+    void updateOpenRoundWithValidAvailabilityMapping() {
+        RecruitingRound round = openInterviewRound();
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(round.getSeason(), ChallengerTrack.PLAN, 4)
+        ));
+        given(getFormUseCase.getFormWithStructure(501L)).willReturn(availabilityForm(
+            501L,
+            FormStatus.PUBLISHED,
+            false,
+            question(601L, QuestionType.SCHEDULE, true),
+            question(602L, QuestionType.SHORT_TEXT, false)
+        ));
+
+        sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(interviewConfiguration(501L, 601L))
+            .build());
+
+        assertThat(round.getAvailabilityFormId()).isEqualTo(501L);
+        assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(601L);
+        then(saveRoundPort).should().save(round);
+    }
+
+    @Test
+    @DisplayName("OPEN 면접 차수는 기존의 유효한 availability Form 매핑을 유지할 수 있다")
+    void updateOpenRoundKeepingValidAvailabilityMapping() {
+        RecruitingRound round = openInterviewRound();
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(round.getSeason(), ChallengerTrack.PLAN, 4)
+        ));
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(availabilityForm(
+            FormStatus.PUBLISHED,
+            question(600L, QuestionType.SCHEDULE, true)
+        ));
+
+        sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(interviewConfiguration(500L, 600L))
+            .build());
+
+        assertThat(round.getAvailabilityFormId()).isEqualTo(500L);
+        assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(600L);
+        then(saveRoundPort).should().save(round);
+    }
+
+    @Test
     @DisplayName("CLOSED 차수에서도 모집 정책을 유지하면 일정과 연락처를 변경할 수 있다")
     void updateScheduleAndContactWhileClosed() {
         RecruitingSeason season = season(10L);
         RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
         round.open();
         round.close();
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
         given(loadApplicationPort.existsByRoundId(20L)).willReturn(true);
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
             RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
@@ -221,7 +408,7 @@ class RecruitingRoundUpdateCommandServiceTest {
     @DisplayName("다른 시즌의 차수 설정을 변경할 수 없다")
     void updateRoundRejectsDifferentSeason() {
         RecruitingRound round = round(20L, season(10L));
-        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
 
         assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
             .seasonId(999L)
@@ -257,14 +444,14 @@ class RecruitingRoundUpdateCommandServiceTest {
     @Test
     @DisplayName("면접 차수는 availability Form이 게시되어야 OPEN으로 전환한다")
     void openInterviewRoundWithPublishedAvailabilityForm() {
-        RecruitingRound round = interviewRound(20L, season(10L), 500L);
+        RecruitingRound round = interviewRound(20L, season(10L), 500L, 600L);
         RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
         ReflectionTestUtils.setField(applicationForm, "id", 30L);
         given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
-        given(getFormUseCase.getById(500L)).willReturn(FormInfo.builder()
-            .id(500L)
-            .status(FormStatus.PUBLISHED)
-            .build());
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(availabilityForm(
+            FormStatus.PUBLISHED,
+            question(600L, QuestionType.SCHEDULE, true)
+        ));
         given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
 
         sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
@@ -281,11 +468,38 @@ class RecruitingRoundUpdateCommandServiceTest {
     @Test
     @DisplayName("게시되지 않은 availability Form으로는 면접 차수를 OPEN할 수 없다")
     void rejectOpenInterviewRoundWithDraftAvailabilityForm() {
-        RecruitingRound round = interviewRound(20L, season(10L), 500L);
+        RecruitingRound round = interviewRound(20L, season(10L), 500L, 600L);
         given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
-        given(getFormUseCase.getById(500L)).willReturn(FormInfo.builder()
-            .id(500L)
-            .status(FormStatus.DRAFT)
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(availabilityForm(
+            FormStatus.DRAFT,
+            question(600L, QuestionType.SCHEDULE, true)
+        ));
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.OPEN)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(publishApplicationFormUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("게시된 availability Form이 익명이면 면접 차수를 OPEN할 수 없다")
+    void rejectOpenWhenAvailabilityFormIsAnonymous() {
+        RecruitingRound round = interviewRound(20L, season(10L), 500L, 600L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(FormWithStructureInfo.builder()
+            .formId(500L)
+            .status(FormStatus.PUBLISHED)
+            .isAnonymous(true)
+            .sections(List.of(FormWithStructureInfo.SectionWithQuestions.builder()
+                .sectionId(1L)
+                .questions(List.of(question(600L, QuestionType.SCHEDULE, true)))
+                .build()))
             .build());
 
         assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
@@ -298,6 +512,87 @@ class RecruitingRoundUpdateCommandServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
 
         then(publishApplicationFormUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("availability Form이 존재하지 않으면 모집 일정 오류로 면접 차수 OPEN을 거부한다")
+    void rejectOpenWhenAvailabilityFormDoesNotExist() {
+        RecruitingRound round = interviewRound(20L, season(10L), 500L, 600L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(getFormUseCase.getFormWithStructure(500L))
+            .willThrow(new FormDomainException(FormErrorCode.FORM_NOT_FOUND));
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.OPEN)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+    }
+
+    @Test
+    @DisplayName("availability 질문이 지정 Form에 없으면 면접 차수를 OPEN할 수 없다")
+    void rejectOpenWhenAvailabilityQuestionDoesNotBelongToForm() {
+        assertInvalidAvailabilityForm(
+            interviewRound(20L, season(10L), 500L, 600L),
+            availabilityForm(FormStatus.PUBLISHED, question(601L, QuestionType.SCHEDULE, true))
+        );
+    }
+
+    @Test
+    @DisplayName("availability 질문이 SCHEDULE 타입이 아니면 면접 차수를 OPEN할 수 없다")
+    void rejectOpenWhenAvailabilityQuestionIsNotSchedule() {
+        assertInvalidAvailabilityForm(
+            interviewRound(20L, season(10L), 500L, 600L),
+            availabilityForm(FormStatus.PUBLISHED, question(600L, QuestionType.SHORT_TEXT, true))
+        );
+    }
+
+    @Test
+    @DisplayName("availability 질문이 필수가 아니면 면접 차수를 OPEN할 수 없다")
+    void rejectOpenWhenAvailabilityQuestionIsOptional() {
+        assertInvalidAvailabilityForm(
+            interviewRound(20L, season(10L), 500L, 600L),
+            availabilityForm(FormStatus.PUBLISHED, question(600L, QuestionType.SCHEDULE, false))
+        );
+    }
+
+    @Test
+    @DisplayName("availability Form에 다른 필수 질문이 있으면 면접 차수를 OPEN할 수 없다")
+    void rejectOpenWhenAvailabilityFormHasAnotherRequiredQuestion() {
+        assertInvalidAvailabilityForm(
+            interviewRound(20L, season(10L), 500L, 600L),
+            availabilityForm(
+                FormStatus.PUBLISHED,
+                question(600L, QuestionType.SCHEDULE, true),
+                question(601L, QuestionType.SHORT_TEXT, true)
+            )
+        );
+    }
+
+    @Test
+    @DisplayName("availability Form의 추가 선택 질문은 면접 차수 OPEN을 막지 않는다")
+    void openWhenAvailabilityFormHasOptionalQuestion() {
+        RecruitingRound round = interviewRound(20L, season(10L), 500L, 600L);
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 100L);
+        ReflectionTestUtils.setField(applicationForm, "id", 30L);
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(availabilityForm(
+            FormStatus.PUBLISHED,
+            question(600L, QuestionType.SCHEDULE, true),
+            question(601L, QuestionType.SHORT_TEXT, false)
+        ));
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+
+        sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.OPEN)
+            .build());
+
+        assertThat(round.getStatus()).isEqualTo(RecruitingRoundStatus.OPEN);
     }
 
     @Test
@@ -412,6 +707,27 @@ class RecruitingRoundUpdateCommandServiceTest {
         return configuration(track, null, null);
     }
 
+    private RecruitingRoundConfigurationCommand interviewConfiguration(
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
+        return RecruitingRoundConfigurationCommand.of(
+            List.of(ChallengerTrack.PLAN),
+            false,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-08T00:00:00Z"),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            true,
+            Instant.parse("2026-08-11T00:00:00Z"),
+            Instant.parse("2026-08-14T00:00:00Z"),
+            Instant.parse("2026-08-16T00:00:00Z"),
+            availabilityFormId,
+            availabilityScheduleQuestionId,
+            null,
+            null
+        );
+    }
+
     private RecruitingRoundConfigurationCommand configuration(
         ChallengerTrack track,
         String announcement,
@@ -482,7 +798,94 @@ class RecruitingRoundUpdateCommandServiceTest {
         return round;
     }
 
-    private RecruitingRound interviewRound(Long id, RecruitingSeason season, Long availabilityFormId) {
+    private void assertInvalidAvailabilityForm(RecruitingRound round, FormWithStructureInfo form) {
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(form);
+
+        assertThatThrownBy(() -> sut.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .status(RecruitingRoundStatus.OPEN)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(publishApplicationFormUseCase).shouldHaveNoInteractions();
+    }
+
+    private void assertInvalidOpenInterviewUpdate(
+        RecruitingRoundConfigurationCommand configuration,
+        FormWithStructureInfo form
+    ) {
+        RecruitingRound round = openInterviewRound();
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(round.getSeason(), ChallengerTrack.PLAN, 4)
+        ));
+        given(getFormUseCase.getFormWithStructure(configuration.availabilityFormId())).willReturn(form);
+
+        assertThatThrownBy(() -> sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .configuration(configuration)
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+
+        then(saveRoundPort).should(never()).save(any());
+    }
+
+    private RecruitingRound openInterviewRound() {
+        RecruitingRound round = interviewRound(20L, season(10L), 500L, 600L);
+        round.open();
+        return round;
+    }
+
+    private FormWithStructureInfo availabilityForm(
+        FormStatus status,
+        FormWithStructureInfo.QuestionWithOptions... questions
+    ) {
+        return availabilityForm(500L, status, false, questions);
+    }
+
+    private FormWithStructureInfo availabilityForm(
+        Long formId,
+        FormStatus status,
+        boolean anonymous,
+        FormWithStructureInfo.QuestionWithOptions... questions
+    ) {
+        return FormWithStructureInfo.builder()
+            .formId(formId)
+            .status(status)
+            .isAnonymous(anonymous)
+            .sections(List.of(FormWithStructureInfo.SectionWithQuestions.builder()
+                .sectionId(1L)
+                .questions(List.of(questions))
+                .build()))
+            .build();
+    }
+
+    private FormWithStructureInfo.QuestionWithOptions question(
+        Long id,
+        QuestionType type,
+        boolean required
+    ) {
+        return FormWithStructureInfo.QuestionWithOptions.builder()
+            .questionId(id)
+            .type(type)
+            .isRequired(required)
+            .build();
+    }
+
+    private RecruitingRound interviewRound(
+        Long id,
+        RecruitingSeason season,
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
         RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfigurationCommand.of(
             List.of(ChallengerTrack.PLAN),
             false,
@@ -494,6 +897,7 @@ class RecruitingRoundUpdateCommandServiceTest {
             Instant.parse("2026-08-14T00:00:00Z"),
             Instant.parse("2026-08-16T00:00:00Z"),
             availabilityFormId,
+            availabilityScheduleQuestionId,
             null,
             null
         ).toDomain());

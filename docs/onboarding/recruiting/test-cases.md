@@ -41,7 +41,10 @@
 | `RecruitingDecisionCommandServiceTest` | 서류 불합격, 면접 진행 시 일정 자동 생성, 면접 미진행 시 즉시 skip, 최종 판정 권한·acceptedTrack·중복 합격 |
 | `RecruitingInterviewAvailabilityRequestCoordinatorTest` | 일정 row와 Outbox의 같은 transaction 생성, 멱등 재요청과 실패 재시도 |
 | `RecruitingInterviewCommandServiceTest` | 면접 생략 시 Application 전이와 기존 일정 `CANCELLED`, 일정 후보 overlap 위임 |
-| `RecruitingInterviewScheduleCommandServiceTest` | 서류 합격자만 요청, Form 엔진 연동 전 availability 제출 501 거부, 제출 완료 일정의 면접 기간 안 확정, 연락처 snapshot |
+| `RecruitingInterviewScheduleCommandServiceTest` | 로그인한 면접 대상 지원자 본인만 `AVAILABILITY_REQUESTED` 일정에 제출, published·기명 Form의 지정된 sole-required `SCHEDULE` 질문 검증, FormResponse 즉시 최종 제출·ID 저장·`AVAILABILITY_SUBMITTED` 전이, 비어 있지 않은 times/null·Form 검증 오류, 시작 포함·종료 제외 기간과 `RECRUITING-0413`, 실패 시 일정 상태·응답 ID 미변경 |
+| `RecruitingInterviewSessionCommandServiceTest` | 운영진의 Round 면접 세션 생성·수정·삭제, 15분 배수 슬롯 길이 설정, 다른 Round 차단, 확정/참조 일정이 있는 세션 변경·삭제 차단 |
+| `RecruitingInterviewScheduleBatchCommandServiceTest` | 세션 슬롯·지원자·가능 응답을 잠근 뒤 여러 일정을 한 transaction에서 일괄 확정하고, 중복·범위·가능 시간 충돌과 부분 실패 rollback을 검증 |
+| `RecruitingInterviewAvailabilitySubmissionIntegrationTest` | 실제 published Form `SCHEDULE` 응답이 기명 `SUBMITTED` FormResponse로 저장되는지, 빈 times Form 거부 시 FormResponse와 일정 상태가 함께 rollback되는지, application lock으로 동시 두 제출 중 한 번만 성공하는지, Form 가능 시간이 보드 슬롯과 batch 확정 결과로 이어지는지 |
 | `RecruitingInterviewMailDeliveryCommandServiceTest` | 요청/확정 메일 상태 저장과 잘못된 상태 차단 |
 | `RecruitingRegistrationCommandServiceTest` | 중앙 권한, quota lock, READY 예약·취소, REGISTERED와 Challenger track 멱등 추가 |
 | `RecruitingManagementAuthorizationServiceTest` | 학교 회장단·중앙 총괄단·SUPER_ADMIN scope와 evaluator 권한 분리 |
@@ -56,8 +59,11 @@
 | `RecruitingPublicApplicationQueryServiceTest` | credential 검증, email 정규화, 서류·최종 발표 직전/정시 결과 마스킹 |
 | `RecruitingApplicationReviewQueryServiceTest` | evaluator/운영진 목록·상세 권한, DRAFT 제외, 다중 상태·1·2지망 트랙 필터와 pagination count, 본인 평가 여부, 익명/회원 Form 답변 조회 |
 | `RecruitingApplicationEvaluationQueryServiceTest` | 본인 평가 제출 전 타 평가 비공개, 제출 후 공개, 관리자 bypass |
+| `RecruitingDecisionHistoryQueryServiceTest` | 평가 이력 권한·상태 집계·CSV 마스킹, 복수 지부/학교 OR와 두 목록 AND 범위 |
 | `RecruitingEvaluatorQuestionQueryServiceTest` | 공통·개별 질문 조회 scope와 active 정렬 |
 | `RecruitingInterviewScheduleQueryServiceTest` | 지원자와 운영진 일정 조회 권한 및 응답 변환 |
+| `RecruitingInterviewSessionQueryServiceTest` | 운영진 세션 목록/단건 조회, 시작 시각 순서 유지, 다른 Round 및 권한 없는 조회 차단 |
+| `RecruitingInterviewScheduleBoardQueryServiceTest` | `Asia/Seoul` 날짜 경계, 세션별 슬롯 길이 계산, 가능 지원자·대기/확정 지원자 결합, 저장된 확정 슬롯 불일치 차단 |
 | `RecruitingInterviewMailDeliveryQueryServiceTest` | 일정·지원자·Round의 메일 발송 정보 조합 |
 | `RecruitingCsvExportServiceTest` | 고정 header, masking, 원문 email·이름·키·답변·평가 정보 제외 |
 
@@ -77,6 +83,7 @@
 | `RecruitingApplicationDatabaseInvariantTest` | email/key, Round email/member, 트랙·개인정보·상태 DB CHECK |
 | `RecruitingRegistrationDatabaseInvariantTest` | FINAL_PASSED acceptedTrack과 registration 상태 DB CHECK |
 | `RecruitingLockExceptionTranslatorTest` | lock timeout/deadlock 예외를 Recruiting 충돌 오류로 변환 |
+| `RecruitingInterviewScheduleConcurrencyTest` | 다중 assignment 일괄 확정의 row lock·중복 슬롯 충돌·부분 실패 rollback을 Testcontainers PostgreSQL에서 검증한다. |
 | `RecruitingApplicationKeyGeneratorTest` | SecureRandom key 형식과 alphabet |
 
 ## Migration
@@ -97,12 +104,14 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 | `RecruitingPublicControllerTest` | 공개 Round 필터, 익명 생성·조회·철회, key 비노출과 email 정규화 |
 | `RecruitingApplicationControllerTest` | 로그인 초안 생성과 인증·입력 검증 |
 | `RecruitingApplicationMutationControllerTest` | 로그인 수정·제출·철회와 CurrentMember 전달 |
+| `RecruitingInterviewScheduleControllerTest` | `SCHEDULE-001`의 times/CurrentMember command 변환, body·빈 목록·null 요소 validation, `RECRUITING-0413` error envelope |
 | `RecruitingSeasonAdminControllerTest` | Season 설정·memo·TO, 그룹 Round 조회와 필수 gisu, 제목 확인, 생성·복제·삭제 command 변환 |
 | `RecruitingRoundAdminControllerTest` | Round 생성·수정·상태 요청과 title/일정 schema |
-| `RecruitingAdminControllerTest` | Form Upsert, 제거된 별도 게시/마감 route, 서류·최종 판정, skip, 등록, summary와 CSV |
+| `RecruitingAdminControllerTest` | Form Upsert, 제거된 별도 게시/마감 route, 서류·최종 판정, skip, 등록, summary와 반복 `chapterIds`·`schoolIds` 평가 이력/CSV |
 | `RecruitingAdminEvaluatorController` 범위 (`RecruitingManagementControllerTest`) | evaluator actor/target 분리 |
 | `RecruitingAdminQuestionController` 범위 (`RecruitingManagementControllerTest`) | 질문 validation과 actor 전달 |
-| `RecruitingAdminInterviewController` 범위 (`RecruitingManagementControllerTest`) | 요청·확정 일정 command 변환 |
+| `RecruitingAdminInterviewController` 범위 (`RecruitingManagementControllerTest`) | 요청·단건 확정·세션 생성·KST 보드 조회·batch 확정의 command 변환과 `sessionId` validation |
+| `RecruitingRestContractTest` 면접 세션 범위 | 세션 CRUD, KST 보드, batch confirmation 및 단건 confirmation의 `sessionId` contract |
 | `RecruitingApplicationReviewControllerTest` | Round 지원서 목록 필터·페이지와 CurrentMember 전달 |
 | `RecruitingEvaluationControllerTest` | 평가 `PUT`, stage/path scope, CurrentMember, 평가 조회 |
 | `RecruitingCredentialRestRateLimitInterceptorTest` | lookup/update/submit/cancel의 IP bucket 공유, 생성 제외, 429 header |
@@ -115,19 +124,20 @@ Recruiting migration은 최초 배포 전이라는 전제에서 `V2026.07.15.13.
 
 | 테스트 | 검증 케이스 |
 |---|---|
-| `RecruitingGraphQlSurfaceTest` | schema Query/Mutation/enum/input/output 표면과 제거된 legacy field |
+| `RecruitingGraphQlSurfaceTest` | schema Query/Mutation/enum/input/output 표면, 평가 이력 `chapterIds`·`schoolIds` 목록 입력과 제거된 legacy field |
 | `RecruitingGraphQlArchitectureTest` | GraphQL adapter가 UseCase만 의존하고 persistence를 직접 참조하지 않음 |
 | `RecruitingGraphQlSecurityTest` | 공개 Query·익명 mutation과 인증/관리 mutation 경계, CurrentMember 적용 |
 | `RecruitingGraphQlExceptionAdviceTest` | domain·validation·authorization 오류 code 변환 |
 | `RecruitingCredentialGraphQlRateLimitInterceptorTest` | alias/fragment 우회 차단, cancel 포함 credential field count, 비credential 통과 |
-| `RecruitingSeasonAdminGraphQlControllerTest` | Season별 Round 그룹, 필터, Season memo/TO와 validation |
+| `RecruitingSeasonAdminGraphQlControllerTest` | Season별 Round 그룹, 필터, Season memo/TO, 평가 이력 다중 범위 입력과 validation |
 | `RecruitingRoundAdminGraphQlControllerTest` | Round title·생성·수정·상태·복제·삭제 mutation |
 | `RecruitingFormAdminGraphQlControllerTest` | Form 전체 구조 Upsert와 조건부 section key |
 | `RecruitingEvaluatorQuestionGraphQlControllerTest` | evaluator와 공통·개별 질문 Query/Mutation |
 | `RecruitingEvaluationGraphQlControllerTest` | 평가 Upsert와 visibility Query |
 | `RecruitingApplicationReviewGraphQlControllerTest` | 평가용 지원서 필터·페이지 Query와 CurrentMember 전달 |
 | `RecruitingDecisionGraphQlControllerTest` | 서류·최종 판정, 면접 생략, 등록 mutation |
-| `RecruitingScheduleGraphQlControllerTest` | 일정 요청·availability 연결·확정 Query/Mutation |
+| `RecruitingScheduleGraphQlControllerTest` | 일정 요청·확정과 `submitRecruitingInterviewAvailability(applicationId, input { times })`의 CurrentMember 전달, `Boolean!` 반환, 누락·빈·null times validation, `RECRUITING-0413` extension |
+| `RecruitingScheduleGraphQlControllerTest` 세션 범위 | 세션 CRUD, 단건 조회 facade, KST 보드, batch confirmation의 `seasonId`/`roundId` 권한 및 `sessionId` 전달 |
 | `RecruitingGraphQlRandomPortIntegrationTest` | 실제 GraphQL HTTP 실행, schema validation과 보안 응답 |
 
 ## Event와 메일

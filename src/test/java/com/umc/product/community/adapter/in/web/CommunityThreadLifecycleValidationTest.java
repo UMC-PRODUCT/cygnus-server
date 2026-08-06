@@ -24,8 +24,8 @@ import com.umc.product.community.application.port.in.command.thread.DeleteCommun
 import com.umc.product.community.application.port.in.command.thread.ManageCommunityThreadMuteUseCase;
 import com.umc.product.community.application.port.in.command.thread.ManageCommunityThreadPinUseCase;
 import com.umc.product.community.application.port.in.command.thread.UpdateCommunityThreadUseCase;
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadMutationDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -58,7 +58,7 @@ class CommunityThreadLifecycleValidationTest {
     private ManageCommunityThreadMuteUseCase manageMuteUseCase;
 
     @MockitoBean
-    private GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
 
     @MockitoBean
     private GetCommunityThreadMutationDetailUseCase getMutationDetailUseCase;

@@ -7,6 +7,7 @@ public record SchoolGisuChapterInfo(
     Long chapterId,
     String chapterName,
     String schoolName,
+    String shortName,
     Long schoolId,
     String remark,
     String logoImageId,

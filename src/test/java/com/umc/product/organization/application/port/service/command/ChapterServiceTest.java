@@ -121,7 +121,7 @@ class ChapterServiceTest {
     }
 
     private School school(Long id) {
-        School school = School.create("테스트 학교 " + id, null);
+        School school = School.create("테스트 학교 " + id, null, null);
         ReflectionTestUtils.setField(school, "id", id);
         return school;
     }

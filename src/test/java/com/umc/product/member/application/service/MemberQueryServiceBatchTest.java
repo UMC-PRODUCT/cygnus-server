@@ -97,6 +97,7 @@ class MemberQueryServiceBatchTest {
             1L,
             "서울",
             schoolName,
+            null,
             schoolId,
             null,
             null,

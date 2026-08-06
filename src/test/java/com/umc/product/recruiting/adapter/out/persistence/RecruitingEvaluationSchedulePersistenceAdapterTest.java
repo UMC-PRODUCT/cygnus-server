@@ -13,9 +13,11 @@ import org.springframework.dao.DataIntegrityViolationException;
 
 import com.umc.product.recruiting.domain.RecruitingApplicationEvaluation;
 import com.umc.product.recruiting.domain.RecruitingInterviewSchedule;
+import com.umc.product.recruiting.domain.RecruitingInterviewSession;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationEvaluationDecision;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluatorStage;
+import com.umc.product.recruiting.domain.enums.RecruitingInterviewMode;
 import com.umc.product.support.PersistenceAdapterTest;
 
 import jakarta.persistence.PersistenceException;
@@ -29,15 +31,22 @@ import jakarta.persistence.PersistenceException;
     RecruitingApplicationQueryRepository.class,
     RecruitingApplicationEvaluationPersistenceAdapter.class,
     RecruitingInterviewSchedulePersistenceAdapter.class,
+    RecruitingInterviewSessionPersistenceAdapter.class,
     RecruitingSubmittedInterviewEvaluationPersistenceAdapter.class
 })
 class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersistenceAdapterTestSupport {
+
+    private static final Instant ROUND_START = Instant.parse("2026-08-11T00:00:00Z");
+    private static final Instant ROUND_END = Instant.parse("2026-08-15T00:00:00Z");
 
     @Autowired
     RecruitingApplicationEvaluationPersistenceAdapter evaluationAdapter;
 
     @Autowired
     RecruitingInterviewSchedulePersistenceAdapter scheduleAdapter;
+
+    @Autowired
+    RecruitingInterviewSessionPersistenceAdapter sessionAdapter;
 
     @Autowired
     RecruitingSubmittedInterviewEvaluationPersistenceAdapter submittedEvaluationAdapter;
@@ -68,12 +77,24 @@ class RecruitingEvaluationSchedulePersistenceAdapterTest extends RecruitingPersi
             "추가 논의"
         );
         evaluationAdapter.saveEvaluation(interview);
+        RecruitingInterviewSession session = sessionAdapter.save(RecruitingInterviewSession.create(
+            graph.round().getId(),
+            "면접 세션",
+            Instant.parse("2026-08-12T01:00:00Z"),
+            Instant.parse("2026-08-12T01:30:00Z"),
+            30,
+            RecruitingInterviewMode.ONLINE,
+            "온라인",
+            ROUND_START,
+            ROUND_END
+        ));
         RecruitingInterviewSchedule schedule = RecruitingInterviewSchedule.requestAvailability(
             graph.application(),
             "카카오톡 @umc"
         );
         schedule.submitAvailability(700L);
         schedule.confirm(
+            session.getId(),
             Instant.parse("2026-08-12T01:00:00Z"),
             Instant.parse("2026-08-12T01:30:00Z"),
             "온라인",

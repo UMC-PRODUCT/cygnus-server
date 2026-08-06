@@ -142,7 +142,7 @@ class ProjectSeedDataCleanupPersistenceAdapterTest {
         formResponse.submit(Instant.now(), "127.0.0.1");
         em.persist(formResponse);
 
-        Answer answer = Answer.create(formResponse, question, QuestionType.RADIO, null, null);
+        Answer answer = Answer.create(formResponse, question, QuestionType.RADIO, null, null, null);
         em.persist(answer);
 
         AnswerChoice answerChoice = AnswerChoice.create(answer, option);

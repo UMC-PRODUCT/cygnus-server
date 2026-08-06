@@ -7,6 +7,7 @@ import lombok.Builder;
 @Builder
 public record FindRecruitingInterviewScheduleCandidatesCommand(
     Long formId,
+    Long questionId,
     List<Long> formResponseIds
 ) {
 }

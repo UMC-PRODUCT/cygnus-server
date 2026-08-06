@@ -4,7 +4,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.dto.GetThreadDetailQuery;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics;
 import com.umc.product.community.application.service.realtime.CommunityThreadRealtimeMetrics.Operation;
@@ -19,7 +19,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CommunityStompSendAuthorizer implements StompSendAuthorizer {
 
-    private final GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    private final GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     private final CommunityThreadRealtimeMetrics metrics;
 
     @Override
@@ -37,7 +37,7 @@ public class CommunityStompSendAuthorizer implements StompSendAuthorizer {
         }
 
         try {
-            getThreadDetailUseCase.getThread(new GetThreadDetailQuery(parsed.get().threadId(), memberId));
+            getJoinedThreadDetailUseCase.getJoinedThread(new GetThreadDetailQuery(parsed.get().threadId(), memberId));
             return true;
         } catch (BusinessException | IllegalArgumentException ignored) {
             recordAuthorizationReject(parsed.get().command());

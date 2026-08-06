@@ -49,7 +49,7 @@ class AdminRiskChallengerAnalyticsQueryRepositoryTest {
         // 충돌하지 않도록 비활성 기수로 만든다. 분석 쿼리는 scope.gisuId() 로 직접 스코프한다.
         Gisu gisu = em.persist(Gisu.create(7L, Instant.now().minusSeconds(3600), Instant.now().plusSeconds(86400), false));
         Chapter chapter = em.persist(Chapter.create(gisu, "중앙"));
-        School school = em.persist(School.create("가천대학교", null));
+        School school = em.persist(School.create("가천대학교", null, null));
         em.persist(ChapterSchool.create(chapter, school));
         em.flush();
         gisuId = gisu.getId();

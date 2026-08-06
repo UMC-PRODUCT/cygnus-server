@@ -56,6 +56,14 @@ public class RecruitingConcurrencyLockService {
         return loadApplicationPort.getByIdWithDetailsForUpdate(applicationId);
     }
 
+    public List<RecruitingApplication> lockApplications(Collection<Long> applicationIds) {
+        return applicationIds.stream()
+            .distinct()
+            .sorted()
+            .map(loadApplicationPort::getByIdWithDetailsForUpdate)
+            .toList();
+    }
+
     public RecruitingApplication lockRoundThenApplication(Long applicationId) {
         Long roundId = loadApplicationPort.getRoundIdByApplicationId(applicationId);
         loadRoundPort.getByIdForUpdate(roundId);

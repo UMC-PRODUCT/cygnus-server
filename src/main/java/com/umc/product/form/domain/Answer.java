@@ -84,7 +84,8 @@ public class Answer extends BaseEntity {
         Question question,
         QuestionType answeredAsType,
         String textValue,
-        Set<String> fileIds
+        Set<String> fileIds,
+        Set<Instant> times
     ) {
         Answer answer = new Answer();
         answer.formResponse = formResponse;
@@ -92,6 +93,7 @@ public class Answer extends BaseEntity {
         answer.answeredAsType = answeredAsType;
         answer.textValue = textValue;
         answer.fileIds = fileIds;
+        answer.times = times;
 
         return answer;
     }
@@ -110,7 +112,7 @@ public class Answer extends BaseEntity {
     }
 
     /**
-     * 답변 내용 (textValue / fileIds) 부분 갱신 (PATCH 시맨틱 — 다른 도메인 update 메서드와 일관).
+     * 답변 내용 (textValue / fileIds / times) 부분 갱신 (PATCH 시맨틱 — 다른 도메인 update 메서드와 일관).
      * <ul>
      *   <li>null -> 기존 값 유지</li>
      *   <li>빈 문자열 / 빈 Set -> 비우기 (null 로 저장)</li>
@@ -120,12 +122,15 @@ public class Answer extends BaseEntity {
      * 객관식 답변의 AnswerChoice 갈아끼움은 Service 책임.
      * 질문 type 변경은 {@code ManageQuestionUseCase}가 다루므로 본 메서드에서 type 변경 안 함.
      */
-    public void update(String textValue, Set<String> fileIds) {
+    public void update(String textValue, Set<String> fileIds, Set<Instant> times) {
         if (textValue != null) {
             this.textValue = textValue.isBlank() ? null : textValue;
         }
         if (fileIds != null) {
             this.fileIds = fileIds.isEmpty() ? null : fileIds;
+        }
+        if (times != null) {
+            this.times = times.isEmpty() ? null : times;
         }
     }
 }

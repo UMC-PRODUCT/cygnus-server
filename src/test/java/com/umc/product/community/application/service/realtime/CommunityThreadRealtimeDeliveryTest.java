@@ -21,7 +21,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import com.umc.product.community.application.port.in.query.thread.GetCommunityThreadDetailUseCase;
+import com.umc.product.community.application.port.in.query.thread.GetJoinedCommunityThreadDetailUseCase;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageForRecipientsUseCase;
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimeEvent;
 import com.umc.product.community.application.port.in.realtime.dto.CommunityThreadRealtimeEventType;
@@ -47,7 +47,7 @@ class CommunityThreadRealtimeDeliveryTest {
     @Mock
     GetCommunityThreadMessageForRecipientsUseCase getMessageForRecipientsUseCase;
     @Mock
-    GetCommunityThreadDetailUseCase getThreadDetailUseCase;
+    GetJoinedCommunityThreadDetailUseCase getJoinedThreadDetailUseCase;
     @Mock
     CommunityThreadRealtimeBroadcastPort broadcastPort;
     @Mock

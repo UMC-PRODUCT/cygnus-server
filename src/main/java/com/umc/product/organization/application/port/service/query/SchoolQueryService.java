@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolLinkInfo;
@@ -138,6 +139,11 @@ public class SchoolQueryService implements GetSchoolUseCase {
     }
 
     @Override
+    public List<SchoolChapterNameInfo> getSchoolChapterNamesByGisuId(Long gisuId) {
+        return loadSchoolPort.findSchoolChapterNamesByGisuId(gisuId);
+    }
+
+    @Override
     public Map<Long, List<SchoolDetailInfo>> getSchoolListByGisuIds(Set<Long> gisuIds) {
         if (gisuIds.isEmpty()) {
             return Map.of();
@@ -185,6 +191,7 @@ public class SchoolQueryService implements GetSchoolUseCase {
             info.chapterId(),
             info.chapterName(),
             info.schoolName(),
+            info.shortName(),
             info.schoolId(),
             info.remark(),
             logoImageUrl,
@@ -208,6 +215,7 @@ public class SchoolQueryService implements GetSchoolUseCase {
             info.chapterId(),
             info.chapterName(),
             info.schoolName(),
+            info.shortName(),
             info.schoolId(),
             info.remark(),
             logoImageUrl,

@@ -31,6 +31,7 @@ public class RecruitingDecisionCommandService implements
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final RecruitingConcurrencyLockService concurrencyLockService;
     private final RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
+    private final RecruitingDecisionHistoryRecorder decisionHistoryRecorder;
 
     @Override
     public void decideDocument(DecideRecruitingDocumentCommand command) {
@@ -40,6 +41,7 @@ public class RecruitingDecisionCommandService implements
             prepareInterview(application, command.decidedByMemberId());
         } else if (command.decision() == RecruitingDecisionStatus.FAIL) {
             application.failDocument(command.decidedByMemberId(), command.reason());
+            decisionHistoryRecorder.record(application, command.decidedByMemberId());
         } else {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
         }
@@ -61,6 +63,7 @@ public class RecruitingDecisionCommandService implements
         } else {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_TRANSITION);
         }
+        decisionHistoryRecorder.record(application, command.decidedByMemberId());
         saveApplicationPort.save(application);
     }
 

@@ -51,6 +51,8 @@ class RecruitingDecisionCommandServiceTest {
     RecruitingConcurrencyLockService concurrencyLockService;
     @Mock
     RecruitingInterviewAvailabilityRequestCoordinator availabilityRequestCoordinator;
+    @Mock
+    RecruitingDecisionHistoryRecorder decisionHistoryRecorder;
     @InjectMocks
     RecruitingDecisionCommandService sut;
 
@@ -71,6 +73,7 @@ class RecruitingDecisionCommandServiceTest {
         assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.INTERVIEW_SKIPPED);
         then(saveApplicationPort).should().save(application);
         then(availabilityRequestCoordinator).shouldHaveNoInteractions();
+        then(decisionHistoryRecorder).shouldHaveNoInteractions();
     }
 
     @Test
@@ -114,6 +117,7 @@ class RecruitingDecisionCommandServiceTest {
 
         assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.DOCUMENT_FAILED);
         then(availabilityRequestCoordinator).shouldHaveNoInteractions();
+        then(decisionHistoryRecorder).should().record(application, 1L);
     }
 
     @Test
@@ -129,6 +133,25 @@ class RecruitingDecisionCommandServiceTest {
         assertThat(application.getAcceptedTrack()).isEqualTo(ChallengerTrack.DESIGN);
         assertThat(application.getRegistrationStatus()).isEqualTo(RecruitingApplicationRegistrationStatus.NOT_READY);
         then(saveApplicationPort).should().save(application);
+        then(decisionHistoryRecorder).should().record(application, 1L);
+    }
+
+    @Test
+    @DisplayName("최종 불합격도 판정 이력을 기록한다")
+    void finalFailRecordsDecisionHistory() {
+        RecruitingApplication application = documentPassedApplication();
+        given(concurrencyLockService.lockApplicantThenApplication(900L, List.of())).willReturn(application);
+        given(getChallengerRoleUseCase.isSchoolCoreInGisu(1L, 1L, 10L)).willReturn(true);
+
+        sut.decideFinal(DecideRecruitingFinalCommand.builder()
+            .applicationId(900L)
+            .decision(RecruitingDecisionStatus.FAIL)
+            .decidedByMemberId(1L)
+            .reason("최종 불합격")
+            .build());
+
+        assertThat(application.getStatus()).isEqualTo(RecruitingApplicationStatus.FINAL_FAILED);
+        then(decisionHistoryRecorder).should().record(application, 1L);
     }
 
     @Test
@@ -155,6 +178,7 @@ class RecruitingDecisionCommandServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_FINAL_DECISION_FORBIDDEN);
 
         then(saveApplicationPort).should(never()).save(any());
+        then(decisionHistoryRecorder).shouldHaveNoInteractions();
     }
 
     @Test
@@ -252,6 +276,7 @@ class RecruitingDecisionCommandServiceTest {
                 interviewRequired ? Instant.parse("2026-08-15T00:00:00Z") : null,
                 Instant.parse("2026-08-16T00:00:00Z"),
                 interviewRequired ? 600L : null,
+                interviewRequired ? 601L : null,
                 null,
                 interviewRequired ? "문의: recruit@example.org" : null
             )

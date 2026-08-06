@@ -36,6 +36,7 @@ class RecruitingRoundConfigurationTest {
         assertThat(round.isSecondChoiceEnabled()).isTrue();
         assertThat(round.isInterviewRequired()).isTrue();
         assertThat(round.getAvailabilityFormId()).isEqualTo(100L);
+        assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(200L);
         assertThat(round.getAnnouncement()).isEqualTo("모집 안내");
         assertThat(round.getContactText()).isEqualTo("recruit@umc.test");
     }
@@ -58,10 +59,45 @@ class RecruitingRoundConfigurationTest {
     @Test
     @DisplayName("면접이 없는 차수는 availability form을 설정할 수 없다")
     void configuredRoundWithoutInterviewRejectsAvailabilityForm() {
-        assertThatThrownBy(() -> noInterviewConfiguration(100L))
+        assertThatThrownBy(() -> noInterviewConfiguration(100L, 200L))
             .isInstanceOf(RecruitingDomainException.class)
             .extracting("baseCode")
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+    }
+
+    @Test
+    @DisplayName("면접 가능 시간 매핑은 Form과 SCHEDULE question을 함께 설정해야 한다")
+    void availabilityMappingRequiresFormAndScheduleQuestionPair() {
+        assertInvalidSchedule(() -> interviewConfiguration(100L, null));
+        assertInvalidSchedule(() -> interviewConfiguration(null, 200L));
+    }
+
+    @Test
+    @DisplayName("면접 가능 시간 매핑 ID는 양수여야 한다")
+    void availabilityMappingRequiresPositiveIds() {
+        assertInvalidSchedule(() -> interviewConfiguration(0L, 200L));
+        assertInvalidSchedule(() -> interviewConfiguration(100L, 0L));
+        assertInvalidSchedule(() -> interviewConfiguration(-1L, 200L));
+        assertInvalidSchedule(() -> interviewConfiguration(100L, -1L));
+    }
+
+    @Test
+    @DisplayName("면접을 진행하는 DRAFT 차수는 면접 가능 시간 매핑 없이 생성할 수 있다")
+    void draftInterviewRoundAllowsMissingAvailabilityMapping() {
+        RecruitingRound round = RecruitingRound.createRegular(
+            RecruitingSeason.create(1L, 10L),
+            interviewConfiguration(null, null)
+        );
+
+        assertThat(round.getStatus().name()).isEqualTo("DRAFT");
+        assertThat(round.getAvailabilityFormId()).isNull();
+        assertThat(round.getAvailabilityScheduleQuestionId()).isNull();
+    }
+
+    @Test
+    @DisplayName("면접을 진행하지 않는 차수는 면접 가능 시간 매핑을 설정할 수 없다")
+    void noInterviewRoundRejectsAvailabilityMapping() {
+        assertInvalidSchedule(() -> noInterviewConfiguration(100L, 200L));
     }
 
     @Test
@@ -96,10 +132,26 @@ class RecruitingRoundConfigurationTest {
     }
 
     private RecruitingRoundConfiguration interviewConfiguration() {
-        return configurationWithTracks(List.of(ChallengerTrack.PLAN, ChallengerTrack.DESIGN));
+        return interviewConfiguration(100L, 200L);
     }
 
     private RecruitingRoundConfiguration configurationWithTracks(List<ChallengerTrack> tracks) {
+        return interviewConfiguration(tracks, 100L, 200L);
+    }
+
+    private RecruitingRoundConfiguration interviewConfiguration(Long availabilityFormId, Long scheduleQuestionId) {
+        return interviewConfiguration(
+            List.of(ChallengerTrack.PLAN, ChallengerTrack.DESIGN),
+            availabilityFormId,
+            scheduleQuestionId
+        );
+    }
+
+    private RecruitingRoundConfiguration interviewConfiguration(
+        List<ChallengerTrack> tracks,
+        Long availabilityFormId,
+        Long scheduleQuestionId
+    ) {
         return RecruitingRoundConfiguration.of(
             tracks,
             true,
@@ -110,13 +162,18 @@ class RecruitingRoundConfigurationTest {
             INTERVIEW_START,
             INTERVIEW_END,
             FINAL_RESULT,
-            100L,
+            availabilityFormId,
+            scheduleQuestionId,
             "모집 안내",
             "recruit@umc.test"
         );
     }
 
     private RecruitingRoundConfiguration noInterviewConfiguration(Long availabilityFormId) {
+        return noInterviewConfiguration(availabilityFormId, null);
+    }
+
+    private RecruitingRoundConfiguration noInterviewConfiguration(Long availabilityFormId, Long scheduleQuestionId) {
         return RecruitingRoundConfiguration.of(
             List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER),
             false,
@@ -128,8 +185,16 @@ class RecruitingRoundConfigurationTest {
             null,
             FINAL_RESULT,
             availabilityFormId,
+            scheduleQuestionId,
             null,
             null
         );
+    }
+
+    private void assertInvalidSchedule(Runnable constructor) {
+        assertThatThrownBy(constructor::run)
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
     }
 }

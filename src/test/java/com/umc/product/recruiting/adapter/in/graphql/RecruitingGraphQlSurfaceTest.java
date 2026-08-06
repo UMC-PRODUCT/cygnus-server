@@ -63,7 +63,11 @@ class RecruitingGraphQlSurfaceTest {
                     "recruitingApplicationInterviewQuestions",
                     "recruitingApplicationEvaluations",
                     "recruitingInterviewSchedule",
-                    "recruitingStatusSummary"
+                    "recruitingInterviewSession",
+                    "recruitingInterviewSessions",
+                    "recruitingInterviewScheduleBoard",
+                    "recruitingStatusSummary",
+                    "recruitingEvaluationStatistics"
                     , "recruitingRoundApplications"
                     , "recruitingRoundApplication"
                 );
@@ -85,6 +89,10 @@ class RecruitingGraphQlSurfaceTest {
                     "requestRecruitingInterviewAvailability",
                     "submitRecruitingInterviewAvailability",
                     "confirmRecruitingInterviewSchedule",
+                    "createRecruitingInterviewSession",
+                    "updateRecruitingInterviewSession",
+                    "deleteRecruitingInterviewSession",
+                    "confirmRecruitingInterviewSchedules",
                     "submitRecruitingApplicationEvaluation"
                 );
             assertThat(allFieldNames(data)).doesNotContainAnyElementsOf(REMOVED_FIELDS);
@@ -118,7 +126,22 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("RecruitingApplicationRegistrationStatus!");
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
+            assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability")).isEqualTo("Boolean!");
+            assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times")).isEqualTo("[Instant!]!");
+            assertThat(inputFieldType(data, "ConfirmRecruitingInterviewScheduleInput", "sessionId")).isEqualTo("ID!");
+            assertThat(inputFieldType(data, "RecruitingInterviewSessionInput", "slotDurationMinutes"))
+                .isEqualTo("Int!");
+            assertThat(fieldType(data, "RecruitingInterviewSession", "slotDurationMinutes")).isEqualTo("Int!");
+            assertThat(fieldType(data, "RecruitingInterviewScheduleBoard", "sessions"))
+                .isEqualTo("[RecruitingInterviewScheduleBoardSession!]!");
             assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
+            assertThat(inputFieldNames(data, "RecruitingDecisionHistorySearchInput"))
+                .contains("chapterIds", "schoolIds")
+                .doesNotContain("chapterId", "schoolId");
+            assertThat(inputFieldType(data, "RecruitingDecisionHistorySearchInput", "chapterIds"))
+                .isEqualTo("[ID!]");
+            assertThat(inputFieldType(data, "RecruitingDecisionHistorySearchInput", "schoolIds"))
+                .isEqualTo("[ID!]");
             assertThat(enumValues(data, "ChallengerTrack"))
                 .containsExactlyInAnyOrder(
                     "PLAN",
@@ -193,6 +216,12 @@ class RecruitingGraphQlSurfaceTest {
             .collect(Collectors.toSet());
     }
 
+    private static Set<String> inputFieldNames(Map<String, Object> data, String typeName) {
+        return inputFields(type(data, typeName)).stream()
+            .map(field -> (String)field.get("name"))
+            .collect(Collectors.toSet());
+    }
+
     private static List<String> fieldNames(Map<String, Object> data, String typeName) {
         return fields(type(data, typeName)).stream()
             .map(field -> (String)field.get("name"))
@@ -204,6 +233,14 @@ class RecruitingGraphQlSurfaceTest {
             .filter(candidate -> fieldName.equals(candidate.get("name")))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("GraphQL 필드를 찾을 수 없습니다: " + fieldName));
+        return renderType(castMap(field.get("type")));
+    }
+
+    private static String inputFieldType(Map<String, Object> data, String typeName, String fieldName) {
+        Map<String, Object> field = inputFields(type(data, typeName)).stream()
+            .filter(candidate -> fieldName.equals(candidate.get("name")))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("GraphQL 입력 필드를 찾을 수 없습니다: " + fieldName));
         return renderType(castMap(field.get("type")));
     }
 
