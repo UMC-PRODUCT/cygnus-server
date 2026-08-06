@@ -23,7 +23,7 @@
 |---|---|
 | `RecruitingSeasonCommandServiceTest` | Season 생성 권한, 중복 Season, quota 교체, 사용량 미만 감소 거부, Round 트랙 보존 |
 | `RecruitingRoundCreateCommandServiceTest` | 본/추가모집 차수, 양수 TO 부분집합, 중복 차수와 0 TO, REST·GraphQL 공용 UseCase의 `INFRA_PLUS` 거부 |
-| `RecruitingRoundUpdateCommandServiceTest` | 제목·설정 수정, 대소문자 제목 중복, 지원서 존재 후 모집 정책 잠금, Form 제목 동기화, 게시된 availability Form의 OPEN 조건, 지원서/FormResponse 없는 OPEN의 DRAFT 복귀와 데이터 존재 시 충돌 |
+| `RecruitingRoundUpdateCommandServiceTest` | 제목·설정 수정, 대소문자 제목 중복, 지원서 존재 후 모집 정책 잠금, Form 제목 동기화, 게시된 availability Form의 OPEN 조건, 매핑이 없는 면접 Round OPEN 시 조율 Form 자동 생성과 이미 매핑·면접 미진행 시 생성 생략, 수정 요청에 매핑이 없을 때 기존 값 승계, 지원서/FormResponse 없는 OPEN의 DRAFT 복귀와 데이터 존재 시 충돌 |
 | `RecruitingRoundLifecycleCommandServiceTest` | DRAFT hard delete 조건과 명시적 삭제 순서, 원본/대상 권한, 복제 설정·Form 조건부 이동 재매핑, availability Form 초기화 |
 | `RecruitingApplicationFormStructureCommandServiceTest` | 전체 Form 생성, section client key를 실제 ID로 변환, TRACK 간 잘못된 이동 및 다른 Form ID 거부 |
 | `RecruitingApplicationFormCommandServiceTest` | Round OPEN/DRAFT/CLOSED에 사용되는 Recruiting Form과 실제 Form 게시·취소·마감 lock 및 호출 순서, Season scope, 게시 전 정책 검증 |
@@ -39,6 +39,7 @@
 | `RecruitingApplicationInterviewQuestionCommandServiceTest` | 개별 질문 관리 권한과 Application scope |
 | `RecruitingApplicationInterviewQuestionPreSubmissionCommandServiceTest` | 최초 면접 평가 전 개별 질문 변경 허용, 이후 동결 |
 | `RecruitingDecisionCommandServiceTest` | 서류 불합격, 면접 진행 시 일정 자동 생성, 면접 미진행 시 즉시 skip, 최종 판정 권한·acceptedTrack·중복 합격 |
+| `RecruitingInterviewAvailabilityFormProvisionerTest` | 면접 일정 조율 Form을 비익명으로 만들고 SCHEDULE 필수 질문 하나를 넣어 게시하는지, 차수 제목 기반 Form 제목과 요청자 ID 전달 |
 | `RecruitingInterviewAvailabilityRequestCoordinatorTest` | 일정 row와 Outbox의 같은 transaction 생성, 멱등 재요청과 실패 재시도 |
 | `RecruitingInterviewCommandServiceTest` | 면접 생략 시 Application 전이와 기존 일정 `CANCELLED`, 일정 후보 overlap 위임 |
 | `RecruitingInterviewScheduleCommandServiceTest` | 로그인한 면접 대상 지원자 본인만 `AVAILABILITY_REQUESTED` 일정에 제출, published·기명 Form의 지정된 sole-required `SCHEDULE` 질문 검증, FormResponse 즉시 최종 제출·ID 저장·`AVAILABILITY_SUBMITTED` 전이, 비어 있지 않은 times/null·Form 검증 오류, 시작 포함·종료 제외 기간과 `RECRUITING-0413`, 실패 시 일정 상태·응답 ID 미변경 |
