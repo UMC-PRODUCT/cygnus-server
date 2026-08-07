@@ -74,4 +74,21 @@ class ObservabilityErrorSanitizerTest {
         assertThat(ObservabilityErrorSanitizer.sanitizeMessage("'unclosed"))
             .isEqualTo("'unclosed");
     }
+
+    @Test
+    @DisplayName("2중 따옴표 이스케이프 경계에서도 기존 치환 결과를 유지한다")
+    void 이중따옴표_이스케이프_경계() {
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("a \"he\"\"llo\" b"))
+            .isEqualTo("a \"[REDACTED]\" b");
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("VALUES (\"o\"\"brien\", \"x\")"))
+            .isEqualTo("VALUES (\"[REDACTED]\", \"[REDACTED]\")");
+        // 닫히지 않은 따옴표는 남는다.
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("\"a\"\""))
+            .isEqualTo("\"[REDACTED]\"\"");
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("\"unclosed"))
+            .isEqualTo("\"unclosed");
+        // constraint 뒤 식별자는 진단 정보이므로 보존한다.
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("constraint \"uk_email\""))
+            .isEqualTo("constraint \"uk_email\"");
+    }
 }

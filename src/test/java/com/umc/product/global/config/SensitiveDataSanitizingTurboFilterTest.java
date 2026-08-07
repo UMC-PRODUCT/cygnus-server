@@ -106,6 +106,32 @@ class SensitiveDataSanitizingTurboFilterTest {
         assertThat(appender.list).isEmpty();
     }
 
+    @Test
+    @DisplayName("레벨을 상속받는 로거에서도 비활성 레벨만 억제한다")
+    void 상속_레벨_로그_억제() {
+        // 운영 로거는 대부분 레벨 미지정 상태로 root에서 상속받는다.
+        Logger root = context.getLogger(Logger.ROOT_LOGGER_NAME);
+        root.setLevel(Level.ERROR);
+        root.addAppender(appender);
+        Logger inherited = context.getLogger("inherited-level-test");
+
+        inherited.debug("Rejected email: {}", PROBE_EMAIL);
+        assertThat(appender.list).isEmpty();
+
+        inherited.error("Rejected email: {}", PROBE_EMAIL);
+        assertThat(appender.list).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("민감값이 없는 로그는 그대로 출력한다")
+    void 민감값_없는_로그_보존() {
+        logger.error("plain message {}", "nothing-sensitive");
+
+        assertThat(appender.list).hasSize(1);
+        assertThat(appender.list.getFirst().getFormattedMessage())
+            .isEqualTo("plain message nothing-sensitive");
+    }
+
     private String throwableText(IThrowableProxy throwable) {
         if (throwable == null) {
             return "";
