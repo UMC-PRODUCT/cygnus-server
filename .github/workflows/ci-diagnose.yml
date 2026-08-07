@@ -35,6 +35,10 @@ jobs:
     steps:
       - name: 📦 코드베이스 체크아웃
         uses: actions/checkout@v4
+        with:
+          # spotless의 ratchetFrom("origin/develop")이 develop 참조를 요구한다.
+          # 얕은 클론이면 spotlessJava 태스크 생성 자체가 실패해 테스트가 못 돈다.
+          fetch-depth: 0
 
       - name: 🖥️ 러너 환경 측정
         id: env
@@ -137,7 +141,23 @@ jobs:
           mkdir -p diag/results-default
           cp -r build/test-results/test/. diag/results-default/ 2>/dev/null || true
 
+      # 대상 클래스 2개로 재현되지 않았고, 그 잡이 하필 나쁜 이미지라면
+      # 전체 스위트로 재현을 시도한다. 좋은 이미지에서는 돌릴 이유가 없다.
+      - name: 🧪 전체 스위트 (재현 폴백)
+        id: test-full
+        if: steps.test-default.outcome == 'success' && steps.env.outputs.image == '20260804.265.1'
+        continue-on-error: true
+        run: ./gradlew test
+
+      - name: 📁 전체 스위트 결과 보관
+        if: always() && steps.test-full.outcome != 'skipped'
+        run: |
+          mkdir -p diag/results-full
+          cp -r build/test-results/test/. diag/results-full/ 2>/dev/null || true
+
       # -Xss 지정이 실제로 해결책인지 직접 검증한다.
+      # 실측상 두 이미지의 스택 크기는 동일했으므로 근본 원인은 아닐 가능성이 크지만,
+      # 여유를 늘렸을 때 증상이 가려지는지는 확인 가치가 있다.
       - name: 🧪 테스트 실행 (-Xss2m)
         id: test-xss
         continue-on-error: true
