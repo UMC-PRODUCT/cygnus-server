@@ -100,6 +100,7 @@ public class RecruitingRoundCommandService implements
         validateRecruitableTrackSubset(command.seasonId(), configuration.recruitableTracks());
         validateInterviewSessions(round, configuration);
         if (round.getStatus() == RecruitingRoundStatus.OPEN && configuration.interviewRequired()) {
+            configuration = withProvisionedAvailabilityForm(round, configuration, command.requesterMemberId());
             validateAvailabilityFormForOpen(
                 configuration.availabilityFormId(),
                 configuration.availabilityScheduleQuestionId()
@@ -176,6 +177,36 @@ public class RecruitingRoundCommandService implements
         if (nothingToInherit) {
             return configuration;
         }
+        return withAvailabilityMapping(
+            configuration,
+            round.getAvailabilityFormId(),
+            round.getAvailabilityScheduleQuestionId()
+        );
+    }
+
+    /**
+     * OPEN Round를 수정하면서 면접을 다시 켰다면 승계할 매핑이 없으므로 이 시점에 새로 만든다.
+     * <p>
+     * Round의 {@code interviewRequired}는 아직 이번 요청을 반영하기 전이라
+     * {@code assignAvailabilityForm} 대신 configuration에 담아 {@code round.update}에서 함께 반영한다.
+     */
+    private RecruitingRoundConfiguration withProvisionedAvailabilityForm(
+        RecruitingRound round,
+        RecruitingRoundConfiguration configuration,
+        Long requesterMemberId
+    ) {
+        if (configuration.availabilityFormId() != null) {
+            return configuration;
+        }
+        var mapping = availabilityFormProvisioner.provision(round, requesterMemberId);
+        return withAvailabilityMapping(configuration, mapping.formId(), mapping.scheduleQuestionId());
+    }
+
+    private RecruitingRoundConfiguration withAvailabilityMapping(
+        RecruitingRoundConfiguration configuration,
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
         return RecruitingRoundConfiguration.of(
             configuration.recruitableTracks(),
             configuration.secondChoiceEnabled(),
@@ -186,8 +217,8 @@ public class RecruitingRoundCommandService implements
             configuration.interviewStartAt(),
             configuration.interviewEndAt(),
             configuration.finalResultPublishedAt(),
-            round.getAvailabilityFormId(),
-            round.getAvailabilityScheduleQuestionId(),
+            availabilityFormId,
+            availabilityScheduleQuestionId,
             configuration.announcement(),
             configuration.contactText()
         );

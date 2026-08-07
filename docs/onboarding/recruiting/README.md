@@ -85,6 +85,7 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 `availabilityFormId`/`availabilityScheduleQuestionId`는 지원 Form이 아니라 비익명·SCHEDULE 필수 질문 하나짜리 전용 Form을 가리키며,
 매핑이 비어 있으면 Round OPEN 시 `RecruitingInterviewAvailabilityFormProvisioner`가 생성·게시한다.
 Round 수정 요청에 매핑이 없으면 기존 값을 승계한다. configuration을 통째로 교체하는 구조라 승계하지 않으면 매핑이 사라진다.
+OPEN Round에서 면접을 껐다 다시 켜면 승계할 값이 없으므로 수정 시점에 새로 생성한다.
 
 ## 지원과 재지원
 

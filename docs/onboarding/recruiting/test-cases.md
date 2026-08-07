@@ -40,6 +40,7 @@
 | `RecruitingApplicationInterviewQuestionPreSubmissionCommandServiceTest` | 최초 면접 평가 전 개별 질문 변경 허용, 이후 동결 |
 | `RecruitingDecisionCommandServiceTest` | 서류 불합격, 면접 진행 시 일정 자동 생성, 면접 미진행 시 즉시 skip, 최종 판정 권한·acceptedTrack·중복 합격 |
 | `RecruitingInterviewAvailabilityFormProvisionerTest` | 면접 일정 조율 Form을 비익명으로 만들고 SCHEDULE 필수 질문 하나를 넣어 게시하는지, 차수 제목 기반 Form 제목과 요청자 ID 전달 |
+| `RecruitingRoundOpenAvailabilityFormIntegrationTest` | 실제 Form 모듈과 DB로 OPEN 전이를 태워 자동 생성된 조율 Form이 곧바로 뒤따르는 검증을 통과하는지, OPEN 차수에서 면접을 껐다 켜면 Form을 새로 만들어 수정이 완료되는지 |
 | `RecruitingInterviewAvailabilityRequestCoordinatorTest` | 일정 row와 Outbox의 같은 transaction 생성, 멱등 재요청과 실패 재시도 |
 | `RecruitingInterviewCommandServiceTest` | 면접 생략 시 Application 전이와 기존 일정 `CANCELLED`, 일정 후보 overlap 위임 |
 | `RecruitingInterviewScheduleCommandServiceTest` | 로그인한 면접 대상 지원자 본인만 `AVAILABILITY_REQUESTED` 일정에 제출, published·기명 Form의 지정된 sole-required `SCHEDULE` 질문 검증, FormResponse 즉시 최종 제출·ID 저장·`AVAILABILITY_SUBMITTED` 전이, 비어 있지 않은 times/null·Form 검증 오류, 시작 포함·종료 제외 기간과 `RECRUITING-0413`, 실패 시 일정 상태·응답 ID 미변경 |

@@ -15,15 +15,20 @@ import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
+import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundStatusCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
+import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
 import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.support.IntegrationTestSupport;
@@ -43,10 +48,16 @@ class RecruitingRoundOpenAvailabilityFormIntegrationTest extends IntegrationTest
     UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
 
     @Autowired
+    UpdateRecruitingRoundUseCase updateRoundUseCase;
+
+    @Autowired
     UpsertRecruitingApplicationFormUseCase upsertApplicationFormUseCase;
 
     @Autowired
     SaveRecruitingSeasonPort saveSeasonPort;
+
+    @Autowired
+    SaveRecruitingSeasonTrackQuotaPort saveQuotaPort;
 
     @Autowired
     SaveRecruitingRoundPort saveRoundPort;
@@ -94,6 +105,72 @@ class RecruitingRoundOpenAvailabilityFormIntegrationTest extends IntegrationTest
                 assertThat(question.questionId()).isEqualTo(opened.getAvailabilityScheduleQuestionId());
                 assertThat(question.type()).isEqualTo(QuestionType.SCHEDULE);
             });
+    }
+
+    @Test
+    @DisplayName("OPEN 차수에서 면접을 껐다 다시 켜도 조율 Form이 새로 생성되어 수정이 완료된다")
+    void reenablingInterviewWhileOpenProvisionsNewAvailabilityForm() {
+        RecruitingSeason season = saveSeasonPort.save(RecruitingSeason.create(9L, 102L));
+        saveQuotaPort.saveAll(List.of(
+            RecruitingSeasonTrackQuota.create(season, RECRUITABLE_TRACK, 5)
+        ));
+        RecruitingRound round = saveRoundPort.save(RecruitingRound.createRegular(
+            season,
+            "본모집",
+            interviewConfigurationWithoutMapping()
+        ));
+        upsertApplicationForm(season.getId(), round.getId());
+        openRound(season.getId(), round.getId());
+        Long firstFormId = loadRoundPort.getById(round.getId()).getAvailabilityFormId();
+
+        updateInterviewRequired(season.getId(), round.getId(), false);
+        assertThat(loadRoundPort.getById(round.getId()).getAvailabilityFormId()).isNull();
+
+        updateInterviewRequired(season.getId(), round.getId(), true);
+
+        RecruitingRound reenabled = loadRoundPort.getById(round.getId());
+        assertThat(reenabled.isInterviewRequired()).isTrue();
+        assertThat(reenabled.getAvailabilityFormId())
+            .isNotNull()
+            .isNotEqualTo(firstFormId);
+
+        FormWithStructureInfo availabilityForm =
+            getFormUseCase.getFormWithStructure(reenabled.getAvailabilityFormId());
+        assertThat(availabilityForm.status()).isEqualTo(FormStatus.PUBLISHED);
+        assertThat(availabilityForm.isAnonymous()).isFalse();
+    }
+
+    private void openRound(Long seasonId, Long roundId) {
+        updateRoundStatusUseCase.updateRoundStatus(UpdateRecruitingRoundStatusCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .status(RecruitingRoundStatus.OPEN)
+            .requesterMemberId(REQUESTER_MEMBER_ID)
+            .build());
+    }
+
+    private void updateInterviewRequired(Long seasonId, Long roundId, boolean interviewRequired) {
+        updateRoundUseCase.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .title("본모집")
+            .requesterMemberId(REQUESTER_MEMBER_ID)
+            .configuration(RecruitingRoundConfigurationCommand.of(
+                List.of(RECRUITABLE_TRACK),
+                false,
+                Instant.parse("2026-08-01T00:00:00Z"),
+                Instant.parse("2026-08-08T00:00:00Z"),
+                Instant.parse("2026-08-10T00:00:00Z"),
+                interviewRequired,
+                interviewRequired ? Instant.parse("2026-08-11T00:00:00Z") : null,
+                interviewRequired ? Instant.parse("2026-08-15T00:00:00Z") : null,
+                Instant.parse("2026-08-16T00:00:00Z"),
+                null,
+                null,
+                null,
+                "문의 채널"
+            ))
+            .build());
     }
 
     private void upsertApplicationForm(Long seasonId, Long roundId) {

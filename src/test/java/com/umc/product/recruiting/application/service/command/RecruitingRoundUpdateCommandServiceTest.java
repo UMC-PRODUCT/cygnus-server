@@ -299,6 +299,39 @@ class RecruitingRoundUpdateCommandServiceTest {
 
         assertThat(round.getAvailabilityFormId()).isEqualTo(500L);
         assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(600L);
+        then(availabilityFormProvisioner).shouldHaveNoInteractions();
+        then(saveRoundPort).should().save(round);
+    }
+
+    @Test
+    @DisplayName("OPEN 차수에서 면접을 다시 켜면 승계할 매핑이 없으므로 조율 Form을 새로 만든다")
+    void provisionAvailabilityFormWhenInterviewReenabledWhileOpen() {
+        RecruitingSeason season = season(10L);
+        RecruitingRound round = configuredRound(20L, season, ChallengerTrack.PLAN, false);
+        round.open();
+        given(loadRoundPort.getByIdForUpdate(20L)).willReturn(round);
+        given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(
+            RecruitingSeasonTrackQuota.create(season, ChallengerTrack.PLAN, 4)
+        ));
+        given(availabilityFormProvisioner.provision(round, 99L)).willReturn(
+            new RecruitingInterviewAvailabilityFormProvisioner.AvailabilityFormMapping(500L, 600L)
+        );
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(availabilityForm(
+            FormStatus.PUBLISHED,
+            question(600L, QuestionType.SCHEDULE, true)
+        ));
+
+        sut.updateRound(UpdateRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .title("본모집")
+            .requesterMemberId(99L)
+            .configuration(interviewConfiguration(null, null))
+            .build());
+
+        assertThat(round.isInterviewRequired()).isTrue();
+        assertThat(round.getAvailabilityFormId()).isEqualTo(500L);
+        assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(600L);
         then(saveRoundPort).should().save(round);
     }
 
