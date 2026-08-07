@@ -245,6 +245,20 @@ public class RecruitingRound extends BaseEntity {
             && recruitableTracks.contains(track);
     }
 
+    /**
+     * 자동 생성한 면접 일정 조율 Form의 매핑만 반영한다.
+     * 면접을 진행하는 Round에서만 호출하며, 두 ID는 항상 함께 설정해 configuration의 XOR 불변식을 유지한다.
+     */
+    public void assignAvailabilityForm(Long formId, Long questionId) {
+        boolean invalidMapping = formId == null || formId <= 0
+            || questionId == null || questionId <= 0;
+        if (!interviewRequired || invalidMapping) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_SCHEDULE);
+        }
+        this.availabilityFormId = formId;
+        this.availabilityScheduleQuestionId = questionId;
+    }
+
     public void open() {
         validateStatus(RecruitingRoundStatus.DRAFT);
         this.status = RecruitingRoundStatus.OPEN;

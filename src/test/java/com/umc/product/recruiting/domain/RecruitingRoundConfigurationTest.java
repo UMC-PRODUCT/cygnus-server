@@ -9,6 +9,8 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
@@ -101,6 +103,51 @@ class RecruitingRoundConfigurationTest {
     }
 
     @Test
+    @DisplayName("면접 차수에 유효한 매핑을 지정하면 Form과 SCHEDULE question이 함께 설정된다")
+    void assignAvailabilityFormSetsBothIds() {
+        RecruitingRound round = draftInterviewRoundWithoutMapping();
+
+        round.assignAvailabilityForm(500L, 600L);
+
+        assertThat(round.getAvailabilityFormId()).isEqualTo(500L);
+        assertThat(round.getAvailabilityScheduleQuestionId()).isEqualTo(600L);
+    }
+
+    @ParameterizedTest
+    @CsvSource(nullValues = "null", value = {
+        "null, 600",
+        "500, null",
+        "null, null"
+    })
+    @DisplayName("면접 가능 시간 매핑에 null ID를 지정할 수 없다")
+    void assignAvailabilityFormRejectsNullIds(Long formId, Long questionId) {
+        assertAssignmentRejected(draftInterviewRoundWithoutMapping(), formId, questionId);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "0, 600",
+        "-1, 600",
+        "500, 0",
+        "500, -1"
+    })
+    @DisplayName("면접 가능 시간 매핑에 양수가 아닌 ID를 지정할 수 없다")
+    void assignAvailabilityFormRejectsNonPositiveIds(Long formId, Long questionId) {
+        assertAssignmentRejected(draftInterviewRoundWithoutMapping(), formId, questionId);
+    }
+
+    @Test
+    @DisplayName("면접을 진행하지 않는 차수에는 면접 가능 시간 매핑을 지정할 수 없다")
+    void assignAvailabilityFormRejectsNonInterviewRound() {
+        RecruitingRound round = RecruitingRound.createRegular(
+            RecruitingSeason.create(1L, 10L),
+            noInterviewConfiguration(null)
+        );
+
+        assertAssignmentRejected(round, 500L, 600L);
+    }
+
+    @Test
     @DisplayName("모집 트랙은 비어 있을 수 없다")
     void configuredRoundRejectsEmptyTracks() {
         assertInvalidTracks(List.of());
@@ -122,6 +169,21 @@ class RecruitingRoundConfigurationTest {
     @DisplayName("모집 트랙에는 INFRA_PLUS를 설정할 수 없다")
     void configuredRoundRejectsInfraPlusTrack() {
         assertInvalidTracks(List.of(ChallengerTrack.INFRA_PLUS));
+    }
+
+    private RecruitingRound draftInterviewRoundWithoutMapping() {
+        return RecruitingRound.createRegular(
+            RecruitingSeason.create(1L, 10L),
+            interviewConfiguration(null, null)
+        );
+    }
+
+    /** 방어 코드는 예외를 던질 뿐 아니라 매핑을 남기지 않아야 한다. */
+    private void assertAssignmentRejected(RecruitingRound round, Long formId, Long questionId) {
+        assertInvalidSchedule(() -> round.assignAvailabilityForm(formId, questionId));
+
+        assertThat(round.getAvailabilityFormId()).isNull();
+        assertThat(round.getAvailabilityScheduleQuestionId()).isNull();
     }
 
     private void assertInvalidTracks(List<ChallengerTrack> tracks) {

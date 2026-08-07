@@ -69,6 +69,7 @@ public class RecruitingRoundCommandService implements
     private final ManageFormUseCase manageFormUseCase;
     private final GetFormUseCase getFormUseCase;
     private final GetFormResponseUseCase getFormResponseUseCase;
+    private final RecruitingInterviewAvailabilityFormProvisioner availabilityFormProvisioner;
 
     @Override
     public Long createRound(CreateRecruitingRoundCommand command) {
@@ -92,10 +93,14 @@ public class RecruitingRoundCommandService implements
     public void updateRound(UpdateRecruitingRoundCommand command) {
         RecruitingRound round = getRoundInSeasonForUpdate(command.roundId(), command.seasonId());
         validateTitleAvailable(command.seasonId(), command.title(), command.roundId());
-        RecruitingRoundConfiguration configuration = command.configuration().toDomain();
+        RecruitingRoundConfiguration configuration = inheritAvailabilityForm(
+            round,
+            command.configuration().toDomain()
+        );
         validateRecruitableTrackSubset(command.seasonId(), configuration.recruitableTracks());
         validateInterviewSessions(round, configuration);
         if (round.getStatus() == RecruitingRoundStatus.OPEN && configuration.interviewRequired()) {
+            configuration = withProvisionedAvailabilityForm(round, configuration, command.requesterMemberId());
             validateAvailabilityFormForOpen(
                 configuration.availabilityFormId(),
                 configuration.availabilityScheduleQuestionId()
@@ -115,6 +120,7 @@ public class RecruitingRoundCommandService implements
         RecruitingRound round = getRoundInSeasonForUpdate(command.roundId(), command.seasonId());
         RecruitingRoundStatus status = command.status();
         if (status == RecruitingRoundStatus.OPEN) {
+            provisionAvailabilityFormIfAbsent(round, command.requesterMemberId());
             validateAvailabilityFormForOpen(round);
             var applicationForm = loadApplicationFormPort.findByRoundId(round.getId())
                 .orElseThrow(() -> new RecruitingDomainException(
@@ -155,6 +161,79 @@ public class RecruitingRoundCommandService implements
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_INVALID_TRANSITION);
         }
         saveRoundPort.save(round);
+    }
+
+    /**
+     * 자동 생성한 조율 Form 매핑은 요청에 없어도 유지한다.
+     * configuration을 통째로 교체하는 구조라 승계하지 않으면 수정 한 번에 매핑이 사라진다.
+     */
+    private RecruitingRoundConfiguration inheritAvailabilityForm(
+        RecruitingRound round,
+        RecruitingRoundConfiguration configuration
+    ) {
+        boolean nothingToInherit = !configuration.interviewRequired()
+            || configuration.availabilityFormId() != null
+            || round.getAvailabilityFormId() == null;
+        if (nothingToInherit) {
+            return configuration;
+        }
+        return withAvailabilityMapping(
+            configuration,
+            round.getAvailabilityFormId(),
+            round.getAvailabilityScheduleQuestionId()
+        );
+    }
+
+    /**
+     * OPEN Round를 수정하면서 면접을 다시 켰다면 승계할 매핑이 없으므로 이 시점에 새로 만든다.
+     * <p>
+     * Round의 {@code interviewRequired}는 아직 이번 요청을 반영하기 전이라
+     * {@code assignAvailabilityForm} 대신 configuration에 담아 {@code round.update}에서 함께 반영한다.
+     */
+    private RecruitingRoundConfiguration withProvisionedAvailabilityForm(
+        RecruitingRound round,
+        RecruitingRoundConfiguration configuration,
+        Long requesterMemberId
+    ) {
+        if (configuration.availabilityFormId() != null) {
+            return configuration;
+        }
+        var mapping = availabilityFormProvisioner.provision(round, requesterMemberId);
+        return withAvailabilityMapping(configuration, mapping.formId(), mapping.scheduleQuestionId());
+    }
+
+    private RecruitingRoundConfiguration withAvailabilityMapping(
+        RecruitingRoundConfiguration configuration,
+        Long availabilityFormId,
+        Long availabilityScheduleQuestionId
+    ) {
+        return RecruitingRoundConfiguration.of(
+            configuration.recruitableTracks(),
+            configuration.secondChoiceEnabled(),
+            configuration.documentStartAt(),
+            configuration.documentEndAt(),
+            configuration.documentResultPublishedAt(),
+            configuration.interviewRequired(),
+            configuration.interviewStartAt(),
+            configuration.interviewEndAt(),
+            configuration.finalResultPublishedAt(),
+            availabilityFormId,
+            availabilityScheduleQuestionId,
+            configuration.announcement(),
+            configuration.contactText()
+        );
+    }
+
+    /**
+     * 면접 Round인데 조율 Form이 없으면 게시된 Form을 만들어 매핑한다.
+     * 관리자가 외부 Form을 이미 지정했다면 그대로 두고 아래 검증에 맡긴다.
+     */
+    private void provisionAvailabilityFormIfAbsent(RecruitingRound round, Long requesterMemberId) {
+        if (!round.isInterviewRequired() || round.getAvailabilityFormId() != null) {
+            return;
+        }
+        var mapping = availabilityFormProvisioner.provision(round, requesterMemberId);
+        round.assignAvailabilityForm(mapping.formId(), mapping.scheduleQuestionId());
     }
 
     private void validateAvailabilityFormForOpen(RecruitingRound round) {
