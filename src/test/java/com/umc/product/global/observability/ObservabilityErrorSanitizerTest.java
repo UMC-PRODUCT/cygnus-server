@@ -1,6 +1,7 @@
 package com.umc.product.global.observability;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,5 +47,31 @@ class ObservabilityErrorSanitizerTest {
         assertThat(sanitized)
             .contains("constraint \"uk_recruiting_application_email_key\"", "Detail: Key", "([REDACTED])")
             .doesNotContain("person@example.invalid", "A1B2C3");
+    }
+
+    @Test
+    @DisplayName("따옴표 뒤에 긴 문자열이 이어져도 StackOverflowError 없이 정제한다")
+    void 긴_메시지_스택오버플로_방지() {
+        String longSingleQuoted = "prefix '" + "x".repeat(100_000);
+        String longDoubleQuoted = "prefix \"" + "y".repeat(100_000);
+
+        assertThatCode(() -> ObservabilityErrorSanitizer.sanitizeMessage(longSingleQuoted))
+            .doesNotThrowAnyException();
+        assertThatCode(() -> ObservabilityErrorSanitizer.sanitizeMessage(longDoubleQuoted))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("연속된 따옴표 이스케이프 경계에서도 기존 치환 결과를 유지한다")
+    void 따옴표_이스케이프_경계() {
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("a 'he''llo' b"))
+            .isEqualTo("a '[REDACTED]' b");
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("VALUES ('o''brien', 'x')"))
+            .isEqualTo("VALUES ('[REDACTED]', '[REDACTED]')");
+        // 닫히지 않은 따옴표는 남는다.
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("'a''"))
+            .isEqualTo("'[REDACTED]''");
+        assertThat(ObservabilityErrorSanitizer.sanitizeMessage("'unclosed"))
+            .isEqualTo("'unclosed");
     }
 }

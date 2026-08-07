@@ -23,6 +23,12 @@ public class SensitiveDataSanitizingTurboFilter extends TurboFilter {
         Object[] parameters,
         Throwable throwable
     ) {
+        // TurboFilter는 레벨 검사보다 먼저 실행되고, 아래에서 callAppenders()로 직접 출력한다.
+        // isEnabledFor()는 TurboFilter 체인을 재호출하므로 getEffectiveLevel()을 쓴다.
+        if (level.levelInt < logger.getEffectiveLevel().levelInt) {
+            return FilterReply.NEUTRAL;
+        }
+
         SanitizedArguments sanitized = sanitize(format, parameters, throwable);
         if (!sanitized.changed()) {
             return FilterReply.NEUTRAL;

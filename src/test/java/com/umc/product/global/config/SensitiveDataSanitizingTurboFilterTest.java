@@ -96,6 +96,16 @@ class SensitiveDataSanitizingTurboFilterTest {
         assertThat(event.getFormattedMessage()).isEqualTo("Rejected email: [REDACTED]");
     }
 
+    @Test
+    @DisplayName("비활성 레벨의 로그는 민감값이 있어도 출력하지 않는다")
+    void 비활성_레벨_로그_억제() {
+        logger.debug("Rejected email: {}", PROBE_EMAIL);
+        logger.trace("Rejected email: {}", PROBE_EMAIL);
+        logger.info("Rejected email: {}", PROBE_EMAIL);
+
+        assertThat(appender.list).isEmpty();
+    }
+
     private String throwableText(IThrowableProxy throwable) {
         if (throwable == null) {
             return "";

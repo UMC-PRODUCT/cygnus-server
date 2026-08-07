@@ -33,8 +33,9 @@ public final class ObservabilityErrorSanitizer {
     private static final Pattern JWT = Pattern.compile(
         "\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b"
     );
-    private static final Pattern SINGLE_QUOTED_VALUE = Pattern.compile("'(?:''|[^'])*'", Pattern.DOTALL);
-    private static final Pattern DOUBLE_QUOTED_VALUE = Pattern.compile("\"(?:\"\"|[^\"])*\"", Pattern.DOTALL);
+    // 그룹 반복은 문자마다 재귀하므로 긴 메시지에서 StackOverflowError가 난다.
+    private static final Pattern SINGLE_QUOTED_VALUE = Pattern.compile("'[^']*(?:''[^']*)*'", Pattern.DOTALL);
+    private static final Pattern DOUBLE_QUOTED_VALUE = Pattern.compile("\"[^\"]*(?:\"\"[^\"]*)*\"", Pattern.DOTALL);
     private static final Pattern CONSTRAINT_PREFIX = Pattern.compile("(?i)\\bconstraint\\s*$");
     private static final Pattern MIXED_APPLICATION_KEY = Pattern.compile(
         "\\b(?=[A-Z0-9]{6}\\b)(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\\d)[A-Z0-9]{6}\\b"
