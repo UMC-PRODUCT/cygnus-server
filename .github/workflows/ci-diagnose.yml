@@ -127,11 +127,20 @@ jobs:
       # 실패 재현 + 전체 스택트레이스 확보.
       # CI 콘솔은 예외 체인만 요약해 남기므로, XML 결과를 통째로 빼내야
       # LoadingCache ~ Pattern 사이의 프레임을 볼 수 있다.
+      # StackOverflowError는 재귀 프레임만으로 1024개(JVM 기본 상한)를 채워버려서
+      # 정작 정규식을 호출한 쪽이 잘려나간다. 상한을 풀어 호출자까지 남긴다.
       - name: 🧪 테스트 실행 (기본 스택)
         id: test-default
         continue-on-error: true
         run: |
-          ./gradlew test \
+          cat > /tmp/trace.gradle.kts <<'EOF'
+          allprojects {
+              tasks.withType<Test>().configureEach {
+                  jvmArgs("-XX:MaxJavaStackTraceDepth=0")
+              }
+          }
+          EOF
+          ./gradlew test -I /tmp/trace.gradle.kts \
             --tests "*AdminDashboardAnalyticsQueryRepositoryTest*" \
             --tests "*AdminSchoolAnalyticsQueryRepositoryTest*"
 
