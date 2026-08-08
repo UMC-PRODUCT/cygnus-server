@@ -171,7 +171,6 @@ class RecruitingPermissionEvaluatorTest {
     @DisplayName("학교 회장단은 자기 학교라도 MANAGE 권한을 거부한다")
     void 학교_회장단은_자기_학교라도_MANAGE_권한을_거부한다() {
         givenSeason();
-        givenSchool(SCHOOL_ID, 100L);
         SubjectAttributes subject = subjectWithRoles(schoolPresidentRole(SCHOOL_ID));
 
         assertThat(sut.evaluate(subject, seasonPermission(PermissionType.MANAGE))).isFalse();
