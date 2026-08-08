@@ -9,6 +9,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -167,9 +169,9 @@ public class RecruitingQueryService implements
         FormWithStructureInfo structure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
         Map<Long, RecruitingFormSectionPolicy> policyBySectionId = loadFormSectionPolicyPort
             .listByApplicationFormId(applicationForm.getId()).stream()
-            .collect(java.util.stream.Collectors.toMap(
+            .collect(Collectors.toMap(
                 RecruitingFormSectionPolicy::getFormSectionId,
-                java.util.function.Function.identity()
+                Function.identity()
             ));
         return RecruitingAdminFormStructureInfo.builder()
             .exists(true)
