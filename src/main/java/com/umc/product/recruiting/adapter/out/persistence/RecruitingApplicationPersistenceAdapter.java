@@ -74,6 +74,11 @@ public class RecruitingApplicationPersistenceAdapter
     }
 
     @Override
+    public List<RecruitingApplication> listByApplicantMemberId(Long applicantMemberId) {
+        return recruitingApplicationQueryRepository.listByApplicantMemberId(applicantMemberId);
+    }
+
+    @Override
     public RecruitingApplicantLockTarget getApplicantLockTarget(Long id) {
         return recruitingApplicationQueryRepository.findApplicantLockTarget(id)
             .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND));

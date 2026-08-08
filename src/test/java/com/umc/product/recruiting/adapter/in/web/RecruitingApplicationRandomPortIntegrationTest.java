@@ -431,6 +431,8 @@ class RecruitingApplicationRandomPortIntegrationTest {
     private static RecruitingPublicApplicationInfo publicApplicationInfo() {
         return RecruitingPublicApplicationInfo.builder()
             .applicationId(900L)
+            .gisuId(1L)
+            .roundId(10L)
             .applicantName("지원자")
             .applicantEmail(PROBE_EMAIL)
             .firstChoice(ChallengerTrack.PLAN)

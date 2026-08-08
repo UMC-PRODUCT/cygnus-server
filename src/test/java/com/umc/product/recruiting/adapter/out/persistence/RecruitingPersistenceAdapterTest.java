@@ -36,6 +36,25 @@ import ch.qos.logback.core.read.ListAppender;
 class RecruitingPersistenceAdapterTest extends RecruitingPersistenceAdapterTestSupport {
 
     @Test
+    @DisplayName("회원 ID로 본인 지원서를 최신순 조회하고 다른 회원 지원서는 제외한다")
+    void listApplicationsByApplicantMemberId() {
+        RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(1L, 10L));
+        RecruitingApplication first = saveMemberApplication(season, 1, 200L, 1_001L, "A1B2C3");
+        RecruitingApplication second = saveMemberApplication(season, 2, 200L, 1_002L, "D4E5F6");
+        saveMemberApplication(season, 3, 201L, 1_003L, "G7H8I9");
+        em.flush();
+        em.clear();
+
+        List<RecruitingApplication> result = applicationAdapter.listByApplicantMemberId(200L);
+
+        assertThat(result)
+            .extracting(RecruitingApplication::getId)
+            .containsExactly(second.getId(), first.getId());
+        assertThat(result)
+            .allMatch(application -> application.getApplicationForm().getRound().getSeason().getId() != null);
+    }
+
+    @Test
     @DisplayName("모집_시즌_차수_폼_지원서를_저장하고_embedded_email_경로로_조회한다")
     void saveAndLoadRecruitingCoreGraphWithDetails() {
         RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(1L, 10L));
@@ -267,5 +286,36 @@ class RecruitingPersistenceAdapterTest extends RecruitingPersistenceAdapterTestS
         assertThat(row.schoolId()).isEqualTo(20L);
         assertThat(row.firstChoice()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         assertThat(row.applicationStatus()).isEqualTo(RecruitingApplicationStatus.SUBMITTED);
+    }
+
+    private RecruitingApplication saveMemberApplication(
+        RecruitingSeason season,
+        int roundNo,
+        Long memberId,
+        Long formResponseId,
+        String applicationKey
+    ) {
+        RecruitingRound round = roundAdapter.save(RecruitingRound.createAdditional(
+            season,
+            roundNo,
+            applicationConfiguration()
+        ));
+        RecruitingApplicationForm form = formAdapter.save(RecruitingApplicationForm.create(
+            round,
+            10_000L + roundNo
+        ));
+        return applicationAdapter.save(RecruitingApplication.createMemberDraft(
+            form,
+            formResponseId,
+            memberId,
+            RecruitingApplicantProfile.create(
+                round,
+                "지원자" + memberId,
+                RecruitingApplicantEmail.from("applicant" + memberId + "@example.com"),
+                ChallengerTrack.WEB_PRODUCT_ENGINEER,
+                null
+            ),
+            applicationKey
+        ));
     }
 }

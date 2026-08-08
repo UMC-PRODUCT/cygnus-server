@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,10 +19,52 @@ import org.springframework.http.MediaType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingApplicationDraftCommand;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 @DisplayName("RecruitingApplicationController 생성/인증")
 class RecruitingApplicationControllerTest extends RecruitingApplicationControllerTestSupport {
+
+    @Test
+    @DisplayName("본인 지원 내역 조회 API는 인증 회원의 지원서를 비회원 조회와 같은 응답으로 반환한다")
+    void getMyApplicationsUsesAuthenticatedMember() throws Exception {
+        given(listMyApplicationsUseCase.listMyApplications(200L)).willReturn(List.of(
+            RecruitingPublicApplicationInfo.builder()
+                .applicationId(100L)
+                .gisuId(11L)
+                .roundId(20L)
+                .applicantName("홍길동")
+                .applicantEmail("applicant@example.com")
+                .firstChoice(ChallengerTrack.PLAN)
+                .submitted(true)
+                .documentResult(RecruitingPublicResultStatus.PENDING)
+                .finalResult(RecruitingPublicResultStatus.PENDING)
+                .answers(List.of())
+                .build()
+        ));
+
+        mockMvc.perform(get("/api/v1/recruiting/applications").session(authenticatedSession))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result[0].applicationId").value(100L))
+            .andExpect(jsonPath("$.result[0].gisuId").value(11L))
+            .andExpect(jsonPath("$.result[0].roundId").value(20L))
+            .andExpect(jsonPath("$.result[0].applicantName").value("홍길동"))
+            .andExpect(jsonPath("$.result[0].submitted").value(true))
+            .andExpect(jsonPath("$.result[0].documentResult").value("PENDING"))
+            .andExpect(jsonPath("$.result[0].answers").isArray());
+
+        then(listMyApplicationsUseCase).should().listMyApplications(200L);
+    }
+
+    @Test
+    @DisplayName("비로그인 회원의 본인 지원 내역 조회 요청은 거부한다")
+    void rejectUnauthenticatedGetMyApplications() throws Exception {
+        mockMvc.perform(get("/api/v1/recruiting/applications"))
+            .andExpect(status().isUnauthorized());
+
+        then(listMyApplicationsUseCase).shouldHaveNoInteractions();
+    }
 
     @Test
     @DisplayName("지원서 draft 생성 API는 인증 actor와 지원 기본 정보를 command로 전달한다")

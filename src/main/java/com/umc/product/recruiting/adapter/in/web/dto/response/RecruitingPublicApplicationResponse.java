@@ -10,9 +10,11 @@ import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "익명 지원자가 자격 증명으로 조회한 지원서")
+@Schema(description = "지원자가 본인 인증 후 조회한 지원서")
 public record RecruitingPublicApplicationResponse(
     @Schema(description = "지원서 ID", example = "100") Long applicationId,
+    @Schema(description = "지원 모집 기수 ID", example = "11") Long gisuId,
+    @Schema(description = "지원 모집 차수 ID", example = "20") Long roundId,
     @Schema(description = "지원자 이름", example = "홍길동") String applicantName,
     @Schema(description = "정규화된 지원자 이메일", example = "applicant@example.org") String applicantEmail,
     @Schema(description = "1지망 모집 트랙", example = "PLAN") ChallengerTrack firstChoice,
@@ -29,6 +31,8 @@ public record RecruitingPublicApplicationResponse(
     public static RecruitingPublicApplicationResponse from(RecruitingPublicApplicationInfo info) {
         return new RecruitingPublicApplicationResponse(
             info.applicationId(),
+            info.gisuId(),
+            info.roundId(),
             info.applicantName(),
             info.applicantEmail(),
             info.firstChoice(),

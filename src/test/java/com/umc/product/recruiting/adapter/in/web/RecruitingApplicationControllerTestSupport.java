@@ -29,6 +29,7 @@ import com.umc.product.recruiting.application.port.in.command.CancelRecruitingAp
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.query.ListMyRecruitingApplicationsUseCase;
 import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = RecruitingApplicationController.class)
@@ -58,6 +59,9 @@ abstract class RecruitingApplicationControllerTestSupport {
 
     @MockitoBean
     CancelRecruitingApplicationUseCase cancelUseCase;
+
+    @MockitoBean
+    ListMyRecruitingApplicationsUseCase listMyApplicationsUseCase;
 
     MockHttpSession authenticatedSession;
 
