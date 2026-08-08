@@ -10,6 +10,7 @@ extend type Query {
     input: RecruitingApplicationCredentialInput!
   ): RecruitingPublicApplication!
   recruitingApplication(applicationId: ID!): RecruitingApplication!
+  recruitingAdminFormStructure(seasonId: ID!, roundId: ID!): RecruitingAdminFormStructure!
   recruitingRoundGroups(input: RecruitingRoundSearchInput!): [RecruitingSeasonSummary!]!
   recruitingRoundTitleAvailable(seasonId: ID!, title: String!, excludedRoundId: ID): Boolean!
   recruitingSeasonConfiguration(seasonId: ID!): RecruitingSeasonConfiguration!
@@ -487,6 +488,47 @@ type RecruitingFormQuestionOption {
   orderNo: Long!
   other: Boolean!
   nextSectionId: ID
+}
+
+"운영진 편집기용 지원 Form 전체 구조. Form 미생성 차수는 exists=false이고 나머지는 비어 있다."
+type RecruitingAdminFormStructure {
+  exists: Boolean!
+  applicationFormId: ID
+  formId: ID
+  title: String
+  description: String
+  status: RecruitingApplicationFormStatus
+  sections: [RecruitingAdminFormSection!]!
+}
+
+type RecruitingAdminFormSection {
+  sectionId: ID!
+  clientKey: String!
+  title: String!
+  description: String
+  orderNo: Long!
+  type: RecruitingFormSectionType!
+  track: ChallengerTrack
+  questions: [RecruitingAdminFormQuestion!]!
+}
+
+type RecruitingAdminFormQuestion {
+  questionId: ID!
+  title: String!
+  description: String
+  type: QuestionType!
+  required: Boolean!
+  orderNo: Long!
+  options: [RecruitingAdminFormQuestionOption!]!
+}
+
+type RecruitingAdminFormQuestionOption {
+  optionId: ID!
+  content: String!
+  orderNo: Long!
+  other: Boolean!
+  nextSectionId: ID
+  nextSectionKey: String
 }
 
 type RecruitingApplicationCreated {

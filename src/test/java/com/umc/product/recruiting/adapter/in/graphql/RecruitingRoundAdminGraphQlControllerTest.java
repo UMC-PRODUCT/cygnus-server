@@ -22,6 +22,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
+import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.security.CurrentMemberProvider;
@@ -39,11 +41,15 @@ import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruiti
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingAdminFormStructureInfo;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 
 @GraphQlTest(RecruitingAdminGraphQlController.class)
 @Import({
@@ -88,6 +94,8 @@ class RecruitingRoundAdminGraphQlControllerTest {
     @MockitoBean
     UpdateRecruitingRoundUseCase updateRoundUseCase;
     @MockitoBean
+    GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
+    @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
     @MockitoBean
     CurrentMemberProvider currentMemberProvider;
@@ -102,6 +110,89 @@ class RecruitingRoundAdminGraphQlControllerTest {
     @AfterEach
     void clearSecurityContext() {
         SecurityContextHolder.clearContext();
+    }
+
+    @Test
+    @DisplayName("GraphQL 지원 Form 구조 조회는 section 정책을 함께 반환한다")
+    void recruitingAdminFormStructure() {
+        given(getRecruitingFormQueryUseCase.getAdminFormStructure(10L, 20L))
+            .willReturn(RecruitingAdminFormStructureInfo.builder()
+                .exists(true)
+                .applicationFormId(30L)
+                .formId(100L)
+                .title("15기 본모집")
+                .status(RecruitingApplicationFormStatus.DRAFT)
+                .sections(List.of(RecruitingAdminFormStructureInfo.SectionInfo.builder()
+                    .sectionId(300L)
+                    .clientKey("section-300")
+                    .title("PLAN 파트")
+                    .orderNo(1L)
+                    .type(RecruitingFormSectionType.TRACK)
+                    .track(ChallengerTrack.PLAN)
+                    .questions(List.of(RecruitingAdminFormStructureInfo.QuestionInfo.builder()
+                        .questionId(400L)
+                        .title("지원 동기")
+                        .type(QuestionType.LONG_TEXT)
+                        .required(true)
+                        .orderNo(1L)
+                        .options(List.of(RecruitingAdminFormStructureInfo.OptionInfo.builder()
+                            .optionId(500L)
+                            .content("다음")
+                            .orderNo(1L)
+                            .nextSectionId(300L)
+                            .nextSectionKey("section-300")
+                            .build()))
+                        .build()))
+                    .build()))
+                .build());
+
+        graphQlTester.document("""
+                query {
+                  recruitingAdminFormStructure(seasonId: 10, roundId: 20) {
+                    exists
+                    applicationFormId
+                    status
+                    sections {
+                      sectionId
+                      clientKey
+                      type
+                      track
+                      questions { options { nextSectionId nextSectionKey } }
+                    }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingAdminFormStructure.exists").entity(Boolean.class).isEqualTo(true)
+            .path("recruitingAdminFormStructure.applicationFormId").entity(String.class).isEqualTo("30")
+            .path("recruitingAdminFormStructure.sections[0].clientKey").entity(String.class).isEqualTo("section-300")
+            .path("recruitingAdminFormStructure.sections[0].type").entity(String.class).isEqualTo("TRACK")
+            .path("recruitingAdminFormStructure.sections[0].track").entity(String.class).isEqualTo("PLAN")
+            .path("recruitingAdminFormStructure.sections[0].questions[0].options[0].nextSectionId")
+            .entity(String.class).isEqualTo("300")
+            .path("recruitingAdminFormStructure.sections[0].questions[0].options[0].nextSectionKey")
+            .entity(String.class).isEqualTo("section-300");
+    }
+
+    @Test
+    @DisplayName("GraphQL 지원 Form 구조 조회는 Form 미생성 차수에 빈 구조를 반환한다")
+    void recruitingAdminFormStructureEmpty() {
+        given(getRecruitingFormQueryUseCase.getAdminFormStructure(10L, 20L))
+            .willReturn(RecruitingAdminFormStructureInfo.empty());
+
+        graphQlTester.document("""
+                query {
+                  recruitingAdminFormStructure(seasonId: 10, roundId: 20) {
+                    exists
+                    applicationFormId
+                    sections { sectionId }
+                  }
+                }
+                """)
+            .execute()
+            .path("recruitingAdminFormStructure.exists").entity(Boolean.class).isEqualTo(false)
+            .path("recruitingAdminFormStructure.applicationFormId").valueIsNull()
+            .path("recruitingAdminFormStructure.sections").entityList(Object.class).hasSize(0);
     }
 
     @Test

@@ -45,6 +45,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruit
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
@@ -116,6 +117,8 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     UpdateRecruitingRoundStatusUseCase updateRoundStatusUseCase;
     @MockitoBean
     UpdateRecruitingRoundUseCase updateRoundUseCase;
+    @MockitoBean
+    GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
     @MockitoBean
     CheckPermissionUseCase checkPermissionUseCase;
     @MockitoBean

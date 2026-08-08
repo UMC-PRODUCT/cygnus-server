@@ -37,6 +37,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -61,9 +62,11 @@ import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvU
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingDecisionHistoryCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewScheduleBoardUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingInterviewSessionUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingAdminFormStructureInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryPageInfo;
@@ -76,10 +79,12 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchool
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingTrackEvaluationCountInfo;
+import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluationProgressStatus;
+import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = {RecruitingAdminController.class, RecruitingAdminInterviewController.class})
@@ -139,6 +144,8 @@ class RecruitingAdminControllerTest {
     ExportRecruitingDecisionHistoryCsvUseCase exportDecisionHistoryCsvUseCase;
     @MockitoBean
     UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
+    @MockitoBean
+    GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
 
     @BeforeEach
     void setUpSecurityContext() {
@@ -175,6 +182,68 @@ class RecruitingAdminControllerTest {
         assertThat(captor.getValue().seasonId()).isEqualTo(SEASON_ID);
         assertThat(captor.getValue().roundId()).isEqualTo(ROUND_ID);
         assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("모집 폼 조회 API는 section 정책과 question 구조를 함께 반환한다")
+    void 모집_폼_조회_API는_section_정책과_question_구조를_함께_반환한다() throws Exception {
+        given(getRecruitingFormQueryUseCase.getAdminFormStructure(SEASON_ID, ROUND_ID))
+            .willReturn(RecruitingAdminFormStructureInfo.builder()
+                .exists(true)
+                .applicationFormId(APPLICATION_FORM_ID)
+                .formId(100L)
+                .title("15기 본모집")
+                .description("지원서")
+                .status(RecruitingApplicationFormStatus.DRAFT)
+                .sections(List.of(RecruitingAdminFormStructureInfo.SectionInfo.builder()
+                    .sectionId(300L)
+                    .clientKey("section-300")
+                    .title("PLAN 파트")
+                    .orderNo(1L)
+                    .type(RecruitingFormSectionType.TRACK)
+                    .track(ChallengerTrack.PLAN)
+                    .questions(List.of(RecruitingAdminFormStructureInfo.QuestionInfo.builder()
+                        .questionId(400L)
+                        .title("지원 동기")
+                        .type(QuestionType.LONG_TEXT)
+                        .required(true)
+                        .orderNo(1L)
+                        .options(List.of(RecruitingAdminFormStructureInfo.OptionInfo.builder()
+                            .optionId(500L)
+                            .content("다음")
+                            .orderNo(1L)
+                            .nextSectionId(300L)
+                            .nextSectionKey("section-300")
+                            .build()))
+                        .build()))
+                    .build()))
+                .build());
+
+        mockMvc.perform(get("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/form", SEASON_ID, ROUND_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.exists").value(true))
+            .andExpect(jsonPath("$.result.applicationFormId").value(APPLICATION_FORM_ID))
+            .andExpect(jsonPath("$.result.status").value("DRAFT"))
+            .andExpect(jsonPath("$.result.sections[0].type").value("TRACK"))
+            .andExpect(jsonPath("$.result.sections[0].track").value("PLAN"))
+            .andExpect(jsonPath("$.result.sections[0].clientKey").value("section-300"))
+            .andExpect(jsonPath("$.result.sections[0].questions[0].required").value(true))
+            .andExpect(jsonPath("$.result.sections[0].questions[0].orderNo").value(1))
+            .andExpect(jsonPath("$.result.sections[0].questions[0].options[0].nextSectionId").value(300))
+            .andExpect(jsonPath("$.result.sections[0].questions[0].options[0].nextSectionKey").value("section-300"));
+    }
+
+    @Test
+    @DisplayName("모집 폼 조회 API는 Form을 만들지 않은 차수에 빈 구조를 반환한다")
+    void 모집_폼_조회_API는_Form을_만들지_않은_차수에_빈_구조를_반환한다() throws Exception {
+        given(getRecruitingFormQueryUseCase.getAdminFormStructure(SEASON_ID, ROUND_ID))
+            .willReturn(RecruitingAdminFormStructureInfo.empty());
+
+        mockMvc.perform(get("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/form", SEASON_ID, ROUND_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.exists").value(false))
+            .andExpect(jsonPath("$.result.applicationFormId").doesNotExist())
+            .andExpect(jsonPath("$.result.sections").isEmpty());
     }
 
     @Test

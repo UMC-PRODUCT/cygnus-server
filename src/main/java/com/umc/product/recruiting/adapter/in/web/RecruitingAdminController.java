@@ -33,6 +33,7 @@ import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDecisionR
 import com.umc.product.recruiting.adapter.in.web.dto.request.RecruitingDocumentDecisionRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.SkipRecruitingInterviewRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpsertRecruitingApplicationFormRequest;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingAdminFormStructureResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingDecisionHistoryPageResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingEvaluationStatisticsResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingIdResponse;
@@ -51,6 +52,7 @@ import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvU
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingDecisionHistoryCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
@@ -85,6 +87,25 @@ public class RecruitingAdminController {
     private final SearchRecruitingDecisionHistoryUseCase searchDecisionHistoryUseCase;
     private final ExportRecruitingDecisionHistoryCsvUseCase exportDecisionHistoryCsvUseCase;
     private final GetRecruitingEvaluationStatisticsUseCase getEvaluationStatisticsUseCase;
+    private final GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
+
+    @GetMapping("/seasons/{seasonId}/rounds/{roundId}/form")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.READ)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-022",
+        summary = "지원 Form 전체 구조 조회",
+        description = "편집 화면에서 저장된 section, question, option과 COMMON/TRACK 정책을 한 번에 불러옵니다. "
+            + "공개 조회와 달리 Form 상태와 지망 트랙에 관계없이 전체 구조를 반환하며, "
+            + "Form을 아직 만들지 않은 차수는 exists=false인 빈 구조를 반환합니다."
+    )
+    public RecruitingAdminFormStructureResponse getForm(
+        @PathVariable @Positive Long seasonId,
+        @PathVariable @Positive Long roundId
+    ) {
+        return RecruitingAdminFormStructureResponse.from(
+            getRecruitingFormQueryUseCase.getAdminFormStructure(seasonId, roundId)
+        );
+    }
 
     @PutMapping("/seasons/{seasonId}/rounds/{roundId}/form")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.WRITE)

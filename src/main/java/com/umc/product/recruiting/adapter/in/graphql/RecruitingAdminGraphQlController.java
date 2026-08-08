@@ -14,6 +14,7 @@ import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CloneRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingAdminFormStructureGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistoryPageGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistorySearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingEvaluationStatisticsGraphQlRequest;
@@ -40,6 +41,7 @@ import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruiti
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
+import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingDecisionHistoryUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
@@ -64,7 +66,21 @@ public class RecruitingAdminGraphQlController {
     private final UpdateRecruitingRoundUseCase updateRoundUseCase;
     private final CloneRecruitingRoundUseCase cloneRoundUseCase;
     private final DeleteRecruitingRoundUseCase deleteRoundUseCase;
+    private final GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
+
+    @QueryMapping
+    public RecruitingAdminFormStructureGraphQlResponse recruitingAdminFormStructure(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long seasonId,
+        @Argument Long roundId
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
+        return RecruitingAdminFormStructureGraphQlResponse.from(
+            getRecruitingFormQueryUseCase.getAdminFormStructure(seasonId, roundId)
+        );
+    }
 
     @QueryMapping
     public List<RecruitingSeasonSummaryGraphQlResponse> recruitingRoundGroups(
