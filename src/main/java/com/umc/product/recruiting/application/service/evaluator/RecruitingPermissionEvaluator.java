@@ -68,10 +68,10 @@ public class RecruitingPermissionEvaluator implements ResourcePermissionEvaluato
         boolean isAnyChapterPresident = isChapterPresidentInGisu(subjectAttributes, gisuId);
 
         boolean isMySchoolCore = isSchoolCoreOf(subjectAttributes, gisuId, schoolId);
-        boolean isAnySchoolCore = isSchoolCoreInGisu(subjectAttributes, gisuId);
+        boolean isAnySchoolAdmin = isSchoolAdminInGisu(subjectAttributes, gisuId);
 
         if (resourcePermission.permission() == PermissionType.READ) {
-            return isAnyChapterPresident || isAnySchoolCore;
+            return isAnyChapterPresident || isAnySchoolAdmin;
         }
 
         return isMyChapterPresident || isMySchoolCore;
@@ -96,8 +96,7 @@ public class RecruitingPermissionEvaluator implements ResourcePermissionEvaluato
     private boolean hasAnyRecruitingOperatorRole(SubjectAttributes subjectAttributes) {
         return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu()
             || subjectAttributes.roleAttributes().stream()
-            .anyMatch(roleAttribute -> roleAttribute.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
-                || roleAttribute.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT
+            .anyMatch(roleAttribute -> roleAttribute.roleType().isAtLeastSchoolAdmin()
                 || roleAttribute.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT);
     }
 
@@ -151,5 +150,16 @@ public class RecruitingPermissionEvaluator implements ResourcePermissionEvaluato
             .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
             .map(RoleAttribute::roleType)
             .anyMatch(ChallengerRoleType::isAtLeastSchoolCore);
+    }
+
+    private boolean isSchoolAdminInGisu(
+        SubjectAttributes subjectAttributes,
+        Long gisuId
+    ) {
+        return subjectAttributes.toAuthoritySnapshot().challengerRoles().stream()
+            .filter(role -> Objects.equals(role.gisuId(), gisuId))
+            .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
+            .map(RoleAttribute::roleType)
+            .anyMatch(ChallengerRoleType::isAtLeastSchoolAdmin);
     }
 }

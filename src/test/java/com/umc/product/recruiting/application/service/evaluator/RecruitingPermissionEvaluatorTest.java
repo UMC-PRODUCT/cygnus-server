@@ -187,6 +187,27 @@ class RecruitingPermissionEvaluatorTest {
     }
 
     @Test
+    @DisplayName("교내 파트장은 다른 학교 모집 READ 권한을 통과한다")
+    void 교내_파트장은_다른_학교_모집_READ_권한을_통과한다() {
+        givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
+        SubjectAttributes subject = subjectWithRoles(schoolPartLeaderRole(OTHER_SCHOOL_ID));
+
+        assertThat(sut.evaluate(subject, seasonPermission(PermissionType.READ))).isTrue();
+    }
+
+    @Test
+    @DisplayName("교내 파트장은 리소스 ID가 없는 경우 모집 READ 권한을 통과한다")
+    void 교내_파트장은_리소스_ID가_없는_경우_모집_READ_권한을_통과한다() {
+        SubjectAttributes subject = subjectWithRoles(schoolPartLeaderRole(SCHOOL_ID));
+
+        assertThat(sut.evaluate(
+            subject,
+            ResourcePermission.ofType(ResourceType.RECRUITMENT, PermissionType.READ)
+        )).isTrue();
+    }
+
+    @Test
     @DisplayName("DELETE 권한은 evaluator에서 구현하지 않아 예외가 발생한다")
     void DELETE_권한은_evaluator에서_구현하지_않아_예외가_발생한다() {
         SubjectAttributes subject = subjectWithRoles(centralPresidentRole());
