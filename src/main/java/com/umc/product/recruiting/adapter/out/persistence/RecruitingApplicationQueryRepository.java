@@ -54,6 +54,17 @@ public class RecruitingApplicationQueryRepository {
         return Optional.ofNullable(result);
     }
 
+    public List<RecruitingApplication> listByApplicantMemberId(Long applicantMemberId) {
+        return queryFactory
+            .selectFrom(recruitingApplication)
+            .innerJoin(recruitingApplication.applicationForm, recruitingApplicationForm).fetchJoin()
+            .innerJoin(recruitingApplicationForm.round, recruitingRound).fetchJoin()
+            .innerJoin(recruitingRound.season, recruitingSeason).fetchJoin()
+            .where(recruitingApplication.applicantMemberId.eq(applicantMemberId))
+            .orderBy(recruitingApplication.id.desc())
+            .fetch();
+    }
+
     public Optional<RecruitingApplication> findByIdForUpdate(Long id) {
         RecruitingApplication result = queryFactory
             .selectFrom(recruitingApplication)

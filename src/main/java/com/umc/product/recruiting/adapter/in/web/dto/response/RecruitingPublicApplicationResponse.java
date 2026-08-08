@@ -10,7 +10,7 @@ import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-@Schema(description = "익명 지원자가 자격 증명으로 조회한 지원서")
+@Schema(description = "지원자가 본인 인증 후 조회한 지원서")
 public record RecruitingPublicApplicationResponse(
     @Schema(description = "지원서 ID", example = "100") Long applicationId,
     @Schema(description = "지원자 이름", example = "홍길동") String applicantName,

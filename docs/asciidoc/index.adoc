@@ -179,6 +179,9 @@ operation::recruiting-admin-controller-test/평가_현황_집계_api는_지부_�
 
 == Recruiting application
 
+=== get-my-applications-uses-authenticated-member
+operation::recruiting-application-controller-test/get-my-applications-uses-authenticated-member[snippets='http-request,http-response']
+
 === create-draft-uses-authenticated-actor
 operation::recruiting-application-controller-test/create-draft-uses-authenticated-actor[snippets='http-request,http-response']
 
@@ -348,4 +351,3 @@ operation::umc-product-squad-controller-documentation-test/umc_product_-squad를
 
 === 제거된_-squad_참여자_전체_교체_api는_404를_반환한다
 operation::umc-product-squad-controller-documentation-test/제거된_-squad_참여자_전체_교체_api는_404를_반환한다[snippets='http-request,http-response']
-

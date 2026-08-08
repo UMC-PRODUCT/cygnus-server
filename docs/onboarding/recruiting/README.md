@@ -130,6 +130,7 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | PUT | `/api/v1/recruiting/public/applications` | 익명 지원서 수정 |
 | POST | `/api/v1/recruiting/public/applications/submit` | 익명 지원서 제출 |
 | POST | `/api/v1/recruiting/public/applications/cancel` | 익명 지원서 철회 |
+| GET | `/api/v1/recruiting/applications` | 로그인 회원 본인 지원 내역 조회. 비회원 조회와 동일한 결과 공개 정책 적용 |
 | POST | `/api/v1/recruiting/applications` | 로그인 지원서 초안 생성 |
 | PUT | `/api/v1/recruiting/applications/{applicationId}` | 로그인 지원서 수정 |
 | POST | `/api/v1/recruiting/applications/{applicationId}/submit` | 로그인 지원서 제출 |

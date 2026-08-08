@@ -1,6 +1,9 @@
 package com.umc.product.recruiting.adapter.in.web;
 
+import java.util.List;
+
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,10 +20,12 @@ import com.umc.product.recruiting.adapter.in.web.dto.request.SubmitRecruitingApp
 import com.umc.product.recruiting.adapter.in.web.dto.request.UpdateRecruitingApplicationDraftRequest;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationCreatedResponse;
 import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingApplicationResponse;
+import com.umc.product.recruiting.adapter.in.web.dto.response.RecruitingPublicApplicationResponse;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
+import com.umc.product.recruiting.application.port.in.query.ListMyRecruitingApplicationsUseCase;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -41,6 +46,22 @@ public class RecruitingApplicationController {
     private final UpdateRecruitingApplicationDraftUseCase updateDraftUseCase;
     private final SubmitRecruitingApplicationUseCase submitUseCase;
     private final CancelRecruitingApplicationUseCase cancelUseCase;
+    private final ListMyRecruitingApplicationsUseCase listMyApplicationsUseCase;
+
+    @GetMapping
+    @Operation(
+        operationId = "RECRUITING-APPLICATION-005",
+        summary = "본인 지원 내역 조회",
+        description = "로그인 회원의 전체 모집 지원 내역을 조회합니다. 응답과 결과 공개 시점은 비회원 지원서 조회와 동일합니다."
+    )
+    public List<RecruitingPublicApplicationResponse> getMyApplications(
+        @Parameter(hidden = true)
+        @CurrentMember MemberPrincipal memberPrincipal
+    ) {
+        return listMyApplicationsUseCase.listMyApplications(resolveMemberId(memberPrincipal)).stream()
+            .map(RecruitingPublicApplicationResponse::from)
+            .toList();
+    }
 
     @PostMapping
     @Operation(
