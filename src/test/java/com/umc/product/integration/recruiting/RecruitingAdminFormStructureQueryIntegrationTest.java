@@ -30,7 +30,7 @@ import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
 import com.umc.product.support.IntegrationTestSupport;
 
 /**
- * 편집기 왕복(Upsert 저장 -> 조회)이 구조를 그대로 복원하는지 확인한다.
+ * 편집기 왕복(Upsert 저장 -> 조회 -> Upsert)이 구조를 그대로 유지하는지 확인한다.
  * <p>
  * COMMON/TRACK 정책은 Form 모듈이 아닌 recruiting 쪽에 저장되므로, 서비스 단위 stub으로는
  * 병합 누락을 잡을 수 없다. 실제 Form 모듈과 DB를 함께 태워야 section 정책, orderNo, 필수 여부,
@@ -106,10 +106,54 @@ class RecruitingAdminFormStructureQueryIntegrationTest extends IntegrationTestSu
             .extracting(RecruitingAdminFormStructureInfo.OptionInfo::orderNo)
             .isSorted();
 
-        // 조건부 이동은 clientKey가 아니라 저장된 sectionId로 복원된다.
-        assertThat(common.questions().get(0).options().get(0).nextSectionId())
-            .isEqualTo(track.sectionId());
-        assertThat(common.questions().get(0).options().get(1).nextSectionId()).isNull();
+        // 조건부 이동은 저장된 ID와 PUT에 바로 사용할 수 있는 결정적 key를 함께 반환한다.
+        assertThat(common.clientKey()).isEqualTo("section-" + common.sectionId());
+        assertThat(track.clientKey()).isEqualTo("section-" + track.sectionId());
+        assertThat(common.questions().get(0).options().get(0))
+            .satisfies(option -> {
+                assertThat(option.nextSectionId()).isEqualTo(track.sectionId());
+                assertThat(option.nextSectionKey()).isEqualTo(track.clientKey());
+            });
+        assertThat(common.questions().get(0).options().get(1))
+            .satisfies(option -> {
+                assertThat(option.nextSectionId()).isNull();
+                assertThat(option.nextSectionKey()).isNull();
+            });
+    }
+
+    @Test
+    @DisplayName("조회한 지원 Form 구조를 다시 Upsert해도 section과 조건부 이동이 유지된다")
+    void getThenUpsertPreservesStructureAndConditionalTransition() {
+        // Given
+        RecruitingSeason season = saveSeasonPort.save(RecruitingSeason.create(9L, 206L));
+        RecruitingRound round = saveRoundPort.save(
+            RecruitingRound.createRegular(season, "본모집", configuration())
+        );
+        upsertApplicationForm(season.getId(), round.getId());
+
+        // When
+        RecruitingAdminFormStructureInfo loaded =
+            getRecruitingFormQueryUseCase.getAdminFormStructure(season.getId(), round.getId());
+        upsertApplicationFormUseCase.upsert(commandFrom(season.getId(), round.getId(), loaded));
+        RecruitingAdminFormStructureInfo reloaded =
+            getRecruitingFormQueryUseCase.getAdminFormStructure(season.getId(), round.getId());
+
+        // Then
+        assertThat(reloaded.sections())
+            .extracting(
+                RecruitingAdminFormStructureInfo.SectionInfo::sectionId,
+                RecruitingAdminFormStructureInfo.SectionInfo::clientKey
+            )
+            .containsExactlyElementsOf(loaded.sections().stream()
+                .map(section -> org.assertj.core.groups.Tuple.tuple(section.sectionId(), section.clientKey()))
+                .toList());
+        RecruitingAdminFormStructureInfo.SectionInfo common = reloaded.sections().getFirst();
+        RecruitingAdminFormStructureInfo.SectionInfo track = reloaded.sections().get(1);
+        assertThat(common.questions().getFirst().options().getFirst())
+            .satisfies(option -> {
+                assertThat(option.nextSectionId()).isEqualTo(track.sectionId());
+                assertThat(option.nextSectionKey()).isEqualTo(track.clientKey());
+            });
     }
 
     @Test
@@ -242,5 +286,59 @@ class RecruitingAdminFormStructureQueryIntegrationTest extends IntegrationTestSu
                     .build()
             ))
             .build());
+    }
+
+    private UpsertRecruitingApplicationFormCommand commandFrom(
+        Long seasonId,
+        Long roundId,
+        RecruitingAdminFormStructureInfo structure
+    ) {
+        return UpsertRecruitingApplicationFormCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .requesterMemberId(REQUESTER_MEMBER_ID)
+            .description(structure.description())
+            .sections(structure.sections().stream()
+                .map(this::toSectionEntry)
+                .toList())
+            .build();
+    }
+
+    private UpsertRecruitingApplicationFormCommand.SectionEntry toSectionEntry(
+        RecruitingAdminFormStructureInfo.SectionInfo section
+    ) {
+        return UpsertRecruitingApplicationFormCommand.SectionEntry.builder()
+            .sectionId(section.sectionId())
+            .clientKey(section.clientKey())
+            .title(section.title())
+            .description(section.description())
+            .type(section.type())
+            .track(section.track())
+            .questions(section.questions().stream().map(this::toQuestionEntry).toList())
+            .build();
+    }
+
+    private UpsertRecruitingApplicationFormCommand.QuestionEntry toQuestionEntry(
+        RecruitingAdminFormStructureInfo.QuestionInfo question
+    ) {
+        return UpsertRecruitingApplicationFormCommand.QuestionEntry.builder()
+            .questionId(question.questionId())
+            .type(question.type())
+            .title(question.title())
+            .description(question.description())
+            .required(question.required())
+            .options(question.options().stream().map(this::toOptionEntry).toList())
+            .build();
+    }
+
+    private UpsertRecruitingApplicationFormCommand.OptionEntry toOptionEntry(
+        RecruitingAdminFormStructureInfo.OptionInfo option
+    ) {
+        return UpsertRecruitingApplicationFormCommand.OptionEntry.builder()
+            .optionId(option.optionId())
+            .content(option.content())
+            .other(option.other())
+            .nextSectionKey(option.nextSectionKey())
+            .build();
     }
 }
