@@ -25,7 +25,7 @@ public record RecruitingSeasonSummaryGraphQlResponse(
             info.schoolName(),
             info.memo(),
             info.rounds().stream()
-                .map(RecruitingSeasonConfigurationGraphQlResponse.Round::from)
+                .map(detail -> RecruitingSeasonConfigurationGraphQlResponse.Round.from(detail.configuration()))
                 .toList()
         );
     }

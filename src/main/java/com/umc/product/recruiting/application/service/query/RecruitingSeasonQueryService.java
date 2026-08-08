@@ -7,6 +7,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -20,6 +21,8 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
@@ -31,7 +34,9 @@ import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeas
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundGroupInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundAuthorInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSummaryInfo;
@@ -40,6 +45,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonTrackQuotaInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
@@ -76,7 +82,9 @@ public class RecruitingSeasonQueryService implements
     private final LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
+    private final LoadRecruitingApplicationPort loadApplicationPort;
     private final GetSchoolUseCase getSchoolUseCase;
+    private final GetMemberUseCase getMemberUseCase;
     private final CheckPermissionUseCase checkPermissionUseCase;
     private final Clock clock;
 
@@ -103,10 +111,12 @@ public class RecruitingSeasonQueryService implements
             null,
             query.requesterMemberId()
         );
-        Map<Long, List<RecruitingRoundConfigurationInfo>> roundsBySeasonId = listRounds(visibleSeasons).stream()
+        List<RecruitingRound> rounds = listRounds(visibleSeasons);
+        Map<Long, RecruitingRoundDetailInfo> detailByRoundId = detailByRoundId(rounds);
+        Map<Long, List<RecruitingRoundDetailInfo>> roundsBySeasonId = rounds.stream()
             .collect(Collectors.groupingBy(
                 round -> round.getSeason().getId(),
-                Collectors.mapping(RecruitingRoundConfigurationInfo::from, Collectors.toList())
+                Collectors.mapping(round -> detailByRoundId.get(round.getId()), Collectors.toList())
             ));
         return visibleSeasons.stream()
             .map(visible -> RecruitingSeasonSummaryInfo.of(
@@ -155,11 +165,12 @@ public class RecruitingSeasonQueryService implements
         List<RecruitingRound> rounds = sortRounds(filterRounds(listRounds(visibleSeasons), query.track()), query.effectiveSort());
         Map<Long, VisibleSeason> seasonById = visibleSeasons.stream()
             .collect(Collectors.toMap(visible -> visible.season().getId(), Function.identity()));
-        Map<Long, List<RecruitingRoundConfigurationInfo>> roundsBySeason = rounds.stream()
+        Map<Long, RecruitingRoundDetailInfo> detailByRoundId = detailByRoundId(rounds);
+        Map<Long, List<RecruitingRoundDetailInfo>> roundsBySeason = rounds.stream()
             .collect(Collectors.groupingBy(
                 round -> round.getSeason().getId(),
                 LinkedHashMap::new,
-                Collectors.mapping(RecruitingRoundConfigurationInfo::from, Collectors.toList())
+                Collectors.mapping(round -> detailByRoundId.get(round.getId()), Collectors.toList())
             ));
         List<RecruitingSeasonSummaryInfo> populatedSeasons = roundsBySeason.entrySet().stream()
             .map(entry -> toSummary(seasonById.get(entry.getKey()), entry.getValue()))
@@ -173,7 +184,7 @@ public class RecruitingSeasonQueryService implements
 
     private RecruitingSeasonSummaryInfo toSummary(
         VisibleSeason visible,
-        List<RecruitingRoundConfigurationInfo> rounds
+        List<RecruitingRoundDetailInfo> rounds
     ) {
         return RecruitingSeasonSummaryInfo.of(
             visible.season(),
@@ -244,6 +255,45 @@ public class RecruitingSeasonQueryService implements
         return excludedRoundId == null
             ? !loadRoundPort.existsBySeasonIdAndTitleIgnoreCase(seasonId, normalizedTitle)
             : !loadRoundPort.existsBySeasonIdAndTitleIgnoreCaseAndIdNot(seasonId, normalizedTitle, excludedRoundId);
+    }
+
+    /**
+     * 차수 설정에 작성자와 지원자 유무를 얹는다.
+     */
+    private Map<Long, RecruitingRoundDetailInfo> detailByRoundId(List<RecruitingRound> rounds) {
+        if (rounds.isEmpty()) {
+            return Map.of();
+        }
+        Set<Long> roundIdsHavingApplication = loadApplicationPort.filterRoundIdsHavingApplication(
+            rounds.stream().map(RecruitingRound::getId).toList()
+        );
+        Set<Long> authorMemberIds = rounds.stream()
+            .map(RecruitingRound::getCreatedByMemberId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Map<Long, MemberInfo> memberById = authorMemberIds.isEmpty()
+            ? Map.of()
+            : getMemberUseCase.findAllByIds(authorMemberIds);
+        return rounds.stream().collect(Collectors.toMap(
+            RecruitingRound::getId,
+            round -> RecruitingRoundDetailInfo.of(
+                RecruitingRoundConfigurationInfo.from(round),
+                round.getCreatedAt(),
+                resolveAuthor(round, memberById),
+                roundIdsHavingApplication.contains(round.getId())
+            ),
+            (left, right) -> left,
+            LinkedHashMap::new
+        ));
+    }
+
+    /** 컬럼 추가 이전 차수이거나 탈퇴 등으로 회원을 찾지 못하면 작성자를 비운다. */
+    private RecruitingRoundAuthorInfo resolveAuthor(RecruitingRound round, Map<Long, MemberInfo> memberById) {
+        if (round.getCreatedByMemberId() == null) {
+            return null;
+        }
+        MemberInfo member = memberById.get(round.getCreatedByMemberId());
+        return member == null ? null : RecruitingRoundAuthorInfo.from(member);
     }
 
     private List<VisibleSeason> listVisibleSeasons(

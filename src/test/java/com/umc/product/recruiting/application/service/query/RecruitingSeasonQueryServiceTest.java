@@ -2,10 +2,12 @@ package com.umc.product.recruiting.application.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -21,6 +23,8 @@ import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
@@ -30,6 +34,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
@@ -56,7 +61,13 @@ class RecruitingSeasonQueryServiceTest {
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
 
     @Mock
+    LoadRecruitingApplicationPort loadApplicationPort;
+
+    @Mock
     GetSchoolUseCase getSchoolUseCase;
+
+    @Mock
+    GetMemberUseCase getMemberUseCase;
 
     @Mock
     CheckPermissionUseCase checkPermissionUseCase;
@@ -136,8 +147,67 @@ class RecruitingSeasonQueryServiceTest {
             assertThat(found.chapterId()).isEqualTo(7L);
             assertThat(found.schoolName()).isEqualTo("A 학교");
             assertThat(found.rounds()).singleElement()
-                .satisfies(foundRound -> assertThat(foundRound.id()).isEqualTo(200L));
+                .satisfies(foundRound -> assertThat(foundRound.configuration().id()).isEqualTo(200L));
         });
+    }
+
+    @Test
+    @DisplayName("차수 그룹 목록은 작성자와 지원자 유무를 일괄 조회하고 기존 차수의 작성자는 비운다")
+    void searchRoundGroupsEnrichesRoundsInBatchAndKeepsLegacyAuthorNull() {
+        RecruitingSeason season = season(100L, 1L, 10L);
+        RecruitingRound authoredRound = RecruitingRound.createRegular(
+            season,
+            "본모집",
+            regularRoundConfiguration(),
+            500L
+        );
+        ReflectionTestUtils.setField(authoredRound, "id", 200L);
+        ReflectionTestUtils.setField(authoredRound, "createdAt", Instant.parse("2026-07-01T00:00:00Z"));
+        RecruitingRound legacyRound = RecruitingRound.createAdditional(
+            season,
+            2,
+            "추가모집",
+            regularRoundConfiguration(),
+            null
+        );
+        ReflectionTestUtils.setField(legacyRound, "id", 201L);
+        ReflectionTestUtils.setField(legacyRound, "createdAt", Instant.parse("2026-07-02T00:00:00Z"));
+        SubjectAttributes subject = SubjectAttributes.builder().memberId(99L).build();
+        MemberInfo author = MemberInfo.builder()
+            .id(500L)
+            .name("홍길동")
+            .nickname("길동")
+            .schoolName("A 학교")
+            .build();
+        given(getSchoolUseCase.getSchoolListByGisuId(1L))
+            .willReturn(List.of(school(7L, "A 지부", 10L, "A 학교")));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(checkPermissionUseCase.loadSubject(99L)).willReturn(subject);
+        given(checkPermissionUseCase.check(subject, readPermission(100L))).willReturn(true);
+        given(loadRoundPort.listBySeasonIds(List.of(100L))).willReturn(List.of(authoredRound, legacyRound));
+        given(loadApplicationPort.filterRoundIdsHavingApplication(List.of(201L, 200L)))
+            .willReturn(Set.of(201L));
+        given(getMemberUseCase.findAllByIds(Set.of(500L))).willReturn(Map.of(500L, author));
+
+        var result = sut.searchRoundGroups(RecruitingRoundGroupSearchQuery.builder()
+            .gisuId(1L)
+            .requesterMemberId(99L)
+            .build());
+
+        assertThat(result).singleElement().satisfies(group -> {
+            assertThat(group.rounds()).hasSize(2);
+            assertThat(group.rounds().get(0).createdAt()).isEqualTo(Instant.parse("2026-07-02T00:00:00Z"));
+            assertThat(group.rounds().get(0).author()).isNull();
+            assertThat(group.rounds().get(0).hasApplicants()).isTrue();
+            assertThat(group.rounds().get(1).author()).satisfies(found -> {
+                assertThat(found.memberId()).isEqualTo(500L);
+                assertThat(found.name()).isEqualTo("홍길동");
+                assertThat(found.schoolName()).isEqualTo("A 학교");
+            });
+            assertThat(group.rounds().get(1).hasApplicants()).isFalse();
+        });
+        then(loadApplicationPort).should().filterRoundIdsHavingApplication(List.of(201L, 200L));
+        then(getMemberUseCase).should().findAllByIds(Set.of(500L));
     }
 
     @Test
@@ -314,7 +384,13 @@ class RecruitingSeasonQueryServiceTest {
     }
 
     private RecruitingRound regularRound(RecruitingSeason season, Long id) {
-        RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfiguration.of(
+        RecruitingRound round = RecruitingRound.createRegular(season, regularRoundConfiguration());
+        ReflectionTestUtils.setField(round, "id", id);
+        return round;
+    }
+
+    private RecruitingRoundConfiguration regularRoundConfiguration() {
+        return RecruitingRoundConfiguration.of(
             List.of(ChallengerTrack.PLAN),
             false,
             Instant.parse("2026-08-01T00:00:00Z"),
@@ -327,9 +403,7 @@ class RecruitingSeasonQueryServiceTest {
             null,
             "안내",
             "contact"
-        ));
-        ReflectionTestUtils.setField(round, "id", id);
-        return round;
+        );
     }
 
     private RecruitingApplicationForm publishedApplicationForm(RecruitingRound round) {

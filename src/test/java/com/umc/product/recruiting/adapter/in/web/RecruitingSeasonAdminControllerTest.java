@@ -40,6 +40,7 @@ import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingS
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
@@ -47,7 +48,9 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonC
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeasonUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundAuthorInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
@@ -133,6 +136,36 @@ class RecruitingSeasonAdminControllerTest {
     }
 
     @Test
+    @DisplayName("차수 생성 요청은 현재 회원을 작성자로 command에 전달한다")
+    void createRoundPassesCurrentMemberAsAuthor() throws Exception {
+        given(createRoundUseCase.createRound(any())).willReturn(20L);
+
+        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/rounds", 10L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {
+                      "title": "15기 본모집",
+                      "type": "REGULAR",
+                      "recruitableTracks": ["PLAN"],
+                      "secondChoiceEnabled": false,
+                      "documentStartAt": "2026-08-01T00:00:00Z",
+                      "documentEndAt": "2026-08-08T00:00:00Z",
+                      "documentResultPublishedAt": "2026-08-10T00:00:00Z",
+                      "interviewRequired": false,
+                      "finalResultPublishedAt": "2026-08-16T00:00:00Z"
+                    }
+                    """))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.id").value(20L));
+
+        ArgumentCaptor<CreateRecruitingRoundCommand> captor =
+            ArgumentCaptor.forClass(CreateRecruitingRoundCommand.class);
+        then(createRoundUseCase).should().createRound(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
     @DisplayName("시즌 설정 조회는 availability Form과 SCHEDULE 질문 ID를 함께 반환한다")
     void getSeasonConfigurationIncludesAvailabilityQuestionId() throws Exception {
         given(getSeasonConfigurationUseCase.getBySeasonId(10L)).willReturn(
@@ -192,7 +225,12 @@ class RecruitingSeasonAdminControllerTest {
                 22L,
                 "A 학교",
                 "운영진 메모",
-                List.of(roundConfiguration())
+                List.of(new RecruitingRoundDetailInfo(
+                    roundConfiguration(),
+                    java.time.Instant.parse("2026-07-31T12:00:00Z"),
+                    new RecruitingRoundAuthorInfo(99L, "홍길동", "길동", "A 학교"),
+                    true
+                ))
             )
         ));
 
@@ -206,7 +244,11 @@ class RecruitingSeasonAdminControllerTest {
             .andExpect(jsonPath("$.result[0].schoolName").value("A 학교"))
             .andExpect(jsonPath("$.result[0].rounds[0].id").value(20L))
             .andExpect(jsonPath("$.result[0].rounds[0].availabilityFormId").value(100L))
-            .andExpect(jsonPath("$.result[0].rounds[0].availabilityScheduleQuestionId").value(200L));
+            .andExpect(jsonPath("$.result[0].rounds[0].availabilityScheduleQuestionId").value(200L))
+            .andExpect(jsonPath("$.result[0].rounds[0].createdAt").value("2026-07-31T12:00:00Z"))
+            .andExpect(jsonPath("$.result[0].rounds[0].author.memberId").value(99L))
+            .andExpect(jsonPath("$.result[0].rounds[0].author.name").value("홍길동"))
+            .andExpect(jsonPath("$.result[0].rounds[0].hasApplicants").value(true));
 
         ArgumentCaptor<RecruitingRoundGroupSearchQuery> captor =
             ArgumentCaptor.forClass(RecruitingRoundGroupSearchQuery.class);

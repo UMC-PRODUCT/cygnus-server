@@ -59,6 +59,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvalua
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
@@ -403,7 +404,12 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                 22L,
                 "A 학교",
                 "운영진 메모",
-                List.of(roundConfiguration())
+                List.of(new RecruitingRoundDetailInfo(
+                    roundConfiguration(),
+                    Instant.parse("2026-07-31T12:00:00Z"),
+                    null,
+                    true
+                ))
             )
         ));
 

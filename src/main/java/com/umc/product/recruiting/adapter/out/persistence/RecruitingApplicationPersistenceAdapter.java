@@ -3,6 +3,7 @@ package com.umc.product.recruiting.adapter.out.persistence;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -140,6 +141,14 @@ public class RecruitingApplicationPersistenceAdapter
     @Override
     public boolean existsByRoundId(Long roundId) {
         return recruitingApplicationJpaRepository.existsByRound_Id(roundId);
+    }
+
+    @Override
+    public Set<Long> filterRoundIdsHavingApplication(Collection<Long> roundIds) {
+        if (roundIds == null || roundIds.isEmpty()) {
+            return Set.of();
+        }
+        return Set.copyOf(recruitingApplicationJpaRepository.findRoundIdsHavingApplication(roundIds));
     }
 
     @Override

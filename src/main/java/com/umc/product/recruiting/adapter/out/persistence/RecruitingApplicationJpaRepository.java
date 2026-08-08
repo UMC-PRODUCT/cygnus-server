@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.recruiting.domain.RecruitingApplication;
@@ -33,6 +35,9 @@ public interface RecruitingApplicationJpaRepository extends JpaRepository<Recrui
     );
 
     boolean existsByRound_Id(Long roundId);
+
+    @Query("SELECT DISTINCT a.round.id FROM RecruitingApplication a WHERE a.round.id IN :roundIds")
+    List<Long> findRoundIdsHavingApplication(@Param("roundIds") Collection<Long> roundIds);
 
     long countByRound_Season_IdAndAcceptedTrackAndRegistrationStatusIn(
         Long seasonId,

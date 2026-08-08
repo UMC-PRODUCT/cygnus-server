@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -52,6 +53,40 @@ class RecruitingPersistenceAdapterTest extends RecruitingPersistenceAdapterTestS
             .containsExactly(second.getId(), first.getId());
         assertThat(result)
             .allMatch(application -> application.getApplicationForm().getRound().getSeason().getId() != null);
+    }
+
+    @Test
+    @DisplayName("지원서가 있는 차수 ID는 지원서 상태와 무관하게 한 번에 조회한다")
+    void filterRoundIdsHavingApplicationIgnoresApplicationStatus() {
+        RecruitingGraph draft = persistApplicationGraph(
+            9L,
+            90L,
+            1,
+            "identity:draft",
+            RecruitingApplicationStatus.DRAFT
+        );
+        RecruitingGraph failed = persistApplicationGraph(
+            9L,
+            90L,
+            2,
+            "identity:failed",
+            RecruitingApplicationStatus.DOCUMENT_FAILED
+        );
+        RecruitingRound emptyRound = roundAdapter.save(RecruitingRound.createAdditional(
+            draft.season(),
+            3,
+            applicationConfiguration()
+        ));
+        em.flush();
+        em.clear();
+
+        Set<Long> result = applicationAdapter.filterRoundIdsHavingApplication(List.of(
+            draft.round().getId(),
+            failed.round().getId(),
+            emptyRound.getId()
+        ));
+
+        assertThat(result).containsExactlyInAnyOrder(draft.round().getId(), failed.round().getId());
     }
 
     @Test
