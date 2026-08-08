@@ -12,7 +12,8 @@ public record CreateRecruitingRoundCommand(
     RecruitingRoundType type,
     Integer roundNo,
     String title,
-    RecruitingRoundConfigurationCommand configuration
+    RecruitingRoundConfigurationCommand configuration,
+    Long requesterMemberId
 ) {
 
     public CreateRecruitingRoundCommand {

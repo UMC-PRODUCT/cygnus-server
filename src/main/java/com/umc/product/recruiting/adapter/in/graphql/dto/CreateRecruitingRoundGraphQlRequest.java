@@ -27,7 +27,7 @@ public record CreateRecruitingRoundGraphQlRequest(
     String contactText
 ) {
 
-    public CreateRecruitingRoundCommand toCommand(Long seasonId) {
+    public CreateRecruitingRoundCommand toCommand(Long seasonId, Long requesterMemberId) {
         return CreateRecruitingRoundCommand.builder()
             .seasonId(seasonId)
             .type(type)
@@ -48,6 +48,7 @@ public record CreateRecruitingRoundGraphQlRequest(
                 announcement,
                 contactText
             ))
+            .requesterMemberId(requesterMemberId)
             .build();
     }
 }
