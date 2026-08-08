@@ -24,6 +24,8 @@ import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.authorization.domain.exception.AuthorizationDomainException;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 
@@ -40,11 +42,14 @@ class RecruitingPermissionEvaluatorTest {
     @Mock
     LoadRecruitingSeasonPort loadRecruitingSeasonPort;
 
+    @Mock
+    GetSchoolUseCase getSchoolUseCase;
+
     RecruitingPermissionEvaluator sut;
 
     @BeforeEach
     void setUp() {
-        sut = new RecruitingPermissionEvaluator(loadRecruitingSeasonPort);
+        sut = new RecruitingPermissionEvaluator(loadRecruitingSeasonPort, getSchoolUseCase);
     }
 
     @Test
@@ -57,6 +62,7 @@ class RecruitingPermissionEvaluatorTest {
     @DisplayName("학교 회장단은 자기 학교 모집 WRITE 권한을 통과한다")
     void 학교_회장단은_자기_학교_모집_WRITE_권한을_통과한다() {
         givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
         SubjectAttributes subject = subjectWithRoles(schoolPresidentRole(SCHOOL_ID));
 
         assertThat(sut.evaluate(subject, seasonPermission(PermissionType.WRITE))).isTrue();
@@ -66,9 +72,61 @@ class RecruitingPermissionEvaluatorTest {
     @DisplayName("학교 회장단은 다른 학교 모집 WRITE 권한을 거부한다")
     void 학교_회장단은_다른_학교_모집_WRITE_권한을_거부한다() {
         givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
         SubjectAttributes subject = subjectWithRoles(schoolPresidentRole(OTHER_SCHOOL_ID));
 
         assertThat(sut.evaluate(subject, seasonPermission(PermissionType.WRITE))).isFalse();
+    }
+
+    @Test
+    @DisplayName("학교 회장단은 다른 학교 모집 READ 권한을 통과한다")
+    void 학교_회장단은_다른_학교_모집_READ_권한을_통과한다() {
+        givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
+        SubjectAttributes subject = subjectWithRoles(schoolPresidentRole(OTHER_SCHOOL_ID));
+
+        assertThat(sut.evaluate(subject, seasonPermission(PermissionType.READ))).isTrue();
+    }
+
+    @Test
+    @DisplayName("지부장은 리소스 ID가 없는 경우 모집 READ 권한을 통과한다")
+    void 지부장은_리소스_ID가_없는_경우_모집_READ_권한을_통과한다() {
+        SubjectAttributes subject = subjectWithRoles(chapterPresidentRole(100L));
+
+        assertThat(sut.evaluate(
+            subject,
+            ResourcePermission.ofType(ResourceType.RECRUITMENT, PermissionType.READ)
+        )).isTrue();
+    }
+
+    @Test
+    @DisplayName("지부장은 자기 지부 소속 학교 모집 WRITE 권한을 통과한다")
+    void 지부장은_자기_지부_소속_학교_모집_WRITE_권한을_통과한다() {
+        givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
+        SubjectAttributes subject = subjectWithRoles(chapterPresidentRole(100L));
+
+        assertThat(sut.evaluate(subject, seasonPermission(PermissionType.WRITE))).isTrue();
+    }
+
+    @Test
+    @DisplayName("지부장은 다른 지부 소속 학교 모집 WRITE 권한을 거부한다")
+    void 지부장은_다른_지부_소속_학교_모집_WRITE_권한을_거부한다() {
+        givenSeason();
+        givenSchool(SCHOOL_ID, 200L);
+        SubjectAttributes subject = subjectWithRoles(chapterPresidentRole(100L));
+
+        assertThat(sut.evaluate(subject, seasonPermission(PermissionType.WRITE))).isFalse();
+    }
+
+    @Test
+    @DisplayName("지부장은 다른 지부 소속 학교 모집 READ 권한을 통과한다")
+    void 지부장은_다른_지부_소속_학교_모집_READ_권한을_통과한다() {
+        givenSeason();
+        givenSchool(SCHOOL_ID, 200L);
+        SubjectAttributes subject = subjectWithRoles(chapterPresidentRole(100L));
+
+        assertThat(sut.evaluate(subject, seasonPermission(PermissionType.READ))).isTrue();
     }
 
     @Test
@@ -113,6 +171,7 @@ class RecruitingPermissionEvaluatorTest {
     @DisplayName("학교 회장단은 자기 학교라도 MANAGE 권한을 거부한다")
     void 학교_회장단은_자기_학교라도_MANAGE_권한을_거부한다() {
         givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
         SubjectAttributes subject = subjectWithRoles(schoolPresidentRole(SCHOOL_ID));
 
         assertThat(sut.evaluate(subject, seasonPermission(PermissionType.MANAGE))).isFalse();
@@ -122,6 +181,7 @@ class RecruitingPermissionEvaluatorTest {
     @DisplayName("교내 파트장은 모집 WRITE 권한을 거부한다")
     void 교내_파트장은_모집_WRITE_권한을_거부한다() {
         givenSeason();
+        givenSchool(SCHOOL_ID, 100L);
         SubjectAttributes subject = subjectWithRoles(schoolPartLeaderRole(SCHOOL_ID));
 
         assertThat(sut.evaluate(subject, seasonPermission(PermissionType.WRITE))).isFalse();
@@ -139,6 +199,27 @@ class RecruitingPermissionEvaluatorTest {
     private void givenSeason() {
         given(loadRecruitingSeasonPort.getById(SEASON_ID))
             .willReturn(season());
+    }
+
+    private void givenSchool(Long schoolId, Long chapterId) {
+        given(getSchoolUseCase.getSchoolDetail(schoolId))
+            .willReturn(schoolDetail(schoolId, chapterId));
+    }
+
+    private SchoolDetailInfo schoolDetail(Long schoolId, Long chapterId) {
+        return new SchoolDetailInfo(
+            chapterId,
+            "테스트지부",
+            "테스트학교",
+            "테스트대",
+            schoolId,
+            null,
+            null,
+            List.of(),
+            true,
+            null,
+            null
+        );
     }
 
     private RecruitingSeason season() {
@@ -193,6 +274,16 @@ class RecruitingPermissionEvaluatorTest {
             ChallengerRoleType.SCHOOL_PART_LEADER,
             OrganizationType.SCHOOL,
             schoolId,
+            null,
+            GISU_ID
+        );
+    }
+
+    private RoleAttribute chapterPresidentRole(Long chapterId) {
+        return new RoleAttribute(
+            ChallengerRoleType.CHAPTER_PRESIDENT,
+            OrganizationType.CHAPTER,
+            chapterId,
             null,
             GISU_ID
         );
