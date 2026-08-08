@@ -32,6 +32,7 @@ public record RecruitingAdminFormStructureGraphQlResponse(
 
     public record SectionGraphQlResponse(
         Long sectionId,
+        String clientKey,
         String title,
         String description,
         Long orderNo,
@@ -43,6 +44,7 @@ public record RecruitingAdminFormStructureGraphQlResponse(
         private static SectionGraphQlResponse from(RecruitingAdminFormStructureInfo.SectionInfo section) {
             return new SectionGraphQlResponse(
                 section.sectionId(),
+                section.clientKey(),
                 section.title(),
                 section.description(),
                 section.orderNo(),
@@ -81,7 +83,8 @@ public record RecruitingAdminFormStructureGraphQlResponse(
         String content,
         Long orderNo,
         boolean other,
-        Long nextSectionId
+        Long nextSectionId,
+        String nextSectionKey
     ) {
 
         private static OptionGraphQlResponse from(RecruitingAdminFormStructureInfo.OptionInfo option) {
@@ -90,7 +93,8 @@ public record RecruitingAdminFormStructureGraphQlResponse(
                 option.content(),
                 option.orderNo(),
                 option.other(),
-                option.nextSectionId()
+                option.nextSectionId(),
+                option.nextSectionKey()
             );
         }
     }

@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -28,6 +29,7 @@ import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQuestionScopeUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingAdminFormStructureInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationQuestionScopeInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
@@ -36,10 +38,12 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatus
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingFormSectionPolicy;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
@@ -58,6 +62,9 @@ class RecruitingQueryServiceTest {
 
     @Mock
     LoadRecruitingApplicationFormPort loadApplicationFormPort;
+
+    @Mock
+    LoadRecruitingFormSectionPolicyPort loadFormSectionPolicyPort;
 
     @Mock
     LoadRecruitingRoundPort loadRoundPort;
@@ -498,6 +505,57 @@ class RecruitingQueryServiceTest {
                 .extracting(FormWithStructureInfo.Option::optionId)
                 .containsExactly(101L)
         );
+    }
+
+    @Test
+    @DisplayName("운영진 지원 Form 구조는 PUT 요청에 필요한 결정적 section key를 반환한다")
+    void adminFormStructureProvidesRoundTripKeys() {
+        // Given
+        RecruitingSeason season = RecruitingSeason.create(1L, 10L);
+        ReflectionTestUtils.setField(season, "id", 1L);
+        RecruitingRound round = RecruitingRound.createRegular(season, RecruitingRoundConfiguration.of(
+            List.of(ChallengerTrack.PLAN),
+            true,
+            Instant.parse("2026-08-01T00:00:00Z"),
+            Instant.parse("2026-08-08T00:00:00Z"),
+            Instant.parse("2026-08-10T00:00:00Z"),
+            false,
+            null,
+            null,
+            Instant.parse("2026-08-16T00:00:00Z"),
+            null,
+            null,
+            null
+        ));
+        RecruitingApplicationForm applicationForm = RecruitingApplicationForm.create(round, 500L);
+        ReflectionTestUtils.setField(applicationForm, "id", 100L);
+        given(loadRoundPort.getById(20L)).willReturn(round);
+        given(loadApplicationFormPort.findByRoundId(20L)).willReturn(Optional.of(applicationForm));
+        given(getFormUseCase.getFormWithStructure(500L)).willReturn(FormWithStructureInfo.builder()
+            .formId(500L)
+            .sections(List.of(
+                section(11L, 101L, List.of(option(1001L, "다음", 12L))),
+                section(12L, 22L, List.of())
+            ))
+            .build());
+        given(loadFormSectionPolicyPort.listByApplicationFormId(100L)).willReturn(List.of(
+            RecruitingFormSectionPolicy.createCommon(applicationForm, 11L),
+            RecruitingFormSectionPolicy.createCommon(applicationForm, 12L)
+        ));
+
+        // When
+        var result = sut.getAdminFormStructure(1L, 20L);
+
+        // Then
+        assertThat(result.sections())
+            .extracting(RecruitingAdminFormStructureInfo.SectionInfo::clientKey)
+            .containsExactly("section-11", "section-12");
+        assertThat(result.sections().getFirst().questions().getFirst().options().getFirst())
+            .extracting(
+                RecruitingAdminFormStructureInfo.OptionInfo::nextSectionId,
+                RecruitingAdminFormStructureInfo.OptionInfo::nextSectionKey
+            )
+            .containsExactly(12L, "section-12");
     }
 
     private FormWithStructureInfo.SectionWithQuestions section(

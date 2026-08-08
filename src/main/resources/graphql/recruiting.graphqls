@@ -503,6 +503,7 @@ type RecruitingAdminFormStructure {
 
 type RecruitingAdminFormSection {
   sectionId: ID!
+  clientKey: String!
   title: String!
   description: String
   orderNo: Long!
@@ -527,6 +528,7 @@ type RecruitingAdminFormQuestionOption {
   orderNo: Long!
   other: Boolean!
   nextSectionId: ID
+  nextSectionKey: String
 }
 
 type RecruitingApplicationCreated {

@@ -197,6 +197,7 @@ class RecruitingAdminControllerTest {
                 .status(RecruitingApplicationFormStatus.DRAFT)
                 .sections(List.of(RecruitingAdminFormStructureInfo.SectionInfo.builder()
                     .sectionId(300L)
+                    .clientKey("section-300")
                     .title("PLAN 파트")
                     .orderNo(1L)
                     .type(RecruitingFormSectionType.TRACK)
@@ -207,7 +208,13 @@ class RecruitingAdminControllerTest {
                         .type(QuestionType.LONG_TEXT)
                         .required(true)
                         .orderNo(1L)
-                        .options(List.of())
+                        .options(List.of(RecruitingAdminFormStructureInfo.OptionInfo.builder()
+                            .optionId(500L)
+                            .content("다음")
+                            .orderNo(1L)
+                            .nextSectionId(300L)
+                            .nextSectionKey("section-300")
+                            .build()))
                         .build()))
                     .build()))
                 .build());
@@ -219,8 +226,11 @@ class RecruitingAdminControllerTest {
             .andExpect(jsonPath("$.result.status").value("DRAFT"))
             .andExpect(jsonPath("$.result.sections[0].type").value("TRACK"))
             .andExpect(jsonPath("$.result.sections[0].track").value("PLAN"))
+            .andExpect(jsonPath("$.result.sections[0].clientKey").value("section-300"))
             .andExpect(jsonPath("$.result.sections[0].questions[0].required").value(true))
-            .andExpect(jsonPath("$.result.sections[0].questions[0].orderNo").value(1));
+            .andExpect(jsonPath("$.result.sections[0].questions[0].orderNo").value(1))
+            .andExpect(jsonPath("$.result.sections[0].questions[0].options[0].nextSectionId").value(300))
+            .andExpect(jsonPath("$.result.sections[0].questions[0].options[0].nextSectionKey").value("section-300"));
     }
 
     @Test

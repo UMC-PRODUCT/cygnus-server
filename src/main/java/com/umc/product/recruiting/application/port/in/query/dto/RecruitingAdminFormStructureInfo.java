@@ -40,6 +40,7 @@ public record RecruitingAdminFormStructureInfo(
     @Builder
     public record SectionInfo(
         Long sectionId,
+        String clientKey,
         String title,
         String description,
         Long orderNo,
@@ -67,7 +68,8 @@ public record RecruitingAdminFormStructureInfo(
         String content,
         Long orderNo,
         boolean other,
-        Long nextSectionId
+        Long nextSectionId,
+        String nextSectionKey
     ) {
     }
 }

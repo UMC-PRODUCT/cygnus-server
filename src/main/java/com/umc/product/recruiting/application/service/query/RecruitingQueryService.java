@@ -61,6 +61,8 @@ public class RecruitingQueryService implements
     ValidateRecruitingApplicationScopeUseCase,
     ValidateRecruitingFormScopeUseCase {
 
+    private static final String SECTION_CLIENT_KEY_PREFIX = "section-";
+
     /** 지원 현황 집계 대상 상태. 작성 중(DRAFT)·지원 취소(CANCELLED)는 제외한다. */
     private static final Set<RecruitingApplicationStatus> SUMMARY_STATUSES = EnumSet.complementOf(EnumSet.of(
         RecruitingApplicationStatus.DRAFT,
@@ -199,6 +201,7 @@ public class RecruitingQueryService implements
         }
         return RecruitingAdminFormStructureInfo.SectionInfo.builder()
             .sectionId(section.sectionId())
+            .clientKey(sectionClientKey(section.sectionId()))
             .title(section.title())
             .description(section.description())
             .orderNo(section.orderNo())
@@ -219,11 +222,18 @@ public class RecruitingQueryService implements
                             .orderNo(option.orderNo())
                             .other(option.isOther())
                             .nextSectionId(option.nextSectionId())
+                            .nextSectionKey(option.nextSectionId() == null
+                                ? null
+                                : sectionClientKey(option.nextSectionId()))
                             .build())
                         .toList())
                     .build())
                 .toList())
             .build();
+    }
+
+    private static String sectionClientKey(Long sectionId) {
+        return SECTION_CLIENT_KEY_PREFIX + sectionId;
     }
 
     @Override

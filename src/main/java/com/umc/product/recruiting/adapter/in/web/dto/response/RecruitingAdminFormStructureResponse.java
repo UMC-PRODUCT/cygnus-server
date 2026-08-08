@@ -37,6 +37,7 @@ public record RecruitingAdminFormStructureResponse(
     @Schema(description = "지원 Form section")
     public record SectionResponse(
         @Schema(description = "section ID", example = "300") Long sectionId,
+        @Schema(description = "저장된 section을 가리키는 편집기 key", example = "section-300") String clientKey,
         @Schema(description = "section 제목") String title,
         @Schema(description = "section 설명") String description,
         @Schema(description = "section 순서", example = "1") Long orderNo,
@@ -48,6 +49,7 @@ public record RecruitingAdminFormStructureResponse(
         private static SectionResponse from(RecruitingAdminFormStructureInfo.SectionInfo section) {
             return new SectionResponse(
                 section.sectionId(),
+                section.clientKey(),
                 section.title(),
                 section.description(),
                 section.orderNo(),
@@ -88,7 +90,8 @@ public record RecruitingAdminFormStructureResponse(
         @Schema(description = "option 내용") String content,
         @Schema(description = "option 순서", example = "1") Long orderNo,
         @Schema(description = "기타 option 여부", example = "false") boolean other,
-        @Schema(description = "조건부 이동 대상 section ID") Long nextSectionId
+        @Schema(description = "조건부 이동 대상 section ID") Long nextSectionId,
+        @Schema(description = "조건부 이동 대상 section의 편집기 key", example = "section-300") String nextSectionKey
     ) {
 
         private static OptionResponse from(RecruitingAdminFormStructureInfo.OptionInfo option) {
@@ -97,7 +100,8 @@ public record RecruitingAdminFormStructureResponse(
                 option.content(),
                 option.orderNo(),
                 option.other(),
-                option.nextSectionId()
+                option.nextSectionId(),
+                option.nextSectionKey()
             );
         }
     }
