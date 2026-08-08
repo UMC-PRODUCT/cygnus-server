@@ -209,6 +209,8 @@ class RecruitingGraphQlSecurityTest {
         given(getAnonymousApplicationUseCase.getByCredential("applicant@example.invalid", "A1B2C3"))
             .willReturn(RecruitingPublicApplicationInfo.builder()
                 .applicationId(30L)
+                .gisuId(11L)
+                .roundId(20L)
                 .applicantName("지원자")
                 .applicantEmail("applicant@example.invalid")
                 .firstChoice(ChallengerTrack.PLAN)

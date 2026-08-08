@@ -66,6 +66,8 @@ class RecruitingMyApplicationQueryServiceTest {
 
         assertThat(result).hasSize(1);
         assertThat(result.get(0).applicationId()).isEqualTo(900L);
+        assertThat(result.get(0).gisuId()).isEqualTo(1L);
+        assertThat(result.get(0).roundId()).isEqualTo(10L);
         assertThat(result.get(0).documentResult()).isEqualTo(RecruitingPublicResultStatus.APPROVED);
         assertThat(result.get(0).finalResult()).isEqualTo(RecruitingPublicResultStatus.PENDING);
         assertThat(result.get(0).acceptedTrack()).isNull();

@@ -34,6 +34,8 @@ final class RecruitingApplicationViewFactory {
         RecruitingPublicResultStatus finalResult = resolveFinalResult(application.getStatus(), round, now);
         return RecruitingPublicApplicationInfo.builder()
             .applicationId(application.getId())
+            .gisuId(round.getSeason().getGisuId())
+            .roundId(round.getId())
             .applicantName(application.getApplicantName())
             .applicantEmail(application.getApplicantEmail())
             .firstChoice(application.getFirstChoice())

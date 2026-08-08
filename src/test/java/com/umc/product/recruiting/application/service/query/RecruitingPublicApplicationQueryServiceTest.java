@@ -61,6 +61,8 @@ class RecruitingPublicApplicationQueryServiceTest {
 
         RecruitingPublicApplicationInfo result = sut.getByCredential(" Applicant@Example.COM ", "A1B2C3");
 
+        assertThat(result.gisuId()).isEqualTo(1L);
+        assertThat(result.roundId()).isEqualTo(10L);
         assertThat(result.documentResult()).isEqualTo(RecruitingPublicResultStatus.APPROVED);
         assertThat(result.finalResult()).isEqualTo(RecruitingPublicResultStatus.PENDING);
         assertThat(result.acceptedTrack()).isNull();

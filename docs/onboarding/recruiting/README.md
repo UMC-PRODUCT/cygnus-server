@@ -91,6 +91,8 @@ OPEN Round에서 면접을 껐다 다시 켜면 승계할 값이 없으므로 �
 
 - 로그인 지원자는 CurrentMember로 초안 생성, 수정, 제출, 철회를 수행한다.
 - 익명 지원자는 생성 시 한 번 받은 `applicationKey`와 email로 조회, 수정, 제출, 철회를 수행한다.
+- 회원·익명 지원서 조회 응답은 `gisuId`와 `roundId`를 제공하며, 화면에 필요한 모집 정보는 공개 모집 목록 API의
+  `roundIds` 필터로 분리 조회한다.
 - credential은 URL에 넣지 않고 body 또는 GraphQL variables로 전달한다.
 - credential 조회·수정·제출·철회는 client IP 기준 동일한 분당 5회 bucket을 공유한다.
 - 제출 완료 지원서도 접수 종료 전에는 Form scope를 유지해 수정할 수 있다.

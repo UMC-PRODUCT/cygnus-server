@@ -126,6 +126,8 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("RecruitingApplicationRegistrationStatus!");
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
+            assertThat(fieldType(data, "RecruitingPublicApplication", "gisuId")).isEqualTo("ID!");
+            assertThat(fieldType(data, "RecruitingPublicApplication", "roundId")).isEqualTo("ID!");
             assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability")).isEqualTo("Boolean!");
             assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times")).isEqualTo("[Instant!]!");
             assertThat(inputFieldType(data, "ConfirmRecruitingInterviewScheduleInput", "sessionId")).isEqualTo("ID!");

@@ -125,6 +125,8 @@ class RecruitingPublicControllerTest {
         given(getAnonymousApplicationUseCase.getByCredential("applicant@example.com", "A1B2C3"))
             .willReturn(RecruitingPublicApplicationInfo.builder()
                 .applicationId(100L)
+                .gisuId(11L)
+                .roundId(20L)
                 .applicantName("홍길동")
                 .applicantEmail("applicant@example.com")
                 .firstChoice(com.umc.product.common.domain.enums.ChallengerTrack.PLAN)
@@ -145,6 +147,8 @@ class RecruitingPublicControllerTest {
                     """))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.applicationId").value(100L))
+            .andExpect(jsonPath("$.result.gisuId").value(11L))
+            .andExpect(jsonPath("$.result.roundId").value(20L))
             .andExpect(jsonPath("$.result.documentResult").value("PENDING"))
             .andExpect(jsonPath("$.result.applicationKey").doesNotExist())
             .andExpect(jsonPath("$.result.formResponseAccessKey").doesNotExist());

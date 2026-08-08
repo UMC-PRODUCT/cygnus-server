@@ -32,6 +32,8 @@ class RecruitingApplicationControllerTest extends RecruitingApplicationControlle
         given(listMyApplicationsUseCase.listMyApplications(200L)).willReturn(List.of(
             RecruitingPublicApplicationInfo.builder()
                 .applicationId(100L)
+                .gisuId(11L)
+                .roundId(20L)
                 .applicantName("홍길동")
                 .applicantEmail("applicant@example.com")
                 .firstChoice(ChallengerTrack.PLAN)
@@ -45,6 +47,8 @@ class RecruitingApplicationControllerTest extends RecruitingApplicationControlle
         mockMvc.perform(get("/api/v1/recruiting/applications").session(authenticatedSession))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result[0].applicationId").value(100L))
+            .andExpect(jsonPath("$.result[0].gisuId").value(11L))
+            .andExpect(jsonPath("$.result[0].roundId").value(20L))
             .andExpect(jsonPath("$.result[0].applicantName").value("홍길동"))
             .andExpect(jsonPath("$.result[0].submitted").value(true))
             .andExpect(jsonPath("$.result[0].documentResult").value("PENDING"))
