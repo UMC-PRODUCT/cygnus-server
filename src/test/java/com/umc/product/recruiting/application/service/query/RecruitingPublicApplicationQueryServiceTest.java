@@ -3,6 +3,7 @@ package com.umc.product.recruiting.application.service.query;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -93,6 +94,21 @@ class RecruitingPublicApplicationQueryServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_INVALID_KEY);
     }
 
+    @Test
+    @DisplayName("회원 지원서는 email과 application key가 일치해도 비회원 방식으로 조회할 수 없다")
+    void rejectMemberApplicationByAnonymousCredential() {
+        RecruitingApplication application = memberApplication();
+        given(loadApplicationPort.findByApplicantEmailAndApplicationKey("applicant@example.com", "A1B2C3"))
+            .willReturn(Optional.of(application));
+
+        assertThatThrownBy(() -> sut.getByCredential("applicant@example.com", "A1B2C3"))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
+        then(getFormResponseUseCase).shouldHaveNoInteractions();
+        then(clock).shouldHaveNoInteractions();
+    }
+
     private RecruitingApplication finalPassedApplication() {
         RecruitingApplicationForm form = publishedForm();
         RecruitingApplication application = RecruitingApplication.createAnonymousDraft(
@@ -114,6 +130,25 @@ class RecruitingPublicApplicationQueryServiceTest {
         application.submitAnonymous("applicant@example.com");
         application.skipInterview(10L, "면접 미진행");
         application.passFinal(10L, "최종 합격", ChallengerTrack.PLAN);
+        return application;
+    }
+
+    private RecruitingApplication memberApplication() {
+        RecruitingApplicationForm form = publishedForm();
+        RecruitingApplication application = RecruitingApplication.createMemberDraft(
+            form,
+            700L,
+            200L,
+            RecruitingApplicantProfile.create(
+                form.getRound(),
+                "홍길동",
+                RecruitingApplicantEmail.from("applicant@example.com"),
+                ChallengerTrack.PLAN,
+                ChallengerTrack.DESIGN
+            ),
+            "A1B2C3"
+        );
+        ReflectionTestUtils.setField(application, "id", 900L);
         return application;
     }
 

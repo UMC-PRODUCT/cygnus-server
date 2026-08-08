@@ -100,6 +100,21 @@ class RecruitingMyApplicationQueryServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
     }
 
+    @Test
+    @DisplayName("다른 회원의 Form 응답이 연결되면 본인 지원 내역을 공개하지 않는다")
+    void rejectFormResponseOwnedByAnotherMember() {
+        RecruitingApplication application = finalPassedApplication();
+        given(loadApplicationPort.listByApplicantMemberId(MEMBER_ID)).willReturn(List.of(application));
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(700L)))
+            .willReturn(Map.of(700L, formResponse(700L, 201L)));
+        given(clock.instant()).willReturn(Instant.parse("2026-08-16T00:00:00Z"));
+
+        assertThatThrownBy(() -> sut.listMyApplications(MEMBER_ID))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_APPLICATION_NOT_FOUND);
+    }
+
     private RecruitingApplication finalPassedApplication() {
         RecruitingApplicationForm form = publishedForm();
         RecruitingApplication application = RecruitingApplication.createMemberDraft(
