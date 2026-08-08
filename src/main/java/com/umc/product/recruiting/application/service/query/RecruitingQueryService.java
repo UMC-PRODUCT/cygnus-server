@@ -25,6 +25,7 @@ import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplica
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingFormQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingApplicationScopeUseCase;
 import com.umc.product.recruiting.application.port.in.query.ValidateRecruitingFormScopeUseCase;
+import com.umc.product.recruiting.application.port.in.query.dto.RecruitingAdminFormStructureInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
@@ -33,12 +34,14 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatus
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingStatusSummaryQuery;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.dto.RecruitingApplicationSummaryRow;
 import com.umc.product.recruiting.domain.RecruitingApplicantProfile;
 import com.umc.product.recruiting.domain.RecruitingApplication;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingFormSectionPolicy;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationFormStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
@@ -72,6 +75,7 @@ public class RecruitingQueryService implements
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
+    private final LoadRecruitingFormSectionPolicyPort loadFormSectionPolicyPort;
     private final GetSchoolUseCase getSchoolUseCase;
     private final GetGisuAuthorityScopeUseCase getGisuAuthorityScopeUseCase;
     private final GetFormUseCase getFormUseCase;
@@ -142,6 +146,78 @@ public class RecruitingQueryService implements
                     .options(question.options().stream()
                         .filter(option -> option.nextSectionId() == null
                             || visibleSectionIds.contains(option.nextSectionId()))
+                        .toList())
+                    .build())
+                .toList())
+            .build();
+    }
+
+    @Override
+    public RecruitingAdminFormStructureInfo getAdminFormStructure(Long seasonId, Long roundId) {
+        RecruitingRound round = loadRoundPort.getById(roundId);
+        if (!Objects.equals(round.getSeason().getId(), seasonId)) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND);
+        }
+        return loadApplicationFormPort.findByRoundId(roundId)
+            .map(this::toAdminFormStructure)
+            .orElseGet(RecruitingAdminFormStructureInfo::empty);
+    }
+
+    private RecruitingAdminFormStructureInfo toAdminFormStructure(RecruitingApplicationForm applicationForm) {
+        FormWithStructureInfo structure = getFormUseCase.getFormWithStructure(applicationForm.getFormId());
+        Map<Long, RecruitingFormSectionPolicy> policyBySectionId = loadFormSectionPolicyPort
+            .listByApplicationFormId(applicationForm.getId()).stream()
+            .collect(java.util.stream.Collectors.toMap(
+                RecruitingFormSectionPolicy::getFormSectionId,
+                java.util.function.Function.identity()
+            ));
+        return RecruitingAdminFormStructureInfo.builder()
+            .exists(true)
+            .applicationFormId(applicationForm.getId())
+            .formId(applicationForm.getFormId())
+            .title(structure.title())
+            .description(structure.description())
+            .status(applicationForm.getStatus())
+            .sections(structure.sections().stream()
+                .map(section -> toAdminSection(section, policyBySectionId.get(section.sectionId())))
+                .toList())
+            .build();
+    }
+
+    /**
+     * COMMON/TRACK 정책은 Form 모듈이 아닌 recruiting 쪽에 저장되므로 section마다 병합한다.
+     * 정책이 없는 section은 Upsert 경로가 만들 수 없는 상태라 데이터 정합성 문제로 본다.
+     */
+    private RecruitingAdminFormStructureInfo.SectionInfo toAdminSection(
+        FormWithStructureInfo.SectionWithQuestions section,
+        RecruitingFormSectionPolicy policy
+    ) {
+        if (policy == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_FORM_SECTION_POLICY_INVALID);
+        }
+        return RecruitingAdminFormStructureInfo.SectionInfo.builder()
+            .sectionId(section.sectionId())
+            .title(section.title())
+            .description(section.description())
+            .orderNo(section.orderNo())
+            .type(policy.getType())
+            .track(policy.getTrack())
+            .questions(section.questions().stream()
+                .map(question -> RecruitingAdminFormStructureInfo.QuestionInfo.builder()
+                    .questionId(question.questionId())
+                    .title(question.title())
+                    .description(question.description())
+                    .type(question.type())
+                    .required(question.isRequired())
+                    .orderNo(question.orderNo())
+                    .options(question.options().stream()
+                        .map(option -> RecruitingAdminFormStructureInfo.OptionInfo.builder()
+                            .optionId(option.optionId())
+                            .content(option.content())
+                            .orderNo(option.orderNo())
+                            .other(option.isOther())
+                            .nextSectionId(option.nextSectionId())
+                            .build())
                         .toList())
                     .build())
                 .toList())
