@@ -105,6 +105,7 @@ public enum RecruitingErrorCode implements BaseCode {
     RECRUITING_INTERVIEW_QUESTION_IMMUTABLE(HttpStatus.CONFLICT, "RECRUITING-0505", "면접 평가 제출 후에는 질문을 변경할 수 없어요."),
     RECRUITING_INTERVIEW_QUESTION_ACCESS_DENIED(HttpStatus.FORBIDDEN, "RECRUITING-0506", "면접 질문을 변경할 권한이 없어요."),
     RECRUITING_INTERVIEW_QUESTION_INVALID_ACTOR(HttpStatus.BAD_REQUEST, "RECRUITING-0507", "면접 질문 변경자 정보가 올바르지 않아요."),
+    RECRUITING_APPLICANT_IDENTITY_REQUIRED(HttpStatus.INTERNAL_SERVER_ERROR, "RECRUITING-0508", "지원자를 식별하려면 기수와 회원 또는 이메일이 필요해요."),
     ;
 
     private final HttpStatus httpStatus;

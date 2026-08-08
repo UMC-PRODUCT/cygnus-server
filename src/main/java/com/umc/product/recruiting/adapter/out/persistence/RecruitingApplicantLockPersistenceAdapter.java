@@ -1,12 +1,15 @@
 package com.umc.product.recruiting.adapter.out.persistence;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 
 import org.springframework.stereotype.Component;
 
 import com.umc.product.recruiting.application.port.out.LockRecruitingApplicantPort;
+import com.umc.product.recruiting.domain.exception.RecruitingDomainException;
+import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -39,18 +42,21 @@ public class RecruitingApplicantLockPersistenceAdapter implements LockRecruiting
         Long applicantMemberId,
         Collection<String> normalizedEmails
     ) {
-        if (gisuId == null || applicantMemberId == null) {
-            throw new IllegalArgumentException("Recruiting applicant lock requires gisuId and memberId");
+        if (gisuId == null) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICANT_IDENTITY_REQUIRED);
         }
-        Stream<String> memberKey = Stream.of("recruiting:gisu:%d:member:%d".formatted(
-            gisuId,
-            applicantMemberId
-        ));
+        Stream<String> memberKey = applicantMemberId == null
+            ? Stream.empty()
+            : Stream.of("recruiting:gisu:%d:member:%d".formatted(gisuId, applicantMemberId));
         Stream<String> emailKeys = normalizedEmails.stream()
             .filter(email -> email != null && !email.isBlank())
             .map(email -> email.strip().toLowerCase(Locale.ROOT))
             .map(email -> "recruiting:gisu:%d:email:%s".formatted(gisuId, email));
-        return Stream.concat(memberKey, emailKeys).distinct().sorted();
+        List<String> keys = Stream.concat(memberKey, emailKeys).distinct().sorted().toList();
+        if (keys.isEmpty()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_APPLICANT_IDENTITY_REQUIRED);
+        }
+        return keys.stream();
     }
 
     private void acquireTransactionLock(String lockKey) {
