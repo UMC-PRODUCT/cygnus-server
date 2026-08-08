@@ -62,7 +62,7 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 
 | 요청 | 허용 조건 | 결과 |
 |---|---|---|
-| `DRAFT -> OPEN` | 지원 Form 구조가 유효하고, 면접 Round면 게시된 availability Form이 존재 | Round OPEN, RecruitingApplicationForm/실제 Form PUBLISHED |
+| `DRAFT -> OPEN` | 지원 Form 구조가 유효할 것. 면접 Round는 availability Form이 없으면 서버가 자동 생성·게시한 뒤 검증한다 | Round OPEN, RecruitingApplicationForm/실제 Form PUBLISHED, 면접 Round면 availability 매핑 확정 |
 | `OPEN -> DRAFT` | RecruitingApplication과 실제 FormResponse가 모두 0건 | Round/RecruitingApplicationForm/실제 Form DRAFT |
 | `OPEN -> CLOSED` | OPEN 상태 | Round/RecruitingApplicationForm/실제 Form CLOSED |
 | `CLOSED -> DRAFT/OPEN` | 허용하지 않음 | `409` |
@@ -80,10 +80,19 @@ Recruiting은 학교별 모집 Season, Round, 지원서, 평가, 면접 일정, 
 
 별도 Form 게시·마감 및 section 정책 추가 API는 제공하지 않는다. Form 자체 접수 기간 동기화는 공개 UseCase가 제공될 때 연결할 TODO로 남아 있다.
 
+## 면접 일정 조율 Form
+
+`availabilityFormId`/`availabilityScheduleQuestionId`는 지원 Form이 아니라 비익명·SCHEDULE 필수 질문 하나짜리 전용 Form을 가리키며,
+매핑이 비어 있으면 Round OPEN 시 `RecruitingInterviewAvailabilityFormProvisioner`가 생성·게시한다.
+Round 수정 요청에 매핑이 없으면 기존 값을 승계한다. configuration을 통째로 교체하는 구조라 승계하지 않으면 매핑이 사라진다.
+OPEN Round에서 면접을 껐다 다시 켜면 승계할 값이 없으므로 수정 시점에 새로 생성한다.
+
 ## 지원과 재지원
 
 - 로그인 지원자는 CurrentMember로 초안 생성, 수정, 제출, 철회를 수행한다.
 - 익명 지원자는 생성 시 한 번 받은 `applicationKey`와 email로 조회, 수정, 제출, 철회를 수행한다.
+- 회원·익명 지원서 조회 응답은 `gisuId`와 `roundId`를 제공하며, 화면에 필요한 모집 정보는 공개 모집 목록 API의
+  `roundIds` 필터로 분리 조회한다.
 - credential은 URL에 넣지 않고 body 또는 GraphQL variables로 전달한다.
 - credential 조회·수정·제출·철회는 client IP 기준 동일한 분당 5회 bucket을 공유한다.
 - 제출 완료 지원서도 접수 종료 전에는 Form scope를 유지해 수정할 수 있다.
@@ -123,6 +132,7 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | PUT | `/api/v1/recruiting/public/applications` | 익명 지원서 수정 |
 | POST | `/api/v1/recruiting/public/applications/submit` | 익명 지원서 제출 |
 | POST | `/api/v1/recruiting/public/applications/cancel` | 익명 지원서 철회 |
+| GET | `/api/v1/recruiting/applications` | 로그인 회원 본인 지원 내역 조회. 비회원 조회와 동일한 결과 공개 정책 적용 |
 | POST | `/api/v1/recruiting/applications` | 로그인 지원서 초안 생성 |
 | PUT | `/api/v1/recruiting/applications/{applicationId}` | 로그인 지원서 수정 |
 | POST | `/api/v1/recruiting/applications/{applicationId}/submit` | 로그인 지원서 제출 |

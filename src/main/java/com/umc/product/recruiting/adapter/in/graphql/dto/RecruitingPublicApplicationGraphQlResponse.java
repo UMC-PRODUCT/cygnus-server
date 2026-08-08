@@ -10,6 +10,8 @@ import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 public record RecruitingPublicApplicationGraphQlResponse(
     Long applicationId,
+    Long gisuId,
+    Long roundId,
     String applicantName,
     String applicantEmail,
     ChallengerTrack firstChoice,
@@ -26,6 +28,8 @@ public record RecruitingPublicApplicationGraphQlResponse(
     public static RecruitingPublicApplicationGraphQlResponse from(RecruitingPublicApplicationInfo info) {
         return new RecruitingPublicApplicationGraphQlResponse(
             info.applicationId(),
+            info.gisuId(),
+            info.roundId(),
             info.applicantName(),
             info.applicantEmail(),
             info.firstChoice(),

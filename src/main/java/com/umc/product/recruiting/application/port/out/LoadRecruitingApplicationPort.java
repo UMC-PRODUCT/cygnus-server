@@ -30,6 +30,8 @@ public interface LoadRecruitingApplicationPort {
 
     RecruitingApplication getByIdWithDetailsForUpdate(Long id);
 
+    List<RecruitingApplication> listByApplicantMemberId(Long applicantMemberId);
+
     RecruitingApplicantLockTarget getApplicantLockTarget(Long id);
 
     Long getRoundIdByApplicationId(Long id);

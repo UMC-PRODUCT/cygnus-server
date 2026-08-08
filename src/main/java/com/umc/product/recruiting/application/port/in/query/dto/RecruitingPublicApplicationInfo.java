@@ -13,6 +13,8 @@ import lombok.Builder;
 @Builder
 public record RecruitingPublicApplicationInfo(
     Long applicationId,
+    Long gisuId,
+    Long roundId,
     String applicantName,
     String applicantEmail,
     ChallengerTrack firstChoice,
