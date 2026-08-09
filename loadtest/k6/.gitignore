@@ -1,0 +1,2 @@
+# prepare-data.sh 가 생성하는 실제 seed (환경별 ID) — 커밋 금지. 형태는 seed.example.json 참조.
+data/seed.json

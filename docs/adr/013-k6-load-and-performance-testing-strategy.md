@@ -49,27 +49,27 @@ Proposed (2026-05-08)
 
 ### 2. 부하 테스트 디렉터리 구조와 기록 위치
 
+> **갱신 노트 (2026-07-22, load-test v1):** 실행 코드 위치는 `loadtest/k6/` 로 확정하고, 개별 시나리오를 직접 `k6 run` 하는 대신 **단일 `script.js` entrypoint 가 `__ENV.PROFILE × __ENV.SCENARIO` 로 실행 대상을 고르는** 구조로 구현했다. 이 ADR 뒤쪽 예시에 나오는 `k6 run loadtest/scenarios/...` 형태는 `run-umc-k6 <profile> <scenario> <rate> <duration>` 로 대체되었다. v1 은 부하 유형 smoke/load/stress/soak 를 구현하고 spike/breakpoint 는 후속으로 둔다. 실행·확장 방법은 `loadtest/README.md` 참조.
+
 ```text
-loadtest/
-├── README.md
+loadtest/k6/
+├── script.js                 # 단일 entrypoint. __ENV.PROFILE × __ENV.SCENARIO 로 실행 대상 선택
+├── config/
+│   └── profiles.js           # smoke/load/stress/soak 별 options·thresholds·기본 RATE/DURATION
 ├── lib/
-│   ├── auth.js              # JWT 발급 / 갱신 helper
-│   ├── checks.js            # 공통 check / threshold helper
-│   └── data/                # 시드 사용자 ID 목록, 페이로드 fixture
+│   ├── auth.js               # 부하 전용 토큰 발급(TEST-007) + VU 단위 캐시
+│   ├── data.js               # seed.json 로드 전용 (k6 는 시딩하지 않음)
+│   ├── http.js               # 공통 headers·checks·error tagging
+│   └── metrics.js            # 시나리오별 custom metrics
 ├── scenarios/
-│   ├── smoke/               # 1~2 VU, 1분 — 정상 동작 확인
-│   ├── load/                # 예상 트래픽 (도메인별 SLO 검증)
-│   ├── stress/              # 한계점 탐색 (ramping-vus)
-│   ├── spike/               # 신청 마감 직전 등 급격한 폭증
-│   ├── soak/                # 30분~1h 장시간 안정성
-│   └── breakpoint/          # 실패 지점 식별 (점진 증가, 임계 측정)
-└── domains/
-    ├── authentication/
-    ├── project/
-    ├── challenger/
-    ├── community/
-    ├── organization/
-    └── ...
+│   ├── smoke/{health-check,project-read}.js
+│   ├── load/{project-read,application-submit}.js
+│   ├── stress/project-read.js
+│   └── soak/project-read.js
+└── data/
+    ├── seed.example.json     # 형태 참조 (커밋)
+    └── seed.json             # prepare-data.sh 산출물 (gitignore)
+```
 
 docs/loadtest/
 ├── README.md                # 결과 인덱스
@@ -125,7 +125,7 @@ read-heavy 또는 N+1 위험이 의심되는 도메인. Phase 1 으로 baseline 
 
 ### 5. CI / 자동화 통합
 
-- **smoke 만 PR 단위 자동 실행** — `loadtest/scenarios/smoke/` 하위 스크립트는 GitHub Actions 의 별도 job 으로 PR 시 staging 에 대해 실행. p95 < SLO 임계 위반 시 fail.
+- **smoke 만 PR 단위 자동 실행** — `loadtest/k6/scenarios/smoke/` 하위 시나리오는 GitHub Actions 의 별도 job 으로 PR 시 staging 에 대해 실행(`run-umc-k6 smoke <scenario> ...`). p95 < SLO 임계 위반 시 fail.
 - **load 는 main 머지 후 nightly** — 결과를 자동으로 `docs/loadtest/runs/<timestamp>/` 에 push.
 - **stress / spike / soak / breakpoint 은 수동 실행** — capacity planning 또는 ADR 후속 검증 시점에만 운영자가 트리거. 자동 실행은 인프라 비용·운영 위험이 크다.
 
@@ -133,8 +133,8 @@ read-heavy 또는 N+1 위험이 의심되는 도메인. Phase 1 으로 baseline 
 
 - **테스트 대상 환경은 staging 을 1순위, local 은 보조** — staging 은 운영과 동일한 PostgreSQL 18 + 동일 인스턴스 사이즈 가정. local 은 docker-compose 의 PostgreSQL 로 빠른 반복 측정에만 사용.
 - **production 직접 부하 테스트 금지** — 본 ADR 의 어떤 시나리오도 production 을 대상으로 자동 실행되지 않는다. soak/stress 가 production 에 필요하다고 판단되면 별도 ADR 로 정한다.
-- **테스트 데이터 시딩** — `loadtest/lib/data/seed.sql` 로 챌린저 N명·기수·챕터·스터디그룹의 결정적 데이터를 사전 적재. 테스트 종료 후 transactional rollback 이 아니라, **별도 스키마 (`umc_loadtest`) 또는 별도 staging DB 인스턴스** 로 격리한다.
-- **인증 토큰** — k6 setup 단계에서 미리 N개의 access token 을 일괄 발급해 VU 간 분배. JWT 만료 직전 자동 재발급 (`loadtest/lib/auth.js`).
+- **테스트 데이터 시딩** — 시딩은 `loadtest/scripts/prepare-data.sh` 가 유일하게 소유한다(k6 는 시딩하지 않음). v1 은 도메인 가드를 통과하는 SeedController API(`/test/seed/*`)를 순서대로 호출해 `loadtest/k6/data/seed.json` 을 산출한다. 대용량(10만+ 행)은 앱 이미지의 `seeder` 프로파일로 도는 Spring 벌크 시더(`SEED_STRATEGY=bulk`, JdbcTemplate 배치)가 담당한다 — 파일 아티팩트는 캐시일 뿐 원천이 아니므로 `pg_dump` 기반 sql 전략은 폐기했다. RDS snapshot 복원은 계층이 달라 `rds.tf` 의 `snapshot_identifier` 로 다룬다(반복 실행 가속 캐시). 상세: `loadtest/README.md` 의 "시딩" 절.
+- **인증 토큰** — 부하 전용 access token 발급(TEST-007, `@Public`)을 `loadtest/k6/lib/auth.js` 가 VU 단위로 캐시해 재사용한다. "로그인 자체 성능" 을 재는 시나리오는 실제 로그인 API 를 호출하는 별도 시나리오로 둔다.
 
 ## Alternatives Considered
 

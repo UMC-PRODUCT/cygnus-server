@@ -10,6 +10,9 @@ server:
 
   # 톰캣 튜닝 옵션 - 부하테스트 하면서 수정할 것
   tomcat:
+    # 스레드 지표(tomcat_threads_*)를 micrometer 로 노출한다 — 부하 테스트에서 스레드 포화 관측용
+    mbeanregistry:
+      enabled: true
     threads:
       max: ${TOMCAT_MAX_THREADS:200}
       min-spare: ${TOMCAT_MIN_SPARE_THREADS:10}
