@@ -28,12 +28,12 @@ public class GisuAuthorityScopeQueryService implements GetGisuAuthorityScopeUseC
     @Override
     public GisuAuthorityScopeInfo getByMemberIdAndGisuId(Long memberId, Long gisuId) {
         if (!checkMemberExistenceUseCase.existsById(memberId)) {
-            return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
+            return new GisuAuthorityScopeInfo(false, Set.of(), Set.of(), false);
         }
 
         AuthoritySnapshot authority = checkPermissionUseCase.loadSubject(memberId).toAuthoritySnapshot();
         if (authority.isSuperAdmin() || authority.isCentralCoreInGisu(gisuId)) {
-            return new GisuAuthorityScopeInfo(true, Set.of(), Set.of());
+            return new GisuAuthorityScopeInfo(true, Set.of(), Set.of(), true);
         }
 
         Set<RoleAttribute> roles = authority.challengerRoles().stream()
@@ -52,6 +52,18 @@ public class GisuAuthorityScopeQueryService implements GetGisuAuthorityScopeUseC
             .map(RoleAttribute::organizationId)
             .collect(Collectors.toUnmodifiableSet());
 
-        return new GisuAuthorityScopeInfo(false, chapterPresidentChapterIds, schoolAdminSchoolIds);
+        boolean detailedStatisticsAccessible = !chapterPresidentChapterIds.isEmpty()
+            || roles.stream()
+                .filter(role -> role.organizationType() == OrganizationType.SCHOOL)
+                .map(RoleAttribute::roleType)
+                .anyMatch(roleType -> roleType.isAtLeastSchoolAdmin()
+                    && roleType != ChallengerRoleType.SCHOOL_ETC_ADMIN);
+
+        return new GisuAuthorityScopeInfo(
+            false,
+            chapterPresidentChapterIds,
+            schoolAdminSchoolIds,
+            detailedStatisticsAccessible
+        );
     }
 }

@@ -268,7 +268,8 @@ public class RecruitingAdminController {
         operationId = "RECRUITING-ADMIN-083",
         summary = "평가 현황 집계 조회",
         description = "기수 내 지부별·학교별·1지망 파트별 지원자 수와 평가 완료 수를 집계합니다. "
-            + "평가 완료는 서류 불합격 또는 최종 판정이 확정된 지원서를 뜻하며, DRAFT와 CANCELLED 지원서는 집계에서 제외합니다."
+            + "평가 완료는 서류 불합격 또는 최종 판정이 확정된 지원서를 뜻하며, DRAFT와 CANCELLED 지원서는 집계에서 제외합니다. "
+            + "기타 교내 운영진은 본인 학교의 전체·파트별 집계만 조회하며, 지부별·학교별 상세 집계는 빈 목록으로 반환합니다."
     )
     public RecruitingEvaluationStatisticsResponse getEvaluationStatistics(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,

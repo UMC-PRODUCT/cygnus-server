@@ -70,13 +70,13 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
     @Override
     public RecruitingEvaluationStatisticsInfo getEvaluationStatistics(RecruitingEvaluationStatisticsQuery query) {
         List<SchoolChapterNameInfo> allSchools = getSchoolUseCase.getSchoolChapterNamesByGisuId(query.gisuId());
-        Set<Long> accessibleSchoolIds = resolveAccessibleSchoolIds(
+        GisuAuthorityScopeInfo authorityScope = resolveAuthorityScope(
             query.requesterMemberId(),
             query.gisuId(),
             allSchools
         );
         List<SchoolChapterNameInfo> schools = allSchools.stream()
-            .filter(school -> accessibleSchoolIds == null || accessibleSchoolIds.contains(school.schoolId()))
+            .filter(school -> authorityScope.canAccess(school.chapterId(), school.schoolId()))
             .toList();
         Set<Long> allKnownSchoolIds = allSchools.stream()
             .map(SchoolChapterNameInfo::schoolId)
@@ -113,11 +113,13 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
             sumCount(rows, row -> true),
             sumCount(rows, this::isEvaluated),
             countByTrack(rows),
-            toChapterInfos(schools, rowsBySchool)
+            authorityScope.detailedStatisticsAccessible()
+                ? toChapterInfos(schools, rowsBySchool)
+                : List.of()
         );
     }
 
-    private Set<Long> resolveAccessibleSchoolIds(
+    private GisuAuthorityScopeInfo resolveAuthorityScope(
         Long requesterMemberId,
         Long gisuId,
         List<SchoolChapterNameInfo> schools
@@ -125,7 +127,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
         GisuAuthorityScopeInfo authorityScope = getGisuAuthorityScopeUseCase
             .getByMemberIdAndGisuId(requesterMemberId, gisuId);
         if (authorityScope.allSchoolsAccessible()) {
-            return null;
+            return authorityScope;
         }
 
         Set<Long> accessibleSchoolIds = schools.stream()
@@ -136,7 +138,7 @@ public class RecruitingEvaluationStatisticsQueryService implements GetRecruiting
         if (accessibleSchoolIds.isEmpty()) {
             throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_EVALUATION_STATISTICS_ACCESS_DENIED);
         }
-        return accessibleSchoolIds;
+        return authorityScope;
     }
 
     private List<RecruitingChapterEvaluationStatisticsInfo> toChapterInfos(

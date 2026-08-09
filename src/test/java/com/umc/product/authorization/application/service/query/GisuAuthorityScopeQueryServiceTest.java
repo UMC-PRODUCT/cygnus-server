@@ -50,6 +50,42 @@ class GisuAuthorityScopeQueryServiceTest {
         assertThat(scope.canAccess(10L, 999L)).isTrue();
         assertThat(scope.canAccess(999L, 20L)).isTrue();
         assertThat(scope.canAccess(999L, 30L)).isFalse();
+        assertThat(scope.detailedStatisticsAccessible()).isTrue();
+    }
+
+    @Test
+    @DisplayName("기타 교내 운영진만 보유하면 본인 학교 접근은 허용하고 상세 통계는 제한한다")
+    void restrictDetailedStatisticsForSchoolEtcAdminOnly() {
+        given(checkMemberExistenceUseCase.existsById(MEMBER_ID)).willReturn(true);
+        given(checkPermissionUseCase.loadSubject(MEMBER_ID)).willReturn(subject(
+            role(ChallengerRoleType.SCHOOL_ETC_ADMIN, OrganizationType.SCHOOL, 20L, GISU_ID)
+        ));
+
+        GisuAuthorityScopeInfo scope = new GisuAuthorityScopeQueryService(
+            checkPermissionUseCase,
+            checkMemberExistenceUseCase
+        ).getByMemberIdAndGisuId(MEMBER_ID, GISU_ID);
+
+        assertThat(scope.canAccess(999L, 20L)).isTrue();
+        assertThat(scope.detailedStatisticsAccessible()).isFalse();
+    }
+
+    @Test
+    @DisplayName("기타 교내 운영진과 상위 학교 운영진 역할을 함께 보유하면 상세 통계를 허용한다")
+    void allowDetailedStatisticsWhenHigherSchoolRoleExists() {
+        given(checkMemberExistenceUseCase.existsById(MEMBER_ID)).willReturn(true);
+        given(checkPermissionUseCase.loadSubject(MEMBER_ID)).willReturn(subject(
+            role(ChallengerRoleType.SCHOOL_ETC_ADMIN, OrganizationType.SCHOOL, 20L, GISU_ID),
+            role(ChallengerRoleType.SCHOOL_PART_LEADER, OrganizationType.SCHOOL, 20L, GISU_ID)
+        ));
+
+        GisuAuthorityScopeInfo scope = new GisuAuthorityScopeQueryService(
+            checkPermissionUseCase,
+            checkMemberExistenceUseCase
+        ).getByMemberIdAndGisuId(MEMBER_ID, GISU_ID);
+
+        assertThat(scope.canAccess(999L, 20L)).isTrue();
+        assertThat(scope.detailedStatisticsAccessible()).isTrue();
     }
 
     private SubjectAttributes subject(RoleAttribute... roles) {
