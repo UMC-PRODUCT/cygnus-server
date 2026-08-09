@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
 
 import java.time.Instant;
@@ -50,6 +51,7 @@ import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.GetStudyGroupUseCase;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
 
 @ExtendWith(MockitoExtension.class)
@@ -204,6 +206,53 @@ class StudyMemberSubmissionQueryServiceTest {
             .willReturn(List.of());
 
         assertThat(service.getStudyMemberSubmissions(query())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("조회 가능 주차는 활성 기수 파트별 커리큘럼 주차의 union 을 distinct 오름차순으로 반환한다")
+    void availableWeekNos_unionAcrossParts() {
+        given(loadCurriculumPort.findByGisuIdAndPart(anyLong(), any())).willReturn(Optional.empty());
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.SPRINGBOOT))
+            .willReturn(Optional.of(new CurriculumProjection(1L, ChallengerPart.SPRINGBOOT, "스프링 커리큘럼")));
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.WEB))
+            .willReturn(Optional.of(new CurriculumProjection(2L, ChallengerPart.WEB, "웹 커리큘럼")));
+        given(loadWeeklyCurriculumPort.findByCurriculumId(1L, null))
+            .willReturn(List.of(weeklyOf(3L), weeklyOf(1L)));
+        given(loadWeeklyCurriculumPort.findByCurriculumId(2L, null))
+            .willReturn(List.of(weeklyOf(3L), weeklyOf(8L)));
+
+        assertThat(service.getAvailableWeekNos(null)).containsExactly(1L, 3L, 8L);
+    }
+
+    @Test
+    @DisplayName("그룹을 지정하면 그 그룹 파트의 주차만 반환한다")
+    void availableWeekNos_groupSpecified_narrowsToGroupPart() {
+        given(getStudyGroupUseCase.getById(GROUP_ID)).willReturn(StudyGroupInfo.create(
+            GROUP_ID, "SpringBoot 스터디", GISU_ID, ChallengerPart.SPRINGBOOT, Instant.EPOCH, List.of(), List.of()
+        ));
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.SPRINGBOOT))
+            .willReturn(Optional.of(new CurriculumProjection(1L, ChallengerPart.SPRINGBOOT, "스프링 커리큘럼")));
+        given(loadWeeklyCurriculumPort.findByCurriculumId(1L, null))
+            .willReturn(List.of(weeklyOf(2L), weeklyOf(1L)));
+
+        assertThat(service.getAvailableWeekNos(GROUP_ID)).containsExactly(1L, 2L);
+    }
+
+    @Test
+    @DisplayName("커리큘럼이 없으면 빈 주차 목록을 반환한다")
+    void availableWeekNos_noCurriculum_empty() {
+        given(loadCurriculumPort.findByGisuIdAndPart(anyLong(), any())).willReturn(Optional.empty());
+
+        assertThat(service.getAvailableWeekNos(null)).isEmpty();
+    }
+
+    private WeeklyCurriculum weeklyOf(Long weekNo) {
+        WeeklyCurriculum weekly = WeeklyCurriculum.create(
+            Curriculum.create(GISU_ID, ChallengerPart.SPRINGBOOT, "커리큘럼"), weekNo, false, weekNo + "주차",
+            Instant.EPOCH, Instant.parse("2026-08-01T00:00:00Z")
+        );
+        ReflectionTestUtils.setField(weekly, "id", 900L + weekNo);
+        return weekly;
     }
 
     private StudyMemberSubmissionQuery query() {
