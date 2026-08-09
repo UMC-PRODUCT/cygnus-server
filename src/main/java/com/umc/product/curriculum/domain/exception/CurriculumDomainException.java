@@ -11,4 +11,8 @@ public class CurriculumDomainException extends BusinessException {
     public CurriculumDomainException(CurriculumErrorCode errorCode, String message) {
         super(Domain.CURRICULUM, errorCode, message);
     }
+
+    public CurriculumDomainException(CurriculumErrorCode errorCode, Throwable cause) {
+        super(Domain.CURRICULUM, errorCode, cause);
+    }
 }

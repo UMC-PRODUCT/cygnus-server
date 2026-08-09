@@ -41,6 +41,14 @@ public enum ResourceType {
         Set.of(PermissionType.READ)),
     ORIGINAL_WORKBOOK("original_workbook", "원본 워크북",
         Set.of(PermissionType.MANAGE, PermissionType.RELEASE)),
+    CHALLENGER_WORKBOOK("challenger_workbook", "챌린저 워크북",
+        Set.of(PermissionType.WRITE, PermissionType.DELETE)),
+    WEEKLY_BEST_WORKBOOK("weekly_best_workbook", "주간 베스트 워크북",
+        Set.of(PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
+    MISSION_SUBMISSION("mission_submission", "미션 제출물",
+        Set.of(PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
+    MISSION_FEEDBACK("mission_feedback", "미션 피드백",
+        Set.of(PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
 
     // 기수 - 지부 - 학교
     GISU("gisu", "기수",

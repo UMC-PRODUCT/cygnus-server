@@ -1,11 +1,13 @@
 package com.umc.product.curriculum.application.port.in.query.dto;
 
-import com.umc.product.curriculum.domain.enums.FeedbackResult;
-import com.umc.product.curriculum.domain.enums.MissionType;
-import lombok.Builder;
-
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
+
+import com.umc.product.curriculum.domain.enums.FeedbackResult;
+import com.umc.product.curriculum.domain.enums.MissionType;
+
+import lombok.Builder;
 
 /**
  * 챌린저 워크북 상세 조회 결과 Info
@@ -18,6 +20,7 @@ import java.util.List;
  * @param excusedReason        인정 처리 사유 (nullable)
  * @param content              워크북 내용 (nullable)
  * @param isBestWorkbook       베스트 워크북 선정 여부
+ * @param requiredMissionIds   필수 미션 ID 집합
  * @param submissions          미션 제출물 목록
  */
 @Builder
@@ -30,6 +33,7 @@ public record ChallengerWorkbookInfo(
     String excusedReason,
     String content,
     boolean isBestWorkbook,
+    Set<Long> requiredMissionIds,
     List<MissionSubmissionInfo> submissions
 ) {
 

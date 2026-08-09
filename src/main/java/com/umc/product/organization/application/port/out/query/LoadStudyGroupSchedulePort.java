@@ -1,6 +1,7 @@
 package com.umc.product.organization.application.port.out.query;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 
 public interface LoadStudyGroupSchedulePort {
@@ -14,4 +15,9 @@ public interface LoadStudyGroupSchedulePort {
      * @return 매핑된 scheduleId 집합. 매핑이 없으면 빈 Set.
      */
     Set<Long> findScheduleIdsByStudyGroupIds(Collection<Long> studyGroupIds);
+
+    Optional<Long> findScheduleIdByStudyGroupIdAndWeeklyCurriculumId(
+        Long studyGroupId,
+        Long weeklyCurriculumId
+    );
 }

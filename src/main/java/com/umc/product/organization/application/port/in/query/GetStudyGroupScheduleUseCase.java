@@ -1,6 +1,7 @@
 package com.umc.product.organization.application.port.in.query;
 
 import java.util.Collection;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -14,4 +15,9 @@ public interface GetStudyGroupScheduleUseCase {
      * 주어진 studyGroupIds 에 매핑된 scheduleId 집합을 반환한다.
      */
     Set<Long> findScheduleIdsByStudyGroupIds(Collection<Long> studyGroupIds);
+
+    Optional<Long> findScheduleIdByStudyGroupIdAndWeeklyCurriculumId(
+        Long studyGroupId,
+        Long weeklyCurriculumId
+    );
 }

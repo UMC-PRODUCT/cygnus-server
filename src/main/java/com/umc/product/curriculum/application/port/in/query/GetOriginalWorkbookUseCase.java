@@ -15,6 +15,6 @@ public interface GetOriginalWorkbookUseCase {
      * @param originalWorkbookId 원본 워크북 ID
      * @return 원본 워크북 상세 정보 (미션 포함)
      */
-    OriginalWorkbookInfo getById(Long originalWorkbookId);
+    OriginalWorkbookInfo getById(Long originalWorkbookId, Long requesterMemberId);
 
 }

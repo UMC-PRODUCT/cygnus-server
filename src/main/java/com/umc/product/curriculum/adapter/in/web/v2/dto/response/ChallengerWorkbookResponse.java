@@ -1,5 +1,14 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
+import com.umc.product.curriculum.domain.ChallengerWorkbookStatusPolicy;
+import com.umc.product.curriculum.domain.enums.SubmissionStatus;
+
 import lombok.Builder;
 
 @Builder
@@ -14,7 +23,8 @@ public record ChallengerWorkbookResponse(
     boolean isBestWorkbook,
     ChallengerWorkbookStatusResponse status,
     boolean hasSubmission,
-    MissionSubmissionResponse submission
+    MissionSubmissionResponse submission,
+    List<MissionSubmissionResponse> submissions
 ) {
     // 고민거리:
     // 현재 DTO는 내 커리큘럼 조회 시에도 사용됨.
@@ -27,4 +37,44 @@ public record ChallengerWorkbookResponse(
 
     // status는 OriginalWorkbookStatus와 분리된 것이며, 기존에 존재하던 WorkbookStatus와도 다름.
     // 작성에 주의할 것
+
+    public static ChallengerWorkbookResponse from(ChallengerWorkbookInfo info) {
+        List<MissionSubmissionResponse> submissions = info.submissions().stream()
+            .map(MissionSubmissionResponse::from)
+            .toList();
+
+        return ChallengerWorkbookResponse.builder()
+            .challengerWorkbookId(info.challengerWorkbookId())
+            .originalWorkbookId(info.originalWorkbookId())
+            .receivedStudyGroupId(info.receivedStudyGroupId())
+            .memberId(info.challengerId())
+            .isExcused(info.isExcused())
+            .excusedReason(info.excusedReason())
+            .content(info.content())
+            .isBestWorkbook(info.isBestWorkbook())
+            .status(resolveStatus(info, submissions))
+            .hasSubmission(!submissions.isEmpty())
+            .submission(submissions.isEmpty() ? null : submissions.get(0))
+            .submissions(submissions)
+            .build();
+    }
+
+    private static ChallengerWorkbookStatusResponse resolveStatus(
+        ChallengerWorkbookInfo info,
+        List<MissionSubmissionResponse> submissions
+    ) {
+        Map<Long, SubmissionStatus> statusByMission = submissions.stream()
+            .collect(Collectors.toMap(
+                MissionSubmissionResponse::originalWorkbookMissionId,
+                MissionSubmissionResponse::status
+            ));
+
+        return ChallengerWorkbookStatusResponse.from(
+            ChallengerWorkbookStatusPolicy.resolveWorkbookStatus(
+                info.isExcused(),
+                statusByMission,
+                info.requiredMissionIds() == null ? Set.of() : info.requiredMissionIds()
+            )
+        );
+    }
 }

@@ -37,10 +37,10 @@ class StudyGroupSchedulePersistenceAdapterTest {
         Long schoolMentorGroup = 2L;
         Long outOfScopeGroup = 99L;
 
-        persistMapping(schoolMemberGroup, 100L, 10L);
-        persistMapping(schoolMemberGroup, 101L, 11L);
-        persistMapping(schoolMentorGroup, 200L, 20L);
-        persistMapping(outOfScopeGroup, 999L, 30L);
+        persistLegacyMapping(schoolMemberGroup, 100L);
+        persistLegacyMapping(schoolMemberGroup, 101L);
+        persistLegacyMapping(schoolMentorGroup, 200L);
+        persistLegacyMapping(outOfScopeGroup, 999L);
         em.flush();
         em.clear();
 
@@ -61,9 +61,9 @@ class StudyGroupSchedulePersistenceAdapterTest {
         //   대게 그룹 수가 작으므로 한 그룹의 여러 일정 케이스가 흔함.
         Long myMentorGroup = 1L;
 
-        persistMapping(myMentorGroup, 100L, 10L);
-        persistMapping(myMentorGroup, 101L, 11L);
-        persistMapping(myMentorGroup, 102L, 12L);
+        persistLegacyMapping(myMentorGroup, 100L);
+        persistLegacyMapping(myMentorGroup, 101L);
+        persistLegacyMapping(myMentorGroup, 102L);
         em.flush();
         em.clear();
 
@@ -104,12 +104,12 @@ class StudyGroupSchedulePersistenceAdapterTest {
 
     // ========== Helper Methods ==========
 
-    private void persistMapping(Long studyGroupId, Long scheduleId, Long weeklyCurriculumId) {
+    private void persistLegacyMapping(Long studyGroupId, Long scheduleId) {
         StudyGroupSchedule entity = StudyGroupSchedule.builder()
             .studyGroupId(studyGroupId)
             .scheduleId(scheduleId)
-            .weeklyCurriculumId(weeklyCurriculumId)
             .build();
         em.persist(entity);
     }
+
 }

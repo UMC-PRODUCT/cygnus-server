@@ -33,7 +33,22 @@ public enum CurriculumErrorCode implements BaseCode {
     WEEKLY_CURRICULUM_PERIOD_ALREADY_ENDED(HttpStatus.BAD_REQUEST, "CURRICULUM-0019", "종료된 기간으로는 주차별 커리큘럼을 만들거나 수정할 수 없어요. 기간을 다시 선택해주세요."),
     MISSION_HAS_SUBMISSIONS(HttpStatus.CONFLICT, "CURRICULUM-0020", "이미 제출된 미션이 있어 삭제할 수 없어요. 제출 내역을 먼저 확인해주세요."),
     RELEASED_WORKBOOK_NECESSARY_MISSION_FORBIDDEN(HttpStatus.BAD_REQUEST, "CURRICULUM-0021", "배포된 워크북에는 필수 미션을 추가할 수 없어요. 선택 미션으로 추가해주세요."),
-    RELEASED_WORKBOOK_MISSION_UPGRADE_FORBIDDEN(HttpStatus.BAD_REQUEST, "CURRICULUM-0022", "배포된 워크북의 미션은 필수에서 선택으로만 변경할 수 있어요.");
+    RELEASED_WORKBOOK_MISSION_UPGRADE_FORBIDDEN(HttpStatus.BAD_REQUEST, "CURRICULUM-0022", "배포된 워크북의 미션은 필수에서 선택으로만 변경할 수 있어요."),
+    MISSION_SUBMISSION_NOT_FOUND(HttpStatus.NOT_FOUND, "CURRICULUM-0023", "미션 제출물을 찾을 수 없어요."),
+    MISSION_FEEDBACK_NOT_FOUND(HttpStatus.NOT_FOUND, "CURRICULUM-0024", "미션 피드백을 찾을 수 없어요."),
+    FEEDBACK_REQUIRED(HttpStatus.BAD_REQUEST, "CURRICULUM-0025", "피드백 내용을 입력해주세요."),
+    FEEDBACK_RESULT_REQUIRED(HttpStatus.BAD_REQUEST, "CURRICULUM-0026", "피드백 평가 결과를 선택해주세요."),
+    SUBMISSION_PERIOD_ENDED(HttpStatus.CONFLICT, "CURRICULUM-0027", "주차별 커리큘럼 제출 기간이 종료되었어요."),
+    SUBMISSION_EDIT_PERIOD_ENDED(HttpStatus.CONFLICT, "CURRICULUM-0028", "미션 제출물 수정 가능 기간이 종료되었어요."),
+    MISSION_SUBMISSION_ALREADY_WITHDRAWN(HttpStatus.CONFLICT, "CURRICULUM-0029", "이미 철회된 미션 제출물이에요."),
+    FEEDBACK_EDIT_PERIOD_ENDED(HttpStatus.CONFLICT, "CURRICULUM-0030", "미션 피드백 수정 가능 기간이 종료되었어요."),
+    FEEDBACK_DELETE_PERIOD_ENDED(HttpStatus.CONFLICT, "CURRICULUM-0031", "기수가 종료되어 미션 피드백을 삭제할 수 없어요."),
+    STUDY_GROUP_NOT_MATCHED(HttpStatus.CONFLICT, "CURRICULUM-0032", "커리큘럼과 일치하는 스터디 그룹을 찾을 수 없어요."),
+    WEEKLY_BEST_ALREADY_EXISTS(HttpStatus.CONFLICT, "CURRICULUM-0033", "해당 그룹과 주차의 베스트 워크북이 이미 선정되었어요."),
+    BEST_WORKBOOK_REQUIREMENTS_NOT_MET(HttpStatus.CONFLICT, "CURRICULUM-0034", "베스트 워크북 선정 조건을 충족하지 못했어요."),
+    BEST_WORKBOOK_REASON_REQUIRED(HttpStatus.BAD_REQUEST, "CURRICULUM-0035", "베스트 워크북 선정 사유를 입력해주세요."),
+    CHALLENGER_WORKBOOK_ALREADY_EXISTS(HttpStatus.CONFLICT, "CURRICULUM-0036",
+        "이미 배포된 챌린저 워크북이에요. 기존 워크북을 확인해주세요.");
 
     private final HttpStatus httpStatus;
     private final String code;

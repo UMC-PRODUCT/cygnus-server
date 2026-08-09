@@ -1,5 +1,11 @@
 package com.umc.product.organization.application.port.service.command;
 
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.organization.application.port.in.command.ManageStudyGroupUseCase;
 import com.umc.product.organization.application.port.in.command.dto.AddStudyMemberCommand;
@@ -13,12 +19,11 @@ import com.umc.product.organization.application.port.out.query.LoadGisuPort;
 import com.umc.product.organization.application.port.out.query.LoadStudyGroupPort;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.StudyGroup;
+import com.umc.product.organization.domain.StudyGroupMember;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -46,6 +51,13 @@ public class StudyGroupCommandService implements ManageStudyGroupUseCase {
     @Override
     public void update(UpdateStudyGroupCommand command) {
         StudyGroup studyGroup = loadStudyGroupPort.getEntityById(command.groupId());
+
+        if (command.part() != null && command.part() != studyGroup.getPart()) {
+            Set<Long> memberIds = studyGroup.getMembers().stream()
+                .map(StudyGroupMember::getMemberId)
+                .collect(Collectors.toSet());
+            validateNoPartStudyConflict(studyGroup.getGisuId(), command.part(), memberIds, studyGroup.getId());
+        }
 
         studyGroup.updateName(command.name());
         studyGroup.updatePart(command.part());

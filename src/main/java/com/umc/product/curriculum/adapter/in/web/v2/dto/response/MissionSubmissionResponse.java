@@ -1,10 +1,14 @@
 package com.umc.product.curriculum.adapter.in.web.v2.dto.response;
 
-import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionSubmissionInfo;
-import com.umc.product.curriculum.domain.enums.MissionType;
-import com.umc.product.curriculum.domain.enums.SubmissionStatus;
 import java.time.Instant;
 import java.util.List;
+
+import com.umc.product.curriculum.application.port.in.query.dto.ChallengerWorkbookInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo.MissionSubmissionInfo;
+import com.umc.product.curriculum.domain.ChallengerWorkbookStatusPolicy;
+import com.umc.product.curriculum.domain.enums.MissionType;
+import com.umc.product.curriculum.domain.enums.SubmissionStatus;
+
 import lombok.Builder;
 
 @Builder
@@ -34,5 +38,29 @@ public record MissionSubmissionResponse(
                 .map(MissionFeedbackResponse::from)
                 .toList())
             .build();
+    }
+
+    public static MissionSubmissionResponse from(ChallengerWorkbookInfo.MissionSubmissionInfo info) {
+        List<MissionFeedbackResponse> feedbacks = info.feedbacks().stream()
+            .map(MissionFeedbackResponse::from)
+            .toList();
+
+        return MissionSubmissionResponse.builder()
+            .missionSubmissionId(info.missionSubmissionId())
+            .originalWorkbookMissionId(info.originalWorkbookMissionId())
+            .submittedAsType(info.submittedAsType())
+            .submittedContent(info.submittedContent())
+            .submittedAt(info.submittedAt())
+            .lastEditedAt(info.lastEditedAt())
+            .status(resolveStatus(feedbacks))
+            .hasFeedback(info.hasFeedback())
+            .feedbacks(feedbacks)
+            .build();
+    }
+
+    private static SubmissionStatus resolveStatus(List<MissionFeedbackResponse> feedbacks) {
+        return ChallengerWorkbookStatusPolicy.resolveSubmissionStatus(
+            feedbacks.stream().map(MissionFeedbackResponse::feedbackResult).toList()
+        );
     }
 }

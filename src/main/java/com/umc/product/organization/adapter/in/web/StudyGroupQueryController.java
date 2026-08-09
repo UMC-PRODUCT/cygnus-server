@@ -1,22 +1,26 @@
 package com.umc.product.organization.adapter.in.web;
 
+import java.util.List;
+
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.umc.product.authorization.adapter.in.aspect.CheckAccess;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.global.response.CursorResponse;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.organization.adapter.in.web.dto.response.studygroup.StudyGroupNameResponse;
 import com.umc.product.organization.adapter.in.web.dto.response.studygroup.StudyGroupResponse;
 import com.umc.product.organization.adapter.in.web.swagger.StudyGroupQueryControllerApi;
 import com.umc.product.organization.application.port.in.query.GetStudyGroupUseCase;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupWithMemberAndMentorInfo;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/study-groups")
@@ -45,6 +49,17 @@ public class StudyGroupQueryController implements StudyGroupQueryControllerApi {
             size,
             StudyGroupWithMemberAndMentorInfo::groupId,
             StudyGroupResponse::from
+        );
+    }
+
+    /**
+     * 내가 관리할 수 있는 스터디 그룹의 이름 목록 조회 (드롭다운 등 목록 전체가 필요한 화면용)
+     */
+    @Override
+    @GetMapping("/names")
+    public StudyGroupNameResponse getStudyGroupNames(@CurrentMember MemberPrincipal memberPrincipal) {
+        return StudyGroupNameResponse.from(
+            getStudyGroupUseCase.getStudyGroupNames(memberPrincipal.getMemberId())
         );
     }
 

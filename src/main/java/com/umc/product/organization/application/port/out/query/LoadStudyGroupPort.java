@@ -1,15 +1,17 @@
 package com.umc.product.organization.application.port.out.query;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
-import com.umc.product.organization.domain.StudyGroup;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
+import com.umc.product.organization.domain.StudyGroup;
 
 public interface LoadStudyGroupPort {
     // TODO: 의존성 역전 있음, 수정 필요
@@ -17,6 +19,12 @@ public interface LoadStudyGroupPort {
     StudyGroup getEntityById(Long id);
 
     Optional<StudyGroup> findEntityById(Long id);
+
+    Optional<StudyGroup> findEntityByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    );
 
     StudyGroup getByName(String name);
 
@@ -58,6 +66,13 @@ public interface LoadStudyGroupPort {
      * @return {groupId → 해당 그룹 memberId 리스트}. 멤버가 없는 그룹은 맵에 키가 없을 수 있음.
      */
     Map<Long, List<Long>> findMemberIdsByStudyGroupIds(Collection<Long> groupIds);
+
+    /**
+     * 여러 스터디 그룹의 스터디원을 커서 페이지네이션으로 조회한다 (studyGroupMemberId 오름차순).
+     *
+     * @param size hasNext 판별이 필요하면 호출 측에서 +1 하여 전달한다.
+     */
+    List<StudyGroupMemberPageInfo> findStudyGroupMemberPage(Collection<Long> groupIds, Long cursor, int size);
 
     /**
      * 여러 스터디 그룹의 멘토(파트장) memberId 목록을 한 번에 batch 조회. cross-domain JOIN 없이 study_group_mentor 테이블만 본다.

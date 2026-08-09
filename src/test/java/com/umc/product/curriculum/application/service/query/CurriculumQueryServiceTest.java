@@ -1,18 +1,13 @@
 package com.umc.product.curriculum.application.service.query;
 
-import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerStatus;
-import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo;
-import com.umc.product.curriculum.application.port.in.query.dto.CurriculumProjection;
-import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo;
-import com.umc.product.curriculum.application.port.out.*;
-import com.umc.product.curriculum.domain.*;
-import com.umc.product.curriculum.domain.enums.MissionType;
-import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
-import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
-import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.BDDMockito.given;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -24,13 +19,29 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.BDDMockito.given;
+import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
+import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.curriculum.application.port.in.query.dto.CurriculumOverviewInfo;
+import com.umc.product.curriculum.application.port.in.query.dto.CurriculumProjection;
+import com.umc.product.curriculum.application.port.in.query.dto.MyCurriculumInfo;
+import com.umc.product.curriculum.application.port.out.LoadChallengerWorkbookPort;
+import com.umc.product.curriculum.application.port.out.LoadCurriculumPort;
+import com.umc.product.curriculum.application.port.out.LoadMissionFeedbackPort;
+import com.umc.product.curriculum.application.port.out.LoadMissionSubmissionPort;
+import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
+import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookPort;
+import com.umc.product.curriculum.application.port.out.LoadWeeklyCurriculumPort;
+import com.umc.product.curriculum.domain.ChallengerWorkbook;
+import com.umc.product.curriculum.domain.Curriculum;
+import com.umc.product.curriculum.domain.OriginalWorkbook;
+import com.umc.product.curriculum.domain.OriginalWorkbookMission;
+import com.umc.product.curriculum.domain.WeeklyCurriculum;
+import com.umc.product.curriculum.domain.enums.MissionType;
+import com.umc.product.curriculum.domain.enums.OriginalWorkbookType;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 class CurriculumQueryServiceTest {
@@ -212,7 +223,7 @@ class CurriculumQueryServiceTest {
             given(loadWeeklyCurriculumPort.findByCurriculumId(100L, null)).willReturn(List.of(wc1));
             given(loadOriginalWorkbookPort.findReleasedByWeeklyCurriculumIdIn(List.of(10L))).willReturn(List.of(wb));
             given(loadOriginalWorkbookMissionPort.findByOriginalWorkbookIdIn(List.of(200L))).willReturn(List.of(mission));
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(200L)))
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(200L)))
                 .willReturn(List.of());
 
             // when
@@ -252,9 +263,9 @@ class CurriculumQueryServiceTest {
             given(loadWeeklyCurriculumPort.findByCurriculumId(100L, null)).willReturn(List.of(wc1));
             given(loadOriginalWorkbookPort.findReleasedByWeeklyCurriculumIdIn(List.of(10L))).willReturn(List.of(wb));
             given(loadOriginalWorkbookMissionPort.findByOriginalWorkbookIdIn(List.of(200L))).willReturn(List.of());
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(200L)))
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(200L)))
                 .willReturn(List.of(cw));
-            given(loadMissionSubmissionPort.findByChallengerWorkbookIdIn(List.of(999L))).willReturn(List.of());
+            given(loadMissionSubmissionPort.listActiveByChallengerWorkbookIdIn(List.of(999L))).willReturn(List.of());
 
             // when
             MyCurriculumInfo result = sut.getMyProgress(MEMBER_ID, GISU_ID);
@@ -276,7 +287,7 @@ class CurriculumQueryServiceTest {
             given(loadWeeklyCurriculumPort.findByCurriculumId(100L, null)).willReturn(List.of(wc1));
             given(loadOriginalWorkbookPort.findReleasedByWeeklyCurriculumIdIn(List.of(10L))).willReturn(List.of(wb));
             given(loadOriginalWorkbookMissionPort.findByOriginalWorkbookIdIn(List.of(200L))).willReturn(List.of());
-            given(loadChallengerWorkbookPort.findByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(200L)))
+            given(loadChallengerWorkbookPort.listByMemberIdAndOriginalWorkbookIdIn(MEMBER_ID, List.of(200L)))
                 .willReturn(List.of());
 
             // when
