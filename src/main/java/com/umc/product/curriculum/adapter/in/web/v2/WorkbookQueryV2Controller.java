@@ -6,6 +6,7 @@ import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.curriculum.adapter.in.web.v2.dto.request.GetBestWorkbooksRequest;
@@ -74,6 +75,28 @@ public class WorkbookQueryV2Controller {
             StudyMemberSubmissionInfo::studyGroupMemberId,
             StudyMemberSubmissionResponse::from
         );
+    }
+
+    @Operation(
+        operationId = "WORKBOOK-105",
+        summary = "제출 현황 조회 가능 주차 목록",
+        description = """
+            제출 현황(WORKBOOK-104) 화면의 주차 필터에 띄울 수 있는 주차 번호 목록을 조회합니다.
+
+            활성 기수에서 요청자가 관리하는 스터디 그룹들의 파트별 커리큘럼에 정의된 주차(weekNo)의 union 이며,
+            distinct 오름차순으로 반환합니다. 부록(extra) 주차도 포함됩니다 — WORKBOOK-104 행의 `weeks` 와 기준이 같습니다.
+
+            - `studyGroupId` 지정 시 그 그룹 파트의 주차만 반환합니다. 권한 범위 밖이면 403 입니다.
+            - 생략 시 요청자 가시 범위(파트장: 담당 그룹, 회장단: 학교 멤버가 속한 그룹) 전체 그룹 기준입니다.
+            - 권한 범위나 커리큘럼이 비어있으면 빈 배열입니다.
+            """
+    )
+    @GetMapping("/workbook-submissions/weeks")
+    public List<Long> getSubmissionWeeks(
+        @RequestParam(required = false) Long studyGroupId,
+        @CurrentMember MemberPrincipal memberPrincipal
+    ) {
+        return getStudyMemberSubmissionUseCase.getAvailableWeekNos(memberPrincipal.getMemberId(), studyGroupId);
     }
 
     @Operation(

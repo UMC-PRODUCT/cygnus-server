@@ -112,6 +112,14 @@ public class StudyGroupPersistenceAdapter implements SaveStudyGroupPort, LoadStu
     }
 
     @Override
+    public Set<ChallengerPart> findPartsByStudyGroupIds(Set<Long> studyGroupIds) {
+        if (studyGroupIds == null || studyGroupIds.isEmpty()) {
+            return Set.of();
+        }
+        return studyGroupQueryRepository.findPartsByStudyGroupIds(studyGroupIds);
+    }
+
+    @Override
     public List<Long> findIdsByGisuIdAndPartIn(Long gisuId, Set<ChallengerPart> parts) {
         if (parts == null || parts.isEmpty()) {
             return List.of();

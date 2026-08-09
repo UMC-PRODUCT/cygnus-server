@@ -10,6 +10,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -204,6 +205,56 @@ class StudyMemberSubmissionQueryServiceTest {
             .willReturn(List.of());
 
         assertThat(service.getStudyMemberSubmissions(query())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("조회 가능 주차는 가시 파트별 커리큘럼 주차의 union 을 distinct 오름차순으로 반환한다")
+    void availableWeekNos_unionAcrossParts() {
+        given(getStudyGroupUseCase.getVisibleStudyGroupParts(REQUESTER_ID, null))
+            .willReturn(Set.of(ChallengerPart.SPRINGBOOT, ChallengerPart.WEB));
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.SPRINGBOOT))
+            .willReturn(Optional.of(new CurriculumProjection(1L, ChallengerPart.SPRINGBOOT, "스프링 커리큘럼")));
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.WEB))
+            .willReturn(Optional.of(new CurriculumProjection(2L, ChallengerPart.WEB, "웹 커리큘럼")));
+        given(loadWeeklyCurriculumPort.findByCurriculumId(1L, null))
+            .willReturn(List.of(weeklyOf(3L), weeklyOf(1L)));
+        given(loadWeeklyCurriculumPort.findByCurriculumId(2L, null))
+            .willReturn(List.of(weeklyOf(3L), weeklyOf(8L)));
+
+        assertThat(service.getAvailableWeekNos(REQUESTER_ID, null)).containsExactly(1L, 3L, 8L);
+    }
+
+    @Test
+    @DisplayName("가시 파트가 없으면 커리큘럼을 조회하지 않고 빈 주차 목록을 반환한다")
+    void availableWeekNos_noVisibleParts_empty() {
+        given(getStudyGroupUseCase.getVisibleStudyGroupParts(REQUESTER_ID, null))
+            .willReturn(Set.of());
+
+        assertThat(service.getAvailableWeekNos(REQUESTER_ID, null)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("커리큘럼이 없는 파트는 주차 목록에서 건너뛴다")
+    void availableWeekNos_skipsPartWithoutCurriculum() {
+        given(getStudyGroupUseCase.getVisibleStudyGroupParts(REQUESTER_ID, GROUP_ID))
+            .willReturn(Set.of(ChallengerPart.SPRINGBOOT, ChallengerPart.PLAN));
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.SPRINGBOOT))
+            .willReturn(Optional.of(new CurriculumProjection(1L, ChallengerPart.SPRINGBOOT, "스프링 커리큘럼")));
+        given(loadCurriculumPort.findByGisuIdAndPart(GISU_ID, ChallengerPart.PLAN))
+            .willReturn(Optional.empty());
+        given(loadWeeklyCurriculumPort.findByCurriculumId(1L, null))
+            .willReturn(List.of(weeklyOf(1L), weeklyOf(2L)));
+
+        assertThat(service.getAvailableWeekNos(REQUESTER_ID, GROUP_ID)).containsExactly(1L, 2L);
+    }
+
+    private WeeklyCurriculum weeklyOf(Long weekNo) {
+        WeeklyCurriculum weekly = WeeklyCurriculum.create(
+            Curriculum.create(GISU_ID, ChallengerPart.SPRINGBOOT, "커리큘럼"), weekNo, false, weekNo + "주차",
+            Instant.EPOCH, Instant.parse("2026-08-01T00:00:00Z")
+        );
+        ReflectionTestUtils.setField(weekly, "id", 900L + weekNo);
+        return weekly;
     }
 
     private StudyMemberSubmissionQuery query() {

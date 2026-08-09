@@ -18,4 +18,16 @@ public interface GetStudyMemberSubmissionUseCase {
      * @return 스터디원 목록 (권한 범위가 비면 빈 리스트). hasNext 판별을 위해 {@code size + 1} 건까지 반환될 수 있다.
      */
     List<StudyMemberSubmissionInfo> getStudyMemberSubmissions(StudyMemberSubmissionQuery query);
+
+    /**
+     * 제출 현황 화면에서 필터로 선택할 수 있는 주차 번호 목록을 조회한다.
+     * <p>
+     * 활성 기수에서 요청자가 관리하는 그룹들의 파트별 커리큘럼에 정의된 weekNo 의 union 이며,
+     * {@link #getStudyMemberSubmissions} 결과 행의 {@code weeks} 와 동일한 기준(배포 여부 무관)이다.
+     *
+     * @param requesterMemberId 요청 주체 memberId
+     * @param studyGroupId      특정 그룹의 파트만 볼 때 (null 이면 권한 범위 내 전체 그룹)
+     * @return distinct weekNo 오름차순 (권한 범위나 커리큘럼이 비면 빈 리스트)
+     */
+    List<Long> getAvailableWeekNos(Long requesterMemberId, Long studyGroupId);
 }

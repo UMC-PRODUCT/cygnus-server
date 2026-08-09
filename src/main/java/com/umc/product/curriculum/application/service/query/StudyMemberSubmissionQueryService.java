@@ -97,6 +97,30 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
     }
 
     /**
+     * 제출 현황 필터용 조회 가능 주차 목록.
+     * <p>
+     * 가시 범위 판단(그룹 → 파트)은 Organization 의 {@code getVisibleStudyGroupParts} 에 위임하고, 여기서는 파트별 커리큘럼의 weekNo 만 합성한다.
+     * 주차 기준은 {@link #getStudyMemberSubmissions} 행의 weeks 와 동일 — 커리큘럼에 정의된 주차 전부 (배포 여부 무관).
+     */
+    @Override
+    public List<Long> getAvailableWeekNos(Long requesterMemberId, Long studyGroupId) {
+        Set<ChallengerPart> parts = getStudyGroupUseCase.getVisibleStudyGroupParts(requesterMemberId, studyGroupId);
+        if (parts.isEmpty()) {
+            return List.of();
+        }
+
+        Long activeGisuId = getGisuUseCase.getActiveGisuId();
+        return parts.stream()
+            .map(part -> loadCurriculumPort.findByGisuIdAndPart(activeGisuId, part))
+            .flatMap(Optional::stream)
+            .flatMap(curriculum -> loadWeeklyCurriculumPort.findByCurriculumId(curriculum.id(), null).stream())
+            .map(WeeklyCurriculum::getWeekNo)
+            .distinct()
+            .sorted()
+            .toList();
+    }
+
+    /**
      * 페이지에 등장한 파트별로 해당 기수 커리큘럼의 주차 목록을 조회한다.
      * <p>
      * 주차 번호는 파트마다 별도 커리큘럼에 속하므로, 회장단처럼 여러 파트의 그룹을 한 번에 보는 경우 같은 "3주차"라도 파트별로 다른

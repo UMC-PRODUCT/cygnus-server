@@ -273,6 +273,19 @@ public class StudyGroupQueryRepository {
         );
     }
 
+    /**
+     * 주어진 스터디 그룹들이 속한 distinct 파트 집합.
+     */
+    public Set<ChallengerPart> findPartsByStudyGroupIds(Set<Long> studyGroupIds) {
+        return new HashSet<>(queryFactory
+            .select(studyGroup.part)
+            .distinct()
+            .from(studyGroup)
+            .where(studyGroup.id.in(studyGroupIds))
+            .fetch()
+        );
+    }
+
     // ============================================================================
     // Scope predicate 합성
     // ============================================================================

@@ -60,6 +60,11 @@ public interface LoadStudyGroupPort {
     Set<Long> findStudyGroupIds(List<OrganizationRoleScope> scopes, Long gisuId);
 
     /**
+     * 주어진 스터디 그룹들이 속한 distinct 파트 집합을 반환한다. groupIds 가 비어있으면 빈 집합.
+     */
+    Set<ChallengerPart> findPartsByStudyGroupIds(Set<Long> studyGroupIds);
+
+    /**
      * 여러 스터디 그룹의 멤버 ID 목록을 한 번에 batch 조회. cross-domain JOIN 없이 study_group_member 테이블만 본다.
      *
      * @param groupIds 조회 대상 그룹 ID 들. 비어있으면 빈 맵.
