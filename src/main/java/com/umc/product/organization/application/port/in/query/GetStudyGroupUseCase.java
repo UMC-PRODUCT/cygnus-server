@@ -5,7 +5,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberInfo;
 import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
@@ -88,18 +87,15 @@ public interface GetStudyGroupUseCase {
     List<Long> getStudyGroupIdsByParts(Long gisuId, Set<ChallengerPart> parts);
 
     /**
-     * 사용자의 활성 기수 내 역할을 검사해 {@link OrganizationRoleScope} 리스트를 반환한다.
+     * 사용자에게 보이는 활성 기수 스터디 그룹 ID 집합을 반환한다.
      * <p>
-     * 다른 도메인(Schedule, StudyGroupSchedule 등) 이 사용자에게 보이는 데이터를 필터링할 때 이 scope 들을 받아 자기 데이터에 적용한다.
-     * 권한 없는 일반 챌린저는 빈 리스트.
-     */
-    List<OrganizationRoleScope> resolveOrganizationRoleScopes(Long memberId);
-
-    /**
-     * 주어진 scope + 기수로 조회 가능한 스터디 그룹 ID 집합을 반환한다.
+     * 호출자는 memberId 만 넘기면 된다. 역할별 Scope 판단, 회장단·파트장 겸직 시 합집합 처리, 활성 기수 결정을 모두 Organization 안에서 하므로 호출자가
+     * Organization 의 권한 계산 방식을 알 필요가 없다.
      * <p>
-     * {@link #resolveOrganizationRoleScopes} 의 결과를 그대로 입력하면 됨. Schedule 같은 다른 aggregate 가 "사용자에게 보이는 스터디 그룹" 을
-     * 알아내 schedule 필터링에 사용하는 케이스 등을 위해 분리.
+     * Schedule 등 다른 aggregate 가 "사용자에게 보이는 스터디 그룹" 만 필요할 때 사용한다. 권한 없는 일반 챌린저는 빈 Set.
+     *
+     * @param memberId 요청 주체 memberId
+     * @return 조회 가능한 스터디 그룹 ID 집합 (권한 없으면 빈 Set)
      */
-    Set<Long> findStudyGroupIds(List<OrganizationRoleScope> scopes, Long gisuId);
+    Set<Long> findVisibleStudyGroupIds(Long memberId);
 }
