@@ -122,6 +122,7 @@ public class RecruitingRoundLifecycleCommandService implements
             .roundNo(command.roundNo())
             .title(command.title())
             .configuration(copyConfiguration(source))
+            .requesterMemberId(command.requesterMemberId())
             .build());
         RecruitingRound clonedRound = loadRoundPort.getById(clonedRoundId);
 

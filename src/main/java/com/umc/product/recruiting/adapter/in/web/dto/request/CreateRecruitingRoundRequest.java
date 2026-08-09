@@ -39,13 +39,14 @@ public record CreateRecruitingRoundRequest(
     @Schema(description = "문의 연락처") String contactText
 ) {
 
-    public CreateRecruitingRoundCommand toCommand(Long seasonId) {
+    public CreateRecruitingRoundCommand toCommand(Long seasonId, Long requesterMemberId) {
         return CreateRecruitingRoundCommand.builder()
             .seasonId(seasonId)
             .type(type)
             .roundNo(roundNo)
             .title(title)
             .configuration(toConfigurationCommand())
+            .requesterMemberId(requesterMemberId)
             .build();
     }
 

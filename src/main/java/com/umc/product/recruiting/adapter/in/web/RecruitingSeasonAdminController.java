@@ -191,10 +191,13 @@ public class RecruitingSeasonAdminController {
             + "INFRA_PLUS는 모집할 수 없으며 면접 Round의 availability Form은 OPEN 전까지 설정·게시해야 합니다."
     )
     public RecruitingIdResponse createRound(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @PathVariable @Positive Long seasonId,
         @Valid @RequestBody CreateRecruitingRoundRequest request
     ) {
-        return RecruitingIdResponse.from(createRoundUseCase.createRound(request.toCommand(seasonId)));
+        return RecruitingIdResponse.from(
+            createRoundUseCase.createRound(request.toCommand(seasonId, memberPrincipal.getMemberId()))
+        );
     }
 
     @PatchMapping("/seasons/{seasonId}/rounds/{roundId}/status")

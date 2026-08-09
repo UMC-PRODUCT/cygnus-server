@@ -194,7 +194,9 @@ public class RecruitingAdminGraphQlController {
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.WRITE);
-        return RecruitingIdGraphQlResponse.from(createRoundUseCase.createRound(input.toCommand(seasonId)));
+        return RecruitingIdGraphQlResponse.from(
+            createRoundUseCase.createRound(input.toCommand(seasonId, requesterMemberId))
+        );
     }
 
     @MutationMapping

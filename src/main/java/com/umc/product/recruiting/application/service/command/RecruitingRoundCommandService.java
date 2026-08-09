@@ -84,8 +84,10 @@ public class RecruitingRoundCommandService implements
         RecruitingRoundConfiguration configuration = command.configuration().toDomain();
         validateRecruitableTrackSubset(command.seasonId(), configuration.recruitableTracks());
         RecruitingRound round = type == RecruitingRoundType.REGULAR
-            ? RecruitingRound.createRegular(season, command.title(), configuration)
-            : RecruitingRound.createAdditional(season, roundNo, command.title(), configuration);
+            ? RecruitingRound.createRegular(season, command.title(), configuration, command.requesterMemberId())
+            : RecruitingRound.createAdditional(
+                season, roundNo, command.title(), configuration, command.requesterMemberId()
+            );
         return saveRoundPort.save(round).getId();
     }
 

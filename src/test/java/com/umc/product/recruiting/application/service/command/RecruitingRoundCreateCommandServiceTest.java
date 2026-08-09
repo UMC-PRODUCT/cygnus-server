@@ -59,6 +59,7 @@ class RecruitingRoundCreateCommandServiceTest {
         given(loadQuotaPort.listBySeasonId(10L)).willReturn(List.of(quota(season, ChallengerTrack.PLAN, 3)));
         given(saveRoundPort.save(any())).willAnswer(invocation -> {
             RecruitingRound round = invocation.getArgument(0);
+            assertThat(round.getCreatedByMemberId()).isEqualTo(99L);
             ReflectionTestUtils.setField(round, "id", 200L);
             return round;
         });
@@ -157,6 +158,7 @@ class RecruitingRoundCreateCommandServiceTest {
             .roundNo(roundNo)
             .title(type == RecruitingRoundType.REGULAR ? "본모집" : "추가모집 " + roundNo + "차")
             .configuration(configuration(track))
+            .requesterMemberId(99L)
             .build();
     }
 

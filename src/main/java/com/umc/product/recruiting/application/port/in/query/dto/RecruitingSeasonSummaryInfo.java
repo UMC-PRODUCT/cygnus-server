@@ -12,7 +12,7 @@ public record RecruitingSeasonSummaryInfo(
     Long schoolId,
     String schoolName,
     String memo,
-    List<RecruitingRoundConfigurationInfo> rounds
+    List<RecruitingRoundDetailInfo> rounds
 ) {
 
     public static RecruitingSeasonSummaryInfo of(
@@ -20,7 +20,7 @@ public record RecruitingSeasonSummaryInfo(
         Long chapterId,
         String chapterName,
         String schoolName,
-        List<RecruitingRoundConfigurationInfo> rounds
+        List<RecruitingRoundDetailInfo> rounds
     ) {
         return new RecruitingSeasonSummaryInfo(
             season.getId(),

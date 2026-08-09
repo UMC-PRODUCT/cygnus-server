@@ -186,6 +186,7 @@ class RecruitingRoundLifecycleCommandServiceTest {
         assertThat(captor.getValue().configuration().availabilityFormId()).isNull();
         assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isNull();
         assertThat(captor.getValue().configuration().announcement()).isEqualTo("공고");
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(99L);
     }
 
     @Test

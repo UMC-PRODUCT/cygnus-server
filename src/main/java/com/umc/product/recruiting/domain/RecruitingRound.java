@@ -110,14 +110,24 @@ public class RecruitingRound extends BaseEntity {
     @Column(name = "contact_text", columnDefinition = "TEXT")
     private String contactText;
 
+    @Column(name = "created_by_member_id")
+    private Long createdByMemberId;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private RecruitingRound(RecruitingSeason season, RecruitingRoundType type, Integer roundNo, String title) {
+    private RecruitingRound(
+        RecruitingSeason season,
+        RecruitingRoundType type,
+        Integer roundNo,
+        String title,
+        Long createdByMemberId
+    ) {
         validateRoundNo(roundNo);
         this.season = season;
         this.type = type;
         this.roundNo = roundNo;
         this.title = normalizeTitle(title);
         this.status = RecruitingRoundStatus.DRAFT;
+        this.createdByMemberId = createdByMemberId;
     }
 
     public static RecruitingRound createRegular(RecruitingSeason season) {
@@ -125,12 +135,11 @@ public class RecruitingRound extends BaseEntity {
     }
 
     public static RecruitingRound createRegular(RecruitingSeason season, String title) {
-        return RecruitingRound.builder()
-            .season(season)
-            .type(RecruitingRoundType.REGULAR)
-            .roundNo(1)
-            .title(title)
-            .build();
+        return createRound(season, RecruitingRoundType.REGULAR, 1, title, null);
+    }
+
+    public static RecruitingRound createRegular(RecruitingSeason season, String title, Long createdByMemberId) {
+        return createRound(season, RecruitingRoundType.REGULAR, 1, title, createdByMemberId);
     }
 
     public static RecruitingRound createRegular(
@@ -145,7 +154,16 @@ public class RecruitingRound extends BaseEntity {
         String title,
         RecruitingRoundConfiguration configuration
     ) {
-        RecruitingRound round = createRegular(season, title);
+        return createRegular(season, title, configuration, null);
+    }
+
+    public static RecruitingRound createRegular(
+        RecruitingSeason season,
+        String title,
+        RecruitingRoundConfiguration configuration,
+        Long createdByMemberId
+    ) {
+        RecruitingRound round = createRegular(season, title, createdByMemberId);
         round.applyConfiguration(configuration);
         return round;
     }
@@ -155,11 +173,31 @@ public class RecruitingRound extends BaseEntity {
     }
 
     public static RecruitingRound createAdditional(RecruitingSeason season, Integer roundNo, String title) {
+        return createRound(season, RecruitingRoundType.ADDITIONAL, roundNo, title, null);
+    }
+
+    public static RecruitingRound createAdditional(
+        RecruitingSeason season,
+        Integer roundNo,
+        String title,
+        Long createdByMemberId
+    ) {
+        return createRound(season, RecruitingRoundType.ADDITIONAL, roundNo, title, createdByMemberId);
+    }
+
+    private static RecruitingRound createRound(
+        RecruitingSeason season,
+        RecruitingRoundType type,
+        Integer roundNo,
+        String title,
+        Long createdByMemberId
+    ) {
         return RecruitingRound.builder()
             .season(season)
-            .type(RecruitingRoundType.ADDITIONAL)
+            .type(type)
             .roundNo(roundNo)
             .title(title)
+            .createdByMemberId(createdByMemberId)
             .build();
     }
 
@@ -177,7 +215,17 @@ public class RecruitingRound extends BaseEntity {
         String title,
         RecruitingRoundConfiguration configuration
     ) {
-        RecruitingRound round = createAdditional(season, roundNo, title);
+        return createAdditional(season, roundNo, title, configuration, null);
+    }
+
+    public static RecruitingRound createAdditional(
+        RecruitingSeason season,
+        Integer roundNo,
+        String title,
+        RecruitingRoundConfiguration configuration,
+        Long createdByMemberId
+    ) {
+        RecruitingRound round = createAdditional(season, roundNo, title, createdByMemberId);
         round.applyConfiguration(configuration);
         return round;
     }

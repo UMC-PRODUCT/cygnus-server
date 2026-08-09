@@ -3,6 +3,7 @@ package com.umc.product.recruiting.application.port.out;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -71,6 +72,8 @@ public interface LoadRecruitingApplicationPort {
     );
 
     long countReservedOrRegisteredBySeasonIdAndTrack(Long seasonId, ChallengerTrack track);
+
+    Set<Long> filterRoundIdsHavingApplication(Collection<Long> roundIds);
 
     List<RecruitingApplication> listByRoundId(Long roundId);
 
