@@ -43,6 +43,7 @@ import com.umc.product.community.application.port.in.query.thread.dto.ThreadMemb
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadMemberPageInfo;
 import com.umc.product.community.application.port.in.query.thread.dto.ThreadSummaryInfo;
 import com.umc.product.community.application.port.in.query.thread.message.GetCommunityThreadMessageHistoryUseCase;
+import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageFileInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageHistoryQuery;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageMentionInfo;
@@ -217,7 +218,8 @@ class CommunityThreadQueryControllerTest {
     void getMessageHistory_mapsCursorAndNestedNumericValues() throws Exception {
         CommunityThreadMessageInfo message = new CommunityThreadMessageInfo(
             500L, 42L, 7L, "하늘", "안녕하세요", CommunityThreadMessageType.TEXT,
-            CommunityThreadMessageStatus.SENT, List.of("file-key"),
+            CommunityThreadMessageStatus.SENT,
+            List.of(new CommunityThreadMessageFileInfo("file-key", "shot.png", 2_048L, "https://cdn/file-key")),
             List.of(new CommunityThreadMessageMentionInfo(8L, "구름")),
             new CommunityThreadMessageReplyInfo(499L, "구름", "이전 메시지"),
             List.of(new CommunityThreadReactionInfo("👍", 2L, true)), null,
@@ -235,6 +237,10 @@ class CommunityThreadQueryControllerTest {
             .andExpect(jsonPath("$.result.messages[0].mentions[0].memberId").value("8"))
             .andExpect(jsonPath("$.result.messages[0].replyTo.messageId").value("499"))
             .andExpect(jsonPath("$.result.messages[0].reactions[0].count").value("2"))
+            .andExpect(jsonPath("$.result.messages[0].files[0].fileId").value("file-key"))
+            .andExpect(jsonPath("$.result.messages[0].files[0].fileName").value("shot.png"))
+            .andExpect(jsonPath("$.result.messages[0].files[0].fileSize").value("2048"))
+            .andExpect(jsonPath("$.result.messages[0].files[0].fileUrl").value("https://cdn/file-key"))
             .andExpect(jsonPath("$.result.hasMore").value(true))
             .andExpect(jsonPath("$.result.nextBefore").value("499"));
 

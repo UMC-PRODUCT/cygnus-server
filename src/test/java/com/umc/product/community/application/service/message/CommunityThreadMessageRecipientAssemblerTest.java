@@ -22,6 +22,7 @@ import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageInfo;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("Community thread recipient message assembler")
@@ -30,10 +31,14 @@ class CommunityThreadMessageRecipientAssemblerTest {
     @Mock
     GetMemberUseCase getMemberUseCase;
 
+    @Mock
+    GetFileUseCase getFileUseCase;
+
     @Test
     @DisplayName("수신자별 reaction을 유지하면서 sender 이름은 한 번의 Member batch로 조립한다")
     void assembleForRecipients_loadsMemberNamesOnce() {
-        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+        CommunityThreadMessageInfoAssembler sut =
+            new CommunityThreadMessageInfoAssembler(getMemberUseCase, getFileUseCase);
         Map<Long, ChatMessageInfo> messagesByRecipient = new LinkedHashMap<>();
         messagesByRecipient.put(10L, message(true));
         messagesByRecipient.put(20L, message(false));

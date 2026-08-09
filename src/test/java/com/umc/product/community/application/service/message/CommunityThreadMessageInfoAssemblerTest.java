@@ -27,6 +27,9 @@ import com.umc.product.community.application.port.in.query.thread.message.dto.Co
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageType;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.storage.application.port.in.query.GetFileUseCase;
+import com.umc.product.storage.application.port.in.query.dto.FileInfo;
+import com.umc.product.storage.domain.enums.FileCategory;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("CommunityThreadMessageInfoAssembler")
@@ -39,13 +42,17 @@ class CommunityThreadMessageInfoAssemblerTest {
     @Mock
     GetMemberUseCase getMemberUseCase;
 
+    @Mock
+    GetFileUseCase getFileUseCase;
+
     @Test
     @DisplayName(
         "한 페이지의 sender·mention·reply 이름은 단 한 번의 Member batch 조회로 매핑되고 "
             + "roomId는 노출하지 않는다"
     )
     void assembleBatchNamesOnceWithoutRawRoomId() {
-        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+        CommunityThreadMessageInfoAssembler sut =
+            new CommunityThreadMessageInfoAssembler(getMemberUseCase, getFileUseCase);
         ChatMessageInfo first = chatMessage(
             900L,
             10L,
@@ -88,7 +95,8 @@ class CommunityThreadMessageInfoAssemblerTest {
     @Test
     @DisplayName("IMAGE와 SYSTEM도 Community type으로 변환하고 서버 status는 항상 SENT로 고정한다")
     void assembleMapsImageAndSystemToSent() {
-        CommunityThreadMessageInfoAssembler sut = new CommunityThreadMessageInfoAssembler(getMemberUseCase);
+        CommunityThreadMessageInfoAssembler sut =
+            new CommunityThreadMessageInfoAssembler(getMemberUseCase, getFileUseCase);
         ChatMessageInfo image = new ChatMessageInfo(
             900L,
             ROOM_ID,
@@ -107,6 +115,8 @@ class CommunityThreadMessageInfoAssemblerTest {
         );
         MemberInfo sender = mockMember(10L, "보낸이");
         given(getMemberUseCase.findAllByIds(Set.of(10L))).willReturn(Map.of(10L, sender));
+        given(getFileUseCase.findAllByIds(List.of("file-1")))
+            .willReturn(Map.of("file-1", fileInfo("file-1", "screenshot.png", 1_024L)));
 
         ChatMessageInfo system = new ChatMessageInfo(
             901L,
@@ -130,10 +140,60 @@ class CommunityThreadMessageInfoAssemblerTest {
 
         assertThat(imageInfo.type()).isEqualTo(CommunityThreadMessageType.IMAGE);
         assertThat(imageInfo.status()).isEqualTo(CommunityThreadMessageStatus.SENT);
-        assertThat(imageInfo.fileMetadataIds()).containsExactly("file-1");
+        assertThat(imageInfo.files()).extracting("fileId", "fileName", "fileSize", "fileUrl")
+            .containsExactly(
+                org.assertj.core.groups.Tuple.tuple("file-1", "screenshot.png", 1_024L, "https://cdn/file-1")
+        );
         assertThat(systemInfo.type()).isEqualTo(CommunityThreadMessageType.SYSTEM);
         assertThat(systemInfo.status()).isEqualTo(CommunityThreadMessageStatus.SENT);
         then(getMemberUseCase).should(times(2)).findAllByIds(Set.of(10L));
+    }
+
+    @Test
+    @DisplayName("첨부 파일은 한 번의 batch 조회로 URL을 채우고, storage에서 누락된 파일은 건너뛰되 원본 순서를 유지한다")
+    void assembleResolvesFileUrlsInOneBatchAndKeepsOrderWhenSomeAreMissing() {
+        CommunityThreadMessageInfoAssembler sut =
+            new CommunityThreadMessageInfoAssembler(getMemberUseCase, getFileUseCase);
+        ChatMessageInfo first = imageMessage(900L, List.of("file-a", "file-b", "file-c"));
+        ChatMessageInfo second = imageMessage(901L, List.of("file-d"));
+        given(getMemberUseCase.findAllByIds(Set.of(10L))).willReturn(Map.of(10L, mockMember(10L, "보낸이")));
+        // file-b 는 삭제되어 storage 조회 결과에서 빠진다.
+        given(getFileUseCase.findAllByIds(List.of("file-a", "file-b", "file-c", "file-d")))
+            .willReturn(Map.of(
+                "file-a", fileInfo("file-a", "a.png", 1L),
+                "file-c", fileInfo("file-c", "c.png", 3L),
+                "file-d", fileInfo("file-d", "d.png", 4L)
+            ));
+
+        List<CommunityThreadMessageInfo> result = sut.assemble(THREAD_ID, List.of(first, second));
+
+        assertThat(result.get(0).files()).extracting("fileId", "fileUrl")
+            .containsExactly(
+                org.assertj.core.groups.Tuple.tuple("file-a", "https://cdn/file-a"),
+                org.assertj.core.groups.Tuple.tuple("file-c", "https://cdn/file-c")
+        );
+        assertThat(result.get(1).files()).extracting("fileId")
+            .containsExactly("file-d");
+        then(getFileUseCase).should(times(1)).findAllByIds(List.of("file-a", "file-b", "file-c", "file-d"));
+    }
+
+    private ChatMessageInfo imageMessage(Long messageId, List<String> fileIds) {
+        return new ChatMessageInfo(
+            messageId,
+            ROOM_ID,
+            10L,
+            MessageContentType.IMAGE,
+            "캡션",
+            fileIds,
+            CREATED_AT,
+            null,
+            UUID.fromString("00000000-0000-0000-0000-00000000000" + (messageId - 899L)),
+            null,
+            null,
+            List.of(),
+            null,
+            List.of()
+        );
     }
 
     private ChatMessageInfo chatMessage(
@@ -158,6 +218,20 @@ class CommunityThreadMessageInfoAssemblerTest {
             mentions,
             reply,
             List.of(new ChatReactionInfo("👍", 2L, true))
+        );
+    }
+
+    private FileInfo fileInfo(String fileId, String fileName, Long fileSize) {
+        return new FileInfo(
+            fileId,
+            fileName,
+            FileCategory.POST_IMAGE,
+            "image/png",
+            fileSize,
+            "https://cdn/" + fileId,
+            true,
+            10L,
+            CREATED_AT
         );
     }
 

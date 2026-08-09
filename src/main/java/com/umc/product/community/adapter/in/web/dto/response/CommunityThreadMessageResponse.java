@@ -5,6 +5,7 @@ import static com.umc.product.community.adapter.in.web.CommunityWebNumbers.text;
 import java.time.Instant;
 import java.util.List;
 
+import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageFileInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageMentionInfo;
 import com.umc.product.community.application.port.in.query.thread.message.dto.CommunityThreadMessageReplyInfo;
@@ -20,7 +21,7 @@ public record CommunityThreadMessageResponse(
     String content,
     CommunityThreadMessageType type,
     CommunityThreadMessageStatus status,
-    List<String> fileMetadataIds,
+    List<File> files,
     List<Mention> mentions,
     ReplyTo replyTo,
     List<Reaction> reactions,
@@ -38,7 +39,7 @@ public record CommunityThreadMessageResponse(
             info.content(),
             info.type(),
             info.status(),
-            info.fileMetadataIds(),
+            info.files().stream().map(File::from).toList(),
             info.mentions().stream().map(Mention::from).toList(),
             ReplyTo.from(info.replyTo()),
             info.reactions().stream().map(Reaction::from).toList(),
@@ -46,6 +47,16 @@ public record CommunityThreadMessageResponse(
             info.editedAt(),
             info.deletedAt()
         );
+    }
+
+    /**
+     * 첨부 파일. {@code fileUrl} 은 유효기간이 있는 서명 URL 이며 조회할 때마다 새로 발급된다.
+     */
+    public record File(String fileId, String fileName, String fileSize, String fileUrl) {
+
+        private static File from(CommunityThreadMessageFileInfo info) {
+            return new File(info.fileId(), info.fileName(), text(info.fileSize()), info.fileUrl());
+        }
     }
 
     public record Mention(String memberId, String name) {
