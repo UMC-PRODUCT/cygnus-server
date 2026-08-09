@@ -9,12 +9,14 @@ public record RecruitingSeasonConfigurationInfo(
     Long gisuId,
     Long schoolId,
     String memo,
+    Integer chapterTotalTargetCount,
     List<RecruitingSeasonTrackQuotaInfo> quotas,
     List<RecruitingRoundConfigurationInfo> rounds
 ) {
 
     public static RecruitingSeasonConfigurationInfo of(
         RecruitingSeason season,
+        Integer chapterTotalTargetCount,
         List<RecruitingSeasonTrackQuotaInfo> quotas,
         List<RecruitingRoundConfigurationInfo> rounds
     ) {
@@ -23,6 +25,7 @@ public record RecruitingSeasonConfigurationInfo(
             season.getGisuId(),
             season.getSchoolId(),
             season.getMemo(),
+            chapterTotalTargetCount,
             List.copyOf(quotas),
             List.copyOf(rounds)
         );

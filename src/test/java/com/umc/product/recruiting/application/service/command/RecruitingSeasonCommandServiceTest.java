@@ -20,14 +20,18 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingSeasonTrackQuotaCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingChapterQuotaPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingChapterQuotaPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.domain.RecruitingRound;
@@ -52,6 +56,12 @@ class RecruitingSeasonCommandServiceTest {
     LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     @Mock
     SaveRecruitingSeasonTrackQuotaPort saveQuotaPort;
+    @Mock
+    LoadRecruitingChapterQuotaPort loadChapterQuotaPort;
+    @Mock
+    SaveRecruitingChapterQuotaPort saveChapterQuotaPort;
+    @Mock
+    GetChapterUseCase getChapterUseCase;
     @Mock
     GetChallengerRoleUseCase getChallengerRoleUseCase;
     @InjectMocks
@@ -194,6 +204,11 @@ class RecruitingSeasonCommandServiceTest {
         given(loadSeasonPort.getById(10L)).willReturn(season);
         given(loadRoundPort.listBySeasonId(10L)).willReturn(List.of());
         given(loadQuotaPort.listBySeasonIdForUpdate(10L)).willReturn(List.of());
+        given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(100L, "A 지부"));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(any(), any())).willReturn(
+            java.util.Map.of(1L, java.util.Map.of(10L, new ChapterInfo(100L, "A 지부"))));
+        given(loadQuotaPort.listBySeasonIds(List.of(10L))).willReturn(java.util.Map.of());
         ReplaceRecruitingSeasonTrackQuotasCommand command = replaceCommand(
             RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 0),
             RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.DESIGN, 4)
@@ -207,6 +222,68 @@ class RecruitingSeasonCommandServiceTest {
         assertThat(captor.getValue())
             .extracting(RecruitingSeasonTrackQuota::getTargetCount)
             .containsExactly(0, 4);
+        then(saveChapterQuotaPort).should().save(any());
+    }
+
+    @Test
+    @DisplayName("지부 전체 TO가 학교별 파트 TO 합계와 다르면 저장하지 않는다")
+    void replaceSeasonQuotasRejectsMismatchedChapterTotalTargetCount() {
+        RecruitingSeason season = season(10L);
+        given(loadSeasonPort.getById(10L)).willReturn(season);
+        given(loadRoundPort.listBySeasonId(10L)).willReturn(List.of());
+        given(loadQuotaPort.listBySeasonIdForUpdate(10L)).willReturn(List.of());
+        given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(100L, "A 지부"));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(season));
+        given(getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(any(), any())).willReturn(
+            java.util.Map.of(1L, java.util.Map.of(10L, new ChapterInfo(100L, "A 지부"))));
+        given(loadQuotaPort.listBySeasonIds(List.of(10L))).willReturn(java.util.Map.of());
+
+        assertThatThrownBy(() -> sut.replaceQuotas(ReplaceRecruitingSeasonTrackQuotasCommand.builder()
+            .seasonId(10L)
+            .chapterTotalTargetCount(4)
+            .quotas(List.of(RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 3)))
+            .build()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_CHAPTER_QUOTA_TOTAL_MISMATCH);
+
+        then(saveQuotaPort).should(never()).saveAll(any());
+        then(saveChapterQuotaPort).should(never()).save(any());
+    }
+
+    @Test
+    @DisplayName("지부 전체 TO는 같은 지부 학교들의 파트 TO 합계와 일치해야 한다")
+    void replaceSeasonQuotasIncludesOtherSchoolsInChapterTotalTargetCount() {
+        RecruitingSeason currentSeason = season(10L);
+        RecruitingSeason otherSeason = RecruitingSeason.create(1L, 11L);
+        ReflectionTestUtils.setField(otherSeason, "id", 11L);
+        RecruitingSeasonTrackQuota otherQuota = RecruitingSeasonTrackQuota.create(
+            otherSeason,
+            ChallengerTrack.DESIGN,
+            2
+        );
+        given(loadSeasonPort.getById(10L)).willReturn(currentSeason);
+        given(loadRoundPort.listBySeasonId(10L)).willReturn(List.of());
+        given(loadQuotaPort.listBySeasonIdForUpdate(10L)).willReturn(List.of());
+        given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(100L, "A 지부"));
+        given(loadSeasonPort.listByGisuId(1L)).willReturn(List.of(currentSeason, otherSeason));
+        given(getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(any(), any())).willReturn(
+            java.util.Map.of(1L, java.util.Map.of(
+                10L, new ChapterInfo(100L, "A 지부"),
+                11L, new ChapterInfo(100L, "A 지부")
+            )));
+        given(loadQuotaPort.listBySeasonIds(List.of(10L, 11L))).willReturn(
+            java.util.Map.of(11L, List.of(otherQuota))
+        );
+        ReplaceRecruitingSeasonTrackQuotasCommand command = ReplaceRecruitingSeasonTrackQuotasCommand.builder()
+            .seasonId(10L)
+            .chapterTotalTargetCount(5)
+            .quotas(List.of(RecruitingSeasonTrackQuotaCommand.of(ChallengerTrack.PLAN, 3)))
+            .build();
+
+        sut.replaceQuotas(command);
+
+        then(saveChapterQuotaPort).should().save(any());
     }
 
     @Test
@@ -274,6 +351,9 @@ class RecruitingSeasonCommandServiceTest {
     ) {
         return ReplaceRecruitingSeasonTrackQuotasCommand.builder()
             .seasonId(10L)
+            .chapterTotalTargetCount(java.util.Arrays.stream(quotas)
+                .mapToInt(RecruitingSeasonTrackQuotaCommand::targetCount)
+                .sum())
             .quotas(List.of(quotas))
             .build();
     }

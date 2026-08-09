@@ -219,6 +219,7 @@ input RecruitingSeasonTrackQuotaInput {
 }
 
 input ReplaceRecruitingSeasonTrackQuotasInput {
+  chapterTotalTargetCount: Int!
   quotas: [RecruitingSeasonTrackQuotaInput!]!
 }
 
@@ -576,6 +577,7 @@ type RecruitingSeasonConfiguration {
   gisuId: ID!
   schoolId: ID!
   memo: String
+  chapterTotalTargetCount: Int
   quotas: [RecruitingSeasonTrackQuota!]!
   rounds: [RecruitingRoundConfiguration!]!
 }

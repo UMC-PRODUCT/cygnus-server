@@ -7,6 +7,7 @@ import lombok.Builder;
 @Builder
 public record ReplaceRecruitingSeasonTrackQuotasCommand(
     Long seasonId,
+    Integer chapterTotalTargetCount,
     List<RecruitingSeasonTrackQuotaCommand> quotas
 ) {
 

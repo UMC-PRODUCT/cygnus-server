@@ -172,8 +172,9 @@ public class RecruitingSeasonAdminController {
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
     @Operation(
         operationId = "RECRUITING-ADMIN-004",
-        summary = "모집 시즌 트랙별 목표 인원 교체",
-        description = "현재 READY 및 REGISTERED 인원을 보호하면서 트랙별 목표 인원을 교체합니다."
+        summary = "모집 시즌 트랙별 및 지부 전체 목표 인원 교체",
+        description = "현재 READY 및 REGISTERED 인원을 보호하면서 트랙별 목표 인원을 교체하고, "
+            + "소속 지부의 학교별 파트 목표 인원 합계와 일치하는 지부 전체 목표 인원을 저장합니다."
     )
     public void replaceSeasonTrackQuotas(
         @PathVariable @Positive Long seasonId,

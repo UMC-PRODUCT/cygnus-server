@@ -169,11 +169,12 @@ class RecruitingSeasonAdminControllerTest {
     @DisplayName("시즌 설정 조회는 availability Form과 SCHEDULE 질문 ID를 함께 반환한다")
     void getSeasonConfigurationIncludesAvailabilityQuestionId() throws Exception {
         given(getSeasonConfigurationUseCase.getBySeasonId(10L)).willReturn(
-            new RecruitingSeasonConfigurationInfo(10L, 11L, 22L, "메모", List.of(), List.of(roundConfiguration()))
+            new RecruitingSeasonConfigurationInfo(10L, 11L, 22L, "메모", 740, List.of(), List.of(roundConfiguration()))
         );
 
         mockMvc.perform(get("/api/v1/recruiting/admin/seasons/{seasonId}", 10L))
             .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.chapterTotalTargetCount").value(740))
             .andExpect(jsonPath("$.result.rounds[0].availabilityFormId").value(100L))
             .andExpect(jsonPath("$.result.rounds[0].availabilityScheduleQuestionId").value(200L));
     }
@@ -184,7 +185,10 @@ class RecruitingSeasonAdminControllerTest {
         mockMvc.perform(put("/api/v1/recruiting/admin/seasons/{seasonId}/quotas", 10L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"quotas": [{"track": "WEB_PRODUCT_ENGINEER", "targetCount": 3}]}
+                    {
+                      "chapterTotalTargetCount": 3,
+                      "quotas": [{"track": "WEB_PRODUCT_ENGINEER", "targetCount": 3}]
+                    }
                     """))
             .andExpect(status().isOk());
 
@@ -192,8 +196,22 @@ class RecruitingSeasonAdminControllerTest {
             ArgumentCaptor.forClass(ReplaceRecruitingSeasonTrackQuotasCommand.class);
         then(replaceQuotasUseCase).should().replaceQuotas(captor.capture());
         assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().chapterTotalTargetCount()).isEqualTo(3);
         assertThat(captor.getValue().quotas().getFirst().track())
             .isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+    }
+
+    @Test
+    @DisplayName("지부 전체 TO가 없는 시즌 쿼터 교체 요청은 400을 반환한다")
+    void replaceSeasonQuotasRequiresChapterTotalTargetCount() throws Exception {
+        mockMvc.perform(put("/api/v1/recruiting/admin/seasons/{seasonId}/quotas", 10L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"quotas": [{"track": "WEB_PRODUCT_ENGINEER", "targetCount": 3}]}
+                    """))
+            .andExpect(status().isBadRequest());
+
+        then(replaceQuotasUseCase).should(never()).replaceQuotas(any());
     }
 
     @Test

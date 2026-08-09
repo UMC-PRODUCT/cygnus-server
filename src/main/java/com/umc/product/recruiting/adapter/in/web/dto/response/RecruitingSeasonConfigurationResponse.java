@@ -18,6 +18,7 @@ public record RecruitingSeasonConfigurationResponse(
     @Schema(description = "기수 ID", example = "15") Long gisuId,
     @Schema(description = "학교 ID", example = "3") Long schoolId,
     @Schema(description = "시즌 운영진 공유 메모") String memo,
+    @Schema(description = "소속 지부의 전체 모집 목표 인원", example = "740") Integer chapterTotalTargetCount,
     @Schema(description = "트랙별 목표 인원") List<QuotaResponse> quotas,
     @Schema(description = "모집 차수 설정") List<RoundResponse> rounds
 ) {
@@ -28,6 +29,7 @@ public record RecruitingSeasonConfigurationResponse(
             info.gisuId(),
             info.schoolId(),
             info.memo(),
+            info.chapterTotalTargetCount(),
             info.quotas().stream().map(QuotaResponse::from).toList(),
             info.rounds().stream().map(RoundResponse::from).toList()
         );

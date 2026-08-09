@@ -12,6 +12,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
@@ -20,11 +22,14 @@ import com.umc.product.recruiting.application.port.in.command.dto.RecruitingSeas
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingSeasonCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingChapterQuotaPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
+import com.umc.product.recruiting.application.port.out.SaveRecruitingChapterQuotaPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingSeasonTrackQuotaPort;
+import com.umc.product.recruiting.domain.RecruitingChapterQuota;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
@@ -47,6 +52,9 @@ public class RecruitingSeasonCommandService implements
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
     private final SaveRecruitingSeasonTrackQuotaPort saveQuotaPort;
+    private final LoadRecruitingChapterQuotaPort loadChapterQuotaPort;
+    private final SaveRecruitingChapterQuotaPort saveChapterQuotaPort;
+    private final GetChapterUseCase getChapterUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
     @Override
@@ -93,7 +101,56 @@ public class RecruitingSeasonCommandService implements
         List<RecruitingSeasonTrackQuota> currentQuotas = loadQuotaPort.listBySeasonIdForUpdate(command.seasonId());
         validateQuotaTracksCoverRounds(command.seasonId(), command.quotas());
         validateTargetsNotBelowUsage(command.seasonId(), currentQuotas, command.quotas());
+        ChapterInfo chapter = getChapterUseCase.byGisuAndSchool(season.getGisuId(), season.getSchoolId());
+        validateChapterTotalTargetCount(command, season, chapter.id());
         replaceLockedQuotas(season, currentQuotas, command.quotas());
+        upsertChapterQuota(season.getGisuId(), chapter.id(), command.chapterTotalTargetCount());
+    }
+
+    private void validateChapterTotalTargetCount(
+        ReplaceRecruitingSeasonTrackQuotasCommand command,
+        RecruitingSeason currentSeason,
+        Long chapterId
+    ) {
+        if (command.chapterTotalTargetCount() == null || command.chapterTotalTargetCount() < 0) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_CHAPTER_QUOTA_INVALID_TARGET_COUNT);
+        }
+
+        List<RecruitingSeason> seasons = loadSeasonPort.listByGisuId(currentSeason.getGisuId());
+        Map<Long, ChapterInfo> chapterBySchoolId = getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(
+            Set.of(currentSeason.getGisuId()),
+            seasons.stream().map(RecruitingSeason::getSchoolId).collect(java.util.stream.Collectors.toSet())
+        ).getOrDefault(currentSeason.getGisuId(), Map.of());
+        List<RecruitingSeason> chapterSeasons = seasons.stream()
+            .filter(season -> belongsToChapter(chapterBySchoolId.get(season.getSchoolId()), chapterId))
+            .toList();
+        Map<Long, List<RecruitingSeasonTrackQuota>> quotasBySeasonId = loadQuotaPort.listBySeasonIds(
+            chapterSeasons.stream().map(RecruitingSeason::getId).toList()
+        );
+        int updatedSeasonTargetCount = command.quotas().stream()
+            .mapToInt(RecruitingSeasonTrackQuotaCommand::targetCount)
+            .sum();
+        int totalTargetCount = chapterSeasons.stream()
+            .mapToInt(season -> season.getId().equals(currentSeason.getId())
+                ? updatedSeasonTargetCount
+                : quotasBySeasonId.getOrDefault(season.getId(), List.of()).stream()
+                    .mapToInt(RecruitingSeasonTrackQuota::getTargetCount)
+                    .sum())
+            .sum();
+        if (totalTargetCount != command.chapterTotalTargetCount()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_CHAPTER_QUOTA_TOTAL_MISMATCH);
+        }
+    }
+
+    private boolean belongsToChapter(ChapterInfo chapter, Long chapterId) {
+        return chapter != null && chapterId.equals(chapter.id());
+    }
+
+    private void upsertChapterQuota(Long gisuId, Long chapterId, Integer totalTargetCount) {
+        RecruitingChapterQuota chapterQuota = loadChapterQuotaPort.findByGisuIdAndChapterId(gisuId, chapterId)
+            .orElseGet(() -> RecruitingChapterQuota.create(gisuId, chapterId, totalTargetCount));
+        chapterQuota.updateTotalTargetCount(totalTargetCount);
+        saveChapterQuotaPort.save(chapterQuota);
     }
 
     private void validateUniqueTracks(List<RecruitingSeasonTrackQuotaCommand> quotas) {

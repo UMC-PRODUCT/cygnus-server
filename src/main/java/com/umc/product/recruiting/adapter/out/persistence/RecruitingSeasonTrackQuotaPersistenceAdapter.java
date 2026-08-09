@@ -2,6 +2,8 @@ package com.umc.product.recruiting.adapter.out.persistence;
 
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -27,6 +29,15 @@ public class RecruitingSeasonTrackQuotaPersistenceAdapter implements
         return repository.findAllBySeason_Id(seasonId).stream()
             .sorted(Comparator.comparingInt(quota -> quota.getTrack().getSortOrder()))
             .toList();
+    }
+
+    @Override
+    public Map<Long, List<RecruitingSeasonTrackQuota>> listBySeasonIds(List<Long> seasonIds) {
+        if (seasonIds.isEmpty()) {
+            return Map.of();
+        }
+        return repository.findAllBySeason_IdIn(seasonIds).stream()
+            .collect(Collectors.groupingBy(quota -> quota.getSeason().getId()));
     }
 
     @Override
