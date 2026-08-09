@@ -153,7 +153,7 @@ Form `021`, evaluator `031~033`, 질문 `041~048`, 일정 `051~052`, 판정 `061
 | GET | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/title-availability` | 제목 중복 확인 |
 | POST | `/api/v1/recruiting/admin/seasons` | Season과 초기 TO 생성 |
 | PATCH | `/api/v1/recruiting/admin/seasons/{seasonId}` | Season 공용 memo 수정 |
-| PUT | `/api/v1/recruiting/admin/seasons/{seasonId}/quotas` | 트랙별 TO 전체 교체 |
+| PUT | `/api/v1/recruiting/admin/seasons/{seasonId}/quotas` | 트랙별 TO 전체 교체와 소속 지부 전체 TO 저장. 지부 전체 TO는 같은 기수·지부의 학교별 파트 TO 합계와 일치해야 한다. |
 | POST | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds` | Round 생성 |
 | PUT | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}` | Round 설정 수정 |
 | PATCH | `/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/status` | Round/Form OPEN·CLOSED 동기화와 데이터 없는 OPEN의 DRAFT 게시 취소 |

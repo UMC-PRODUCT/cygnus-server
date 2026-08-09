@@ -15,6 +15,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
     Long gisuId,
     Long schoolId,
     String memo,
+    Integer chapterTotalTargetCount,
     List<TrackQuota> quotas,
     List<Round> rounds
 ) {
@@ -25,6 +26,7 @@ public record RecruitingSeasonConfigurationGraphQlResponse(
             info.gisuId(),
             info.schoolId(),
             info.memo(),
+            info.chapterTotalTargetCount(),
             info.quotas().stream().map(TrackQuota::from).toList(),
             info.rounds().stream().map(Round::from).toList()
         );

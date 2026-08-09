@@ -23,7 +23,9 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
@@ -46,6 +48,7 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonTrackQuotaInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingChapterQuotaPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
@@ -80,19 +83,25 @@ public class RecruitingSeasonQueryService implements
 
     private final LoadRecruitingSeasonPort loadSeasonPort;
     private final LoadRecruitingSeasonTrackQuotaPort loadQuotaPort;
+    private final LoadRecruitingChapterQuotaPort loadChapterQuotaPort;
     private final LoadRecruitingRoundPort loadRoundPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final GetSchoolUseCase getSchoolUseCase;
     private final GetMemberUseCase getMemberUseCase;
+    private final GetChapterUseCase getChapterUseCase;
     private final CheckPermissionUseCase checkPermissionUseCase;
     private final Clock clock;
 
     @Override
     public RecruitingSeasonConfigurationInfo getBySeasonId(Long seasonId) {
         RecruitingSeason season = loadSeasonPort.getById(seasonId);
+        ChapterInfo chapter = getChapterUseCase.byGisuAndSchool(season.getGisuId(), season.getSchoolId());
         return RecruitingSeasonConfigurationInfo.of(
             season,
+            loadChapterQuotaPort.findByGisuIdAndChapterId(season.getGisuId(), chapter.id())
+                .map(com.umc.product.recruiting.domain.RecruitingChapterQuota::getTotalTargetCount)
+                .orElse(null),
             loadQuotaPort.listBySeasonId(seasonId).stream()
                 .map(RecruitingSeasonTrackQuotaInfo::from)
                 .toList(),

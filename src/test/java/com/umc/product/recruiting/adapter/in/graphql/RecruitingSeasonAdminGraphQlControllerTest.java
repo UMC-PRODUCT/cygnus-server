@@ -171,17 +171,21 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     @DisplayName("GraphQL 시즌 설정 조회는 availability Form과 SCHEDULE 질문 ID를 함께 반환한다")
     void getSeasonConfigurationIncludesAvailabilityQuestionId() {
         given(getSeasonConfigurationUseCase.getBySeasonId(10L)).willReturn(
-            new RecruitingSeasonConfigurationInfo(10L, 11L, 22L, "메모", List.of(), List.of(roundConfiguration()))
+            new RecruitingSeasonConfigurationInfo(10L, 11L, 22L, "메모", 740, List.of(), List.of(roundConfiguration()))
         );
 
         graphQlTester.document("""
                 query {
                   recruitingSeasonConfiguration(seasonId: 10) {
+                    chapterTotalTargetCount
                     rounds { availabilityFormId availabilityScheduleQuestionId }
                   }
                 }
                 """)
             .execute()
+            .path("recruitingSeasonConfiguration.chapterTotalTargetCount")
+            .entity(Integer.class)
+            .isEqualTo(740)
             .path("recruitingSeasonConfiguration.rounds[0].availabilityFormId")
             .entity(String.class)
             .isEqualTo("100")
@@ -197,7 +201,10 @@ class RecruitingSeasonAdminGraphQlControllerTest {
                 mutation {
                   replaceRecruitingSeasonTrackQuotas(
                     seasonId: 10,
-                    input: {quotas: [{track: WEB_PRODUCT_ENGINEER, targetCount: 3}]}
+                    input: {
+                      chapterTotalTargetCount: 3,
+                      quotas: [{track: WEB_PRODUCT_ENGINEER, targetCount: 3}]
+                    }
                   )
                 }
                 """)
@@ -210,6 +217,7 @@ class RecruitingSeasonAdminGraphQlControllerTest {
             ArgumentCaptor.forClass(ReplaceRecruitingSeasonTrackQuotasCommand.class);
         then(replaceQuotasUseCase).should().replaceQuotas(captor.capture());
         assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().chapterTotalTargetCount()).isEqualTo(3);
         assertThat(captor.getValue().quotas().getFirst().track())
             .isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
     }

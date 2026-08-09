@@ -25,7 +25,9 @@ import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundGroupSearchQuery;
@@ -35,10 +37,12 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeason
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSeasonSummaryInfo;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
+import com.umc.product.recruiting.application.port.out.LoadRecruitingChapterQuotaPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingSeasonTrackQuotaPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
+import com.umc.product.recruiting.domain.RecruitingChapterQuota;
 import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
@@ -64,10 +68,16 @@ class RecruitingSeasonQueryServiceTest {
     LoadRecruitingApplicationPort loadApplicationPort;
 
     @Mock
+    LoadRecruitingChapterQuotaPort loadChapterQuotaPort;
+
+    @Mock
     GetSchoolUseCase getSchoolUseCase;
 
     @Mock
     GetMemberUseCase getMemberUseCase;
+
+    @Mock
+    GetChapterUseCase getChapterUseCase;
 
     @Mock
     CheckPermissionUseCase checkPermissionUseCase;
@@ -104,10 +114,16 @@ class RecruitingSeasonQueryServiceTest {
         ));
         ReflectionTestUtils.setField(round, "id", 200L);
         given(loadSeasonPort.getById(100L)).willReturn(season);
+        given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(20L, "A 지부"));
+        given(loadChapterQuotaPort.findByGisuIdAndChapterId(1L, 20L)).willReturn(java.util.Optional.of(
+            RecruitingChapterQuota.create(1L, 20L, 3)
+        ));
         given(loadQuotaPort.listBySeasonId(100L)).willReturn(List.of(quota));
         given(loadRoundPort.listBySeasonId(100L)).willReturn(List.of(round));
 
         RecruitingSeasonConfigurationInfo info = sut.getBySeasonId(100L);
+
+        assertThat(info.chapterTotalTargetCount()).isEqualTo(3);
 
         assertThat(info.quotas()).singleElement().satisfies(found -> {
             assertThat(found.track()).isEqualTo(ChallengerTrack.PLAN);

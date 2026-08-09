@@ -38,6 +38,18 @@ class RecruitingSeasonRoundMigrationTest {
     }
 
     @Test
+    @DisplayName("데이터베이스는 음수 지부 전체 쿼터를 거부한다")
+    void databaseRejectsNegativeChapterQuota() {
+        assertThatThrownBy(() -> em.getEntityManager().createNativeQuery("""
+            INSERT INTO recruiting_chapter_quota (
+                created_at, updated_at, gisu_id, chapter_id, total_target_count
+            ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 1, 1, -1)
+            """)
+            .executeUpdate())
+            .isInstanceOf(PersistenceException.class);
+    }
+
+    @Test
     @DisplayName("데이터베이스는 중복 모집 트랙 배열을 거부한다")
     void databaseRejectsDuplicateRecruitableTracks() {
         RecruitingSeason season = persistSeason(18L, 180L);

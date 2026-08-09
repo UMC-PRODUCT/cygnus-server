@@ -18,6 +18,8 @@ public interface RecruitingSeasonTrackQuotaJpaRepository extends JpaRepository<R
 
     List<RecruitingSeasonTrackQuota> findAllBySeason_Id(Long seasonId);
 
+    List<RecruitingSeasonTrackQuota> findAllBySeason_IdIn(List<Long> seasonIds);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select quota from RecruitingSeasonTrackQuota quota where quota.season.id = :seasonId order by quota.id")
     List<RecruitingSeasonTrackQuota> findAllBySeasonIdForUpdate(@Param("seasonId") Long seasonId);

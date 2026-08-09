@@ -21,7 +21,7 @@
 
 | 테스트 | 검증 케이스 |
 |---|---|
-| `RecruitingSeasonCommandServiceTest` | Season 생성 권한, 중복 Season, quota 교체, 사용량 미만 감소 거부, Round 트랙 보존 |
+| `RecruitingSeasonCommandServiceTest` | Season 생성 권한, 중복 Season, quota 교체, 지부 전체 TO와 학교별 파트 TO 합계 일치, 사용량 미만 감소 거부, Round 트랙 보존 |
 | `RecruitingRoundCreateCommandServiceTest` | 본/추가모집 차수, 양수 TO 부분집합, 중복 차수와 0 TO, REST·GraphQL 공용 UseCase의 `INFRA_PLUS` 거부 |
 | `RecruitingRoundUpdateCommandServiceTest` | 제목·설정 수정, 대소문자 제목 중복, 지원서 존재 후 모집 정책 잠금, Form 제목 동기화, 게시된 availability Form의 OPEN 조건, 매핑이 없는 면접 Round OPEN 시 조율 Form 자동 생성과 이미 매핑·면접 미진행 시 생성 생략, 수정 요청에 매핑이 없을 때 기존 값 승계, 지원서/FormResponse 없는 OPEN의 DRAFT 복귀와 데이터 존재 시 충돌 |
 | `RecruitingRoundLifecycleCommandServiceTest` | DRAFT hard delete 조건과 명시적 삭제 순서, 원본/대상 권한, 복제 설정·Form 조건부 이동 재매핑, availability Form 초기화 |
