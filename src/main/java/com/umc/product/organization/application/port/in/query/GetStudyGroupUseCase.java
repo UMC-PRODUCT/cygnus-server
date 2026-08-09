@@ -83,20 +83,6 @@ public interface GetStudyGroupUseCase {
     );
 
     /**
-     * 요청자가 조회 권한을 가진 스터디 그룹들의 distinct 파트 집합을 반환한다.
-     * <p>
-     * {@link #getVisibleStudyGroupMembers} 와 동일한 역할 Scope 규칙(회장단/파트장)을 쓰되, 멤버 페이지네이션 없이 파트만 뽑는다.
-     * 제출 현황 주차 필터처럼 "가시 범위 그룹들의 파트별 커리큘럼" 만 필요한 화면을 위해 분리했다.
-     *
-     * @param requesterMemberId 요청 주체 memberId
-     * @param studyGroupId      특정 그룹만 조회 (null 이면 권한 범위 내 전체 그룹)
-     * @return distinct 파트 집합 (권한 범위가 비면 빈 집합)
-     * @throws com.umc.product.organization.exception.OrganizationDomainException {@code studyGroupId} 가 요청자의 권한
-     *                                                                           범위 밖일 때
-     */
-    Set<ChallengerPart> getVisibleStudyGroupParts(Long requesterMemberId, Long studyGroupId);
-
-    /**
      * 특정 기수에서 해당 파트들의 스터디 그룹 ID 목록 조회 (파트장용)
      */
     List<Long> getStudyGroupIdsByParts(Long gisuId, Set<ChallengerPart> parts);

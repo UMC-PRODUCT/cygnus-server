@@ -99,15 +99,15 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
     /**
      * 제출 현황 필터용 조회 가능 주차 목록.
      * <p>
-     * 가시 범위 판단(그룹 → 파트)은 Organization 의 {@code getVisibleStudyGroupParts} 에 위임하고, 여기서는 파트별 커리큘럼의 weekNo 만 합성한다.
      * 주차 기준은 {@link #getStudyMemberSubmissions} 행의 weeks 와 동일 — 커리큘럼에 정의된 주차 전부 (배포 여부 무관).
+     * 주차 정보는 공개 데이터(CURRICULUM-101 {@code @Public})라 역할 Scope 를 태우지 않고, 그룹 지정 시에만 그 그룹 파트로 좁힌다.
+     * 커리큘럼 없는 파트는 건너뛴다.
      */
     @Override
-    public List<Long> getAvailableWeekNos(Long requesterMemberId, Long studyGroupId) {
-        Set<ChallengerPart> parts = getStudyGroupUseCase.getVisibleStudyGroupParts(requesterMemberId, studyGroupId);
-        if (parts.isEmpty()) {
-            return List.of();
-        }
+    public List<Long> getAvailableWeekNos(Long studyGroupId) {
+        List<ChallengerPart> parts = studyGroupId != null
+            ? List.of(getStudyGroupUseCase.getById(studyGroupId).part())
+            : List.of(ChallengerPart.values());
 
         Long activeGisuId = getGisuUseCase.getActiveGisuId();
         return parts.stream()

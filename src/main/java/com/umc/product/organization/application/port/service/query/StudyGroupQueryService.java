@@ -145,31 +145,6 @@ public class StudyGroupQueryService implements GetStudyGroupUseCase {
     }
 
     /**
-     * 권한 범위 내 스터디 그룹들의 distinct 파트 집합.
-     * <p>
-     * {@link #getVisibleStudyGroupMembers} 와 동일한 Scope 규칙. {@code studyGroupId} 가 범위 밖이면 동일하게 403 으로 끊는다.
-     */
-    @Override
-    public Set<ChallengerPart> getVisibleStudyGroupParts(Long requesterMemberId, Long studyGroupId) {
-        Long schoolId = getMemberUseCase.getById(requesterMemberId).schoolId();
-        Long activeGisuId = getGisuUseCase.getActiveGisuId();
-
-        List<OrganizationRoleScope> scopes = resolveScopes(requesterMemberId, activeGisuId, schoolId);
-        Set<Long> visibleGroupIds = scopes.isEmpty()
-            ? Set.of()
-            : loadStudyGroupPort.findStudyGroupIds(scopes, activeGisuId);
-
-        if (studyGroupId != null) {
-            if (!visibleGroupIds.contains(studyGroupId)) {
-                throw new OrganizationDomainException(OrganizationErrorCode.STUDY_GROUP_ACCESS_DENIED);
-            }
-            visibleGroupIds = Set.of(studyGroupId);
-        }
-
-        return loadStudyGroupPort.findPartsByStudyGroupIds(visibleGroupIds);
-    }
-
-    /**
      * Scope + gisuId 로 조회 가능한 스터디 그룹 ID 집합 반환 (UseCase 표면). cross-aggregate 호출자가 사용.
      */
     @Override

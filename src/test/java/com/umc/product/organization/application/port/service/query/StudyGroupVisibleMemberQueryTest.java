@@ -124,49 +124,6 @@ class StudyGroupVisibleMemberQueryTest {
         then(loadStudyGroupPort).should().findStudyGroupMemberPage(Set.of(VISIBLE_GROUP), null, 20);
     }
 
-    @Test
-    @DisplayName("가시 파트 조회는 권한 범위 그룹들의 distinct 파트를 반환한다")
-    void visibleParts_returnsPartsOfVisibleGroups() {
-        givenPartLeader();
-        given(loadStudyGroupPort.findPartsByStudyGroupIds(Set.of(VISIBLE_GROUP)))
-            .willReturn(Set.of(ChallengerPart.SPRINGBOOT));
-
-        assertThat(service.getVisibleStudyGroupParts(REQUESTER_ID, null))
-            .containsExactly(ChallengerPart.SPRINGBOOT);
-    }
-
-    @Test
-    @DisplayName("가시 파트 조회에서 범위 밖 그룹을 지정하면 403 이다")
-    void visibleParts_outOfScopeGroup_throwsAccessDenied() {
-        givenPartLeader();
-
-        assertThatThrownBy(() -> service.getVisibleStudyGroupParts(REQUESTER_ID, OUT_OF_SCOPE_GROUP))
-            .isInstanceOf(OrganizationDomainException.class)
-            .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.STUDY_GROUP_ACCESS_DENIED);
-    }
-
-    @Test
-    @DisplayName("가시 파트 조회에서 그룹을 지정하면 그 그룹의 파트만 조회한다")
-    void visibleParts_inScopeGroup_narrowsToThatGroup() {
-        givenPartLeader();
-        given(loadStudyGroupPort.findPartsByStudyGroupIds(Set.of(VISIBLE_GROUP)))
-            .willReturn(Set.of(ChallengerPart.SPRINGBOOT));
-
-        assertThat(service.getVisibleStudyGroupParts(REQUESTER_ID, VISIBLE_GROUP))
-            .containsExactly(ChallengerPart.SPRINGBOOT);
-
-        then(loadStudyGroupPort).should().findPartsByStudyGroupIds(Set.of(VISIBLE_GROUP));
-    }
-
-    @Test
-    @DisplayName("권한이 없으면 가시 파트는 빈 집합이다")
-    void visibleParts_noRole_returnsEmpty() {
-        givenNoRole();
-
-        assertThat(service.getVisibleStudyGroupParts(REQUESTER_ID, null)).isEmpty();
-    }
-
     private void givenPartLeader() {
         given(getChallengerRoleUseCase.isSchoolCoreInGisu(REQUESTER_ID, GISU_ID, SCHOOL_ID)).willReturn(false);
         given(getChallengerRoleUseCase.hasRoleTypeInGisu(
