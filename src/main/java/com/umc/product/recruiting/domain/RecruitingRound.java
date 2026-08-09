@@ -135,17 +135,11 @@ public class RecruitingRound extends BaseEntity {
     }
 
     public static RecruitingRound createRegular(RecruitingSeason season, String title) {
-        return createRegular(season, title, (Long) null);
+        return createRound(season, RecruitingRoundType.REGULAR, 1, title, null);
     }
 
     public static RecruitingRound createRegular(RecruitingSeason season, String title, Long createdByMemberId) {
-        return RecruitingRound.builder()
-            .season(season)
-            .type(RecruitingRoundType.REGULAR)
-            .roundNo(1)
-            .title(title)
-            .createdByMemberId(createdByMemberId)
-            .build();
+        return createRound(season, RecruitingRoundType.REGULAR, 1, title, createdByMemberId);
     }
 
     public static RecruitingRound createRegular(
@@ -179,7 +173,7 @@ public class RecruitingRound extends BaseEntity {
     }
 
     public static RecruitingRound createAdditional(RecruitingSeason season, Integer roundNo, String title) {
-        return createAdditional(season, roundNo, title, (Long) null);
+        return createRound(season, RecruitingRoundType.ADDITIONAL, roundNo, title, null);
     }
 
     public static RecruitingRound createAdditional(
@@ -188,9 +182,19 @@ public class RecruitingRound extends BaseEntity {
         String title,
         Long createdByMemberId
     ) {
+        return createRound(season, RecruitingRoundType.ADDITIONAL, roundNo, title, createdByMemberId);
+    }
+
+    private static RecruitingRound createRound(
+        RecruitingSeason season,
+        RecruitingRoundType type,
+        Integer roundNo,
+        String title,
+        Long createdByMemberId
+    ) {
         return RecruitingRound.builder()
             .season(season)
-            .type(RecruitingRoundType.ADDITIONAL)
+            .type(type)
             .roundNo(roundNo)
             .title(title)
             .createdByMemberId(createdByMemberId)
