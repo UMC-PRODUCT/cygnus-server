@@ -252,6 +252,36 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
     }
 
     @Test
+    @DisplayName("기타 교내 운영진은 전체와 파트별 평가 현황만 조회하고 지부별 학교별 상세 현황은 조회하지 않는다")
+    void schoolEtcAdminReadsSummaryWithoutDetailedBreakdown() {
+        given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
+            .willReturn(new GisuAuthorityScopeInfo(false, Set.of(), Set.of(100L), false));
+        given(clock.instant()).willReturn(NOW);
+        given(getSchoolUseCase.getSchoolChapterNamesByGisuId(GISU_ID)).willReturn(List.of(
+            schoolName(10L, "가온", 100L, "가온대학교"),
+            schoolName(20L, "나래", 200L, "나래대학교")
+        ));
+        given(loadStatisticsPort.listByGisuId(GISU_ID)).willReturn(List.of(
+            row(100L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 1L),
+            row(100L, ChallengerTrack.PLAN, RecruitingApplicationStatus.FINAL_PASSED, 2L),
+            row(200L, ChallengerTrack.PLAN, RecruitingApplicationStatus.SUBMITTED, 5L)
+        ));
+
+        RecruitingEvaluationStatisticsInfo info = sut.getEvaluationStatistics(query());
+
+        assertThat(info.applicantCount()).isEqualTo(3L);
+        assertThat(info.evaluatedCount()).isEqualTo(2L);
+        assertThat(info.byTrack())
+            .filteredOn(count -> count.track() == ChallengerTrack.PLAN)
+            .singleElement()
+            .satisfies(count -> {
+                assertThat(count.applicantCount()).isEqualTo(3L);
+                assertThat(count.evaluatedCount()).isEqualTo(2L);
+            });
+        assertThat(info.chapters()).isEmpty();
+    }
+
+    @Test
     @DisplayName("접근 가능한 학교가 없으면 평가 현황 조회를 거부한다")
     void denyWhenNoSchoolIsAccessible() {
         givenStaffScope(Set.of(), Set.of());
@@ -300,15 +330,15 @@ class RecruitingEvaluationStatisticsQueryServiceTest {
 
     private void givenStaffScope(Set<Long> chapterIds, Set<Long> schoolIds) {
         given(getGisuAuthorityScopeUseCase.getByMemberIdAndGisuId(MEMBER_ID, GISU_ID))
-            .willReturn(new GisuAuthorityScopeInfo(false, chapterIds, schoolIds));
+            .willReturn(new GisuAuthorityScopeInfo(false, chapterIds, schoolIds, true));
     }
 
     private GisuAuthorityScopeInfo scopeForAllSchools() {
-        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of());
+        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of(), true);
     }
 
     private GisuAuthorityScopeInfo scopeWithoutAccess() {
-        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of(), false);
     }
 
     private RecruitingEvaluationStatisticsQuery query() {

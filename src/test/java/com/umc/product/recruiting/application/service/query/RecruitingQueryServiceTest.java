@@ -677,18 +677,18 @@ class RecruitingQueryServiceTest {
     }
 
     private GisuAuthorityScopeInfo scopeForAllSchools() {
-        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of());
+        return new GisuAuthorityScopeInfo(true, Set.of(), Set.of(), true);
     }
 
     private GisuAuthorityScopeInfo scopeWithoutAccess() {
-        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of());
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of(), false);
     }
 
     private GisuAuthorityScopeInfo scopeForChapter(Long chapterId) {
-        return new GisuAuthorityScopeInfo(false, Set.of(chapterId), Set.of());
+        return new GisuAuthorityScopeInfo(false, Set.of(chapterId), Set.of(), true);
     }
 
     private GisuAuthorityScopeInfo scopeForSchools(Long... schoolIds) {
-        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of(schoolIds));
+        return new GisuAuthorityScopeInfo(false, Set.of(), Set.of(schoolIds), true);
     }
 }

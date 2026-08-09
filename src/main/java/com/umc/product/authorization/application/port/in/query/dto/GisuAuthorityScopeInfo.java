@@ -5,7 +5,8 @@ import java.util.Set;
 public record GisuAuthorityScopeInfo(
     boolean allSchoolsAccessible,
     Set<Long> chapterPresidentChapterIds,
-    Set<Long> schoolAdminSchoolIds
+    Set<Long> schoolAdminSchoolIds,
+    boolean detailedStatisticsAccessible
 ) {
 
     public GisuAuthorityScopeInfo {
