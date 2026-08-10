@@ -8,12 +8,9 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -32,9 +29,11 @@ public class DemodayBooth extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demoday_poll_id", nullable = false)
-    private DemodayPoll poll;
+    /**
+     * 소속 투표를 식별자로만 참조한다. 역방향 조회는 {@link DemodayPoll#getBooths()}가 담당한다.
+     */
+    @Column(name = "demoday_poll_id", nullable = false)
+    private Long pollId;
 
     @Column(name = "project_id")
     private Long projectId;
@@ -43,26 +42,26 @@ public class DemodayBooth extends BaseEntity {
     private String displayName;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayBooth(DemodayPoll poll, Long projectId, String displayName) {
-        this.poll = poll;
+    private DemodayBooth(Long pollId, Long projectId, String displayName) {
+        this.pollId = pollId;
         this.projectId = projectId;
         this.displayName = displayName;
     }
 
-    public static DemodayBooth forProject(DemodayPoll poll, Long projectId) {
-        Objects.requireNonNull(poll, "poll must not be null");
+    public static DemodayBooth forProject(Long pollId, Long projectId) {
+        Objects.requireNonNull(pollId, "pollId must not be null");
         validateProject(projectId);
         return DemodayBooth.builder()
-            .poll(poll)
+            .pollId(pollId)
             .projectId(projectId)
             .build();
     }
 
-    public static DemodayBooth forExternal(DemodayPoll poll, String displayName) {
-        Objects.requireNonNull(poll, "poll must not be null");
+    public static DemodayBooth forExternal(Long pollId, String displayName) {
+        Objects.requireNonNull(pollId, "pollId must not be null");
         String normalizedName = requireDisplayName(displayName);
         return DemodayBooth.builder()
-            .poll(poll)
+            .pollId(pollId)
             .displayName(normalizedName)
             .build();
     }

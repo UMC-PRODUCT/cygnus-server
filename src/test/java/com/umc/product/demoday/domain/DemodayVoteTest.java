@@ -16,47 +16,38 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 @DisplayName("DemodayVoteTest")
 class DemodayVoteTest {
 
+    private static final Long POLL_ID = 1L;
+    private static final Long BOOTH_ID = 10L;
+    private static final Long ENTRY_CODE_ID = 20L;
     private static final Long MEMBER_ID = 1L;
     private static final Long PROJECT_ID = 1L;
 
-    private static DemodayPoll createPoll() {
-        return DemodayPoll.create(
-            8L,
-            "8기 데모데이",
-            Instant.parse("2026-08-01T05:00:00Z"),
-            Instant.parse("2026-08-01T08:00:00Z")
-        );
+    private static DemodayBooth createBooth(Long pollId) {
+        DemodayBooth booth = DemodayBooth.forProject(pollId, PROJECT_ID);
+        ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
+        return booth;
     }
 
-    private static DemodayPoll createPersistedPoll(Long id) {
-        DemodayPoll poll = createPoll();
-        ReflectionTestUtils.setField(poll, "id", id);
-        return poll;
-    }
-
-    private static DemodayBooth createBooth(DemodayPoll poll) {
-        return DemodayBooth.forProject(poll, PROJECT_ID);
-    }
-
-    private static DemodayEntryCode createEntryCode(DemodayPoll poll) {
-        return DemodayEntryCode.create(poll, "code hash");
+    private static DemodayEntryCode createEntryCode(Long pollId) {
+        DemodayEntryCode entryCode = DemodayEntryCode.create(pollId, "code hash");
+        ReflectionTestUtils.setField(entryCode, "id", ENTRY_CODE_ID);
+        return entryCode;
     }
 
     @Test
     @DisplayName("UMC 내부 인원이 투표하는 경우에는 입장 코드를 사용하지 않는다.")
     void 멤버_투표() {
         //given
-        DemodayPoll poll = createPoll();
-        DemodayBooth booth = createBooth(poll);
+        DemodayBooth booth = createBooth(POLL_ID);
 
         //when
-        DemodayVote vote = DemodayVote.forMember(poll, MEMBER_ID, booth);
+        DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, booth);
 
         //then
-        assertThat(vote.getPoll()).isSameAs(poll);
-        assertThat(vote.getTargetBooth()).isSameAs(booth);
+        assertThat(vote.getPollId()).isEqualTo(POLL_ID);
+        assertThat(vote.getTargetBoothId()).isEqualTo(BOOTH_ID);
         assertThat(vote.getMemberId()).isEqualTo(MEMBER_ID);
-        assertThat(vote.getEntryCode()).isNull();
+        assertThat(vote.getEntryCodeId()).isNull();
         assertThat(vote.isRevoked()).isFalse();
     }
 
@@ -64,37 +55,28 @@ class DemodayVoteTest {
     @DisplayName("UMC 외부 인원이 투표하는 경우에는 입장 코드를 사용해야 한다.")
     void 외부인_투표() {
         //given
-        DemodayPoll poll = createPoll();
-        DemodayBooth booth = createBooth(poll);
-        DemodayEntryCode entryCode = createEntryCode(poll);
+        DemodayBooth booth = createBooth(POLL_ID);
+        DemodayEntryCode entryCode = createEntryCode(POLL_ID);
 
         //when
-        DemodayVote vote = DemodayVote.forVisitor(poll, entryCode, booth);
+        DemodayVote vote = DemodayVote.forVisitor(POLL_ID, entryCode, booth);
 
         //then
-        assertThat(vote.getPoll()).isSameAs(poll);
-        assertThat(vote.getTargetBooth()).isSameAs(booth);
+        assertThat(vote.getPollId()).isEqualTo(POLL_ID);
+        assertThat(vote.getTargetBoothId()).isEqualTo(BOOTH_ID);
         assertThat(vote.getMemberId()).isNull();
-        assertThat(vote.getEntryCode()).isEqualTo(entryCode);
+        assertThat(vote.getEntryCodeId()).isEqualTo(ENTRY_CODE_ID);
         assertThat(vote.getRevokedAt()).isNull();
-
     }
 
     @Test
-    @DisplayName("서로 다른 인스턴스라도 ID가 같으면 같은 투표로 판단한다.")
-    void 다른_인스턴스여도_ID가_같으면_같은_투표로_판단() {
+    @DisplayName("부스가 같은 투표에 속하면 투표할 수 있다.")
+    void 같은_투표의_부스에는_투표할_수_있다() {
         //given
-        DemodayPoll pollLoadedForBooth = createPersistedPoll(1L);
-        DemodayBooth booth = createBooth(pollLoadedForBooth);
-        DemodayPoll pollLoadedForVote = createPersistedPoll(1L);
+        DemodayBooth booth = createBooth(POLL_ID);
 
         //when & then
-        assertThat(pollLoadedForVote).isNotSameAs(pollLoadedForBooth);
-        assertThat(pollLoadedForBooth.getId())
-            .isNotNull()
-            .isEqualTo(pollLoadedForVote.getId());
-
-        assertThatCode(() -> DemodayVote.forMember(pollLoadedForVote, MEMBER_ID, booth))
+        assertThatCode(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, booth))
             .doesNotThrowAnyException();
     }
 
@@ -102,23 +84,46 @@ class DemodayVoteTest {
     @DisplayName("투표와 부스의 ID가 다르면 투표할 수 없다.")
     void 투표와_부스의_ID가_다르면_예외가_발생한다() {
         // given
-        DemodayPoll poll = createPersistedPoll(1L);
-        DemodayBooth booth = createBooth(createPersistedPoll(2L));
+        DemodayBooth anotherPollBooth = createBooth(2L);
 
         // when & then
-        assertThatThrownBy(() -> DemodayVote.forMember(poll, MEMBER_ID, booth))
+        assertThatThrownBy(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, anotherPollBooth))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("BaseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_POLL_MISMATCH);
     }
 
     @Test
+    @DisplayName("입장 코드가 다른 투표에 속하면 투표할 수 없다.")
+    void 입장_코드의_투표가_다르면_예외가_발생한다() {
+        // given
+        DemodayBooth booth = createBooth(POLL_ID);
+        DemodayEntryCode anotherPollEntryCode = createEntryCode(2L);
+
+        // when & then
+        assertThatThrownBy(() -> DemodayVote.forVisitor(POLL_ID, anotherPollEntryCode, booth))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("BaseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_POLL_MISMATCH);
+    }
+
+    @Test
+    @DisplayName("저장되지 않은 부스에는 투표할 수 없다.")
+    void 저장되지_않은_부스에는_투표할_수_없다() {
+        // given
+        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
+
+        // when & then
+        assertThatThrownBy(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, unsavedBooth))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
     @DisplayName("무효화된 표는 다시 무효화 할 수 없다.")
     void 표_무효화_검증() {
         //given
-        DemodayPoll poll = createPoll();
-        DemodayBooth booth = createBooth(poll);
-        DemodayVote vote = DemodayVote.forMember(poll, MEMBER_ID, booth);
+        DemodayBooth booth = createBooth(POLL_ID);
+        DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, booth);
 
         Instant now = Instant.now();
 

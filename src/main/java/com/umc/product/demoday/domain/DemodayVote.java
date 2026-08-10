@@ -9,12 +9,9 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -31,74 +28,72 @@ public class DemodayVote extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demoday_poll_id", nullable = false)
-    private DemodayPoll poll;
+    @Column(name = "demoday_poll_id", nullable = false)
+    private Long pollId;
 
     @Column(name = "member_id")
     private Long memberId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "entry_code_id")
-    private DemodayEntryCode entryCode;
+    @Column(name = "entry_code_id")
+    private Long entryCodeId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_booth_id", nullable = false)
-    private DemodayBooth targetBooth;
+    @Column(name = "target_booth_id", nullable = false)
+    private Long targetBoothId;
 
     @Column(name = "revoked_at")
     private Instant revokedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayVote(DemodayPoll poll, Long memberId, DemodayEntryCode entryCode,
-                          DemodayBooth targetBooth) {
-        this.poll = poll;
+    private DemodayVote(Long pollId, Long memberId, Long entryCodeId, Long targetBoothId) {
+        this.pollId = pollId;
         this.memberId = memberId;
-        this.entryCode = entryCode;
-        this.targetBooth = targetBooth;
+        this.entryCodeId = entryCodeId;
+        this.targetBoothId = targetBoothId;
     }
 
-    public static DemodayVote forMember(DemodayPoll poll, Long memberId, DemodayBooth targetBooth) {
-        Objects.requireNonNull(poll, "poll must not be null");
+    /**
+     * 부스와 입장 코드는 식별자가 아니라 엔티티로 받는다. 표를 만드는 시점에 이들이 같은 투표에
+     * 속하는지 대조해야 하는데, 식별자만 받으면 그 대조를 호출자가 대신 해야 하기 때문이다.
+     */
+    public static DemodayVote forMember(Long pollId, Long memberId, DemodayBooth targetBooth) {
+        Objects.requireNonNull(pollId, "pollId must not be null");
         Objects.requireNonNull(memberId, "memberId must not be null");
         Objects.requireNonNull(targetBooth, "targetBooth must not be null");
-        requireSamePoll(poll, targetBooth.getPoll());
+        requireSamePoll(pollId, targetBooth.getPollId());
 
         return DemodayVote.builder()
-            .poll(poll)
+            .pollId(pollId)
             .memberId(memberId)
-            .targetBooth(targetBooth)
+            .targetBoothId(requireBoothId(targetBooth))
             .build();
     }
 
-    public static DemodayVote forVisitor(DemodayPoll poll, DemodayEntryCode entryCode,
-                                           DemodayBooth targetBooth) {
-        Objects.requireNonNull(poll, "poll must not be null");
+    public static DemodayVote forVisitor(Long pollId, DemodayEntryCode entryCode, DemodayBooth targetBooth) {
+        Objects.requireNonNull(pollId, "pollId must not be null");
         Objects.requireNonNull(entryCode, "entryCode must not be null");
         Objects.requireNonNull(targetBooth, "targetBooth must not be null");
-        requireSamePoll(poll, targetBooth.getPoll());
-        requireSamePoll(poll, entryCode.getPoll());
+        requireSamePoll(pollId, targetBooth.getPollId());
+        requireSamePoll(pollId, entryCode.getPollId());
 
         return DemodayVote.builder()
-            .poll(poll)
-            .entryCode(entryCode)
-            .targetBooth(targetBooth)
+            .pollId(pollId)
+            .entryCodeId(requireEntryCodeId(entryCode))
+            .targetBoothId(requireBoothId(targetBooth))
             .build();
     }
 
-    private static void requireSamePoll(DemodayPoll poll, DemodayPoll other) {
-        if (!isSamePoll(poll, other)) {
+    private static void requireSamePoll(Long pollId, Long other) {
+        if (!pollId.equals(other)) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_POLL_MISMATCH);
         }
     }
 
-    private static boolean isSamePoll(DemodayPoll left, DemodayPoll right) {
-        if (left == right) {
-            return true;
-        }
+    private static Long requireBoothId(DemodayBooth targetBooth) {
+        return Objects.requireNonNull(targetBooth.getId(), "targetBooth must be persisted before voting");
+    }
 
-        Long leftId = left.getId();
-        return leftId != null && leftId.equals(right.getId());
+    private static Long requireEntryCodeId(DemodayEntryCode entryCode) {
+        return Objects.requireNonNull(entryCode.getId(), "entryCode must be persisted before voting");
     }
 
     public void revoke(Instant now) {

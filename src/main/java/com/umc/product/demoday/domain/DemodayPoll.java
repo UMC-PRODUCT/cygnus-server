@@ -1,6 +1,9 @@
 package com.umc.product.demoday.domain;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;
@@ -11,9 +14,12 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -47,6 +53,19 @@ public class DemodayPoll extends BaseEntity {
 
     @Column(name = "closes_at", nullable = false)
     private Instant closesAt;
+
+    /**
+     * 투표에 속한 부스 목록을 읽기 전용으로 노출한다.
+     *
+     * <p>FK(demoday_booth.demoday_poll_id)의 쓰기 주체는 {@link DemodayBooth#getPollId()}이고
+     * 이 컬렉션은 조회 전용 뷰다. 컬렉션이 FK를 소유하면 두 가지의 문제가 생긴다.
+     * 첫째, 부스 INSERT 뒤에 FK를 채우는 UPDATE가 한 번 더 나간다.
+     * 둘째, 영속화 전까지 부스가 자기 투표를 알 수 없어 표·스탬프의 투표 일치 검증이 불가능해진다.
+     */
+    @Getter(AccessLevel.NONE)
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "demoday_poll_id", insertable = false, updatable = false)
+    private List<DemodayBooth> booths = new ArrayList<>();
 
     @Builder(access = AccessLevel.PRIVATE)
     private DemodayPoll(Long gisuId, String name, DemodayPollStatus status, Instant opensAt, Instant closesAt) {
@@ -104,6 +123,10 @@ public class DemodayPoll extends BaseEntity {
         }
 
         return normalize;
+    }
+
+    public List<DemodayBooth> getBooths() {
+        return Collections.unmodifiableList(booths);
     }
 
     // TODO: 투표 시작과 종료 상태 전이 메서드 제작

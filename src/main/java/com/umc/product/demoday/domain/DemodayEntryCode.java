@@ -9,12 +9,9 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
@@ -39,9 +36,11 @@ public class DemodayEntryCode extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demoday_poll_id", nullable = false)
-    private DemodayPoll poll;
+    /**
+     * 소속 투표를 식별자로만 참조한다.
+     */
+    @Column(name = "demoday_poll_id", nullable = false)
+    private Long pollId;
 
     @Column(name = "code_hash", nullable = false, length = HASH_LENGTH)
     private String codeHash;
@@ -58,16 +57,16 @@ public class DemodayEntryCode extends BaseEntity {
     private Instant redeemedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayEntryCode(DemodayPoll poll, String codeHash) {
-        this.poll = poll;
+    private DemodayEntryCode(Long pollId, String codeHash) {
+        this.pollId = pollId;
         this.codeHash = codeHash;
     }
 
-    public static DemodayEntryCode create(DemodayPoll poll, String codeHash) {
-        Objects.requireNonNull(poll, "poll must not be null");
+    public static DemodayEntryCode create(Long pollId, String codeHash) {
+        Objects.requireNonNull(pollId, "pollId must not be null");
         Objects.requireNonNull(codeHash, "codeHash must not be null");
         return DemodayEntryCode.builder()
-            .poll(poll)
+            .pollId(pollId)
             .codeHash(codeHash)
             .build();
     }

@@ -14,28 +14,17 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 @DisplayName("DemodayEntryCodeTest")
 class DemodayEntryCodeTest {
 
+    private static final Long POLL_ID = 1L;
     private static final String CODE_HASH = "code hash";
-
-    private static DemodayPoll createPoll() {
-        return DemodayPoll.create(
-            8L,
-            "8기 데모데이",
-            Instant.parse("2026-08-01T05:00:00Z"),
-            Instant.parse("2026-08-01T08:00:00Z")
-        );
-    }
 
     @Test
     @DisplayName("입장 코드를 생성하면 투표와 코드 해시를 보관한다.")
     void 입장_코드_생성() {
-        // given
-        DemodayPoll poll = createPoll();
-
         // when
-        DemodayEntryCode entryCode = DemodayEntryCode.create(poll, CODE_HASH);
+        DemodayEntryCode entryCode = DemodayEntryCode.create(POLL_ID, CODE_HASH);
 
         // then
-        assertThat(entryCode.getPoll()).isSameAs(poll);
+        assertThat(entryCode.getPollId()).isEqualTo(POLL_ID);
         assertThat(entryCode.getCodeHash()).isEqualTo(CODE_HASH);
         assertThat(entryCode.getBoundIdentityHash()).isNull();
         assertThat(entryCode.getRedeemedAt()).isNull();
@@ -46,7 +35,7 @@ class DemodayEntryCodeTest {
     @DisplayName("사용하지 않은 입장 코드는 한 번만 사용할 수 있다.")
     void 입장_코드_사용() {
         // given
-        DemodayEntryCode entryCode = DemodayEntryCode.create(createPoll(), CODE_HASH);
+        DemodayEntryCode entryCode = DemodayEntryCode.create(POLL_ID, CODE_HASH);
         Instant redeemedAt = Instant.parse("2026-08-01T05:30:00Z");
 
         // when
