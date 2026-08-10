@@ -59,6 +59,18 @@ Admin surface의 완전한 경로는 `/api/v1/community/admin/thread-message-rep
 메시지 history는 newest-first, exclusive `before` cursor, 기본 limit 30, 최대 100이다. broker가
 끊기거나 event가 누락되면 이 endpoint와 thread detail/member query로 상태를 backfill한다.
 
+`GET /threads`는 `q` 유무로 응답 구성이 달라진다.
+
+- `q` 없음: 목록 화면의 "고정"과 "전체" 두 섹션에 대응해 `pinned`와 `threads`를 나눠 반환한다.
+  `pinned`는 요청자가 고정한 참여 스레드 전부이고 페이징하지 않는다. `total`과 `nextOffset`은
+  `threads`만 센다.
+- `q` 있음: 검색 화면의 "검색 결과 N개" 단일 목록에 대응해 `pinned`는 항상 빈 배열이고 매칭된
+  스레드를 전부 `threads`에 담는다. 요청자가 고정한 스레드가 상단에 오고, `total`과 `nextOffset`은
+  고정 스레드를 포함한 전체 매칭 수를 기준으로 한다.
+
+두 경우 모두 참여하지 않은 스레드도 포함하며, 매칭은 thread `title`과 `description`의 대소문자 무시
+부분일치다. 메시지 본문은 검색 대상이 아니다. 참여 여부는 각 항목의 `isJoined`로 구분한다.
+
 ## 3. WebSocket 연결
 
 SockJS/STOMP endpoint는 `/ws`, native WebSocket transport endpoint는 `/ws/websocket`이다. 두

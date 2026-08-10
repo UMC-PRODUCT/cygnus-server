@@ -220,15 +220,98 @@ class CommunityThreadReadQueryRepositoryTest {
         assertThat(result.unpinnedTotal()).isEqualTo(1L);
     }
 
+    @Test
+    @DisplayName("browse 검색은 고정/전체 분리 없이 매칭 스레드를 한 목록에 담고 고정을 상단에 두며 제목·소개글을 함께 본다")
+    void browseThreads_검색은_단일_목록으로_고정을_상단에_둔다() {
+        // given
+        CommunityThread pinnedMatch = persistThread(2_201L, "축구 모임", CommunityThreadCategory.FREE);
+        CommunityThread joinedMatch = persistThread(2_202L, "축구 번개", CommunityThreadCategory.FREE);
+        CommunityThread descriptionMatch = persistThread(
+            2_203L, "주말 운동", "축구 하실 분 모집합니다", CommunityThreadCategory.FREE
+        );
+        CommunityThread noMatch = persistThread(2_204L, "야구 모임", CommunityThreadCategory.FREE);
+        persistRequesterMembership(pinnedMatch, true, 0L);
+        persistRequesterMembership(joinedMatch, false, 0L);
+        persistMembership(descriptionMatch, 999L);
+        persistRequesterMembership(noMatch, false, 0L);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, null, false, "축구", 0, 20
+        ));
+
+        // then
+        assertThat(result.pinned()).isEmpty();
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactly(pinnedMatch.getId(), descriptionMatch.getId(), joinedMatch.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(3L);
+        assertThat(statistics.getPrepareStatementCount()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("browse 검색 결과가 고정 스레드뿐이어도 total이 고정 스레드를 센다")
+    void browseThreads_검색_total은_고정_스레드를_포함한다() {
+        // given
+        CommunityThread pinnedMatch = persistThread(2_211L, "축구 모임", CommunityThreadCategory.FREE);
+        CommunityThread noMatch = persistThread(2_212L, "야구 모임", CommunityThreadCategory.FREE);
+        persistRequesterMembership(pinnedMatch, true, 0L);
+        persistRequesterMembership(noMatch, false, 0L);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, null, false, "축구", 0, 20
+        ));
+
+        // then
+        assertThat(result.pinned()).isEmpty();
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactly(pinnedMatch.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(1L);
+    }
+
+    @Test
+    @DisplayName("browse 검색 페이징은 고정 스레드를 포함한 단일 목록 기준으로 offset을 센다")
+    void browseThreads_검색_페이징은_고정을_포함해_계산한다() {
+        // given
+        CommunityThread pinnedMatch = persistThread(2_221L, "축구 모임", CommunityThreadCategory.FREE);
+        CommunityThread olderMatch = persistThread(2_222L, "축구 번개", CommunityThreadCategory.FREE);
+        CommunityThread newerMatch = persistThread(2_223L, "축구 리그", CommunityThreadCategory.FREE);
+        persistRequesterMembership(pinnedMatch, true, 0L);
+        persistRequesterMembership(olderMatch, false, 0L);
+        persistRequesterMembership(newerMatch, false, 0L);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, null, false, "축구", 1, 1
+        ));
+
+        // then
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactly(newerMatch.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(3L);
+    }
+
     private CommunityThread persistThread(
         Long chatRoomId,
         String title,
         CommunityThreadCategory category
     ) {
+        return persistThread(chatRoomId, title, null, category);
+    }
+
+    private CommunityThread persistThread(
+        Long chatRoomId,
+        String title,
+        String description,
+        CommunityThreadCategory category
+    ) {
         return threadRepository.save(CommunityThread.create(
             chatRoomId,
             title,
-            null,
+            description,
             category,
             "💬",
             REQUESTER_ID,
