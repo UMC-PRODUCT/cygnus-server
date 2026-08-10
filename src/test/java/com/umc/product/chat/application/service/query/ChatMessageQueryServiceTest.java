@@ -80,10 +80,10 @@ class ChatMessageQueryServiceTest {
     }
 
     @Test
-    @DisplayName("요청자가 방 멤버가 아니면 메시지를 조회하지 않고 접근 거부 예외를 던진다")
+    @DisplayName("요청자가 방을 읽을 수 없으면 메시지를 조회하지 않고 접근 거부 예외를 던진다")
     void getMessages_accessDenied() {
         willThrow(new ChatDomainException(ChatErrorCode.CHAT_ROOM_ACCESS_DENIED))
-            .given(chatRoomAccessPolicy).verifyMember(1L, 10L);
+            .given(chatRoomAccessPolicy).verifyReadable(1L, 10L);
 
         assertThatThrownBy(() -> sut.getMessages(new GetChatMessagesQuery(1L, 10L, null, 2)))
             .isInstanceOf(ChatDomainException.class)
@@ -107,7 +107,7 @@ class ChatMessageQueryServiceTest {
     }
 
     @Test
-    @DisplayName("단건 조회도 방 멤버 접근 검증 뒤 enriched 메시지를 반환한다")
+    @DisplayName("단건 조회도 방 읽기 권한 검증 뒤 enriched 메시지를 반환한다")
     void getMessage_success() {
         ChatMessage message = message(30L, 1L, 20L);
         ChatMessageInfo info = ChatMessageInfo.from(message);
@@ -117,7 +117,7 @@ class ChatMessageQueryServiceTest {
         ChatMessageInfo result = sut.getMessage(new GetChatMessageQuery(1L, 10L, 30L));
 
         assertThat(result).isSameAs(info);
-        then(chatRoomAccessPolicy).should().verifyMember(1L, 10L);
+        then(chatRoomAccessPolicy).should().verifyReadable(1L, 10L);
     }
 
     @Test

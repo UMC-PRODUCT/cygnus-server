@@ -86,7 +86,7 @@ class ChatRoomLockRevalidationTest {
     @BeforeEach
     void setUp() {
         executor = Executors.newFixedThreadPool(2);
-        ChatRoomAccessPolicy accessPolicy = new ChatRoomAccessPolicy(loadChatMemberPort);
+        ChatRoomAccessPolicy accessPolicy = new ChatRoomAccessPolicy(loadChatMemberPort, loadChatRoomPort);
         sendService = new ChatMessageCommandService(
             saveChatMessagePort,
             loadChatMessagePort,

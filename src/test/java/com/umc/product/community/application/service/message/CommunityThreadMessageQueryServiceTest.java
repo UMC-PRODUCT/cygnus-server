@@ -52,6 +52,7 @@ class CommunityThreadMessageQueryServiceTest {
     private static final Long THREAD_ID = 11L;
     private static final Long ROOM_ID = 101L;
     private static final Long MEMBER_ID = 30L;
+    private static final Long NON_MEMBER_ID = 77L;
     private static final Instant NOW = Instant.parse("2026-07-18T00:00:00Z");
 
     @Mock
@@ -71,16 +72,13 @@ class CommunityThreadMessageQueryServiceTest {
     CommunityThreadMessageQueryService sut;
 
     @Test
-    @DisplayName("history는 Community ACTIVE 멤버 검증 뒤 Chat history를 호출하고 threadId만 포함한 page를 반환한다")
-    void historyValidatesCommunityBeforeChat() {
+    @DisplayName("history는 thread 조회 뒤 Chat history를 호출하고 threadId만 포함한 page를 반환한다")
+    void historyValidatesThreadBeforeChat() {
         CommunityThread thread = thread();
-        CommunityThreadMember member = activeMember(MEMBER_ID);
         ChatMessageInfo chatMessage = chatMessage(900L, MEMBER_ID, "본문");
         ChatMessageCursorResult chatPage = new ChatMessageCursorResult(List.of(chatMessage), 899L, true);
         CommunityThreadMessageInfo communityInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
         given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread));
-        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
-            .willReturn(Optional.of(member));
         given(getChatMessagesUseCase.getMessages(any(GetChatMessagesQuery.class))).willReturn(chatPage);
         given(infoAssembler.assemble(THREAD_ID, List.of(chatMessage))).willReturn(List.of(communityInfo));
 
@@ -95,21 +93,17 @@ class CommunityThreadMessageQueryServiceTest {
             new GetChatMessagesQuery(ROOM_ID, MEMBER_ID, 1_000L, 30)
         );
         then(realtimeMetrics).should().recordBackfill(Operation.MESSAGE_HISTORY, Outcome.SUCCESS);
-        InOrder order = inOrder(loadThreadPort, loadThreadMemberPort, getChatMessagesUseCase);
+        InOrder order = inOrder(loadThreadPort, getChatMessagesUseCase);
         order.verify(loadThreadPort).findById(THREAD_ID);
-        order.verify(loadThreadMemberPort).findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID);
         order.verify(getChatMessagesUseCase).getMessages(any(GetChatMessagesQuery.class));
     }
 
     @Test
-    @DisplayName("single은 Community ACTIVE 멤버 검증 뒤 Chat 단건 query를 호출한다")
-    void singleValidatesCommunityBeforeChat() {
-        CommunityThreadMember member = activeMember(MEMBER_ID);
+    @DisplayName("single은 thread 조회 뒤 Chat 단건 query를 호출한다")
+    void singleValidatesThreadBeforeChat() {
         ChatMessageInfo chatMessage = chatMessage(900L, MEMBER_ID, "본문");
         CommunityThreadMessageInfo communityInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
         given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
-        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
-            .willReturn(Optional.of(member));
         given(getChatMessageUseCase.getMessage(any(GetChatMessageQuery.class))).willReturn(chatMessage);
         given(infoAssembler.assemble(THREAD_ID, chatMessage)).willReturn(communityInfo);
 
@@ -120,22 +114,18 @@ class CommunityThreadMessageQueryServiceTest {
         assertThat(result).isSameAs(communityInfo);
         then(getChatMessageUseCase).should().getMessage(new GetChatMessageQuery(ROOM_ID, MEMBER_ID, 900L));
         then(realtimeMetrics).shouldHaveNoInteractions();
-        InOrder order = inOrder(loadThreadPort, loadThreadMemberPort, getChatMessageUseCase);
+        InOrder order = inOrder(loadThreadPort, getChatMessageUseCase);
         order.verify(loadThreadPort).findById(THREAD_ID);
-        order.verify(loadThreadMemberPort).findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID);
         order.verify(getChatMessageUseCase).getMessage(any(GetChatMessageQuery.class));
     }
 
     @Test
-    @DisplayName("recovery도 Community ACTIVE 멤버 검증 뒤 Chat public history query만 호출한다")
-    void recoveryValidatesCommunityBeforeChat() {
-        CommunityThreadMember member = activeMember(MEMBER_ID);
+    @DisplayName("recovery도 thread 조회 뒤 Chat public history query만 호출한다")
+    void recoveryValidatesThreadBeforeChat() {
         ChatMessageInfo chatMessage = chatMessage(900L, MEMBER_ID, "복구");
         ChatMessageCursorResult chatPage = new ChatMessageCursorResult(List.of(chatMessage), null, false);
         CommunityThreadMessageInfo communityInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
         given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
-        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
-            .willReturn(Optional.of(member));
         given(getChatMessagesUseCase.getMessages(any(GetChatMessagesQuery.class))).willReturn(chatPage);
         given(infoAssembler.assemble(THREAD_ID, List.of(chatMessage))).willReturn(List.of(communityInfo));
 
@@ -173,8 +163,6 @@ class CommunityThreadMessageQueryServiceTest {
     void historyFailureRecordsMetricAndPropagates() {
         RuntimeException failure = new IllegalStateException("chat query failed");
         given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
-        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
-            .willReturn(Optional.of(activeMember(MEMBER_ID)));
         given(getChatMessagesUseCase.getMessages(any(GetChatMessagesQuery.class))).willThrow(failure);
 
         assertThatThrownBy(() -> sut.getHistory(new CommunityThreadMessageHistoryQuery(
@@ -189,8 +177,6 @@ class CommunityThreadMessageQueryServiceTest {
     void recoveryFailureRecordsMetricAndPropagates() {
         RuntimeException failure = new IllegalStateException("chat recovery failed");
         given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
-        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
-            .willReturn(Optional.of(activeMember(MEMBER_ID)));
         given(getChatMessagesUseCase.getMessages(any(GetChatMessagesQuery.class))).willThrow(failure);
 
         assertThatThrownBy(() -> sut.recover(new CommunityThreadMessageRecoveryQuery(
@@ -201,19 +187,112 @@ class CommunityThreadMessageQueryServiceTest {
     }
 
     @Test
-    @DisplayName("LEFT 멤버는 single Chat query 전에 THREAD_ACCESS_DENIED로 거절한다")
-    void inactiveMemberIsRejectedBeforeSingle() {
-        CommunityThreadMember left = activeMember(MEMBER_ID);
-        left.leave(NOW.minusSeconds(60));
+    @DisplayName("스레드 비참여자도 history를 볼 수 있다")
+    void nonMemberReadsHistory() {
+        ChatMessageInfo chatMessage = chatMessage(900L, MEMBER_ID, "본문");
+        ChatMessageCursorResult chatPage = new ChatMessageCursorResult(List.of(chatMessage), null, false);
+        CommunityThreadMessageInfo communityInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, NON_MEMBER_ID))
+            .willReturn(Optional.empty());
+        given(getChatMessagesUseCase.getMessages(any(GetChatMessagesQuery.class))).willReturn(chatPage);
+        given(infoAssembler.assemble(THREAD_ID, List.of(chatMessage))).willReturn(List.of(communityInfo));
+
+        CommunityThreadMessagePageInfo result = sut.getHistory(
+            new CommunityThreadMessageHistoryQuery(THREAD_ID, NON_MEMBER_ID, null, 30)
+        );
+
+        assertThat(result.messages()).containsExactly(communityInfo);
+        then(getChatMessagesUseCase).should().getMessages(
+            new GetChatMessagesQuery(ROOM_ID, NON_MEMBER_ID, null, 30)
+        );
+    }
+
+    @Test
+    @DisplayName("스레드 비참여자도 단건 메시지를 볼 수 있다")
+    void nonMemberReadsSingle() {
+        ChatMessageInfo chatMessage = chatMessage(900L, MEMBER_ID, "본문");
+        CommunityThreadMessageInfo communityInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, NON_MEMBER_ID))
+            .willReturn(Optional.empty());
+        given(getChatMessageUseCase.getMessage(any(GetChatMessageQuery.class))).willReturn(chatMessage);
+        given(infoAssembler.assemble(THREAD_ID, chatMessage)).willReturn(communityInfo);
+
+        CommunityThreadMessageInfo result = sut.getMessage(
+            new CommunityThreadMessageQuery(THREAD_ID, NON_MEMBER_ID, 900L)
+        );
+
+        assertThat(result).isSameAs(communityInfo);
+        then(getChatMessageUseCase).should().getMessage(new GetChatMessageQuery(ROOM_ID, NON_MEMBER_ID, 900L));
+    }
+
+    @Test
+    @DisplayName("LEFT 멤버는 비참여자와 동일하게 history를 볼 수 있다")
+    void leftMemberReadsHistory() {
+        CommunityThreadMember left = CommunityThreadMember.createMember(THREAD_ID, MEMBER_ID, NOW);
+        left.leave(NOW.plusSeconds(60));
+        ChatMessageInfo chatMessage = chatMessage(900L, MEMBER_ID, "본문");
+        ChatMessageCursorResult chatPage = new ChatMessageCursorResult(List.of(chatMessage), null, false);
+        CommunityThreadMessageInfo communityInfo = org.mockito.Mockito.mock(CommunityThreadMessageInfo.class);
         given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
         given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
             .willReturn(Optional.of(left));
+        given(getChatMessagesUseCase.getMessages(any(GetChatMessagesQuery.class))).willReturn(chatPage);
+        given(infoAssembler.assemble(THREAD_ID, List.of(chatMessage))).willReturn(List.of(communityInfo));
+
+        CommunityThreadMessagePageInfo result = sut.getHistory(
+            new CommunityThreadMessageHistoryQuery(THREAD_ID, MEMBER_ID, null, 30)
+        );
+
+        assertThat(result.messages()).containsExactly(communityInfo);
+    }
+
+    @Test
+    @DisplayName("KICKED 멤버는 history Chat query 전에 THREAD_ACCESS_DENIED로 거절한다")
+    void kickedMemberIsRejectedBeforeHistory() {
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
+            .willReturn(Optional.of(kickedMember(MEMBER_ID)));
+
+        assertThatThrownBy(() -> sut.getHistory(new CommunityThreadMessageHistoryQuery(
+            THREAD_ID, MEMBER_ID, null, 30
+        )))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        then(getChatMessagesUseCase).shouldHaveNoInteractions();
+        then(realtimeMetrics).should().recordBackfill(Operation.MESSAGE_HISTORY, Outcome.FAILURE);
+    }
+
+    @Test
+    @DisplayName("KICKED 멤버는 단건 Chat query 전에 THREAD_ACCESS_DENIED로 거절한다")
+    void kickedMemberIsRejectedBeforeSingle() {
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
+            .willReturn(Optional.of(kickedMember(MEMBER_ID)));
 
         assertThatThrownBy(() -> sut.getMessage(new CommunityThreadMessageQuery(THREAD_ID, MEMBER_ID, 900L)))
             .isInstanceOf(CommunityDomainException.class)
             .extracting(error -> ((CommunityDomainException) error).getBaseCode())
             .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
         then(getChatMessageUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("KICKED 멤버는 recovery도 THREAD_ACCESS_DENIED로 거절한다")
+    void kickedMemberIsRejectedBeforeRecovery() {
+        given(loadThreadPort.findById(THREAD_ID)).willReturn(Optional.of(thread()));
+        given(loadThreadMemberPort.findByThreadIdAndMemberId(THREAD_ID, MEMBER_ID))
+            .willReturn(Optional.of(kickedMember(MEMBER_ID)));
+
+        assertThatThrownBy(() -> sut.recover(new CommunityThreadMessageRecoveryQuery(
+            THREAD_ID, MEMBER_ID, null, 30
+        )))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(error -> ((CommunityDomainException) error).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        then(getChatMessagesUseCase).shouldHaveNoInteractions();
     }
 
     private CommunityThread thread() {
@@ -230,8 +309,10 @@ class CommunityThreadMessageQueryServiceTest {
         return thread;
     }
 
-    private CommunityThreadMember activeMember(Long memberId) {
-        return CommunityThreadMember.createMember(THREAD_ID, memberId, NOW);
+    private CommunityThreadMember kickedMember(Long memberId) {
+        CommunityThreadMember member = CommunityThreadMember.createMember(THREAD_ID, memberId, NOW);
+        member.kick(NOW.plusSeconds(60));
+        return member;
     }
 
     private ChatMessageInfo chatMessage(Long messageId, Long senderId, String content) {

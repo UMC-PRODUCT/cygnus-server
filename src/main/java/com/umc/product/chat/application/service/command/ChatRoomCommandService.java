@@ -38,7 +38,7 @@ public class ChatRoomCommandService implements
 
     @Override
     public ChatRoomInfo create(CreateChatRoomCommand command) {
-        ChatRoom chatRoom = saveChatRoomPort.save(ChatRoom.create());
+        ChatRoom chatRoom = saveChatRoomPort.save(ChatRoom.create(command.readScope()));
         saveChatMemberPort.save(ChatMember.of(chatRoom.getId(), command.creatorMemberId()));
         return new ChatRoomInfo(
             chatRoom.getId(),

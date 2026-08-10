@@ -55,11 +55,12 @@ public class ChatMessageQueryService implements
     /**
      * 방 메시지 내역을 최신순 커서 페이지네이션으로 조회한다. (size + 1 조회 후 hasNext 판별)
      * <p>
-     * 조회 전 요청자가 해당 방의 멤버인지 검증한다(비멤버는 접근 불가).
+     * 조회 전 요청자가 해당 방을 읽을 수 있는지 검증한다. 방 멤버이거나 방의 조회 범위가 공개여야 하며,
+     * 공개 방의 resource 단위 접근 권한은 방을 소유한 소비 도메인이 판단한다.
      */
     @Override
     public ChatMessageCursorResult getMessages(GetChatMessagesQuery query) {
-        chatRoomAccessPolicy.verifyMember(query.roomId(), query.memberId());
+        chatRoomAccessPolicy.verifyReadable(query.roomId(), query.memberId());
 
         List<ChatMessage> rows = loadChatMessagePort.listByRoomId(query.roomId(), query.cursorId(), query.size() + 1);
 
@@ -74,7 +75,7 @@ public class ChatMessageQueryService implements
 
     @Override
     public ChatMessageInfo getMessage(GetChatMessageQuery query) {
-        chatRoomAccessPolicy.verifyMember(query.roomId(), query.memberId());
+        chatRoomAccessPolicy.verifyReadable(query.roomId(), query.memberId());
         ChatMessage message = loadChatMessagePort.getByIdAndRoomId(query.messageId(), query.roomId());
         return chatMessageInfoAssembler.assemble(message, query.memberId());
     }

@@ -256,11 +256,17 @@ public class CommunityThreadQueryService implements
         return row;
     }
 
+    /**
+     * 참여 여부와 무관하게 조회할 수 있는 스레드를 반환한다. 강퇴된 요청자만 차단한다.
+     */
     private CommunityThreadQueryRow getPublicReadableThread(Long threadId, Long requesterMemberId) {
         CommunityThreadQueryRow row = threadQueryPort.findThread(threadId, requesterMemberId)
             .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.THREAD_NOT_FOUND));
         if (row.deletedAt() != null) {
             throw new CommunityDomainException(CommunityErrorCode.THREAD_DELETED);
+        }
+        if (row.requesterState() == CommunityThreadMemberState.KICKED) {
+            throw new CommunityDomainException(CommunityErrorCode.THREAD_ACCESS_DENIED);
         }
         return row;
     }

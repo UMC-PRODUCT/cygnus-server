@@ -260,7 +260,8 @@ public class CommunityThreadQueryRepository {
 
     private BooleanBuilder baseCondition(CommunityThreadListCondition condition) {
         BooleanBuilder where = new BooleanBuilder()
-            .and(communityThread.deletedAt.isNull());
+            .and(communityThread.deletedAt.isNull())
+            .and(notKicked(condition.requesterMemberId()));
         if (condition.category() != null) {
             where.and(communityThread.category.eq(condition.category()));
         }
@@ -268,6 +269,24 @@ public class CommunityThreadQueryRepository {
             where.and(keywordContains(condition.keyword()));
         }
         return where;
+    }
+
+    /**
+     * 강퇴된 스레드를 목록에서 제외한다.
+     *
+     * <p>requester 멤버십 join은 ACTIVE만 매칭하므로 KICKED는 join 결과가 비어 "미참여 스레드"와
+     * 구분되지 않는다. 따라서 KICKED 행의 존재 여부를 별도 subquery로 확인한다.</p>
+     */
+    private BooleanExpression notKicked(Long requesterMemberId) {
+        QCommunityThreadMember kickedMembership = new QCommunityThreadMember("kickedMembership");
+        return JPAExpressions.selectOne()
+            .from(kickedMembership)
+            .where(
+                kickedMembership.threadId.eq(communityThread.id),
+                kickedMembership.memberId.eq(requesterMemberId),
+                kickedMembership.state.eq(CommunityThreadMemberState.KICKED)
+            )
+            .notExists();
     }
 
     private BooleanBuilder listCondition(
