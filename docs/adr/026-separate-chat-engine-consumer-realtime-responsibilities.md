@@ -145,8 +145,10 @@ Registry는 destination을 지원하는 authorizer가 **정확히 하나이고**
 1. 외부 요청은 consumer resource ID만 받는다. Engine `roomId`를 client 입력으로 직접 받지 않는다.
 2. 하나의 Chat room은 하나의 consumer resource가 소유한다. Consumer의 `chatRoomId`에는 unique
    constraint 또는 동등한 애플리케이션 불변식을 둔다.
-3. Consumer 권한과 Chat membership을 모두 만족해야 한다. Subscription authorizer 승인은 Chat
-   membership 생성이나 변경을 대신하지 않는다.
+3. Consumer 권한과 Chat 방 접근 권한을 모두 만족해야 한다. 변경은 Chat membership을 요구하고,
+   조회는 방의 `ChatRoomReadScope`가 정한다(`MEMBER_ONLY` 기본, `PUBLIC`이면 비멤버 조회 허용).
+   Subscription authorizer 승인은 Chat membership 생성이나 변경을 대신하지 않는다.
+   자세한 내용은 아래 `Amendment: room read scope`를 참고한다.
 4. Consumer가 engine 방을 생성한 뒤 resource에 `chatRoomId`를 저장하는 과정은 하나의 application
    transaction에서 수행한다.
 5. `StompSubscriptionAuthorizer.supports`는 자신이 소유한 exact destination namespace만 선택한다.
@@ -564,3 +566,35 @@ FCM/APNs, token, deeplink, title/name, mute/offline/DND 결정과 notification d
   `EventOutboxRelayMetrics` retry/failed도 low-cardinality를 유지한다. 이름은
   `community.thread.realtime.send.commands`, `.reject.commands`, `.rate.limit.rejections`,
   `.fanout.events`, `.fanout.recipients`, `.broadcast.failures`, `.backfill.requests`로 고정한다.
+
+## Amendment: room read scope
+
+Status: Accepted - 이슈 #1244 (2026-08-11)
+
+원 결정은 Chat 방 접근을 membership 단일 규칙으로 두었다. 그러나 Community thread는 상세 조회가
+비참여자에게도 공개인 반면 메시지 조회만 membership을 요구해, 스레드에 진입한 비참여자가 대화를
+읽을 수 없는 모순이 있었다. 조회 경로의 차단 지점이 Community와 Chat 두 곳이라 소비 도메인만
+고쳐서는 해결되지 않는다.
+
+Chat engine에 consumer 분기를 넣는 대신 방 속성으로 조회 범위를 표현하기로 한다.
+
+- `ChatRoomReadScope`는 `MEMBER_ONLY`(기본)와 `PUBLIC`을 갖고 `chat_room.read_scope`에 저장한다.
+  값은 방을 만든 소비 도메인이 `CreateChatRoomCommand`로 정하며, engine은 소비 도메인을 알지 않는다.
+- `ChatRoomAccessPolicy.verifyMember`는 모든 변경 경로가 그대로 사용한다. 조회 경로만
+  `verifyReadable`을 사용하며, 참여자이거나 방이 `PUBLIC`이어야 한다. 참여자 여부를 먼저 확인하므로
+  `MEMBER_ONLY` 방의 조회 비용은 기존과 같다.
+- 방을 찾지 못하면 존재 여부를 노출하지 않도록 `CHAT_ROOM_ACCESS_DENIED`로 막는다.
+
+따라서 보안 불변식 3번은 "조회는 방의 read scope, 변경은 membership"으로 나뉜다. `PUBLIC`을 선택한
+소비 도메인은 resource 단위 조회 권한 검증을 자신이 계속 소유한다. Chat은 방이 공개인지만 알고
+어떤 사용자가 그 resource를 볼 수 있는지는 판단하지 않는다.
+
+Community thread 방만 `PUBLIC`으로 만든다. 기존 방은 마이그레이션에서 소유 관계를 따라 backfill하며,
+그 밖의 모든 방과 앞으로 추가될 소비 도메인은 명시하지 않는 한 `MEMBER_ONLY`로 남는다.
+
+`PUBLIC`이 "누구나"를 뜻하지 않는다는 점을 Community가 보여준다. 방은 `PUBLIC`이지만 Community는
+KICKED 요청자의 목록/상세/메시지 조회를 자신의 계층에서 차단한다. Chat은 방이 공개인지만 알고
+강퇴 같은 resource 상태는 모른다.
+
+실시간 fan-out 수신자는 여전히 ACTIVE 멤버로 한정한다. 비참여자는 history query로만 대화를 읽고
+push event를 받지 않는다.
