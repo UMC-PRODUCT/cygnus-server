@@ -1,6 +1,6 @@
 package com.umc.product.demoday.domain.enums;
 
-public enum DemodayVoteEventStatus {
+public enum DemodayPollStatus {
     OPEN,
     CLOSED
 }

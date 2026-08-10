@@ -33,8 +33,8 @@ public class DemodayBooth extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demoday_vote_event_id", nullable = false)
-    private DemodayVoteEvent voteEvent;
+    @JoinColumn(name = "demoday_poll_id", nullable = false)
+    private DemodayPoll poll;
 
     @Column(name = "project_id")
     private Long projectId;
@@ -43,26 +43,26 @@ public class DemodayBooth extends BaseEntity {
     private String displayName;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayBooth(DemodayVoteEvent voteEvent, Long projectId, String displayName) {
-        this.voteEvent = voteEvent;
+    private DemodayBooth(DemodayPoll poll, Long projectId, String displayName) {
+        this.poll = poll;
         this.projectId = projectId;
         this.displayName = displayName;
     }
 
-    public static DemodayBooth forProject(DemodayVoteEvent voteEvent, Long projectId) {
-        Objects.requireNonNull(voteEvent, "voteEvent must not be null");
+    public static DemodayBooth forProject(DemodayPoll poll, Long projectId) {
+        Objects.requireNonNull(poll, "poll must not be null");
         validateProject(projectId);
         return DemodayBooth.builder()
-            .voteEvent(voteEvent)
+            .poll(poll)
             .projectId(projectId)
             .build();
     }
 
-    public static DemodayBooth forExternal(DemodayVoteEvent voteEvent, String displayName) {
-        Objects.requireNonNull(voteEvent, "voteEvent must not be null");
+    public static DemodayBooth forExternal(DemodayPoll poll, String displayName) {
+        Objects.requireNonNull(poll, "poll must not be null");
         String normalizedName = requireDisplayName(displayName);
         return DemodayBooth.builder()
-            .voteEvent(voteEvent)
+            .poll(poll)
             .displayName(normalizedName)
             .build();
     }

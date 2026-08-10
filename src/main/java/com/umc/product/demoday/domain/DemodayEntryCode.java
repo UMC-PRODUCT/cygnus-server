@@ -40,8 +40,8 @@ public class DemodayEntryCode extends BaseEntity {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demoday_vote_event_id", nullable = false)
-    private DemodayVoteEvent voteEvent;
+    @JoinColumn(name = "demoday_poll_id", nullable = false)
+    private DemodayPoll poll;
 
     @Column(name = "code_hash", nullable = false, length = HASH_LENGTH)
     private String codeHash;
@@ -58,16 +58,16 @@ public class DemodayEntryCode extends BaseEntity {
     private Instant redeemedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayEntryCode(DemodayVoteEvent voteEvent, String codeHash) {
-        this.voteEvent = voteEvent;
+    private DemodayEntryCode(DemodayPoll poll, String codeHash) {
+        this.poll = poll;
         this.codeHash = codeHash;
     }
 
-    public static DemodayEntryCode create(DemodayVoteEvent voteEvent, String codeHash) {
-        Objects.requireNonNull(voteEvent, "voteEvent must not be null");
+    public static DemodayEntryCode create(DemodayPoll poll, String codeHash) {
+        Objects.requireNonNull(poll, "poll must not be null");
         Objects.requireNonNull(codeHash, "codeHash must not be null");
         return DemodayEntryCode.builder()
-            .voteEvent(voteEvent)
+            .poll(poll)
             .codeHash(codeHash)
             .build();
     }

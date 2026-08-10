@@ -22,18 +22,18 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
-@Table(name = "demoday_ballot")
+@Table(name = "demoday_vote")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class DemodayBallot extends BaseEntity {
+public class DemodayVote extends BaseEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "demoday_vote_event_id", nullable = false)
-    private DemodayVoteEvent voteEvent;
+    @JoinColumn(name = "demoday_poll_id", nullable = false)
+    private DemodayPoll poll;
 
     @Column(name = "member_id")
     private Long memberId;
@@ -46,62 +46,71 @@ public class DemodayBallot extends BaseEntity {
     @JoinColumn(name = "target_booth_id", nullable = false)
     private DemodayBooth targetBooth;
 
-    @Column(name = "voided_at")
-    private Instant voidedAt;
+    @Column(name = "revoked_at")
+    private Instant revokedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayBallot(DemodayVoteEvent voteEvent, Long memberId, DemodayEntryCode entryCode,
+    private DemodayVote(DemodayPoll poll, Long memberId, DemodayEntryCode entryCode,
                           DemodayBooth targetBooth) {
-        this.voteEvent = voteEvent;
+        this.poll = poll;
         this.memberId = memberId;
         this.entryCode = entryCode;
         this.targetBooth = targetBooth;
     }
 
-    public static DemodayBallot forMember(DemodayVoteEvent voteEvent, Long memberId, DemodayBooth targetBooth) {
-        Objects.requireNonNull(voteEvent, "voteEvent must not be null");
+    public static DemodayVote forMember(DemodayPoll poll, Long memberId, DemodayBooth targetBooth) {
+        Objects.requireNonNull(poll, "poll must not be null");
         Objects.requireNonNull(memberId, "memberId must not be null");
         Objects.requireNonNull(targetBooth, "targetBooth must not be null");
-        requireSameVoteEvent(voteEvent, targetBooth.getVoteEvent());
+        requireSamePoll(poll, targetBooth.getPoll());
 
-        return DemodayBallot.builder()
-            .voteEvent(voteEvent)
+        return DemodayVote.builder()
+            .poll(poll)
             .memberId(memberId)
             .targetBooth(targetBooth)
             .build();
     }
 
-    public static DemodayBallot forVisitor(DemodayVoteEvent voteEvent, DemodayEntryCode entryCode,
+    public static DemodayVote forVisitor(DemodayPoll poll, DemodayEntryCode entryCode,
                                            DemodayBooth targetBooth) {
-        Objects.requireNonNull(voteEvent, "voteEvent must not be null");
+        Objects.requireNonNull(poll, "poll must not be null");
         Objects.requireNonNull(entryCode, "entryCode must not be null");
         Objects.requireNonNull(targetBooth, "targetBooth must not be null");
-        requireSameVoteEvent(voteEvent, targetBooth.getVoteEvent());
-        requireSameVoteEvent(voteEvent, entryCode.getVoteEvent());
+        requireSamePoll(poll, targetBooth.getPoll());
+        requireSamePoll(poll, entryCode.getPoll());
 
-        return DemodayBallot.builder()
-            .voteEvent(voteEvent)
+        return DemodayVote.builder()
+            .poll(poll)
             .entryCode(entryCode)
             .targetBooth(targetBooth)
             .build();
     }
 
-    private static void requireSameVoteEvent(DemodayVoteEvent voteEvent, DemodayVoteEvent other) {
-        if (voteEvent != other) {
-            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_BALLOT_VOTE_EVENT_MISMATCH);
+    private static void requireSamePoll(DemodayPoll poll, DemodayPoll other) {
+        if (!isSamePoll(poll, other)) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_POLL_MISMATCH);
         }
     }
 
-    public void invalidate(Instant now) {
+    private static boolean isSamePoll(DemodayPoll left, DemodayPoll right) {
+        if (left == right) {
+            return true;
+        }
+
+        Long leftId = left.getId();
+        return leftId != null && leftId.equals(right.getId());
+    }
+
+    public void revoke(Instant now) {
         Objects.requireNonNull(now, "now must not be null");
-        if (isVoided()) {
-            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_BALLOT_ALREADY_VOIDED);
+        if (isRevoked()) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_ALREADY_REVOKED);
         }
 
-        this.voidedAt = now;
+        this.revokedAt = now;
     }
 
-    public boolean isVoided() {
-        return voidedAt != null;
+    public boolean isRevoked() {
+        return revokedAt != null;
     }
 }

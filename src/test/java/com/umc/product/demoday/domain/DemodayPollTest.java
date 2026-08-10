@@ -9,12 +9,12 @@ import java.time.Instant;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import com.umc.product.demoday.domain.enums.DemodayVoteEventStatus;
+import com.umc.product.demoday.domain.enums.DemodayPollStatus;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 
-@DisplayName("DemodayVoteEvent")
-class DemodayVoteEventTest {
+@DisplayName("DemodayPoll")
+class DemodayPollTest {
 
     private static final Long GISU_ID = 8L;
     private static final String NAME = "8기 데모데이 현장 투표";
@@ -25,84 +25,84 @@ class DemodayVoteEventTest {
     @DisplayName("생성된 투표는 창을 그대로 보관하고 항상 닫힌 상태로 시작한다")
     void 생성_직후_상태는_CLOSED다() {
         // when
-        DemodayVoteEvent voteEvent = DemodayVoteEvent.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
+        DemodayPoll poll = DemodayPoll.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
 
         // then
-        assertThat(voteEvent.getGisuId()).isEqualTo(GISU_ID);
-        assertThat(voteEvent.getName()).isEqualTo(NAME);
-        assertThat(voteEvent.getOpensAt()).isEqualTo(OPENS_AT);
-        assertThat(voteEvent.getClosesAt()).isEqualTo(CLOSES_AT);
-        assertThat(voteEvent.getStatus()).isEqualTo(DemodayVoteEventStatus.CLOSED);
+        assertThat(poll.getGisuId()).isEqualTo(GISU_ID);
+        assertThat(poll.getName()).isEqualTo(NAME);
+        assertThat(poll.getOpensAt()).isEqualTo(OPENS_AT);
+        assertThat(poll.getClosesAt()).isEqualTo(CLOSES_AT);
+        assertThat(poll.getStatus()).isEqualTo(DemodayPollStatus.CLOSED);
     }
 
     @Test
     @DisplayName("이름은 앞뒤 공백을 제거한 값으로 저장된다")
     void 이름은_정규화되어_저장된다() {
         // when
-        DemodayVoteEvent voteEvent = DemodayVoteEvent.create(GISU_ID, "  8기 데모데이  ", OPENS_AT, CLOSES_AT);
+        DemodayPoll poll = DemodayPoll.create(GISU_ID, "  8기 데모데이  ", OPENS_AT, CLOSES_AT);
 
         // then
-        assertThat(voteEvent.getName()).isEqualTo("8기 데모데이");
+        assertThat(poll.getName()).isEqualTo("8기 데모데이");
     }
 
     @Test
     @DisplayName("기수 없이는 투표를 만들 수 없다")
     void 기수가_null이면_생성_실패() {
         // when & then
-        assertThatThrownBy(() -> DemodayVoteEvent.create(null, NAME, OPENS_AT, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(null, NAME, OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_GISU_REQUIRED);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_GISU_REQUIRED);
     }
 
     @Test
     @DisplayName("투표 시작 시각 없이는 투표를 만들 수 없다")
     void 시작_시각이_null이면_생성_실패() {
         // when & then
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, NAME, null, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, null, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_OPEN_AT_REQUIRED);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_OPEN_AT_REQUIRED);
     }
 
     @Test
     @DisplayName("투표 종료 시각 없이는 투표를 만들 수 없다")
     void 종료_시각이_null이면_생성_실패() {
         // when & then
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, NAME, OPENS_AT, null))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, OPENS_AT, null))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_CLOSE_AT_REQUIRED);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_CLOSE_AT_REQUIRED);
     }
 
     @Test
     @DisplayName("투표 창은 시작이 종료보다 앞서야 한다 - 같거나 뒤면 생성 실패")
     void 투표_창이_역전되면_생성_실패() {
         // when & then
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, NAME, CLOSES_AT, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, CLOSES_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_INVALID_WINDOW);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_WINDOW);
 
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, NAME, CLOSES_AT, OPENS_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, CLOSES_AT, OPENS_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_INVALID_WINDOW);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_WINDOW);
     }
 
     @Test
     @DisplayName("이름이 비어 있으면 생성 실패 - null과 공백만 있는 값 모두")
     void 이름이_비면_생성_실패() {
         // when & then
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, null, OPENS_AT, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, null, OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_INVALID_NAME);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_NAME);
 
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, "   ", OPENS_AT, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, "   ", OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_INVALID_NAME);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_NAME);
     }
 
     @Test
@@ -113,13 +113,13 @@ class DemodayVoteEventTest {
         String tooLong = "가".repeat(101);
 
         // when & then
-        assertThatCode(() -> DemodayVoteEvent.create(GISU_ID, maxLength, OPENS_AT, CLOSES_AT))
+        assertThatCode(() -> DemodayPoll.create(GISU_ID, maxLength, OPENS_AT, CLOSES_AT))
             .doesNotThrowAnyException();
 
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, tooLong, OPENS_AT, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, tooLong, OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_INVALID_NAME);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_NAME);
     }
 
     @Test
@@ -131,12 +131,12 @@ class DemodayVoteEventTest {
 
         // when & then
         assertThat(hundredEmojis.length()).isEqualTo(200);
-        assertThatCode(() -> DemodayVoteEvent.create(GISU_ID, hundredEmojis, OPENS_AT, CLOSES_AT))
+        assertThatCode(() -> DemodayPoll.create(GISU_ID, hundredEmojis, OPENS_AT, CLOSES_AT))
             .doesNotThrowAnyException();
 
-        assertThatThrownBy(() -> DemodayVoteEvent.create(GISU_ID, hundredOneEmojis, OPENS_AT, CLOSES_AT))
+        assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, hundredOneEmojis, OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
-            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EVENT_INVALID_NAME);
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_NAME);
     }
 }

@@ -17,8 +17,8 @@ class DemodayBoothTest {
 
     private static final Long PROJECT_ID = 1L;
 
-    private static DemodayVoteEvent createVoteEvent() {
-        return DemodayVoteEvent.create(
+    private static DemodayPoll createPoll() {
+        return DemodayPoll.create(
             8L,
             "8기 데모데이",
             Instant.parse("2026-08-01T05:00:00Z"),
@@ -31,11 +31,11 @@ class DemodayBoothTest {
     void 프로젝트_부스_생성() throws Exception {
 
         // given
-        DemodayVoteEvent voteEvent = createVoteEvent();
-        DemodayBooth demodayBooth = DemodayBooth.forProject(voteEvent, PROJECT_ID);
+        DemodayPoll poll = createPoll();
+        DemodayBooth demodayBooth = DemodayBooth.forProject(poll, PROJECT_ID);
 
         // when & then
-        assertThat(demodayBooth.getVoteEvent()).isSameAs(voteEvent);
+        assertThat(demodayBooth.getPoll()).isSameAs(poll);
         assertThat(demodayBooth.getProjectId()).isEqualTo(PROJECT_ID);
         assertThat(demodayBooth.getDisplayName()).isNull();
     }
@@ -44,11 +44,11 @@ class DemodayBoothTest {
     @DisplayName("외부 부스 생성은 프로젝트는 비어 있고 부스 이름은 갖고 있다.")
     void 외부_부스_생성() {
         //given
-        DemodayVoteEvent voteEvent = createVoteEvent();
-        DemodayBooth demodayBooth = DemodayBooth.forExternal(voteEvent, "external");
+        DemodayPoll poll = createPoll();
+        DemodayBooth demodayBooth = DemodayBooth.forExternal(poll, "external");
 
         //when & then
-        assertThat(demodayBooth.getVoteEvent()).isSameAs(voteEvent);
+        assertThat(demodayBooth.getPoll()).isSameAs(poll);
         assertThat(demodayBooth.getDisplayName()).isEqualTo("external");
         assertThat(demodayBooth.getProjectId()).isNull();
     }
@@ -57,12 +57,12 @@ class DemodayBoothTest {
     @DisplayName("외부 부스 생성시 부스 이름이 비어 있으면 안된다.")
     void 외부_부스_이름_생성() {
         //when & then
-        assertThatThrownBy(() ->DemodayBooth.forExternal(createVoteEvent(), null))
+        assertThatThrownBy(() ->DemodayBooth.forExternal(createPoll(), null))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
 
-        assertThatThrownBy(() -> DemodayBooth.forExternal(createVoteEvent(), " "))
+        assertThatThrownBy(() -> DemodayBooth.forExternal(createPoll(), " "))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
@@ -76,10 +76,10 @@ class DemodayBoothTest {
         String tooLong = "가".repeat(256);
 
         // when & then
-        assertThatCode(() -> DemodayBooth.forExternal(createVoteEvent(), maxLength))
+        assertThatCode(() -> DemodayBooth.forExternal(createPoll(), maxLength))
             .doesNotThrowAnyException();
 
-        assertThatThrownBy(() -> DemodayBooth.forExternal(createVoteEvent(), tooLong))
+        assertThatThrownBy(() -> DemodayBooth.forExternal(createPoll(), tooLong))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
