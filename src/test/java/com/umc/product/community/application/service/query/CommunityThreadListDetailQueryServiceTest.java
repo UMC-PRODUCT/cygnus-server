@@ -275,6 +275,36 @@ class CommunityThreadListDetailQueryServiceTest {
     }
 
     @Test
+    @DisplayName("getPublicThread는 KICKED 요청자를 THREAD_ACCESS_DENIED로 거절한다")
+    void getPublicThread_강퇴된_요청자를_거절한다() {
+        // given
+        CommunityThreadQueryRow kicked = restrictedRow(CommunityThreadMemberState.KICKED, null);
+        given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(kicked));
+
+        // when & then
+        assertThatThrownBy(() -> sut.getPublicThread(new GetThreadDetailQuery(1L, 10L)))
+            .isInstanceOf(CommunityDomainException.class)
+            .extracting(exception -> ((CommunityDomainException) exception).getBaseCode())
+            .isEqualTo(CommunityErrorCode.THREAD_ACCESS_DENIED);
+        verifyNoInteractions(getMemberUseCase);
+    }
+
+    @Test
+    @DisplayName("getPublicThread는 LEFT 요청자에게는 상세를 반환한다")
+    void getPublicThread_탈퇴한_요청자를_허용한다() {
+        // given
+        CommunityThreadQueryRow left = restrictedRow(CommunityThreadMemberState.LEFT, null);
+        given(threadQueryPort.findThread(1L, 10L)).willReturn(Optional.of(left));
+
+        // when
+        var result = sut.getPublicThread(new GetThreadDetailQuery(1L, 10L));
+
+        // then
+        assertThat(result.threadId()).isEqualTo(1L);
+        assertThat(result.isJoined()).isFalse();
+    }
+
+    @Test
     @DisplayName("getPublicThread는 삭제된 스레드를 THREAD_DELETED로 거절한다")
     void getPublicThread_삭제된_스레드를_거절한다() {
         // given

@@ -192,6 +192,50 @@ class CommunityThreadReadQueryRepositoryTest {
     }
 
     @Test
+    @DisplayName("browse는 강퇴된 스레드를 목록과 total에서 제외하고 탈퇴한 스레드는 남긴다")
+    void browseThreads_강퇴된_스레드를_제외한다() {
+        // given
+        CommunityThread open = persistThread(2_401L, "공개 스레드", CommunityThreadCategory.FREE);
+        CommunityThread kicked = persistThread(2_402L, "강퇴된 스레드", CommunityThreadCategory.FREE);
+        CommunityThread left = persistThread(2_403L, "탈퇴한 스레드", CommunityThreadCategory.FREE);
+        persistMembership(open, 999L);
+        persistKickedMembership(kicked);
+        persistLeftMembership(left);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, CommunityThreadCategory.FREE, false, null, 0, 20
+        ));
+
+        // then
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactlyInAnyOrder(open.getId(), left.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(2L);
+    }
+
+    @Test
+    @DisplayName("browse 검색도 강퇴된 스레드를 제외한다")
+    void browseThreads_검색에서도_강퇴된_스레드를_제외한다() {
+        // given
+        CommunityThread open = persistThread(2_501L, "스터디 모집", CommunityThreadCategory.PROJECT);
+        CommunityThread kicked = persistThread(2_502L, "스터디 마감", CommunityThreadCategory.PROJECT);
+        persistMembership(open, 999L);
+        persistKickedMembership(kicked);
+        flushAndClear();
+
+        // when
+        CommunityThreadListRows result = sut.browseThreads(new CommunityThreadListCondition(
+            REQUESTER_ID, null, false, "스터디", 0, 20
+        ));
+
+        // then
+        assertThat(result.unpinned()).extracting(row -> row.threadId())
+            .containsExactly(open.getId());
+        assertThat(result.unpinnedTotal()).isEqualTo(1L);
+    }
+
+    @Test
     @DisplayName("browse 안읽음 필터는 가입해 안 읽은 스레드만 고정/전체에 남기고 비멤버 스레드는 제외한다")
     void browseThreads_안읽음_필터를_적용한다() {
         // given
@@ -334,6 +378,18 @@ class CommunityThreadReadQueryRepositoryTest {
 
     private CommunityThreadMember persistMembership(CommunityThread thread, Long memberId) {
         return memberRepository.save(CommunityThreadMember.createMember(thread.getId(), memberId, NOW));
+    }
+
+    private CommunityThreadMember persistKickedMembership(CommunityThread thread) {
+        CommunityThreadMember member = CommunityThreadMember.createMember(thread.getId(), REQUESTER_ID, NOW);
+        member.kick(NOW.plusSeconds(1));
+        return memberRepository.save(member);
+    }
+
+    private CommunityThreadMember persistLeftMembership(CommunityThread thread) {
+        CommunityThreadMember member = CommunityThreadMember.createMember(thread.getId(), REQUESTER_ID, NOW);
+        member.leave(NOW.plusSeconds(1));
+        return memberRepository.save(member);
     }
 
     private void flushAndClear() {
