@@ -10,7 +10,9 @@ import org.springframework.stereotype.Repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.Tuple;
+import com.querydsl.core.types.OrderSpecifier;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.CaseBuilder;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQuery;
@@ -42,7 +44,16 @@ public class CommunityThreadQueryRepository {
         return new CommunityThreadListRows(pinned, unpinned, unpinnedTotal);
     }
 
+    /**
+     * 목록 화면은 "고정"과 "전체"를 나눠 보여주므로 keyword가 없으면 두 목록으로 분리한다. 검색 화면은 단일 목록에 "검색 결과 N개"를 표시하므로 keyword가 있으면
+     * pinned를 비우고 매칭된 스레드 전체를 unpinned 하나에 담는다. 이때 unpinnedTotal은 고정 스레드를 포함한 전체 매칭 수다.
+     */
     public CommunityThreadListRows browseThreads(CommunityThreadListCondition condition) {
+        if (condition.keyword() != null) {
+            return new CommunityThreadListRows(
+                List.of(), fetchSearchRows(condition), countSearch(condition)
+            );
+        }
         List<CommunityThreadQueryRow> pinned = fetchThreadRows(condition, true);
         List<CommunityThreadQueryRow> unpinned = fetchBrowseRows(condition);
         long unpinnedTotal = countBrowse(condition);
@@ -173,6 +184,47 @@ public class CommunityThreadQueryRepository {
             .toList();
     }
 
+    private List<CommunityThreadQueryRow> fetchSearchRows(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("searchRequesterMembership");
+        JPQLQuery<Long> memberCount = activeMemberCount("searchActiveMembership");
+
+        return queryFactory
+            .select(threadProjection(requesterMembership, memberCount))
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(listCondition(condition, requesterMembership))
+            .orderBy(
+                pinnedFirst(requesterMembership),
+                communityThread.lastActivityAt.desc(),
+                communityThread.id.desc()
+            )
+            .offset(condition.offset())
+            .limit(condition.limit())
+            .fetch()
+            .stream()
+            .map(row -> toThreadRow(row, requesterMembership, memberCount))
+            .toList();
+    }
+
+    private long countSearch(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countSearchMembership");
+        Long count = queryFactory
+            .select(communityThread.id.count())
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(listCondition(condition, requesterMembership))
+            .fetchOne();
+        return count == null ? 0L : count;
+    }
+
     private long countBrowse(CommunityThreadListCondition condition) {
         QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countBrowseMembership");
         Long count = queryFactory
@@ -239,6 +291,16 @@ public class CommunityThreadQueryRepository {
             where.and(requesterMembership.unreadCount.gt(0L));
         }
         return where;
+    }
+
+    /**
+     * pinned는 left join 컬럼이라 비멤버 스레드에서 null이 된다. boolean 정렬은 DB마다 null 위치가 달라지므로 정렬 키를 0/1로 고정한다.
+     */
+    private OrderSpecifier<Integer> pinnedFirst(QCommunityThreadMember requesterMembership) {
+        return new CaseBuilder()
+            .when(requesterMembership.pinned.isTrue()).then(0)
+            .otherwise(1)
+            .asc();
     }
 
     private BooleanExpression keywordContains(String keyword) {
