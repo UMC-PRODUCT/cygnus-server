@@ -262,24 +262,24 @@
 
 | 순번 | 도메인 | 코드 | 이름 | HTTP 상태 | 메시지 | 사용자 행동 | 재시도 | 심각도 | 사용 중단 | 담당자 | 태그 | 원본 |
 |---:|---|---|---|---|---|---|---|---|---|---|---|---|
-| 210 | demoday | `DEMODAY-0100` | `DEMODAY_VOTE_EVENT_INVALID_WINDOW` | 400 BAD_REQUEST | 투표 시작 시각은 종료 시각보다 앞서야 해요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:14` |
-| 211 | demoday | `DEMODAY-0103` | `DEMODAY_VOTE_EVENT_OPEN_AT_REQUIRED` | 400 BAD_REQUEST | 데모데이 투표 시작 시간을 입력해주세요 |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:15` |
-| 212 | demoday | `DEMODAY-0104` | `DEMODAY_VOTE_EVENT_CLOSE_AT_REQUIRED` | 400 BAD_REQUEST | 데모데이 투표 종료 시간을 입력해주세요 |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:16` |
-| 213 | demoday | `DEMODAY-0105` | `DEMODAY_VOTE_EVENT_BOOTH_LOCKED` | 409 CONFLICT | 투표가 시작되어 부스를 추가할 수 없어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:17` |
-| 214 | demoday | `DEMODAY-0106` | `DEMODAY_VOTE_EVENT_INVALID_NAME` | 400 BAD_REQUEST | 데모데이 이름은 1자 이상 100자 이하여야 해요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:18` |
-| 215 | demoday | `DEMODAY-0107` | `DEMODAY_VOTE_EVENT_GISU_REQUIRED` | 400 BAD_REQUEST | 데모데이가 진행되는 기수를 입력해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:19` |
+| 210 | demoday | `DEMODAY-0100` | `DEMODAY_POLL_INVALID_WINDOW` | 400 BAD_REQUEST | 투표 시작 시각은 종료 시각보다 앞서야 해요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:14` |
+| 211 | demoday | `DEMODAY-0103` | `DEMODAY_POLL_OPEN_AT_REQUIRED` | 400 BAD_REQUEST | 데모데이 투표 시작 시간을 입력해주세요 |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:15` |
+| 212 | demoday | `DEMODAY-0104` | `DEMODAY_POLL_CLOSE_AT_REQUIRED` | 400 BAD_REQUEST | 데모데이 투표 종료 시간을 입력해주세요 |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:16` |
+| 213 | demoday | `DEMODAY-0105` | `DEMODAY_POLL_BOOTH_LOCKED` | 409 CONFLICT | 투표가 시작되어 부스를 추가할 수 없어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:17` |
+| 214 | demoday | `DEMODAY-0106` | `DEMODAY_POLL_INVALID_NAME` | 400 BAD_REQUEST | 데모데이 이름은 1자 이상 100자 이하여야 해요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:18` |
+| 215 | demoday | `DEMODAY-0107` | `DEMODAY_POLL_GISU_REQUIRED` | 400 BAD_REQUEST | 데모데이가 진행되는 기수를 입력해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:19` |
 | 216 | demoday | `DEMODAY-0200` | `DEMODAY_BOOTH_INVALID_IDENTIFIER` | 400 BAD_REQUEST | 부스는 등록된 프로젝트나 표시 이름 중 하나를 가져야 합니다. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:21` |
 | 217 | demoday | `DEMODAY-0201` | `DEMODAY_BOOTH_INVALID_NAME` | 400 BAD_REQUEST | 부스 이름은 1자 이상 255자 이하로 작성해주세요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:22` |
 | 218 | demoday | `DEMODAY-0300` | `DEMODAY_ENTRY_CODE_ALREADY_REDEEMED` | 409 CONFLICT | 이미 사용된 인증 코드예요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:24` |
 | 219 | demoday | `DEMODAY-0301` | `DEMODAY_ENTRY_CODE_ALREADY_BOUND` | 409 CONFLICT | 이미 다른 계정에 연결된 인증 코드예요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:25` |
-| 220 | demoday | `DEMODAY-0400` | `DEMODAY_BALLOT_NOT_OPENED_YET` | 409 CONFLICT | 아직 투표 시간이 아니에요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:27` |
-| 221 | demoday | `DEMODAY-0401` | `DEMODAY_BALLOT_CLOSED` | 409 CONFLICT | 투표가 종료되었어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:28` |
-| 222 | demoday | `DEMODAY-0402` | `DEMODAY_BALLOT_ALREADY_CAST` | 409 CONFLICT | 이미 투표를 완료했어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:29` |
-| 223 | demoday | `DEMODAY-0403` | `DEMODAY_BALLOT_ALREADY_VOIDED` | 409 CONFLICT | 이미 무효 처리된 표에요 |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:30` |
-| 224 | demoday | `DEMODAY-0404` | `DEMODAY_BALLOT_VOTE_EVENT_MISMATCH` | 409 CONFLICT | 이번 데모데이의 부스에만 투표할 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:31` |
+| 220 | demoday | `DEMODAY-0400` | `DEMODAY_VOTE_NOT_OPENED_YET` | 409 CONFLICT | 아직 투표 시간이 아니에요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:27` |
+| 221 | demoday | `DEMODAY-0401` | `DEMODAY_VOTE_CLOSED` | 409 CONFLICT | 투표가 종료되었어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:28` |
+| 222 | demoday | `DEMODAY-0402` | `DEMODAY_VOTE_ALREADY_CAST` | 409 CONFLICT | 이미 투표를 완료했어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:29` |
+| 223 | demoday | `DEMODAY-0403` | `DEMODAY_VOTE_ALREADY_REVOKED` | 409 CONFLICT | 이미 무효 처리된 표에요 |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:30` |
+| 224 | demoday | `DEMODAY-0404` | `DEMODAY_VOTE_POLL_MISMATCH` | 409 CONFLICT | 이번 데모데이의 부스에만 투표할 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:31` |
 | 225 | demoday | `DEMODAY-0501` | `DEMODAY_STAMP_ALREADY_COLLECTED` | 409 CONFLICT | 이미 스탬프를 받은 부스예요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:33` |
-| 226 | demoday | `DEMODAY-0502` | `DEMODAY_STAMP_ALREADY_VOIDED` | 409 CONFLICT | 이미 무효 처리된 스탬프예요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:34` |
-| 227 | demoday | `DEMODAY-0503` | `DEMODAY_STAMP_VOTE_EVENT_MISMATCH` | 409 CONFLICT | 이번 데모데이의 부스에만 스탬프를 받을 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:35` |
+| 226 | demoday | `DEMODAY-0502` | `DEMODAY_STAMP_ALREADY_REVOKED` | 409 CONFLICT | 이미 무효 처리된 스탬프예요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:34` |
+| 227 | demoday | `DEMODAY-0503` | `DEMODAY_STAMP_POLL_MISMATCH` | 409 CONFLICT | 이번 데모데이의 부스에만 스탬프를 받을 수 있어요. |  |  |  | false |  |  | `src/main/java/com/umc/product/demoday/domain/exception/DemodayErrorCode.java:35` |
 
 ## documentation
 
