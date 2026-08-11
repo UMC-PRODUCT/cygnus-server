@@ -67,7 +67,11 @@ public class ScheduleQueryV2Controller {
         message = "내 일정을 보려면 챌린저 활동 기록이 필요해요. 활동 기록을 확인해주세요."
     )
     @Operation(operationId = "SCHEDULE-Q002", summary = "내 일정 조회", description = """
-        로그인한 사용자가 참여하는 일정 중 Query Param의 `from`, `to` 사이에 시작일이 있는 일정을 모두 조회합니다.
+        로그인한 사용자가 참여하는 일정 중 Query Param의 `from` ~ `to` 기간과 일정 기간이 겹치는 일정을 모두 조회합니다.
+
+        시작일이 아닌 기간 겹침(`startsAt <= to AND endsAt >= from`) 기준이므로, 여러 달에 걸친 일정은
+        걸쳐 있는 모든 달의 조회 결과에 포함됩니다.
+        (ex. 6/30 ~ 8/2 일정은 6월, 7월, 8월 조회에 모두 포함)
 
         활동-출석 체크 UI에서 활용하기 위해서는 `isAttendanceRequired` 필드를 `true`로 해서 출석을 트래킹하는 API에 대해서만 조회하면 됩니다.
 
