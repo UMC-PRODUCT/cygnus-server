@@ -5,6 +5,7 @@ import com.umc.product.authentication.application.port.in.command.dto.LocalLogin
 import com.umc.product.authentication.application.port.in.command.dto.LoginByEmailCommand;
 import com.umc.product.authentication.application.port.in.command.dto.RegisterCredentialByEmailCommand;
 import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByEmailCommand;
+import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByMemberIdCommand;
 
 /**
  * 이메일/PW 자격증명 등록/변경/로그인 UseCase. ADR-017 흐름.
@@ -33,6 +34,9 @@ public interface CredentialAuthenticationUseCase {
      * {@code INVALID_LOGIN_CREDENTIAL} 단일 메시지로 응답한다.
      */
     void resetPasswordByEmail(ResetPasswordByEmailCommand command);
+
+    /** 내부 관리자 발급 계정의 비밀번호를 회원 ID 기준으로 초기화한다. */
+    void resetPasswordByMemberId(ResetPasswordByMemberIdCommand command);
 
     /**
      * 이메일/PW 로그인. 성공 시 JWT 토큰 쌍을 발급하며,

@@ -13,6 +13,7 @@ import com.umc.product.authentication.application.port.in.command.dto.LoginByEma
 import com.umc.product.authentication.application.port.in.command.dto.NewTokens;
 import com.umc.product.authentication.application.port.in.command.dto.RegisterCredentialByEmailCommand;
 import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByEmailCommand;
+import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByMemberIdCommand;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.global.exception.constant.Domain;
@@ -95,6 +96,14 @@ public class CredentialAuthenticationService implements CredentialAuthentication
             operationalMetrics.recordSecurityEvent("AUTHENTICATION", "PASSWORD_RESET", "failure");
             throw e;
         }
+    }
+
+    @Override
+    public void resetPasswordByMemberId(ResetPasswordByMemberIdCommand command) {
+        String encodedPassword = passwordEncoder.encode(command.newRawPassword());
+        manageMemberCredentialUseCase.changePassword(
+            ChangeMemberPasswordCommand.of(command.memberId(), encodedPassword)
+        );
     }
 
     @Audited(

@@ -27,6 +27,7 @@ import com.umc.product.authentication.application.port.in.command.dto.LoginByEma
 import com.umc.product.authentication.application.port.in.command.dto.NewTokens;
 import com.umc.product.authentication.application.port.in.command.dto.RegisterCredentialByEmailCommand;
 import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByEmailCommand;
+import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByMemberIdCommand;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.common.domain.enums.ClientType;
@@ -208,6 +209,24 @@ class CredentialAuthenticationServiceTest {
 
             then(passwordEncoder).should(never()).encode(anyString());
             then(manageMemberCredentialUseCase).should(never()).changePassword(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("관리자 발급 계정 비밀번호 초기화")
+    class ResetPasswordByMemberId {
+
+        @Test
+        @DisplayName("평문을 인코딩해 Member 자격증명 변경에 전달한다")
+        void 회원_ID로_초기화한다() {
+            String newPassword = "New-Temp-Pw-2026";
+            given(passwordEncoder.encode(newPassword)).willReturn("{argon2}new-admin-hash");
+
+            service.resetPasswordByMemberId(new ResetPasswordByMemberIdCommand(MEMBER_ID, newPassword));
+
+            then(manageMemberCredentialUseCase).should().changePassword(
+                ChangeMemberPasswordCommand.of(MEMBER_ID, "{argon2}new-admin-hash")
+            );
         }
     }
 
