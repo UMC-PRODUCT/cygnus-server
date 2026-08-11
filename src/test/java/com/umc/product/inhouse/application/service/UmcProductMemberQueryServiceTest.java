@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -23,6 +24,7 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterM
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
 import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
@@ -37,6 +39,8 @@ class UmcProductMemberQueryServiceTest {
 
     @Mock
     LoadUmcProductMemberPort loadUmcProductMemberPort;
+    @Mock
+    LoadUmcProductMemberAccountPort loadUmcProductMemberAccountPort;
     @Mock
     LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
     @Mock
@@ -75,6 +79,15 @@ class UmcProductMemberQueryServiceTest {
         );
         verify(loadUmcProductMemberPort).searchIds(captor.capture(), any());
         assertThat(captor.getValue().departmentIds()).containsExactlyInAnyOrder(10L, 20L, 30L);
+    }
+
+    @Test
+    void 로그인_계정에_연동된_인원이_없으면_빈_프로필을_반환한다() {
+        given(loadUmcProductMemberAccountPort.findByMemberId(100L)).willReturn(java.util.Optional.empty());
+
+        assertThat(sut.findByAccountMemberId(100L)).isEmpty();
+
+        verifyNoInteractions(loadUmcProductMemberPort);
     }
 
     private UmcProductDepartment department(Long id, UmcProductDepartment parent) {

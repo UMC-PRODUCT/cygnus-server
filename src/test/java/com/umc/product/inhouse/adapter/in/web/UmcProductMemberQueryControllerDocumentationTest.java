@@ -6,9 +6,11 @@ import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuild
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,6 +67,32 @@ class UmcProductMemberQueryControllerDocumentationTest extends DocumentationTest
             .andDo(restDocsHandler.document(pathParameters(
                 parameterWithName("memberId").description("UMC PRODUCT 멤버 ID")
             )));
+    }
+
+    @Test
+    @DisplayName("로그인 계정에 연동된 내 UMC PRODUCT 프로필을 조회한다")
+    void 내_프로필을_조회한다() throws Exception {
+        given(getUmcProductMemberUseCase.findByAccountMemberId(TEST_MEMBER_ID))
+            .willReturn(Optional.of(memberInfo()));
+        given(umcProductAccessPolicy.canManageUmcProduct(TEST_MEMBER_ID)).willReturn(true);
+
+        mockMvc.perform(get("/api/v1/umc-product/members/me"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.profile.umcProductMemberId").value(30L))
+            .andExpect(jsonPath("$.result.canManage").value(true))
+            .andDo(restDocsHandler);
+    }
+
+    @Test
+    @DisplayName("연동된 인원이 없어도 관리 가능 여부와 null 프로필을 반환한다")
+    void 연동된_인원이_없어도_권한을_반환한다() throws Exception {
+        given(getUmcProductMemberUseCase.findByAccountMemberId(TEST_MEMBER_ID)).willReturn(Optional.empty());
+        given(umcProductAccessPolicy.canManageUmcProduct(TEST_MEMBER_ID)).willReturn(true);
+
+        mockMvc.perform(get("/api/v1/umc-product/members/me"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.profile").isEmpty())
+            .andExpect(jsonPath("$.result.canManage").value(true));
     }
 
     @Test

@@ -22,6 +22,7 @@ import com.umc.product.inhouse.adapter.in.web.UmcProductDepartmentCommandControl
 import com.umc.product.inhouse.adapter.in.web.UmcProductDepartmentQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMemberCommandController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMemberQueryController;
+import com.umc.product.inhouse.adapter.in.web.UmcProductMyProfileQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductOrganizationChartQueryController;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductChapterUseCase;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepartmentUseCase;
@@ -30,6 +31,7 @@ import com.umc.product.inhouse.application.port.in.query.GetUmcProductChapterUse
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductMemberUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductOrganizationChartUseCase;
+import com.umc.product.inhouse.application.service.UmcProductAccessPolicy;
 import com.umc.product.notice.adapter.in.web.NoticeCommandController;
 import com.umc.product.notice.adapter.in.web.NoticeContentController;
 import com.umc.product.notice.adapter.in.web.NoticeQueryController;
@@ -63,6 +65,7 @@ import com.umc.product.storage.application.port.in.query.GetFileUseCase;
     UmcProductChapterQueryController.class,
     UmcProductMemberCommandController.class,
     UmcProductMemberQueryController.class,
+    UmcProductMyProfileQueryController.class,
     UmcProductDepartmentCommandController.class,
     UmcProductDepartmentQueryController.class,
     UmcProductOrganizationChartQueryController.class,
@@ -125,6 +128,9 @@ public class DocumentationTest {
 
     @MockitoBean
     protected GetUmcProductMemberUseCase getUmcProductMemberUseCase;
+
+    @MockitoBean
+    protected UmcProductAccessPolicy umcProductAccessPolicy;
 
     @MockitoBean
     protected ManageUmcProductDepartmentUseCase manageUmcProductDepartmentUseCase;

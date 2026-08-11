@@ -10,6 +10,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -33,6 +34,7 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterM
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
 import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
@@ -54,6 +56,7 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase {
 
     private final LoadUmcProductMemberPort loadUmcProductMemberPort;
+    private final LoadUmcProductMemberAccountPort loadUmcProductMemberAccountPort;
     private final LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
     private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
@@ -80,6 +83,12 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             productProfileLinkOf(productProfileLinks, member),
             null
         );
+    }
+
+    @Override
+    public Optional<UmcProductMemberInfo> findByAccountMemberId(Long memberId) {
+        return loadUmcProductMemberAccountPort.findByMemberId(memberId)
+            .map(account -> getById(account.getUmcProductMember().getId()));
     }
 
     @Override
