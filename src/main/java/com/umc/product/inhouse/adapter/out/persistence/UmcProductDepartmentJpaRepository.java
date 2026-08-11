@@ -17,6 +17,8 @@ public interface UmcProductDepartmentJpaRepository extends JpaRepository<UmcProd
 
     List<UmcProductDepartment> findByIdIn(Collection<Long> ids);
 
+    boolean existsByParentId(Long parentDepartmentId);
+
     @Query("""
         SELECT COUNT(s) > 0
         FROM UmcProductDepartment s
@@ -31,6 +33,10 @@ public interface UmcProductDepartmentJpaRepository extends JpaRepository<UmcProd
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM UmcProductDepartment s WHERE s.id = :departmentId")
     java.util.Optional<UmcProductDepartment> findByIdWithLock(@Param("departmentId") Long departmentId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM UmcProductDepartment s ORDER BY s.id ASC")
+    List<UmcProductDepartment> findAllWithLock();
 
     @Query("""
         SELECT s

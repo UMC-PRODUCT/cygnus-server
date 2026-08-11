@@ -41,7 +41,7 @@ class UmcProductDepartmentControllerDocumentationTest extends DocumentationTest 
     void UMC_PRODUCT_Department를_생성한다() throws Exception {
         // given
         CreateUmcProductDepartmentRequest request = new CreateUmcProductDepartmentRequest(
-            "SPRINT", "Sprint Department", "제품 개선 Department", START_DATE, END_DATE, 1, true
+            "SPRINT", "Sprint Department", "제품 개선 Department", null, START_DATE, END_DATE, 1, true
         );
         given(manageUmcProductDepartmentUseCase.create(any())).willReturn(70L);
 
@@ -59,7 +59,8 @@ class UmcProductDepartmentControllerDocumentationTest extends DocumentationTest 
         // given
         given(getUmcProductDepartmentUseCase.list(true, START_DATE)).willReturn(List.of(
             new UmcProductDepartmentInfo(
-                70L, "SPRINT", "Sprint Department", "제품 개선 Department", START_DATE, END_DATE, 1, true
+                70L, "SPRINT", "Sprint Department", "제품 개선 Department", null,
+                START_DATE, END_DATE, 1, true
             )
         ));
 
@@ -79,7 +80,8 @@ class UmcProductDepartmentControllerDocumentationTest extends DocumentationTest 
     void UMC_PRODUCT_Department를_수정한다() throws Exception {
         // given
         UpdateUmcProductDepartmentRequest request = new UpdateUmcProductDepartmentRequest(
-            "SPRINT-2", "Sprint Department 2", "제품 개선 Department", START_DATE, END_DATE, 2, true
+            "SPRINT-2", "Sprint Department 2", "제품 개선 Department", null,
+            START_DATE, END_DATE, 2, true
         );
 
         // when & then
@@ -188,6 +190,8 @@ class UmcProductDepartmentControllerDocumentationTest extends DocumentationTest 
             fieldWithPath("code").type(JsonFieldType.STRING).description("Department 코드").optional(),
             fieldWithPath("name").type(JsonFieldType.STRING).description("Department 이름").optional(),
             fieldWithPath("description").type(JsonFieldType.STRING).description("Department 설명").optional(),
+            fieldWithPath("parentDepartmentId").type(JsonFieldType.NUMBER)
+                .description("상위 Department ID, null이면 최상위").optional(),
             fieldWithPath("startDate").type(JsonFieldType.STRING)
                 .description("운영 시작일 (yyyy-MM-dd)"),
             fieldWithPath("endDate").type(JsonFieldType.STRING)

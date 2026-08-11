@@ -23,6 +23,7 @@ class UmcProductDepartmentTest {
             "RECRUIT",
             "모집 Department",
             null,
+            null,
             JANUARY_1,
             null,
             1,
@@ -39,6 +40,7 @@ class UmcProductDepartmentTest {
         assertThatThrownBy(() -> UmcProductDepartment.create(
             "INVALID",
             "잘못된 Department",
+            null,
             null,
             DECEMBER_31,
             JANUARY_1,
@@ -105,6 +107,7 @@ class UmcProductDepartmentTest {
         return UmcProductDepartment.create(
             "RECRUIT",
             "모집 Department",
+            null,
             null,
             JANUARY_1,
             DECEMBER_31,

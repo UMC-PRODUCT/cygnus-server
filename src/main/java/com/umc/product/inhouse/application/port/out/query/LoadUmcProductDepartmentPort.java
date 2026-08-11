@@ -14,7 +14,11 @@ public interface LoadUmcProductDepartmentPort {
 
     List<UmcProductDepartment> listAll(Boolean active, LocalDate activeOn);
 
+    List<UmcProductDepartment> listAllWithLock();
+
     List<UmcProductDepartment> listByIds(Collection<Long> ids);
 
     boolean existsByCode(String code, Long excludedDepartmentId);
+
+    boolean existsByParentId(Long parentDepartmentId);
 }

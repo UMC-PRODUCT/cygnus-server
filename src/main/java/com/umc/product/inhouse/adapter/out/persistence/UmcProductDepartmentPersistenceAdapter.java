@@ -22,7 +22,9 @@ public class UmcProductDepartmentPersistenceAdapter implements LoadUmcProductDep
 
     private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "uk_umc_product_department_code",
-        InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_ALREADY_EXISTS
+        InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_ALREADY_EXISTS,
+        "fk_umc_product_department_parent",
+        InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_HAS_CHILDREN
     );
 
     private final UmcProductDepartmentJpaRepository umcProductDepartmentJpaRepository;
@@ -45,6 +47,11 @@ public class UmcProductDepartmentPersistenceAdapter implements LoadUmcProductDep
     }
 
     @Override
+    public List<UmcProductDepartment> listAllWithLock() {
+        return umcProductDepartmentJpaRepository.findAllWithLock();
+    }
+
+    @Override
     public List<UmcProductDepartment> listByIds(Collection<Long> ids) {
         if (ids == null || ids.isEmpty()) {
             return List.of();
@@ -55,6 +62,11 @@ public class UmcProductDepartmentPersistenceAdapter implements LoadUmcProductDep
     @Override
     public boolean existsByCode(String code, Long excludedDepartmentId) {
         return umcProductDepartmentJpaRepository.existsByCode(code, excludedDepartmentId);
+    }
+
+    @Override
+    public boolean existsByParentId(Long parentDepartmentId) {
+        return umcProductDepartmentJpaRepository.existsByParentId(parentDepartmentId);
     }
 
     @Override

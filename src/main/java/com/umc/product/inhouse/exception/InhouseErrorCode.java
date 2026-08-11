@@ -61,7 +61,9 @@ public enum InhouseErrorCode implements BaseCode {
     UMC_PRODUCT_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "INHOUSE-0036", "UMC PRODUCT 인원의 계정 연동을 찾을 수 없습니다."),
     UMC_PRODUCT_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0037", "UMC PRODUCT 인원 이름은 필수입니다."),
     UMC_PRODUCT_NICKNAME_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0038", "UMC PRODUCT 인원 닉네임은 필수입니다."),
-    UMC_PRODUCT_ACCOUNT_TYPE_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0039", "UMC PRODUCT 계정 유형은 필수입니다.");
+    UMC_PRODUCT_ACCOUNT_TYPE_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0039", "UMC PRODUCT 계정 유형은 필수입니다."),
+    UMC_PRODUCT_DEPARTMENT_CYCLE(HttpStatus.BAD_REQUEST, "INHOUSE-0040", "UMC PRODUCT Department 상하 관계에 순환이 생길 수 없습니다."),
+    UMC_PRODUCT_DEPARTMENT_HAS_CHILDREN(HttpStatus.CONFLICT, "INHOUSE-0041", "하위 Department가 있어 삭제할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

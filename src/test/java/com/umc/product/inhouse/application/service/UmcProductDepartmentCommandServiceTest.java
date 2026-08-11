@@ -65,6 +65,7 @@ class UmcProductDepartmentCommandServiceTest {
             " DUPLICATED ",
             "중복 Department",
             null,
+            null,
             START_DATE,
             END_DATE,
             1,
@@ -86,12 +87,13 @@ class UmcProductDepartmentCommandServiceTest {
         given(participant.getStartDate()).willReturn(LocalDate.of(2026, 1, 15));
         given(participant.getEndDate()).willReturn(LocalDate.of(2026, 6, 30));
         given(umcProductAccessPolicy.canManageUmcProduct(100L)).willReturn(true);
-        given(loadUmcProductDepartmentPort.getByIdWithLock(1L)).willReturn(department);
+        given(loadUmcProductDepartmentPort.listAllWithLock()).willReturn(List.of(department));
         given(loadUmcProductDepartmentParticipantPort.listByDepartmentId(1L)).willReturn(List.of(participant));
 
         assertThatThrownBy(() -> sut.update(UpdateUmcProductDepartmentCommand.of(
             1L,
             100L,
+            null,
             null,
             null,
             null,
@@ -111,7 +113,7 @@ class UmcProductDepartmentCommandServiceTest {
     void 참가_이력이_있는_Department는_삭제할_수_없다() {
         UmcProductDepartment department = department(1L);
         given(umcProductAccessPolicy.canManageUmcProduct(100L)).willReturn(true);
-        given(loadUmcProductDepartmentPort.getByIdWithLock(1L)).willReturn(department);
+        given(loadUmcProductDepartmentPort.listAllWithLock()).willReturn(List.of(department));
         given(loadUmcProductDepartmentParticipantPort.existsByDepartmentId(1L)).willReturn(true);
 
         assertThatThrownBy(() -> sut.delete(1L, 100L))
@@ -122,11 +124,75 @@ class UmcProductDepartmentCommandServiceTest {
         then(saveUmcProductDepartmentPort).should(never()).delete(any());
     }
 
+    @Test
+    void 자기_자신을_부모로_지정하면_거부한다() {
+        UmcProductDepartment department = department(10L);
+        given(umcProductAccessPolicy.canManageUmcProduct(100L)).willReturn(true);
+        given(loadUmcProductDepartmentPort.listAllWithLock()).willReturn(List.of(department));
+
+        assertThatThrownBy(() -> sut.update(updateCommand(10L, 10L)))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_CYCLE);
+
+        then(saveUmcProductDepartmentPort).should(never()).save(any());
+    }
+
+    @Test
+    void 자신의_하위_Department를_부모로_지정하면_거부한다() {
+        UmcProductDepartment root = department(10L);
+        UmcProductDepartment child = department(20L, root);
+        given(umcProductAccessPolicy.canManageUmcProduct(100L)).willReturn(true);
+        given(loadUmcProductDepartmentPort.listAllWithLock()).willReturn(List.of(root, child));
+
+        assertThatThrownBy(() -> sut.update(updateCommand(10L, 20L)))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_CYCLE);
+
+        then(saveUmcProductDepartmentPort).should(never()).save(any());
+    }
+
+    @Test
+    void 하위_Department가_있는_Department는_삭제할_수_없다() {
+        UmcProductDepartment department = department(10L);
+        given(umcProductAccessPolicy.canManageUmcProduct(100L)).willReturn(true);
+        given(loadUmcProductDepartmentPort.listAllWithLock()).willReturn(List.of(department));
+        given(loadUmcProductDepartmentPort.existsByParentId(10L)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.delete(10L, 100L))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_HAS_CHILDREN);
+
+        then(saveUmcProductDepartmentPort).should(never()).delete(any());
+    }
+
+    private UpdateUmcProductDepartmentCommand updateCommand(Long departmentId, Long parentDepartmentId) {
+        return UpdateUmcProductDepartmentCommand.of(
+            departmentId,
+            100L,
+            null,
+            null,
+            null,
+            parentDepartmentId,
+            START_DATE,
+            END_DATE,
+            null,
+            null
+        );
+    }
+
     private UmcProductDepartment department(Long id) {
+        return department(id, null);
+    }
+
+    private UmcProductDepartment department(Long id, UmcProductDepartment parent) {
         UmcProductDepartment department = UmcProductDepartment.create(
             "RECRUIT",
             "모집 Department",
             "기존 설명",
+            parent,
             START_DATE,
             END_DATE,
             1,

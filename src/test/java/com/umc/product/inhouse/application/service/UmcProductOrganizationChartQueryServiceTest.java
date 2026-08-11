@@ -43,7 +43,7 @@ class UmcProductOrganizationChartQueryServiceTest {
         );
         ReflectionTestUtils.setField(chapter, "id", 1L);
         UmcProductDepartment department = UmcProductDepartment.create(
-            "RECRUIT", "모집", null, today, null, 1, true
+            "RECRUIT", "모집", null, null, today, null, 1, true
         );
         ReflectionTestUtils.setField(department, "id", 3L);
         given(umcProductDateProvider.today()).willReturn(today);

@@ -1,7 +1,12 @@
 package com.umc.product.inhouse.application.service;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,11 +58,14 @@ public class UmcProductDepartmentCommandService implements ManageUmcProductDepar
     @Override
     public Long create(CreateUmcProductDepartmentCommand command) {
         validateCanManage(command.requesterMemberId());
+        Map<Long, UmcProductDepartment> departmentTree = lockDepartmentTree();
         validateCodeNotDuplicated(command.code(), null);
+        UmcProductDepartment parent = resolveParent(command.parentDepartmentId(), null, departmentTree);
         UmcProductDepartment department = UmcProductDepartment.create(
             command.code(),
             command.name(),
             command.description(),
+            parent,
             command.startDate(),
             command.endDate(),
             command.sortOrder(),
@@ -76,7 +84,13 @@ public class UmcProductDepartmentCommandService implements ManageUmcProductDepar
     @Override
     public void update(UpdateUmcProductDepartmentCommand command) {
         validateCanManage(command.requesterMemberId());
-        UmcProductDepartment department = loadUmcProductDepartmentPort.getByIdWithLock(command.departmentId());
+        Map<Long, UmcProductDepartment> departmentTree = lockDepartmentTree();
+        UmcProductDepartment department = getFromTree(command.departmentId(), departmentTree);
+        UmcProductDepartment parent = resolveParent(
+            command.parentDepartmentId(),
+            department.getId(),
+            departmentTree
+        );
         if (command.code() != null) {
             validateCodeNotDuplicated(command.code(), department.getId());
         }
@@ -87,6 +101,7 @@ public class UmcProductDepartmentCommandService implements ManageUmcProductDepar
             command.code(),
             command.name(),
             command.description(),
+            parent,
             nextStartDate,
             command.endDate(),
             command.sortOrder(),
@@ -105,7 +120,11 @@ public class UmcProductDepartmentCommandService implements ManageUmcProductDepar
     @Override
     public void delete(Long departmentId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
-        UmcProductDepartment department = loadUmcProductDepartmentPort.getByIdWithLock(departmentId);
+        Map<Long, UmcProductDepartment> departmentTree = lockDepartmentTree();
+        UmcProductDepartment department = getFromTree(departmentId, departmentTree);
+        if (loadUmcProductDepartmentPort.existsByParentId(departmentId)) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_HAS_CHILDREN);
+        }
         if (loadUmcProductDepartmentParticipantPort.existsByDepartmentId(departmentId)) {
             throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_HAS_PARTICIPANTS);
         }
@@ -272,6 +291,42 @@ public class UmcProductDepartmentCommandService implements ManageUmcProductDepar
         if (code != null && loadUmcProductDepartmentPort.existsByCode(code.trim(), excludedDepartmentId)) {
             throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_ALREADY_EXISTS);
         }
+    }
+
+    private Map<Long, UmcProductDepartment> lockDepartmentTree() {
+        return loadUmcProductDepartmentPort.listAllWithLock().stream()
+            .collect(Collectors.toMap(UmcProductDepartment::getId, Function.identity()));
+    }
+
+    private UmcProductDepartment getFromTree(
+        Long departmentId,
+        Map<Long, UmcProductDepartment> departmentTree
+    ) {
+        UmcProductDepartment department = departmentTree.get(departmentId);
+        if (department == null) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_NOT_FOUND);
+        }
+        return department;
+    }
+
+    private UmcProductDepartment resolveParent(
+        Long parentDepartmentId,
+        Long selfId,
+        Map<Long, UmcProductDepartment> departmentTree
+    ) {
+        if (parentDepartmentId == null) {
+            return null;
+        }
+        Set<Long> visited = new HashSet<>();
+        Long cursorId = parentDepartmentId;
+        while (cursorId != null) {
+            if (Objects.equals(cursorId, selfId) || !visited.add(cursorId)) {
+                throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_CYCLE);
+            }
+            UmcProductDepartment cursor = getFromTree(cursorId, departmentTree);
+            cursorId = cursor.getParent() == null ? null : cursor.getParent().getId();
+        }
+        return getFromTree(parentDepartmentId, departmentTree);
     }
 
     private static void validatePeriod(LocalDate startDate, LocalDate endDate) {

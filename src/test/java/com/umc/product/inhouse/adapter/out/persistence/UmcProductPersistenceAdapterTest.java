@@ -581,6 +581,7 @@ class UmcProductPersistenceAdapterTest {
             code,
             code + " Department",
             null,
+            null,
             startDate,
             endDate,
             sortOrder,

@@ -29,6 +29,7 @@ class UmcProductOrganizationChartQueryControllerDocumentationTest extends Docume
             "SPRINT",
             "Sprint Department",
             "제품 개선 Department",
+            null,
             LocalDate.of(2026, 7, 13),
             LocalDate.of(2026, 12, 31),
             1,

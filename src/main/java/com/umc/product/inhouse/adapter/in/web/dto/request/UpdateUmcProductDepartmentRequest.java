@@ -12,6 +12,7 @@ public record UpdateUmcProductDepartmentRequest(
     @Size(max = 64) String code,
     @Size(max = 100) String name,
     @Size(max = 1000) String description,
+    Long parentDepartmentId,
     @NotNull @UmcProductDateFormat
     @Schema(type = "string", format = "date", example = "2026-07-13")
     LocalDate startDate,
@@ -28,6 +29,7 @@ public record UpdateUmcProductDepartmentRequest(
             code,
             name,
             description,
+            parentDepartmentId,
             startDate,
             endDate,
             sortOrder,

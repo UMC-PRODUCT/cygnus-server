@@ -10,9 +10,12 @@ import com.umc.product.inhouse.exception.InhouseErrorCode;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -38,6 +41,10 @@ public class UmcProductDepartment extends BaseEntity {
     @Column(length = 1000)
     private String description;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_department_id")
+    private UmcProductDepartment parent;
+
     @Embedded
     private UmcProductDatePeriod period;
 
@@ -52,6 +59,7 @@ public class UmcProductDepartment extends BaseEntity {
         String code,
         String name,
         String description,
+        UmcProductDepartment parent,
         LocalDate startDate,
         LocalDate endDate,
         int sortOrder,
@@ -61,6 +69,7 @@ public class UmcProductDepartment extends BaseEntity {
         this.code = normalizeRequired(code);
         this.name = normalizeRequired(name);
         this.description = normalizeNullable(description);
+        this.parent = parent;
         this.period = UmcProductDatePeriod.of(startDate, endDate);
         this.sortOrder = sortOrder;
         this.isActive = isActive;
@@ -70,6 +79,7 @@ public class UmcProductDepartment extends BaseEntity {
         String code,
         String name,
         String description,
+        UmcProductDepartment parent,
         LocalDate startDate,
         LocalDate endDate,
         int sortOrder,
@@ -79,6 +89,7 @@ public class UmcProductDepartment extends BaseEntity {
             .code(code)
             .name(name)
             .description(description)
+            .parent(parent)
             .startDate(startDate)
             .endDate(endDate)
             .sortOrder(sortOrder)
@@ -90,6 +101,7 @@ public class UmcProductDepartment extends BaseEntity {
         String code,
         String name,
         String description,
+        UmcProductDepartment parent,
         LocalDate startDate,
         LocalDate endDate,
         Integer sortOrder,
@@ -104,6 +116,7 @@ public class UmcProductDepartment extends BaseEntity {
         if (description != null) {
             this.description = normalizeNullable(description);
         }
+        this.parent = parent;
         this.period = UmcProductDatePeriod.of(nextStartDate, endDate);
         if (sortOrder != null) {
             this.sortOrder = sortOrder;
