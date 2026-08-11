@@ -3,17 +3,20 @@ package com.umc.product.schedule.adapter.out.persistence;
 import static com.umc.product.schedule.domain.QSchedule.schedule;
 import static com.umc.product.schedule.domain.QScheduleParticipant.scheduleParticipant;
 
-import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.umc.product.schedule.domain.Schedule;
-import com.umc.product.schedule.domain.enums.AttendanceStatus;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Repository;
+
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.schedule.domain.Schedule;
+import com.umc.product.schedule.domain.enums.AttendanceStatus;
+
+import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
@@ -32,7 +35,7 @@ public class ScheduleQueryRepository {
             .leftJoin(schedule.tags).fetchJoin()
             .where(
                 scheduleParticipant.memberId.eq(memberId), // 내가 참여자인 일정
-                schedule.startsAt.between(from, to), // from ~ to 사이
+                overlapsPeriod(from, to), // from ~ to 와 기간이 겹치는 일정
                 isAttendanceRequiredEq(isAttendanceRequired) // 동적 쿼리
             )
             .orderBy(schedule.startsAt.asc())
@@ -86,6 +89,22 @@ public class ScheduleQueryRepository {
     }
 
     // ========================== 동적 조건 Helper Method ==========================
+
+    // 조회 기간(from ~ to)과 일정 기간(startsAt ~ endsAt)이 겹치는지 판별하는 메서드
+    // 시작 시각만 비교하면 여러 달에 걸친 일정이 시작한 달에서만 조회되므로, 기간 겹침으로 판별한다.
+    // ex) 6/30 ~ 8/2 일정은 6월/7월/8월 조회에 모두 포함된다.
+    private BooleanExpression overlapsPeriod(Instant from, Instant to) {
+        BooleanExpression startsBeforePeriodEnds = (to != null) ? schedule.startsAt.loe(to) : null;
+        BooleanExpression endsAfterPeriodStarts = (from != null) ? schedule.endsAt.goe(from) : null;
+
+        if (startsBeforePeriodEnds == null) {
+            return endsAfterPeriodStarts;
+        }
+        if (endsAfterPeriodStarts == null) {
+            return startsBeforePeriodEnds;
+        }
+        return startsBeforePeriodEnds.and(endsAfterPeriodStarts);
+    }
 
     // 동적 쿼리 처리 헬퍼 메서드
     private BooleanExpression isAttendanceRequiredEq(Boolean isAttendanceRequired) {

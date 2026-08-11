@@ -1,11 +1,12 @@
 package com.umc.product.schedule.application.port.out;
 
-import com.umc.product.schedule.domain.Schedule;
-import com.umc.product.schedule.domain.enums.AttendanceStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+
+import com.umc.product.schedule.domain.Schedule;
+import com.umc.product.schedule.domain.enums.AttendanceStatus;
 
 public interface LoadSchedulePort {
 
@@ -14,6 +15,10 @@ public interface LoadSchedulePort {
     boolean existsById(Long id);
 
     /**
+     * 사용자가 참여하는 일정 중 (from ~ to) 기간과 일정 기간(startsAt ~ endsAt)이 겹치는 일정을 조회합니다.
+     * <p>
+     * 시작 시각 기준이 아닌 기간 겹침 기준이므로, 여러 달에 걸친 일정은 걸쳐 있는 모든 달의 조회에 포함됩니다.
+     *
      * @param memberId             사용자 memberId
      * @param from                 탐색을 시작할 날짜
      * @param to                   탐색을 끝낼 날짜
