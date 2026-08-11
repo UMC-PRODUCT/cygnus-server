@@ -1,15 +1,17 @@
+-- DEFAULT는 제거하지 않는다.
+-- ASG instance refresh는 구/신 인스턴스가 함께 도는 구간이 있고, 그동안 구버전은 read_scope를
+-- 포함하지 않은 INSERT를 계속 보낸다. DEFAULT가 없으면 그 INSERT가 NOT NULL 위반으로 전부 실패한다.
+-- 또한 MEMBER_ONLY는 가장 닫힌 값이라, 값을 채우지 않는 코드가 생겨도 안전한 쪽으로 떨어진다.
 ALTER TABLE chat_room
     ADD COLUMN read_scope VARCHAR(20) DEFAULT 'MEMBER_ONLY' NOT NULL;
 
 -- Community thread 방은 스레드 상세와 동일하게 메시지 조회를 공개한다.
 -- 기존 스레드도 같은 규칙을 따라야 하므로 소유 관계를 따라 backfill 한다.
+-- 오버랩 구간에 구버전이 만든 스레드 방은 MEMBER_ONLY로 남으므로, 이번 릴리스가 완전히
+-- 롤아웃된 뒤 후속 migration에서 같은 backfill을 한 번 더 수행한다.
 UPDATE chat_room
 SET read_scope = 'PUBLIC'
 WHERE id IN (SELECT chat_room_id FROM community_thread);
-
--- 이후 생성되는 방은 엔티티가 항상 값을 채우므로 기본값에 기대지 않는다.
-ALTER TABLE chat_room
-    ALTER COLUMN read_scope DROP DEFAULT;
 
 ALTER TABLE chat_room
     ADD CONSTRAINT ck_chat_room_read_scope
