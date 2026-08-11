@@ -1,10 +1,13 @@
 package com.umc.product.inhouse.application.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -18,8 +21,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.global.exception.BusinessException;
+import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
 import com.umc.product.inhouse.application.port.in.command.dto.UmcProductActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
@@ -39,6 +45,9 @@ import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
+import com.umc.product.member.application.port.in.command.ProvisionMemberUseCase;
+import com.umc.product.member.application.port.in.command.dto.ProvisionMemberCommand;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
@@ -75,6 +84,14 @@ class UmcProductMemberCommandServiceTest {
     @Mock
     GetFileUseCase getFileUseCase;
     @Mock
+    GetMemberUseCase getMemberUseCase;
+    @Mock
+    ProvisionMemberUseCase provisionMemberUseCase;
+    @Mock
+    ManageUmcProductDepartmentUseCase manageUmcProductDepartmentUseCase;
+    @Mock
+    UmcProductTempPasswordGenerator tempPasswordGenerator;
+    @Mock
     UmcProductAccessPolicy umcProductAccessPolicy;
 
     @InjectMocks
@@ -95,6 +112,58 @@ class UmcProductMemberCommandServiceTest {
         ));
 
         then(saveUmcProductMemberPort).should().save(member);
+    }
+
+    @Test
+    void 영어_닉네임으로_계정을_발급하고_인원에_연동한다() {
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+        given(getMemberUseCase.existsByEmail("jeong@university.neordinary.com")).willReturn(false);
+        given(tempPasswordGenerator.generate()).willReturn("TempPass1!aaaaaa");
+        given(provisionMemberUseCase.provision(any())).willReturn(500L);
+        given(saveUmcProductMemberPort.save(any())).willAnswer(invocation -> {
+            UmcProductMember member = invocation.getArgument(0);
+            ReflectionTestUtils.setField(member, "id", 30L);
+            return member;
+        });
+        given(saveUmcProductMemberActivityPeriodPort.save(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        RegisterUmcProductMemberResult result = sut.register(registerCommand("jeong"));
+
+        assertThat(result.umcProductMemberId()).isEqualTo(30L);
+        assertThat(result.memberId()).isEqualTo(500L);
+        assertThat(result.email()).isEqualTo("jeong@university.neordinary.com");
+        assertThat(result.temporaryPassword()).isEqualTo("TempPass1!aaaaaa");
+        verify(provisionMemberUseCase).provision(new ProvisionMemberCommand(
+            "정의찬", "제옹", "jeong@university.neordinary.com", null, "TempPass1!aaaaaa"
+        ));
+        verify(saveUmcProductMemberAccountPort).save(argThat(account ->
+            account.getMemberId().equals(500L) && account.isProvisioned()
+        ));
+    }
+
+    @Test
+    void 잘못된_영어_닉네임이면_등록을_거부한다() {
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.register(registerCommand("Jeong!")))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ENGLISH_NICKNAME_INVALID);
+
+        then(provisionMemberUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 이미_사용_중인_발급_이메일이면_등록을_거부한다() {
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+        given(getMemberUseCase.existsByEmail("jeong@university.neordinary.com")).willReturn(true);
+
+        assertThatThrownBy(() -> sut.register(registerCommand("jeong")))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_EMAIL_ALREADY_EXISTS);
+
+        then(provisionMemberUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -228,6 +297,22 @@ class UmcProductMemberCommandServiceTest {
 
     private UmcProductActivityPeriodCommand period(LocalDate startDate, LocalDate endDate) {
         return UmcProductActivityPeriodCommand.of(startDate, endDate);
+    }
+
+    private RegisterUmcProductMemberCommand registerCommand(String englishNickname) {
+        return new RegisterUmcProductMemberCommand(
+            1L,
+            "정의찬",
+            "제옹",
+            englishNickname,
+            null,
+            "소개",
+            null,
+            List.of(period(LocalDate.of(2026, 1, 1), null)),
+            List.of(),
+            List.of(),
+            List.of()
+        );
     }
 
     private UmcProductMember member(Long id) {

@@ -7,6 +7,7 @@ import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuild
 import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
 import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
 import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
+import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
 import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
 import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -23,11 +24,14 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductChapte
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.request.RegisterUmcProductMemberRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UmcProductActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductChapterMembershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
+import com.umc.product.inhouse.domain.enums.UmcProductDepartmentRole;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.domain.enums.UmcProductPosition;
 import com.umc.product.support.DocumentationTest;
@@ -70,6 +74,61 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 fieldWithPath("activityPeriods[].endDate").type(JsonFieldType.STRING)
                     .description("활동 종료일, 종료일 포함 (yyyy-MM-dd)").optional()
             )));
+    }
+
+    @Test
+    @DisplayName("UMC PRODUCT 인원을 등록하고 계정을 자동 발급한다")
+    void UMC_PRODUCT_인원을_등록하고_계정을_발급한다() throws Exception {
+        RegisterUmcProductMemberRequest request = new RegisterUmcProductMemberRequest(
+            "홍길동",
+            "길동",
+            "gildong",
+            20L,
+            "UMC PRODUCT 서버 개발자",
+            "profile-file-id",
+            List.of(new UmcProductActivityPeriodRequest(START_DATE, END_DATE)),
+            List.of(new RegisterUmcProductMemberRequest.ChapterMembership(
+                10L, UmcProductPosition.SERVER_DEVELOPER, "Server Developer", "API 개발", START_DATE, END_DATE
+            )),
+            List.of(new RegisterUmcProductMemberRequest.DepartmentParticipation(
+                70L,
+                UmcProductDepartmentRole.DEPARTMENT_LEAD,
+                UmcProductPosition.SERVER_DEVELOPER,
+                "Department Lead",
+                "제품 개발 리드",
+                START_DATE,
+                END_DATE
+            )),
+            List.of(new RegisterUmcProductMemberRequest.ProductLeadership(
+                UmcProductLeadershipRole.UMC_PRODUCT_LEAD, START_DATE, END_DATE
+            ))
+        );
+        given(manageUmcProductMemberUseCase.register(any())).willReturn(
+            new RegisterUmcProductMemberResult(
+                30L, 500L, "gildong@university.neordinary.com", "TempPass1!aaaaaa"
+            )
+        );
+
+        mockMvc.perform(post("/api/v1/umc-product/members/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andDo(restDocsHandler.document(
+                requestFields(registerFields()),
+                responseFields(
+                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                    fieldWithPath("result.umcProductMemberId").type(JsonFieldType.STRING)
+                        .description("생성된 UMC PRODUCT 인원 ID"),
+                    fieldWithPath("result.memberId").type(JsonFieldType.STRING)
+                        .description("자동 발급된 로그인 계정 ID"),
+                    fieldWithPath("result.email").type(JsonFieldType.STRING)
+                        .description("자동 발급된 로그인 이메일"),
+                    fieldWithPath("result.temporaryPassword").type(JsonFieldType.STRING)
+                        .description("응답에서 한 번만 노출되는 임시 비밀번호")
+                )
+            ));
     }
 
     @Test
@@ -328,6 +387,45 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .description("Leadership 역할: UMC_PRODUCT_LEAD, UMC_PRODUCT_VICE_LEAD"),
             dateFields()[0],
             dateFields()[1]
+        };
+    }
+
+    private org.springframework.restdocs.payload.FieldDescriptor[] registerFields() {
+        return new org.springframework.restdocs.payload.FieldDescriptor[] {
+            fieldWithPath("name").type(JsonFieldType.STRING).description("이름"),
+            fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임"),
+            fieldWithPath("englishNickname").type(JsonFieldType.STRING).description("이메일용 영어 닉네임"),
+            fieldWithPath("schoolId").type(JsonFieldType.STRING).description("학교 ID").optional(),
+            fieldWithPath("introduction").type(JsonFieldType.STRING).description("소개").optional(),
+            fieldWithPath("profileImageId").type(JsonFieldType.STRING).description("프로필 이미지 ID").optional(),
+            fieldWithPath("activityPeriods").type(JsonFieldType.ARRAY).description("한 개 이상의 활동 기간"),
+            fieldWithPath("activityPeriods[].startDate").type(JsonFieldType.STRING).description("활동 시작일"),
+            fieldWithPath("activityPeriods[].endDate").type(JsonFieldType.STRING).description("활동 종료일").optional(),
+            fieldWithPath("chapterMemberships").type(JsonFieldType.ARRAY).description("초기 Chapter 소속"),
+            fieldWithPath("chapterMemberships[].chapterId").type(JsonFieldType.STRING).description("Chapter ID"),
+            fieldWithPath("chapterMemberships[].position").type(JsonFieldType.STRING).description("직군"),
+            fieldWithPath("chapterMemberships[].responsibilityTitle").type(JsonFieldType.STRING)
+                .description("책임명").optional(),
+            fieldWithPath("chapterMemberships[].responsibilityDescription").type(JsonFieldType.STRING)
+                .description("책임 설명").optional(),
+            fieldWithPath("chapterMemberships[].startDate").type(JsonFieldType.STRING).description("시작일"),
+            fieldWithPath("chapterMemberships[].endDate").type(JsonFieldType.STRING).description("종료일").optional(),
+            fieldWithPath("departmentParticipations").type(JsonFieldType.ARRAY).description("초기 Department 참여"),
+            fieldWithPath("departmentParticipations[].departmentId").type(JsonFieldType.STRING)
+                .description("Department ID"),
+            fieldWithPath("departmentParticipations[].role").type(JsonFieldType.STRING).description("역할"),
+            fieldWithPath("departmentParticipations[].position").type(JsonFieldType.STRING).description("직군"),
+            fieldWithPath("departmentParticipations[].responsibilityTitle").type(JsonFieldType.STRING)
+                .description("책임명").optional(),
+            fieldWithPath("departmentParticipations[].responsibilityDescription").type(JsonFieldType.STRING)
+                .description("책임 설명").optional(),
+            fieldWithPath("departmentParticipations[].startDate").type(JsonFieldType.STRING).description("시작일"),
+            fieldWithPath("departmentParticipations[].endDate").type(JsonFieldType.STRING)
+                .description("종료일").optional(),
+            fieldWithPath("productLeaderships").type(JsonFieldType.ARRAY).description("초기 Product Leadership"),
+            fieldWithPath("productLeaderships[].role").type(JsonFieldType.STRING).description("Leadership 역할"),
+            fieldWithPath("productLeaderships[].startDate").type(JsonFieldType.STRING).description("시작일"),
+            fieldWithPath("productLeaderships[].endDate").type(JsonFieldType.STRING).description("종료일").optional()
         };
     }
 }

@@ -15,10 +15,12 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductChapte
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.request.RegisterUmcProductMemberRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductChapterMembershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.response.RegisterUmcProductMemberResponse;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -45,6 +47,21 @@ public class UmcProductMemberCommandController {
         @RequestBody @Valid CreateUmcProductMemberRequest request
     ) {
         return manageUmcProductMemberUseCase.create(request.toCommand(currentMemberId(currentMember)));
+    }
+
+    @PostMapping("/register")
+    @Operation(
+        operationId = "UMC-PRODUCT-MEMBER-013",
+        summary = "UMC PRODUCT 인원 등록과 계정 자동 발급",
+        description = "인원과 초기 조직 소속을 등록하고 영어 닉네임 기반 계정을 발급합니다. 임시 비밀번호는 응답에서 한 번만 노출됩니다."
+    )
+    public RegisterUmcProductMemberResponse register(
+        @CurrentMember MemberPrincipal currentMember,
+        @RequestBody @Valid RegisterUmcProductMemberRequest request
+    ) {
+        return RegisterUmcProductMemberResponse.from(
+            manageUmcProductMemberUseCase.register(request.toCommand(currentMemberId(currentMember)))
+        );
     }
 
     @PatchMapping("/{memberId}/profile")

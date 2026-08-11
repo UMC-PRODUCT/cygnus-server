@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,11 +12,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
 import com.umc.product.global.exception.constant.Domain;
+import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductChapterMembershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductChapterMembershipCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductLeadershipCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
 import com.umc.product.inhouse.application.port.in.command.dto.UmcProductActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductChapterMembershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
@@ -37,10 +43,15 @@ import com.umc.product.inhouse.domain.UmcProductChapter;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
+import com.umc.product.inhouse.domain.UmcProductMemberAccount;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
+import com.umc.product.inhouse.domain.enums.UmcProductMemberAccountType;
 import com.umc.product.inhouse.exception.InhouseDomainException;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
+import com.umc.product.member.application.port.in.command.ProvisionMemberUseCase;
+import com.umc.product.member.application.port.in.command.dto.ProvisionMemberCommand;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.domain.exception.StorageErrorCode;
@@ -52,6 +63,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class UmcProductMemberCommandService implements ManageUmcProductMemberUseCase {
+
+    private static final String PROVISION_EMAIL_DOMAIN = "university.neordinary.com";
+    private static final Pattern ENGLISH_NICKNAME_PATTERN = Pattern.compile("^[a-z0-9._-]{2,30}$");
 
     private final LoadUmcProductMemberPort loadUmcProductMemberPort;
     private final SaveUmcProductMemberPort saveUmcProductMemberPort;
@@ -67,6 +81,10 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final SaveUmcProductDepartmentParticipantPort saveUmcProductDepartmentParticipantPort;
     private final GetSchoolUseCase getSchoolUseCase;
     private final GetFileUseCase getFileUseCase;
+    private final GetMemberUseCase getMemberUseCase;
+    private final ProvisionMemberUseCase provisionMemberUseCase;
+    private final ManageUmcProductDepartmentUseCase manageUmcProductDepartmentUseCase;
+    private final UmcProductTempPasswordGenerator tempPasswordGenerator;
     private final UmcProductAccessPolicy umcProductAccessPolicy;
 
     @Audited(
@@ -94,6 +112,60 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
             .map(period -> UmcProductMemberActivityPeriod.create(member, period.startDate(), period.endDate()))
             .forEach(saveUmcProductMemberActivityPeriodPort::save);
         return member.getId();
+    }
+
+    @Audited(
+        domain = Domain.INHOUSE,
+        action = AuditAction.CREATE,
+        targetType = "UmcProductMember",
+        targetId = "#result.umcProductMemberId()",
+        description = "'UMC PRODUCT 인원을 등록하고 계정을 발급했습니다.'"
+    )
+    @Override
+    public RegisterUmcProductMemberResult register(RegisterUmcProductMemberCommand command) {
+        validateCanManage(command.requesterMemberId());
+        validateEnglishNickname(command.englishNickname());
+        String email = command.englishNickname() + "@" + PROVISION_EMAIL_DOMAIN;
+        if (getMemberUseCase.existsByEmail(email)) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_EMAIL_ALREADY_EXISTS);
+        }
+        validateSchool(command.schoolId());
+        validateProfileImage(command.profileImageId());
+        validateInitialActivityPeriods(command.activityPeriods());
+
+        String temporaryPassword = tempPasswordGenerator.generate();
+        Long memberId = provisionMemberUseCase.provision(new ProvisionMemberCommand(
+            command.name(),
+            command.nickname(),
+            email,
+            command.schoolId(),
+            temporaryPassword
+        ));
+        UmcProductMember member = saveUmcProductMemberPort.save(UmcProductMember.create(
+            command.name(),
+            command.nickname(),
+            command.schoolId(),
+            command.introduction(),
+            command.profileImageId()
+        ));
+        saveUmcProductMemberAccountPort.save(UmcProductMemberAccount.create(
+            member,
+            memberId,
+            UmcProductMemberAccountType.PROVISIONED
+        ));
+        command.activityPeriods().stream()
+            .map(period -> UmcProductMemberActivityPeriod.create(member, period.startDate(), period.endDate()))
+            .forEach(saveUmcProductMemberActivityPeriodPort::save);
+        command.chapterMemberships().forEach(seed -> createInitialChapterMembership(member, seed));
+        command.departmentParticipations().forEach(seed ->
+            manageUmcProductDepartmentUseCase.createParticipant(seed.toCreateCommand(
+                command.requesterMemberId(),
+                member.getId()
+            ))
+        );
+        command.productLeaderships().forEach(seed -> createInitialLeadership(member, seed));
+
+        return new RegisterUmcProductMemberResult(member.getId(), memberId, email, temporaryPassword);
     }
 
     @Audited(
@@ -334,6 +406,51 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         UmcProductLeadership leadership = loadUmcProductLeadershipPort.getById(leadershipId);
         validateOwnedBy(leadership, member.getId());
         saveUmcProductLeadershipPort.delete(leadership);
+    }
+
+    private void createInitialChapterMembership(
+        UmcProductMember member,
+        RegisterUmcProductChapterMembershipCommand seed
+    ) {
+        validatePeriod(seed.startDate(), seed.endDate());
+        UmcProductMemberActivityPeriod activityPeriod = getContainingPeriod(
+            member.getId(), seed.startDate(), seed.endDate()
+        );
+        UmcProductChapter chapter = loadUmcProductChapterPort.getById(seed.chapterId());
+        validateChapterMembershipNotOverlapped(
+            member.getId(), seed.chapterId(), seed.startDate(), seed.endDate(), null
+        );
+        saveUmcProductChapterMembershipPort.save(UmcProductChapterMembership.create(
+            activityPeriod,
+            chapter,
+            seed.position(),
+            seed.responsibilityTitle(),
+            seed.responsibilityDescription(),
+            seed.startDate(),
+            seed.endDate()
+        ));
+    }
+
+    private void createInitialLeadership(
+        UmcProductMember member,
+        RegisterUmcProductLeadershipCommand seed
+    ) {
+        validatePeriod(seed.startDate(), seed.endDate());
+        UmcProductMemberActivityPeriod activityPeriod = getContainingPeriod(
+            member.getId(), seed.startDate(), seed.endDate()
+        );
+        validateLeadershipNotOverlapped(
+            member.getId(), seed.role(), seed.startDate(), seed.endDate(), null
+        );
+        saveUmcProductLeadershipPort.save(UmcProductLeadership.create(
+            activityPeriod, seed.role(), seed.startDate(), seed.endDate()
+        ));
+    }
+
+    private void validateEnglishNickname(String englishNickname) {
+        if (englishNickname == null || !ENGLISH_NICKNAME_PATTERN.matcher(englishNickname).matches()) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ENGLISH_NICKNAME_INVALID);
+        }
     }
 
     private void validateInitialActivityPeriods(List<UmcProductActivityPeriodCommand> periods) {
