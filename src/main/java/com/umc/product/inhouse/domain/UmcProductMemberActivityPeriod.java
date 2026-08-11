@@ -4,8 +4,8 @@ import java.time.LocalDate;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.inhouse.domain.vo.UmcProductDatePeriod;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
@@ -96,7 +96,7 @@ public class UmcProductMemberActivityPeriod extends BaseEntity {
 
     private static void validateMember(UmcProductMember umcProductMember) {
         if (umcProductMember == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_REQUIRED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_REQUIRED);
         }
     }
 }

@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,9 +20,9 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductChapterPersistenceAdapter
     implements LoadUmcProductChapterPort, SaveUmcProductChapterPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "uk_umc_product_chapter_code",
-        OrganizationErrorCode.UMC_PRODUCT_CHAPTER_ALREADY_EXISTS
+        InhouseErrorCode.UMC_PRODUCT_CHAPTER_ALREADY_EXISTS
     );
 
     private final UmcProductChapterJpaRepository repository;
@@ -30,16 +30,16 @@ public class UmcProductChapterPersistenceAdapter
     @Override
     public UmcProductChapter getById(Long chapterId) {
         return repository.findById(chapterId)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_CHAPTER_NOT_FOUND
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_CHAPTER_NOT_FOUND
             ));
     }
 
     @Override
     public UmcProductChapter getByIdWithLock(Long chapterId) {
         return repository.findByIdWithLock(chapterId)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_CHAPTER_NOT_FOUND
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_CHAPTER_NOT_FOUND
             ));
     }
 

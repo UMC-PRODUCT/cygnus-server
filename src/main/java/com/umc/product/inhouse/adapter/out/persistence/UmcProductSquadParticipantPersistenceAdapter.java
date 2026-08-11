@@ -12,8 +12,8 @@ import com.umc.product.inhouse.application.port.out.command.SaveUmcProductSquadP
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadParticipantPort;
 import com.umc.product.inhouse.domain.UmcProductSquadParticipant;
 import com.umc.product.inhouse.domain.enums.UmcProductSquadRole;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,11 +22,11 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductSquadParticipantPersistenceAdapter
     implements LoadUmcProductSquadParticipantPort, SaveUmcProductSquadParticipantPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "ex_umc_product_squad_participant_member_dates",
-        OrganizationErrorCode.UMC_PRODUCT_SQUAD_PARTICIPATION_OVERLAPPED,
+        InhouseErrorCode.UMC_PRODUCT_SQUAD_PARTICIPATION_OVERLAPPED,
         "ex_umc_product_squad_lead_dates",
-        OrganizationErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED
+        InhouseErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED
     );
 
     private final UmcProductSquadParticipantJpaRepository umcProductSquadParticipantJpaRepository;
@@ -34,8 +34,8 @@ public class UmcProductSquadParticipantPersistenceAdapter
     @Override
     public UmcProductSquadParticipant getById(Long squadParticipantId) {
         return umcProductSquadParticipantJpaRepository.findById(squadParticipantId)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_SQUAD_PARTICIPANT_NOT_FOUND
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_SQUAD_PARTICIPANT_NOT_FOUND
             ));
     }
 

@@ -13,8 +13,8 @@ import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapte
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -29,7 +29,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
     private final UmcProductAccessPolicy umcProductAccessPolicy;
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.CREATE,
         targetType = "UmcProductChapter",
         targetId = "#result",
@@ -46,7 +46,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.UPDATE,
         targetType = "UmcProductChapter",
         targetId = "#command.chapterId()",
@@ -66,7 +66,7 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.DELETE,
         targetType = "UmcProductChapter",
         targetId = "#chapterId",
@@ -77,20 +77,20 @@ public class UmcProductChapterCommandService implements ManageUmcProductChapterU
         validateCanManage(requesterMemberId);
         UmcProductChapter chapter = loadUmcProductChapterPort.getByIdWithLock(chapterId);
         if (loadUmcProductChapterMembershipPort.existsByChapterId(chapterId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_HAS_MEMBERSHIPS);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_CHAPTER_HAS_MEMBERSHIPS);
         }
         saveUmcProductChapterPort.delete(chapter);
     }
 
     private void validateCodeNotDuplicated(String code, Long excludedChapterId) {
         if (code != null && loadUmcProductChapterPort.existsByCode(code.trim(), excludedChapterId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_ALREADY_EXISTS);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_CHAPTER_ALREADY_EXISTS);
         }
     }
 
     private void validateCanManage(Long requesterMemberId) {
         if (!umcProductAccessPolicy.canManageUmcProduct(requesterMemberId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACCESS_DENIED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCESS_DENIED);
         }
     }
 }

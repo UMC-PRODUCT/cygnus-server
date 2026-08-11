@@ -37,8 +37,8 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPar
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.organization.exception.OrganizationErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
@@ -108,7 +108,7 @@ class UmcProductMemberCommandServiceTest {
         assertThatThrownBy(() -> sut.createActivityPeriod(command))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACCESS_DENIED);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACCESS_DENIED);
 
         then(loadUmcProductMemberPort).shouldHaveNoInteractions();
         then(saveUmcProductMemberActivityPeriodPort).shouldHaveNoInteractions();
@@ -133,7 +133,7 @@ class UmcProductMemberCommandServiceTest {
         ))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED);
 
         then(saveUmcProductMemberActivityPeriodPort).should(never()).save(any());
     }
@@ -190,7 +190,7 @@ class UmcProductMemberCommandServiceTest {
         ))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
 
         then(saveUmcProductMemberActivityPeriodPort).should(never()).save(any());
     }
@@ -199,7 +199,7 @@ class UmcProductMemberCommandServiceTest {
         assertThatThrownBy(() -> sut.create(command))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED);
 
         then(saveUmcProductMemberPort).should(never()).save(any());
         then(saveUmcProductMemberActivityPeriodPort).shouldHaveNoInteractions();

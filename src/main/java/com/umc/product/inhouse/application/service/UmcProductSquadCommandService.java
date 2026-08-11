@@ -25,8 +25,8 @@ import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.inhouse.domain.UmcProductSquad;
 import com.umc.product.inhouse.domain.UmcProductSquadParticipant;
 import com.umc.product.inhouse.domain.enums.UmcProductSquadRole;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -44,7 +44,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
     private final UmcProductAccessPolicy umcProductAccessPolicy;
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.CREATE,
         targetType = "UmcProductSquad",
         targetId = "#result",
@@ -67,7 +67,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.UPDATE,
         targetType = "UmcProductSquad",
         targetId = "#command.squadId()",
@@ -96,7 +96,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.DELETE,
         targetType = "UmcProductSquad",
         targetId = "#squadId",
@@ -107,13 +107,13 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         validateCanManage(requesterMemberId);
         UmcProductSquad squad = loadUmcProductSquadPort.getByIdWithLock(squadId);
         if (loadUmcProductSquadParticipantPort.existsBySquadId(squadId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_HAS_PARTICIPANTS);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_SQUAD_HAS_PARTICIPANTS);
         }
         saveUmcProductSquadPort.delete(squad);
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.CREATE,
         targetType = "UmcProductSquadParticipant",
         targetId = "#result",
@@ -151,7 +151,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.UPDATE,
         targetType = "UmcProductSquadParticipant",
         targetId = "#command.participantId()",
@@ -192,7 +192,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
     }
 
     @Audited(
-        domain = Domain.ORGANIZATION,
+        domain = Domain.INHOUSE,
         action = AuditAction.DELETE,
         targetType = "UmcProductSquadParticipant",
         targetId = "#participantId",
@@ -218,7 +218,7 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
                 participant.getEndDate()
             ));
         if (outOfRange) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
         }
     }
 
@@ -233,15 +233,15 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         if (loadUmcProductSquadParticipantPort.existsOverlappingMemberInSquad(
             squadId, memberId, startDate, endDate, excludedParticipantId
         )) {
-            throw new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_SQUAD_PARTICIPATION_OVERLAPPED
+            throw new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_SQUAD_PARTICIPATION_OVERLAPPED
             );
         }
         if (role == UmcProductSquadRole.SQUAD_LEAD
             && loadUmcProductSquadParticipantPort.existsOverlappingSquadLead(
                 squadId, startDate, endDate, excludedParticipantId
             )) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED);
         }
     }
 
@@ -251,35 +251,35 @@ public class UmcProductSquadCommandService implements ManageUmcProductSquadUseCa
         LocalDate endDate
     ) {
         return loadUmcProductMemberActivityPeriodPort.findContaining(memberId, startDate, endDate)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE
             ));
     }
 
     private void validateBelongsToSquad(UmcProductSquadParticipant participant, Long squadId) {
         if (!Objects.equals(participant.getSquad().getId(), squadId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_PARTICIPANT_NOT_FOUND);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_SQUAD_PARTICIPANT_NOT_FOUND);
         }
     }
 
     private void validateCanManage(Long requesterMemberId) {
         if (!umcProductAccessPolicy.canManageUmcProduct(requesterMemberId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACCESS_DENIED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCESS_DENIED);
         }
     }
 
     private void validateCodeNotDuplicated(String code, Long excludedSquadId) {
         if (code != null && loadUmcProductSquadPort.existsByCode(code.trim(), excludedSquadId)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS);
         }
     }
 
     private static void validatePeriod(LocalDate startDate, LocalDate endDate) {
         if (startDate == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_START_DATE_REQUIRED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_START_DATE_REQUIRED);
         }
         if (endDate != null && endDate.isBefore(startDate)) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_PERIOD_INVALID);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_PERIOD_INVALID);
         }
     }
 

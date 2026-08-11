@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.domain.enums.UmcProductPosition;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 class UmcProductMemberActivityTest {
 
@@ -56,7 +56,7 @@ class UmcProductMemberActivityTest {
         ))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
     }
 
     @Test
@@ -91,7 +91,7 @@ class UmcProductMemberActivityTest {
         ))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
     }
 
     @Test

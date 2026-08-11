@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductSquadPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPort;
 import com.umc.product.inhouse.domain.UmcProductSquad;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,9 +20,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UmcProductSquadPersistenceAdapter implements LoadUmcProductSquadPort, SaveUmcProductSquadPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "uk_umc_product_squad_code",
-        OrganizationErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS
+        InhouseErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS
     );
 
     private final UmcProductSquadJpaRepository umcProductSquadJpaRepository;
@@ -30,13 +30,13 @@ public class UmcProductSquadPersistenceAdapter implements LoadUmcProductSquadPor
     @Override
     public UmcProductSquad getById(Long squadId) {
         return umcProductSquadJpaRepository.findById(squadId)
-            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_NOT_FOUND));
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_SQUAD_NOT_FOUND));
     }
 
     @Override
     public UmcProductSquad getByIdWithLock(Long squadId) {
         return umcProductSquadJpaRepository.findByIdWithLock(squadId)
-            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_NOT_FOUND));
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_SQUAD_NOT_FOUND));
     }
 
     @Override

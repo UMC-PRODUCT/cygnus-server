@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 class UmcProductOrganizationStructureTest {
 
@@ -34,11 +34,11 @@ class UmcProductOrganizationStructureTest {
         assertThatThrownBy(() -> UmcProductChapter.create(" ", "Server", null, 1, true))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_CODE_REQUIRED);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_CHAPTER_CODE_REQUIRED);
         assertThatThrownBy(() -> UmcProductChapter.create("SERVER", " ", null, 1, true))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_NAME_REQUIRED);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_CHAPTER_NAME_REQUIRED);
     }
 
     @Test

@@ -28,7 +28,7 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPar
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPort;
 import com.umc.product.inhouse.domain.UmcProductSquad;
 import com.umc.product.inhouse.domain.UmcProductSquadParticipant;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UMC PRODUCT Squad 명령 서비스")
@@ -72,7 +72,7 @@ class UmcProductSquadCommandServiceTest {
         )))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS);
 
         then(saveUmcProductSquadPort).shouldHaveNoInteractions();
     }
@@ -102,7 +102,7 @@ class UmcProductSquadCommandServiceTest {
         )))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
 
         then(saveUmcProductSquadPort).should(never()).save(any());
     }
@@ -117,7 +117,7 @@ class UmcProductSquadCommandServiceTest {
         assertThatThrownBy(() -> sut.delete(1L, 100L))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_SQUAD_HAS_PARTICIPANTS);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_SQUAD_HAS_PARTICIPANTS);
 
         then(saveUmcProductSquadPort).should(never()).delete(any());
     }

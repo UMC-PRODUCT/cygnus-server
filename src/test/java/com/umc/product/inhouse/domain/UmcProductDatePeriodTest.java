@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.inhouse.domain.vo.UmcProductDatePeriod;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 class UmcProductDatePeriodTest {
 
@@ -38,7 +38,7 @@ class UmcProductDatePeriodTest {
         assertThatThrownBy(() -> UmcProductDatePeriod.of(null, JANUARY_31))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_START_DATE_REQUIRED);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_START_DATE_REQUIRED);
     }
 
     @Test
@@ -46,7 +46,7 @@ class UmcProductDatePeriodTest {
         assertThatThrownBy(() -> UmcProductDatePeriod.of(JANUARY_31, JANUARY_1))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_PERIOD_INVALID);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_PERIOD_INVALID);
     }
 
     @Test

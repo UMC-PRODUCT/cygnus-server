@@ -24,8 +24,8 @@ import com.umc.product.inhouse.domain.UmcProductSquadParticipant;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.domain.enums.UmcProductPosition;
 import com.umc.product.inhouse.domain.enums.UmcProductSquadRole;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 import com.umc.product.support.PersistenceAdapterTest;
 
 import jakarta.persistence.LockModeType;
@@ -97,9 +97,9 @@ class UmcProductPersistenceAdapterTest {
         saveMember(120L);
 
         assertThatThrownBy(() -> saveMember(120L))
-            .isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS));
+            .isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS));
     }
 
     @Test
@@ -107,9 +107,9 @@ class UmcProductPersistenceAdapterTest {
         saveChapter("DUPLICATED_CHAPTER", 1, true);
 
         assertThatThrownBy(() -> saveChapter("DUPLICATED_CHAPTER", 2, true))
-            .isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_ALREADY_EXISTS));
+            .isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_CHAPTER_ALREADY_EXISTS));
     }
 
     @Test
@@ -144,9 +144,9 @@ class UmcProductPersistenceAdapterTest {
                 LocalDate.of(2026, 6, 30)
             );
             em.flush();
-        }).isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED));
+        }).isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED));
     }
 
     @Test
@@ -273,9 +273,9 @@ class UmcProductPersistenceAdapterTest {
                 END_DATE
             ));
             em.flush();
-        }).isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED));
+        }).isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED));
     }
 
     @Test
@@ -335,9 +335,9 @@ class UmcProductPersistenceAdapterTest {
                 END_DATE
             ));
             em.flush();
-        }).isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED));
+        }).isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED));
     }
 
     @Test
@@ -356,9 +356,9 @@ class UmcProductPersistenceAdapterTest {
             UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD,
             LocalDate.of(2026, 6, 30),
             END_DATE
-        ))).isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED));
+        ))).isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED));
     }
 
     @Test
@@ -384,9 +384,9 @@ class UmcProductPersistenceAdapterTest {
         saveSquad("DUPLICATED", START_DATE, END_DATE, 1, true);
 
         assertThatThrownBy(() -> saveSquad("DUPLICATED", START_DATE, END_DATE, 2, true))
-            .isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS));
+            .isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS));
     }
 
     @Test
@@ -438,9 +438,9 @@ class UmcProductPersistenceAdapterTest {
             null,
             LocalDate.of(2026, 6, 30),
             END_DATE
-        ))).isInstanceOf(OrganizationDomainException.class)
-            .satisfies(exception -> assertThat(((OrganizationDomainException) exception).getBaseCode())
-                .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED));
+        ))).isInstanceOf(InhouseDomainException.class)
+            .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED));
     }
 
     @Test

@@ -20,7 +20,7 @@ import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapte
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UMC PRODUCT Chapter 명령 서비스")
@@ -48,7 +48,7 @@ class UmcProductChapterCommandServiceTest {
         assertThatThrownBy(() -> chapterService.delete(1L, 100L))
             .isInstanceOf(BusinessException.class)
             .extracting("baseCode")
-            .isEqualTo(OrganizationErrorCode.UMC_PRODUCT_CHAPTER_HAS_MEMBERSHIPS);
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_CHAPTER_HAS_MEMBERSHIPS);
 
         then(saveUmcProductChapterPort).should(never()).delete(any());
         then(loadUmcProductChapterPort).should(never()).getById(1L);

@@ -1,8 +1,8 @@
 package com.umc.product.inhouse.domain;
 
 import com.umc.product.common.BaseEntity;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -57,7 +57,7 @@ public class UmcProductMember extends BaseEntity {
 
     private static void validateMemberId(Long memberId) {
         if (memberId == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_ID_REQUIRED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_ID_REQUIRED);
         }
     }
 

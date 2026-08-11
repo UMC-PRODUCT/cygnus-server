@@ -11,8 +11,8 @@ import org.springframework.stereotype.Component;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,9 +21,9 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductChapterMembershipPersistenceAdapter
     implements LoadUmcProductChapterMembershipPort, SaveUmcProductChapterMembershipPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "ex_umc_product_chapter_membership_activity",
-        OrganizationErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED
+        InhouseErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_OVERLAPPED
     );
 
     private final UmcProductChapterMembershipJpaRepository repository;
@@ -31,8 +31,8 @@ public class UmcProductChapterMembershipPersistenceAdapter
     @Override
     public UmcProductChapterMembership getById(Long chapterMembershipId) {
         return repository.findById(chapterMembershipId)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_NOT_FOUND
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_CHAPTER_MEMBERSHIP_NOT_FOUND
             ));
     }
 

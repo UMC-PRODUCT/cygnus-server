@@ -12,6 +12,7 @@ public enum Domain {
     MEMBER,
     CHALLENGER,
     ORGANIZATION,
+    INHOUSE,
     CURRICULUM,
     SCHEDULE,
     COMMUNITY,

@@ -5,8 +5,8 @@ import java.util.Map;
 import org.hibernate.exception.ConstraintViolationException;
 import org.springframework.dao.DataIntegrityViolationException;
 
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 final class UmcProductConstraintViolationTranslator {
 
@@ -14,37 +14,37 @@ final class UmcProductConstraintViolationTranslator {
 
     static RuntimeException translate(
         DataIntegrityViolationException exception,
-        Map<String, OrganizationErrorCode> errorCodesByConstraint
+        Map<String, InhouseErrorCode> errorCodesByConstraint
     ) {
         Throwable cause = exception;
         while (cause != null) {
             if (cause instanceof ConstraintViolationException constraintViolationException) {
-                OrganizationErrorCode errorCode = getByConstraintName(
+                InhouseErrorCode errorCode = getByConstraintName(
                     constraintViolationException.getConstraintName(), errorCodesByConstraint
                 );
                 if (errorCode != null) {
-                    return new OrganizationDomainException(errorCode, exception);
+                    return new InhouseDomainException(errorCode, exception);
                 }
             }
-            OrganizationErrorCode errorCode = getByConstraintMessage(cause.getMessage(), errorCodesByConstraint);
+            InhouseErrorCode errorCode = getByConstraintMessage(cause.getMessage(), errorCodesByConstraint);
             if (errorCode != null) {
-                return new OrganizationDomainException(errorCode, exception);
+                return new InhouseDomainException(errorCode, exception);
             }
             cause = cause.getCause();
         }
         return exception;
     }
 
-    private static OrganizationErrorCode getByConstraintName(
+    private static InhouseErrorCode getByConstraintName(
         String constraintName,
-        Map<String, OrganizationErrorCode> errorCodesByConstraint
+        Map<String, InhouseErrorCode> errorCodesByConstraint
     ) {
         return constraintName == null ? null : errorCodesByConstraint.get(constraintName);
     }
 
-    private static OrganizationErrorCode getByConstraintMessage(
+    private static InhouseErrorCode getByConstraintMessage(
         String message,
-        Map<String, OrganizationErrorCode> errorCodesByConstraint
+        Map<String, InhouseErrorCode> errorCodesByConstraint
     ) {
         if (message == null) {
             return null;

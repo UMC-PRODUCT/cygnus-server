@@ -13,8 +13,8 @@ import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeader
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,11 +23,11 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductLeadershipPersistenceAdapter
     implements LoadUmcProductLeadershipPort, SaveUmcProductLeadershipPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "ex_umc_product_leadership_member_dates",
-        OrganizationErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED,
+        InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED,
         "ex_umc_product_leadership_role_dates",
-        OrganizationErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED
+        InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_OVERLAPPED
     );
 
     private final UmcProductLeadershipJpaRepository repository;
@@ -35,8 +35,8 @@ public class UmcProductLeadershipPersistenceAdapter
     @Override
     public UmcProductLeadership getById(Long leadershipId) {
         return repository.findById(leadershipId)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_LEADERSHIP_NOT_FOUND
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_NOT_FOUND
             ));
     }
 

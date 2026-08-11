@@ -12,8 +12,8 @@ import org.springframework.stereotype.Component;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -22,9 +22,9 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductMemberActivityPeriodPersistenceAdapter
     implements LoadUmcProductMemberActivityPeriodPort, SaveUmcProductMemberActivityPeriodPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "ex_umc_product_activity_period_member_dates",
-        OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED
+        InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OVERLAPPED
     );
 
     private final UmcProductMemberActivityPeriodJpaRepository repository;
@@ -32,8 +32,8 @@ public class UmcProductMemberActivityPeriodPersistenceAdapter
     @Override
     public UmcProductMemberActivityPeriod getById(Long activityPeriodId) {
         return repository.findById(activityPeriodId)
-            .orElseThrow(() -> new OrganizationDomainException(
-                OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_NOT_FOUND
+            .orElseThrow(() -> new InhouseDomainException(
+                InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_NOT_FOUND
             ));
     }
 

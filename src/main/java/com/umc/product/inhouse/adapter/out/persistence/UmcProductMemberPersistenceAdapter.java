@@ -14,8 +14,8 @@ import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSea
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
 import com.umc.product.inhouse.domain.UmcProductMember;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,9 +23,9 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberPort, SaveUmcProductMemberPort {
 
-    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
         "uk_umc_product_member_member_id",
-        OrganizationErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS
+        InhouseErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS
     );
 
     private final UmcProductMemberJpaRepository umcProductMemberJpaRepository;
@@ -34,7 +34,7 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     @Override
     public UmcProductMember getById(Long umcProductMemberId) {
         return findById(umcProductMemberId)
-            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
     }
 
     @Override
@@ -45,13 +45,13 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     @Override
     public UmcProductMember getByIdWithLock(Long umcProductMemberId) {
         return umcProductMemberJpaRepository.findByIdWithLock(umcProductMemberId)
-            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
     }
 
     @Override
     public UmcProductMember getByMemberId(Long memberId) {
         return findByMemberId(memberId)
-            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
     }
 
     @Override
@@ -62,7 +62,7 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     @Override
     public UmcProductMember getByMemberIdWithLock(Long memberId) {
         return umcProductMemberJpaRepository.findByMemberIdWithLock(memberId)
-            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
     }
 
     @Override

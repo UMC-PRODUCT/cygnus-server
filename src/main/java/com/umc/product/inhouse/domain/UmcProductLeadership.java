@@ -5,8 +5,8 @@ import java.time.LocalDate;
 import com.umc.product.common.BaseEntity;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.domain.vo.UmcProductDatePeriod;
-import com.umc.product.organization.exception.OrganizationDomainException;
-import com.umc.product.organization.exception.OrganizationErrorCode;
+import com.umc.product.inhouse.exception.InhouseDomainException;
+import com.umc.product.inhouse.exception.InhouseErrorCode;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
@@ -116,13 +116,13 @@ public class UmcProductLeadership extends BaseEntity {
         UmcProductDatePeriod period
     ) {
         if (memberActivityPeriod == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_REQUIRED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_REQUIRED);
         }
         if (role == null) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_LEADERSHIP_ROLE_REQUIRED);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_ROLE_REQUIRED);
         }
         if (!memberActivityPeriod.contains(period.getStartDate(), period.getEndDate())) {
-            throw new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_OUT_OF_RANGE);
         }
     }
 }
