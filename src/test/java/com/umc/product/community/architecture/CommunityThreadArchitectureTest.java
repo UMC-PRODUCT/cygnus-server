@@ -36,6 +36,15 @@ class CommunityThreadArchitectureTest {
         "com.umc.product.chat.domain.event.ChatReadUpdatedEvent"
     );
 
+    /**
+     * Community가 Chat command/query 계약을 채우기 위해 값으로만 쓰는 Chat domain enum. entity/repository 참조가 아니므로
+     * 경계 위반이 아니며, 소문자 import 문 전체를 정확히 일치시킨다.
+     */
+    private static final Set<String> ALLOWED_CHAT_DOMAIN_VALUE_IMPORTS = Set.of(
+        "import com.umc.product.chat.domain.messagecontenttype;",
+        "import com.umc.product.chat.domain.chatroomreadscope;"
+    );
+
     private static final Set<String> ALLOWED_DOMAIN_ROOTS = Set.of(
         "community",
         "common",
@@ -217,7 +226,7 @@ class CommunityThreadArchitectureTest {
         if (importLine.contains(".adapter.out.persistence.")) {
             return true;
         }
-        if (importLine.equals("import com.umc.product.chat.domain.messagecontenttype;")) {
+        if (ALLOWED_CHAT_DOMAIN_VALUE_IMPORTS.contains(importLine)) {
             return false;
         }
         if (importLine.contains(".chat.domain.")) {

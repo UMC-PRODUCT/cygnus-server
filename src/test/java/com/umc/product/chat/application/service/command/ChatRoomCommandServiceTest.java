@@ -2,6 +2,7 @@ package com.umc.product.chat.application.service.command;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.BDDMockito.willThrow;
@@ -15,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomCommand;
 import com.umc.product.chat.application.port.in.command.dto.PinChatRoomMessageCommand;
 import com.umc.product.chat.application.port.out.LoadChatMessagePort;
 import com.umc.product.chat.application.port.out.LoadChatRoomPort;
@@ -22,6 +24,7 @@ import com.umc.product.chat.application.port.out.SaveChatMemberPort;
 import com.umc.product.chat.application.port.out.SaveChatRoomPort;
 import com.umc.product.chat.domain.ChatMessage;
 import com.umc.product.chat.domain.ChatRoom;
+import com.umc.product.chat.domain.ChatRoomReadScope;
 import com.umc.product.chat.domain.MessageContentType;
 import com.umc.product.chat.domain.event.ChatRoomPinnedMessageChangedEvent;
 import com.umc.product.chat.domain.exception.ChatDomainException;
@@ -99,6 +102,40 @@ class ChatRoomCommandServiceTest {
         then(domainEventPublisher).should().publish(eventCaptor.capture());
         assertThat(eventCaptor.getValue().roomId()).isEqualTo(1L);
         assertThat(eventCaptor.getValue().pinnedMessageId()).isNull();
+    }
+
+    @Test
+    @DisplayName("조회 범위를 명시하지 않으면 멤버 전용 방으로 만든다")
+    void create_defaultsToMemberOnly() {
+        given(saveChatRoomPort.save(any(ChatRoom.class))).willAnswer(invocation -> {
+            ChatRoom saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 1L);
+            return saved;
+        });
+
+        sut.create(CreateChatRoomCommand.from(10L));
+
+        assertThat(capturedRoom().getReadScope()).isEqualTo(ChatRoomReadScope.MEMBER_ONLY);
+    }
+
+    @Test
+    @DisplayName("소비 도메인이 요청한 조회 범위를 방에 그대로 저장한다")
+    void create_appliesRequestedReadScope() {
+        given(saveChatRoomPort.save(any(ChatRoom.class))).willAnswer(invocation -> {
+            ChatRoom saved = invocation.getArgument(0);
+            ReflectionTestUtils.setField(saved, "id", 1L);
+            return saved;
+        });
+
+        sut.create(CreateChatRoomCommand.of(10L, ChatRoomReadScope.PUBLIC));
+
+        assertThat(capturedRoom().getReadScope()).isEqualTo(ChatRoomReadScope.PUBLIC);
+    }
+
+    private ChatRoom capturedRoom() {
+        ArgumentCaptor<ChatRoom> captor = ArgumentCaptor.forClass(ChatRoom.class);
+        then(saveChatRoomPort).should().save(captor.capture());
+        return captor.getValue();
     }
 
     private ChatRoom room(Long id) {

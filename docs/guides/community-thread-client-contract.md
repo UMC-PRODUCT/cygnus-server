@@ -173,9 +173,20 @@ failure와 rate-limit(typed 429)을 포함한다. rate-limit은 해당 command�
 
 ## 7. Lifecycle와 recovery
 
-ACTIVE OWNER/ADMIN/MEMBER만 send/reply/mention/react/read/report를 수행한다. author만 edit할 수 있고,
-author 또는 OWNER/ADMIN만 tombstone할 수 있다. OWNER가 leave/kick/demote하려면 먼저 atomic ownership
-transfer가 필요하다. LEFT는 재초대할 수 있지만 KICKED는 재초대할 수 없다.
+조회와 변경의 권한 경계가 다르다. thread detail, member query와 message history query는 참여 여부와
+무관하게 로그인 회원 모두에게 열려 있다. 클라이언트는 비참여자가 스레드에 진입해 대화를 읽는 흐름을
+가정해야 한다. LEFT도 비참여자와 동일하게 조회할 수 있다.
+
+KICKED만 예외다. 강퇴된 회원에게는 thread list에서 해당 스레드가 아예 노출되지 않고, detail/member/
+message query는 `THREAD_ACCESS_DENIED`로 거부된다.
+
+반면 ACTIVE OWNER/ADMIN/MEMBER만 send/reply/mention/react/read/report를 수행한다. author만 edit할 수
+있고, author 또는 OWNER/ADMIN만 tombstone할 수 있다. OWNER가 leave/kick/demote하려면 먼저 atomic
+ownership transfer가 필요하다. LEFT는 재초대할 수 있지만 KICKED는 재초대할 수 없다.
+
+실시간 fan-out 수신자도 ACTIVE 멤버로 한정한다. 따라서 비참여자는 진입 시점의 history만 보고 이후
+새 message/reaction/read event를 push로 받지 않는다. 최신 상태가 필요하면 history query로 다시
+조회한다.
 
 thread soft delete 뒤에는 모든 REST/STOMP access가 거부되지만 Chat row와 history는 보존된다.
 message/reaction/read gap은 history/latest query로, metadata/member/settings gap은 thread detail/list/

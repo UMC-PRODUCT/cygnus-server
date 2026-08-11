@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.chat.application.port.in.command.CreateChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
+import com.umc.product.chat.domain.ChatRoomReadScope;
 import com.umc.product.community.application.port.in.command.thread.CreateCommunityThreadUseCase;
 import com.umc.product.community.application.port.in.command.thread.DeleteCommunityThreadUseCase;
 import com.umc.product.community.application.port.in.command.thread.UpdateCommunityThreadUseCase;
@@ -58,8 +59,10 @@ public class CommunityThreadLifecycleCommandService implements
             throw new CommunityDomainException(CommunityErrorCode.THREAD_CAPACITY_EXCEEDED);
         }
 
+        // 스레드 메시지 조회는 상세 조회와 같이 비참여자에게도 열려 있으므로 방을 공개 조회 범위로 만든다.
+        // 메시지 변경과 실시간 수신은 ACTIVE 멤버 전용이며 Community가 별도로 검증한다.
         ChatRoomInfo chatRoom = createChatRoomUseCase.create(
-            CreateChatRoomCommand.from(command.actorMemberId())
+            CreateChatRoomCommand.of(command.actorMemberId(), ChatRoomReadScope.PUBLIC)
         );
         Instant occurredAt = clock.instant();
         CommunityThread thread = saveThreadPort.save(CommunityThread.create(

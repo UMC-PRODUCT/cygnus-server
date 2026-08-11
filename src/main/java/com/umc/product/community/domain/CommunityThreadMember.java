@@ -177,6 +177,15 @@ public class CommunityThreadMember extends BaseEntity {
         return state == CommunityThreadMemberState.ACTIVE;
     }
 
+    /**
+     * 강퇴된 멤버인지 판단한다.
+     *
+     * <p>LEFT와 달리 재초대할 수 없고, 스레드 목록/상세/메시지 조회가 모두 차단된다.</p>
+     */
+    public boolean isKicked() {
+        return state == CommunityThreadMemberState.KICKED;
+    }
+
     private void requireActive() {
         if (!isActive()) {
             throw new IllegalStateException("member must be ACTIVE");

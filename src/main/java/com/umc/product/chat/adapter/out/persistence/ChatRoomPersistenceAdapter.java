@@ -1,6 +1,7 @@
 package com.umc.product.chat.adapter.out.persistence;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.stereotype.Component;
 
@@ -40,8 +41,13 @@ public class ChatRoomPersistenceAdapter implements
 
     @Override
     public ChatRoom getById(Long roomId) {
-        return chatRoomJpaRepository.findById(roomId)
+        return findById(roomId)
             .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_ROOM_NOT_FOUND));
+    }
+
+    @Override
+    public Optional<ChatRoom> findById(Long roomId) {
+        return chatRoomJpaRepository.findById(roomId);
     }
 
     @Override

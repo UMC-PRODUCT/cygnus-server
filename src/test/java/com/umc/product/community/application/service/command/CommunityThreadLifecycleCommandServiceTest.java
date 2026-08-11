@@ -30,7 +30,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.chat.application.port.in.command.CreateChatRoomUseCase;
 import com.umc.product.chat.application.port.in.command.DeleteChatRoomUseCase;
+import com.umc.product.chat.application.port.in.command.dto.CreateChatRoomCommand;
 import com.umc.product.chat.application.port.in.query.dto.ChatRoomInfo;
+import com.umc.product.chat.domain.ChatRoomReadScope;
 import com.umc.product.community.application.port.in.command.thread.dto.CommunityThreadLifecycleInfo;
 import com.umc.product.community.application.port.in.command.thread.dto.CreateCommunityThreadCommand;
 import com.umc.product.community.application.port.in.command.thread.dto.ThreadActorCommand;
@@ -136,6 +138,11 @@ class CommunityThreadLifecycleCommandServiceTest {
         order.verify(saveMemberPort).save(any());
         order.verify(inviteManager).invite(any(), Mockito.eq(List.of(30L, 20L)), Mockito.eq(NOW));
         order.verify(eventPublisher).publish(any(CommunityThreadInvitedEvent.class));
+
+        ArgumentCaptor<CreateChatRoomCommand> chatRoomCommand =
+            ArgumentCaptor.forClass(CreateChatRoomCommand.class);
+        then(createChatRoomUseCase).should().create(chatRoomCommand.capture());
+        assertThat(chatRoomCommand.getValue().readScope()).isEqualTo(ChatRoomReadScope.PUBLIC);
     }
 
     @Test
