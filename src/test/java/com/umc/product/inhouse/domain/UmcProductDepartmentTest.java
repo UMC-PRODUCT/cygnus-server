@@ -103,6 +103,37 @@ class UmcProductDepartmentTest {
         assertThat(participant.getEndDate()).isEqualTo(DECEMBER_31);
     }
 
+    @Test
+    void Department_하는_일_수정은_구조_필드를_바꾸지_않는다() {
+        UmcProductDepartment department = department();
+        UmcProductMemberActivityPeriod activityPeriod = UmcProductMemberActivityPeriod.create(
+            UmcProductMember.create("테스트", "테스터", null, null, null),
+            JANUARY_1,
+            DECEMBER_31
+        );
+        UmcProductDepartmentParticipant participant = UmcProductDepartmentParticipant.create(
+            department,
+            activityPeriod,
+            UmcProductDepartmentRole.DEPARTMENT_LEAD,
+            UmcProductPosition.PRODUCT_OWNER,
+            "기존 책임",
+            "기존 설명",
+            JANUARY_1,
+            DECEMBER_31
+        );
+
+        participant.updateResponsibility("  제품 목표 관리  ", "   ");
+
+        assertThat(participant.getResponsibilityTitle()).isEqualTo("제품 목표 관리");
+        assertThat(participant.getResponsibilityDescription()).isNull();
+        assertThat(participant.getDepartment()).isSameAs(department);
+        assertThat(participant.getMemberActivityPeriod()).isSameAs(activityPeriod);
+        assertThat(participant.getRole()).isEqualTo(UmcProductDepartmentRole.DEPARTMENT_LEAD);
+        assertThat(participant.getPosition()).isEqualTo(UmcProductPosition.PRODUCT_OWNER);
+        assertThat(participant.getStartDate()).isEqualTo(JANUARY_1);
+        assertThat(participant.getEndDate()).isEqualTo(DECEMBER_31);
+    }
+
     private UmcProductDepartment department() {
         return UmcProductDepartment.create(
             "RECRUIT",

@@ -136,6 +136,11 @@ public class UmcProductDepartmentParticipant extends BaseEntity {
         this.period = nextPeriod;
     }
 
+    public void updateResponsibility(String responsibilityTitle, String responsibilityDescription) {
+        this.responsibilityTitle = normalizeNullable(responsibilityTitle);
+        this.responsibilityDescription = normalizeNullable(responsibilityDescription);
+    }
+
     public LocalDate getStartDate() {
         return period.getStartDate();
     }

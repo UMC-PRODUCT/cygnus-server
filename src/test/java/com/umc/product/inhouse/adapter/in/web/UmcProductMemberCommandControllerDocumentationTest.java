@@ -31,6 +31,7 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductChapte
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductResponsibilitiesRequest;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
 import com.umc.product.inhouse.application.port.in.command.dto.ResetUmcProductAccountPasswordResult;
 import com.umc.product.inhouse.domain.enums.UmcProductDepartmentRole;
@@ -154,6 +155,56 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                         .description("UMC PRODUCT 프로필 이미지 파일 ID").optional()
                 )
             ));
+    }
+
+    @Test
+    void 본인이나_관리자가_UMC_PRODUCT_인원의_하는_일을_수정한다() throws Exception {
+        UpdateUmcProductResponsibilitiesRequest request = new UpdateUmcProductResponsibilitiesRequest(
+            List.of(new UpdateUmcProductResponsibilitiesRequest.ChapterResponsibility(
+                50L, "Server Developer", "API 개발"
+            )),
+            List.of(new UpdateUmcProductResponsibilitiesRequest.DepartmentResponsibility(
+                80L, "Department Lead", "제품 목표 관리"
+            ))
+        );
+
+        mockMvc.perform(patch("/api/v1/umc-product/members/{memberId}/responsibilities", 30L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andDo(restDocsHandler.document(
+                memberPathParameters(),
+                requestFields(
+                    fieldWithPath("chapterMemberships").type(JsonFieldType.ARRAY)
+                        .description("수정할 Chapter 소속 책임 정보"),
+                    fieldWithPath("chapterMemberships[].chapterMembershipId").type(JsonFieldType.STRING)
+                        .description("Chapter 소속 ID"),
+                    fieldWithPath("chapterMemberships[].responsibilityTitle").type(JsonFieldType.STRING)
+                        .description("하는 일 제목").optional(),
+                    fieldWithPath("chapterMemberships[].responsibilityDescription").type(JsonFieldType.STRING)
+                        .description("하는 일 설명").optional(),
+                    fieldWithPath("departmentParticipations").type(JsonFieldType.ARRAY)
+                        .description("수정할 Department 참여 책임 정보"),
+                    fieldWithPath("departmentParticipations[].departmentParticipantId").type(JsonFieldType.STRING)
+                        .description("Department 참여 ID"),
+                    fieldWithPath("departmentParticipations[].responsibilityTitle").type(JsonFieldType.STRING)
+                        .description("하는 일 제목").optional(),
+                    fieldWithPath("departmentParticipations[].responsibilityDescription").type(JsonFieldType.STRING)
+                        .description("하는 일 설명").optional()
+                )
+            ));
+    }
+
+    @Test
+    void 하는_일_수정_목록이_모두_비어_있으면_요청을_거부한다() throws Exception {
+        UpdateUmcProductResponsibilitiesRequest request = new UpdateUmcProductResponsibilitiesRequest(
+            List.of(), List.of()
+        );
+
+        mockMvc.perform(patch("/api/v1/umc-product/members/{memberId}/responsibilities", 30L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest());
     }
 
     @Test

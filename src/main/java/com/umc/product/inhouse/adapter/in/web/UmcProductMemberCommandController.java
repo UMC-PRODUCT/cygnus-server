@@ -21,6 +21,7 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductChapte
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductResponsibilitiesRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.response.RegisterUmcProductMemberResponse;
 import com.umc.product.inhouse.adapter.in.web.dto.response.ResetUmcProductAccountPasswordResponse;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
@@ -125,6 +126,22 @@ public class UmcProductMemberCommandController {
     ) {
         manageUmcProductMemberUseCase.updateProfile(
             request.toCommand(memberId, currentMemberId(currentMember))
+        );
+    }
+
+    @PatchMapping("/{memberId}/responsibilities")
+    @Operation(
+        operationId = "UMC-PRODUCT-MEMBER-017",
+        summary = "UMC PRODUCT 인원의 하는 일 수정",
+        description = "본인에게 연동된 계정 또는 관리자가 Chapter·Department 소속의 책임 정보만 수정합니다."
+    )
+    public void updateResponsibilities(
+        @PathVariable Long memberId,
+        @CurrentMember MemberPrincipal currentMember,
+        @RequestBody @Valid UpdateUmcProductResponsibilitiesRequest request
+    ) {
+        manageUmcProductMemberUseCase.updateResponsibilities(
+            request.toCommand(currentMemberId(currentMember), memberId)
         );
     }
 

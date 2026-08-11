@@ -12,6 +12,7 @@ import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductC
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductResponsibilitiesCommand;
 
 public interface ManageUmcProductMemberUseCase {
 
@@ -30,6 +31,8 @@ public interface ManageUmcProductMemberUseCase {
     );
 
     void updateProfile(UpdateUmcProductMemberProfileCommand command);
+
+    void updateResponsibilities(UpdateUmcProductResponsibilitiesCommand command);
 
     void delete(Long umcProductMemberId, Long requesterMemberId);
 

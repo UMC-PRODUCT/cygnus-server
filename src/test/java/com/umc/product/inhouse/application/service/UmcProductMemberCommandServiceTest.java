@@ -35,6 +35,7 @@ import com.umc.product.inhouse.application.port.in.command.dto.ResetUmcProductAc
 import com.umc.product.inhouse.application.port.in.command.dto.UmcProductActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductResponsibilitiesCommand;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeadershipPort;
@@ -48,11 +49,16 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadersh
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
+import com.umc.product.inhouse.domain.UmcProductChapter;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
+import com.umc.product.inhouse.domain.UmcProductDepartment;
+import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberAccount;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
+import com.umc.product.inhouse.domain.enums.UmcProductDepartmentRole;
 import com.umc.product.inhouse.domain.enums.UmcProductMemberAccountType;
+import com.umc.product.inhouse.domain.enums.UmcProductPosition;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
 import com.umc.product.member.application.port.in.command.ProvisionMemberUseCase;
 import com.umc.product.member.application.port.in.command.dto.ProvisionMemberCommand;
@@ -246,6 +252,76 @@ class UmcProductMemberCommandServiceTest {
     }
 
     @Test
+    void 연동된_계정은_자기_인원의_하는_일을_수정할_수_있다() {
+        UmcProductMember member = member(30L);
+        UmcProductChapterMembership membership = chapterMembership(50L, member);
+        UmcProductDepartmentParticipant participant = departmentParticipant(60L, member);
+        given(loadUmcProductMemberPort.getByIdWithLock(30L)).willReturn(member);
+        given(umcProductAccessPolicy.canManageMemberProfile(100L, 30L)).willReturn(true);
+        given(loadUmcProductChapterMembershipPort.getById(50L)).willReturn(membership);
+        given(loadUmcProductDepartmentParticipantPort.getById(60L)).willReturn(participant);
+
+        sut.updateResponsibilities(new UpdateUmcProductResponsibilitiesCommand(
+            100L,
+            30L,
+            List.of(new UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility(
+                50L, "API 개발", "서버 API 구현"
+            )),
+            List.of(new UpdateUmcProductResponsibilitiesCommand.DepartmentResponsibility(
+                60L, "제품 개발", "스프린트 개발"
+            ))
+        ));
+
+        assertThat(membership.getResponsibilityTitle()).isEqualTo("API 개발");
+        assertThat(participant.getResponsibilityTitle()).isEqualTo("제품 개발");
+        verify(saveUmcProductChapterMembershipPort).save(membership);
+        verify(saveUmcProductDepartmentParticipantPort).save(participant);
+    }
+
+    @Test
+    void 같은_소속을_한_요청에서_중복_수정할_수_없다() {
+        UmcProductMember member = member(30L);
+        given(loadUmcProductMemberPort.getByIdWithLock(30L)).willReturn(member);
+        given(umcProductAccessPolicy.canManageMemberProfile(100L, 30L)).willReturn(true);
+        UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility update =
+            new UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility(50L, "API", null);
+
+        assertThatThrownBy(() -> sut.updateResponsibilities(new UpdateUmcProductResponsibilitiesCommand(
+            100L, 30L, List.of(update, update), List.of()
+        )))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_RESPONSIBILITY_DUPLICATED);
+
+        then(saveUmcProductChapterMembershipPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 마지막_Department_참여가_다른_인원_소유면_어떤_하는_일도_수정하지_않는다() {
+        UmcProductMember target = member(30L);
+        UmcProductChapterMembership membership = chapterMembership(50L, target);
+        UmcProductDepartmentParticipant otherParticipant = departmentParticipant(60L, member(31L));
+        given(loadUmcProductMemberPort.getByIdWithLock(30L)).willReturn(target);
+        given(umcProductAccessPolicy.canManageMemberProfile(100L, 30L)).willReturn(true);
+        given(loadUmcProductChapterMembershipPort.getById(50L)).willReturn(membership);
+        given(loadUmcProductDepartmentParticipantPort.getById(60L)).willReturn(otherParticipant);
+
+        assertThatThrownBy(() -> sut.updateResponsibilities(new UpdateUmcProductResponsibilitiesCommand(
+            100L,
+            30L,
+            List.of(new UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility(50L, "변경", null)),
+            List.of(new UpdateUmcProductResponsibilitiesCommand.DepartmentResponsibility(60L, "변경", null))
+        )))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_PARTICIPANT_NOT_FOUND);
+
+        assertThat(membership.getResponsibilityTitle()).isEqualTo("기존 책임");
+        then(saveUmcProductChapterMembershipPort).shouldHaveNoInteractions();
+        then(saveUmcProductDepartmentParticipantPort).shouldHaveNoInteractions();
+    }
+
+    @Test
     void 관리_권한이_없으면_본인의_활동_기간도_추가할_수_없다() {
         CreateUmcProductMemberActivityPeriodCommand command =
             CreateUmcProductMemberActivityPeriodCommand.of(
@@ -420,6 +496,48 @@ class UmcProductMemberCommandServiceTest {
             null,
             MemberStatus.ACTIVE,
             List.of()
+        );
+    }
+
+    private UmcProductChapterMembership chapterMembership(Long id, UmcProductMember member) {
+        UmcProductMemberActivityPeriod period = activityPeriod(member);
+        UmcProductChapterMembership membership = UmcProductChapterMembership.create(
+            period,
+            UmcProductChapter.create("SERVER", "Server", null, 1, true),
+            UmcProductPosition.SERVER_DEVELOPER,
+            "기존 책임",
+            "기존 설명",
+            period.getStartDate(),
+            period.getEndDate()
+        );
+        ReflectionTestUtils.setField(membership, "id", id);
+        return membership;
+    }
+
+    private UmcProductDepartmentParticipant departmentParticipant(Long id, UmcProductMember member) {
+        UmcProductMemberActivityPeriod period = activityPeriod(member);
+        UmcProductDepartment department = UmcProductDepartment.create(
+            "PLATFORM", "Platform", null, null, period.getStartDate(), period.getEndDate(), 1, true
+        );
+        UmcProductDepartmentParticipant participant = UmcProductDepartmentParticipant.create(
+            department,
+            period,
+            UmcProductDepartmentRole.MEMBER,
+            UmcProductPosition.SERVER_DEVELOPER,
+            "기존 책임",
+            "기존 설명",
+            period.getStartDate(),
+            period.getEndDate()
+        );
+        ReflectionTestUtils.setField(participant, "id", id);
+        return participant;
+    }
+
+    private UmcProductMemberActivityPeriod activityPeriod(UmcProductMember member) {
+        return UmcProductMemberActivityPeriod.create(
+            member,
+            LocalDate.of(2026, 1, 1),
+            LocalDate.of(2026, 12, 31)
         );
     }
 }

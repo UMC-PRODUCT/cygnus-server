@@ -1,9 +1,12 @@
 package com.umc.product.inhouse.application.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import org.springframework.stereotype.Service;
@@ -31,6 +34,7 @@ import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductC
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductResponsibilitiesCommand;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeadershipPort;
@@ -46,6 +50,7 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAc
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
+import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberAccount;
@@ -253,6 +258,54 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         validateProfileImage(command.profileImageId());
         member.updateProfile(command.introduction(), command.profileImageId());
         saveUmcProductMemberPort.save(member);
+    }
+
+    @Audited(
+        domain = Domain.INHOUSE,
+        action = AuditAction.UPDATE,
+        targetType = "UmcProductMemberResponsibilities",
+        targetId = "#command.umcProductMemberId()",
+        description = "'UMC PRODUCT 인원의 하는 일을 수정했습니다.'"
+    )
+    @Override
+    public void updateResponsibilities(UpdateUmcProductResponsibilitiesCommand command) {
+        UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(command.umcProductMemberId());
+        if (!umcProductAccessPolicy.canManageMemberProfile(command.requesterMemberId(), member.getId())) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCESS_DENIED);
+        }
+        validateResponsibilityIdsNotDuplicated(command);
+
+        List<UmcProductChapterMembership> memberships = new ArrayList<>(command.chapterMemberships().size());
+        for (UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility update : command.chapterMemberships()) {
+            UmcProductChapterMembership membership = loadUmcProductChapterMembershipPort
+                .getById(update.chapterMembershipId());
+            validateOwnedBy(membership, member.getId());
+            memberships.add(membership);
+        }
+        List<UmcProductDepartmentParticipant> participants =
+            new ArrayList<>(command.departmentParticipations().size());
+        for (UpdateUmcProductResponsibilitiesCommand.DepartmentResponsibility update
+            : command.departmentParticipations()) {
+            UmcProductDepartmentParticipant participant =
+                loadUmcProductDepartmentParticipantPort.getById(update.departmentParticipantId());
+            validateOwnedBy(participant, member.getId());
+            participants.add(participant);
+        }
+
+        for (int index = 0; index < memberships.size(); index++) {
+            UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility update =
+                command.chapterMemberships().get(index);
+            UmcProductChapterMembership membership = memberships.get(index);
+            membership.updateResponsibility(update.responsibilityTitle(), update.responsibilityDescription());
+            saveUmcProductChapterMembershipPort.save(membership);
+        }
+        for (int index = 0; index < participants.size(); index++) {
+            UpdateUmcProductResponsibilitiesCommand.DepartmentResponsibility update =
+                command.departmentParticipations().get(index);
+            UmcProductDepartmentParticipant participant = participants.get(index);
+            participant.updateResponsibility(update.responsibilityTitle(), update.responsibilityDescription());
+            saveUmcProductDepartmentParticipantPort.save(participant);
+        }
     }
 
     @Override
@@ -652,6 +705,29 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private void validateOwnedBy(UmcProductLeadership leadership, Long memberId) {
         if (!Objects.equals(leadership.getMemberActivityPeriod().getUmcProductMember().getId(), memberId)) {
             throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_NOT_FOUND);
+        }
+    }
+
+    private void validateOwnedBy(UmcProductDepartmentParticipant participant, Long memberId) {
+        if (!Objects.equals(
+            participant.getMemberActivityPeriod().getUmcProductMember().getId(),
+            memberId
+        )) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_PARTICIPANT_NOT_FOUND);
+        }
+    }
+
+    private void validateResponsibilityIdsNotDuplicated(UpdateUmcProductResponsibilitiesCommand command) {
+        Set<Long> chapterMembershipIds = new HashSet<>();
+        boolean chapterDuplicated = command.chapterMemberships().stream()
+            .map(UpdateUmcProductResponsibilitiesCommand.ChapterResponsibility::chapterMembershipId)
+            .anyMatch(id -> !chapterMembershipIds.add(id));
+        Set<Long> departmentParticipantIds = new HashSet<>();
+        boolean departmentDuplicated = command.departmentParticipations().stream()
+            .map(UpdateUmcProductResponsibilitiesCommand.DepartmentResponsibility::departmentParticipantId)
+            .anyMatch(id -> !departmentParticipantIds.add(id));
+        if (chapterDuplicated || departmentDuplicated) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_RESPONSIBILITY_DUPLICATED);
         }
     }
 
