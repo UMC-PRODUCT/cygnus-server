@@ -26,6 +26,7 @@ import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductM
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
@@ -38,7 +39,7 @@ import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 @ExtendWith(MockitoExtension.class)
@@ -54,6 +55,8 @@ class UmcProductMemberCommandServiceTest {
     @Mock
     SaveUmcProductMemberActivityPeriodPort saveUmcProductMemberActivityPeriodPort;
     @Mock
+    SaveUmcProductMemberAccountPort saveUmcProductMemberAccountPort;
+    @Mock
     LoadUmcProductChapterPort loadUmcProductChapterPort;
     @Mock
     LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
@@ -68,7 +71,7 @@ class UmcProductMemberCommandServiceTest {
     @Mock
     SaveUmcProductDepartmentParticipantPort saveUmcProductDepartmentParticipantPort;
     @Mock
-    GetMemberUseCase getMemberUseCase;
+    GetSchoolUseCase getSchoolUseCase;
     @Mock
     GetFileUseCase getFileUseCase;
     @Mock
@@ -79,9 +82,9 @@ class UmcProductMemberCommandServiceTest {
 
     @Test
     void 본인은_Leadership이_없어도_프로필을_수정할_수_있다() {
-        UmcProductMember member = member(1L, 100L);
+        UmcProductMember member = member(1L);
         given(loadUmcProductMemberPort.getByIdWithLock(1L)).willReturn(member);
-        given(umcProductAccessPolicy.canManageMemberProfile(100L, 100L)).willReturn(true);
+        given(umcProductAccessPolicy.canManageMemberProfile(100L, 1L)).willReturn(true);
         given(getFileUseCase.existsById("product-profile")).willReturn(true);
 
         sut.updateProfile(UpdateUmcProductMemberProfileCommand.of(
@@ -116,7 +119,7 @@ class UmcProductMemberCommandServiceTest {
 
     @Test
     void 기존_활동_기간과_겹치거나_인접한_기간은_추가할_수_없다() {
-        UmcProductMember member = member(1L, 100L);
+        UmcProductMember member = member(1L);
         LocalDate startDate = LocalDate.of(2026, 7, 11);
         LocalDate endDate = LocalDate.of(2026, 8, 1);
         given(umcProductAccessPolicy.canManageUmcProduct(999L)).willReturn(true);
@@ -162,7 +165,7 @@ class UmcProductMemberCommandServiceTest {
 
     @Test
     void 하위_활동을_범위_밖으로_내보내도록_멤버_활동_기간을_축소할_수_없다() {
-        UmcProductMember member = member(1L, 100L);
+        UmcProductMember member = member(1L);
         UmcProductMemberActivityPeriod activityPeriod = UmcProductMemberActivityPeriod.create(
             member,
             LocalDate.of(2026, 1, 1),
@@ -207,21 +210,28 @@ class UmcProductMemberCommandServiceTest {
 
     private void givenCreateMemberPrerequisites() {
         given(umcProductAccessPolicy.canManageUmcProduct(999L)).willReturn(true);
-        given(loadUmcProductMemberPort.existsByMemberId(100L)).willReturn(false);
     }
 
     private CreateUmcProductMemberCommand createMemberCommand(
         List<UmcProductActivityPeriodCommand> periods
     ) {
-        return CreateUmcProductMemberCommand.of(999L, 100L, "소개", null, periods);
+        return CreateUmcProductMemberCommand.of(
+            999L,
+            "홍길동",
+            "길동",
+            null,
+            "소개",
+            null,
+            periods
+        );
     }
 
     private UmcProductActivityPeriodCommand period(LocalDate startDate, LocalDate endDate) {
         return UmcProductActivityPeriodCommand.of(startDate, endDate);
     }
 
-    private UmcProductMember member(Long id, Long memberId) {
-        UmcProductMember member = UmcProductMember.create(memberId, "소개", null);
+    private UmcProductMember member(Long id) {
+        UmcProductMember member = UmcProductMember.create("홍길동", "길동", null, "소개", null);
         ReflectionTestUtils.setField(member, "id", id);
         return member;
     }

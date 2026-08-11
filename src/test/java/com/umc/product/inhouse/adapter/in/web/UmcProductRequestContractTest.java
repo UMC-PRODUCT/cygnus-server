@@ -102,7 +102,7 @@ class UmcProductRequestContractTest {
     void requireMemberActivityPeriod() {
         // given
         CreateUmcProductMemberRequest request = new CreateUmcProductMemberRequest(
-            1L, null, null, java.util.List.of()
+            "홍길동", "길동", null, null, null, java.util.List.of()
         );
 
         // when
@@ -117,7 +117,9 @@ class UmcProductRequestContractTest {
     @DisplayName("멤버 생성 활동 기간 목록은 null 원소를 허용하지 않는다")
     void rejectNullMemberActivityPeriodElement() {
         CreateUmcProductMemberRequest request = new CreateUmcProductMemberRequest(
-            1L,
+            "홍길동",
+            "길동",
+            null,
             null,
             null,
             java.util.Collections.singletonList(null)

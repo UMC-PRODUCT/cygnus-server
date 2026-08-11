@@ -2,10 +2,8 @@ package com.umc.product.inhouse.adapter.out.persistence;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
@@ -22,11 +20,6 @@ import lombok.RequiredArgsConstructor;
 @Component
 @RequiredArgsConstructor
 public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberPort, SaveUmcProductMemberPort {
-
-    private static final Map<String, InhouseErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
-        "uk_umc_product_member_member_id",
-        InhouseErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS
-    );
 
     private final UmcProductMemberJpaRepository umcProductMemberJpaRepository;
     private final UmcProductMemberQueryRepository umcProductMemberQueryRepository;
@@ -49,23 +42,6 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     }
 
     @Override
-    public UmcProductMember getByMemberId(Long memberId) {
-        return findByMemberId(memberId)
-            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
-    }
-
-    @Override
-    public Optional<UmcProductMember> findByMemberId(Long memberId) {
-        return umcProductMemberJpaRepository.findByMemberId(memberId);
-    }
-
-    @Override
-    public UmcProductMember getByMemberIdWithLock(Long memberId) {
-        return umcProductMemberJpaRepository.findByMemberIdWithLock(memberId)
-            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_NOT_FOUND));
-    }
-
-    @Override
     public List<UmcProductMember> listByIds(Collection<Long> umcProductMemberIds) {
         if (umcProductMemberIds == null || umcProductMemberIds.isEmpty()) {
             return List.of();
@@ -79,17 +55,8 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     }
 
     @Override
-    public boolean existsByMemberId(Long memberId) {
-        return umcProductMemberJpaRepository.existsByMemberId(memberId);
-    }
-
-    @Override
     public UmcProductMember save(UmcProductMember member) {
-        try {
-            return umcProductMemberJpaRepository.saveAndFlush(member);
-        } catch (DataIntegrityViolationException exception) {
-            throw UmcProductConstraintViolationTranslator.translate(exception, CONSTRAINT_ERROR_CODES);
-        }
+        return umcProductMemberJpaRepository.saveAndFlush(member);
     }
 
     @Override

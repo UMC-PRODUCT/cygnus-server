@@ -37,8 +37,8 @@ import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
 import lombok.RequiredArgsConstructor;
@@ -54,19 +54,19 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
     private final LoadUmcProductDepartmentParticipantPort loadUmcProductDepartmentParticipantPort;
     private final LoadUmcProductDepartmentPort loadUmcProductDepartmentPort;
-    private final GetMemberUseCase getMemberUseCase;
+    private final GetSchoolUseCase getSchoolUseCase;
     private final GetFileUseCase getFileUseCase;
 
     @Override
     public UmcProductMemberInfo getById(Long umcProductMemberId) {
         UmcProductMember member = loadUmcProductMemberPort.getById(umcProductMemberId);
-        MemberInfo memberInfo = getMemberUseCase.findById(member.getMemberId()).orElse(null);
         List<UmcProductDepartmentParticipant> departmentParticipations = loadUmcProductDepartmentParticipantPort
             .listByUmcProductMemberId(umcProductMemberId);
+        Map<Long, String> schoolNames = resolveSchoolNames(List.of(member));
         Map<String, String> productProfileLinks = resolveProductProfileLinks(List.of(member));
         return toInfo(
             member,
-            memberInfo,
+            schoolNames.get(member.getSchoolId()),
             loadUmcProductMemberActivityPeriodPort.listByUmcProductMemberId(umcProductMemberId),
             loadUmcProductChapterMembershipPort.listByUmcProductMemberId(umcProductMemberId),
             loadUmcProductLeadershipPort.listByUmcProductMemberId(umcProductMemberId),
@@ -104,7 +104,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         Map<Long, List<UmcProductDepartmentParticipant>> departmentsByMember = departmentParticipations.stream()
             .collect(Collectors.groupingBy(item -> item.getMemberActivityPeriod().getUmcProductMember().getId()));
         Map<Long, UmcProductDepartmentInfo> departmentMap = departmentMapOf(departmentParticipations);
-        Map<Long, MemberInfo> memberInfoMap = resolveMemberInfos(memberMap.values());
+        Map<Long, String> schoolNames = resolveSchoolNames(memberMap.values());
         Map<String, String> productProfileLinks = resolveProductProfileLinks(memberMap.values());
 
         List<UmcProductMemberInfo> content = ids.stream()
@@ -112,7 +112,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             .filter(Objects::nonNull)
             .map(member -> toInfo(
                 member,
-                memberInfoMap.get(member.getMemberId()),
+                schoolNames.get(member.getSchoolId()),
                 periodsByMember.getOrDefault(member.getId(), List.of()),
                 membershipsByMember.getOrDefault(member.getId(), List.of()),
                 leadershipsByMember.getOrDefault(member.getId(), List.of()),
@@ -127,7 +127,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
 
     private UmcProductMemberInfo toInfo(
         UmcProductMember member,
-        MemberInfo memberInfo,
+        String schoolName,
         List<UmcProductMemberActivityPeriod> periods,
         List<UmcProductChapterMembership> memberships,
         List<UmcProductLeadership> leaderships,
@@ -138,12 +138,10 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
     ) {
         return new UmcProductMemberInfo(
             member.getId(),
-            member.getMemberId(),
-            memberInfo == null ? null : memberInfo.name(),
-            memberInfo == null ? null : memberInfo.nickname(),
-            memberInfo == null ? null : memberInfo.schoolName(),
-            memberInfo == null ? null : memberInfo.profileImageId(),
-            memberInfo == null ? null : memberInfo.profileImageLink(),
+            member.getName(),
+            member.getNickname(),
+            member.getSchoolId(),
+            schoolName,
             member.getIntroduction(),
             member.getProfileImageId(),
             umcProductProfileImageUrl,
@@ -223,11 +221,16 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             .collect(Collectors.toMap(UmcProductDepartmentInfo::departmentId, Function.identity()));
     }
 
-    private Map<Long, MemberInfo> resolveMemberInfos(Collection<UmcProductMember> members) {
-        Set<Long> memberIds = members.stream()
-            .map(UmcProductMember::getMemberId)
+    private Map<Long, String> resolveSchoolNames(Collection<UmcProductMember> members) {
+        Set<Long> schoolIds = members.stream()
+            .map(UmcProductMember::getSchoolId)
+            .filter(Objects::nonNull)
             .collect(Collectors.toSet());
-        return getMemberUseCase.findAllByIds(memberIds);
+        if (schoolIds.isEmpty()) {
+            return Map.of();
+        }
+        return getSchoolUseCase.listDetailsByIds(schoolIds).stream()
+            .collect(Collectors.toMap(SchoolDetailInfo::schoolId, SchoolDetailInfo::schoolName));
     }
 
     private Map<String, String> resolveProductProfileLinks(Collection<UmcProductMember> members) {

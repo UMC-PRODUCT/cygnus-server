@@ -25,8 +25,14 @@ public class UmcProductMember extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "member_id", nullable = false, unique = true)
-    private Long memberId;
+    @Column(nullable = false, length = 30)
+    private String name;
+
+    @Column(nullable = false, length = 20)
+    private String nickname;
+
+    @Column(name = "school_id")
+    private Long schoolId;
 
     @Column(name = "introduction", length = 2000)
     private String introduction;
@@ -35,16 +41,33 @@ public class UmcProductMember extends BaseEntity {
     private String profileImageId;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private UmcProductMember(Long memberId, String introduction, String profileImageId) {
-        validateMemberId(memberId);
-        this.memberId = memberId;
+    private UmcProductMember(
+        String name,
+        String nickname,
+        Long schoolId,
+        String introduction,
+        String profileImageId
+    ) {
+        validateName(name);
+        validateNickname(nickname);
+        this.name = name.trim();
+        this.nickname = nickname.trim();
+        this.schoolId = schoolId;
         this.introduction = normalizeIntroduction(introduction);
         this.profileImageId = normalizeNullable(profileImageId);
     }
 
-    public static UmcProductMember create(Long memberId, String introduction, String profileImageId) {
+    public static UmcProductMember create(
+        String name,
+        String nickname,
+        Long schoolId,
+        String introduction,
+        String profileImageId
+    ) {
         return UmcProductMember.builder()
-            .memberId(memberId)
+            .name(name)
+            .nickname(nickname)
+            .schoolId(schoolId)
             .introduction(introduction)
             .profileImageId(profileImageId)
             .build();
@@ -55,9 +78,15 @@ public class UmcProductMember extends BaseEntity {
         this.profileImageId = normalizeNullable(profileImageId);
     }
 
-    private static void validateMemberId(Long memberId) {
-        if (memberId == null) {
-            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_ID_REQUIRED);
+    private static void validateName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_NAME_REQUIRED);
+        }
+    }
+
+    private static void validateNickname(String nickname) {
+        if (nickname == null || nickname.isBlank()) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_NICKNAME_REQUIRED);
         }
     }
 

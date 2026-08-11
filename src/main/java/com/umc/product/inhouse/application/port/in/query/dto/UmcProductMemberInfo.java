@@ -4,12 +4,10 @@ import java.util.List;
 
 public record UmcProductMemberInfo(
     Long umcProductMemberId,
-    Long memberId,
-    String memberName,
-    String memberNickname,
-    String memberSchoolName,
-    String memberProfileImageId,
-    String memberProfileImageUrl,
+    String name,
+    String nickname,
+    Long schoolId,
+    String schoolName,
     String introduction,
     String umcProductProfileImageId,
     String umcProductProfileImageUrl,

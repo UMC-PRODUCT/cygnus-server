@@ -59,15 +59,15 @@ public class UmcProductLeadershipPersistenceAdapter
     }
 
     @Override
-    public boolean existsByMemberIdAndRolesOnDate(
-        Long memberId,
+    public boolean existsByUmcProductMemberIdAndRolesOnDate(
+        Long umcProductMemberId,
         Set<UmcProductLeadershipRole> roles,
         LocalDate activeOn
     ) {
-        if (memberId == null || roles == null || roles.isEmpty() || activeOn == null) {
+        if (umcProductMemberId == null || roles == null || roles.isEmpty() || activeOn == null) {
             return false;
         }
-        return repository.existsByMemberIdAndRolesOnDate(memberId, roles, activeOn);
+        return repository.existsByUmcProductMemberIdAndRolesOnDate(umcProductMemberId, roles, activeOn);
     }
 
     @Override

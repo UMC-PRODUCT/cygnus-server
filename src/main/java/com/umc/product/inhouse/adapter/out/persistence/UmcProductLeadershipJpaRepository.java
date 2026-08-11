@@ -44,7 +44,7 @@ public interface UmcProductLeadershipJpaRepository extends JpaRepository<UmcProd
     @Query("""
         SELECT COUNT(l) > 0
         FROM UmcProductLeadership l
-        WHERE l.memberActivityPeriod.umcProductMember.memberId = :memberId
+        WHERE l.memberActivityPeriod.umcProductMember.id = :umcProductMemberId
           AND l.role IN :roles
           AND l.period.startDate <= :activeOn
           AND (l.period.endDate IS NULL OR l.period.endDate >= :activeOn)
@@ -52,8 +52,8 @@ public interface UmcProductLeadershipJpaRepository extends JpaRepository<UmcProd
           AND (l.memberActivityPeriod.period.endDate IS NULL
             OR l.memberActivityPeriod.period.endDate >= :activeOn)
         """)
-    boolean existsByMemberIdAndRolesOnDate(
-        @Param("memberId") Long memberId,
+    boolean existsByUmcProductMemberIdAndRolesOnDate(
+        @Param("umcProductMemberId") Long umcProductMemberId,
         @Param("roles") Set<UmcProductLeadershipRole> roles,
         @Param("activeOn") LocalDate activeOn
     );

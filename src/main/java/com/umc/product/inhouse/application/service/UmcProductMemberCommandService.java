@@ -24,6 +24,7 @@ import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductM
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
@@ -40,7 +41,7 @@ import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.exception.InhouseDomainException;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
-import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.domain.exception.StorageErrorCode;
 import com.umc.product.storage.domain.exception.StorageException;
@@ -56,6 +57,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final SaveUmcProductMemberPort saveUmcProductMemberPort;
     private final LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
     private final SaveUmcProductMemberActivityPeriodPort saveUmcProductMemberActivityPeriodPort;
+    private final SaveUmcProductMemberAccountPort saveUmcProductMemberAccountPort;
     private final LoadUmcProductChapterPort loadUmcProductChapterPort;
     private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     private final SaveUmcProductChapterMembershipPort saveUmcProductChapterMembershipPort;
@@ -63,7 +65,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final SaveUmcProductLeadershipPort saveUmcProductLeadershipPort;
     private final LoadUmcProductDepartmentParticipantPort loadUmcProductDepartmentParticipantPort;
     private final SaveUmcProductDepartmentParticipantPort saveUmcProductDepartmentParticipantPort;
-    private final GetMemberUseCase getMemberUseCase;
+    private final GetSchoolUseCase getSchoolUseCase;
     private final GetFileUseCase getFileUseCase;
     private final UmcProductAccessPolicy umcProductAccessPolicy;
 
@@ -77,13 +79,16 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     @Override
     public Long create(CreateUmcProductMemberCommand command) {
         validateCanManage(command.requesterMemberId());
-        getMemberUseCase.getById(command.memberId());
-        validateMemberNotDuplicated(command.memberId());
+        validateSchool(command.schoolId());
         validateProfileImage(command.profileImageId());
         validateInitialActivityPeriods(command.activityPeriods());
 
         UmcProductMember member = saveUmcProductMemberPort.save(UmcProductMember.create(
-            command.memberId(), command.introduction(), command.profileImageId()
+            command.name(),
+            command.nickname(),
+            command.schoolId(),
+            command.introduction(),
+            command.profileImageId()
         ));
         command.activityPeriods().stream()
             .map(period -> UmcProductMemberActivityPeriod.create(member, period.startDate(), period.endDate()))
@@ -101,7 +106,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     @Override
     public void updateProfile(UpdateUmcProductMemberProfileCommand command) {
         UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(command.umcProductMemberId());
-        if (!umcProductAccessPolicy.canManageMemberProfile(command.requesterMemberId(), member.getMemberId())) {
+        if (!umcProductAccessPolicy.canManageMemberProfile(command.requesterMemberId(), member.getId())) {
             throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCESS_DENIED);
         }
         validateProfileImage(command.profileImageId());
@@ -124,6 +129,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         saveUmcProductChapterMembershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductLeadershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductMemberActivityPeriodPort.deleteAllByUmcProductMemberId(member.getId());
+        saveUmcProductMemberAccountPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductMemberPort.delete(member);
     }
 
@@ -469,9 +475,9 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         }
     }
 
-    private void validateMemberNotDuplicated(Long memberId) {
-        if (loadUmcProductMemberPort.existsByMemberId(memberId)) {
-            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS);
+    private void validateSchool(Long schoolId) {
+        if (schoolId != null) {
+            getSchoolUseCase.getSchoolDetail(schoolId);
         }
     }
 

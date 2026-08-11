@@ -18,8 +18,8 @@ public interface LoadUmcProductLeadershipPort {
 
     boolean existsByMemberActivityPeriodId(Long memberActivityPeriodId);
 
-    boolean existsByMemberIdAndRolesOnDate(
-        Long memberId,
+    boolean existsByUmcProductMemberIdAndRolesOnDate(
+        Long umcProductMemberId,
         Set<UmcProductLeadershipRole> roles,
         LocalDate activeOn
     );

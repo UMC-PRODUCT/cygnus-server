@@ -19,7 +19,7 @@ class UmcProductMemberActivityTest {
 
     @Test
     void 멤버의_활동_기간과_그_안의_Chapter_소속을_생성한다() {
-        UmcProductMember member = UmcProductMember.create(100L, " 소개 ", " image ");
+        UmcProductMember member = UmcProductMember.create(" 이름 ", " 닉네임 ", null, " 소개 ", " image ");
         UmcProductMemberActivityPeriod activityPeriod =
             UmcProductMemberActivityPeriod.create(member, JANUARY_1, DECEMBER_31);
         UmcProductChapter chapter = chapter();
@@ -62,7 +62,7 @@ class UmcProductMemberActivityTest {
     @Test
     void Product_Leadership은_Chapter_소속과_독립적으로_생성한다() {
         UmcProductMemberActivityPeriod activityPeriod = UmcProductMemberActivityPeriod.create(
-            UmcProductMember.create(100L, null, null),
+            UmcProductMember.create("테스트", "테스터", null, null, null),
             JANUARY_1,
             null
         );
@@ -96,7 +96,7 @@ class UmcProductMemberActivityTest {
 
     @Test
     void 하위_활동을_수정하면_기간을_포함하는_다른_멤버_활동_기간으로_재연결할_수_있다() {
-        UmcProductMember member = UmcProductMember.create(100L, null, null);
+        UmcProductMember member = UmcProductMember.create("테스트", "테스터", null, null, null);
         UmcProductMemberActivityPeriod firstPeriod = UmcProductMemberActivityPeriod.create(
             member,
             JANUARY_1,
@@ -133,7 +133,7 @@ class UmcProductMemberActivityTest {
 
     private UmcProductMemberActivityPeriod activityPeriod() {
         return UmcProductMemberActivityPeriod.create(
-            UmcProductMember.create(100L, null, null),
+            UmcProductMember.create("테스트", "테스터", null, null, null),
             JANUARY_1,
             DECEMBER_31
         );

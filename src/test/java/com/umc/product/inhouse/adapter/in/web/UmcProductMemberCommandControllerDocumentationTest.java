@@ -42,7 +42,9 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
     void UMC_PRODUCT_멤버를_생성한다() throws Exception {
         // given
         CreateUmcProductMemberRequest request = new CreateUmcProductMemberRequest(
-            100L,
+            "홍길동",
+            "길동",
+            20L,
             "UMC PRODUCT 서버 개발자",
             "profile-file-id",
             List.of(new UmcProductActivityPeriodRequest(START_DATE, END_DATE))
@@ -55,7 +57,9 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
             .andDo(restDocsHandler.document(requestFields(
-                fieldWithPath("memberId").type(JsonFieldType.STRING).description("전역 멤버 ID"),
+                fieldWithPath("name").type(JsonFieldType.STRING).description("이름"),
+                fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임"),
+                fieldWithPath("schoolId").type(JsonFieldType.STRING).description("학교 ID").optional(),
                 fieldWithPath("introduction").type(JsonFieldType.STRING).description("소개").optional(),
                 fieldWithPath("profileImageId").type(JsonFieldType.STRING)
                     .description("UMC PRODUCT 프로필 이미지 파일 ID").optional(),

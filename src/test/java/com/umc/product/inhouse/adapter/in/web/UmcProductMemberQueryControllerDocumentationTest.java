@@ -77,12 +77,10 @@ class UmcProductMemberQueryControllerDocumentationTest extends DocumentationTest
     private UmcProductMemberInfo memberInfo() {
         return new UmcProductMemberInfo(
             30L,
-            100L,
             "홍길동",
             "길동",
+            20L,
             "한국대학교",
-            "member-profile-id",
-            "https://example.com/member-profile.png",
             "UMC PRODUCT 서버 개발자",
             "umc-product-profile-id",
             "https://example.com/umc-product-profile.png",

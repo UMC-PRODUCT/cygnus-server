@@ -4,21 +4,27 @@ import java.util.List;
 
 public record CreateUmcProductMemberCommand(
     Long requesterMemberId,
-    Long memberId,
+    String name,
+    String nickname,
+    Long schoolId,
     String introduction,
     String profileImageId,
     List<UmcProductActivityPeriodCommand> activityPeriods
 ) {
     public static CreateUmcProductMemberCommand of(
         Long requesterMemberId,
-        Long memberId,
+        String name,
+        String nickname,
+        Long schoolId,
         String introduction,
         String profileImageId,
         List<UmcProductActivityPeriodCommand> activityPeriods
     ) {
         return new CreateUmcProductMemberCommand(
             requesterMemberId,
-            memberId,
+            name,
+            nickname,
+            schoolId,
             introduction,
             profileImageId,
             activityPeriods

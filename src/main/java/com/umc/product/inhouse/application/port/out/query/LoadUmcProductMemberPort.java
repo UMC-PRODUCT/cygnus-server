@@ -18,15 +18,8 @@ public interface LoadUmcProductMemberPort {
 
     Optional<UmcProductMember> findById(Long umcProductMemberId);
 
-    UmcProductMember getByMemberId(Long memberId);
-
-    UmcProductMember getByMemberIdWithLock(Long memberId);
-
-    Optional<UmcProductMember> findByMemberId(Long memberId);
-
     List<UmcProductMember> listByIds(Collection<Long> umcProductMemberIds);
 
     Page<Long> searchIds(UmcProductMemberSearchCondition condition, Pageable pageable);
 
-    boolean existsByMemberId(Long memberId);
 }

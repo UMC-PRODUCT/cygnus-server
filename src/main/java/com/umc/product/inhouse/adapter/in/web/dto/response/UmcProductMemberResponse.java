@@ -6,12 +6,10 @@ import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberInf
 
 public record UmcProductMemberResponse(
     Long umcProductMemberId,
-    Long memberId,
-    String memberName,
-    String memberNickname,
-    String memberSchoolName,
-    String memberProfileImageId,
-    String memberProfileImageUrl,
+    String name,
+    String nickname,
+    Long schoolId,
+    String schoolName,
     String introduction,
     String umcProductProfileImageId,
     String umcProductProfileImageUrl,
@@ -23,12 +21,10 @@ public record UmcProductMemberResponse(
     public static UmcProductMemberResponse from(UmcProductMemberInfo info) {
         return new UmcProductMemberResponse(
             info.umcProductMemberId(),
-            info.memberId(),
-            info.memberName(),
-            info.memberNickname(),
-            info.memberSchoolName(),
-            info.memberProfileImageId(),
-            info.memberProfileImageUrl(),
+            info.name(),
+            info.nickname(),
+            info.schoolId(),
+            info.schoolName(),
             info.introduction(),
             info.umcProductProfileImageId(),
             info.umcProductProfileImageUrl(),

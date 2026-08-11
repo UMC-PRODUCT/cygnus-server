@@ -5,6 +5,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -13,10 +14,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
+import com.umc.product.inhouse.domain.UmcProductMember;
+import com.umc.product.inhouse.domain.UmcProductMemberAccount;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
+import com.umc.product.inhouse.domain.enums.UmcProductMemberAccountType;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UMC PRODUCT 접근 정책")
@@ -27,6 +33,9 @@ class UmcProductAccessPolicyTest {
 
     @Mock
     LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
+
+    @Mock
+    LoadUmcProductMemberAccountPort loadUmcProductMemberAccountPort;
 
     @Mock
     UmcProductDateProvider umcProductDateProvider;
@@ -41,6 +50,7 @@ class UmcProductAccessPolicyTest {
         assertThat(sut.canManageUmcProduct(1L)).isTrue();
 
         then(loadUmcProductLeadershipPort).shouldHaveNoInteractions();
+        then(loadUmcProductMemberAccountPort).shouldHaveNoInteractions();
         then(umcProductDateProvider).shouldHaveNoInteractions();
     }
 
@@ -52,9 +62,11 @@ class UmcProductAccessPolicyTest {
             UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD
         );
         given(getChallengerRoleUseCase.isCentralCoreInAnyGisu(1L)).willReturn(false);
+        given(loadUmcProductMemberAccountPort.findByMemberId(1L))
+            .willReturn(Optional.of(account(30L, 1L)));
         given(umcProductDateProvider.today()).willReturn(today);
-        given(loadUmcProductLeadershipPort.existsByMemberIdAndRolesOnDate(
-            1L,
+        given(loadUmcProductLeadershipPort.existsByUmcProductMemberIdAndRolesOnDate(
+            30L,
             managerRoles,
             today
         )).willReturn(true);
@@ -70,9 +82,11 @@ class UmcProductAccessPolicyTest {
             UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD
         );
         given(getChallengerRoleUseCase.isCentralCoreInAnyGisu(1L)).willReturn(false);
+        given(loadUmcProductMemberAccountPort.findByMemberId(1L))
+            .willReturn(Optional.of(account(30L, 1L)));
         given(umcProductDateProvider.today()).willReturn(today);
-        given(loadUmcProductLeadershipPort.existsByMemberIdAndRolesOnDate(
-            1L,
+        given(loadUmcProductLeadershipPort.existsByUmcProductMemberIdAndRolesOnDate(
+            30L,
             managerRoles,
             today
         )).willReturn(false);
@@ -81,10 +95,29 @@ class UmcProductAccessPolicyTest {
     }
 
     @Test
-    void 본인은_Leadership이_없어도_자신의_프로필을_관리할_수_있다() {
-        assertThat(sut.canManageMemberProfile(1L, 1L)).isTrue();
+    void 연동된_계정으로_요청하면_본인_프로필을_관리할_수_있다() {
+        given(loadUmcProductMemberAccountPort.existsByUmcProductMemberIdAndMemberId(30L, 1L))
+            .willReturn(true);
+
+        assertThat(sut.canManageMemberProfile(1L, 30L)).isTrue();
 
         then(getChallengerRoleUseCase).shouldHaveNoInteractions();
         then(loadUmcProductLeadershipPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 연동되지_않은_계정이며_관리_권한도_없으면_프로필_관리가_거부된다() {
+        given(loadUmcProductMemberAccountPort.existsByUmcProductMemberIdAndMemberId(30L, 1L))
+            .willReturn(false);
+        given(getChallengerRoleUseCase.isCentralCoreInAnyGisu(1L)).willReturn(false);
+        given(loadUmcProductMemberAccountPort.findByMemberId(1L)).willReturn(Optional.empty());
+
+        assertThat(sut.canManageMemberProfile(1L, 30L)).isFalse();
+    }
+
+    private UmcProductMemberAccount account(Long umcProductMemberId, Long memberId) {
+        UmcProductMember member = UmcProductMember.create("테스트", "테스터", null, null, null);
+        ReflectionTestUtils.setField(member, "id", umcProductMemberId);
+        return UmcProductMemberAccount.create(member, memberId, UmcProductMemberAccountType.LINKED);
     }
 }

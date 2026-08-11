@@ -1,12 +1,13 @@
 package com.umc.product.inhouse.application.service;
 
-import java.time.LocalDate;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
+import com.umc.product.inhouse.domain.UmcProductMemberAccount;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ public class UmcProductAccessPolicy {
 
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
+    private final LoadUmcProductMemberAccountPort loadUmcProductMemberAccountPort;
     private final UmcProductDateProvider umcProductDateProvider;
 
     public boolean canManageUmcProduct(Long requesterMemberId) {
@@ -31,19 +33,26 @@ public class UmcProductAccessPolicy {
         if (requesterMemberId == null) {
             return false;
         }
-        LocalDate today = umcProductDateProvider.today();
-        return loadUmcProductLeadershipPort.existsByMemberIdAndRolesOnDate(
-            requesterMemberId,
-            MANAGER_ROLES,
-            today
-        );
+        return loadUmcProductMemberAccountPort.findByMemberId(requesterMemberId)
+            .map(UmcProductMemberAccount::getUmcProductMember)
+            .map(member -> loadUmcProductLeadershipPort.existsByUmcProductMemberIdAndRolesOnDate(
+                member.getId(),
+                MANAGER_ROLES,
+                umcProductDateProvider.today()
+            ))
+            .orElse(false);
     }
 
     public boolean canManageMemberProfile(
         Long requesterMemberId,
-        Long targetMemberId
+        Long targetUmcProductMemberId
     ) {
-        if (requesterMemberId != null && requesterMemberId.equals(targetMemberId)) {
+        if (requesterMemberId != null
+            && targetUmcProductMemberId != null
+            && loadUmcProductMemberAccountPort.existsByUmcProductMemberIdAndMemberId(
+                targetUmcProductMemberId,
+                requesterMemberId
+            )) {
             return true;
         }
         return canManageUmcProduct(requesterMemberId);

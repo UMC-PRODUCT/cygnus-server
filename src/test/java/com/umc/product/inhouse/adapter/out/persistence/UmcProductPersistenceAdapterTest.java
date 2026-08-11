@@ -20,12 +20,15 @@ import com.umc.product.inhouse.domain.UmcProductDepartment;
 import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
+import com.umc.product.inhouse.domain.UmcProductMemberAccount;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
 import com.umc.product.inhouse.domain.enums.UmcProductDepartmentRole;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
+import com.umc.product.inhouse.domain.enums.UmcProductMemberAccountType;
 import com.umc.product.inhouse.domain.enums.UmcProductPosition;
 import com.umc.product.inhouse.exception.InhouseDomainException;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
+import com.umc.product.member.domain.Member;
 import com.umc.product.support.PersistenceAdapterTest;
 
 import jakarta.persistence.LockModeType;
@@ -36,6 +39,7 @@ import jakarta.persistence.LockModeType;
     UmcProductMemberQueryRepository.class,
     UmcProductChapterPersistenceAdapter.class,
     UmcProductMemberPersistenceAdapter.class,
+    UmcProductMemberAccountPersistenceAdapter.class,
     UmcProductMemberActivityPeriodPersistenceAdapter.class,
     UmcProductChapterMembershipPersistenceAdapter.class,
     UmcProductLeadershipPersistenceAdapter.class,
@@ -55,6 +59,9 @@ class UmcProductPersistenceAdapterTest {
 
     @Autowired
     UmcProductMemberPersistenceAdapter memberAdapter;
+
+    @Autowired
+    UmcProductMemberAccountPersistenceAdapter accountAdapter;
 
     @Autowired
     UmcProductMemberActivityPeriodPersistenceAdapter activityPeriodAdapter;
@@ -93,13 +100,51 @@ class UmcProductPersistenceAdapterTest {
     }
 
     @Test
-    void Member_중복_DB_제약은_도메인_충돌로_변환한다() {
-        saveMember(120L);
+    void 한_인원에_여러_계정을_연동하고_계정으로_인원을_역조회한다() {
+        UmcProductMember member = saveMember(120L);
+        Member provisioned = saveLoginAccount("provisioned");
+        Member linked = saveLoginAccount("linked");
+        accountAdapter.save(UmcProductMemberAccount.create(
+            member,
+            provisioned.getId(),
+            UmcProductMemberAccountType.PROVISIONED
+        ));
+        accountAdapter.save(UmcProductMemberAccount.create(
+            member,
+            linked.getId(),
+            UmcProductMemberAccountType.LINKED
+        ));
 
-        assertThatThrownBy(() -> saveMember(120L))
+        em.flush();
+        em.clear();
+
+        assertThat(accountAdapter.listByUmcProductMemberId(member.getId())).hasSize(2);
+        assertThat(accountAdapter.findByMemberId(provisioned.getId()))
+            .map(account -> account.getUmcProductMember().getId())
+            .contains(member.getId());
+        assertThat(accountAdapter.existsByUmcProductMemberIdAndMemberId(member.getId(), linked.getId()))
+            .isTrue();
+    }
+
+    @Test
+    void 이미_연동된_계정을_다른_인원에_연동하면_도메인_충돌로_변환한다() {
+        UmcProductMember first = saveMember(121L);
+        UmcProductMember second = saveMember(122L);
+        Member loginAccount = saveLoginAccount("duplicated");
+        accountAdapter.save(UmcProductMemberAccount.create(
+            first,
+            loginAccount.getId(),
+            UmcProductMemberAccountType.LINKED
+        ));
+
+        assertThatThrownBy(() -> accountAdapter.save(UmcProductMemberAccount.create(
+            second,
+            loginAccount.getId(),
+            UmcProductMemberAccountType.LINKED
+        )))
             .isInstanceOf(InhouseDomainException.class)
             .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
-                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_MEMBER_ALREADY_EXISTS));
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_ALREADY_LINKED));
     }
 
     @Test
@@ -295,13 +340,13 @@ class UmcProductPersistenceAdapterTest {
             UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD
         );
 
-        assertThat(leadershipAdapter.existsByMemberIdAndRolesOnDate(
-            member.getMemberId(),
+        assertThat(leadershipAdapter.existsByUmcProductMemberIdAndRolesOnDate(
+            member.getId(),
             managementRoles,
             LocalDate.of(2026, 8, 31)
         )).isTrue();
-        assertThat(leadershipAdapter.existsByMemberIdAndRolesOnDate(
-            member.getMemberId(),
+        assertThat(leadershipAdapter.existsByUmcProductMemberIdAndRolesOnDate(
+            member.getId(),
             managementRoles,
             LocalDate.of(2026, 9, 1)
         )).isFalse();
@@ -488,7 +533,23 @@ class UmcProductPersistenceAdapterTest {
     }
 
     private UmcProductMember saveMember(Long memberId) {
-        return memberAdapter.save(UmcProductMember.create(memberId, "소개", null));
+        return memberAdapter.save(UmcProductMember.create(
+            "테스트 " + memberId,
+            "테스터" + memberId,
+            null,
+            "소개",
+            null
+        ));
+    }
+
+    private Member saveLoginAccount(String seed) {
+        return em.persistAndFlush(Member.create(
+            seed,
+            seed,
+            seed + "@test.com",
+            null,
+            null
+        ));
     }
 
     private UmcProductMemberActivityPeriod saveActivityPeriod(

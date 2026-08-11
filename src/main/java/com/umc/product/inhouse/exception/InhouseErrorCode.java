@@ -56,7 +56,12 @@ public enum InhouseErrorCode implements BaseCode {
         "해당 기간에 이미 UMC PRODUCT Department Lead가 존재합니다."),
     UMC_PRODUCT_DEPARTMENT_HAS_PARTICIPANTS(HttpStatus.CONFLICT, "INHOUSE-0033",
         "연결된 참여 이력이 있어 UMC PRODUCT Department를 삭제할 수 없습니다."),
-    UMC_PRODUCT_DEPARTMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "INHOUSE-0034", "이미 존재하는 UMC PRODUCT Department 코드입니다.");
+    UMC_PRODUCT_DEPARTMENT_ALREADY_EXISTS(HttpStatus.CONFLICT, "INHOUSE-0034", "이미 존재하는 UMC PRODUCT Department 코드입니다."),
+    UMC_PRODUCT_ACCOUNT_ALREADY_LINKED(HttpStatus.CONFLICT, "INHOUSE-0035", "이미 다른 UMC PRODUCT 인원에 연동된 계정입니다."),
+    UMC_PRODUCT_ACCOUNT_NOT_FOUND(HttpStatus.NOT_FOUND, "INHOUSE-0036", "UMC PRODUCT 인원의 계정 연동을 찾을 수 없습니다."),
+    UMC_PRODUCT_NAME_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0037", "UMC PRODUCT 인원 이름은 필수입니다."),
+    UMC_PRODUCT_NICKNAME_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0038", "UMC PRODUCT 인원 닉네임은 필수입니다."),
+    UMC_PRODUCT_ACCOUNT_TYPE_REQUIRED(HttpStatus.BAD_REQUEST, "INHOUSE-0039", "UMC PRODUCT 계정 유형은 필수입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

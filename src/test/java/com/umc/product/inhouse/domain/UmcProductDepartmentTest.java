@@ -54,7 +54,7 @@ class UmcProductDepartmentTest {
     void Department_참여_기간은_멤버와_Department_기간_모두에_포함되어야_한다() {
         UmcProductDepartment department = department();
         UmcProductMemberActivityPeriod activityPeriod = UmcProductMemberActivityPeriod.create(
-            UmcProductMember.create(100L, null, null),
+            UmcProductMember.create("테스트", "테스터", null, null, null),
             JANUARY_1,
             DECEMBER_31
         );
@@ -78,7 +78,7 @@ class UmcProductDepartmentTest {
     void Department_참여자는_역할과_책임_그리고_자체_기간을_가진다() {
         UmcProductDepartment department = department();
         UmcProductMemberActivityPeriod activityPeriod = UmcProductMemberActivityPeriod.create(
-            UmcProductMember.create(100L, null, null),
+            UmcProductMember.create("테스트", "테스터", null, null, null),
             JANUARY_1,
             DECEMBER_31
         );
