@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSearchCondition;
+import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
 import com.umc.product.inhouse.domain.UmcProductChapter;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductDepartment;
@@ -271,7 +271,7 @@ class UmcProductPersistenceAdapterTest {
         ));
         em.flush();
 
-        UmcProductMemberSearchCondition condition = UmcProductMemberSearchCondition.of(
+        UmcProductMemberSearchCriteria criteria = new UmcProductMemberSearchCriteria(
             chapter.getId(),
             null,
             UmcProductPosition.SERVER_DEVELOPER,
@@ -279,8 +279,62 @@ class UmcProductPersistenceAdapterTest {
             LocalDate.of(2026, 4, 1)
         );
 
-        assertThat(memberAdapter.searchIds(condition, PageRequest.of(0, 10)).getContent())
+        assertThat(memberAdapter.searchIds(criteria, PageRequest.of(0, 10)).getContent())
             .containsExactly(currentMember.getId());
+    }
+
+    @Test
+    void 멤버_검색은_여러_Department_ID_중_하나에_참여한_멤버를_찾는다() {
+        UmcProductDepartment root = saveDepartment("ROOT", START_DATE, END_DATE, 1, true);
+        UmcProductDepartment child = departmentAdapter.save(UmcProductDepartment.create(
+            "CHILD",
+            "CHILD Department",
+            null,
+            root,
+            START_DATE,
+            END_DATE,
+            2,
+            true
+        ));
+        UmcProductDepartment other = saveDepartment("OTHER", START_DATE, END_DATE, 3, true);
+        UmcProductMember descendantMember = saveMember(111L);
+        UmcProductMember otherMember = saveMember(112L);
+        UmcProductMemberActivityPeriod descendantPeriod = saveActivityPeriod(
+            descendantMember, START_DATE, END_DATE
+        );
+        UmcProductMemberActivityPeriod otherPeriod = saveActivityPeriod(otherMember, START_DATE, END_DATE);
+        departmentParticipantAdapter.save(UmcProductDepartmentParticipant.create(
+            child,
+            descendantPeriod,
+            UmcProductDepartmentRole.MEMBER,
+            UmcProductPosition.SERVER_DEVELOPER,
+            null,
+            null,
+            START_DATE,
+            END_DATE
+        ));
+        departmentParticipantAdapter.save(UmcProductDepartmentParticipant.create(
+            other,
+            otherPeriod,
+            UmcProductDepartmentRole.MEMBER,
+            UmcProductPosition.SERVER_DEVELOPER,
+            null,
+            null,
+            START_DATE,
+            END_DATE
+        ));
+        em.flush();
+
+        UmcProductMemberSearchCriteria criteria = new UmcProductMemberSearchCriteria(
+            null,
+            null,
+            null,
+            Set.of(root.getId(), child.getId()),
+            null
+        );
+
+        assertThat(memberAdapter.searchIds(criteria, PageRequest.of(0, 10)).getContent())
+            .containsExactly(descendantMember.getId());
     }
 
     @Test

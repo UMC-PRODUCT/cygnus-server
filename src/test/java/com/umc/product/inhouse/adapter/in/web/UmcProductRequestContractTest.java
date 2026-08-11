@@ -84,10 +84,11 @@ class UmcProductRequestContractTest {
                 com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole.class,
                 com.umc.product.inhouse.domain.enums.UmcProductPosition.class,
                 Long.class,
+                boolean.class,
                 LocalDate.class,
                 org.springframework.data.domain.Pageable.class
             ),
-            4
+            5
         );
         assertStrictActiveOn(
             UmcProductDepartmentQueryController.class.getDeclaredMethod(

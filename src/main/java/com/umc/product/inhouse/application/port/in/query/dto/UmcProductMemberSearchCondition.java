@@ -10,6 +10,7 @@ public record UmcProductMemberSearchCondition(
     UmcProductLeadershipRole leadershipRole,
     UmcProductPosition position,
     Long departmentId,
+    boolean includeDescendants,
     LocalDate activeOn
 ) {
     public static UmcProductMemberSearchCondition of(
@@ -17,6 +18,7 @@ public record UmcProductMemberSearchCondition(
         UmcProductLeadershipRole leadershipRole,
         UmcProductPosition position,
         Long departmentId,
+        boolean includeDescendants,
         LocalDate activeOn
     ) {
         return new UmcProductMemberSearchCondition(
@@ -24,6 +26,7 @@ public record UmcProductMemberSearchCondition(
             leadershipRole,
             position,
             departmentId,
+            includeDescendants,
             activeOn
         );
     }

@@ -35,6 +35,7 @@ class UmcProductMemberQueryControllerDocumentationTest extends DocumentationTest
                 .param("leadershipRole", "UMC_PRODUCT_LEAD")
                 .param("position", "SERVER_DEVELOPER")
                 .param("departmentId", "70")
+                .param("includeDescendants", "true")
                 .param("activeOn", "2026-07-13")
                 .param("page", "0")
                 .param("size", "10"))
@@ -45,6 +46,7 @@ class UmcProductMemberQueryControllerDocumentationTest extends DocumentationTest
                     .description("Product Leadership 역할 필터").optional(),
                 parameterWithName("position").description("직군 필터").optional(),
                 parameterWithName("departmentId").description("Department ID 필터").optional(),
+                parameterWithName("includeDescendants").description("하위 Department 소속 포함 여부").optional(),
                 parameterWithName("activeOn").description("활동 기준일 (yyyy-MM-dd)").optional(),
                 parameterWithName("page").description("페이지 번호 (0부터 시작)").optional(),
                 parameterWithName("size").description("페이지 크기").optional()

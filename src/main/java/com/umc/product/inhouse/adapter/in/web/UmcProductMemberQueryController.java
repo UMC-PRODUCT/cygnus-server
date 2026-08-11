@@ -45,6 +45,7 @@ public class UmcProductMemberQueryController {
         @RequestParam(required = false) UmcProductLeadershipRole leadershipRole,
         @RequestParam(required = false) UmcProductPosition position,
         @RequestParam(required = false) Long departmentId,
+        @RequestParam(defaultValue = "false") boolean includeDescendants,
         @RequestParam(required = false)
         @DateTimeFormat(pattern = "uuuu-MM-dd")
         @Parameter(schema = @Schema(type = "string", format = "date", example = "2026-07-13"))
@@ -56,6 +57,7 @@ public class UmcProductMemberQueryController {
             leadershipRole,
             position,
             departmentId,
+            includeDescendants,
             activeOn
         );
         PageResponse<UmcProductMemberResponse> pageResponse = PageResponse.of(

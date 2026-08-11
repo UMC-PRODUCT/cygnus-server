@@ -8,9 +8,9 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Component;
 
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSearchCondition;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
+import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.exception.InhouseDomainException;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
@@ -50,8 +50,8 @@ public class UmcProductMemberPersistenceAdapter implements LoadUmcProductMemberP
     }
 
     @Override
-    public Page<Long> searchIds(UmcProductMemberSearchCondition condition, Pageable pageable) {
-        return umcProductMemberQueryRepository.searchMemberIds(condition, pageable);
+    public Page<Long> searchIds(UmcProductMemberSearchCriteria criteria, Pageable pageable) {
+        return umcProductMemberQueryRepository.searchMemberIds(criteria, pageable);
     }
 
     @Override

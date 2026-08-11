@@ -18,7 +18,7 @@ import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSearchCondition;
+import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
 
 import lombok.RequiredArgsConstructor;
 
@@ -28,8 +28,8 @@ public class UmcProductMemberQueryRepository {
 
     private final JPAQueryFactory queryFactory;
 
-    public Page<Long> searchMemberIds(UmcProductMemberSearchCondition condition, Pageable pageable) {
-        BooleanBuilder where = buildCondition(condition);
+    public Page<Long> searchMemberIds(UmcProductMemberSearchCriteria criteria, Pageable pageable) {
+        BooleanBuilder where = buildCondition(criteria);
 
         List<Long> content = queryFactory
             .select(umcProductMember.id)
@@ -49,7 +49,7 @@ public class UmcProductMemberQueryRepository {
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
-    private BooleanBuilder buildCondition(UmcProductMemberSearchCondition condition) {
+    private BooleanBuilder buildCondition(UmcProductMemberSearchCriteria condition) {
         BooleanBuilder builder = new BooleanBuilder();
         if (condition == null) {
             return builder;
@@ -75,7 +75,7 @@ public class UmcProductMemberQueryRepository {
             .exists();
     }
 
-    private BooleanExpression chapterMembershipMatches(UmcProductMemberSearchCondition condition) {
+    private BooleanExpression chapterMembershipMatches(UmcProductMemberSearchCriteria condition) {
         boolean hasChapterFilter = condition.chapterId() != null
             || condition.position() != null;
         if (!hasChapterFilter) {
@@ -102,7 +102,7 @@ public class UmcProductMemberQueryRepository {
             .exists();
     }
 
-    private BooleanExpression leadershipMatches(UmcProductMemberSearchCondition condition) {
+    private BooleanExpression leadershipMatches(UmcProductMemberSearchCriteria condition) {
         if (condition.leadershipRole() == null) {
             return null;
         }
@@ -122,14 +122,14 @@ public class UmcProductMemberQueryRepository {
             .exists();
     }
 
-    private BooleanExpression departmentParticipationMatches(UmcProductMemberSearchCondition condition) {
-        if (condition.departmentId() == null) {
+    private BooleanExpression departmentParticipationMatches(UmcProductMemberSearchCriteria condition) {
+        if (condition.departmentIds() == null) {
             return null;
         }
 
         BooleanBuilder where = new BooleanBuilder()
             .and(umcProductDepartmentParticipant.memberActivityPeriod.umcProductMember.eq(umcProductMember))
-            .and(umcProductDepartmentParticipant.department.id.eq(condition.departmentId()));
+            .and(umcProductDepartmentParticipant.department.id.in(condition.departmentIds()));
         if (condition.activeOn() != null) {
             where.and(departmentParticipationActiveOn(condition.activeOn()));
             where.and(departmentParticipationActivityPeriodActiveOn(condition.activeOn()));

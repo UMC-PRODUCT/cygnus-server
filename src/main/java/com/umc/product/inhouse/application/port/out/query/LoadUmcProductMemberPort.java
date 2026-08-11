@@ -7,7 +7,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSearchCondition;
+import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
 import com.umc.product.inhouse.domain.UmcProductMember;
 
 public interface LoadUmcProductMemberPort {
@@ -20,6 +20,6 @@ public interface LoadUmcProductMemberPort {
 
     List<UmcProductMember> listByIds(Collection<Long> umcProductMemberIds);
 
-    Page<Long> searchIds(UmcProductMemberSearchCondition condition, Pageable pageable);
+    Page<Long> searchIds(UmcProductMemberSearchCriteria criteria, Pageable pageable);
 
 }

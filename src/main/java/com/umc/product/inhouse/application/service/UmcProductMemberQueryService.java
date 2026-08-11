@@ -1,9 +1,12 @@
 package com.umc.product.inhouse.application.service;
 
 import java.time.LocalDate;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.Deque;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -32,7 +35,9 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartme
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
+import com.umc.product.inhouse.application.port.out.query.dto.UmcProductMemberSearchCriteria;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
+import com.umc.product.inhouse.domain.UmcProductDepartment;
 import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
@@ -79,7 +84,8 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
 
     @Override
     public Page<UmcProductMemberInfo> search(UmcProductMemberSearchCondition condition, Pageable pageable) {
-        Page<Long> idPage = loadUmcProductMemberPort.searchIds(condition, pageable);
+        UmcProductMemberSearchCriteria criteria = toSearchCriteria(condition);
+        Page<Long> idPage = loadUmcProductMemberPort.searchIds(criteria, pageable);
         if (idPage.isEmpty()) {
             return Page.empty(pageable);
         }
@@ -119,10 +125,49 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
                 departmentsByMember.getOrDefault(member.getId(), List.of()),
                 departmentMap,
                 productProfileLinkOf(productProfileLinks, member),
-                condition.activeOn()
+                criteria.activeOn()
             ))
             .toList();
         return new PageImpl<>(content, pageable, idPage.getTotalElements());
+    }
+
+    private UmcProductMemberSearchCriteria toSearchCriteria(UmcProductMemberSearchCondition condition) {
+        if (condition == null) {
+            return new UmcProductMemberSearchCriteria(null, null, null, null, null);
+        }
+        return new UmcProductMemberSearchCriteria(
+            condition.chapterId(),
+            condition.leadershipRole(),
+            condition.position(),
+            resolveDepartmentIds(condition.departmentId(), condition.includeDescendants()),
+            condition.activeOn()
+        );
+    }
+
+    private Set<Long> resolveDepartmentIds(Long departmentId, boolean includeDescendants) {
+        if (departmentId == null) {
+            return null;
+        }
+        if (!includeDescendants) {
+            return Set.of(departmentId);
+        }
+
+        Map<Long, List<Long>> childIdsByParent = loadUmcProductDepartmentPort.listAll(null, null).stream()
+            .filter(department -> department.getParent() != null)
+            .collect(Collectors.groupingBy(
+                department -> department.getParent().getId(),
+                Collectors.mapping(UmcProductDepartment::getId, Collectors.toList())
+            ));
+        Set<Long> departmentIds = new LinkedHashSet<>();
+        Deque<Long> queue = new ArrayDeque<>();
+        queue.add(departmentId);
+        while (!queue.isEmpty()) {
+            Long currentId = queue.removeFirst();
+            if (departmentIds.add(currentId)) {
+                queue.addAll(childIdsByParent.getOrDefault(currentId, List.of()));
+            }
+        }
+        return departmentIds;
     }
 
     private UmcProductMemberInfo toInfo(
