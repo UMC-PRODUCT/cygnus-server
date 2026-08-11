@@ -1,26 +1,36 @@
-type Query {
-  gisuOrganizations(input: GisuOrganizationInput!): GisuOrganizationPayload!
+extend type Query {
+  gisus(filter: GisuFilterInput, first: Int, after: String, last: Int, before: String): GisuConnection!
   gisu(id: ID!): Gisu!
   activeGisu: Gisu!
-  chapters: [Chapter!]!
+  chapters(first: Int, after: String, last: Int, before: String): ChapterConnection!
   chapter(id: ID!): Chapter!
-  schools: [SchoolName!]!
-  school(id: ID!): SchoolDetail!
+  schools(first: Int, after: String, last: Int, before: String): SchoolNameConnection!
+  school(id: ID!): School!
 }
 
-input GisuOrganizationInput {
+"""
+기수 목록 조회 조건. ids / generations / active 중 정확히 하나만 지정해야 한다.
+"""
+input GisuFilterInput {
   ids: [ID!]
-  generations: [ID!]
+  generations: [Int!]
   active: Boolean
 }
 
-type GisuOrganizationPayload {
-  gisus: [Gisu!]!
+type GisuConnection {
+  edges: [GisuEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
 }
 
-type Gisu {
-  gisuId: ID!
-  generation: ID!
+type GisuEdge {
+  cursor: String!
+  node: Gisu!
+}
+
+type Gisu implements Node {
+  id: ID!
+  generation: Int!
   startAt: String!
   endAt: String!
   active: Boolean!
@@ -52,9 +62,31 @@ type GisuSchool {
   updatedAt: String!
 }
 
-type Chapter {
+type ChapterConnection {
+  edges: [ChapterEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type ChapterEdge {
+  cursor: String!
+  node: Chapter!
+}
+
+type Chapter implements Node {
   id: ID!
   name: String!
+}
+
+type SchoolNameConnection {
+  edges: [SchoolNameEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type SchoolNameEdge {
+  cursor: String!
+  node: SchoolName!
 }
 
 type SchoolName {
@@ -62,10 +94,10 @@ type SchoolName {
   schoolName: String!
 }
 
-type SchoolDetail {
+type School implements Node {
+  id: ID!
   chapterId: ID
   chapterName: String
-  schoolId: ID!
   schoolName: String!
   remark: String
   logoImageUrl: String

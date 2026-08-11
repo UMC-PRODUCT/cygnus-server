@@ -10,6 +10,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.graphql.execution.RuntimeWiringConfigurer;
 
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.RelayNode;
+
 import graphql.GraphQLContext;
 import graphql.execution.CoercedVariables;
 import graphql.language.IntValue;
@@ -20,6 +23,7 @@ import graphql.schema.CoercingParseLiteralException;
 import graphql.schema.CoercingParseValueException;
 import graphql.schema.CoercingSerializeException;
 import graphql.schema.GraphQLScalarType;
+import graphql.schema.TypeResolver;
 
 @Configuration
 public class GraphQlRuntimeWiringConfig {
@@ -43,12 +47,20 @@ public class GraphQlRuntimeWiringConfig {
 
     public void configure(graphql.schema.idl.RuntimeWiring.Builder builder) {
         builder.scalar(LONG_SCALAR).scalar(INSTANT_SCALAR);
+        builder.type("Node", typeWiring -> typeWiring.typeResolver(NODE_TYPE_RESOLVER));
     }
+
+    private static final TypeResolver NODE_TYPE_RESOLVER = env -> {
+        if (env.getObject() instanceof RelayNode node) {
+            return env.getSchema().getObjectType(GlobalId.decode(node.id()).typeName());
+        }
+        return null;
+    };
 
     private static class InstantCoercing implements Coercing<Instant, String> {
 
         @Override
-        public String serialize(Object dataFetcherResult, GraphQLContext graphQLContext, Locale locale)
+        public String serialize(Object dataFetcherResult, GraphQLContext graphQlContext, Locale locale)
             throws CoercingSerializeException {
             if (dataFetcherResult instanceof Instant instant) {
                 return instant.toString();
@@ -57,7 +69,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Instant parseValue(Object input, GraphQLContext graphQLContext, Locale locale)
+        public Instant parseValue(Object input, GraphQLContext graphQlContext, Locale locale)
             throws CoercingParseValueException {
             if (!(input instanceof String value)) {
                 throw new CoercingParseValueException("Instant scalar requires an ISO-8601 string");
@@ -73,7 +85,7 @@ public class GraphQlRuntimeWiringConfig {
         public Instant parseLiteral(
             Value<?> input,
             CoercedVariables variables,
-            GraphQLContext graphQLContext,
+            GraphQLContext graphQlContext,
             Locale locale
         ) throws CoercingParseLiteralException {
             if (!(input instanceof StringValue value)) {
@@ -87,7 +99,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Value<?> valueToLiteral(Object input, GraphQLContext graphQLContext, Locale locale) {
+        public Value<?> valueToLiteral(Object input, GraphQLContext graphQlContext, Locale locale) {
             if (input instanceof Instant instant) {
                 return new StringValue(instant.toString());
             }
@@ -98,7 +110,7 @@ public class GraphQlRuntimeWiringConfig {
     private static class LongCoercing implements Coercing<Long, Long> {
 
         @Override
-        public Long serialize(Object dataFetcherResult, GraphQLContext graphQLContext, Locale locale)
+        public Long serialize(Object dataFetcherResult, GraphQLContext graphQlContext, Locale locale)
             throws CoercingSerializeException {
             try {
                 return toLong(dataFetcherResult);
@@ -108,7 +120,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Long parseValue(Object input, GraphQLContext graphQLContext, Locale locale)
+        public Long parseValue(Object input, GraphQLContext graphQlContext, Locale locale)
             throws CoercingParseValueException {
             try {
                 return toLong(input);
@@ -121,7 +133,7 @@ public class GraphQlRuntimeWiringConfig {
         public Long parseLiteral(
             Value<?> input,
             CoercedVariables variables,
-            GraphQLContext graphQLContext,
+            GraphQLContext graphQlContext,
             Locale locale
         ) throws CoercingParseLiteralException {
             try {
@@ -138,7 +150,7 @@ public class GraphQlRuntimeWiringConfig {
         }
 
         @Override
-        public Value<?> valueToLiteral(Object input, GraphQLContext graphQLContext, Locale locale) {
+        public Value<?> valueToLiteral(Object input, GraphQLContext graphQlContext, Locale locale) {
             return new IntValue(BigInteger.valueOf(toLong(input)));
         }
 

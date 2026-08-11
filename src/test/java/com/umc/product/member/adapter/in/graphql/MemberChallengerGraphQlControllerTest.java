@@ -33,6 +33,9 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
+import com.umc.product.global.graphql.relay.NodeGraphQlController;
 import com.umc.product.global.security.CurrentMemberSecurityConfig;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
@@ -43,8 +46,13 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 
-@GraphQlTest(MemberGraphQlController.class)
-@Import({GraphQlRuntimeWiringConfig.class, GraphQlExceptionAdvice.class, CurrentMemberSecurityConfig.class})
+@GraphQlTest({MemberGraphQlController.class, NodeGraphQlController.class})
+@Import({
+    GraphQlRuntimeWiringConfig.class,
+    GraphQlExceptionAdvice.class,
+    CurrentMemberSecurityConfig.class,
+    MemberNodeFetcher.class
+})
 @DisplayName("Member Challenger GraphQL")
 class MemberChallengerGraphQlControllerTest {
 
@@ -93,10 +101,8 @@ class MemberChallengerGraphQlControllerTest {
         given(checkPermissionUseCase.loadSubject(REQUESTER_ID)).willReturn(subject);
         given(checkPermissionUseCase.check(subject, memberReadPermission(2L))).willReturn(true);
         given(checkPermissionUseCase.check(subject, memberReadPermission(3L))).willReturn(true);
-        given(getMemberUseCase.findAllByIds(memberIds)).willReturn(Map.of(
-            2L, memberInfo(2L, 10L),
-            3L, memberInfo(3L, 11L)
-        ));
+        given(getMemberUseCase.getById(2L)).willReturn(memberInfo(2L, 10L));
+        given(getMemberUseCase.getById(3L)).willReturn(memberInfo(3L, 11L));
         given(getSchoolUseCase.listDetailsByIds(schoolIds)).willReturn(List.of(
             school(10L, "중앙대학교"),
             school(11L, "숭실대학교")
@@ -125,36 +131,42 @@ class MemberChallengerGraphQlControllerTest {
         ));
 
         graphQlTester.document("""
-                query {
-                  members(ids: [2, 3]) {
-                    memberId
-                    school {
-                      schoolId
-                      schoolName
-                    }
-                    challengers {
-                      challengerId
-                      part
-                      tracks
-                      status
-                      gisu {
-                        gisuId
-                        generation
+                query ($ids: [ID!]!) {
+                  nodes(ids: $ids) {
+                    ... on Member {
+                      id
+                      school {
+                        id
+                        schoolName
+                      }
+                      challengers {
+                        challengerId
+                        part
+                        tracks
+                        status
+                        gisu {
+                          id
+                          generation
+                        }
                       }
                     }
                   }
                 }
                 """)
+            .variable("ids", List.of(
+                GlobalId.encode(GlobalIdTypes.MEMBER, 2L),
+                GlobalId.encode(GlobalIdTypes.MEMBER, 3L)
+            ))
             .execute()
-            .path("members[0].school.schoolName").entity(String.class).isEqualTo("중앙대학교")
-            .path("members[0].challengers[0].part").entity(String.class).isEqualTo("SPRINGBOOT")
-            .path("members[0].challengers[0].tracks").entityList(String.class)
+            .path("nodes[0].school.schoolName").entity(String.class).isEqualTo("중앙대학교")
+            .path("nodes[0].challengers[0].part").entity(String.class).isEqualTo("SPRINGBOOT")
+            .path("nodes[0].challengers[0].tracks").entityList(String.class)
             .containsExactly("WEB_PRODUCT_ENGINEER", "MOBILE_PRODUCT_ENGINEER")
-            .path("members[0].challengers[0].status").entity(String.class).isEqualTo("ACTIVE")
-            .path("members[0].challengers[0].gisu.generation").entity(String.class).isEqualTo("6")
-            .path("members[1].school.schoolName").entity(String.class).isEqualTo("숭실대학교")
-            .path("members[1].challengers[0].status").entity(String.class).isEqualTo("GRADUATED")
-            .path("members[1].challengers[0].gisu.generation").entity(String.class).isEqualTo("7");
+            .path("nodes[0].challengers[0].status").entity(String.class).isEqualTo("ACTIVE")
+            .path("nodes[0].challengers[0].gisu.generation").entity(Integer.class).isEqualTo(6)
+            .path("nodes[1].school.schoolName").entity(String.class).isEqualTo("숭실대학교")
+            .path("nodes[1].challengers[0].status").entity(String.class).isEqualTo("GRADUATED")
+            .path("nodes[1].challengers[0].gisu.generation").entity(Integer.class).isEqualTo(7);
 
         then(getSchoolUseCase).should().listDetailsByIds(schoolIds);
         then(getChallengerUseCase).should().getAllBasicByMemberIds(memberIds);

@@ -27,6 +27,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.firebase.messaging.FirebaseMessaging;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationInfo;
 import com.umc.product.recruiting.application.service.query.RecruitingQueryService;
@@ -100,20 +102,21 @@ class RecruitingGraphQlRandomPortIntegrationTest {
 
         ResponseEntity<String> response = post("""
             query {
-              recruitingApplication(applicationId: 20) {
-                applicationId
+              recruitingApplication(applicationId: "%s") {
+                id
                 status
                 registrationStatus
                 acceptedTrack
               }
             }
-            """, true);
+            """.formatted(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L)), true);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode application = objectMapper.readTree(response.getBody())
             .path("data")
             .path("recruitingApplication");
-        assertThat(application.path("applicationId").asText()).isEqualTo("20");
+        assertThat(application.path("id").asText())
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L));
         assertThat(application.path("registrationStatus").asText()).isEqualTo("READY");
         assertThat(application.path("acceptedTrack").asText()).isEqualTo("DESIGN");
     }
@@ -123,9 +126,9 @@ class RecruitingGraphQlRandomPortIntegrationTest {
     void 실제_GraphQL_HTTP는_비로그인_지원서_조회를_FORBIDDEN으로_거부한다() throws Exception {
         ResponseEntity<String> response = post("""
             query {
-              recruitingApplication(applicationId: 20) { applicationId }
+              recruitingApplication(applicationId: "%s") { id }
             }
-            """, false);
+            """.formatted(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L)), false);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         JsonNode body = objectMapper.readTree(response.getBody());

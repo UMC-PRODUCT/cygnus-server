@@ -3,19 +3,28 @@ package com.umc.product.organization.adapter.in.graphql.dto;
 import java.util.List;
 import java.util.Objects;
 
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuOrganizationQuery;
 import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 
-public record GisuOrganizationGraphQlRequest(
-    List<Long> ids,
-    List<Long> generations,
+/**
+ * {@code gisus} 쿼리의 {@code GisuFilterInput}. ids / generations / active 중 정확히 하나만 허용한다.
+ */
+public record GisuFilterGraphQlRequest(
+    List<String> ids,
+    List<Integer> generations,
     Boolean active
 ) {
 
+    public static GisuFilterGraphQlRequest empty() {
+        return new GisuFilterGraphQlRequest(null, null, null);
+    }
+
     public GisuOrganizationQuery toQuery() {
-        List<Long> uniqueIds = unique(ids);
-        List<Long> uniqueGenerations = unique(generations);
+        List<Long> uniqueIds = decodeIds();
+        List<Long> uniqueGenerations = uniqueGenerations();
 
         if (Boolean.FALSE.equals(active)) {
             throw invalidCondition();
@@ -38,12 +47,20 @@ public record GisuOrganizationGraphQlRequest(
         return GisuOrganizationQuery.active(false, false);
     }
 
-    private List<Long> unique(List<Long> values) {
-        if (values == null) {
+    private List<Long> decodeIds() {
+        if (ids == null || ids.isEmpty()) {
             return List.of();
         }
-        return values.stream()
+        return GlobalId.decodeLongs(ids, GlobalIdTypes.GISU);
+    }
+
+    private List<Long> uniqueGenerations() {
+        if (generations == null) {
+            return List.of();
+        }
+        return generations.stream()
             .filter(Objects::nonNull)
+            .map(Integer::longValue)
             .distinct()
             .toList();
     }

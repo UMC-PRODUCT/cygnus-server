@@ -4,13 +4,15 @@ import java.time.Instant;
 
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistoryInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
 
 public record RecruitingDecisionHistoryGraphQlResponse(
-    Long decisionHistoryId,
-    Long applicationId,
+    String decisionHistoryId,
+    String applicationId,
     Instant decidedAt,
     RecruitingApplicationStatus decisionStatus,
     RecruitingDecisionResult result,
@@ -20,8 +22,8 @@ public record RecruitingDecisionHistoryGraphQlResponse(
 
     public static RecruitingDecisionHistoryGraphQlResponse from(RecruitingDecisionHistoryInfo info) {
         return new RecruitingDecisionHistoryGraphQlResponse(
-            info.decisionHistoryId(),
-            info.applicationId(),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_DECISION_HISTORY, info.decisionHistoryId()),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, info.applicationId()),
             info.decidedAt(),
             info.decisionStatus(),
             info.result(),
@@ -31,9 +33,9 @@ public record RecruitingDecisionHistoryGraphQlResponse(
     }
 
     public record Applicant(
-        Long chapterId,
+        String chapterId,
         String chapterName,
-        Long schoolId,
+        String schoolId,
         String schoolName,
         String name,
         ChallengerTrack firstChoice,
@@ -43,9 +45,9 @@ public record RecruitingDecisionHistoryGraphQlResponse(
 
         public static Applicant from(RecruitingDecisionHistoryInfo.ApplicantInfo info) {
             return new Applicant(
-                info.chapterId(),
+                GlobalId.encode(GlobalIdTypes.CHAPTER, info.chapterId()),
                 info.chapterName(),
-                info.schoolId(),
+                GlobalId.encode(GlobalIdTypes.SCHOOL, info.schoolId()),
                 info.schoolName(),
                 info.name(),
                 info.firstChoice(),
@@ -56,10 +58,10 @@ public record RecruitingDecisionHistoryGraphQlResponse(
     }
 
     public record Decider(
-        Long memberId,
-        Long chapterId,
+        String memberId,
+        String chapterId,
         String chapterName,
-        Long schoolId,
+        String schoolId,
         String schoolName,
         ChallengerRoleType roleType,
         String name,
@@ -68,15 +70,19 @@ public record RecruitingDecisionHistoryGraphQlResponse(
 
         public static Decider from(RecruitingDecisionHistoryInfo.DeciderInfo info) {
             return new Decider(
-                info.memberId(),
-                info.chapterId(),
+                GlobalId.encode(GlobalIdTypes.MEMBER, info.memberId()),
+                encodeNullable(GlobalIdTypes.CHAPTER, info.chapterId()),
                 info.chapterName(),
-                info.schoolId(),
+                encodeNullable(GlobalIdTypes.SCHOOL, info.schoolId()),
                 info.schoolName(),
                 info.roleType(),
                 info.name(),
                 info.nickname()
             );
+        }
+
+        private static String encodeNullable(String typeName, Long rawId) {
+            return rawId == null ? null : GlobalId.encode(typeName, rawId);
         }
     }
 }

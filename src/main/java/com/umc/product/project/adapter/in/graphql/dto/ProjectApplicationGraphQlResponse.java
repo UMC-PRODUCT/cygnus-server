@@ -11,6 +11,8 @@ import com.umc.product.form.application.port.in.query.dto.AnswerInfo.SelectedOpt
 import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
 import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationViewStatus;
@@ -19,7 +21,7 @@ import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
 
 public record ProjectApplicationGraphQlResponse(
-    Long applicationId,
+    String applicationId,
     ProjectApplicantGraphQlResponse applicant,
     ChallengerPart applicantPart,
     ProjectMatchingRoundBriefGraphQlResponse matchingRound,
@@ -30,9 +32,9 @@ public record ProjectApplicationGraphQlResponse(
 ) {
     public static ProjectApplicationGraphQlResponse from(ProjectApplicationDetailInfo info) {
         return new ProjectApplicationGraphQlResponse(
-            info.applicationId(),
+            GlobalId.encode(GlobalIdTypes.PROJECT_APPLICATION, info.applicationId()),
             new ProjectApplicantGraphQlResponse(
-                info.applicantMemberId(),
+                GlobalId.encode(GlobalIdTypes.MEMBER, info.applicantMemberId()),
                 null,
                 null,
                 null,
@@ -61,14 +63,14 @@ public record ProjectApplicationGraphQlResponse(
             return null;
         }
         return new ProjectMatchingRoundBriefGraphQlResponse(
-            info.matchingRoundId(),
+            GlobalId.encode(GlobalIdTypes.MATCHING_ROUND, info.matchingRoundId()),
             info.matchingRoundType(),
             MatchingRoundPhaseView.from(info.matchingRoundPhase())
         );
     }
 
     public record ProjectApplicantGraphQlResponse(
-        Long memberId,
+        String memberId,
         String nickname,
         String name,
         String schoolName,
@@ -77,15 +79,15 @@ public record ProjectApplicationGraphQlResponse(
     }
 
     public record ProjectMatchingRoundBriefGraphQlResponse(
-        Long id,
+        String matchingRoundId,
         MatchingType type,
         MatchingRoundPhaseView phase
     ) {
     }
 
     public record ProjectApplicationFormResponseGraphQlResponse(
-        Long formResponseId,
-        Long formId,
+        String formResponseId,
+        String formId,
         FormResponseStatus status,
         String submittedAt,
         String lastSavedAt,
@@ -104,8 +106,8 @@ public record ProjectApplicationGraphQlResponse(
             Map<String, FileInfo> files = filesByFileId == null ? Map.of() : filesByFileId;
 
             return new ProjectApplicationFormResponseGraphQlResponse(
-                formResponse.id(),
-                formResponse.formId(),
+                GlobalId.encode(GlobalIdTypes.FORM_RESPONSE, formResponse.id()),
+                GlobalId.encode(GlobalIdTypes.FORM, formResponse.formId()),
                 formResponse.status(),
                 instantToString(formResponse.submittedAt()),
                 instantToString(formResponse.lastSavedAt()),
@@ -117,7 +119,7 @@ public record ProjectApplicationGraphQlResponse(
     }
 
     public record ProjectApplicationResponseSectionGraphQlResponse(
-        Long sectionId,
+        String sectionId,
         FormSectionType type,
         Set<ChallengerPart> allowedParts,
         String title,
@@ -131,7 +133,7 @@ public record ProjectApplicationGraphQlResponse(
             Map<String, FileInfo> filesByFileId
         ) {
             return new ProjectApplicationResponseSectionGraphQlResponse(
-                info.sectionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_SECTION, info.sectionId()),
                 info.type(),
                 info.allowedParts(),
                 info.title(),
@@ -149,7 +151,7 @@ public record ProjectApplicationGraphQlResponse(
     }
 
     public record ProjectApplicationResponseQuestionGraphQlResponse(
-        Long questionId,
+        String questionId,
         QuestionType type,
         String title,
         String description,
@@ -164,7 +166,7 @@ public record ProjectApplicationGraphQlResponse(
             Map<String, FileInfo> filesByFileId
         ) {
             return new ProjectApplicationResponseQuestionGraphQlResponse(
-                info.questionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_QUESTION, info.questionId()),
                 info.type(),
                 info.title(),
                 info.description(),
@@ -179,7 +181,7 @@ public record ProjectApplicationGraphQlResponse(
     }
 
     public record ProjectApplicationAnswerGraphQlResponse(
-        Long answerId,
+        String answerId,
         QuestionType answeredAsType,
         String textValue,
         List<ProjectApplicationSelectedOptionGraphQlResponse> selectedOptions,
@@ -202,7 +204,7 @@ public record ProjectApplicationGraphQlResponse(
                     .toList();
 
             return new ProjectApplicationAnswerGraphQlResponse(
-                info.id(),
+                GlobalId.encode(GlobalIdTypes.FORM_ANSWER, info.id()),
                 info.answeredAsType(),
                 info.textValue(),
                 selectedOptions,
@@ -213,12 +215,14 @@ public record ProjectApplicationGraphQlResponse(
     }
 
     public record ProjectApplicationSelectedOptionGraphQlResponse(
-        Long questionOptionId,
+        String questionOptionId,
         String answeredAsContent
     ) {
         public static ProjectApplicationSelectedOptionGraphQlResponse from(SelectedOption info) {
             return new ProjectApplicationSelectedOptionGraphQlResponse(
-                info.questionOptionId(),
+                info.questionOptionId() == null
+                    ? null
+                    : GlobalId.encode(GlobalIdTypes.FORM_OPTION, info.questionOptionId()),
                 info.answeredAsContent()
             );
         }
@@ -231,7 +235,7 @@ public record ProjectApplicationGraphQlResponse(
     ) {
         public static ProjectApplicationFileGraphQlResponse from(FileInfo info) {
             return new ProjectApplicationFileGraphQlResponse(
-                info.fileId(),
+                GlobalId.encode(GlobalIdTypes.FILE, info.fileId()),
                 info.originalFileName(),
                 info.fileLink()
             );

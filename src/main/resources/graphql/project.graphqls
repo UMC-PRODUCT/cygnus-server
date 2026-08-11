@@ -2,10 +2,17 @@ scalar Long
 
 extend type Query {
   project(id: ID!): Project
-  projects(input: ProjectSearchInput!, page: ProjectPageInput): ProjectPage!
+  projects(
+    filter: ProjectFilterInput!
+    orderBy: [ProjectSort!] = [CREATED_AT_ASC, NAME_ASC]
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): ProjectConnection!
 }
 
-input ProjectSearchInput {
+input ProjectFilterInput {
   gisuId: ID!
   keyword: String
   chapterId: ID
@@ -15,22 +22,18 @@ input ProjectSearchInput {
   statuses: [ProjectStatus!]
 }
 
-input ProjectPageInput {
-  page: Int = 0
-  size: Int = 20
-  sort: [ProjectSort!] = [CREATED_AT_ASC, NAME_ASC]
+type ProjectConnection {
+  edges: [ProjectEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
 }
 
-type ProjectPage {
-  content: [Project!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
+type ProjectEdge {
+  cursor: String!
+  node: Project!
 }
 
-type Project {
+type Project implements Node {
   id: ID!
   status: ProjectStatus!
   name: String!
@@ -51,7 +54,6 @@ type Project {
 
 type ProjectMember {
   projectMemberId: ID!
-  projectId: ID!
   member: MemberBrief!
   part: ChallengerPart!
   leader: Boolean!
@@ -131,7 +133,7 @@ type ProjectApplicant {
 }
 
 type ProjectMatchingRoundBrief {
-  id: ID!
+  matchingRoundId: ID!
   type: MatchingType!
   phase: MatchingRoundPhaseView!
 }

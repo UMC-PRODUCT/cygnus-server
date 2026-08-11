@@ -43,6 +43,8 @@ import com.p6spy.engine.spy.P6SpyFactory;
 import com.p6spy.engine.spy.appender.Slf4JLogger;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.recruiting.application.port.in.query.ExportRecruitingCsvUseCase;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationCreatedInfo;
@@ -186,10 +188,11 @@ class RecruitingApplicationRandomPortIntegrationTest {
 
         assertThat(queryResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(objectMapper.readTree(queryResponse.getBody()).path("data")
-            .path("publicRecruitingRounds").isArray()).isTrue();
+            .path("publicRecruitingRounds").path("edges").isArray()).isTrue();
         JsonNode created = objectMapper.readTree(mutationResponse.getBody()).path("data")
             .path("createRecruitingApplicationDraft");
-        assertThat(created.path("applicationId").asLong()).isEqualTo(900L);
+        assertThat(created.path("applicationId").asText())
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 900L));
         assertThat(created.path("applicationKey").asText()).isEqualTo(APPLICATION_KEY);
         assertThat(created.path("status").asText()).isEqualTo("DRAFT");
         recordTranscript("graphql-query", queryResponse);
@@ -297,7 +300,8 @@ class RecruitingApplicationRandomPortIntegrationTest {
         JsonNode result = objectMapper.readTree(response.getBody())
             .path("data")
             .path("recruitingApplicationByCredential");
-        assertThat(result.path("applicationId").asText()).isEqualTo("900");
+        assertThat(result.path("applicationId").asText())
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 900L));
         assertThat(result.path("documentResult").asText()).isEqualTo("PENDING");
         assertThat(result.path("finalResult").asText()).isEqualTo("PENDING");
         recordTranscript("graphql-anonymous-credential", response);

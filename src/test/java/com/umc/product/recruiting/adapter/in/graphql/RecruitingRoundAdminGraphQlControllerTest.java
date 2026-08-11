@@ -24,6 +24,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
@@ -52,6 +54,11 @@ import com.umc.product.recruiting.application.port.in.query.SearchRecruitingSeas
     RecruitingGraphQlPermissionSupport.class
 })
 class RecruitingRoundAdminGraphQlControllerTest {
+
+    private static final String SEASON_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_SEASON, 10L);
+    private static final String ROUND_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, 20L);
+    private static final String FORM_ID = GlobalId.encode(GlobalIdTypes.FORM, 100L);
+    private static final String QUESTION_ID = GlobalId.encode(GlobalIdTypes.FORM_QUESTION, 200L);
 
     @Autowired
     GraphQlTester graphQlTester;
@@ -110,10 +117,13 @@ class RecruitingRoundAdminGraphQlControllerTest {
         given(createRoundUseCase.createRound(any())).willReturn(20L);
 
         graphQlTester.document(createRoundMutation("2026-08-01T00:00:00Z"))
+            .variable("seasonId", SEASON_ID)
+            .variable("formId", FORM_ID)
+            .variable("questionId", QUESTION_ID)
             .execute()
-            .path("createRecruitingRound.id")
+            .path("createRecruitingRound.roundId")
             .entity(String.class)
-            .isEqualTo("20");
+            .isEqualTo(ROUND_ID);
 
         ArgumentCaptor<CreateRecruitingRoundCommand> captor =
             ArgumentCaptor.forClass(CreateRecruitingRoundCommand.class);
@@ -130,11 +140,10 @@ class RecruitingRoundAdminGraphQlControllerTest {
         given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(true);
 
         graphQlTester.document("""
-                mutation {
-                  updateRecruitingRound(
-                    seasonId: 10,
-                    roundId: 20,
-                    input: {
+                mutation ($seasonId: ID!, $roundId: ID!) {
+                  updateRecruitingRound(input: {
+                      seasonId: $seasonId
+                      roundId: $roundId
                       title: "15기 본모집",
                       recruitableTracks: [PLAN],
                       secondChoiceEnabled: false,
@@ -143,12 +152,13 @@ class RecruitingRoundAdminGraphQlControllerTest {
                       documentResultPublishedAt: "2026-08-10T00:00:00Z",
                       interviewRequired: false,
                       finalResultPublishedAt: "2026-08-16T00:00:00Z"
-                    }
-                  )
+                    }) { success }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
             .execute()
-            .path("updateRecruitingRound")
+            .path("updateRecruitingRound.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -166,11 +176,10 @@ class RecruitingRoundAdminGraphQlControllerTest {
         given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(true);
 
         graphQlTester.document("""
-                mutation {
-                  updateRecruitingRound(
-                    seasonId: 10,
-                    roundId: 20,
-                    input: {
+                mutation ($seasonId: ID!, $roundId: ID!, $formId: ID!, $questionId: ID!) {
+                  updateRecruitingRound(input: {
+                      seasonId: $seasonId
+                      roundId: $roundId
                       title: "15기 본모집",
                       recruitableTracks: [PLAN],
                       secondChoiceEnabled: false,
@@ -181,14 +190,17 @@ class RecruitingRoundAdminGraphQlControllerTest {
                       interviewStartAt: "2026-08-11T00:00:00Z",
                       interviewEndAt: "2026-08-14T00:00:00Z",
                       finalResultPublishedAt: "2026-08-16T00:00:00Z",
-                      availabilityFormId: 100,
-                      availabilityScheduleQuestionId: 200
-                    }
-                  )
+                      availabilityFormId: $formId,
+                      availabilityScheduleQuestionId: $questionId
+                    }) { success }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
+            .variable("formId", FORM_ID)
+            .variable("questionId", QUESTION_ID)
             .execute()
-            .path("updateRecruitingRound")
+            .path("updateRecruitingRound.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -204,6 +216,9 @@ class RecruitingRoundAdminGraphQlControllerTest {
     @DisplayName("GraphQL 차수 생성의 잘못된 Instant는 BAD_REQUEST error를 반환한다")
     void createRoundRejectsMalformedInstant() {
         graphQlTester.document(createRoundMutation("not-an-instant"))
+            .variable("seasonId", SEASON_ID)
+            .variable("formId", FORM_ID)
+            .variable("questionId", QUESTION_ID)
             .execute()
             .errors()
             .satisfy(errors -> assertThat(errors).hasSize(1));
@@ -212,10 +227,9 @@ class RecruitingRoundAdminGraphQlControllerTest {
 
     private String createRoundMutation(String documentStartAt) {
         return """
-            mutation {
-              createRecruitingRound(
-                seasonId: 10,
-                input: {
+            mutation ($seasonId: ID!, $formId: ID!, $questionId: ID!) {
+              createRecruitingRound(input: {
+                  seasonId: $seasonId
                   title: "15기 본모집",
                   type: REGULAR,
                   recruitableTracks: [PLAN, DESIGN],
@@ -227,12 +241,11 @@ class RecruitingRoundAdminGraphQlControllerTest {
                   interviewStartAt: "2026-08-11T00:00:00Z",
                   interviewEndAt: "2026-08-14T00:00:00Z",
                   finalResultPublishedAt: "2026-08-16T00:00:00Z",
-                  availabilityFormId: 100,
-                  availabilityScheduleQuestionId: 200,
+                  availabilityFormId: $formId,
+                  availabilityScheduleQuestionId: $questionId,
                   announcement: "안내",
                   contactText: "문의"
-                }
-              ) { id }
+                }) { roundId }
             }
             """.formatted(documentStartAt);
     }

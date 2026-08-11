@@ -20,6 +20,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
@@ -89,17 +91,18 @@ class RecruitingGraphQlExceptionAdviceTest {
     @DisplayName("잘못된 Instant 일정은 GraphQL 입력 오류로 거부한다")
     void 잘못된_Instant_일정은_GraphQL_입력_오류로_거부한다() {
         graphQlTester.document("""
-                mutation {
-                  confirmRecruitingInterviewSchedule(
-                    applicationId: 20,
-                    input: {
+                mutation ($applicationId: ID!, $sessionId: ID!) {
+                  confirmRecruitingInterviewSchedule(input: {
+                      applicationId: $applicationId
+                      sessionId: $sessionId
                       startsAt: "not-an-instant",
                       endsAt: "2026-08-11T01:00:00Z",
                       contactSnapshot: "운영진 문의"
-                    }
-                  )
+                    }) { success }
                 }
                 """)
+            .variable("applicationId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L))
+            .variable("sessionId", GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 30L))
             .execute()
             .errors()
             .satisfy(errors -> assertThat(errors).hasSize(1));

@@ -23,6 +23,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.ManageRecruitingApplicationInterviewQuestionUseCase;
@@ -45,6 +47,9 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundI
 class RecruitingEvaluatorQuestionGraphQlControllerTest {
 
     private static final Long REQUESTER_ID = 40L;
+    private static final String SEASON_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_SEASON, 10L);
+    private static final String ROUND_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, 20L);
+    private static final String APPLICATION_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 30L);
 
     @Autowired
     GraphQlTester graphQlTester;
@@ -92,18 +97,21 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
         given(manageRoundEvaluatorUseCase.addEvaluator(any())).willReturn(70L);
 
         graphQlTester.document("""
-                mutation {
-                  addRecruitingRoundEvaluator(
-                    seasonId: 10,
-                    roundId: 20,
-                    input: {evaluatorMemberId: 50}
-                  ) { id }
+                mutation ($seasonId: ID!, $roundId: ID!, $memberId: ID!) {
+                  addRecruitingRoundEvaluator(input: {
+                    seasonId: $seasonId
+                    roundId: $roundId
+                    evaluatorMemberId: $memberId
+                  }) { evaluatorId }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
+            .variable("memberId", GlobalId.encode(GlobalIdTypes.MEMBER, 50L))
             .execute()
-            .path("addRecruitingRoundEvaluator.id")
+            .path("addRecruitingRoundEvaluator.evaluatorId")
             .entity(String.class)
-            .isEqualTo("70");
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND_EVALUATOR, 70L));
 
         ArgumentCaptor<RecruitingRoundEvaluatorCommand> captor =
             ArgumentCaptor.forClass(RecruitingRoundEvaluatorCommand.class);
@@ -118,17 +126,19 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
         given(manageRoundQuestionUseCase.createRoundQuestion(any())).willReturn(80L);
 
         graphQlTester.document("""
-                mutation {
-                  createRecruitingRoundInterviewQuestion(
-                    roundId: 20,
-                    input: {content: "협업 경험", orderNo: 1}
-                  ) { id }
+                mutation ($roundId: ID!) {
+                  createRecruitingRoundInterviewQuestion(input: {
+                    roundId: $roundId
+                    content: "협업 경험"
+                    orderNo: 1
+                  }) { questionId }
                 }
                 """)
+            .variable("roundId", ROUND_ID)
             .execute()
-            .path("createRecruitingRoundInterviewQuestion.id")
+            .path("createRecruitingRoundInterviewQuestion.questionId")
             .entity(String.class)
-            .isEqualTo("80");
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_QUESTION, 80L));
 
         ArgumentCaptor<CreateRecruitingRoundInterviewQuestionCommand> captor =
             ArgumentCaptor.forClass(CreateRecruitingRoundInterviewQuestionCommand.class);
@@ -143,16 +153,18 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
             .willReturn(List.of(new RecruitingRoundInterviewQuestionInfo(80L, 20L, "공통 질문", 1, true)));
 
         graphQlTester.document("""
-                query {
-                  recruitingRoundInterviewQuestions(seasonId: 10, roundId: 20) {
-                    id
-                    roundId
-                    content
+                query ($seasonId: ID!, $roundId: ID!) {
+                  recruitingRoundInterviewQuestions(seasonId: $seasonId, roundId: $roundId) {
+                    edges {
+                      node { questionId roundId content }
+                    }
                   }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
             .execute()
-            .path("recruitingRoundInterviewQuestions[0].content")
+            .path("recruitingRoundInterviewQuestions.edges[0].node.content")
             .entity(String.class)
             .isEqualTo("공통 질문");
 
@@ -174,16 +186,18 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
             )));
 
         graphQlTester.document("""
-                query {
-                  recruitingApplicationInterviewQuestions(seasonId: 10, applicationId: 30) {
-                    id
-                    applicationId
-                    content
+                query ($seasonId: ID!, $applicationId: ID!) {
+                  recruitingApplicationInterviewQuestions(seasonId: $seasonId, applicationId: $applicationId) {
+                    edges {
+                      node { questionId applicationId content }
+                    }
                   }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("applicationId", APPLICATION_ID)
             .execute()
-            .path("recruitingApplicationInterviewQuestions[0].content")
+            .path("recruitingApplicationInterviewQuestions.edges[0].node.content")
             .entity(String.class)
             .isEqualTo("개별 질문");
 
@@ -197,13 +211,15 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
         given(getApplicationQueryUseCase.isRoundBelongsToSeason(20L, 10L)).willReturn(false);
 
         graphQlTester.document("""
-                query {
-                  recruitingRoundInterviewQuestions(seasonId: 10, roundId: 20) { id }
+                query ($seasonId: ID!, $roundId: ID!) {
+                  recruitingRoundInterviewQuestions(seasonId: $seasonId, roundId: $roundId) { totalCount }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
             .execute()
             .errors()
-            .satisfy(errors -> assertThat(errors).hasSize(1));
+            .satisfy(errors -> assertThat(errors).isNotEmpty());
 
         then(getInterviewQuestionUseCase).shouldHaveNoInteractions();
     }
@@ -214,13 +230,18 @@ class RecruitingEvaluatorQuestionGraphQlControllerTest {
         given(getApplicationQueryUseCase.isApplicationBelongsToSeason(30L, 10L)).willReturn(false);
 
         graphQlTester.document("""
-                query {
-                  recruitingApplicationInterviewQuestions(seasonId: 10, applicationId: 30) { id }
+                query ($seasonId: ID!, $applicationId: ID!) {
+                  recruitingApplicationInterviewQuestions(
+                    seasonId: $seasonId,
+                    applicationId: $applicationId
+                  ) { totalCount }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("applicationId", APPLICATION_ID)
             .execute()
             .errors()
-            .satisfy(errors -> assertThat(errors).hasSize(1));
+            .satisfy(errors -> assertThat(errors).isNotEmpty());
 
         then(getInterviewQuestionUseCase).shouldHaveNoInteractions();
     }

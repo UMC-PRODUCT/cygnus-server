@@ -10,6 +10,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
@@ -23,6 +24,11 @@ import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.SubjectAttributes;
+import com.umc.product.global.graphql.relay.ConnectionArguments;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
+import com.umc.product.global.graphql.relay.OffsetPageRequest;
+import com.umc.product.global.graphql.relay.RelayConnection;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -31,11 +37,10 @@ import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.project.adapter.in.graphql.dto.MemberBriefGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationFormGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectApplicationGraphQlResponse;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectFilterGraphQlRequest;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectGraphQlResponse;
 import com.umc.product.project.adapter.in.graphql.dto.ProjectMemberGraphQlResponse;
-import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlRequest;
-import com.umc.product.project.adapter.in.graphql.dto.ProjectPageGraphQlResponse;
-import com.umc.product.project.adapter.in.graphql.dto.ProjectSearchGraphQlRequest;
+import com.umc.product.project.adapter.in.graphql.dto.ProjectSort;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationDetailUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectApplicationFormUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
@@ -44,6 +49,7 @@ import com.umc.product.project.application.port.in.query.SearchProjectUseCase;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.in.query.dto.GetProjectApplicationDetailQuery;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
+import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
 
@@ -65,18 +71,23 @@ public class ProjectGraphQlController {
     @QueryMapping
     public ProjectGraphQlResponse project(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long id
+        @Argument String id
     ) {
         Long requesterMemberId = currentMemberId(memberPrincipal);
-        checkPermissionUseCase.checkOrThrow(requesterMemberId, projectReadPermission(id));
-        return ProjectGraphQlResponse.from(getProjectUseCase.getById(id));
+        Long projectId = GlobalId.decodeLong(id, GlobalIdTypes.PROJECT);
+        checkPermissionUseCase.checkOrThrow(requesterMemberId, projectReadPermission(projectId));
+        return ProjectGraphQlResponse.from(getProjectUseCase.getById(projectId));
     }
 
     @QueryMapping
-    public ProjectPageGraphQlResponse projects(
+    public RelayConnection<ProjectGraphQlResponse> projects(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument ProjectSearchGraphQlRequest input,
-        @Argument ProjectPageGraphQlRequest page
+        @Argument ProjectFilterGraphQlRequest filter,
+        @Argument List<ProjectSort> orderBy,
+        @Argument Integer first,
+        @Argument String after,
+        @Argument Integer last,
+        @Argument String before
     ) {
         Long requesterMemberId = currentMemberId(memberPrincipal);
         checkPermissionUseCase.checkOrThrow(
@@ -84,9 +95,17 @@ public class ProjectGraphQlController {
             ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.READ)
         );
 
-        Pageable pageable = (page == null ? new ProjectPageGraphQlRequest(null, null, null) : page).toPageable();
-        SearchProjectQuery query = input.toQuery(pageable);
-        return ProjectPageGraphQlResponse.from(searchProjectUseCase.search(query, requesterMemberId));
+        ConnectionArguments arguments = ConnectionArguments.of(first, after, last, before);
+        var sort = ProjectSort.toSort(orderBy);
+        Pageable window = arguments.toPageable(() -> searchProjectUseCase.search(
+            filter.toQuery(new OffsetPageRequest(0, 1, sort)),
+            requesterMemberId
+        ).getTotalElements());
+        Pageable pageable =
+            new OffsetPageRequest(window.getOffset(), window.getPageSize(), sort);
+        SearchProjectQuery query = filter.toQuery(pageable);
+        Page<ProjectInfo> page = searchProjectUseCase.search(query, requesterMemberId);
+        return RelayConnection.fromPage(page, arguments, ProjectGraphQlResponse::from);
     }
 
     @BatchMapping(typeName = "Project", field = "members")
@@ -95,7 +114,7 @@ public class ProjectGraphQlController {
     ) {
         Long requesterMemberId = currentMemberId();
         SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
-        projects.forEach(project -> assertProjectRead(subject, project.id()));
+        projects.forEach(project -> assertProjectRead(subject, project.projectId()));
 
         List<Long> projectIds = uniqueProjectIds(projects);
         Map<Long, List<ProjectMemberInfo>> membersByProjectId = getProjectMemberUseCase.listByProjectIds(projectIds);
@@ -103,7 +122,7 @@ public class ProjectGraphQlController {
         return projects.stream()
             .collect(Collectors.toMap(
                 Function.identity(),
-                project -> membersByProjectId.getOrDefault(project.id(), List.of()).stream()
+                project -> membersByProjectId.getOrDefault(project.projectId(), List.of()).stream()
                     .map(ProjectMemberGraphQlResponse::from)
                     .toList(),
                 (left, right) -> left,
@@ -117,7 +136,7 @@ public class ProjectGraphQlController {
     ) {
         Long requesterMemberId = currentMemberId();
         SubjectAttributes subject = checkPermissionUseCase.loadSubject(requesterMemberId);
-        projects.forEach(project -> assertProjectRead(subject, project.id()));
+        projects.forEach(project -> assertProjectRead(subject, project.projectId()));
 
         List<Long> projectIds = uniqueProjectIds(projects);
         Map<Long, ApplicationFormInfo> formsByProjectId =
@@ -125,7 +144,7 @@ public class ProjectGraphQlController {
 
         Map<ProjectGraphQlResponse, ProjectApplicationFormGraphQlResponse> result = new LinkedHashMap<>();
         for (ProjectGraphQlResponse project : projects) {
-            ApplicationFormInfo form = formsByProjectId.get(project.id());
+            ApplicationFormInfo form = formsByProjectId.get(project.projectId());
             result.put(project, form == null ? null : ProjectApplicationFormGraphQlResponse.from(form));
         }
         return result;
@@ -254,7 +273,7 @@ public class ProjectGraphQlController {
 
     private List<Long> uniqueProjectIds(List<ProjectGraphQlResponse> projects) {
         return projects.stream()
-            .map(ProjectGraphQlResponse::id)
+            .map(ProjectGraphQlResponse::projectId)
             .collect(Collectors.collectingAndThen(
                 Collectors.toCollection(LinkedHashSet::new),
                 List::copyOf

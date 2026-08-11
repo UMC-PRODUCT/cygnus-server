@@ -23,6 +23,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
@@ -67,11 +69,10 @@ class RecruitingFormAdminGraphQlControllerTest {
         given(upsertFormUseCase.upsert(any())).willReturn(30L);
 
         graphQlTester.document("""
-                mutation {
-                  upsertRecruitingApplicationForm(
-                    seasonId: 10,
-                    roundId: 20,
-                    input: {
+                mutation ($seasonId: ID!, $roundId: ID!) {
+                  upsertRecruitingApplicationForm(input: {
+                      seasonId: $seasonId
+                      roundId: $roundId
                       description: "지원서",
                       sections: [{
                         clientKey: "common",
@@ -90,14 +91,15 @@ class RecruitingFormAdminGraphQlControllerTest {
                         track: WEB_PRODUCT_ENGINEER,
                         questions: []
                       }]
-                    }
-                  ) { id }
+                    }) { applicationFormId }
                 }
                 """)
+            .variable("seasonId", GlobalId.encode(GlobalIdTypes.RECRUITING_SEASON, 10L))
+            .variable("roundId", GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, 20L))
             .execute()
-            .path("upsertRecruitingApplicationForm.id")
+            .path("upsertRecruitingApplicationForm.applicationFormId")
             .entity(String.class)
-            .isEqualTo("30");
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION_FORM, 30L));
 
         ArgumentCaptor<UpsertRecruitingApplicationFormCommand> captor =
             ArgumentCaptor.forClass(UpsertRecruitingApplicationFormCommand.class);

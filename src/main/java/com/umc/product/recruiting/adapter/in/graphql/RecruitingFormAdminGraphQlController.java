@@ -8,7 +8,7 @@ import org.springframework.stereotype.Controller;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingApplicationFormIdGraphQlPayload;
 import com.umc.product.recruiting.adapter.in.graphql.dto.UpsertRecruitingApplicationFormGraphQlRequest;
 import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
@@ -24,19 +24,18 @@ public class RecruitingFormAdminGraphQlController {
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
     @MutationMapping
-    public RecruitingIdGraphQlResponse upsertRecruitingApplicationForm(
+    public RecruitingApplicationFormIdGraphQlPayload upsertRecruitingApplicationForm(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long roundId,
         @Argument UpsertRecruitingApplicationFormGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        Long seasonId = input.decodedSeasonId();
         permissionSupport.assertResourceBelongsToSeason(
-            getApplicationQueryUseCase.isRoundBelongsToSeason(roundId, seasonId)
+            getApplicationQueryUseCase.isRoundBelongsToSeason(input.decodedRoundId(), seasonId)
         );
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.WRITE);
-        return RecruitingIdGraphQlResponse.from(
-            upsertFormUseCase.upsert(input.toCommand(seasonId, roundId, requesterMemberId))
+        return RecruitingApplicationFormIdGraphQlPayload.of(
+            upsertFormUseCase.upsert(input.toCommand(requesterMemberId))
         );
     }
 }

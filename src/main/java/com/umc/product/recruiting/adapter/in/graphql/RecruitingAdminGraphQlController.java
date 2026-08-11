@@ -1,7 +1,5 @@
 package com.umc.product.recruiting.adapter.in.graphql;
 
-import java.util.List;
-
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -9,18 +7,26 @@ import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Controller;
 
 import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.global.graphql.relay.ConnectionArguments;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
+import com.umc.product.global.graphql.relay.OffsetPageRequest;
+import com.umc.product.global.graphql.relay.RelayConnection;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CloneRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingRoundGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.CreateRecruitingSeasonGraphQlRequest;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistoryPageGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.DeleteRecruitingRoundGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.GraphQlSuccessPayload;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistoryGraphQlConnection;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionHistorySearchGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingEvaluationStatisticsGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingEvaluationStatisticsGraphQlResponse;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingIdGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundIdGraphQlPayload;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRoundSearchGraphQlRequest;
-import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonConfigurationGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonGraphQlResponse;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonIdGraphQlPayload;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingSeasonSummaryGraphQlResponse;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingStatusSummaryGraphQlRequest;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingStatusSummaryGraphQlResponse;
@@ -36,7 +42,6 @@ import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingS
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
-import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
@@ -67,36 +72,49 @@ public class RecruitingAdminGraphQlController {
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
     @QueryMapping
-    public List<RecruitingSeasonSummaryGraphQlResponse> recruitingRoundGroups(
+    public RelayConnection<RecruitingSeasonSummaryGraphQlResponse> recruitingRoundGroups(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument RecruitingRoundSearchGraphQlRequest input
+        @Argument RecruitingRoundSearchGraphQlRequest input,
+        @Argument Integer first,
+        @Argument String after,
+        @Argument Integer last,
+        @Argument String before
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        return searchRoundGroupUseCase.searchRoundGroups(input.toQuery(requesterMemberId)).stream()
-            .map(RecruitingSeasonSummaryGraphQlResponse::from)
-            .toList();
+        ConnectionArguments arguments = ConnectionArguments.of(first, after, last, before);
+        return RelayConnection.fromList(
+            searchRoundGroupUseCase.searchRoundGroups(input.toQuery(requesterMemberId)),
+            arguments,
+            RecruitingSeasonSummaryGraphQlResponse::from
+        );
     }
 
     @QueryMapping
     public Boolean recruitingRoundTitleAvailable(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
+        @Argument String seasonId,
         @Argument String title,
-        @Argument Long excludedRoundId
+        @Argument String excludedRoundId
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
-        return checkRoundTitleUseCase.isTitleAvailable(seasonId, title, excludedRoundId);
+        Long decodedSeasonId = GlobalId.decodeLong(seasonId, GlobalIdTypes.RECRUITING_SEASON);
+        permissionSupport.assertRecruitmentPermission(requesterMemberId, decodedSeasonId, PermissionType.READ);
+        return checkRoundTitleUseCase.isTitleAvailable(
+            decodedSeasonId,
+            title,
+            excludedRoundId == null ? null : GlobalId.decodeLong(excludedRoundId, GlobalIdTypes.RECRUITING_ROUND)
+        );
     }
 
     @QueryMapping
-    public RecruitingSeasonConfigurationGraphQlResponse recruitingSeasonConfiguration(
+    public RecruitingSeasonGraphQlResponse recruitingSeason(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId
+        @Argument String id
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        Long seasonId = GlobalId.decodeLong(id, GlobalIdTypes.RECRUITING_SEASON);
         permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.READ);
-        return RecruitingSeasonConfigurationGraphQlResponse.from(
+        return RecruitingSeasonGraphQlResponse.from(
             getSeasonConfigurationUseCase.getBySeasonId(seasonId)
         );
     }
@@ -124,115 +142,110 @@ public class RecruitingAdminGraphQlController {
     }
 
     @QueryMapping
-    public RecruitingDecisionHistoryPageGraphQlResponse recruitingDecisionHistories(
+    public RecruitingDecisionHistoryGraphQlConnection recruitingDecisionHistories(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument RecruitingDecisionHistorySearchGraphQlRequest input
+        @Argument RecruitingDecisionHistorySearchGraphQlRequest input,
+        @Argument Integer first,
+        @Argument String after,
+        @Argument Integer last,
+        @Argument String before
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        return RecruitingDecisionHistoryPageGraphQlResponse.from(
-            searchDecisionHistoryUseCase.search(input.toQuery(requesterMemberId))
+        ConnectionArguments arguments = ConnectionArguments.of(first, after, last, before);
+        var pageable = arguments.toPageable(() -> searchDecisionHistoryUseCase.search(
+            input.toQuery(requesterMemberId, new OffsetPageRequest(0, 1))
+        ).page().getTotalElements());
+        return RecruitingDecisionHistoryGraphQlConnection.from(
+            searchDecisionHistoryUseCase.search(input.toQuery(requesterMemberId, pageable)),
+            arguments
         );
     }
 
     @MutationMapping
-    public RecruitingIdGraphQlResponse createRecruitingSeason(
+    public RecruitingSeasonIdGraphQlPayload createRecruitingSeason(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
         @Argument CreateRecruitingSeasonGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         permissionSupport.assertRecruitmentTypePermission(requesterMemberId, PermissionType.WRITE);
-        return RecruitingIdGraphQlResponse.from(
+        return RecruitingSeasonIdGraphQlPayload.of(
             createSeasonUseCase.createSeason(input.toCommand(requesterMemberId))
         );
     }
 
     @MutationMapping
-    public Boolean updateRecruitingSeason(
+    public GraphQlSuccessPayload updateRecruitingSeason(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
         @Argument UpdateRecruitingSeasonGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
-        updateSeasonUseCase.updateSeason(input.toCommand(seasonId));
-        return true;
+        permissionSupport.assertRecruitmentPermission(requesterMemberId, input.decodedSeasonId(), PermissionType.EDIT);
+        updateSeasonUseCase.updateSeason(input.toCommand());
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public Boolean replaceRecruitingSeasonTrackQuotas(
+    public GraphQlSuccessPayload replaceRecruitingSeasonTrackQuotas(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
         @Argument ReplaceRecruitingSeasonTrackQuotasGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.EDIT);
-        replaceSeasonTrackQuotasUseCase.replaceQuotas(input.toCommand(seasonId));
-        return true;
+        permissionSupport.assertRecruitmentPermission(requesterMemberId, input.decodedSeasonId(), PermissionType.EDIT);
+        replaceSeasonTrackQuotasUseCase.replaceQuotas(input.toCommand());
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public RecruitingIdGraphQlResponse createRecruitingRound(
+    public RecruitingRoundIdGraphQlPayload createRecruitingRound(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
         @Argument CreateRecruitingRoundGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        permissionSupport.assertRecruitmentPermission(requesterMemberId, seasonId, PermissionType.WRITE);
-        return RecruitingIdGraphQlResponse.from(createRoundUseCase.createRound(input.toCommand(seasonId)));
+        permissionSupport.assertRecruitmentPermission(requesterMemberId, input.decodedSeasonId(), PermissionType.WRITE);
+        return RecruitingRoundIdGraphQlPayload.of(createRoundUseCase.createRound(input.toCommand()));
     }
 
     @MutationMapping
-    public Boolean updateRecruitingRoundStatus(
+    public GraphQlSuccessPayload updateRecruitingRoundStatus(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long roundId,
         @Argument UpdateRecruitingRoundStatusGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        requireRoundPermission(requesterMemberId, seasonId, roundId);
-        updateRoundStatusUseCase.updateRoundStatus(input.toCommand(seasonId, roundId, requesterMemberId));
-        return true;
+        requireRoundPermission(requesterMemberId, input.decodedSeasonId(), input.decodedRoundId());
+        updateRoundStatusUseCase.updateRoundStatus(input.toCommand(requesterMemberId));
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public Boolean updateRecruitingRound(
+    public GraphQlSuccessPayload updateRecruitingRound(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long roundId,
         @Argument UpdateRecruitingRoundGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        requireRoundPermission(requesterMemberId, seasonId, roundId);
-        updateRoundUseCase.updateRound(input.toCommand(seasonId, roundId, requesterMemberId));
-        return true;
+        requireRoundPermission(requesterMemberId, input.decodedSeasonId(), input.decodedRoundId());
+        updateRoundUseCase.updateRound(input.toCommand(requesterMemberId));
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public RecruitingIdGraphQlResponse cloneRecruitingRound(
+    public RecruitingRoundIdGraphQlPayload cloneRecruitingRound(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long roundId,
         @Argument CloneRecruitingRoundGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        return RecruitingIdGraphQlResponse.from(
-            cloneRoundUseCase.cloneRound(input.toCommand(seasonId, roundId, requesterMemberId))
+        return RecruitingRoundIdGraphQlPayload.of(
+            cloneRoundUseCase.cloneRound(input.toCommand(requesterMemberId))
         );
     }
 
     @MutationMapping
-    public Boolean deleteRecruitingRound(
+    public GraphQlSuccessPayload deleteRecruitingRound(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long roundId
+        @Argument DeleteRecruitingRoundGraphQlRequest input
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
-        deleteRoundUseCase.deleteRound(DeleteRecruitingRoundCommand.builder()
-            .seasonId(seasonId)
-            .roundId(roundId)
-            .requesterMemberId(requesterMemberId)
-            .build());
-        return true;
+        deleteRoundUseCase.deleteRound(input.toCommand(requesterMemberId));
+        return GraphQlSuccessPayload.ok();
     }
 
     private void requireRoundPermission(Long requesterMemberId, Long seasonId, Long roundId) {

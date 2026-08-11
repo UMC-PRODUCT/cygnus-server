@@ -6,24 +6,26 @@ import java.util.Set;
 
 import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationDetailInfo;
 
 public record RecruitingApplicationReviewDetailGraphQlResponse(
     RecruitingApplicationReviewGraphQlResponse application,
-    Long formResponseId,
+    String formResponseId,
     List<Answer> answers
 ) {
 
     public static RecruitingApplicationReviewDetailGraphQlResponse from(RecruitingApplicationDetailInfo info) {
         return new RecruitingApplicationReviewDetailGraphQlResponse(
             RecruitingApplicationReviewGraphQlResponse.from(info.application()),
-            info.formResponseId(),
+            GlobalId.encode(GlobalIdTypes.FORM_RESPONSE, info.formResponseId()),
             info.answers().stream().map(Answer::from).toList()
         );
     }
 
     public record Answer(
-        Long questionId,
+        String questionId,
         QuestionType type,
         String textValue,
         List<SelectedOption> selectedOptions,
@@ -33,7 +35,7 @@ public record RecruitingApplicationReviewDetailGraphQlResponse(
 
         private static Answer from(AnswerInfo info) {
             return new Answer(
-                info.questionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_QUESTION, info.questionId()),
                 info.answeredAsType(),
                 info.textValue(),
                 info.selectedOptions().stream().map(SelectedOption::from).toList(),
@@ -43,10 +45,15 @@ public record RecruitingApplicationReviewDetailGraphQlResponse(
         }
     }
 
-    public record SelectedOption(Long questionOptionId, String answeredAsContent) {
+    public record SelectedOption(String questionOptionId, String answeredAsContent) {
 
         private static SelectedOption from(AnswerInfo.SelectedOption info) {
-            return new SelectedOption(info.questionOptionId(), info.answeredAsContent());
+            return new SelectedOption(
+                info.questionOptionId() == null
+                    ? null
+                    : GlobalId.encode(GlobalIdTypes.FORM_OPTION, info.questionOptionId()),
+                info.answeredAsContent()
+            );
         }
     }
 }

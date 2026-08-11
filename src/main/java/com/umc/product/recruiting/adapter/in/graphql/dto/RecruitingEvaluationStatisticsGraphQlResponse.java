@@ -4,6 +4,8 @@ import java.time.Instant;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingChapterEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingEvaluationStatisticsInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolEvaluationStatisticsInfo;
@@ -39,7 +41,7 @@ public record RecruitingEvaluationStatisticsGraphQlResponse(
     }
 
     public record ChapterStatistics(
-        Long chapterId,
+        String chapterId,
         String chapterName,
         Long applicantCount,
         Long evaluatedCount,
@@ -49,7 +51,7 @@ public record RecruitingEvaluationStatisticsGraphQlResponse(
 
         private static ChapterStatistics from(RecruitingChapterEvaluationStatisticsInfo info) {
             return new ChapterStatistics(
-                info.chapterId(),
+                GlobalId.encode(GlobalIdTypes.CHAPTER, info.chapterId()),
                 info.chapterName(),
                 info.applicantCount(),
                 info.evaluatedCount(),
@@ -60,7 +62,7 @@ public record RecruitingEvaluationStatisticsGraphQlResponse(
     }
 
     public record SchoolStatistics(
-        Long schoolId,
+        String schoolId,
         String schoolName,
         Long applicantCount,
         Long evaluatedCount,
@@ -69,7 +71,7 @@ public record RecruitingEvaluationStatisticsGraphQlResponse(
 
         private static SchoolStatistics from(RecruitingSchoolEvaluationStatisticsInfo info) {
             return new SchoolStatistics(
-                info.schoolId(),
+                GlobalId.encode(GlobalIdTypes.SCHOOL, info.schoolId()),
                 info.schoolName(),
                 info.applicantCount(),
                 info.evaluatedCount(),

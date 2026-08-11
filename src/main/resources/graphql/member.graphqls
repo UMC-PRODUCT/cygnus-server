@@ -1,11 +1,10 @@
 extend type Query {
   me: Member!
   member(id: ID!): Member
-  members(ids: [ID!]!): [Member!]!
-  memberSearch(input: MemberSearchInput!, page: MemberPageInput): MemberPage!
+  members(filter: MemberFilterInput, first: Int, after: String, last: Int, before: String): MemberSearchResultConnection!
 }
 
-input MemberSearchInput {
+input MemberFilterInput {
   keyword: String
   gisuId: ID
   part: ChallengerPart
@@ -13,18 +12,15 @@ input MemberSearchInput {
   schoolId: ID
 }
 
-input MemberPageInput {
-  page: Int = 0
-  size: Int = 20
+type MemberSearchResultConnection {
+  edges: [MemberSearchResultEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
 }
 
-type MemberPage {
-  content: [MemberSearchResult!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
+type MemberSearchResultEdge {
+  cursor: String!
+  node: MemberSearchResult!
 }
 
 type MemberSearchResult {
@@ -32,8 +28,7 @@ type MemberSearchResult {
   name: String
   nickname: String
   email: String
-  schoolId: ID
-  school: SchoolDetail
+  school: School
   profileImageLink: String
   currentChallenger: MemberSearchChallenger
   isAdminInActiveGisu: Boolean!
@@ -42,23 +37,20 @@ type MemberSearchResult {
 
 type MemberSearchChallenger {
   challengerId: ID!
-  gisuId: ID!
   gisu: Gisu
-  generation: ID!
+  generation: Int!
   part: ChallengerPart!
   challengerStatus: ChallengerStatus!
 }
 
-type Member {
-  memberId: ID!
+type Member implements Node {
+  id: ID!
   name: String
   nickname: String
   email: String
-  schoolId: ID
-  schoolName: String
   profileImageLink: String
   status: MemberStatus
-  school: SchoolDetail
+  school: School
   challengers: [MemberChallenger!]!
 }
 
@@ -70,8 +62,6 @@ enum MemberStatus {
 
 type MemberChallenger {
   challengerId: ID!
-  memberId: ID!
-  gisuId: ID!
   gisu: Gisu
   part: ChallengerPart
   tracks: [ChallengerTrack!]!

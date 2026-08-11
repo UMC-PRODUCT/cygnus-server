@@ -6,10 +6,12 @@ import java.util.List;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.form.domain.enums.FormStatus;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 
 public record RecruitingApplicationFormStructureGraphQlResponse(
-    Long formId,
-    Long createdMemberId,
+    String formId,
+    String createdMemberId,
     String title,
     String description,
     FormStatus status,
@@ -22,8 +24,8 @@ public record RecruitingApplicationFormStructureGraphQlResponse(
 
     public static RecruitingApplicationFormStructureGraphQlResponse from(FormWithStructureInfo info) {
         return new RecruitingApplicationFormStructureGraphQlResponse(
-            info.formId(),
-            info.createdMemberId(),
+            GlobalId.encode(GlobalIdTypes.FORM, info.formId()),
+            GlobalId.encode(GlobalIdTypes.MEMBER, info.createdMemberId()),
             info.title(),
             info.description(),
             info.status(),
@@ -36,7 +38,7 @@ public record RecruitingApplicationFormStructureGraphQlResponse(
     }
 
     public record SectionGraphQlResponse(
-        Long sectionId,
+        String sectionId,
         String title,
         String description,
         Long orderNo,
@@ -45,7 +47,7 @@ public record RecruitingApplicationFormStructureGraphQlResponse(
 
         private static SectionGraphQlResponse from(FormWithStructureInfo.SectionWithQuestions section) {
             return new SectionGraphQlResponse(
-                section.sectionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_SECTION, section.sectionId()),
                 section.title(),
                 section.description(),
                 section.orderNo(),
@@ -55,7 +57,7 @@ public record RecruitingApplicationFormStructureGraphQlResponse(
     }
 
     public record QuestionGraphQlResponse(
-        Long questionId,
+        String questionId,
         String title,
         String description,
         QuestionType type,
@@ -66,7 +68,7 @@ public record RecruitingApplicationFormStructureGraphQlResponse(
 
         private static QuestionGraphQlResponse from(FormWithStructureInfo.QuestionWithOptions question) {
             return new QuestionGraphQlResponse(
-                question.questionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_QUESTION, question.questionId()),
                 question.title(),
                 question.description(),
                 question.type(),
@@ -78,20 +80,22 @@ public record RecruitingApplicationFormStructureGraphQlResponse(
     }
 
     public record OptionGraphQlResponse(
-        Long optionId,
+        String optionId,
         String content,
         Long orderNo,
         boolean other,
-        Long nextSectionId
+        String nextSectionId
     ) {
 
         private static OptionGraphQlResponse from(FormWithStructureInfo.Option option) {
             return new OptionGraphQlResponse(
-                option.optionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_OPTION, option.optionId()),
                 option.content(),
                 option.orderNo(),
                 option.isOther(),
-                option.nextSectionId()
+                option.nextSectionId() == null
+                    ? null
+                    : GlobalId.encode(GlobalIdTypes.FORM_SECTION, option.nextSectionId())
             );
         }
     }

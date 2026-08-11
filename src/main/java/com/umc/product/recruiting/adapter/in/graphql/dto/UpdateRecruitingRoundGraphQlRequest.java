@@ -4,10 +4,14 @@ import java.time.Instant;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 
 public record UpdateRecruitingRoundGraphQlRequest(
+    String seasonId,
+    String roundId,
     String title,
     List<ChallengerTrack> recruitableTracks,
     boolean secondChoiceEnabled,
@@ -18,16 +22,24 @@ public record UpdateRecruitingRoundGraphQlRequest(
     Instant interviewStartAt,
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
-    Long availabilityFormId,
-    Long availabilityScheduleQuestionId,
+    String availabilityFormId,
+    String availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
 
-    public UpdateRecruitingRoundCommand toCommand(Long seasonId, Long roundId, Long requesterMemberId) {
+    public Long decodedSeasonId() {
+        return GlobalId.decodeLong(seasonId, GlobalIdTypes.RECRUITING_SEASON);
+    }
+
+    public Long decodedRoundId() {
+        return GlobalId.decodeLong(roundId, GlobalIdTypes.RECRUITING_ROUND);
+    }
+
+    public UpdateRecruitingRoundCommand toCommand(Long requesterMemberId) {
         return UpdateRecruitingRoundCommand.builder()
-            .seasonId(seasonId)
-            .roundId(roundId)
+            .seasonId(decodedSeasonId())
+            .roundId(decodedRoundId())
             .title(title)
             .requesterMemberId(requesterMemberId)
             .configuration(RecruitingRoundConfigurationCommand.of(
@@ -40,8 +52,12 @@ public record UpdateRecruitingRoundGraphQlRequest(
                 interviewStartAt,
                 interviewEndAt,
                 finalResultPublishedAt,
-                availabilityFormId,
-                availabilityScheduleQuestionId,
+                availabilityFormId == null
+                    ? null
+                    : GlobalId.decodeLong(availabilityFormId, GlobalIdTypes.FORM),
+                availabilityScheduleQuestionId == null
+                    ? null
+                    : GlobalId.decodeLong(availabilityScheduleQuestionId, GlobalIdTypes.FORM_QUESTION),
                 announcement,
                 contactText
             ))

@@ -23,18 +23,36 @@ class RecruitingGraphQlSurfaceTest {
 
     private static final Set<String> REMOVED_FIELDS = Set.of(
         "recruitingApplicationResult",
+        "recruitingSeasonConfiguration",
         "findRecruitingInterviewScheduleCandidates",
         "sendRecruitingInterviewGuide",
         "assignRecruitingInterview",
         "applicationNo",
         "applicantIdentityKey",
         "assignment",
-        "assignments",
         "score",
         "scores",
         "saveRecruitingApplicationEvaluation",
         "availabilityFormResponseId",
-        "csv"
+        "csv",
+        "totalElements",
+        "totalPages",
+        "hasNext"
+    );
+
+    /**
+     * Connection을 반환하는 Query 루트 필드와 스키마의 Connection 타입 이름 매핑.
+     */
+    private static final Map<String, String> CONNECTION_ROOT_FIELDS = Map.of(
+        "publicRecruitingRounds", "RecruitingPublicRoundGroupConnection",
+        "recruitingRoundGroups", "RecruitingSeasonSummaryConnection",
+        "recruitingRoundEvaluators", "RecruitingRoundEvaluatorConnection",
+        "recruitingRoundInterviewQuestions", "RecruitingRoundInterviewQuestionConnection",
+        "recruitingApplicationInterviewQuestions", "RecruitingApplicationInterviewQuestionConnection",
+        "recruitingApplicationEvaluations", "RecruitingApplicationEvaluationConnection",
+        "recruitingInterviewSessions", "RecruitingInterviewSessionConnection",
+        "recruitingDecisionHistories", "RecruitingDecisionHistoryConnection",
+        "recruitingRoundApplications", "RecruitingApplicationReviewConnection"
     );
 
     @Test
@@ -53,11 +71,15 @@ class RecruitingGraphQlSurfaceTest {
             Map<String, Object> data = result.getData();
             assertThat(fieldNames(data, "Query"))
                 .contains(
+                    "node",
+                    "nodes",
                     "publicRecruitingRounds",
+                    "recruitingApplicationFormStructure",
+                    "recruitingApplicationByCredential",
                     "recruitingApplication",
                     "recruitingRoundGroups",
                     "recruitingRoundTitleAvailable",
-                    "recruitingSeasonConfiguration",
+                    "recruitingSeason",
                     "recruitingRoundEvaluators",
                     "recruitingRoundInterviewQuestions",
                     "recruitingApplicationInterviewQuestions",
@@ -67,13 +89,18 @@ class RecruitingGraphQlSurfaceTest {
                     "recruitingInterviewSessions",
                     "recruitingInterviewScheduleBoard",
                     "recruitingStatusSummary",
-                    "recruitingEvaluationStatistics"
-                    , "recruitingRoundApplications"
-                    , "recruitingRoundApplication"
+                    "recruitingEvaluationStatistics",
+                    "recruitingDecisionHistories",
+                    "recruitingRoundApplications",
+                    "recruitingRoundApplication"
                 );
             assertThat(fieldNames(data, "Mutation"))
                 .contains(
+                    "createRecruitingSeason",
+                    "updateRecruitingSeason",
                     "replaceRecruitingSeasonTrackQuotas",
+                    "createRecruitingRound",
+                    "updateRecruitingRoundStatus",
                     "updateRecruitingRound",
                     "upsertRecruitingApplicationForm",
                     "cloneRecruitingRound",
@@ -81,11 +108,25 @@ class RecruitingGraphQlSurfaceTest {
                     "addRecruitingRoundEvaluator",
                     "removeRecruitingRoundEvaluator",
                     "createRecruitingRoundInterviewQuestion",
+                    "updateRecruitingRoundInterviewQuestion",
+                    "deactivateRecruitingRoundInterviewQuestion",
                     "createRecruitingApplicationInterviewQuestion",
+                    "updateRecruitingApplicationInterviewQuestion",
+                    "deactivateRecruitingApplicationInterviewQuestion",
+                    "createRecruitingApplicationDraft",
+                    "createAnonymousRecruitingApplicationDraft",
+                    "updateRecruitingApplicationDraft",
+                    "updateAnonymousRecruitingApplication",
+                    "submitRecruitingApplication",
+                    "submitAnonymousRecruitingApplication",
+                    "cancelRecruitingApplication",
+                    "cancelAnonymousRecruitingApplication",
+                    "decideRecruitingDocument",
                     "decideRecruitingFinal",
                     "prepareRecruitingRegistration",
                     "cancelRecruitingRegistration",
                     "confirmRecruitingRegistration",
+                    "skipRecruitingInterview",
                     "requestRecruitingInterviewAvailability",
                     "submitRecruitingInterviewAvailability",
                     "confirmRecruitingInterviewSchedule",
@@ -95,7 +136,80 @@ class RecruitingGraphQlSurfaceTest {
                     "confirmRecruitingInterviewSchedules",
                     "submitRecruitingApplicationEvaluation"
                 );
+            for (Map<String, Object> mutationField : fields(type(data, "Mutation"))) {
+                String mutationName = (String)mutationField.get("name");
+                List<Map<String, Object>> args = castNullableList(mutationField.get("args"));
+                assertThat(args)
+                    .as("mutation %s는 단일 input 인자만 받는다", mutationName)
+                    .hasSize(1);
+                assertThat(args.getFirst().get("name")).isEqualTo("input");
+                assertThat(renderType(castMap(args.getFirst().get("type"))))
+                    .as("mutation %s input 인자는 non-null input 타입이다", mutationName)
+                    .endsWith("Input!");
+                String expectedPayloadType =
+                    Character.toUpperCase(mutationName.charAt(0)) + mutationName.substring(1) + "Payload!";
+                assertThat(renderType(castMap(mutationField.get("type"))))
+                    .as("mutation %s는 전용 Payload 타입을 반환한다", mutationName)
+                    .isEqualTo(expectedPayloadType);
+            }
             assertThat(allFieldNames(data)).doesNotContainAnyElementsOf(REMOVED_FIELDS);
+        } finally {
+            Introspection.enabledJvmWide(previousIntrospectionEnabled);
+        }
+    }
+
+    @Test
+    @DisplayName("GraphQL introspection은 Relay Node와 Connection 계약을 제공한다")
+    void GraphQL_introspection은_Relay_Node와_Connection_계약을_제공한다() throws IOException {
+        // Given
+        boolean previousIntrospectionEnabled = Introspection.enabledJvmWide(true);
+        try {
+            GraphQlSource graphQlSource = graphQlSource();
+
+            // When
+            ExecutionResult result = graphQlSource.graphQl().execute(introspectionDocument());
+
+            // Then
+            assertThat(result.getErrors()).isEmpty();
+            Map<String, Object> data = result.getData();
+            assertThat(fieldType(data, "Query", "node")).isEqualTo("Node");
+            assertThat(argType(data, "Query", "node", "id")).isEqualTo("ID!");
+            assertThat(fieldType(data, "Query", "nodes")).isEqualTo("[Node]!");
+            assertThat(argType(data, "Query", "nodes", "ids")).isEqualTo("[ID!]!");
+
+            assertThat(interfaceNames(data, "RecruitingApplication")).contains("Node");
+            assertThat(fieldType(data, "RecruitingApplication", "id")).isEqualTo("ID!");
+            assertThat(fieldNames(data, "RecruitingApplication")).doesNotContain("applicationId");
+            assertThat(interfaceNames(data, "RecruitingSeason")).contains("Node");
+            assertThat(fieldType(data, "RecruitingSeason", "id")).isEqualTo("ID!");
+            assertThat(fieldType(data, "Query", "recruitingSeason")).isEqualTo("RecruitingSeason!");
+            assertThat(argType(data, "Query", "recruitingSeason", "id")).isEqualTo("ID!");
+
+            assertThat(fieldType(data, "PageInfo", "hasNextPage")).isEqualTo("Boolean!");
+            assertThat(fieldType(data, "PageInfo", "hasPreviousPage")).isEqualTo("Boolean!");
+            assertThat(fieldType(data, "PageInfo", "startCursor")).isEqualTo("String");
+            assertThat(fieldType(data, "PageInfo", "endCursor")).isEqualTo("String");
+
+            CONNECTION_ROOT_FIELDS.forEach((rootField, connectionType) -> {
+                String edgeType = connectionType.replace("Connection", "Edge");
+                assertThat(fieldType(data, "Query", rootField))
+                    .as("query %s는 Connection을 반환한다", rootField)
+                    .isEqualTo(connectionType + "!");
+                assertThat(argType(data, "Query", rootField, "first")).isEqualTo("Int");
+                assertThat(argType(data, "Query", rootField, "after")).isEqualTo("String");
+                assertThat(argType(data, "Query", rootField, "last")).isEqualTo("Int");
+                assertThat(argType(data, "Query", rootField, "before")).isEqualTo("String");
+                assertThat(fieldType(data, connectionType, "edges")).isEqualTo("[" + edgeType + "!]!");
+                assertThat(fieldType(data, connectionType, "pageInfo")).isEqualTo("PageInfo!");
+                assertThat(fieldType(data, connectionType, "totalCount")).isEqualTo("Long!");
+                assertThat(fieldType(data, edgeType, "cursor")).isEqualTo("String!");
+                assertThat(fieldType(data, edgeType, "node"))
+                    .isEqualTo(edgeType.replace("Edge", "") + "!");
+            });
+
+            assertThat(fieldType(data, "RecruitingDecisionHistoryConnection", "asOf")).isEqualTo("Instant!");
+            assertThat(fieldType(data, "RecruitingDecisionHistoryConnection", "progressStatus"))
+                .isEqualTo("RecruitingEvaluationProgressStatus!");
         } finally {
             Introspection.enabledJvmWide(previousIntrospectionEnabled);
         }
@@ -126,15 +240,26 @@ class RecruitingGraphQlSurfaceTest {
                 .isEqualTo("RecruitingApplicationRegistrationStatus!");
             assertThat(fieldType(data, "RecruitingApplication", "acceptedTrack"))
                 .isEqualTo("ChallengerTrack");
-            assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability")).isEqualTo("Boolean!");
-            assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times")).isEqualTo("[Instant!]!");
+            assertThat(fieldType(data, "Mutation", "submitRecruitingInterviewAvailability"))
+                .isEqualTo("SubmitRecruitingInterviewAvailabilityPayload!");
+            assertThat(fieldType(data, "SubmitRecruitingInterviewAvailabilityPayload", "success"))
+                .isEqualTo("Boolean!");
+            assertThat(fieldType(data, "CancelAnonymousRecruitingApplicationPayload", "application"))
+                .isEqualTo("RecruitingApplication!");
+            assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "applicationId"))
+                .isEqualTo("ID!");
+            assertThat(inputFieldType(data, "SubmitRecruitingInterviewAvailabilityInput", "times"))
+                .isEqualTo("[Instant!]!");
+            assertThat(inputFieldType(data, "ConfirmRecruitingInterviewScheduleInput", "applicationId"))
+                .isEqualTo("ID!");
             assertThat(inputFieldType(data, "ConfirmRecruitingInterviewScheduleInput", "sessionId")).isEqualTo("ID!");
-            assertThat(inputFieldType(data, "RecruitingInterviewSessionInput", "slotDurationMinutes"))
+            assertThat(inputFieldType(data, "CreateRecruitingInterviewSessionInput", "slotDurationMinutes"))
                 .isEqualTo("Int!");
             assertThat(fieldType(data, "RecruitingInterviewSession", "slotDurationMinutes")).isEqualTo("Int!");
             assertThat(fieldType(data, "RecruitingInterviewScheduleBoard", "sessions"))
                 .isEqualTo("[RecruitingInterviewScheduleBoardSession!]!");
-            assertThat(inputFieldNames(data)).doesNotContain("memberId", "availabilityFormResponseId");
+            assertThat(inputFieldNames(data))
+                .doesNotContain("memberId", "availabilityFormResponseId", "page", "size");
             assertThat(inputFieldNames(data, "RecruitingDecisionHistorySearchInput"))
                 .contains("chapterIds", "schoolIds")
                 .doesNotContain("chapterId", "schoolId");
@@ -174,9 +299,14 @@ class RecruitingGraphQlSurfaceTest {
                 types {
                   kind
                   name
+                  interfaces { name }
                   fields {
                     name
                     type { ...TypeRef }
+                    args {
+                      name
+                      type { ...TypeRef }
+                    }
                   }
                   inputFields {
                     name
@@ -228,12 +358,29 @@ class RecruitingGraphQlSurfaceTest {
             .toList();
     }
 
-    private static String fieldType(Map<String, Object> data, String typeName, String fieldName) {
-        Map<String, Object> field = fields(type(data, typeName)).stream()
+    private static List<String> interfaceNames(Map<String, Object> data, String typeName) {
+        return castNullableList(type(data, typeName).get("interfaces")).stream()
+            .map(candidate -> (String)candidate.get("name"))
+            .toList();
+    }
+
+    private static Map<String, Object> field(Map<String, Object> data, String typeName, String fieldName) {
+        return fields(type(data, typeName)).stream()
             .filter(candidate -> fieldName.equals(candidate.get("name")))
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("GraphQL 필드를 찾을 수 없습니다: " + fieldName));
-        return renderType(castMap(field.get("type")));
+    }
+
+    private static String fieldType(Map<String, Object> data, String typeName, String fieldName) {
+        return renderType(castMap(field(data, typeName, fieldName).get("type")));
+    }
+
+    private static String argType(Map<String, Object> data, String typeName, String fieldName, String argName) {
+        Map<String, Object> arg = castNullableList(field(data, typeName, fieldName).get("args")).stream()
+            .filter(candidate -> argName.equals(candidate.get("name")))
+            .findFirst()
+            .orElseThrow(() -> new IllegalArgumentException("GraphQL 인자를 찾을 수 없습니다: " + argName));
+        return renderType(castMap(arg.get("type")));
     }
 
     private static String inputFieldType(Map<String, Object> data, String typeName, String fieldName) {

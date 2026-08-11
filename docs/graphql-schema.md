@@ -1,98 +1,84 @@
 # GraphQL Schema
 
-현재 프로젝트에서 구현되어 있는 GraphQL Schema 간의 관계를 나타낸다.
+현재 GraphQL schema의 Relay 중심 관계를 나타낸다. 모든 `ID`는 전역 ID이며 root 목록은
+`Connection -> Edge -> node` 구조를 사용한다.
 
 ```mermaid
 flowchart TD
   Query["Query"]
+  Mutation["Mutation"]
+  Node["Node<br/>id: ID!"]
+  PageInfo["PageInfo"]
+
+  Query -->|node / nodes| Node
 
   subgraph Member 도메인
-    Member["Member"]
+    Member["Member implements Node"]
+    MemberConnection["MemberSearchResultConnection"]
+    MemberEdge["MemberSearchResultEdge"]
+    MemberResult["MemberSearchResult"]
     MemberChallenger["MemberChallenger"]
-    SchoolDetail["SchoolDetail"]
-    SchoolLink["SchoolLink"]
+
+    MemberConnection -->|edges| MemberEdge
+    MemberConnection -->|pageInfo| PageInfo
+    MemberEdge -->|node| MemberResult
+    Member -->|challengers| MemberChallenger
   end
 
   subgraph Organization 도메인
-    Gisu["Gisu"]
-    GisuOrganizationInput["GisuOrganizationInput"]
-    GisuOrganizationPayload["GisuOrganizationPayload"]
-    GisuChapter["GisuChapter"]
-    GisuSchool["GisuSchool"]
-    Chapter["Chapter"]
-    ChapterSchool["ChapterSchool"]
-    SchoolName["SchoolName"]
+    Gisu["Gisu implements Node"]
+    Chapter["Chapter implements Node"]
+    School["School implements Node"]
+    GisuConnection["GisuConnection"]
+    ChapterConnection["ChapterConnection"]
+    SchoolConnection["SchoolNameConnection"]
+
+    GisuConnection --> PageInfo
+    GisuConnection -->|edges.node| Gisu
+    ChapterConnection --> PageInfo
+    ChapterConnection -->|edges.node| Chapter
+    SchoolConnection --> PageInfo
   end
 
   subgraph Project 도메인
-    Project["Project"]
-    ProjectPage["ProjectPage"]
-    ProjectSearchInput["ProjectSearchInput"]
-    ProjectPageInput["ProjectPageInput"]
+    Project["Project implements Node"]
+    ProjectConnection["ProjectConnection"]
     ProjectMember["ProjectMember"]
-    ProjectPartQuota["ProjectPartQuota"]
-    ProjectApplicationForm["ProjectApplicationForm"]
-    ApplicationFormSection["ApplicationFormSection"]
-    ApplicationFormQuestion["ApplicationFormQuestion"]
-    ApplicationFormOption["ApplicationFormOption"]
     ProjectApplication["ProjectApplication"]
-    ProjectApplicationFormResponse["ProjectApplicationFormResponse"]
-    ProjectApplicationResponseSection["ProjectApplicationResponseSection"]
-    ProjectApplicationResponseQuestion["ProjectApplicationResponseQuestion"]
-    ProjectApplicationAnswer["ProjectApplicationAnswer"]
-    ProjectApplicationSelectedOption["ProjectApplicationSelectedOption"]
-    ProjectApplicationFile["ProjectApplicationFile"]
-    ProjectApplicant["ProjectApplicant"]
-    ProjectMatchingRoundBrief["ProjectMatchingRoundBrief"]
-    MemberBrief["MemberBrief"]
+    ProjectForm["ProjectApplicationForm"]
+
+    ProjectConnection --> PageInfo
+    ProjectConnection -->|edges.node| Project
+    Project -->|members| ProjectMember
+    Project -->|applicationForm| ProjectForm
+    ProjectMember -->|application| ProjectApplication
   end
 
-  Query -->|me| Member
-  Query -->|memberById| Member
-  Query -->|memberListByIds| Member
-  Query -->|gisuOrganizations| GisuOrganizationPayload
-  Query -->|gisuById| Gisu
-  Query -->|activeGisu| Gisu
-  Query -->|chapters| Chapter
-  Query -->|chapterById| Chapter
-  Query -->|schools| SchoolName
-  Query -->|schoolById| SchoolDetail
-  Query -->|projectById| Project
-  Query -->|projects| ProjectPage
+  subgraph Recruiting 도메인
+    RecruitingApplication["RecruitingApplication implements Node"]
+    RecruitingSeason["RecruitingSeason implements Node"]
+    RecruitingConnections["PublicRound / SeasonSummary / Evaluator / Question / Evaluation / Session / Review / DecisionHistory Connections"]
+    RecruitingPayloads["Mutation별 Payload"]
 
-  GisuOrganizationInput -->|"ids | generations | active"| Gisu
-  GisuOrganizationPayload -->|gisus| Gisu
+    RecruitingConnections --> PageInfo
+    Mutation -->|single input| RecruitingPayloads
+  end
 
-  Member -->|school| SchoolDetail
-  Member -->|challengers| MemberChallenger
-  MemberChallenger -->|gisu| Gisu
+  Node -.-> Member
+  Node -.-> Gisu
+  Node -.-> Chapter
+  Node -.-> School
+  Node -.-> Project
+  Node -.-> RecruitingApplication
+  Node -.-> RecruitingSeason
 
-  SchoolDetail -->|links| SchoolLink
-  Gisu -->|chapters| GisuChapter
-  Gisu -->|schools| GisuSchool
-  GisuChapter -->|schools| ChapterSchool
-  GisuSchool -->|links| SchoolLink
-
-  ProjectPage -->|content| Project
-  Project -->|productOwner| MemberBrief
-  Project -->|coProductOwners| MemberBrief
-  Project -->|partQuotas| ProjectPartQuota
-  Project -->|members| ProjectMember
-  Project -->|applicationForm| ProjectApplicationForm
-
-  ProjectMember -->|member| MemberBrief
-  ProjectMember -->|application| ProjectApplication
-  ProjectApplication -->|applicant| ProjectApplicant
-  ProjectApplication -->|matchingRound| ProjectMatchingRoundBrief
-  ProjectApplication -->|formResponse| ProjectApplicationFormResponse
-
-  ProjectApplicationForm -->|sections| ApplicationFormSection
-  ApplicationFormSection -->|questions| ApplicationFormQuestion
-  ApplicationFormQuestion -->|options| ApplicationFormOption
-
-  ProjectApplicationFormResponse -->|sections| ProjectApplicationResponseSection
-  ProjectApplicationResponseSection -->|questions| ProjectApplicationResponseQuestion
-  ProjectApplicationResponseQuestion -->|answer| ProjectApplicationAnswer
-  ProjectApplicationAnswer -->|selectedOptions| ProjectApplicationSelectedOption
-  ProjectApplicationAnswer -->|files| ProjectApplicationFile
+  Query -->|members| MemberConnection
+  Query -->|gisus| GisuConnection
+  Query -->|chapters| ChapterConnection
+  Query -->|schools| SchoolConnection
+  Query -->|projects| ProjectConnection
+  Query -->|recruiting 목록| RecruitingConnections
 ```
+
+상세 필드와 nullability의 최종 계약은 `src/main/resources/graphql/*.graphqls`이며, 구현 규칙은
+[`graphql-relay-conventions.md`](graphql-relay-conventions.md)를 따른다.

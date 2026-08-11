@@ -8,7 +8,9 @@ import org.springframework.stereotype.Controller;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.recruiting.adapter.in.graphql.dto.GraphQlSuccessPayload;
 import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingDecisionGraphQlRequest;
+import com.umc.product.recruiting.adapter.in.graphql.dto.RecruitingRegistrationGraphQlRequest;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingRegistrationUseCase;
 import com.umc.product.recruiting.application.port.in.command.DecideRecruitingDocumentUseCase;
@@ -34,84 +36,80 @@ public class RecruitingDecisionGraphQlController {
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
     @MutationMapping
-    public Boolean decideRecruitingDocument(
+    public GraphQlSuccessPayload decideRecruitingDocument(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long applicationId,
         @Argument RecruitingDecisionGraphQlRequest input
     ) {
         Long requesterMemberId = requireApplicationPermission(
             memberPrincipal,
-            seasonId,
-            applicationId,
+            input.decodedSeasonId(),
+            input.decodedApplicationId(),
             PermissionType.APPROVE
         );
-        decideDocumentUseCase.decideDocument(input.toDocumentCommand(applicationId, requesterMemberId));
-        return true;
+        decideDocumentUseCase.decideDocument(input.toDocumentCommand(requesterMemberId));
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public Boolean decideRecruitingFinal(
+    public GraphQlSuccessPayload decideRecruitingFinal(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long applicationId,
         @Argument RecruitingDecisionGraphQlRequest input
     ) {
         Long requesterMemberId = requireApplicationPermission(
             memberPrincipal,
-            seasonId,
-            applicationId,
+            input.decodedSeasonId(),
+            input.decodedApplicationId(),
             PermissionType.APPROVE
         );
-        decideFinalUseCase.decideFinal(input.toFinalCommand(applicationId, requesterMemberId));
-        return true;
+        decideFinalUseCase.decideFinal(input.toFinalCommand(requesterMemberId));
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public Boolean prepareRecruitingRegistration(
+    public GraphQlSuccessPayload prepareRecruitingRegistration(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long applicationId
+        @Argument RecruitingRegistrationGraphQlRequest input
     ) {
+        Long applicationId = input.decodedApplicationId();
         Long requesterMemberId = requireApplicationPermission(
             memberPrincipal,
-            seasonId,
+            input.decodedSeasonId(),
             applicationId,
             PermissionType.MANAGE
         );
         prepareRegistrationUseCase.prepareRegistration(
             PrepareRecruitingRegistrationCommand.of(applicationId, requesterMemberId)
         );
-        return true;
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public Boolean cancelRecruitingRegistration(
+    public GraphQlSuccessPayload cancelRecruitingRegistration(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long applicationId
+        @Argument RecruitingRegistrationGraphQlRequest input
     ) {
+        Long applicationId = input.decodedApplicationId();
         Long requesterMemberId = requireApplicationPermission(
             memberPrincipal,
-            seasonId,
+            input.decodedSeasonId(),
             applicationId,
             PermissionType.MANAGE
         );
         cancelRegistrationUseCase.cancelRegistration(
             CancelRecruitingRegistrationCommand.of(applicationId, requesterMemberId)
         );
-        return true;
+        return GraphQlSuccessPayload.ok();
     }
 
     @MutationMapping
-    public Boolean confirmRecruitingRegistration(
+    public GraphQlSuccessPayload confirmRecruitingRegistration(
         @Nullable @CurrentMember MemberPrincipal memberPrincipal,
-        @Argument Long seasonId,
-        @Argument Long applicationId
+        @Argument RecruitingRegistrationGraphQlRequest input
     ) {
+        Long applicationId = input.decodedApplicationId();
         Long requesterMemberId = requireApplicationPermission(
             memberPrincipal,
-            seasonId,
+            input.decodedSeasonId(),
             applicationId,
             PermissionType.MANAGE
         );
@@ -119,7 +117,7 @@ public class RecruitingDecisionGraphQlController {
             .applicationId(applicationId)
             .executorMemberId(requesterMemberId)
             .build());
-        return true;
+        return GraphQlSuccessPayload.ok();
     }
 
     private Long requireApplicationPermission(

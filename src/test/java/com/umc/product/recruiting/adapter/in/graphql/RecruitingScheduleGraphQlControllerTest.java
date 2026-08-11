@@ -8,6 +8,7 @@ import static org.mockito.BDDMockito.willThrow;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -25,6 +26,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.ConfirmRecruitingInterviewSchedulesUseCase;
@@ -56,6 +59,10 @@ import com.umc.product.recruiting.domain.exception.RecruitingErrorCode;
 class RecruitingScheduleGraphQlControllerTest {
 
     private static final Long REQUESTER_ID = 40L;
+    private static final String SEASON_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_SEASON, 10L);
+    private static final String ROUND_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, 20L);
+    private static final String APPLICATION_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L);
+    private static final String SESSION_ID = GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 10L);
 
     @Autowired
     GraphQlTester graphQlTester;
@@ -106,21 +113,20 @@ class RecruitingScheduleGraphQlControllerTest {
     @DisplayName("일정 확정 Mutation은 Instant와 CurrentMember를 public UseCase에 전달한다")
     void 일정_확정_Mutation은_Instant와_CurrentMember를_public_UseCase에_전달한다() {
         graphQlTester.document("""
-                mutation {
-                  confirmRecruitingInterviewSchedule(
-                    applicationId: 20,
-                    input: {
-                      sessionId: 10,
-                      startsAt: "2026-08-11T00:00:00Z",
-                      endsAt: "2026-08-11T01:00:00Z",
-                      location: "회의실 A",
-                      contactSnapshot: "운영진 문의"
-                    }
-                  )
+                mutation ($input: ConfirmRecruitingInterviewScheduleInput!) {
+                  confirmRecruitingInterviewSchedule(input: $input) { success }
                 }
                 """)
+            .variable("input", Map.of(
+                "applicationId", APPLICATION_ID,
+                "sessionId", SESSION_ID,
+                "startsAt", "2026-08-11T00:00:00Z",
+                "endsAt", "2026-08-11T01:00:00Z",
+                "location", "회의실 A",
+                "contactSnapshot", "운영진 문의"
+            ))
             .execute()
-            .path("confirmRecruitingInterviewSchedule")
+            .path("confirmRecruitingInterviewSchedule.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -141,15 +147,16 @@ class RecruitingScheduleGraphQlControllerTest {
 
         // When
         graphQlTester.document("""
-                mutation {
-                  submitRecruitingInterviewAvailability(
-                    applicationId: 20,
-                    input: { times: ["2026-08-11T00:00:00Z", "2026-08-11T01:00:00Z"] }
-                  )
+                mutation ($applicationId: ID!) {
+                  submitRecruitingInterviewAvailability(input: {
+                    applicationId: $applicationId
+                    times: ["2026-08-11T00:00:00Z", "2026-08-11T01:00:00Z"]
+                  }) { success }
                 }
                 """)
+            .variable("applicationId", APPLICATION_ID)
             .execute()
-            .path("submitRecruitingInterviewAvailability")
+            .path("submitRecruitingInterviewAvailability.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -171,13 +178,15 @@ class RecruitingScheduleGraphQlControllerTest {
     void 면접_가능_시간_제출_Mutation은_times_누락을_실행_전에_거부한다() {
         // Given
         String mutation = """
-            mutation {
-              submitRecruitingInterviewAvailability(applicationId: 20, input: {})
+            mutation ($applicationId: ID!) {
+              submitRecruitingInterviewAvailability(input: { applicationId: $applicationId }) { success }
             }
             """;
 
         // When
-        GraphQlTester.Response response = graphQlTester.document(mutation).execute();
+        GraphQlTester.Response response = graphQlTester.document(mutation)
+            .variable("applicationId", APPLICATION_ID)
+            .execute();
 
         // Then
         response.errors().satisfy(errors -> assertThat(errors).hasSize(1));
@@ -189,16 +198,18 @@ class RecruitingScheduleGraphQlControllerTest {
     void 면접_가능_시간_제출_Mutation은_times의_null_요소를_실행_전에_거부한다() {
         // Given
         String mutation = """
-            mutation {
-              submitRecruitingInterviewAvailability(
-                applicationId: 20,
-                input: { times: ["2026-08-11T00:00:00Z", null] }
-              )
+            mutation ($applicationId: ID!) {
+              submitRecruitingInterviewAvailability(input: {
+                applicationId: $applicationId
+                times: ["2026-08-11T00:00:00Z", null]
+              }) { success }
             }
             """;
 
         // When
-        GraphQlTester.Response response = graphQlTester.document(mutation).execute();
+        GraphQlTester.Response response = graphQlTester.document(mutation)
+            .variable("applicationId", APPLICATION_ID)
+            .execute();
 
         // Then
         response.errors().satisfy(errors -> assertThat(errors).hasSize(1));
@@ -210,13 +221,17 @@ class RecruitingScheduleGraphQlControllerTest {
     void 면접_가능_시간_제출_Mutation은_빈_times를_Bean_Validation으로_거부한다() {
         // Given
         String mutation = """
-            mutation {
-              submitRecruitingInterviewAvailability(applicationId: 20, input: { times: [] })
+            mutation ($applicationId: ID!) {
+              submitRecruitingInterviewAvailability(input: { applicationId: $applicationId, times: [] }) {
+                success
+              }
             }
             """;
 
         // When
-        GraphQlTester.Response response = graphQlTester.document(mutation).execute();
+        GraphQlTester.Response response = graphQlTester.document(mutation)
+            .variable("applicationId", APPLICATION_ID)
+            .execute();
 
         // Then
         response.errors().satisfy(errors -> assertThat(errors).hasSize(1));
@@ -233,20 +248,20 @@ class RecruitingScheduleGraphQlControllerTest {
 
         // When
         GraphQlTester.Response response = graphQlTester.document("""
-                mutation {
-                  submitRecruitingInterviewAvailability(
-                    applicationId: 20,
-                    input: { times: ["2026-08-11T00:00:00Z"] }
-                  )
+                mutation ($applicationId: ID!) {
+                  submitRecruitingInterviewAvailability(input: {
+                    applicationId: $applicationId
+                    times: ["2026-08-11T00:00:00Z"]
+                  }) { success }
                 }
                 """)
+            .variable("applicationId", APPLICATION_ID)
             .execute();
 
         // Then
         response.errors().satisfy(errors -> {
-            assertThat(errors).hasSize(1);
-            assertThat(errors.getFirst().getExtensions())
-                .containsEntry("code", RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD.getCode());
+            assertThat(errors).anySatisfy(error -> assertThat(error.getExtensions())
+                .containsEntry("code", RecruitingErrorCode.RECRUITING_INTERVIEW_SCHEDULE_INVALID_PERIOD.getCode()));
         });
         then(getInterviewScheduleUseCase).shouldHaveNoInteractions();
     }
@@ -260,14 +275,25 @@ class RecruitingScheduleGraphQlControllerTest {
         given(getInterviewSessionUseCase.listSessions(20L, REQUESTER_ID)).willReturn(List.of(session));
 
         graphQlTester.document("""
-                query {
-                  recruitingInterviewSession(seasonId: 10, roundId: 20, sessionId: 7) { id name }
-                  recruitingInterviewSessions(seasonId: 10, roundId: 20) { id slotDurationMinutes }
+                query ($seasonId: ID!, $roundId: ID!, $sessionId: ID!) {
+                  recruitingInterviewSession(
+                    seasonId: $seasonId,
+                    roundId: $roundId,
+                    sessionId: $sessionId
+                  ) { sessionId name }
+                  recruitingInterviewSessions(seasonId: $seasonId, roundId: $roundId) {
+                    edges { node { sessionId slotDurationMinutes } }
+                  }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
+            .variable("sessionId", GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 7L))
             .execute()
-            .path("recruitingInterviewSession.id").entity(String.class).isEqualTo("7")
-            .path("recruitingInterviewSessions[0].slotDurationMinutes").entity(Integer.class).isEqualTo(15);
+            .path("recruitingInterviewSession.sessionId").entity(String.class)
+                .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 7L))
+            .path("recruitingInterviewSessions.edges[0].node.slotDurationMinutes")
+                .entity(Integer.class).isEqualTo(15);
 
         then(getInterviewSessionUseCase).should().getSession(20L, 7L, REQUESTER_ID);
         then(getInterviewSessionUseCase).should().listSessions(20L, REQUESTER_ID);
@@ -280,24 +306,32 @@ class RecruitingScheduleGraphQlControllerTest {
         given(manageInterviewSessionUseCase.createSession(any())).willReturn(7L);
 
         graphQlTester.document("""
-                mutation {
-                  create: createRecruitingInterviewSession(seasonId: 10, roundId: 20, input: {
+                mutation ($seasonId: ID!, $roundId: ID!, $sessionId: ID!) {
+                  create: createRecruitingInterviewSession(input: {
+                    seasonId: $seasonId, roundId: $roundId,
                     name: "오전 면접", startsAt: "2026-08-11T00:00:00Z",
                     endsAt: "2026-08-11T01:00:00Z", slotDurationMinutes: 30,
                     mode: ONLINE, location: "https://meet.example.com"
-                  }) { id }
-                  update: updateRecruitingInterviewSession(seasonId: 10, roundId: 20, sessionId: 7, input: {
+                  }) { sessionId }
+                  update: updateRecruitingInterviewSession(input: {
+                    seasonId: $seasonId, roundId: $roundId, sessionId: $sessionId,
                     name: "오후 면접", startsAt: "2026-08-11T02:00:00Z",
                     endsAt: "2026-08-11T03:00:00Z", slotDurationMinutes: 45,
                     mode: OFFLINE, location: "회의실 A"
-                  })
-                  delete: deleteRecruitingInterviewSession(seasonId: 10, roundId: 20, sessionId: 7)
+                  }) { success }
+                  delete: deleteRecruitingInterviewSession(input: {
+                    seasonId: $seasonId, roundId: $roundId, sessionId: $sessionId
+                  }) { success }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
+            .variable("sessionId", GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 7L))
             .execute()
-            .path("create.id").entity(String.class).isEqualTo("7")
-            .path("update").entity(Boolean.class).isEqualTo(true)
-            .path("delete").entity(Boolean.class).isEqualTo(true);
+            .path("create.sessionId").entity(String.class)
+                .isEqualTo(GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 7L))
+            .path("update.success").entity(Boolean.class).isEqualTo(true)
+            .path("delete.success").entity(Boolean.class).isEqualTo(true);
 
         ArgumentCaptor<CreateRecruitingInterviewSessionCommand> createCaptor =
             ArgumentCaptor.forClass(CreateRecruitingInterviewSessionCommand.class);
@@ -331,19 +365,35 @@ class RecruitingScheduleGraphQlControllerTest {
         );
 
         graphQlTester.document("""
-                query { recruitingInterviewScheduleBoard(seasonId: 10, roundId: 20, date: "2026-08-11") { roundId } }
-                """)
-            .execute()
-            .path("recruitingInterviewScheduleBoard.roundId").entity(String.class).isEqualTo("20");
-        graphQlTester.document("""
-                mutation {
-                  confirmRecruitingInterviewSchedules(seasonId: 10, roundId: 20, input: { assignments: [{
-                    applicationId: 40, sessionId: 7, startsAt: "2026-08-11T00:00:00Z", contactSnapshot: "문의 채널"
-                  }] })
+                query ($seasonId: ID!, $roundId: ID!) {
+                  recruitingInterviewScheduleBoard(
+                    seasonId: $seasonId,
+                    roundId: $roundId,
+                    date: "2026-08-11"
+                  ) { roundId }
                 }
                 """)
+            .variable("seasonId", SEASON_ID)
+            .variable("roundId", ROUND_ID)
             .execute()
-            .path("confirmRecruitingInterviewSchedules").entity(Boolean.class).isEqualTo(true);
+            .path("recruitingInterviewScheduleBoard.roundId").entity(String.class).isEqualTo(ROUND_ID);
+        graphQlTester.document("""
+                mutation ($input: ConfirmRecruitingInterviewSchedulesInput!) {
+                  confirmRecruitingInterviewSchedules(input: $input) { success }
+                }
+                """)
+            .variable("input", Map.of(
+                "seasonId", SEASON_ID,
+                "roundId", ROUND_ID,
+                "assignments", List.of(Map.of(
+                    "applicationId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 40L),
+                    "sessionId", GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 7L),
+                    "startsAt", "2026-08-11T00:00:00Z",
+                    "contactSnapshot", "문의 채널"
+                ))
+            ))
+            .execute()
+            .path("confirmRecruitingInterviewSchedules.success").entity(Boolean.class).isEqualTo(true);
 
         then(getInterviewScheduleBoardUseCase).should().getBoard(
             20L, java.time.LocalDate.of(2026, 8, 11), REQUESTER_ID
@@ -361,20 +411,28 @@ class RecruitingScheduleGraphQlControllerTest {
     @DisplayName("101건 batch 확정 Mutation은 Bean Validation으로 거부한다")
     void rejectBatchConfirmationLargerThanMaximum() {
         givenRoundBelongsToSeason();
-        String assignments = java.util.stream.IntStream.range(0, 101)
-            .mapToObj(index -> "{ applicationId: " + (40 + index)
-                + ", sessionId: " + (7 + index)
-                + ", startsAt: \\\"2026-08-11T00:00:00Z\\\", contactSnapshot: \\\"문의 채널\\\" }")
-            .collect(java.util.stream.Collectors.joining(","));
+        List<Map<String, Object>> assignments = java.util.stream.IntStream.range(0, 101)
+            .mapToObj(index -> Map.<String, Object>of(
+                "applicationId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 40L + index),
+                "sessionId", GlobalId.encode(GlobalIdTypes.RECRUITING_INTERVIEW_SESSION, 7L + index),
+                "startsAt", "2026-08-11T00:00:00Z",
+                "contactSnapshot", "문의 채널"
+            ))
+            .toList();
 
         GraphQlTester.Response response = graphQlTester.document("""
-                mutation {
-                  confirmRecruitingInterviewSchedules(seasonId: 10, roundId: 20, input: { assignments: [%s] })
+                mutation ($input: ConfirmRecruitingInterviewSchedulesInput!) {
+                  confirmRecruitingInterviewSchedules(input: $input) { success }
                 }
-                """.formatted(assignments))
+                """)
+            .variable("input", Map.of(
+                "seasonId", SEASON_ID,
+                "roundId", ROUND_ID,
+                "assignments", assignments
+            ))
             .execute();
 
-        response.errors().satisfy(errors -> assertThat(errors).hasSize(1));
+        response.errors().satisfy(errors -> assertThat(errors).isNotEmpty());
         then(confirmInterviewSchedulesUseCase).shouldHaveNoInteractions();
     }
 

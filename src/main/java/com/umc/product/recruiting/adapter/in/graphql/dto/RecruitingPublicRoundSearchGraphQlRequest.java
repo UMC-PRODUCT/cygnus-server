@@ -4,17 +4,19 @@ import java.util.List;
 import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundPhase;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundSort;
 
 public record RecruitingPublicRoundSearchGraphQlRequest(
-    Long gisuId,
-    Long chapterId,
-    List<Long> schoolIds,
-    List<Long> roundIds,
+    String gisuId,
+    String chapterId,
+    List<String> schoolIds,
+    List<String> roundIds,
     String schoolName,
-    Long seasonId,
+    String seasonId,
     ChallengerTrack track,
     RecruitingRoundPhase phase,
     RecruitingRoundSort sort
@@ -22,12 +24,16 @@ public record RecruitingPublicRoundSearchGraphQlRequest(
 
     public RecruitingPublicRoundSearchQuery toQuery() {
         return RecruitingPublicRoundSearchQuery.builder()
-            .gisuId(gisuId)
-            .chapterId(chapterId)
-            .schoolIds(schoolIds == null ? null : Set.copyOf(schoolIds))
-            .roundIds(roundIds == null ? null : Set.copyOf(roundIds))
+            .gisuId(GlobalId.decodeLong(gisuId, GlobalIdTypes.GISU))
+            .chapterId(chapterId == null ? null : GlobalId.decodeLong(chapterId, GlobalIdTypes.CHAPTER))
+            .schoolIds(schoolIds == null
+                ? null
+                : Set.copyOf(GlobalId.decodeLongs(schoolIds, GlobalIdTypes.SCHOOL)))
+            .roundIds(roundIds == null
+                ? null
+                : Set.copyOf(GlobalId.decodeLongs(roundIds, GlobalIdTypes.RECRUITING_ROUND)))
             .schoolName(schoolName)
-            .seasonId(seasonId)
+            .seasonId(seasonId == null ? null : GlobalId.decodeLong(seasonId, GlobalIdTypes.RECRUITING_SEASON))
             .track(track)
             .phase(phase)
             .sort(sort)

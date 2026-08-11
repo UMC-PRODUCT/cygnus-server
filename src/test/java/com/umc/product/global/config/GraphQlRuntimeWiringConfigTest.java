@@ -33,7 +33,7 @@ class GraphQlRuntimeWiringConfigTest {
             .build();
 
         assertThat(graphQlSource.schema().getType("Project")).isNotNull();
-        assertThat(graphQlSource.schema().getType("RecruitingApplicationForm")).isNotNull();
+        assertThat(graphQlSource.schema().getType("RecruitingApplicationFormStructure")).isNotNull();
         assertThat(graphQlSource.schema().getType("Long")).isNotNull();
     }
 

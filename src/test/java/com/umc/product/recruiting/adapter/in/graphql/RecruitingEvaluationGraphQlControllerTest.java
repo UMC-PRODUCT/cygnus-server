@@ -23,6 +23,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationEvaluationUseCase;
@@ -73,15 +75,18 @@ class RecruitingEvaluationGraphQlControllerTest {
     @DisplayName("평가 확정 Mutation은 stage와 CurrentMember를 public UseCase에 전달한다")
     void 평가_확정_Mutation은_stage와_CurrentMember를_public_UseCase에_전달한다() {
         graphQlTester.document("""
-                mutation {
-                  submitRecruitingApplicationEvaluation(
-                    applicationId: 20,
-                    input: {stage: INTERVIEW, decision: REJECTED, comment: "불합격 의견"}
-                  )
+                mutation ($applicationId: ID!) {
+                  submitRecruitingApplicationEvaluation(input: {
+                    applicationId: $applicationId
+                    stage: INTERVIEW
+                    decision: REJECTED
+                    comment: "불합격 의견"
+                  }) { success }
                 }
                 """)
+            .variable("applicationId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L))
             .execute()
-            .path("submitRecruitingApplicationEvaluation")
+            .path("submitRecruitingApplicationEvaluation.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -112,16 +117,21 @@ class RecruitingEvaluationGraphQlControllerTest {
         )));
 
         graphQlTester.document("""
-                query {
-                  recruitingApplicationEvaluations(applicationId: 20, stage: DOCUMENT) {
-                    id
-                    decision
-                    submittedAt
+                query ($applicationId: ID!) {
+                  recruitingApplicationEvaluations(applicationId: $applicationId, stage: DOCUMENT) {
+                    edges {
+                      node {
+                        evaluationId
+                        decision
+                        submittedAt
+                      }
+                    }
                   }
                 }
                 """)
+            .variable("applicationId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L))
             .execute()
-            .path("recruitingApplicationEvaluations[0].submittedAt")
+            .path("recruitingApplicationEvaluations.edges[0].node.submittedAt")
             .entity(String.class)
             .isEqualTo(submittedAt.toString());
     }

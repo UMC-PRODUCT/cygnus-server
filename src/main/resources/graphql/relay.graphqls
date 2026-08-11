@@ -1,0 +1,21 @@
+"""
+Relay Global Object Identification 스펙의 Node 인터페이스.
+"""
+interface Node {
+  id: ID!
+}
+
+"""
+Relay Connection 스펙의 PageInfo.
+"""
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+type Query {
+  node(id: ID!): Node
+  nodes(ids: [ID!]!): [Node]!
+}

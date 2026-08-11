@@ -4,34 +4,36 @@ import java.time.Instant;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundGroupInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 public record RecruitingPublicRoundGroupGraphQlResponse(
-    Long seasonId,
-    Long gisuId,
-    Long chapterId,
+    String seasonId,
+    String gisuId,
+    String chapterId,
     String chapterName,
-    Long schoolId,
+    String schoolId,
     String schoolName,
     List<Round> rounds
 ) {
 
     public static RecruitingPublicRoundGroupGraphQlResponse from(RecruitingPublicRoundGroupInfo info) {
         return new RecruitingPublicRoundGroupGraphQlResponse(
-            info.seasonId(),
-            info.gisuId(),
-            info.chapterId(),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_SEASON, info.seasonId()),
+            GlobalId.encode(GlobalIdTypes.GISU, info.gisuId()),
+            GlobalId.encode(GlobalIdTypes.CHAPTER, info.chapterId()),
             info.chapterName(),
-            info.schoolId(),
+            GlobalId.encode(GlobalIdTypes.SCHOOL, info.schoolId()),
             info.schoolName(),
             info.rounds().stream().map(Round::from).toList()
         );
     }
 
     public record Round(
-        Long roundId,
+        String roundId,
         String title,
         RecruitingRoundType type,
         Integer roundNo,
@@ -45,14 +47,14 @@ public record RecruitingPublicRoundGroupGraphQlResponse(
         Instant interviewEndAt,
         Instant finalResultPublishedAt,
         String announcement,
-        Long applicationFormId,
-        Long formId,
+        String applicationFormId,
+        String formId,
         boolean applicationOpen
     ) {
 
         private static Round from(RecruitingPublicRoundInfo info) {
             return new Round(
-                info.roundId(),
+                GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, info.roundId()),
                 info.title(),
                 info.type(),
                 info.roundNo(),
@@ -66,8 +68,8 @@ public record RecruitingPublicRoundGroupGraphQlResponse(
                 info.interviewEndAt(),
                 info.finalResultPublishedAt(),
                 info.announcement(),
-                info.applicationFormId(),
-                info.formId(),
+                GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION_FORM, info.applicationFormId()),
+                GlobalId.encode(GlobalIdTypes.FORM, info.formId()),
                 info.applicationOpen()
             );
         }

@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Map;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPartStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundStatusSummaryInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingSchoolStatusSummaryInfo;
@@ -35,9 +37,9 @@ public record RecruitingStatusSummaryGraphQlResponse(
     }
 
     public record SchoolSummary(
-        Long schoolId,
+        String schoolId,
         String schoolName,
-        Long chapterId,
+        String chapterId,
         String chapterName,
         Long totalCount,
         List<RecruitingStatusCountGraphQlResponse> countByStatus,
@@ -47,9 +49,9 @@ public record RecruitingStatusSummaryGraphQlResponse(
 
         private static SchoolSummary from(RecruitingSchoolStatusSummaryInfo info) {
             return new SchoolSummary(
-                info.schoolId(),
+                GlobalId.encode(GlobalIdTypes.SCHOOL, info.schoolId()),
                 info.schoolName(),
-                info.chapterId(),
+                GlobalId.encode(GlobalIdTypes.CHAPTER, info.chapterId()),
                 info.chapterName(),
                 info.totalCount(),
                 toStatusCounts(info.countByStatus()),
@@ -60,7 +62,7 @@ public record RecruitingStatusSummaryGraphQlResponse(
     }
 
     public record RoundSummary(
-        Long roundId,
+        String roundId,
         String roundTitle,
         RecruitingRoundType roundType,
         Integer roundNo,
@@ -71,7 +73,7 @@ public record RecruitingStatusSummaryGraphQlResponse(
 
         private static RoundSummary from(RecruitingRoundStatusSummaryInfo info) {
             return new RoundSummary(
-                info.roundId(),
+                GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, info.roundId()),
                 info.roundTitle(),
                 info.roundType(),
                 info.roundNo(),

@@ -3,6 +3,8 @@ package com.umc.product.recruiting.adapter.in.graphql.dto;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateAnonymousRecruitingApplicationCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand;
 
@@ -32,17 +34,21 @@ public record UpdateAnonymousRecruitingApplicationGraphQlRequest(
     }
 
     public record AnswerGraphQlRequest(
-        Long questionId,
+        String questionId,
         String textValue,
-        List<Long> selectedOptionIds,
+        List<String> selectedOptionIds,
         List<String> fileIds
     ) {
 
         private UpdateRecruitingApplicationDraftCommand.AnswerEntry toCommand() {
             return UpdateRecruitingApplicationDraftCommand.AnswerEntry.builder()
-                .questionId(questionId)
+                .questionId(GlobalId.decodeLong(questionId, GlobalIdTypes.FORM_QUESTION))
                 .textValue(textValue)
-                .selectedOptionIds(selectedOptionIds)
+                .selectedOptionIds(selectedOptionIds == null
+                    ? null
+                    : selectedOptionIds.stream()
+                        .map(optionId -> GlobalId.decodeLong(optionId, GlobalIdTypes.FORM_OPTION))
+                        .toList())
                 .fileIds(fileIds)
                 .build();
         }

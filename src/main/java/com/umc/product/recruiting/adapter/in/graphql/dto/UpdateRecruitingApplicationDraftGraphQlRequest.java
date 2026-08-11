@@ -3,9 +3,12 @@ package com.umc.product.recruiting.adapter.in.graphql.dto;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingApplicationDraftCommand;
 
 public record UpdateRecruitingApplicationDraftGraphQlRequest(
+    String applicationId,
     String applicantName,
     String applicantEmail,
     ChallengerTrack firstChoice,
@@ -13,12 +16,12 @@ public record UpdateRecruitingApplicationDraftGraphQlRequest(
     List<AnswerGraphQlRequest> answers
 ) {
 
-    public UpdateRecruitingApplicationDraftCommand toCommand(Long applicationId, Long requesterMemberId) {
+    public UpdateRecruitingApplicationDraftCommand toCommand(Long requesterMemberId) {
         List<UpdateRecruitingApplicationDraftCommand.AnswerEntry> answerEntries = answers == null
             ? List.of()
             : answers.stream().map(AnswerGraphQlRequest::toCommand).toList();
         return UpdateRecruitingApplicationDraftCommand.builder()
-            .applicationId(applicationId)
+            .applicationId(GlobalId.decodeLong(applicationId, GlobalIdTypes.RECRUITING_APPLICATION))
             .requesterMemberId(requesterMemberId)
             .applicantName(applicantName)
             .applicantEmail(applicantEmail)
@@ -29,17 +32,21 @@ public record UpdateRecruitingApplicationDraftGraphQlRequest(
     }
 
     public record AnswerGraphQlRequest(
-        Long questionId,
+        String questionId,
         String textValue,
-        List<Long> selectedOptionIds,
+        List<String> selectedOptionIds,
         List<String> fileIds
     ) {
 
         private UpdateRecruitingApplicationDraftCommand.AnswerEntry toCommand() {
             return UpdateRecruitingApplicationDraftCommand.AnswerEntry.builder()
-                .questionId(questionId)
+                .questionId(GlobalId.decodeLong(questionId, GlobalIdTypes.FORM_QUESTION))
                 .textValue(textValue)
-                .selectedOptionIds(selectedOptionIds)
+                .selectedOptionIds(selectedOptionIds == null
+                    ? null
+                    : selectedOptionIds.stream()
+                        .map(optionId -> GlobalId.decodeLong(optionId, GlobalIdTypes.FORM_OPTION))
+                        .toList())
                 .fileIds(fileIds)
                 .build();
         }

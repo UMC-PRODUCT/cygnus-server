@@ -1,7 +1,13 @@
 scalar Instant
 
 extend type Query {
-  publicRecruitingRounds(input: RecruitingPublicRoundSearchInput!): [RecruitingPublicRoundGroup!]!
+  publicRecruitingRounds(
+    input: RecruitingPublicRoundSearchInput!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingPublicRoundGroupConnection!
   recruitingApplicationFormStructure(
     applicationFormId: ID!
     input: RecruitingApplicationFormStructureInput!
@@ -10,25 +16,57 @@ extend type Query {
     input: RecruitingApplicationCredentialInput!
   ): RecruitingPublicApplication!
   recruitingApplication(applicationId: ID!): RecruitingApplication!
-  recruitingRoundGroups(input: RecruitingRoundSearchInput!): [RecruitingSeasonSummary!]!
+  recruitingRoundGroups(
+    input: RecruitingRoundSearchInput!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingSeasonSummaryConnection!
   recruitingRoundTitleAvailable(seasonId: ID!, title: String!, excludedRoundId: ID): Boolean!
-  recruitingSeasonConfiguration(seasonId: ID!): RecruitingSeasonConfiguration!
+  recruitingSeason(id: ID!): RecruitingSeason!
   recruitingRoundEvaluators(
     seasonId: ID!
     roundId: ID!
-  ): [RecruitingRoundEvaluator!]!
-  recruitingRoundInterviewQuestions(seasonId: ID!, roundId: ID!): [RecruitingRoundInterviewQuestion!]!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingRoundEvaluatorConnection!
+  recruitingRoundInterviewQuestions(
+    seasonId: ID!
+    roundId: ID!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingRoundInterviewQuestionConnection!
   recruitingApplicationInterviewQuestions(
     seasonId: ID!
     applicationId: ID!
-  ): [RecruitingApplicationInterviewQuestion!]!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingApplicationInterviewQuestionConnection!
   recruitingApplicationEvaluations(
     applicationId: ID!
     stage: RecruitingEvaluatorStage!
-  ): [RecruitingApplicationEvaluation!]!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingApplicationEvaluationConnection!
   recruitingInterviewSchedule(applicationId: ID!): RecruitingInterviewSchedule
   recruitingInterviewSession(seasonId: ID!, roundId: ID!, sessionId: ID!): RecruitingInterviewSession!
-  recruitingInterviewSessions(seasonId: ID!, roundId: ID!): [RecruitingInterviewSession!]!
+  recruitingInterviewSessions(
+    seasonId: ID!
+    roundId: ID!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingInterviewSessionConnection!
   recruitingInterviewScheduleBoard(
     seasonId: ID!
     roundId: ID!
@@ -36,128 +74,108 @@ extend type Query {
   ): RecruitingInterviewScheduleBoard!
   recruitingStatusSummary(input: RecruitingStatusSummaryInput!): RecruitingStatusSummary!
   recruitingEvaluationStatistics(input: RecruitingEvaluationStatisticsInput!): RecruitingEvaluationStatistics!
-  recruitingDecisionHistories(input: RecruitingDecisionHistorySearchInput!): RecruitingDecisionHistoryPage!
+  recruitingDecisionHistories(
+    input: RecruitingDecisionHistorySearchInput!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingDecisionHistoryConnection!
   recruitingRoundApplications(
     roundId: ID!
     input: RecruitingApplicationSearchInput
-  ): RecruitingApplicationReviewPage!
+    first: Int
+    after: String
+    last: Int
+    before: String
+  ): RecruitingApplicationReviewConnection!
   recruitingRoundApplication(roundId: ID!, applicationId: ID!): RecruitingApplicationReviewDetail!
 }
 
 type Mutation {
-  createRecruitingSeason(input: CreateRecruitingSeasonInput!): RecruitingIdPayload!
-  updateRecruitingSeason(seasonId: ID!, input: UpdateRecruitingSeasonInput!): Boolean!
-  replaceRecruitingSeasonTrackQuotas(seasonId: ID!, input: ReplaceRecruitingSeasonTrackQuotasInput!): Boolean!
-  createRecruitingRound(seasonId: ID!, input: CreateRecruitingRoundInput!): RecruitingIdPayload!
-  updateRecruitingRoundStatus(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundStatusInput!): Boolean!
-  updateRecruitingRound(seasonId: ID!, roundId: ID!, input: UpdateRecruitingRoundInput!): Boolean!
+  createRecruitingSeason(input: CreateRecruitingSeasonInput!): CreateRecruitingSeasonPayload!
+  updateRecruitingSeason(input: UpdateRecruitingSeasonInput!): UpdateRecruitingSeasonPayload!
+  replaceRecruitingSeasonTrackQuotas(
+    input: ReplaceRecruitingSeasonTrackQuotasInput!
+  ): ReplaceRecruitingSeasonTrackQuotasPayload!
+  createRecruitingRound(input: CreateRecruitingRoundInput!): CreateRecruitingRoundPayload!
+  updateRecruitingRoundStatus(input: UpdateRecruitingRoundStatusInput!): UpdateRecruitingRoundStatusPayload!
+  updateRecruitingRound(input: UpdateRecruitingRoundInput!): UpdateRecruitingRoundPayload!
   upsertRecruitingApplicationForm(
-    seasonId: ID!
-    roundId: ID!
     input: UpsertRecruitingApplicationFormInput!
-  ): RecruitingIdPayload!
-  cloneRecruitingRound(
-    seasonId: ID!
-    roundId: ID!
-    input: CloneRecruitingRoundInput!
-  ): RecruitingIdPayload!
-  deleteRecruitingRound(seasonId: ID!, roundId: ID!): Boolean!
-  addRecruitingRoundEvaluator(
-    seasonId: ID!
-    roundId: ID!
-    input: RecruitingRoundEvaluatorInput!
-  ): RecruitingIdPayload!
-  removeRecruitingRoundEvaluator(
-    seasonId: ID!
-    roundId: ID!
-    input: RecruitingRoundEvaluatorInput!
-  ): Boolean!
+  ): UpsertRecruitingApplicationFormPayload!
+  cloneRecruitingRound(input: CloneRecruitingRoundInput!): CloneRecruitingRoundPayload!
+  deleteRecruitingRound(input: DeleteRecruitingRoundInput!): DeleteRecruitingRoundPayload!
+  addRecruitingRoundEvaluator(input: AddRecruitingRoundEvaluatorInput!): AddRecruitingRoundEvaluatorPayload!
+  removeRecruitingRoundEvaluator(input: RemoveRecruitingRoundEvaluatorInput!): RemoveRecruitingRoundEvaluatorPayload!
   createRecruitingRoundInterviewQuestion(
-    roundId: ID!
-    input: RecruitingInterviewQuestionInput!
-  ): RecruitingIdPayload!
+    input: CreateRecruitingRoundInterviewQuestionInput!
+  ): CreateRecruitingRoundInterviewQuestionPayload!
   updateRecruitingRoundInterviewQuestion(
-    roundId: ID!
-    questionId: ID!
-    input: RecruitingInterviewQuestionInput!
-  ): Boolean!
-  deactivateRecruitingRoundInterviewQuestion(roundId: ID!, questionId: ID!): Boolean!
+    input: UpdateRecruitingRoundInterviewQuestionInput!
+  ): UpdateRecruitingRoundInterviewQuestionPayload!
+  deactivateRecruitingRoundInterviewQuestion(
+    input: DeactivateRecruitingRoundInterviewQuestionInput!
+  ): DeactivateRecruitingRoundInterviewQuestionPayload!
   createRecruitingApplicationInterviewQuestion(
-    applicationId: ID!
-    input: RecruitingInterviewQuestionInput!
-  ): RecruitingIdPayload!
+    input: CreateRecruitingApplicationInterviewQuestionInput!
+  ): CreateRecruitingApplicationInterviewQuestionPayload!
   updateRecruitingApplicationInterviewQuestion(
-    applicationId: ID!
-    questionId: ID!
-    input: RecruitingInterviewQuestionInput!
-  ): Boolean!
-  deactivateRecruitingApplicationInterviewQuestion(applicationId: ID!, questionId: ID!): Boolean!
-  createRecruitingApplicationDraft(input: CreateRecruitingApplicationDraftInput!): RecruitingApplicationCreated!
+    input: UpdateRecruitingApplicationInterviewQuestionInput!
+  ): UpdateRecruitingApplicationInterviewQuestionPayload!
+  deactivateRecruitingApplicationInterviewQuestion(
+    input: DeactivateRecruitingApplicationInterviewQuestionInput!
+  ): DeactivateRecruitingApplicationInterviewQuestionPayload!
+  createRecruitingApplicationDraft(
+    input: CreateRecruitingApplicationDraftInput!
+  ): CreateRecruitingApplicationDraftPayload!
   createAnonymousRecruitingApplicationDraft(
     input: CreateAnonymousRecruitingApplicationDraftInput!
-  ): RecruitingApplicationCreated!
+  ): CreateAnonymousRecruitingApplicationDraftPayload!
   updateRecruitingApplicationDraft(
-    applicationId: ID!
     input: UpdateRecruitingApplicationDraftInput!
-  ): RecruitingApplication!
+  ): UpdateRecruitingApplicationDraftPayload!
   updateAnonymousRecruitingApplication(
     input: UpdateAnonymousRecruitingApplicationInput!
-  ): RecruitingApplication!
-  submitRecruitingApplication(applicationId: ID!, input: SubmitRecruitingApplicationInput): RecruitingApplication!
+  ): UpdateAnonymousRecruitingApplicationPayload!
+  submitRecruitingApplication(input: SubmitRecruitingApplicationInput!): SubmitRecruitingApplicationPayload!
   submitAnonymousRecruitingApplication(
     input: SubmitAnonymousRecruitingApplicationInput!
-  ): RecruitingApplication!
-  cancelRecruitingApplication(applicationId: ID!, input: CancelRecruitingApplicationInput): RecruitingApplication!
+  ): SubmitAnonymousRecruitingApplicationPayload!
+  cancelRecruitingApplication(input: CancelRecruitingApplicationInput!): CancelRecruitingApplicationPayload!
   cancelAnonymousRecruitingApplication(
     input: RecruitingApplicationCredentialInput!
-  ): RecruitingApplication!
-  decideRecruitingDocument(
-    seasonId: ID!
-    applicationId: ID!
-    input: RecruitingDocumentDecisionInput!
-  ): Boolean!
-  decideRecruitingFinal(
-    seasonId: ID!
-    applicationId: ID!
-    input: RecruitingFinalDecisionInput!
-  ): Boolean!
-  prepareRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
-  cancelRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
-  confirmRecruitingRegistration(seasonId: ID!, applicationId: ID!): Boolean!
-  skipRecruitingInterview(seasonId: ID!, applicationId: ID!, input: SkipRecruitingInterviewInput): Boolean!
+  ): CancelAnonymousRecruitingApplicationPayload!
+  decideRecruitingDocument(input: DecideRecruitingDocumentInput!): DecideRecruitingDocumentPayload!
+  decideRecruitingFinal(input: DecideRecruitingFinalInput!): DecideRecruitingFinalPayload!
+  prepareRecruitingRegistration(input: PrepareRecruitingRegistrationInput!): PrepareRecruitingRegistrationPayload!
+  cancelRecruitingRegistration(input: CancelRecruitingRegistrationInput!): CancelRecruitingRegistrationPayload!
+  confirmRecruitingRegistration(input: ConfirmRecruitingRegistrationInput!): ConfirmRecruitingRegistrationPayload!
+  skipRecruitingInterview(input: SkipRecruitingInterviewInput!): SkipRecruitingInterviewPayload!
   requestRecruitingInterviewAvailability(
-    applicationId: ID!
     input: RequestRecruitingInterviewAvailabilityInput!
-  ): RecruitingIdPayload!
+  ): RequestRecruitingInterviewAvailabilityPayload!
   submitRecruitingInterviewAvailability(
-    applicationId: ID!
     input: SubmitRecruitingInterviewAvailabilityInput!
-  ): Boolean!
+  ): SubmitRecruitingInterviewAvailabilityPayload!
   confirmRecruitingInterviewSchedule(
-    applicationId: ID!
     input: ConfirmRecruitingInterviewScheduleInput!
-  ): Boolean!
+  ): ConfirmRecruitingInterviewSchedulePayload!
   createRecruitingInterviewSession(
-    seasonId: ID!
-    roundId: ID!
-    input: RecruitingInterviewSessionInput!
-  ): RecruitingIdPayload!
+    input: CreateRecruitingInterviewSessionInput!
+  ): CreateRecruitingInterviewSessionPayload!
   updateRecruitingInterviewSession(
-    seasonId: ID!
-    roundId: ID!
-    sessionId: ID!
-    input: RecruitingInterviewSessionInput!
-  ): Boolean!
-  deleteRecruitingInterviewSession(seasonId: ID!, roundId: ID!, sessionId: ID!): Boolean!
+    input: UpdateRecruitingInterviewSessionInput!
+  ): UpdateRecruitingInterviewSessionPayload!
+  deleteRecruitingInterviewSession(
+    input: DeleteRecruitingInterviewSessionInput!
+  ): DeleteRecruitingInterviewSessionPayload!
   confirmRecruitingInterviewSchedules(
-    seasonId: ID!
-    roundId: ID!
     input: ConfirmRecruitingInterviewSchedulesInput!
-  ): Boolean!
+  ): ConfirmRecruitingInterviewSchedulesPayload!
   submitRecruitingApplicationEvaluation(
-    applicationId: ID!
-    input: RecruitingApplicationEvaluationInput!
-  ): Boolean!
+    input: SubmitRecruitingApplicationEvaluationInput!
+  ): SubmitRecruitingApplicationEvaluationPayload!
 }
 
 input RecruitingApplicationFormStructureInput {
@@ -166,6 +184,7 @@ input RecruitingApplicationFormStructureInput {
 }
 
 input SubmitRecruitingInterviewAvailabilityInput {
+  applicationId: ID!
   times: [Instant!]!
 }
 
@@ -218,14 +237,17 @@ input RecruitingSeasonTrackQuotaInput {
 }
 
 input ReplaceRecruitingSeasonTrackQuotasInput {
+  seasonId: ID!
   quotas: [RecruitingSeasonTrackQuotaInput!]!
 }
 
 input UpdateRecruitingSeasonInput {
+  seasonId: ID!
   memo: String
 }
 
 input CreateRecruitingRoundInput {
+  seasonId: ID!
   title: String!
   type: RecruitingRoundType!
   roundNo: Int
@@ -245,6 +267,8 @@ input CreateRecruitingRoundInput {
 }
 
 input UpdateRecruitingRoundInput {
+  seasonId: ID!
+  roundId: ID!
   title: String!
   recruitableTracks: [ChallengerTrack!]!
   secondChoiceEnabled: Boolean!
@@ -262,17 +286,28 @@ input UpdateRecruitingRoundInput {
 }
 
 input UpdateRecruitingRoundStatusInput {
+  seasonId: ID!
+  roundId: ID!
   status: RecruitingRoundStatus!
 }
 
 input CloneRecruitingRoundInput {
+  seasonId: ID!
+  roundId: ID!
   targetSeasonId: ID!
   title: String!
   type: RecruitingRoundType!
   roundNo: Int
 }
 
+input DeleteRecruitingRoundInput {
+  seasonId: ID!
+  roundId: ID!
+}
+
 input UpsertRecruitingApplicationFormInput {
+  seasonId: ID!
+  roundId: ID!
   description: String
   sections: [UpsertRecruitingFormSectionInput!]!
 }
@@ -306,8 +341,6 @@ input UpsertRecruitingFormOptionInput {
 input RecruitingApplicationSearchInput {
   statuses: [RecruitingApplicationStatus!]
   tracks: [ChallengerTrack!]
-  page: Int
-  size: Int
 }
 
 input RecruitingDecisionHistorySearchInput {
@@ -319,17 +352,54 @@ input RecruitingDecisionHistorySearchInput {
   searchName: String
   sort: RecruitingDecisionHistorySortOrder
   groupByDecider: Boolean
-  page: Int
-  size: Int
 }
 
-input RecruitingRoundEvaluatorInput {
+input AddRecruitingRoundEvaluatorInput {
+  seasonId: ID!
+  roundId: ID!
   evaluatorMemberId: ID!
 }
 
-input RecruitingInterviewQuestionInput {
+input RemoveRecruitingRoundEvaluatorInput {
+  seasonId: ID!
+  roundId: ID!
+  evaluatorMemberId: ID!
+}
+
+input CreateRecruitingRoundInterviewQuestionInput {
+  roundId: ID!
   content: String!
   orderNo: Int!
+}
+
+input UpdateRecruitingRoundInterviewQuestionInput {
+  roundId: ID!
+  questionId: ID!
+  content: String!
+  orderNo: Int!
+}
+
+input DeactivateRecruitingRoundInterviewQuestionInput {
+  roundId: ID!
+  questionId: ID!
+}
+
+input CreateRecruitingApplicationInterviewQuestionInput {
+  applicationId: ID!
+  content: String!
+  orderNo: Int!
+}
+
+input UpdateRecruitingApplicationInterviewQuestionInput {
+  applicationId: ID!
+  questionId: ID!
+  content: String!
+  orderNo: Int!
+}
+
+input DeactivateRecruitingApplicationInterviewQuestionInput {
+  applicationId: ID!
+  questionId: ID!
 }
 
 input CreateRecruitingApplicationDraftInput {
@@ -351,6 +421,7 @@ input CreateAnonymousRecruitingApplicationDraftInput {
 }
 
 input UpdateRecruitingApplicationDraftInput {
+  applicationId: ID!
   applicantName: String!
   applicantEmail: String!
   firstChoice: ChallengerTrack!
@@ -381,33 +452,58 @@ input RecruitingAnswerInput {
 }
 
 input SubmitRecruitingApplicationInput {
+  applicationId: ID!
   submittedIp: String
 }
 
 input CancelRecruitingApplicationInput {
+  applicationId: ID!
   reason: String
 }
 
-input RecruitingDocumentDecisionInput {
+input DecideRecruitingDocumentInput {
+  seasonId: ID!
+  applicationId: ID!
   decision: RecruitingDecisionStatus!
   reason: String
 }
 
-input RecruitingFinalDecisionInput {
+input DecideRecruitingFinalInput {
+  seasonId: ID!
+  applicationId: ID!
   decision: RecruitingDecisionStatus!
   acceptedTrack: ChallengerTrack
   reason: String
 }
 
+input PrepareRecruitingRegistrationInput {
+  seasonId: ID!
+  applicationId: ID!
+}
+
+input CancelRecruitingRegistrationInput {
+  seasonId: ID!
+  applicationId: ID!
+}
+
+input ConfirmRecruitingRegistrationInput {
+  seasonId: ID!
+  applicationId: ID!
+}
+
 input SkipRecruitingInterviewInput {
+  seasonId: ID!
+  applicationId: ID!
   reason: String
 }
 
 input RequestRecruitingInterviewAvailabilityInput {
+  applicationId: ID!
   contactSnapshot: String!
 }
 
 input ConfirmRecruitingInterviewScheduleInput {
+  applicationId: ID!
   sessionId: ID!
   startsAt: Instant!
   endsAt: Instant!
@@ -415,7 +511,9 @@ input ConfirmRecruitingInterviewScheduleInput {
   contactSnapshot: String!
 }
 
-input RecruitingInterviewSessionInput {
+input CreateRecruitingInterviewSessionInput {
+  seasonId: ID!
+  roundId: ID!
   name: String!
   startsAt: Instant!
   endsAt: Instant!
@@ -424,7 +522,27 @@ input RecruitingInterviewSessionInput {
   location: String!
 }
 
+input UpdateRecruitingInterviewSessionInput {
+  seasonId: ID!
+  roundId: ID!
+  sessionId: ID!
+  name: String!
+  startsAt: Instant!
+  endsAt: Instant!
+  slotDurationMinutes: Int!
+  mode: RecruitingInterviewMode!
+  location: String!
+}
+
+input DeleteRecruitingInterviewSessionInput {
+  seasonId: ID!
+  roundId: ID!
+  sessionId: ID!
+}
+
 input ConfirmRecruitingInterviewSchedulesInput {
+  seasonId: ID!
+  roundId: ID!
   assignments: [ConfirmRecruitingInterviewScheduleAssignmentInput!]!
 }
 
@@ -435,19 +553,171 @@ input ConfirmRecruitingInterviewScheduleAssignmentInput {
   contactSnapshot: String!
 }
 
-input RecruitingApplicationEvaluationInput {
+input SubmitRecruitingApplicationEvaluationInput {
+  applicationId: ID!
   stage: RecruitingEvaluatorStage!
   decision: RecruitingApplicationEvaluationDecision!
   comment: String
 }
 
-type RecruitingApplicationForm {
-  applicationFormId: ID!
+type CreateRecruitingSeasonPayload {
+  seasonId: ID!
+}
+
+type UpdateRecruitingSeasonPayload {
+  success: Boolean!
+}
+
+type ReplaceRecruitingSeasonTrackQuotasPayload {
+  success: Boolean!
+}
+
+type CreateRecruitingRoundPayload {
   roundId: ID!
-  roundType: RecruitingRoundType!
-  roundNo: Int
-  formId: ID!
-  status: RecruitingApplicationFormStatus!
+}
+
+type UpdateRecruitingRoundStatusPayload {
+  success: Boolean!
+}
+
+type UpdateRecruitingRoundPayload {
+  success: Boolean!
+}
+
+type UpsertRecruitingApplicationFormPayload {
+  applicationFormId: ID!
+}
+
+type CloneRecruitingRoundPayload {
+  roundId: ID!
+}
+
+type DeleteRecruitingRoundPayload {
+  success: Boolean!
+}
+
+type AddRecruitingRoundEvaluatorPayload {
+  evaluatorId: ID!
+}
+
+type RemoveRecruitingRoundEvaluatorPayload {
+  success: Boolean!
+}
+
+type CreateRecruitingRoundInterviewQuestionPayload {
+  questionId: ID!
+}
+
+type UpdateRecruitingRoundInterviewQuestionPayload {
+  success: Boolean!
+}
+
+type DeactivateRecruitingRoundInterviewQuestionPayload {
+  success: Boolean!
+}
+
+type CreateRecruitingApplicationInterviewQuestionPayload {
+  questionId: ID!
+}
+
+type UpdateRecruitingApplicationInterviewQuestionPayload {
+  success: Boolean!
+}
+
+type DeactivateRecruitingApplicationInterviewQuestionPayload {
+  success: Boolean!
+}
+
+type CreateRecruitingApplicationDraftPayload {
+  applicationId: ID!
+  applicationKey: String!
+  status: RecruitingApplicationStatus!
+}
+
+type CreateAnonymousRecruitingApplicationDraftPayload {
+  applicationId: ID!
+  applicationKey: String!
+  status: RecruitingApplicationStatus!
+}
+
+type UpdateRecruitingApplicationDraftPayload {
+  application: RecruitingApplication!
+}
+
+type UpdateAnonymousRecruitingApplicationPayload {
+  application: RecruitingApplication!
+}
+
+type SubmitRecruitingApplicationPayload {
+  application: RecruitingApplication!
+}
+
+type SubmitAnonymousRecruitingApplicationPayload {
+  application: RecruitingApplication!
+}
+
+type CancelRecruitingApplicationPayload {
+  application: RecruitingApplication!
+}
+
+type CancelAnonymousRecruitingApplicationPayload {
+  application: RecruitingApplication!
+}
+
+type DecideRecruitingDocumentPayload {
+  success: Boolean!
+}
+
+type DecideRecruitingFinalPayload {
+  success: Boolean!
+}
+
+type PrepareRecruitingRegistrationPayload {
+  success: Boolean!
+}
+
+type CancelRecruitingRegistrationPayload {
+  success: Boolean!
+}
+
+type ConfirmRecruitingRegistrationPayload {
+  success: Boolean!
+}
+
+type SkipRecruitingInterviewPayload {
+  success: Boolean!
+}
+
+type RequestRecruitingInterviewAvailabilityPayload {
+  scheduleId: ID!
+}
+
+type SubmitRecruitingInterviewAvailabilityPayload {
+  success: Boolean!
+}
+
+type ConfirmRecruitingInterviewSchedulePayload {
+  success: Boolean!
+}
+
+type CreateRecruitingInterviewSessionPayload {
+  sessionId: ID!
+}
+
+type UpdateRecruitingInterviewSessionPayload {
+  success: Boolean!
+}
+
+type DeleteRecruitingInterviewSessionPayload {
+  success: Boolean!
+}
+
+type ConfirmRecruitingInterviewSchedulesPayload {
+  success: Boolean!
+}
+
+type SubmitRecruitingApplicationEvaluationPayload {
+  success: Boolean!
 }
 
 type RecruitingApplicationFormStructure {
@@ -489,14 +759,8 @@ type RecruitingFormQuestionOption {
   nextSectionId: ID
 }
 
-type RecruitingApplicationCreated {
-  applicationId: ID!
-  applicationKey: String!
-  status: RecruitingApplicationStatus!
-}
-
-type RecruitingApplication {
-  applicationId: ID!
+type RecruitingApplication implements Node {
+  id: ID!
   status: RecruitingApplicationStatus!
   registrationStatus: RecruitingApplicationRegistrationStatus!
   firstChoice: ChallengerTrack!
@@ -527,7 +791,7 @@ type RecruitingPublicAnswer {
   times: [Instant!]!
 }
 
-type RecruitingSeasonConfiguration {
+type RecruitingSeason implements Node {
   id: ID!
   gisuId: ID!
   schoolId: ID!
@@ -554,7 +818,7 @@ type RecruitingRoundSummary {
   chapterName: String!
   schoolId: ID!
   schoolName: String!
-  id: ID!
+  roundId: ID!
   type: RecruitingRoundType!
   roundNo: Int
   status: RecruitingRoundStatus!
@@ -579,7 +843,7 @@ type RecruitingSeasonTrackQuota {
 }
 
 type RecruitingRoundConfiguration {
-  id: ID!
+  roundId: ID!
   title: String!
   type: RecruitingRoundType!
   roundNo: Int
@@ -600,13 +864,13 @@ type RecruitingRoundConfiguration {
 }
 
 type RecruitingRoundEvaluator {
-  id: ID!
+  evaluatorId: ID!
   roundId: ID!
   evaluatorMemberId: ID!
 }
 
 type RecruitingRoundInterviewQuestion {
-  id: ID!
+  questionId: ID!
   roundId: ID!
   content: String!
   orderNo: Int!
@@ -614,7 +878,7 @@ type RecruitingRoundInterviewQuestion {
 }
 
 type RecruitingApplicationInterviewQuestion {
-  id: ID!
+  questionId: ID!
   applicationId: ID!
   content: String!
   orderNo: Int!
@@ -622,7 +886,7 @@ type RecruitingApplicationInterviewQuestion {
 }
 
 type RecruitingApplicationEvaluation {
-  id: ID!
+  evaluationId: ID!
   applicationId: ID!
   evaluatorMemberId: ID!
   stage: RecruitingEvaluatorStage!
@@ -632,7 +896,7 @@ type RecruitingApplicationEvaluation {
 }
 
 type RecruitingInterviewSchedule {
-  id: ID!
+  scheduleId: ID!
   applicationId: ID!
   status: RecruitingInterviewScheduleStatus!
   startsAt: Instant
@@ -647,7 +911,7 @@ enum RecruitingInterviewMode {
 }
 
 type RecruitingInterviewSession {
-  id: ID!
+  sessionId: ID!
   roundId: ID!
   name: String!
   startsAt: Instant!
@@ -787,26 +1051,6 @@ type RecruitingPublicRound {
   applicationOpen: Boolean!
 }
 
-type RecruitingApplicationReviewPage {
-  content: [RecruitingApplicationReview!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
-}
-
-type RecruitingDecisionHistoryPage {
-  asOf: Instant!
-  progressStatus: RecruitingEvaluationProgressStatus!
-  content: [RecruitingDecisionHistory!]!
-  page: Int!
-  size: Int!
-  totalElements: Long!
-  totalPages: Int!
-  hasNext: Boolean!
-}
-
 type RecruitingDecisionHistory {
   decisionHistoryId: ID!
   applicationId: ID!
@@ -874,8 +1118,108 @@ type RecruitingApplicationReviewSelectedOption {
   answeredAsContent: String!
 }
 
-type RecruitingIdPayload {
-  id: ID!
+type RecruitingPublicRoundGroupConnection {
+  edges: [RecruitingPublicRoundGroupEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingPublicRoundGroupEdge {
+  cursor: String!
+  node: RecruitingPublicRoundGroup!
+}
+
+type RecruitingSeasonSummaryConnection {
+  edges: [RecruitingSeasonSummaryEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingSeasonSummaryEdge {
+  cursor: String!
+  node: RecruitingSeasonSummary!
+}
+
+type RecruitingRoundEvaluatorConnection {
+  edges: [RecruitingRoundEvaluatorEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingRoundEvaluatorEdge {
+  cursor: String!
+  node: RecruitingRoundEvaluator!
+}
+
+type RecruitingRoundInterviewQuestionConnection {
+  edges: [RecruitingRoundInterviewQuestionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingRoundInterviewQuestionEdge {
+  cursor: String!
+  node: RecruitingRoundInterviewQuestion!
+}
+
+type RecruitingApplicationInterviewQuestionConnection {
+  edges: [RecruitingApplicationInterviewQuestionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingApplicationInterviewQuestionEdge {
+  cursor: String!
+  node: RecruitingApplicationInterviewQuestion!
+}
+
+type RecruitingApplicationEvaluationConnection {
+  edges: [RecruitingApplicationEvaluationEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingApplicationEvaluationEdge {
+  cursor: String!
+  node: RecruitingApplicationEvaluation!
+}
+
+type RecruitingInterviewSessionConnection {
+  edges: [RecruitingInterviewSessionEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingInterviewSessionEdge {
+  cursor: String!
+  node: RecruitingInterviewSession!
+}
+
+type RecruitingApplicationReviewConnection {
+  edges: [RecruitingApplicationReviewEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+}
+
+type RecruitingApplicationReviewEdge {
+  cursor: String!
+  node: RecruitingApplicationReview!
+}
+
+"""
+판정 이력 Connection. asOf/progressStatus는 목록의 구조 필터 기준 헤더 집계다.
+"""
+type RecruitingDecisionHistoryConnection {
+  edges: [RecruitingDecisionHistoryEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Long!
+  asOf: Instant!
+  progressStatus: RecruitingEvaluationProgressStatus!
+}
+
+type RecruitingDecisionHistoryEdge {
+  cursor: String!
+  node: RecruitingDecisionHistory!
 }
 
 enum ChallengerTrack {
@@ -894,12 +1238,6 @@ enum RecruitingRoundType {
 enum RecruitingRoundStatus {
   DRAFT
   OPEN
-  CLOSED
-}
-
-enum RecruitingApplicationFormStatus {
-  DRAFT
-  PUBLISHED
   CLOSED
 }
 

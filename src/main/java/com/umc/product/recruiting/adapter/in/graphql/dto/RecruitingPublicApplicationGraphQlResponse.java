@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.Set;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicApplicationInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
 
 public record RecruitingPublicApplicationGraphQlResponse(
-    Long applicationId,
+    String applicationId,
     String applicantName,
     String applicantEmail,
     ChallengerTrack firstChoice,
@@ -25,7 +27,7 @@ public record RecruitingPublicApplicationGraphQlResponse(
 
     public static RecruitingPublicApplicationGraphQlResponse from(RecruitingPublicApplicationInfo info) {
         return new RecruitingPublicApplicationGraphQlResponse(
-            info.applicationId(),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, info.applicationId()),
             info.applicantName(),
             info.applicantEmail(),
             info.firstChoice(),
@@ -41,18 +43,20 @@ public record RecruitingPublicApplicationGraphQlResponse(
     }
 
     public record AnswerGraphQlResponse(
-        Long questionId,
+        String questionId,
         String textValue,
-        List<Long> selectedOptionIds,
+        List<String> selectedOptionIds,
         Set<String> fileIds,
         Set<Instant> times
     ) {
 
         private static AnswerGraphQlResponse from(RecruitingPublicApplicationInfo.Answer answer) {
             return new AnswerGraphQlResponse(
-                answer.questionId(),
+                GlobalId.encode(GlobalIdTypes.FORM_QUESTION, answer.questionId()),
                 answer.textValue(),
-                answer.selectedOptionIds(),
+                answer.selectedOptionIds().stream()
+                    .map(optionId -> GlobalId.encode(GlobalIdTypes.FORM_OPTION, optionId))
+                    .toList(),
                 answer.fileIds(),
                 answer.times()
             );

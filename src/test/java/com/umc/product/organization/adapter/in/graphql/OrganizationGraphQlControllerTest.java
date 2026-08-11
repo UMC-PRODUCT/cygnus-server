@@ -21,6 +21,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuOrganizationUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -73,45 +75,51 @@ class OrganizationGraphQlControllerTest {
         ));
 
         graphQlTester.document("""
-                query {
-                  gisuOrganizations(input: {
-                    ids: [1, 1, 2]
-                  }) {
-                    gisus {
-                      gisuId
-                      generation
-                      active
-                      startAt
-                      chapters {
-                        chapterId
-                        chapterName
+                query ($ids: [ID!]!) {
+                  gisus(filter: { ids: $ids }) {
+                    edges {
+                      node {
+                        id
+                        generation
+                        active
+                        startAt
+                        chapters {
+                          chapterId
+                          chapterName
+                          schools {
+                            schoolId
+                            schoolName
+                          }
+                        }
                         schools {
                           schoolId
                           schoolName
-                        }
-                      }
-                      schools {
-                        schoolId
-                        schoolName
-                        active
-                        links {
-                          title
-                          type
-                          url
+                          active
+                          links {
+                            title
+                            type
+                            url
+                          }
                         }
                       }
                     }
                   }
                 }
                 """)
+            .variable("ids", List.of(
+                GlobalId.encode(GlobalIdTypes.GISU, 1L),
+                GlobalId.encode(GlobalIdTypes.GISU, 1L),
+                GlobalId.encode(GlobalIdTypes.GISU, 2L)
+            ))
             .execute()
-            .path("gisuOrganizations.gisus[0].gisuId").entity(String.class).isEqualTo("1")
-            .path("gisuOrganizations.gisus[0].generation").entity(String.class).isEqualTo("10")
-            .path("gisuOrganizations.gisus[0].active").entity(Boolean.class).isEqualTo(true)
-            .path("gisuOrganizations.gisus[0].chapters[0].chapterName").entity(String.class).isEqualTo("Ain 지부")
-            .path("gisuOrganizations.gisus[0].chapters[0].schools[0].schoolName").entity(String.class)
+            .path("gisus.edges[0].node.id").entity(String.class)
+            .isEqualTo(GlobalId.encode(GlobalIdTypes.GISU, 1L))
+            .path("gisus.edges[0].node.generation").entity(Integer.class).isEqualTo(10)
+            .path("gisus.edges[0].node.active").entity(Boolean.class).isEqualTo(true)
+            .path("gisus.edges[0].node.chapters[0].chapterName").entity(String.class).isEqualTo("Ain 지부")
+            .path("gisus.edges[0].node.chapters[0].schools[0].schoolName").entity(String.class)
             .isEqualTo("중앙대학교")
-            .path("gisuOrganizations.gisus[0].schools[0].links[0].type").entity(String.class)
+            .path("gisus.edges[0].node.schools[0].links[0].type").entity(String.class)
             .isEqualTo("KAKAO");
 
         ArgumentCaptor<GisuOrganizationQuery> captor = ArgumentCaptor.forClass(GisuOrganizationQuery.class);
@@ -134,16 +142,18 @@ class OrganizationGraphQlControllerTest {
 
         graphQlTester.document("""
                 query {
-                  gisuOrganizations(input: { generations: [11, 11, 12] }) {
-                    gisus {
-                      gisuId
-                      generation
+                  gisus(filter: { generations: [11, 11, 12] }) {
+                    edges {
+                      node {
+                        id
+                        generation
+                      }
                     }
                   }
                 }
                 """)
             .execute()
-            .path("gisuOrganizations.gisus[0].generation").entity(String.class).isEqualTo("11");
+            .path("gisus.edges[0].node.generation").entity(Integer.class).isEqualTo(11);
 
         ArgumentCaptor<GisuOrganizationQuery> captor = ArgumentCaptor.forClass(GisuOrganizationQuery.class);
         then(getGisuOrganizationUseCase).should().get(captor.capture());
@@ -158,15 +168,13 @@ class OrganizationGraphQlControllerTest {
 
         graphQlTester.document("""
                 query {
-                  gisuOrganizations(input: { active: true }) {
-                    gisus {
-                      active
-                    }
+                  gisus(filter: { active: true }) {
+                    edges { node { active } }
                   }
                 }
                 """)
             .execute()
-            .path("gisuOrganizations.gisus[0].active").entity(Boolean.class).isEqualTo(true);
+            .path("gisus.edges[0].node.active").entity(Boolean.class).isEqualTo(true);
 
         ArgumentCaptor<GisuOrganizationQuery> captor = ArgumentCaptor.forClass(GisuOrganizationQuery.class);
         then(getGisuOrganizationUseCase).should().get(captor.capture());
@@ -179,16 +187,12 @@ class OrganizationGraphQlControllerTest {
     void 기수_조직_조회_기준이_없으면_GraphQL_error를_반환한다() {
         graphQlTester.document("""
                 query {
-                  gisuOrganizations(input: {}) {
-                    gisus {
-                      gisuId
-                    }
-                  }
+                  gisus(filter: {}) { totalCount }
                 }
                 """)
             .execute()
             .errors()
-            .satisfy(errors -> assertOrganizationBadRequest(errors, "gisuOrganizations"));
+            .satisfy(errors -> assertOrganizationBadRequest(errors, "gisus"));
 
         then(getGisuOrganizationUseCase).shouldHaveNoInteractions();
     }
@@ -197,17 +201,14 @@ class OrganizationGraphQlControllerTest {
     @DisplayName("기수 조직 조회 기준을 둘 이상 보내면 GraphQL error를 반환한다")
     void 기수_조직_조회_기준을_둘_이상_보내면_GraphQL_error를_반환한다() {
         graphQlTester.document("""
-                query {
-                  gisuOrganizations(input: { ids: [1], generations: [10] }) {
-                    gisus {
-                      gisuId
-                    }
-                  }
+                query ($ids: [ID!]) {
+                  gisus(filter: { ids: $ids, generations: [10] }) { totalCount }
                 }
                 """)
+            .variable("ids", List.of(GlobalId.encode(GlobalIdTypes.GISU, 1L)))
             .execute()
             .errors()
-            .satisfy(errors -> assertOrganizationBadRequest(errors, "gisuOrganizations"));
+            .satisfy(errors -> assertOrganizationBadRequest(errors, "gisus"));
 
         then(getGisuOrganizationUseCase).shouldHaveNoInteractions();
     }
@@ -217,16 +218,12 @@ class OrganizationGraphQlControllerTest {
     void active_false는_GraphQL_error를_반환한다() {
         graphQlTester.document("""
                 query {
-                  gisuOrganizations(input: { active: false }) {
-                    gisus {
-                      gisuId
-                    }
-                  }
+                  gisus(filter: { active: false }) { totalCount }
                 }
                 """)
             .execute()
             .errors()
-            .satisfy(errors -> assertOrganizationBadRequest(errors, "gisuOrganizations"));
+            .satisfy(errors -> assertOrganizationBadRequest(errors, "gisus"));
 
         then(getGisuOrganizationUseCase).shouldHaveNoInteractions();
     }
@@ -236,15 +233,11 @@ class OrganizationGraphQlControllerTest {
     void includeChapters와_includeSchools는_GraphQL_입력으로_허용하지_않는다() {
         graphQlTester.document("""
                 query {
-                  gisuOrganizations(input: {
-                    ids: [1]
+                  gisus(filter: {
+                    ids: ["R2lzdTox"]
                     includeChapters: true
                     includeSchools: true
-                  }) {
-                    gisus {
-                      gisuId
-                    }
-                  }
+                  }) { totalCount }
                 }
                 """)
             .execute()
@@ -260,17 +253,18 @@ class OrganizationGraphQlControllerTest {
         given(getGisuUseCase.getById(1L)).willReturn(gisuInfo(1L, 10L));
 
         graphQlTester.document("""
-                query {
-                  gisu(id: 1) {
-                    gisuId
+                query ($id: ID!) {
+                  gisu(id: $id) {
+                    id
                     generation
                     active
                   }
                 }
                 """)
+            .variable("id", GlobalId.encode(GlobalIdTypes.GISU, 1L))
             .execute()
-            .path("gisu.gisuId").entity(String.class).isEqualTo("1")
-            .path("gisu.generation").entity(String.class).isEqualTo("10")
+            .path("gisu.id").entity(String.class).isEqualTo(GlobalId.encode(GlobalIdTypes.GISU, 1L))
+            .path("gisu.generation").entity(Integer.class).isEqualTo(10)
             .path("gisu.active").entity(Boolean.class).isEqualTo(true);
 
         then(getGisuUseCase).should().getById(1L);
@@ -284,15 +278,15 @@ class OrganizationGraphQlControllerTest {
         graphQlTester.document("""
                 query {
                   activeGisu {
-                    gisuId
+                    id
                     generation
                     active
                   }
                 }
                 """)
             .execute()
-            .path("activeGisu.gisuId").entity(String.class).isEqualTo("3")
-            .path("activeGisu.generation").entity(String.class).isEqualTo("12")
+            .path("activeGisu.id").entity(String.class).isEqualTo(GlobalId.encode(GlobalIdTypes.GISU, 3L))
+            .path("activeGisu.generation").entity(Integer.class).isEqualTo(12)
             .path("activeGisu.active").entity(Boolean.class).isEqualTo(true);
 
         then(getGisuUseCase).should().getActiveGisu();
@@ -305,21 +299,22 @@ class OrganizationGraphQlControllerTest {
         given(getChapterUseCase.getChapterById(2L)).willReturn(new ChapterInfo(2L, "Ner 지부"));
 
         graphQlTester.document("""
-                query {
+                query ($id: ID!) {
                   chapters {
-                    id
-                    name
+                    edges { node { id name } }
                   }
-                  chapter(id: 2) {
+                  chapter(id: $id) {
                     id
                     name
                   }
                 }
                 """)
+            .variable("id", GlobalId.encode(GlobalIdTypes.CHAPTER, 2L))
             .execute()
-            .path("chapters[0].id").entity(String.class).isEqualTo("1")
-            .path("chapters[0].name").entity(String.class).isEqualTo("Ain 지부")
-            .path("chapter.id").entity(String.class).isEqualTo("2")
+            .path("chapters.edges[0].node.id").entity(String.class)
+                .isEqualTo(GlobalId.encode(GlobalIdTypes.CHAPTER, 1L))
+            .path("chapters.edges[0].node.name").entity(String.class).isEqualTo("Ain 지부")
+            .path("chapter.id").entity(String.class).isEqualTo(GlobalId.encode(GlobalIdTypes.CHAPTER, 2L))
             .path("chapter.name").entity(String.class).isEqualTo("Ner 지부");
 
         then(getChapterUseCase).should().getAllChapters();
@@ -333,13 +328,12 @@ class OrganizationGraphQlControllerTest {
         given(getSchoolUseCase.getSchoolDetail(2L)).willReturn(schoolDetail(2L, "동국대학교"));
 
         graphQlTester.document("""
-                query {
+                query ($id: ID!) {
                   schools {
-                    schoolId
-                    schoolName
+                    edges { node { schoolId schoolName } }
                   }
-                  school(id: 2) {
-                    schoolId
+                  school(id: $id) {
+                    id
                     schoolName
                     active
                     createdAt
@@ -347,10 +341,12 @@ class OrganizationGraphQlControllerTest {
                   }
                 }
                 """)
+            .variable("id", GlobalId.encode(GlobalIdTypes.SCHOOL, 2L))
             .execute()
-            .path("schools[0].schoolId").entity(String.class).isEqualTo("1")
-            .path("schools[0].schoolName").entity(String.class).isEqualTo("중앙대학교")
-            .path("school.schoolId").entity(String.class).isEqualTo("2")
+            .path("schools.edges[0].node.schoolId").entity(String.class)
+                .isEqualTo(GlobalId.encode(GlobalIdTypes.SCHOOL, 1L))
+            .path("schools.edges[0].node.schoolName").entity(String.class).isEqualTo("중앙대학교")
+            .path("school.id").entity(String.class).isEqualTo(GlobalId.encode(GlobalIdTypes.SCHOOL, 2L))
             .path("school.schoolName").entity(String.class).isEqualTo("동국대학교")
             .path("school.active").entity(Boolean.class).isEqualTo(true);
 
@@ -362,10 +358,11 @@ class OrganizationGraphQlControllerTest {
         List<org.springframework.graphql.ResponseError> errors,
         String path
     ) {
-        assertThat(errors).hasSize(1);
-        assertThat(errors.get(0).getPath()).isEqualTo(path);
-        assertThat(errors.get(0).getExtensions())
-            .containsEntry("code", OrganizationErrorCode.GISU_QUERY_CONDITION_INVALID.getCode());
+        assertThat(errors).anySatisfy(error -> {
+            assertThat(error.getPath()).isEqualTo(path);
+            assertThat(error.getExtensions())
+                .containsEntry("code", OrganizationErrorCode.GISU_QUERY_CONDITION_INVALID.getCode());
+        });
     }
 
     private GisuOrganizationInfo gisu(Long gisuId, Long generation) {

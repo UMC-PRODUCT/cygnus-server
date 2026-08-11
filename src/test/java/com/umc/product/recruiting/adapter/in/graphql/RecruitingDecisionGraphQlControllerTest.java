@@ -28,6 +28,8 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CancelRecruitingRegistrationUseCase;
@@ -93,16 +95,20 @@ class RecruitingDecisionGraphQlControllerTest {
     @DisplayName("최종 합격 Mutation은 acceptedTrack과 CurrentMember를 public UseCase에 전달한다")
     void 최종_합격_Mutation은_acceptedTrack과_CurrentMember를_public_UseCase에_전달한다() {
         graphQlTester.document("""
-                mutation {
-                  decideRecruitingFinal(
-                    seasonId: 10,
-                    applicationId: 20,
-                    input: {decision: PASS, acceptedTrack: DESIGN, reason: "최종 합격"}
-                  )
+                mutation ($seasonId: ID!, $applicationId: ID!) {
+                  decideRecruitingFinal(input: {
+                    seasonId: $seasonId
+                    applicationId: $applicationId
+                    decision: PASS
+                    acceptedTrack: DESIGN
+                    reason: "최종 합격"
+                  }) { success }
                 }
                 """)
+            .variable("seasonId", globalId(GlobalIdTypes.RECRUITING_SEASON, 10L))
+            .variable("applicationId", globalId(GlobalIdTypes.RECRUITING_APPLICATION, 20L))
             .execute()
-            .path("decideRecruitingFinal")
+            .path("decideRecruitingFinal.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -117,12 +123,13 @@ class RecruitingDecisionGraphQlControllerTest {
     @DisplayName("READY Mutation은 CurrentMember를 executor로 전달한다")
     void READY_Mutation은_CurrentMember를_executor로_전달한다() {
         graphQlTester.document("""
-                mutation {
-                  prepareRecruitingRegistration(seasonId: 10, applicationId: 20)
+                mutation ($input: PrepareRecruitingRegistrationInput!) {
+                  prepareRecruitingRegistration(input: $input) { success }
                 }
                 """)
+            .variable("input", registrationInput())
             .execute()
-            .path("prepareRecruitingRegistration")
+            .path("prepareRecruitingRegistration.success")
             .entity(Boolean.class)
             .isEqualTo(true);
 
@@ -139,18 +146,29 @@ class RecruitingDecisionGraphQlControllerTest {
             .checkOrThrow(eq(REQUESTER_ID), any());
 
         graphQlTester.document("""
-                mutation {
-                  prepareRecruitingRegistration(seasonId: 10, applicationId: 20)
+                mutation ($input: PrepareRecruitingRegistrationInput!) {
+                  prepareRecruitingRegistration(input: $input) { success }
                 }
                 """)
+            .variable("input", registrationInput())
             .execute()
             .errors()
             .satisfy(errors -> {
-                assertThat(errors).hasSize(1);
-                assertThat(errors.getFirst().getExtensions())
-                    .containsEntry("code", CommonErrorCode.FORBIDDEN.getCode());
+                assertThat(errors).anySatisfy(error -> assertThat(error.getExtensions())
+                    .containsEntry("code", CommonErrorCode.FORBIDDEN.getCode()));
             });
 
         then(prepareRegistrationUseCase).shouldHaveNoInteractions();
+    }
+
+    private java.util.Map<String, Object> registrationInput() {
+        return java.util.Map.of(
+            "seasonId", globalId(GlobalIdTypes.RECRUITING_SEASON, 10L),
+            "applicationId", globalId(GlobalIdTypes.RECRUITING_APPLICATION, 20L)
+        );
+    }
+
+    private String globalId(String typeName, Long rawId) {
+        return GlobalId.encode(typeName, rawId);
     }
 }

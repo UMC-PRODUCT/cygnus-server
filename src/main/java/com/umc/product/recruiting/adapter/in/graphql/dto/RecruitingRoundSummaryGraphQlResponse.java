@@ -4,19 +4,21 @@ import java.time.Instant;
 import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundConfigurationInfo;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingRoundSummaryInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 
 public record RecruitingRoundSummaryGraphQlResponse(
-    Long seasonId,
-    Long gisuId,
-    Long chapterId,
+    String seasonId,
+    String gisuId,
+    String chapterId,
     String chapterName,
-    Long schoolId,
+    String schoolId,
     String schoolName,
-    Long id,
+    String roundId,
     RecruitingRoundType type,
     Integer roundNo,
     RecruitingRoundStatus status,
@@ -29,8 +31,8 @@ public record RecruitingRoundSummaryGraphQlResponse(
     Instant interviewStartAt,
     Instant interviewEndAt,
     Instant finalResultPublishedAt,
-    Long availabilityFormId,
-    Long availabilityScheduleQuestionId,
+    String availabilityFormId,
+    String availabilityScheduleQuestionId,
     String announcement,
     String contactText
 ) {
@@ -38,13 +40,13 @@ public record RecruitingRoundSummaryGraphQlResponse(
     public static RecruitingRoundSummaryGraphQlResponse from(RecruitingRoundSummaryInfo info) {
         RecruitingRoundConfigurationInfo round = info.round();
         return new RecruitingRoundSummaryGraphQlResponse(
-            info.seasonId(),
-            info.gisuId(),
-            info.chapterId(),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_SEASON, info.seasonId()),
+            GlobalId.encode(GlobalIdTypes.GISU, info.gisuId()),
+            GlobalId.encode(GlobalIdTypes.CHAPTER, info.chapterId()),
             info.chapterName(),
-            info.schoolId(),
+            GlobalId.encode(GlobalIdTypes.SCHOOL, info.schoolId()),
             info.schoolName(),
-            round.id(),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, round.id()),
             round.type(),
             round.roundNo(),
             round.status(),
@@ -57,10 +59,14 @@ public record RecruitingRoundSummaryGraphQlResponse(
             round.interviewStartAt(),
             round.interviewEndAt(),
             round.finalResultPublishedAt(),
-            round.availabilityFormId(),
-            round.availabilityScheduleQuestionId(),
+            encodeNullable(GlobalIdTypes.FORM, round.availabilityFormId()),
+            encodeNullable(GlobalIdTypes.FORM_QUESTION, round.availabilityScheduleQuestionId()),
             round.announcement(),
             round.contactText()
         );
+    }
+
+    private static String encodeNullable(String typeName, Long rawId) {
+        return rawId == null ? null : GlobalId.encode(typeName, rawId);
     }
 }

@@ -3,67 +3,59 @@ package com.umc.product.recruiting.adapter.in.graphql.dto;
 import java.util.List;
 import java.util.Set;
 
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingDecisionHistorySearchQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrder;
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
 
 public record RecruitingDecisionHistorySearchGraphQlRequest(
-    Long gisuId,
-    List<Long> chapterIds,
-    List<Long> schoolIds,
+    String gisuId,
+    List<String> chapterIds,
+    List<String> schoolIds,
     List<ChallengerTrack> tracks,
     List<RecruitingDecisionResult> results,
     String searchName,
     RecruitingDecisionHistorySortOrder sort,
-    Boolean groupByDecider,
-    Integer page,
-    Integer size
+    Boolean groupByDecider
 ) {
 
-    public RecruitingDecisionHistorySearchGraphQlRequest {
-        requirePositive(gisuId, "gisuId");
-        requirePositiveIds(chapterIds, "chapterIds");
-        requirePositiveIds(schoolIds, "schoolIds");
-    }
-
-    public RecruitingDecisionHistorySearchQuery toQuery(Long requesterMemberId) {
-        int pageNumber = page == null ? 0 : page;
-        int pageSize = size == null ? 20 : size;
-        if (pageNumber < 0 || pageSize < 1 || pageSize > 100) {
-            throw new IllegalArgumentException("page는 0 이상, size는 1 이상 100 이하여야 합니다.");
-        }
+    public RecruitingDecisionHistorySearchQuery toQuery(Long requesterMemberId, Pageable pageable) {
         return RecruitingDecisionHistorySearchQuery.builder()
-            .gisuId(gisuId)
-            .chapterIds(chapterIds == null ? Set.of() : Set.copyOf(chapterIds))
-            .schoolIds(schoolIds == null ? Set.of() : Set.copyOf(schoolIds))
+            .gisuId(requirePositive(GlobalId.decodeLong(gisuId, GlobalIdTypes.GISU), "gisuId"))
+            .chapterIds(decodePositiveIds(chapterIds, GlobalIdTypes.CHAPTER, "chapterIds"))
+            .schoolIds(decodePositiveIds(schoolIds, GlobalIdTypes.SCHOOL, "schoolIds"))
             .tracks(tracks == null ? Set.of() : Set.copyOf(tracks))
             .results(results == null ? Set.of() : Set.copyOf(results))
             .searchName(searchName)
             .sortOrder(sort)
             .groupByDecider(Boolean.TRUE.equals(groupByDecider))
             .requesterMemberId(requesterMemberId)
-            .pageable(PageRequest.of(pageNumber, pageSize))
+            .pageable(pageable)
             .build();
     }
 
-    private static void requirePositive(Long value, String fieldName) {
-        if (value == null || value <= 0) {
-            throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
-        }
-    }
-
-    private static void requirePositiveIds(List<Long> values, String fieldName) {
+    private static Set<Long> decodePositiveIds(List<String> values, String typeName, String fieldName) {
         if (values == null) {
-            return;
+            return Set.of();
         }
         if (values.isEmpty()) {
             throw new IllegalArgumentException(fieldName + "는 하나 이상이어야 합니다.");
         }
-        if (values.stream().anyMatch(value -> value == null || value <= 0)) {
+        Set<Long> decoded = Set.copyOf(GlobalId.decodeLongs(values, typeName));
+        if (decoded.stream().anyMatch(value -> value <= 0)) {
             throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
         }
+        return decoded;
+    }
+
+    private static Long requirePositive(Long value, String fieldName) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(fieldName + "는 양수여야 합니다.");
+        }
+        return value;
     }
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 
 final class RecruitingHttpTestPayloads {
 
@@ -23,14 +25,28 @@ final class RecruitingHttpTestPayloads {
         return objectMapper.writeValueAsString(new GraphQlRequest(
             document,
             objectMapper.valueToTree(new GraphQlVariables(
-                new GraphQlCreateInput(100L, "지원자", email, "PLAN")
+                new GraphQlCreateInput(
+                    GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION_FORM, 100L),
+                    "지원자",
+                    email,
+                    "PLAN"
+                )
             ))
         ));
     }
 
     static String graphQlQuery(ObjectMapper objectMapper) throws JsonProcessingException {
         return objectMapper.writeValueAsString(new GraphQlRequest(
-            "query { publicRecruitingRounds(input: {gisuId: 1, schoolIds: [2]}) { seasonId rounds { roundId } } }",
+            """
+                query {
+                  publicRecruitingRounds(input: {gisuId: "%s", schoolIds: ["%s"]}) {
+                    edges { node { seasonId rounds { roundId } } }
+                  }
+                }
+                """.formatted(
+                    GlobalId.encode(GlobalIdTypes.GISU, 1L),
+                    GlobalId.encode(GlobalIdTypes.SCHOOL, 2L)
+                ),
             objectMapper.createObjectNode()
         ));
     }
@@ -53,7 +69,7 @@ final class RecruitingHttpTestPayloads {
     private record GraphQlVariables(GraphQlCreateInput input) {
     }
 
-    private record GraphQlCreateInput(Long applicationFormId, String applicantName, String applicantEmail,
+    private record GraphQlCreateInput(String applicationFormId, String applicantName, String applicantEmail,
                                       String firstChoice) {
     }
 }

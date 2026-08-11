@@ -4,22 +4,30 @@ import java.util.List;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
 
 public record UpsertRecruitingApplicationFormGraphQlRequest(
+    String seasonId,
+    String roundId,
     String description,
     List<Section> sections
 ) {
 
-    public UpsertRecruitingApplicationFormCommand toCommand(
-        Long seasonId,
-        Long roundId,
-        Long requesterMemberId
-    ) {
+    public Long decodedSeasonId() {
+        return GlobalId.decodeLong(seasonId, GlobalIdTypes.RECRUITING_SEASON);
+    }
+
+    public Long decodedRoundId() {
+        return GlobalId.decodeLong(roundId, GlobalIdTypes.RECRUITING_ROUND);
+    }
+
+    public UpsertRecruitingApplicationFormCommand toCommand(Long requesterMemberId) {
         return UpsertRecruitingApplicationFormCommand.builder()
-            .seasonId(seasonId)
-            .roundId(roundId)
+            .seasonId(decodedSeasonId())
+            .roundId(decodedRoundId())
             .requesterMemberId(requesterMemberId)
             .description(description)
             .sections(sections == null ? List.of() : sections.stream().map(Section::toCommand).toList())
@@ -27,7 +35,7 @@ public record UpsertRecruitingApplicationFormGraphQlRequest(
     }
 
     public record Section(
-        Long sectionId,
+        String sectionId,
         String clientKey,
         String title,
         String description,
@@ -38,7 +46,7 @@ public record UpsertRecruitingApplicationFormGraphQlRequest(
 
         private UpsertRecruitingApplicationFormCommand.SectionEntry toCommand() {
             return UpsertRecruitingApplicationFormCommand.SectionEntry.builder()
-                .sectionId(sectionId)
+                .sectionId(sectionId == null ? null : GlobalId.decodeLong(sectionId, GlobalIdTypes.FORM_SECTION))
                 .clientKey(clientKey)
                 .title(title)
                 .description(description)
@@ -50,7 +58,7 @@ public record UpsertRecruitingApplicationFormGraphQlRequest(
     }
 
     public record Question(
-        Long questionId,
+        String questionId,
         QuestionType type,
         String title,
         String description,
@@ -60,7 +68,7 @@ public record UpsertRecruitingApplicationFormGraphQlRequest(
 
         private UpsertRecruitingApplicationFormCommand.QuestionEntry toCommand() {
             return UpsertRecruitingApplicationFormCommand.QuestionEntry.builder()
-                .questionId(questionId)
+                .questionId(questionId == null ? null : GlobalId.decodeLong(questionId, GlobalIdTypes.FORM_QUESTION))
                 .type(type)
                 .title(title)
                 .description(description)
@@ -71,7 +79,7 @@ public record UpsertRecruitingApplicationFormGraphQlRequest(
     }
 
     public record Option(
-        Long optionId,
+        String optionId,
         String content,
         boolean other,
         String nextSectionKey
@@ -79,7 +87,7 @@ public record UpsertRecruitingApplicationFormGraphQlRequest(
 
         private UpsertRecruitingApplicationFormCommand.OptionEntry toCommand() {
             return UpsertRecruitingApplicationFormCommand.OptionEntry.builder()
-                .optionId(optionId)
+                .optionId(optionId == null ? null : GlobalId.decodeLong(optionId, GlobalIdTypes.FORM_OPTION))
                 .content(content)
                 .other(other)
                 .nextSectionKey(nextSectionKey)

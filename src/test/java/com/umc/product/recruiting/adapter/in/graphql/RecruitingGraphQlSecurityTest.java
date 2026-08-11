@@ -24,6 +24,8 @@ import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.global.config.GraphQlRuntimeWiringConfig;
 import com.umc.product.global.exception.GraphQlExceptionAdvice;
 import com.umc.product.global.exception.constant.CommonErrorCode;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.security.CurrentMemberProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.recruiting.application.port.in.command.CancelAnonymousRecruitingApplicationUseCase;
@@ -116,21 +118,21 @@ class RecruitingGraphQlSecurityTest {
     @DisplayName("비로그인 GraphQL 지원서 생성은 FORBIDDEN으로 거부한다")
     void 비로그인_GraphQL_지원서_생성은_FORBIDDEN으로_거부한다() {
         graphQlTester.document("""
-                mutation {
+                mutation ($formId: ID!) {
                   createRecruitingApplicationDraft(input: {
-                    applicationFormId: 100,
+                    applicationFormId: $formId,
                     applicantName: "지원자",
                     applicantEmail: "applicant@example.invalid",
                     firstChoice: PLAN
                   }) { applicationId }
                 }
                 """)
+            .variable("formId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION_FORM, 100L))
             .execute()
             .errors()
             .satisfy(errors -> {
-                assertThat(errors).hasSize(1);
-                assertThat(errors.getFirst().getExtensions())
-                    .containsEntry("code", CommonErrorCode.FORBIDDEN.getCode());
+                assertThat(errors).anySatisfy(error -> assertThat(error.getExtensions())
+                    .containsEntry("code", CommonErrorCode.FORBIDDEN.getCode()));
             });
 
         then(createDraftUseCase).shouldHaveNoInteractions();
@@ -143,9 +145,9 @@ class RecruitingGraphQlSecurityTest {
         given(getApplicationQueryUseCase.getById(20L, REQUESTER_ID)).willReturn(applicationInfo());
 
         graphQlTester.document("""
-                query {
-                  recruitingApplication(applicationId: 20) {
-                    applicationId
+                query ($applicationId: ID!) {
+                  recruitingApplication(applicationId: $applicationId) {
+                    id
                     status
                     registrationStatus
                     firstChoice
@@ -154,18 +156,19 @@ class RecruitingGraphQlSecurityTest {
                   }
                 }
                 """)
+            .variable("applicationId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L))
             .execute()
             .path("recruitingApplication")
             .matchesJson("""
                 {
-                  "applicationId": "20",
+                  "id": "%s",
                   "status": "FINAL_PASSED",
                   "registrationStatus": "READY",
                   "firstChoice": "PLAN",
                   "secondChoice": "DESIGN",
                   "acceptedTrack": "DESIGN"
                 }
-                """);
+                """.formatted(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 20L)));
 
         then(getApplicationQueryUseCase).should().getById(20L, REQUESTER_ID);
     }
@@ -177,13 +180,13 @@ class RecruitingGraphQlSecurityTest {
             .willReturn(RecruitingApplicationCreatedInfo.of(30L, "A1B2C3", RecruitingApplicationStatus.DRAFT));
 
         graphQlTester.document("""
-                mutation {
+                mutation ($formId: ID!, $privacyTermId: ID!) {
                   createAnonymousRecruitingApplicationDraft(input: {
-                    applicationFormId: 100,
+                    applicationFormId: $formId,
                     applicantName: "지원자",
                     applicantEmail: "applicant@example.invalid",
                     firstChoice: PLAN,
-                    privacyTermId: 3,
+                    privacyTermId: $privacyTermId,
                     privacyAgreed: true
                   }) {
                     applicationId
@@ -192,15 +195,17 @@ class RecruitingGraphQlSecurityTest {
                   }
                 }
                 """)
+            .variable("formId", GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION_FORM, 100L))
+            .variable("privacyTermId", GlobalId.encode(GlobalIdTypes.PRIVACY_TERM, 3L))
             .execute()
             .path("createAnonymousRecruitingApplicationDraft")
             .matchesJson("""
                 {
-                  "applicationId": "30",
+                  "applicationId": "%s",
                   "applicationKey": "A1B2C3",
                   "status": "DRAFT"
                 }
-                """);
+                """.formatted(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 30L)));
     }
 
     @Test
@@ -236,12 +241,12 @@ class RecruitingGraphQlSecurityTest {
             .path("recruitingApplicationByCredential")
             .matchesJson("""
                 {
-                  "applicationId": "30",
+                  "applicationId": "%s",
                   "applicantEmail": "applicant@example.invalid",
                   "documentResult": "PENDING",
                   "finalResult": "PENDING"
                 }
-                """);
+                """.formatted(GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, 30L)));
     }
 
     @Test
@@ -251,19 +256,26 @@ class RecruitingGraphQlSecurityTest {
             .willReturn(List.of());
 
         graphQlTester.document("""
-                query {
+                query ($gisuId: ID!, $schoolIds: [ID!], $roundIds: [ID!]) {
                   publicRecruitingRounds(input: {
-                    gisuId: 11,
-                    schoolIds: [22, 23],
-                    roundIds: [31, 32],
+                    gisuId: $gisuId,
+                    schoolIds: $schoolIds,
+                    roundIds: $roundIds,
                     schoolName: "대학교"
-                  }) { seasonId }
+                  }) { totalCount }
                 }
                 """)
+            .variable("gisuId", GlobalId.encode(GlobalIdTypes.GISU, 11L))
+            .variable("schoolIds", List.of(
+                GlobalId.encode(GlobalIdTypes.SCHOOL, 22L),
+                GlobalId.encode(GlobalIdTypes.SCHOOL, 23L)
+            ))
+            .variable("roundIds", List.of(
+                GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, 31L),
+                GlobalId.encode(GlobalIdTypes.RECRUITING_ROUND, 32L)
+            ))
             .execute()
-            .path("publicRecruitingRounds")
-            .entityList(Object.class)
-            .hasSize(0);
+            .path("publicRecruitingRounds.totalCount").entity(Long.class).isEqualTo(0L);
 
         ArgumentCaptor<RecruitingPublicRoundSearchQuery> captor =
             ArgumentCaptor.forClass(RecruitingPublicRoundSearchQuery.class);

@@ -219,7 +219,7 @@ public class ProjectQueryRepository {
      */
     private OrderSpecifier<?>[] toOrderSpecifiers(Sort sort) {
         if (sort == null || sort.isUnsorted()) {
-            return new OrderSpecifier<?>[]{project.createdAt.asc(), project.name.asc()};
+            return new OrderSpecifier<?>[]{project.createdAt.asc(), project.name.asc(), project.id.asc()};
         }
         PathBuilder<Project> path = new PathBuilder<>(Project.class, project.getMetadata());
         List<OrderSpecifier<?>> specifiers = new ArrayList<>();
@@ -227,6 +227,7 @@ public class ProjectQueryRepository {
             Order direction = order.isAscending() ? Order.ASC : Order.DESC;
             specifiers.add(new OrderSpecifier<>(direction, path.getComparable(order.getProperty(), Comparable.class)));
         }
+        specifiers.add(project.id.asc());
         return specifiers.toArray(new OrderSpecifier<?>[0]);
     }
 }

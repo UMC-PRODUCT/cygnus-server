@@ -12,13 +12,16 @@ import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
+import com.umc.product.global.graphql.relay.ConnectionArguments;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
+import com.umc.product.global.graphql.relay.RelayConnection;
 import com.umc.product.organization.adapter.in.graphql.dto.ChapterGraphQlResponse;
 import com.umc.product.organization.adapter.in.graphql.dto.ChapterSchoolGraphQlResponse;
 import com.umc.product.organization.adapter.in.graphql.dto.GisuChapterGraphQlResponse;
+import com.umc.product.organization.adapter.in.graphql.dto.GisuFilterGraphQlRequest;
 import com.umc.product.organization.adapter.in.graphql.dto.GisuGraphQlResponse;
-import com.umc.product.organization.adapter.in.graphql.dto.GisuOrganizationGraphQlRequest;
-import com.umc.product.organization.adapter.in.graphql.dto.GisuOrganizationPayloadGraphQlResponse;
-import com.umc.product.organization.adapter.in.graphql.dto.SchoolDetailGraphQlResponse;
+import com.umc.product.organization.adapter.in.graphql.dto.SchoolGraphQlResponse;
 import com.umc.product.organization.adapter.in.graphql.dto.SchoolNameGraphQlResponse;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuOrganizationUseCase;
@@ -40,17 +43,25 @@ public class OrganizationGraphQlController {
     private final GetSchoolUseCase getSchoolUseCase;
 
     @QueryMapping
-    public GisuOrganizationPayloadGraphQlResponse gisuOrganizations(
-        @Argument GisuOrganizationGraphQlRequest input
+    public RelayConnection<GisuGraphQlResponse> gisus(
+        @Argument GisuFilterGraphQlRequest filter,
+        @Argument Integer first,
+        @Argument String after,
+        @Argument Integer last,
+        @Argument String before
     ) {
-        return GisuOrganizationPayloadGraphQlResponse.from(
-            getGisuOrganizationUseCase.get(input.toQuery())
+        ConnectionArguments arguments = ConnectionArguments.of(first, after, last, before);
+        GisuFilterGraphQlRequest effectiveFilter = filter == null ? GisuFilterGraphQlRequest.empty() : filter;
+        return RelayConnection.fromList(
+            getGisuOrganizationUseCase.get(effectiveFilter.toQuery()),
+            arguments,
+            GisuGraphQlResponse::from
         );
     }
 
     @QueryMapping
-    public GisuGraphQlResponse gisu(@Argument Long id) {
-        return GisuGraphQlResponse.from(getGisuUseCase.getById(id));
+    public GisuGraphQlResponse gisu(@Argument String id) {
+        return GisuGraphQlResponse.from(getGisuUseCase.getById(GlobalId.decodeLong(id, GlobalIdTypes.GISU)));
     }
 
     @QueryMapping
@@ -59,27 +70,47 @@ public class OrganizationGraphQlController {
     }
 
     @QueryMapping
-    public List<ChapterGraphQlResponse> chapters() {
-        return getChapterUseCase.getAllChapters().stream()
-            .map(ChapterGraphQlResponse::from)
-            .toList();
+    public RelayConnection<ChapterGraphQlResponse> chapters(
+        @Argument Integer first,
+        @Argument String after,
+        @Argument Integer last,
+        @Argument String before
+    ) {
+        ConnectionArguments arguments = ConnectionArguments.of(first, after, last, before);
+        return RelayConnection.fromList(
+            getChapterUseCase.getAllChapters(),
+            arguments,
+            ChapterGraphQlResponse::from
+        );
     }
 
     @QueryMapping
-    public ChapterGraphQlResponse chapter(@Argument Long id) {
-        return ChapterGraphQlResponse.from(getChapterUseCase.getChapterById(id));
+    public ChapterGraphQlResponse chapter(@Argument String id) {
+        return ChapterGraphQlResponse.from(
+            getChapterUseCase.getChapterById(GlobalId.decodeLong(id, GlobalIdTypes.CHAPTER))
+        );
     }
 
     @QueryMapping
-    public List<SchoolNameGraphQlResponse> schools() {
-        return getSchoolUseCase.getAllSchoolNames().stream()
-            .map(SchoolNameGraphQlResponse::from)
-            .toList();
+    public RelayConnection<SchoolNameGraphQlResponse> schools(
+        @Argument Integer first,
+        @Argument String after,
+        @Argument Integer last,
+        @Argument String before
+    ) {
+        ConnectionArguments arguments = ConnectionArguments.of(first, after, last, before);
+        return RelayConnection.fromList(
+            getSchoolUseCase.getAllSchoolNames(),
+            arguments,
+            SchoolNameGraphQlResponse::from
+        );
     }
 
     @QueryMapping
-    public SchoolDetailGraphQlResponse school(@Argument Long id) {
-        return SchoolDetailGraphQlResponse.from(getSchoolUseCase.getSchoolDetail(id));
+    public SchoolGraphQlResponse school(@Argument String id) {
+        return SchoolGraphQlResponse.from(
+            getSchoolUseCase.getSchoolDetail(GlobalId.decodeLong(id, GlobalIdTypes.SCHOOL))
+        );
     }
 
     @BatchMapping(typeName = "Gisu", field = "chapters")
@@ -101,7 +132,7 @@ public class OrganizationGraphQlController {
     }
 
     @BatchMapping(typeName = "Gisu", field = "schools")
-    public Map<GisuGraphQlResponse, List<SchoolDetailGraphQlResponse>> schoolsByGisu(
+    public Map<GisuGraphQlResponse, List<SchoolGraphQlResponse>> schoolsByGisu(
         List<GisuGraphQlResponse> gisus
     ) {
         Set<Long> gisuIds = gisuIds(gisus);
@@ -111,7 +142,7 @@ public class OrganizationGraphQlController {
             .collect(Collectors.toMap(
                 Function.identity(),
                 gisu -> schoolsByGisuId.getOrDefault(gisu.gisuId(), List.of()).stream()
-                    .map(SchoolDetailGraphQlResponse::from)
+                    .map(SchoolGraphQlResponse::from)
                     .toList(),
                 (left, right) -> left,
                 LinkedHashMap::new
@@ -156,7 +187,7 @@ public class OrganizationGraphQlController {
         Map<Long, ChapterWithSchoolsInfo> chapterById,
         GisuChapterGraphQlResponse chapter
     ) {
-        ChapterWithSchoolsInfo chapterWithSchools = chapterById.get(chapter.chapterId());
+        ChapterWithSchoolsInfo chapterWithSchools = chapterById.get(chapter.rawChapterId());
         return chapterWithSchools == null ? List.of() : chapterWithSchools.schools();
     }
 }

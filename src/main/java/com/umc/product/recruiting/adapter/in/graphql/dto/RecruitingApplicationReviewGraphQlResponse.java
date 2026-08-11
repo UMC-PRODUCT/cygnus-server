@@ -3,15 +3,17 @@ package com.umc.product.recruiting.adapter.in.graphql.dto;
 import java.time.Instant;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingApplicationSummaryInfo;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationRegistrationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 
 public record RecruitingApplicationReviewGraphQlResponse(
-    Long applicationId,
+    String applicationId,
     String applicantName,
     String email,
-    Long applicantMemberId,
+    String applicantMemberId,
     ChallengerTrack firstChoice,
     ChallengerTrack secondChoice,
     ChallengerTrack acceptedTrack,
@@ -24,10 +26,12 @@ public record RecruitingApplicationReviewGraphQlResponse(
 
     public static RecruitingApplicationReviewGraphQlResponse from(RecruitingApplicationSummaryInfo info) {
         return new RecruitingApplicationReviewGraphQlResponse(
-            info.applicationId(),
+            GlobalId.encode(GlobalIdTypes.RECRUITING_APPLICATION, info.applicationId()),
             info.applicantName(),
             info.email(),
-            info.applicantMemberId(),
+            info.applicantMemberId() == null
+                ? null
+                : GlobalId.encode(GlobalIdTypes.MEMBER, info.applicantMemberId()),
             info.firstChoice(),
             info.secondChoice(),
             info.acceptedTrack(),

@@ -2,11 +2,17 @@ package com.umc.product.member.adapter.in.graphql.dto;
 
 import java.util.List;
 
+import com.umc.product.global.graphql.relay.GlobalId;
+import com.umc.product.global.graphql.relay.GlobalIdTypes;
 import com.umc.product.global.util.EmailMasker;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberItemV2Info;
 
+/**
+ * 스키마 {@code MemberSearchResult} 타입 응답. Node가 아니며 memberId는 Member 전역 ID로 인코딩한다.
+ * rawMemberId/schoolId는 배치 로딩용 raw ID로 스키마에 노출하지 않는다.
+ */
 public record MemberSearchResultGraphQlResponse(
-    Long memberId,
+    Long rawMemberId,
     String name,
     String nickname,
     String email,
@@ -33,6 +39,10 @@ public record MemberSearchResultGraphQlResponse(
                 .map(MemberSearchChallengerGraphQlResponse::from)
                 .toList()
         );
+    }
+
+    public String memberId() {
+        return GlobalId.encode(GlobalIdTypes.MEMBER, rawMemberId);
     }
 
     private static String maskEmail(String email) {
