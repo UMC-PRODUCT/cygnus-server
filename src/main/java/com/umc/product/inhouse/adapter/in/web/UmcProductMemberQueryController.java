@@ -38,13 +38,13 @@ public class UmcProductMemberQueryController {
     @Operation(
         operationId = "UMC-PRODUCT-MEMBER-101",
         summary = "UMC PRODUCT 멤버 검색",
-        description = "Chapter, Product Leadership, 포지션, Squad, 활동 기준일로 멤버를 페이지 조회합니다."
+        description = "Chapter, Product Leadership, 포지션, Department, 활동 기준일로 멤버를 페이지 조회합니다."
     )
     public UmcProductMemberPageResponse search(
         @RequestParam(required = false) Long chapterId,
         @RequestParam(required = false) UmcProductLeadershipRole leadershipRole,
         @RequestParam(required = false) UmcProductPosition position,
-        @RequestParam(required = false) Long squadId,
+        @RequestParam(required = false) Long departmentId,
         @RequestParam(required = false)
         @DateTimeFormat(pattern = "uuuu-MM-dd")
         @Parameter(schema = @Schema(type = "string", format = "date", example = "2026-07-13"))
@@ -55,7 +55,7 @@ public class UmcProductMemberQueryController {
             chapterId,
             leadershipRole,
             position,
-            squadId,
+            departmentId,
             activeOn
         );
         PageResponse<UmcProductMemberResponse> pageResponse = PageResponse.of(
@@ -69,7 +69,7 @@ public class UmcProductMemberQueryController {
     @Operation(
         operationId = "UMC-PRODUCT-MEMBER-102",
         summary = "UMC PRODUCT 멤버 상세 조회",
-        description = "멤버 기본 정보와 활동 기간, Chapter 소속, Product Leadership, Squad 참여 이력을 반환합니다."
+        description = "멤버 기본 정보와 활동 기간, Chapter 소속, Product Leadership, Department 참여 이력을 반환합니다."
     )
     public UmcProductMemberResponse get(@PathVariable Long memberId) {
         return UmcProductMemberResponse.from(getUmcProductMemberUseCase.getById(memberId));

@@ -90,7 +90,7 @@ class UmcProductRequestContractTest {
             4
         );
         assertStrictActiveOn(
-            UmcProductSquadQueryController.class.getDeclaredMethod(
+            UmcProductDepartmentQueryController.class.getDeclaredMethod(
                 "list", Boolean.class, LocalDate.class
             ),
             1

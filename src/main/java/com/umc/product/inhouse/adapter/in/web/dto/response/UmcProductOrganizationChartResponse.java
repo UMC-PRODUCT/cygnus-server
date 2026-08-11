@@ -6,12 +6,12 @@ import com.umc.product.inhouse.application.port.in.query.dto.UmcProductOrganizat
 
 public record UmcProductOrganizationChartResponse(
     List<UmcProductChapterResponse> chapters,
-    List<UmcProductSquadResponse> squads
+    List<UmcProductDepartmentResponse> departments
 ) {
     public static UmcProductOrganizationChartResponse from(UmcProductOrganizationChartInfo info) {
         return new UmcProductOrganizationChartResponse(
             info.chapters().stream().map(UmcProductChapterResponse::from).toList(),
-            info.squads().stream().map(UmcProductSquadResponse::from).toList()
+            info.departments().stream().map(UmcProductDepartmentResponse::from).toList()
         );
     }
 }

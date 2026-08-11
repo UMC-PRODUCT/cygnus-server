@@ -18,7 +18,7 @@ public record UmcProductMemberResponse(
     List<UmcProductMemberActivityPeriodResponse> activityPeriods,
     List<UmcProductChapterMembershipResponse> chapterMemberships,
     List<UmcProductLeadershipResponse> productLeaderships,
-    List<UmcProductSquadParticipationResponse> squadParticipations
+    List<UmcProductDepartmentParticipationResponse> departmentParticipations
 ) {
     public static UmcProductMemberResponse from(UmcProductMemberInfo info) {
         return new UmcProductMemberResponse(
@@ -35,7 +35,7 @@ public record UmcProductMemberResponse(
             info.activityPeriods().stream().map(UmcProductMemberActivityPeriodResponse::from).toList(),
             info.chapterMemberships().stream().map(UmcProductChapterMembershipResponse::from).toList(),
             info.productLeaderships().stream().map(UmcProductLeadershipResponse::from).toList(),
-            info.squadParticipations().stream().map(UmcProductSquadParticipationResponse::from).toList()
+            info.departmentParticipations().stream().map(UmcProductDepartmentParticipationResponse::from).toList()
         );
     }
 }

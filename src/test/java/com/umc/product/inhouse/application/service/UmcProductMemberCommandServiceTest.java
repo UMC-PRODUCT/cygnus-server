@@ -24,16 +24,16 @@ import com.umc.product.inhouse.application.port.in.command.dto.UmcProductActivit
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
+import com.umc.product.inhouse.application.port.out.command.SaveUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeadershipPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberPort;
-import com.umc.product.inhouse.application.port.out.command.SaveUmcProductSquadParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
-import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadParticipantPort;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
@@ -64,9 +64,9 @@ class UmcProductMemberCommandServiceTest {
     @Mock
     SaveUmcProductLeadershipPort saveUmcProductLeadershipPort;
     @Mock
-    LoadUmcProductSquadParticipantPort loadUmcProductSquadParticipantPort;
+    LoadUmcProductDepartmentParticipantPort loadUmcProductDepartmentParticipantPort;
     @Mock
-    SaveUmcProductSquadParticipantPort saveUmcProductSquadParticipantPort;
+    SaveUmcProductDepartmentParticipantPort saveUmcProductDepartmentParticipantPort;
     @Mock
     GetMemberUseCase getMemberUseCase;
     @Mock

@@ -11,24 +11,24 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductChapterInfo;
+import com.umc.product.inhouse.application.port.in.query.dto.UmcProductDepartmentInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductOrganizationChartInfo;
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductSquadInfo;
 import com.umc.product.support.DocumentationTest;
 
 class UmcProductOrganizationChartQueryControllerDocumentationTest extends DocumentationTest {
 
     @Test
-    @DisplayName("현재 UMC PRODUCT Chapter와 Squad를 조회한다")
+    @DisplayName("현재 UMC PRODUCT Chapter와 Department를 조회한다")
     void 현재_UMC_PRODUCT_조직도를_조회한다() throws Exception {
         // given
         UmcProductChapterInfo chapter = new UmcProductChapterInfo(
             10L, "DEV", "Development", "개발 Chapter", 1, true
         );
-        UmcProductSquadInfo squad = new UmcProductSquadInfo(
+        UmcProductDepartmentInfo department = new UmcProductDepartmentInfo(
             70L,
             "SPRINT",
-            "Sprint Squad",
-            "제품 개선 Squad",
+            "Sprint Department",
+            "제품 개선 Department",
             LocalDate.of(2026, 7, 13),
             LocalDate.of(2026, 12, 31),
             1,
@@ -37,7 +37,7 @@ class UmcProductOrganizationChartQueryControllerDocumentationTest extends Docume
         given(getUmcProductOrganizationChartUseCase.getCurrent()).willReturn(
             new UmcProductOrganizationChartInfo(
                 List.of(chapter),
-                List.of(squad)
+                List.of(department)
             )
         );
 

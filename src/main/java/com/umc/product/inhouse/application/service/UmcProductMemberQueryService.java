@@ -20,23 +20,23 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductMemberUseCase;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductChapterInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductChapterMembershipInfo;
+import com.umc.product.inhouse.application.port.in.query.dto.UmcProductDepartmentInfo;
+import com.umc.product.inhouse.application.port.in.query.dto.UmcProductDepartmentParticipationInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductLeadershipInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberActivityPeriodInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSearchCondition;
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductSquadInfo;
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductSquadParticipationInfo;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
-import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadParticipantPort;
-import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPort;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
+import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.inhouse.domain.UmcProductSquadParticipant;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
@@ -52,8 +52,8 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
     private final LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
     private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
-    private final LoadUmcProductSquadParticipantPort loadUmcProductSquadParticipantPort;
-    private final LoadUmcProductSquadPort loadUmcProductSquadPort;
+    private final LoadUmcProductDepartmentParticipantPort loadUmcProductDepartmentParticipantPort;
+    private final LoadUmcProductDepartmentPort loadUmcProductDepartmentPort;
     private final GetMemberUseCase getMemberUseCase;
     private final GetFileUseCase getFileUseCase;
 
@@ -61,7 +61,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
     public UmcProductMemberInfo getById(Long umcProductMemberId) {
         UmcProductMember member = loadUmcProductMemberPort.getById(umcProductMemberId);
         MemberInfo memberInfo = getMemberUseCase.findById(member.getMemberId()).orElse(null);
-        List<UmcProductSquadParticipant> squadParticipations = loadUmcProductSquadParticipantPort
+        List<UmcProductDepartmentParticipant> departmentParticipations = loadUmcProductDepartmentParticipantPort
             .listByUmcProductMemberId(umcProductMemberId);
         Map<String, String> productProfileLinks = resolveProductProfileLinks(List.of(member));
         return toInfo(
@@ -70,8 +70,8 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             loadUmcProductMemberActivityPeriodPort.listByUmcProductMemberId(umcProductMemberId),
             loadUmcProductChapterMembershipPort.listByUmcProductMemberId(umcProductMemberId),
             loadUmcProductLeadershipPort.listByUmcProductMemberId(umcProductMemberId),
-            squadParticipations,
-            squadMapOf(squadParticipations),
+            departmentParticipations,
+            departmentMapOf(departmentParticipations),
             productProfileLinkOf(productProfileLinks, member),
             null
         );
@@ -92,7 +92,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         List<UmcProductChapterMembership> memberships = loadUmcProductChapterMembershipPort
             .listByUmcProductMemberIds(ids);
         List<UmcProductLeadership> leaderships = loadUmcProductLeadershipPort.listByUmcProductMemberIds(ids);
-        List<UmcProductSquadParticipant> squadParticipations = loadUmcProductSquadParticipantPort
+        List<UmcProductDepartmentParticipant> departmentParticipations = loadUmcProductDepartmentParticipantPort
             .listByUmcProductMemberIds(ids);
 
         Map<Long, List<UmcProductMemberActivityPeriod>> periodsByMember = periods.stream()
@@ -101,9 +101,9 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
             .collect(Collectors.groupingBy(item -> item.getMemberActivityPeriod().getUmcProductMember().getId()));
         Map<Long, List<UmcProductLeadership>> leadershipsByMember = leaderships.stream()
             .collect(Collectors.groupingBy(item -> item.getMemberActivityPeriod().getUmcProductMember().getId()));
-        Map<Long, List<UmcProductSquadParticipant>> squadsByMember = squadParticipations.stream()
+        Map<Long, List<UmcProductDepartmentParticipant>> departmentsByMember = departmentParticipations.stream()
             .collect(Collectors.groupingBy(item -> item.getMemberActivityPeriod().getUmcProductMember().getId()));
-        Map<Long, UmcProductSquadInfo> squadMap = squadMapOf(squadParticipations);
+        Map<Long, UmcProductDepartmentInfo> departmentMap = departmentMapOf(departmentParticipations);
         Map<Long, MemberInfo> memberInfoMap = resolveMemberInfos(memberMap.values());
         Map<String, String> productProfileLinks = resolveProductProfileLinks(memberMap.values());
 
@@ -116,8 +116,8 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
                 periodsByMember.getOrDefault(member.getId(), List.of()),
                 membershipsByMember.getOrDefault(member.getId(), List.of()),
                 leadershipsByMember.getOrDefault(member.getId(), List.of()),
-                squadsByMember.getOrDefault(member.getId(), List.of()),
-                squadMap,
+                departmentsByMember.getOrDefault(member.getId(), List.of()),
+                departmentMap,
                 productProfileLinkOf(productProfileLinks, member),
                 condition.activeOn()
             ))
@@ -131,8 +131,8 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         List<UmcProductMemberActivityPeriod> periods,
         List<UmcProductChapterMembership> memberships,
         List<UmcProductLeadership> leaderships,
-        List<UmcProductSquadParticipant> squadParticipations,
-        Map<Long, UmcProductSquadInfo> squadMap,
+        List<UmcProductDepartmentParticipant> departmentParticipations,
+        Map<Long, UmcProductDepartmentInfo> departmentMap,
         String umcProductProfileImageUrl,
         LocalDate activeOn
     ) {
@@ -165,10 +165,10 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
                 .sorted(historyComparator())
                 .map(UmcProductLeadershipInfo::from)
                 .toList(),
-            squadParticipations.stream()
+            departmentParticipations.stream()
                 .filter(item -> activeOn == null || item.isActiveOn(activeOn))
                 .sorted(historyComparator())
-                .map(item -> UmcProductSquadParticipationInfo.from(item, squadMap.get(item.getSquad().getId())))
+                .map(item -> UmcProductDepartmentParticipationInfo.from(item, departmentMap.get(item.getDepartment().getId())))
                 .toList()
         );
     }
@@ -195,7 +195,7 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         if (value instanceof UmcProductLeadership leadership) {
             return leadership.getStartDate();
         }
-        return ((UmcProductSquadParticipant) value).getStartDate();
+        return ((UmcProductDepartmentParticipant) value).getStartDate();
     }
 
     private Long idOf(Object value) {
@@ -208,19 +208,19 @@ public class UmcProductMemberQueryService implements GetUmcProductMemberUseCase 
         if (value instanceof UmcProductLeadership leadership) {
             return leadership.getId();
         }
-        return ((UmcProductSquadParticipant) value).getId();
+        return ((UmcProductDepartmentParticipant) value).getId();
     }
 
-    private Map<Long, UmcProductSquadInfo> squadMapOf(List<UmcProductSquadParticipant> participations) {
-        Set<Long> squadIds = participations.stream()
-            .map(participation -> participation.getSquad().getId())
+    private Map<Long, UmcProductDepartmentInfo> departmentMapOf(List<UmcProductDepartmentParticipant> participations) {
+        Set<Long> departmentIds = participations.stream()
+            .map(participation -> participation.getDepartment().getId())
             .collect(Collectors.toSet());
-        if (squadIds.isEmpty()) {
+        if (departmentIds.isEmpty()) {
             return Map.of();
         }
-        return loadUmcProductSquadPort.listByIds(squadIds).stream()
-            .map(UmcProductSquadInfo::from)
-            .collect(Collectors.toMap(UmcProductSquadInfo::squadId, Function.identity()));
+        return loadUmcProductDepartmentPort.listByIds(departmentIds).stream()
+            .map(UmcProductDepartmentInfo::from)
+            .collect(Collectors.toMap(UmcProductDepartmentInfo::departmentId, Function.identity()));
     }
 
     private Map<Long, MemberInfo> resolveMemberInfos(Collection<UmcProductMember> members) {

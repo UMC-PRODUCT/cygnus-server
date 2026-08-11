@@ -116,12 +116,12 @@ class AuditCoveragePolicyTest {
             spec("inhouse.application.service.UmcProductMemberCommandService", "createLeadership", "INHOUSE", "CREATE", "UmcProductLeadership", type("inhouse.application.port.in.command.dto.CreateUmcProductLeadershipCommand")),
             spec("inhouse.application.service.UmcProductMemberCommandService", "updateLeadership", "INHOUSE", "UPDATE", "UmcProductLeadership", type("inhouse.application.port.in.command.dto.UpdateUmcProductLeadershipCommand")),
             spec("inhouse.application.service.UmcProductMemberCommandService", "deleteLeadership", "INHOUSE", "DELETE", "UmcProductLeadership", longType, longType, longType),
-            spec("inhouse.application.service.UmcProductSquadCommandService", "create", "INHOUSE", "CREATE", "UmcProductSquad", type("inhouse.application.port.in.command.dto.CreateUmcProductSquadCommand")),
-            spec("inhouse.application.service.UmcProductSquadCommandService", "update", "INHOUSE", "UPDATE", "UmcProductSquad", type("inhouse.application.port.in.command.dto.UpdateUmcProductSquadCommand")),
-            spec("inhouse.application.service.UmcProductSquadCommandService", "delete", "INHOUSE", "DELETE", "UmcProductSquad", longType, longType),
-            spec("inhouse.application.service.UmcProductSquadCommandService", "createParticipant", "INHOUSE", "CREATE", "UmcProductSquadParticipant", type("inhouse.application.port.in.command.dto.CreateUmcProductSquadParticipantCommand")),
-            spec("inhouse.application.service.UmcProductSquadCommandService", "updateParticipant", "INHOUSE", "UPDATE", "UmcProductSquadParticipant", type("inhouse.application.port.in.command.dto.UpdateUmcProductSquadParticipantCommand")),
-            spec("inhouse.application.service.UmcProductSquadCommandService", "deleteParticipant", "INHOUSE", "DELETE", "UmcProductSquadParticipant", longType, longType, longType),
+            spec("inhouse.application.service.UmcProductDepartmentCommandService", "create", "INHOUSE", "CREATE", "UmcProductDepartment", type("inhouse.application.port.in.command.dto.CreateUmcProductDepartmentCommand")),
+            spec("inhouse.application.service.UmcProductDepartmentCommandService", "update", "INHOUSE", "UPDATE", "UmcProductDepartment", type("inhouse.application.port.in.command.dto.UpdateUmcProductDepartmentCommand")),
+            spec("inhouse.application.service.UmcProductDepartmentCommandService", "delete", "INHOUSE", "DELETE", "UmcProductDepartment", longType, longType),
+            spec("inhouse.application.service.UmcProductDepartmentCommandService", "createParticipant", "INHOUSE", "CREATE", "UmcProductDepartmentParticipant", type("inhouse.application.port.in.command.dto.CreateUmcProductDepartmentParticipantCommand")),
+            spec("inhouse.application.service.UmcProductDepartmentCommandService", "updateParticipant", "INHOUSE", "UPDATE", "UmcProductDepartmentParticipant", type("inhouse.application.port.in.command.dto.UpdateUmcProductDepartmentParticipantCommand")),
+            spec("inhouse.application.service.UmcProductDepartmentCommandService", "deleteParticipant", "INHOUSE", "DELETE", "UmcProductDepartmentParticipant", longType, longType, longType),
 
             spec("challenger.application.service.ChallengerRecordCommandService", "consumeCode", "CHALLENGER", "CHECK", "ChallengerRecord", type("challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand")),
 

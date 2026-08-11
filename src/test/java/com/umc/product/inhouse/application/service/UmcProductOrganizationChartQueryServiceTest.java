@@ -17,9 +17,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductOrganizationChartInfo;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
-import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
-import com.umc.product.inhouse.domain.UmcProductSquad;
+import com.umc.product.inhouse.domain.UmcProductDepartment;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("UMC PRODUCT 조직도 조회 서비스")
@@ -28,7 +28,7 @@ class UmcProductOrganizationChartQueryServiceTest {
     @Mock
     LoadUmcProductChapterPort loadUmcProductChapterPort;
     @Mock
-    LoadUmcProductSquadPort loadUmcProductSquadPort;
+    LoadUmcProductDepartmentPort loadUmcProductDepartmentPort;
     @Mock
     UmcProductDateProvider umcProductDateProvider;
 
@@ -36,26 +36,26 @@ class UmcProductOrganizationChartQueryServiceTest {
     UmcProductOrganizationChartQueryService sut;
 
     @Test
-    void KST_오늘을_기준으로_활성_Chapter와_Squad를_조회한다() {
+    void KST_오늘을_기준으로_활성_Chapter와_Department를_조회한다() {
         LocalDate today = LocalDate.of(2026, 7, 13);
         UmcProductChapter chapter = UmcProductChapter.create(
             "DEVELOP", "개발", null, 1, true
         );
         ReflectionTestUtils.setField(chapter, "id", 1L);
-        UmcProductSquad squad = UmcProductSquad.create(
+        UmcProductDepartment department = UmcProductDepartment.create(
             "RECRUIT", "모집", null, today, null, 1, true
         );
-        ReflectionTestUtils.setField(squad, "id", 3L);
+        ReflectionTestUtils.setField(department, "id", 3L);
         given(umcProductDateProvider.today()).willReturn(today);
         given(loadUmcProductChapterPort.listAll(true)).willReturn(List.of(chapter));
-        given(loadUmcProductSquadPort.listAll(true, today)).willReturn(List.of(squad));
+        given(loadUmcProductDepartmentPort.listAll(true, today)).willReturn(List.of(department));
 
         UmcProductOrganizationChartInfo result = sut.getCurrent();
 
         assertThat(result.chapters()).singleElement()
             .satisfies(chapterInfo -> assertThat(chapterInfo.chapterId()).isEqualTo(1L));
-        assertThat(result.squads()).singleElement()
-            .satisfies(squadInfo -> assertThat(squadInfo.squadId()).isEqualTo(3L));
-        then(loadUmcProductSquadPort).should().listAll(true, today);
+        assertThat(result.departments()).singleElement()
+            .satisfies(departmentInfo -> assertThat(departmentInfo.departmentId()).isEqualTo(3L));
+        then(loadUmcProductDepartmentPort).should().listAll(true, today);
     }
 }

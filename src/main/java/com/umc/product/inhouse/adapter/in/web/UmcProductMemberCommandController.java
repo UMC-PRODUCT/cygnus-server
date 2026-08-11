@@ -187,7 +187,7 @@ public class UmcProductMemberCommandController {
     @Operation(
         operationId = "UMC-PRODUCT-MEMBER-012",
         summary = "UMC PRODUCT 멤버 삭제",
-        description = "연결된 Squad 참여, Chapter 소속, Leadership, 활동 기간을 순서대로 삭제한 뒤 멤버를 삭제합니다."
+        description = "연결된 Department 참여, Chapter 소속, Leadership, 활동 기간을 순서대로 삭제한 뒤 멤버를 삭제합니다."
     )
     public void delete(
         @PathVariable Long memberId,

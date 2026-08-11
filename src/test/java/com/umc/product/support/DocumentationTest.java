@@ -18,18 +18,18 @@ import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.inhouse.adapter.in.web.UmcProductChapterCommandController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductChapterQueryController;
+import com.umc.product.inhouse.adapter.in.web.UmcProductDepartmentCommandController;
+import com.umc.product.inhouse.adapter.in.web.UmcProductDepartmentQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMemberCommandController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMemberQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductOrganizationChartQueryController;
-import com.umc.product.inhouse.adapter.in.web.UmcProductSquadCommandController;
-import com.umc.product.inhouse.adapter.in.web.UmcProductSquadQueryController;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductChapterUseCase;
+import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
-import com.umc.product.inhouse.application.port.in.command.ManageUmcProductSquadUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductChapterUseCase;
+import com.umc.product.inhouse.application.port.in.query.GetUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductMemberUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductOrganizationChartUseCase;
-import com.umc.product.inhouse.application.port.in.query.GetUmcProductSquadUseCase;
 import com.umc.product.notice.adapter.in.web.NoticeCommandController;
 import com.umc.product.notice.adapter.in.web.NoticeContentController;
 import com.umc.product.notice.adapter.in.web.NoticeQueryController;
@@ -63,8 +63,8 @@ import com.umc.product.storage.application.port.in.query.GetFileUseCase;
     UmcProductChapterQueryController.class,
     UmcProductMemberCommandController.class,
     UmcProductMemberQueryController.class,
-    UmcProductSquadCommandController.class,
-    UmcProductSquadQueryController.class,
+    UmcProductDepartmentCommandController.class,
+    UmcProductDepartmentQueryController.class,
     UmcProductOrganizationChartQueryController.class,
     NoticeCommandController.class,
     NoticeQueryController.class,
@@ -127,10 +127,10 @@ public class DocumentationTest {
     protected GetUmcProductMemberUseCase getUmcProductMemberUseCase;
 
     @MockitoBean
-    protected ManageUmcProductSquadUseCase manageUmcProductSquadUseCase;
+    protected ManageUmcProductDepartmentUseCase manageUmcProductDepartmentUseCase;
 
     @MockitoBean
-    protected GetUmcProductSquadUseCase getUmcProductSquadUseCase;
+    protected GetUmcProductDepartmentUseCase getUmcProductDepartmentUseCase;
 
     @MockitoBean
     protected GetUmcProductOrganizationChartUseCase getUmcProductOrganizationChartUseCase;

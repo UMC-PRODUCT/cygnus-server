@@ -2,7 +2,7 @@
 
 ## OVERVIEW
 
-`inhouse` models the UMC PRODUCT team org chart: 인원(`UmcProductMember`)과 로그인 계정 연동, Chapter(기능 조직), Department(목적 조직, 구 Squad), activity period, Leadership.
+`inhouse` models the UMC PRODUCT team org chart: 인원(`UmcProductMember`)과 로그인 계정 연동, Chapter(기능 조직), Department(목적 조직), activity period, Leadership.
 
 ## STRUCTURE
 

@@ -4,6 +4,6 @@ import java.util.List;
 
 public record UmcProductOrganizationChartInfo(
     List<UmcProductChapterInfo> chapters,
-    List<UmcProductSquadInfo> squads
+    List<UmcProductDepartmentInfo> departments
 ) {
 }

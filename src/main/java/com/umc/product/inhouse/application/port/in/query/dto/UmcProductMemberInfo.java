@@ -16,6 +16,6 @@ public record UmcProductMemberInfo(
     List<UmcProductMemberActivityPeriodInfo> activityPeriods,
     List<UmcProductChapterMembershipInfo> chapterMemberships,
     List<UmcProductLeadershipInfo> productLeaderships,
-    List<UmcProductSquadParticipationInfo> squadParticipations
+    List<UmcProductDepartmentParticipationInfo> departmentParticipations
 ) {
 }

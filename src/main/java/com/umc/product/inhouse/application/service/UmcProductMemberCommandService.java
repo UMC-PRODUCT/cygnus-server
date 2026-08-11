@@ -22,16 +22,16 @@ import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductL
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductChapterMembershipPort;
+import com.umc.product.inhouse.application.port.out.command.SaveUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductLeadershipPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.command.SaveUmcProductMemberPort;
-import com.umc.product.inhouse.application.port.out.command.SaveUmcProductSquadParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterMembershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
-import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadParticipantPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
@@ -61,8 +61,8 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final SaveUmcProductChapterMembershipPort saveUmcProductChapterMembershipPort;
     private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
     private final SaveUmcProductLeadershipPort saveUmcProductLeadershipPort;
-    private final LoadUmcProductSquadParticipantPort loadUmcProductSquadParticipantPort;
-    private final SaveUmcProductSquadParticipantPort saveUmcProductSquadParticipantPort;
+    private final LoadUmcProductDepartmentParticipantPort loadUmcProductDepartmentParticipantPort;
+    private final SaveUmcProductDepartmentParticipantPort saveUmcProductDepartmentParticipantPort;
     private final GetMemberUseCase getMemberUseCase;
     private final GetFileUseCase getFileUseCase;
     private final UmcProductAccessPolicy umcProductAccessPolicy;
@@ -120,7 +120,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     public void delete(Long umcProductMemberId, Long requesterMemberId) {
         validateCanManage(requesterMemberId);
         UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(umcProductMemberId);
-        saveUmcProductSquadParticipantPort.deleteAllByUmcProductMemberId(member.getId());
+        saveUmcProductDepartmentParticipantPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductChapterMembershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductLeadershipPort.deleteAllByUmcProductMemberId(member.getId());
         saveUmcProductMemberActivityPeriodPort.deleteAllByUmcProductMemberId(member.getId());
@@ -184,7 +184,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         validateOwnedBy(activityPeriod, member.getId());
         if (loadUmcProductChapterMembershipPort.existsByMemberActivityPeriodId(activityPeriodId)
             || loadUmcProductLeadershipPort.existsByMemberActivityPeriodId(activityPeriodId)
-            || loadUmcProductSquadParticipantPort.existsByMemberActivityPeriodId(activityPeriodId)) {
+            || loadUmcProductDepartmentParticipantPort.existsByMemberActivityPeriodId(activityPeriodId)) {
             throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACTIVITY_PERIOD_HAS_ASSOCIATIONS);
         }
         saveUmcProductMemberActivityPeriodPort.delete(activityPeriod);
@@ -372,7 +372,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
             || loadUmcProductLeadershipPort.listByUmcProductMemberId(memberId).stream()
             .filter(item -> Objects.equals(item.getMemberActivityPeriod().getId(), activityPeriod.getId()))
             .anyMatch(item -> !contains(startDate, endDate, item.getStartDate(), item.getEndDate()))
-            || loadUmcProductSquadParticipantPort.listByUmcProductMemberId(memberId).stream()
+            || loadUmcProductDepartmentParticipantPort.listByUmcProductMemberId(memberId).stream()
             .filter(item -> Objects.equals(item.getMemberActivityPeriod().getId(), activityPeriod.getId()))
             .anyMatch(item -> !contains(startDate, endDate, item.getStartDate(), item.getEndDate()));
         if (outOfRange) {

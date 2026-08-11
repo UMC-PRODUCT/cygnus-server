@@ -8,10 +8,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductOrganizationChartUseCase;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductChapterInfo;
+import com.umc.product.inhouse.application.port.in.query.dto.UmcProductDepartmentInfo;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductOrganizationChartInfo;
-import com.umc.product.inhouse.application.port.in.query.dto.UmcProductSquadInfo;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
-import com.umc.product.inhouse.application.port.out.query.LoadUmcProductSquadPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentPort;
 
 import lombok.RequiredArgsConstructor;
 
@@ -21,7 +21,7 @@ import lombok.RequiredArgsConstructor;
 public class UmcProductOrganizationChartQueryService implements GetUmcProductOrganizationChartUseCase {
 
     private final LoadUmcProductChapterPort loadUmcProductChapterPort;
-    private final LoadUmcProductSquadPort loadUmcProductSquadPort;
+    private final LoadUmcProductDepartmentPort loadUmcProductDepartmentPort;
     private final UmcProductDateProvider umcProductDateProvider;
 
     @Override
@@ -30,10 +30,10 @@ public class UmcProductOrganizationChartQueryService implements GetUmcProductOrg
         List<UmcProductChapterInfo> chapterInfos = loadUmcProductChapterPort.listAll(true).stream()
             .map(UmcProductChapterInfo::from)
             .toList();
-        List<UmcProductSquadInfo> squadInfos = loadUmcProductSquadPort.listAll(true, today).stream()
-            .map(UmcProductSquadInfo::from)
+        List<UmcProductDepartmentInfo> departmentInfos = loadUmcProductDepartmentPort.listAll(true, today).stream()
+            .map(UmcProductDepartmentInfo::from)
             .toList();
-        return new UmcProductOrganizationChartInfo(chapterInfos, squadInfos);
+        return new UmcProductOrganizationChartInfo(chapterInfos, departmentInfos);
     }
 
 }

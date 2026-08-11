@@ -25,7 +25,7 @@ public class UmcProductOrganizationChartQueryController {
     @Operation(
         operationId = "UMC-PRODUCT-ORGANIZATION-CHART-101",
         summary = "UMC PRODUCT 조직도 조회",
-        description = "활성 Chapter와 하위 활성 Part, KST 오늘 날짜에 유효한 Squad를 반환합니다."
+        description = "활성 Chapter와 하위 활성 Part, KST 오늘 날짜에 유효한 Department를 반환합니다."
     )
     public UmcProductOrganizationChartResponse get() {
         return UmcProductOrganizationChartResponse.from(getUmcProductOrganizationChartUseCase.getCurrent());

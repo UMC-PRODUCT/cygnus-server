@@ -16,14 +16,14 @@ import org.springframework.test.context.ActiveProfiles;
 import com.umc.product.inhouse.application.port.in.query.dto.UmcProductMemberSearchCondition;
 import com.umc.product.inhouse.domain.UmcProductChapter;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
+import com.umc.product.inhouse.domain.UmcProductDepartment;
+import com.umc.product.inhouse.domain.UmcProductDepartmentParticipant;
 import com.umc.product.inhouse.domain.UmcProductLeadership;
 import com.umc.product.inhouse.domain.UmcProductMember;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
-import com.umc.product.inhouse.domain.UmcProductSquad;
-import com.umc.product.inhouse.domain.UmcProductSquadParticipant;
+import com.umc.product.inhouse.domain.enums.UmcProductDepartmentRole;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.domain.enums.UmcProductPosition;
-import com.umc.product.inhouse.domain.enums.UmcProductSquadRole;
 import com.umc.product.inhouse.exception.InhouseDomainException;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
 import com.umc.product.support.PersistenceAdapterTest;
@@ -39,8 +39,8 @@ import jakarta.persistence.LockModeType;
     UmcProductMemberActivityPeriodPersistenceAdapter.class,
     UmcProductChapterMembershipPersistenceAdapter.class,
     UmcProductLeadershipPersistenceAdapter.class,
-    UmcProductSquadPersistenceAdapter.class,
-    UmcProductSquadParticipantPersistenceAdapter.class
+    UmcProductDepartmentPersistenceAdapter.class,
+    UmcProductDepartmentParticipantPersistenceAdapter.class
 })
 class UmcProductPersistenceAdapterTest {
 
@@ -66,10 +66,10 @@ class UmcProductPersistenceAdapterTest {
     UmcProductLeadershipPersistenceAdapter leadershipAdapter;
 
     @Autowired
-    UmcProductSquadPersistenceAdapter squadAdapter;
+    UmcProductDepartmentPersistenceAdapter departmentAdapter;
 
     @Autowired
-    UmcProductSquadParticipantPersistenceAdapter squadParticipantAdapter;
+    UmcProductDepartmentParticipantPersistenceAdapter departmentParticipantAdapter;
 
     @Test
     void 활동_기간의_LocalDate는_DATE로_그대로_왕복하고_종료일을_포함한다() {
@@ -362,46 +362,46 @@ class UmcProductPersistenceAdapterTest {
     }
 
     @Test
-    void Squad는_activeOn의_종료일을_포함하고_기간_밖의_Squad를_제외한다() {
-        UmcProductSquad current = saveSquad(
+    void Department는_activeOn의_종료일을_포함하고_기간_밖의_Department를_제외한다() {
+        UmcProductDepartment current = saveDepartment(
             "CURRENT",
             START_DATE,
             LocalDate.of(2026, 6, 30),
             2,
             true
         );
-        saveSquad("FUTURE", LocalDate.of(2026, 7, 1), null, 1, true);
-        saveSquad("INACTIVE", START_DATE, null, 3, false);
+        saveDepartment("FUTURE", LocalDate.of(2026, 7, 1), null, 1, true);
+        saveDepartment("INACTIVE", START_DATE, null, 3, false);
         em.flush();
 
-        assertThat(squadAdapter.listAll(true, LocalDate.of(2026, 6, 30)))
-            .extracting(UmcProductSquad::getId)
+        assertThat(departmentAdapter.listAll(true, LocalDate.of(2026, 6, 30)))
+            .extracting(UmcProductDepartment::getId)
             .containsExactly(current.getId());
     }
 
     @Test
-    void Squad_코드_중복은_도메인_충돌로_변환한다() {
-        saveSquad("DUPLICATED", START_DATE, END_DATE, 1, true);
+    void Department_코드_중복은_도메인_충돌로_변환한다() {
+        saveDepartment("DUPLICATED", START_DATE, END_DATE, 1, true);
 
-        assertThatThrownBy(() -> saveSquad("DUPLICATED", START_DATE, END_DATE, 2, true))
+        assertThatThrownBy(() -> saveDepartment("DUPLICATED", START_DATE, END_DATE, 2, true))
             .isInstanceOf(InhouseDomainException.class)
             .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
-                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS));
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_ALREADY_EXISTS));
     }
 
     @Test
-    void 같은_Squad의_멤버_참여와_SQUAD_LEAD_기간_중복을_조회한다() {
-        UmcProductSquad squad = saveSquad("RECRUIT", START_DATE, END_DATE, 1, true);
+    void 같은_Department의_멤버_참여와_DEPARTMENT_LEAD_기간_중복을_조회한다() {
+        UmcProductDepartment department = saveDepartment("RECRUIT", START_DATE, END_DATE, 1, true);
         UmcProductMember member = saveMember(108L);
         UmcProductMember secondMember = saveMember(112L);
         UmcProductMemberActivityPeriod period = saveActivityPeriod(member, START_DATE, END_DATE);
         UmcProductMemberActivityPeriod secondPeriod = saveActivityPeriod(
             secondMember, START_DATE, END_DATE
         );
-        squadParticipantAdapter.save(UmcProductSquadParticipant.create(
-            squad,
+        departmentParticipantAdapter.save(UmcProductDepartmentParticipant.create(
+            department,
             period,
-            UmcProductSquadRole.SQUAD_LEAD,
+            UmcProductDepartmentRole.DEPARTMENT_LEAD,
             UmcProductPosition.PRODUCT_OWNER,
             "모집 정책",
             null,
@@ -410,29 +410,29 @@ class UmcProductPersistenceAdapterTest {
         ));
         em.flush();
 
-        assertThat(squadParticipantAdapter.existsOverlappingMemberInSquad(
-            squad.getId(),
+        assertThat(departmentParticipantAdapter.existsOverlappingMemberInDepartment(
+            department.getId(),
             member.getId(),
             LocalDate.of(2026, 6, 30),
             END_DATE,
             null
         )).isTrue();
-        assertThat(squadParticipantAdapter.existsOverlappingSquadLead(
-            squad.getId(),
+        assertThat(departmentParticipantAdapter.existsOverlappingDepartmentLead(
+            department.getId(),
             LocalDate.of(2026, 6, 30),
             END_DATE,
             null
         )).isTrue();
-        assertThat(squadParticipantAdapter.listByUmcProductMemberId(member.getId()))
+        assertThat(departmentParticipantAdapter.listByUmcProductMemberId(member.getId()))
             .singleElement()
             .satisfies(participant -> {
                 assertThat(participant.getStartDate()).isEqualTo(START_DATE);
                 assertThat(participant.getEndDate()).isEqualTo(LocalDate.of(2026, 6, 30));
             });
-        assertThatThrownBy(() -> squadParticipantAdapter.save(UmcProductSquadParticipant.create(
-            squad,
+        assertThatThrownBy(() -> departmentParticipantAdapter.save(UmcProductDepartmentParticipant.create(
+            department,
             secondPeriod,
-            UmcProductSquadRole.SQUAD_LEAD,
+            UmcProductDepartmentRole.DEPARTMENT_LEAD,
             UmcProductPosition.PRODUCT_DESIGNER,
             "후임 모집 리드",
             null,
@@ -440,13 +440,13 @@ class UmcProductPersistenceAdapterTest {
             END_DATE
         ))).isInstanceOf(InhouseDomainException.class)
             .satisfies(exception -> assertThat(((InhouseDomainException) exception).getBaseCode())
-                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_SQUAD_LEAD_OVERLAPPED));
+                .isEqualTo(InhouseErrorCode.UMC_PRODUCT_DEPARTMENT_LEAD_OVERLAPPED));
     }
 
     @Test
     void 멤버의_하위_활동을_FK_안전_순서로_일괄_삭제할_수_있다() {
         UmcProductChapter chapter = saveChapter("DELETE_CHAPTER", 1, true);
-        UmcProductSquad squad = saveSquad("DELETE_SQUAD", START_DATE, END_DATE, 1, true);
+        UmcProductDepartment department = saveDepartment("DELETE_DEPARTMENT", START_DATE, END_DATE, 1, true);
         UmcProductMember member = saveMember(111L);
         UmcProductMemberActivityPeriod period = saveActivityPeriod(member, START_DATE, END_DATE);
         chapterMembershipAdapter.save(UmcProductChapterMembership.create(
@@ -464,10 +464,10 @@ class UmcProductPersistenceAdapterTest {
             START_DATE,
             END_DATE
         ));
-        squadParticipantAdapter.save(UmcProductSquadParticipant.create(
-            squad,
+        departmentParticipantAdapter.save(UmcProductDepartmentParticipant.create(
+            department,
             period,
-            UmcProductSquadRole.MEMBER,
+            UmcProductDepartmentRole.MEMBER,
             UmcProductPosition.SERVER_DEVELOPER,
             "삭제 대상",
             null,
@@ -476,7 +476,7 @@ class UmcProductPersistenceAdapterTest {
         ));
         em.flush();
 
-        squadParticipantAdapter.deleteAllByUmcProductMemberId(member.getId());
+        departmentParticipantAdapter.deleteAllByUmcProductMemberId(member.getId());
         chapterMembershipAdapter.deleteAllByUmcProductMemberId(member.getId());
         leadershipAdapter.deleteAllByUmcProductMemberId(member.getId());
         activityPeriodAdapter.deleteAllByUmcProductMemberId(member.getId());
@@ -509,16 +509,16 @@ class UmcProductPersistenceAdapterTest {
         ));
     }
 
-    private UmcProductSquad saveSquad(
+    private UmcProductDepartment saveDepartment(
         String code,
         LocalDate startDate,
         LocalDate endDate,
         int sortOrder,
         boolean active
     ) {
-        return squadAdapter.save(UmcProductSquad.create(
+        return departmentAdapter.save(UmcProductDepartment.create(
             code,
-            code + " Squad",
+            code + " Department",
             null,
             startDate,
             endDate,

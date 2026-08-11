@@ -47,7 +47,8 @@ umc-product-server/
 | Persistence | `{domain}/adapter/out/persistence` | JPA repositories plus QueryDSL query repositories |
 | Public contracts | `{domain}/application/port/in`, `{domain}/application/port/out` | UseCase and Port interfaces |
 | High-complexity project flows | `src/main/java/com/umc/product/project` | application forms, matching, statistics, permissions |
-| Organization model | `src/main/java/com/umc/product/organization` | school, chapter, gisu, study group, UMC PRODUCT org |
+| Organization model | `src/main/java/com/umc/product/organization` | school, chapter, gisu, study group |
+| Inhouse model | `src/main/java/com/umc/product/inhouse` | UMC PRODUCT member, chapter, department, leadership |
 | Test infrastructure | `src/test/java/com/umc/product/support` | Testcontainers, fixtures, REST Docs, isolation |
 | Migrations | `src/main/resources/db/migration` | `VYYYY.MM.DD.HH.MM__snake_case.sql` |
 

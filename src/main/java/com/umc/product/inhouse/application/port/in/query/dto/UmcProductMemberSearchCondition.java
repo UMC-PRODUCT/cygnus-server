@@ -9,21 +9,21 @@ public record UmcProductMemberSearchCondition(
     Long chapterId,
     UmcProductLeadershipRole leadershipRole,
     UmcProductPosition position,
-    Long squadId,
+    Long departmentId,
     LocalDate activeOn
 ) {
     public static UmcProductMemberSearchCondition of(
         Long chapterId,
         UmcProductLeadershipRole leadershipRole,
         UmcProductPosition position,
-        Long squadId,
+        Long departmentId,
         LocalDate activeOn
     ) {
         return new UmcProductMemberSearchCondition(
             chapterId,
             leadershipRole,
             position,
-            squadId,
+            departmentId,
             activeOn
         );
     }
