@@ -24,6 +24,7 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductChapte
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.request.LinkUmcProductMemberAccountRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.RegisterUmcProductMemberRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UmcProductActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductChapterMembershipRequest;
@@ -31,6 +32,7 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductLeader
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
+import com.umc.product.inhouse.application.port.in.command.dto.ResetUmcProductAccountPasswordResult;
 import com.umc.product.inhouse.domain.enums.UmcProductDepartmentRole;
 import com.umc.product.inhouse.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.inhouse.domain.enums.UmcProductPosition;
@@ -333,6 +335,65 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
             .andExpect(status().isOk())
             .andDo(restDocsHandler.document(
                 memberAndChildPathParameters("leadershipId", "Leadership ID")
+            ));
+    }
+
+    @Test
+    void UMC_PRODUCT_인원에_로그인_계정을_연동한다() throws Exception {
+        LinkUmcProductMemberAccountRequest request = new LinkUmcProductMemberAccountRequest(200L);
+        given(manageUmcProductMemberUseCase.linkAccount(any())).willReturn(7L);
+
+        mockMvc.perform(post("/api/v1/umc-product/members/{umcProductMemberId}/accounts", 30L)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isOk())
+            .andDo(restDocsHandler.document(
+                pathParameters(parameterWithName("umcProductMemberId").description("UMC PRODUCT 인원 ID")),
+                requestFields(fieldWithPath("memberId").type(JsonFieldType.STRING).description("연동할 로그인 계정 ID"))
+            ));
+    }
+
+    @Test
+    void UMC_PRODUCT_인원의_로그인_계정_연동을_해제한다() throws Exception {
+        mockMvc.perform(delete(
+                "/api/v1/umc-product/members/{umcProductMemberId}/accounts/{accountMemberId}",
+                30L,
+                200L
+            ))
+            .andExpect(status().isOk())
+            .andDo(restDocsHandler.document(pathParameters(
+                parameterWithName("umcProductMemberId").description("UMC PRODUCT 인원 ID"),
+                parameterWithName("accountMemberId").description("연동 해제할 로그인 계정 ID")
+            )));
+    }
+
+    @Test
+    void 자동_발급_계정의_임시_비밀번호를_재발급한다() throws Exception {
+        given(manageUmcProductMemberUseCase.resetAccountPassword(30L, 500L, TEST_MEMBER_ID))
+            .willReturn(new ResetUmcProductAccountPasswordResult(
+                "jeong@university.neordinary.com",
+                "NewTemp1!bbbbbbb"
+            ));
+
+        mockMvc.perform(post(
+                "/api/v1/umc-product/members/{umcProductMemberId}/accounts/{accountMemberId}/reset-password",
+                30L,
+                500L
+            ))
+            .andExpect(status().isOk())
+            .andDo(restDocsHandler.document(
+                pathParameters(
+                    parameterWithName("umcProductMemberId").description("UMC PRODUCT 인원 ID"),
+                    parameterWithName("accountMemberId").description("비밀번호를 재발급할 로그인 계정 ID")
+                ),
+                responseFields(
+                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
+                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
+                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
+                    fieldWithPath("result.email").type(JsonFieldType.STRING).description("발급 계정 이메일"),
+                    fieldWithPath("result.temporaryPassword").type(JsonFieldType.STRING)
+                        .description("응답에서 한 번만 노출되는 임시 비밀번호")
+                )
             ));
     }
 

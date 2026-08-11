@@ -9,6 +9,7 @@ import static org.mockito.Mockito.times;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
@@ -84,6 +85,20 @@ class MemberQueryServiceBatchTest {
 
         assertThat(result.get(10L)).containsExactlyInAnyOrder(1L, 2L);
         assertThat(result.get(20L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("findByEmail은 학교가 없는 내부 발급 계정도 조회한다")
+    void findByEmail은_학교가_없는_계정도_조회한다() {
+        Member member = member(3L, "정의찬", null, null);
+        given(loadMemberPort.findByEmail("jeong@university.neordinary.com"))
+            .willReturn(Optional.of(member));
+
+        assertThat(sut.findByEmail("jeong@university.neordinary.com"))
+            .get()
+            .satisfies(info -> assertThat(info.schoolName()).isNull());
+
+        then(getSchoolUseCase).shouldHaveNoInteractions();
     }
 
     private Member member(Long id, String name, Long schoolId, String profileImageId) {

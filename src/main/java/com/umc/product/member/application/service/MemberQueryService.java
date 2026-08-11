@@ -1,5 +1,15 @@
 package com.umc.product.member.application.service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.member.application.port.in.query.GetMemberProfileUseCase;
@@ -14,15 +24,8 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +40,9 @@ public class MemberQueryService implements GetMemberUseCase, GetMemberProfileUse
 
     private MemberInfo toMemberInfo(Member member) {
         // 학교명 채워넣기
-        String schoolName = getSchoolUseCase.getSchoolDetail(member.getSchoolId()).schoolName();
+        String schoolName = member.getSchoolId() == null
+            ? null
+            : getSchoolUseCase.getSchoolDetail(member.getSchoolId()).schoolName();
 
         // 프로필 이미지 링크 채워넣기
         String profileImageId = member.getProfileImageId();
@@ -71,6 +76,12 @@ public class MemberQueryService implements GetMemberUseCase, GetMemberProfileUse
     @Override
     public Optional<MemberInfo> findById(Long memberId) {
         return loadMemberPort.findById(memberId)
+            .map(this::toMemberInfo);
+    }
+
+    @Override
+    public Optional<MemberInfo> findByEmail(String email) {
+        return loadMemberPort.findByEmail(email)
             .map(this::toMemberInfo);
     }
 

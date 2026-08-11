@@ -4,8 +4,10 @@ import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductC
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.LinkUmcProductMemberAccountCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
+import com.umc.product.inhouse.application.port.in.command.dto.ResetUmcProductAccountPasswordResult;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductChapterMembershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
@@ -16,6 +18,16 @@ public interface ManageUmcProductMemberUseCase {
     Long create(CreateUmcProductMemberCommand command);
 
     RegisterUmcProductMemberResult register(RegisterUmcProductMemberCommand command);
+
+    Long linkAccount(LinkUmcProductMemberAccountCommand command);
+
+    void unlinkAccount(Long umcProductMemberId, Long memberId, Long requesterMemberId);
+
+    ResetUmcProductAccountPasswordResult resetAccountPassword(
+        Long umcProductMemberId,
+        Long memberId,
+        Long requesterMemberId
+    );
 
     void updateProfile(UpdateUmcProductMemberProfileCommand command);
 

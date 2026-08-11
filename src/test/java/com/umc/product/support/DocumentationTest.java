@@ -20,6 +20,7 @@ import com.umc.product.inhouse.adapter.in.web.UmcProductChapterCommandController
 import com.umc.product.inhouse.adapter.in.web.UmcProductChapterQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductDepartmentCommandController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductDepartmentQueryController;
+import com.umc.product.inhouse.adapter.in.web.UmcProductMemberAccountQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMemberCommandController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMemberQueryController;
 import com.umc.product.inhouse.adapter.in.web.UmcProductMyProfileQueryController;
@@ -29,6 +30,7 @@ import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepar
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductChapterUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductDepartmentUseCase;
+import com.umc.product.inhouse.application.port.in.query.GetUmcProductMemberAccountUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductMemberUseCase;
 import com.umc.product.inhouse.application.port.in.query.GetUmcProductOrganizationChartUseCase;
 import com.umc.product.inhouse.application.service.UmcProductAccessPolicy;
@@ -64,6 +66,7 @@ import com.umc.product.storage.application.port.in.query.GetFileUseCase;
     UmcProductChapterCommandController.class,
     UmcProductChapterQueryController.class,
     UmcProductMemberCommandController.class,
+    UmcProductMemberAccountQueryController.class,
     UmcProductMemberQueryController.class,
     UmcProductMyProfileQueryController.class,
     UmcProductDepartmentCommandController.class,
@@ -128,6 +131,9 @@ public class DocumentationTest {
 
     @MockitoBean
     protected GetUmcProductMemberUseCase getUmcProductMemberUseCase;
+
+    @MockitoBean
+    protected GetUmcProductMemberAccountUseCase getUmcProductMemberAccountUseCase;
 
     @MockitoBean
     protected UmcProductAccessPolicy umcProductAccessPolicy;

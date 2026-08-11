@@ -15,12 +15,14 @@ import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductChapte
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.CreateUmcProductMemberRequest;
+import com.umc.product.inhouse.adapter.in.web.dto.request.LinkUmcProductMemberAccountRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.RegisterUmcProductMemberRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductChapterMembershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
 import com.umc.product.inhouse.adapter.in.web.dto.response.RegisterUmcProductMemberResponse;
+import com.umc.product.inhouse.adapter.in.web.dto.response.ResetUmcProductAccountPasswordResponse;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -61,6 +63,52 @@ public class UmcProductMemberCommandController {
     ) {
         return RegisterUmcProductMemberResponse.from(
             manageUmcProductMemberUseCase.register(request.toCommand(currentMemberId(currentMember)))
+        );
+    }
+
+    @PostMapping("/{umcProductMemberId}/accounts")
+    @Operation(operationId = "UMC-PRODUCT-MEMBER-014", summary = "UMC PRODUCT 인원에 로그인 계정 연동")
+    public Long linkAccount(
+        @PathVariable Long umcProductMemberId,
+        @CurrentMember MemberPrincipal currentMember,
+        @RequestBody @Valid LinkUmcProductMemberAccountRequest request
+    ) {
+        return manageUmcProductMemberUseCase.linkAccount(
+            request.toCommand(currentMemberId(currentMember), umcProductMemberId)
+        );
+    }
+
+    @DeleteMapping("/{umcProductMemberId}/accounts/{accountMemberId}")
+    @Operation(operationId = "UMC-PRODUCT-MEMBER-015", summary = "UMC PRODUCT 인원의 로그인 계정 연동 해제")
+    public void unlinkAccount(
+        @PathVariable Long umcProductMemberId,
+        @PathVariable Long accountMemberId,
+        @CurrentMember MemberPrincipal currentMember
+    ) {
+        manageUmcProductMemberUseCase.unlinkAccount(
+            umcProductMemberId,
+            accountMemberId,
+            currentMemberId(currentMember)
+        );
+    }
+
+    @PostMapping("/{umcProductMemberId}/accounts/{accountMemberId}/reset-password")
+    @Operation(
+        operationId = "UMC-PRODUCT-MEMBER-016",
+        summary = "UMC PRODUCT 자동 발급 계정 임시 비밀번호 재발급",
+        description = "PROVISIONED 계정만 재발급할 수 있으며 임시 비밀번호는 응답에서 한 번만 노출됩니다."
+    )
+    public ResetUmcProductAccountPasswordResponse resetAccountPassword(
+        @PathVariable Long umcProductMemberId,
+        @PathVariable Long accountMemberId,
+        @CurrentMember MemberPrincipal currentMember
+    ) {
+        return ResetUmcProductAccountPasswordResponse.from(
+            manageUmcProductMemberUseCase.resetAccountPassword(
+                umcProductMemberId,
+                accountMemberId,
+                currentMemberId(currentMember)
+            )
         );
     }
 

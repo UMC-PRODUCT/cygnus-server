@@ -1,15 +1,18 @@
 package com.umc.product.member.application.port.in.query;
 
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
+
 public interface GetMemberUseCase {
     MemberInfo getById(Long memberId);
 
     Optional<MemberInfo> findById(Long memberId);
+
+    Optional<MemberInfo> findByEmail(String email);
 
     /**
      * 멤버 ID로 멤버 정보를 조회합니다. 멤버가 존재하지 않을 경우 null을 반환합니다.

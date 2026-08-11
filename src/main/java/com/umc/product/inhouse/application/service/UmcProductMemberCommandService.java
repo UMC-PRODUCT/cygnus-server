@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.authentication.application.port.in.command.CredentialAuthenticationUseCase;
+import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByMemberIdCommand;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductMemberUseCase;
@@ -18,10 +20,12 @@ import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductC
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.LinkUmcProductMemberAccountCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductChapterMembershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductLeadershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
+import com.umc.product.inhouse.application.port.in.command.dto.ResetUmcProductAccountPasswordResult;
 import com.umc.product.inhouse.application.port.in.command.dto.UmcProductActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductChapterMembershipCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
@@ -37,6 +41,7 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterM
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
 import com.umc.product.inhouse.domain.UmcProductChapter;
@@ -72,6 +77,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final LoadUmcProductMemberActivityPeriodPort loadUmcProductMemberActivityPeriodPort;
     private final SaveUmcProductMemberActivityPeriodPort saveUmcProductMemberActivityPeriodPort;
     private final SaveUmcProductMemberAccountPort saveUmcProductMemberAccountPort;
+    private final LoadUmcProductMemberAccountPort loadUmcProductMemberAccountPort;
     private final LoadUmcProductChapterPort loadUmcProductChapterPort;
     private final LoadUmcProductChapterMembershipPort loadUmcProductChapterMembershipPort;
     private final SaveUmcProductChapterMembershipPort saveUmcProductChapterMembershipPort;
@@ -83,6 +89,7 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
     private final GetFileUseCase getFileUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final ProvisionMemberUseCase provisionMemberUseCase;
+    private final CredentialAuthenticationUseCase credentialAuthenticationUseCase;
     private final ManageUmcProductDepartmentUseCase manageUmcProductDepartmentUseCase;
     private final UmcProductTempPasswordGenerator tempPasswordGenerator;
     private final UmcProductAccessPolicy umcProductAccessPolicy;
@@ -166,6 +173,68 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         command.productLeaderships().forEach(seed -> createInitialLeadership(member, seed));
 
         return new RegisterUmcProductMemberResult(member.getId(), memberId, email, temporaryPassword);
+    }
+
+    @Audited(
+        domain = Domain.INHOUSE,
+        action = AuditAction.CREATE,
+        targetType = "UmcProductMemberAccount",
+        targetId = "#result",
+        description = "'UMC PRODUCT 인원에 로그인 계정을 연동했습니다.'"
+    )
+    @Override
+    public Long linkAccount(LinkUmcProductMemberAccountCommand command) {
+        validateCanManage(command.requesterMemberId());
+        UmcProductMember member = loadUmcProductMemberPort.getByIdWithLock(command.umcProductMemberId());
+        getMemberUseCase.getById(command.memberId());
+        if (loadUmcProductMemberAccountPort.existsByMemberId(command.memberId())) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_ALREADY_LINKED);
+        }
+        return saveUmcProductMemberAccountPort.save(UmcProductMemberAccount.create(
+            member,
+            command.memberId(),
+            UmcProductMemberAccountType.LINKED
+        )).getId();
+    }
+
+    @Audited(
+        domain = Domain.INHOUSE,
+        action = AuditAction.DELETE,
+        targetType = "UmcProductMemberAccount",
+        targetId = "#memberId",
+        description = "'UMC PRODUCT 인원의 로그인 계정 연동을 해제했습니다.'"
+    )
+    @Override
+    public void unlinkAccount(Long umcProductMemberId, Long memberId, Long requesterMemberId) {
+        validateCanManage(requesterMemberId);
+        UmcProductMemberAccount account = getAccount(umcProductMemberId, memberId);
+        saveUmcProductMemberAccountPort.delete(account);
+    }
+
+    @Audited(
+        domain = Domain.INHOUSE,
+        action = AuditAction.UPDATE,
+        targetType = "UmcProductMemberAccount",
+        targetId = "#memberId",
+        description = "'UMC PRODUCT 발급 계정의 임시 비밀번호를 재발급했습니다.'"
+    )
+    @Override
+    public ResetUmcProductAccountPasswordResult resetAccountPassword(
+        Long umcProductMemberId,
+        Long memberId,
+        Long requesterMemberId
+    ) {
+        validateCanManage(requesterMemberId);
+        UmcProductMemberAccount account = getAccount(umcProductMemberId, memberId);
+        if (!account.isProvisioned()) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_NOT_RESETTABLE);
+        }
+        String temporaryPassword = tempPasswordGenerator.generate();
+        String email = getMemberUseCase.getById(memberId).email();
+        credentialAuthenticationUseCase.resetPasswordByMemberId(
+            new ResetPasswordByMemberIdCommand(memberId, temporaryPassword)
+        );
+        return new ResetUmcProductAccountPasswordResult(email, temporaryPassword);
     }
 
     @Audited(
@@ -584,6 +653,15 @@ public class UmcProductMemberCommandService implements ManageUmcProductMemberUse
         if (!Objects.equals(leadership.getMemberActivityPeriod().getUmcProductMember().getId(), memberId)) {
             throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_LEADERSHIP_NOT_FOUND);
         }
+    }
+
+    private UmcProductMemberAccount getAccount(Long umcProductMemberId, Long memberId) {
+        UmcProductMemberAccount account = loadUmcProductMemberAccountPort.findByMemberId(memberId)
+            .orElseThrow(() -> new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_NOT_FOUND));
+        if (!Objects.equals(account.getUmcProductMember().getId(), umcProductMemberId)) {
+            throw new InhouseDomainException(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_NOT_FOUND);
+        }
+        return account;
     }
 
     private void validateCanManage(Long requesterMemberId) {

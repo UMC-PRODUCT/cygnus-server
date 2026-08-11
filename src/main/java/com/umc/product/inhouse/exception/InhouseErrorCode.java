@@ -66,7 +66,9 @@ public enum InhouseErrorCode implements BaseCode {
     UMC_PRODUCT_DEPARTMENT_HAS_CHILDREN(HttpStatus.CONFLICT, "INHOUSE-0041", "하위 Department가 있어 삭제할 수 없습니다."),
     UMC_PRODUCT_ENGLISH_NICKNAME_INVALID(HttpStatus.BAD_REQUEST, "INHOUSE-0042",
         "영어 닉네임은 소문자·숫자·._- 2~30자여야 합니다."),
-    UMC_PRODUCT_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "INHOUSE-0043", "이미 사용 중인 이메일입니다.");
+    UMC_PRODUCT_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "INHOUSE-0043", "이미 사용 중인 이메일입니다."),
+    UMC_PRODUCT_ACCOUNT_NOT_RESETTABLE(HttpStatus.BAD_REQUEST, "INHOUSE-0044",
+        "발급 계정이 아니어서 임시 비밀번호를 재발급할 수 없습니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

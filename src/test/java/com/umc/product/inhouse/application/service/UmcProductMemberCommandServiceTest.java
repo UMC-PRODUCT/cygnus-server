@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -20,12 +21,17 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authentication.application.port.in.command.CredentialAuthenticationUseCase;
+import com.umc.product.authentication.application.port.in.command.dto.ResetPasswordByMemberIdCommand;
+import com.umc.product.common.domain.enums.MemberStatus;
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.inhouse.application.port.in.command.ManageUmcProductDepartmentUseCase;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.CreateUmcProductMemberCommand;
+import com.umc.product.inhouse.application.port.in.command.dto.LinkUmcProductMemberAccountCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.RegisterUmcProductMemberResult;
+import com.umc.product.inhouse.application.port.in.command.dto.ResetUmcProductAccountPasswordResult;
 import com.umc.product.inhouse.application.port.in.command.dto.UmcProductActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
 import com.umc.product.inhouse.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
@@ -39,15 +45,19 @@ import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterM
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductChapterPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductDepartmentParticipantPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberAccountPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberActivityPeriodPort;
 import com.umc.product.inhouse.application.port.out.query.LoadUmcProductMemberPort;
 import com.umc.product.inhouse.domain.UmcProductChapterMembership;
 import com.umc.product.inhouse.domain.UmcProductMember;
+import com.umc.product.inhouse.domain.UmcProductMemberAccount;
 import com.umc.product.inhouse.domain.UmcProductMemberActivityPeriod;
+import com.umc.product.inhouse.domain.enums.UmcProductMemberAccountType;
 import com.umc.product.inhouse.exception.InhouseErrorCode;
 import com.umc.product.member.application.port.in.command.ProvisionMemberUseCase;
 import com.umc.product.member.application.port.in.command.dto.ProvisionMemberCommand;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 
@@ -65,6 +75,8 @@ class UmcProductMemberCommandServiceTest {
     SaveUmcProductMemberActivityPeriodPort saveUmcProductMemberActivityPeriodPort;
     @Mock
     SaveUmcProductMemberAccountPort saveUmcProductMemberAccountPort;
+    @Mock
+    LoadUmcProductMemberAccountPort loadUmcProductMemberAccountPort;
     @Mock
     LoadUmcProductChapterPort loadUmcProductChapterPort;
     @Mock
@@ -87,6 +99,8 @@ class UmcProductMemberCommandServiceTest {
     GetMemberUseCase getMemberUseCase;
     @Mock
     ProvisionMemberUseCase provisionMemberUseCase;
+    @Mock
+    CredentialAuthenticationUseCase credentialAuthenticationUseCase;
     @Mock
     ManageUmcProductDepartmentUseCase manageUmcProductDepartmentUseCase;
     @Mock
@@ -164,6 +178,71 @@ class UmcProductMemberCommandServiceTest {
             .isEqualTo(InhouseErrorCode.UMC_PRODUCT_EMAIL_ALREADY_EXISTS);
 
         then(provisionMemberUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    void 기존_로그인_계정을_인원에_LINKED로_연동한다() {
+        UmcProductMember member = member(30L);
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+        given(loadUmcProductMemberPort.getByIdWithLock(30L)).willReturn(member);
+        given(getMemberUseCase.getById(200L)).willReturn(memberInfo(200L, "linked@example.com"));
+        given(loadUmcProductMemberAccountPort.existsByMemberId(200L)).willReturn(false);
+        given(saveUmcProductMemberAccountPort.save(any())).willAnswer(invocation -> {
+            UmcProductMemberAccount account = invocation.getArgument(0);
+            ReflectionTestUtils.setField(account, "id", 7L);
+            return account;
+        });
+
+        Long accountId = sut.linkAccount(new LinkUmcProductMemberAccountCommand(1L, 30L, 200L));
+
+        assertThat(accountId).isEqualTo(7L);
+        verify(saveUmcProductMemberAccountPort).save(argThat(account -> !account.isProvisioned()));
+    }
+
+    @Test
+    void 이미_다른_인원에_연동된_계정은_연동할_수_없다() {
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+        given(loadUmcProductMemberPort.getByIdWithLock(30L)).willReturn(member(30L));
+        given(getMemberUseCase.getById(200L)).willReturn(memberInfo(200L, "linked@example.com"));
+        given(loadUmcProductMemberAccountPort.existsByMemberId(200L)).willReturn(true);
+
+        assertThatThrownBy(() -> sut.linkAccount(new LinkUmcProductMemberAccountCommand(1L, 30L, 200L)))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_ALREADY_LINKED);
+    }
+
+    @Test
+    void 자동_발급_계정의_임시_비밀번호를_재발급한다() {
+        UmcProductMemberAccount account = account(30L, 500L, UmcProductMemberAccountType.PROVISIONED);
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+        given(loadUmcProductMemberAccountPort.findByMemberId(500L)).willReturn(Optional.of(account));
+        given(getMemberUseCase.getById(500L)).willReturn(
+            memberInfo(500L, "jeong@university.neordinary.com")
+        );
+        given(tempPasswordGenerator.generate()).willReturn("NewTemp1!bbbbbbb");
+
+        ResetUmcProductAccountPasswordResult result = sut.resetAccountPassword(30L, 500L, 1L);
+
+        assertThat(result.email()).isEqualTo("jeong@university.neordinary.com");
+        assertThat(result.temporaryPassword()).isEqualTo("NewTemp1!bbbbbbb");
+        verify(credentialAuthenticationUseCase).resetPasswordByMemberId(
+            new ResetPasswordByMemberIdCommand(500L, "NewTemp1!bbbbbbb")
+        );
+    }
+
+    @Test
+    void LINKED_계정은_임시_비밀번호를_재발급할_수_없다() {
+        UmcProductMemberAccount account = account(30L, 500L, UmcProductMemberAccountType.LINKED);
+        given(umcProductAccessPolicy.canManageUmcProduct(1L)).willReturn(true);
+        given(loadUmcProductMemberAccountPort.findByMemberId(500L)).willReturn(Optional.of(account));
+
+        assertThatThrownBy(() -> sut.resetAccountPassword(30L, 500L, 1L))
+            .isInstanceOf(BusinessException.class)
+            .extracting("baseCode")
+            .isEqualTo(InhouseErrorCode.UMC_PRODUCT_ACCOUNT_NOT_RESETTABLE);
+
+        then(credentialAuthenticationUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -319,5 +398,28 @@ class UmcProductMemberCommandServiceTest {
         UmcProductMember member = UmcProductMember.create("홍길동", "길동", null, "소개", null);
         ReflectionTestUtils.setField(member, "id", id);
         return member;
+    }
+
+    private UmcProductMemberAccount account(
+        Long umcProductMemberId,
+        Long memberId,
+        UmcProductMemberAccountType accountType
+    ) {
+        return UmcProductMemberAccount.create(member(umcProductMemberId), memberId, accountType);
+    }
+
+    private MemberInfo memberInfo(Long memberId, String email) {
+        return new MemberInfo(
+            memberId,
+            "정의찬",
+            "제옹",
+            email,
+            null,
+            null,
+            null,
+            null,
+            MemberStatus.ACTIVE,
+            List.of()
+        );
     }
 }
