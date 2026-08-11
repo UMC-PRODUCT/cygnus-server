@@ -7,8 +7,8 @@ ALTER TABLE chat_room
 
 -- Community thread 방은 스레드 상세와 동일하게 메시지 조회를 공개한다.
 -- 기존 스레드도 같은 규칙을 따라야 하므로 소유 관계를 따라 backfill 한다.
--- 오버랩 구간에 구버전이 만든 스레드 방은 MEMBER_ONLY로 남으므로, 이번 릴리스가 완전히
--- 롤아웃된 뒤 후속 migration에서 같은 backfill을 한 번 더 수행한다.
+-- 롤링 배포 오버랩 구간에 구버전이 만든 방은 MEMBER_ONLY로 남을 수 있다.
+-- 같은 조건으로 이 UPDATE를 다시 실행하면 치유되며, 멱등이라 몇 번 돌려도 안전하다.
 UPDATE chat_room
 SET read_scope = 'PUBLIC'
 WHERE id IN (SELECT chat_room_id FROM community_thread);
