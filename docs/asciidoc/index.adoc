@@ -55,6 +55,17 @@ operation::chapter-command-controller-test/신규_지부를_생성한다[snippet
 === 지부_목록을_조회합니다
 operation::chapter-query-controller-test/지부_목록을_조회합니다[snippets='http-request,http-response,response-fields']
 
+== Fcm admin
+
+=== null_part_발송_대상_거부
+operation::fcm-admin-controller-test/null_part_발송_대상_거부[snippets='http-request,http-response']
+
+=== 관리자_fcm_알림_발송_요청
+operation::fcm-admin-controller-test/관리자_fcm_알림_발송_요청[snippets='http-request,http-response']
+
+=== 빈_발송_대상_거부
+operation::fcm-admin-controller-test/빈_발송_대상_거부[snippets='http-request,http-response']
+
 == Gisu command
 
 === 기수를_삭제한다
@@ -120,6 +131,12 @@ operation::recruiting-admin-controller-test/면접_생략_api는_긴_사유를_�
 === 모집_폼_upsert_api는_전체_구조와_요청자를_전달한다
 operation::recruiting-admin-controller-test/모집_폼_upsert_api는_전체_구조와_요청자를_전달한다[snippets='http-request,http-response']
 
+=== 모집_폼_조회_api는_-form을_만들지_않은_차수에_빈_구조를_반환한다
+operation::recruiting-admin-controller-test/모집_폼_조회_api는_-form을_만들지_않은_차수에_빈_구조를_반환한다[snippets='http-request,http-response']
+
+=== 모집_폼_조회_api는_section_정책과_question_구조를_함께_반환한다
+operation::recruiting-admin-controller-test/모집_폼_조회_api는_section_정책과_question_구조를_함께_반환한다[snippets='http-request,http-response']
+
 === 상태_요약_api는_status별_count를_반환한다
 operation::recruiting-admin-controller-test/상태_요약_api는_status별_count를_반환한다[snippets='http-request,http-response']
 
@@ -138,14 +155,8 @@ operation::recruiting-admin-controller-test/평가_이력_csv_api는_attachment�
 === 평가_이력_csv_api는_빈_chapter-ids_반복_값을_거부한다
 operation::recruiting-admin-controller-test/평가_이력_csv_api는_빈_chapter-ids_반복_값을_거부한다[snippets='http-request,http-response']
 
-=== 평가_이력_csv_api는_빈_chapter-ids를_거부한다
-operation::recruiting-admin-controller-test/평가_이력_csv_api는_빈_chapter-ids를_거부한다[snippets='http-request,http-response']
-
 === 평가_이력_csv_api는_빈_school-ids_반복_값을_거부한다
 operation::recruiting-admin-controller-test/평가_이력_csv_api는_빈_school-ids_반복_값을_거부한다[snippets='http-request,http-response']
-
-=== 평가_이력_csv_api는_빈_school-ids를_거부한다
-operation::recruiting-admin-controller-test/평가_이력_csv_api는_빈_school-ids를_거부한다[snippets='http-request,http-response']
 
 === 평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다
 operation::recruiting-admin-controller-test/평가_이력_csv_api는_유효하지_않은_반복_id를_거부한다[snippets='http-request,http-response']
@@ -153,14 +164,8 @@ operation::recruiting-admin-controller-test/평가_이력_csv_api는_유효하�
 === 평가_이력_조회_api는_빈_chapter-ids_반복_값을_거부한다
 operation::recruiting-admin-controller-test/평가_이력_조회_api는_빈_chapter-ids_반복_값을_거부한다[snippets='http-request,http-response']
 
-=== 평가_이력_조회_api는_빈_chapter-ids를_거부한다
-operation::recruiting-admin-controller-test/평가_이력_조회_api는_빈_chapter-ids를_거부한다[snippets='http-request,http-response']
-
 === 평가_이력_조회_api는_빈_school-ids_반복_값을_거부한다
 operation::recruiting-admin-controller-test/평가_이력_조회_api는_빈_school-ids_반복_값을_거부한다[snippets='http-request,http-response']
-
-=== 평가_이력_조회_api는_빈_school-ids를_거부한다
-operation::recruiting-admin-controller-test/평가_이력_조회_api는_빈_school-ids를_거부한다[snippets='http-request,http-response']
 
 === 평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다
 operation::recruiting-admin-controller-test/평가_이력_조회_api는_유효하지_않은_반복_id를_거부한다[snippets='http-request,http-response']
@@ -173,11 +178,11 @@ operation::recruiting-admin-controller-test/평가_현황_집계_api는_지부_�
 
 == Recruiting application
 
-=== get-my-applications-uses-authenticated-member
-operation::recruiting-application-controller-test/get-my-applications-uses-authenticated-member[snippets='http-request,http-response']
-
 === create-draft-uses-authenticated-actor
 operation::recruiting-application-controller-test/create-draft-uses-authenticated-actor[snippets='http-request,http-response']
+
+=== get-my-applications-uses-authenticated-member
+operation::recruiting-application-controller-test/get-my-applications-uses-authenticated-member[snippets='http-request,http-response']
 
 === reject-malformed-email-when-other-create-fields-are-valid
 operation::recruiting-application-controller-test/reject-malformed-email-when-other-create-fields-are-valid[snippets='http-request,http-response']
@@ -187,6 +192,9 @@ operation::recruiting-application-controller-test/reject-non-positive-form-id-wh
 
 === reject-unauthenticated-create
 operation::recruiting-application-controller-test/reject-unauthenticated-create[snippets='http-request,http-response']
+
+=== reject-unauthenticated-get-my-applications
+operation::recruiting-application-controller-test/reject-unauthenticated-get-my-applications[snippets='http-request,http-response']
 
 == Recruiting application mutation
 
@@ -223,6 +231,9 @@ operation::recruiting-public-controller-test/익명_지원서_조회_api는_내�
 operation::recruiting-public-controller-test/익명_지원서_철회_api는_정규화된_credential을_전달한다[snippets='http-request,http-response']
 
 == School command
+
+=== 총괄_신규학교_short-name이_20자를_초과하면_400을_반환한다
+operation::school-command-controller-test/총괄_신규학교_short-name이_20자를_초과하면_400을_반환한다[snippets='http-request,http-response']
 
 === 총괄_신규학교를_추가한다
 operation::school-command-controller-test/총괄_신규학교를_추가한다[snippets='http-request,http-response,request-fields']
@@ -263,6 +274,40 @@ operation::umc-product-chapter-controller-documentation-test/umc_product_-chapte
 === 제거된_umc_product_-part_api는_404를_반환한다
 operation::umc-product-chapter-controller-documentation-test/제거된_umc_product_-part_api는_404를_반환한다[snippets='http-request,http-response']
 
+== Umc product department controller documentation test
+
+=== umc_product_-department_목록을_조회한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department_목록을_조회한다[snippets='http-request,http-response,query-parameters']
+
+=== umc_product_-department_참여를_삭제한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department_참여를_삭제한다[snippets='http-request,http-response,path-parameters']
+
+=== umc_product_-department_참여를_생성한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department_참여를_생성한다[snippets='http-request,http-response,path-parameters,request-fields']
+
+=== umc_product_-department_참여를_수정한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department_참여를_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
+
+=== umc_product_-department를_삭제한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department를_삭제한다[snippets='http-request,http-response,path-parameters']
+
+=== umc_product_-department를_생성한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department를_생성한다[snippets='http-request,http-response,request-fields']
+
+=== umc_product_-department를_수정한다
+operation::umc-product-department-controller-documentation-test/umc_product_-department를_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
+
+=== 제거된_-department_참여자_전체_교체_api는_404를_반환한다
+operation::umc-product-department-controller-documentation-test/제거된_-department_참여자_전체_교체_api는_404를_반환한다[snippets='http-request,http-response']
+
+== Umc product member account query controller documentation test
+
+=== umc_product_인원의_연동_계정을_조회한다
+operation::umc-product-member-account-query-controller-documentation-test/umc_product_인원의_연동_계정을_조회한다[snippets='http-request,http-response,path-parameters']
+
+=== 이메일로_연동_후보_계정을_정확히_검색한다
+operation::umc-product-member-account-query-controller-documentation-test/이메일로_연동_후보_계정을_정확히_검색한다[snippets='http-request,http-response,request-fields']
+
 == Umc product member command controller documentation test
 
 === umc_product_-leadership을_삭제한다
@@ -301,8 +346,26 @@ operation::umc-product-member-command-controller-documentation-test/umc_product_
 === umc_product_멤버를_생성한다
 operation::umc-product-member-command-controller-documentation-test/umc_product_멤버를_생성한다[snippets='http-request,http-response,request-fields']
 
+=== umc_product_인원에_로그인_계정을_연동한다
+operation::umc-product-member-command-controller-documentation-test/umc_product_인원에_로그인_계정을_연동한다[snippets='http-request,http-response,path-parameters,request-fields']
+
+=== umc_product_인원을_등록하고_계정을_발급한다
+operation::umc-product-member-command-controller-documentation-test/umc_product_인원을_등록하고_계정을_발급한다[snippets='http-request,http-response,request-fields,response-fields']
+
+=== umc_product_인원의_로그인_계정_연동을_해제한다
+operation::umc-product-member-command-controller-documentation-test/umc_product_인원의_로그인_계정_연동을_해제한다[snippets='http-request,http-response,path-parameters']
+
+=== 본인이나_관리자가_umc_product_인원의_하는_일을_수정한다
+operation::umc-product-member-command-controller-documentation-test/본인이나_관리자가_umc_product_인원의_하는_일을_수정한다[snippets='http-request,http-response,path-parameters,request-fields']
+
+=== 자동_발급_계정의_임시_비밀번호를_재발급한다
+operation::umc-product-member-command-controller-documentation-test/자동_발급_계정의_임시_비밀번호를_재발급한다[snippets='http-request,http-response,path-parameters,response-fields']
+
 === 제거된_umc_product_-part_소속_api는_404를_반환한다
 operation::umc-product-member-command-controller-documentation-test/제거된_umc_product_-part_소속_api는_404를_반환한다[snippets='http-request,http-response']
+
+=== 하는_일_수정_목록이_모두_비어_있으면_요청을_거부한다
+operation::umc-product-member-command-controller-documentation-test/하는_일_수정_목록이_모두_비어_있으면_요청을_거부한다[snippets='http-request,http-response']
 
 == Umc product member query controller documentation test
 
@@ -312,8 +375,14 @@ operation::umc-product-member-query-controller-documentation-test/umc_product_�
 === umc_product_멤버를_검색한다
 operation::umc-product-member-query-controller-documentation-test/umc_product_멤버를_검색한다[snippets='http-request,http-response,query-parameters']
 
+=== 내_프로필을_조회한다
+operation::umc-product-member-query-controller-documentation-test/내_프로필을_조회한다[snippets='http-request,http-response']
+
 === 시각이_포함된_활동_기준일을_거부한다
 operation::umc-product-member-query-controller-documentation-test/시각이_포함된_활동_기준일을_거부한다[snippets='http-request,http-response']
+
+=== 연동된_인원이_없어도_권한을_반환한다
+operation::umc-product-member-query-controller-documentation-test/연동된_인원이_없어도_권한을_반환한다[snippets='http-request,http-response']
 
 == Umc product organization chart query controller documentation test
 
@@ -359,3 +428,9 @@ operation::workbook-query-v2-controller-test/challenger-workbook_passes-requeste
 
 === original-workbook_passes-requester-member-id
 operation::workbook-query-v2-controller-test/original-workbook_passes-requester-member-id[snippets='http-request,http-response,path-parameters']
+
+=== study-member-submissions_returns-cursor-response
+operation::workbook-query-v2-controller-test/study-member-submissions_returns-cursor-response[snippets='http-request,http-response,query-parameters']
+
+=== study-member-submissions_size101-rejected
+operation::workbook-query-v2-controller-test/study-member-submissions_size101-rejected[snippets='http-request,http-response']

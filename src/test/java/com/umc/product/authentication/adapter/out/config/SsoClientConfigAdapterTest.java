@@ -168,6 +168,29 @@ class SsoClientConfigAdapterTest {
         });
     }
 
+    @DisplayName("product-portal은 기존 backoffice와 분리된 PKCE 전용 client로 바인딩한다")
+    @Test
+    void application_yml_product_portal_sso_client_binding_성공() {
+        contextRunner.run(context -> {
+            SsoClientConfigAdapter adapter = context.getBean(SsoClientConfigAdapter.class);
+
+            SsoClient backoffice = adapter.getByClientId("backoffice");
+            SsoClient productPortal = adapter.getByClientId("product-portal");
+
+            assertThat(productPortal.clientId()).isNotEqualTo(backoffice.clientId());
+            assertThat(productPortal.serviceType()).isEqualTo(ClientServiceType.UMC_BACKOFFICE);
+            assertThat(productPortal.environment()).isEqualTo(ClientEnvironment.PROD);
+            assertThat(productPortal.requirePkce()).isTrue();
+            assertThat(productPortal.accessTokenTtl()).isEqualTo(Duration.ofHours(1));
+            assertThat(productPortal.redirectUris())
+                .containsExactly("https://admin.university.neordinary.com/auth/callback");
+            assertThat(productPortal.allowedOrigins())
+                .containsExactly("https://admin.university.neordinary.com");
+            assertThat(productPortal.allowsRedirectUri("https://evil.example.com/auth/callback")).isFalse();
+            assertThat(productPortal.allowsOrigin("https://evil.example.com")).isFalse();
+        });
+    }
+
     @DisplayName("dev profile은 웹 client를 localhost로 덮어쓰고 앱 client는 기본 설정을 유지한다")
     @Test
     void application_yml_dev_sso_client_binding_성공() {

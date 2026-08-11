@@ -331,6 +331,16 @@ app:
           - https://admin.university.neordinary.com/auth/callback
         allowed-origins:
           - https://admin.university.neordinary.com
+      product-portal:
+        name: UMC PRODUCT Portal
+        service-type: UMC_BACKOFFICE
+        environment: PROD
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - ${UMC_PRODUCT_PORTAL_REDIRECT_URI:https://admin.university.neordinary.com/auth/callback}
+        allowed-origins:
+          - ${UMC_PRODUCT_PORTAL_ALLOWED_ORIGIN:https://admin.university.neordinary.com}
       website:
         name: UMC Website
         service-type: UMC_WEBSITE
