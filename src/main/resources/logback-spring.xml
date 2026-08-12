@@ -1,8 +1,6 @@
 <configuration>
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <turboFilter class="com.umc.product.global.config.SensitiveDataSanitizingTurboFilter"/>
-
     <!-- ========== Custom Converter ========== -->
     <conversionRule conversionWord="customHighlight"
                     class="com.umc.product.global.config.CustomHighlightConverter"/>
@@ -87,11 +85,23 @@
         <captureMdcAttributes>*</captureMdcAttributes>
     </appender>
 
+    <!--
+        ========== 민감정보 정제 ==========
+        root 는 출력 어펜더를 직접 참조하지 않고 SANITIZED 를 통해서만 참조한다.
+        어펜더 계층에 두는 이유는 (1) 레벨·필터 판정이 끝난 뒤 실행되어 출력되지 않을 로그를
+        정제하지 않고, (2) 텍스트·JSON·OTLP 어펜더를 한 번에 덮기 때문이다.
+        프로파일마다 하위 어펜더가 다르므로 springProfile 안에서 정의한다.
+    -->
+
     <!-- ========== 로컬: 컬러 + 축약 traceId ========== -->
     <springProfile name="local">
-        <root level="INFO">
+        <appender name="SANITIZED" class="com.umc.product.global.logging.SanitizingAppender">
             <appender-ref ref="LOCAL_CONSOLE"/>
             <appender-ref ref="OTEL"/>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="SANITIZED"/>
         </root>
     </springProfile>
 
@@ -105,9 +115,13 @@
         <!-- 우리 앱 패키지만 DEBUG -->
         <logger name="com.umc.product" level="DEBUG"/>
 
-        <root level="INFO">
+        <appender name="SANITIZED" class="com.umc.product.global.logging.SanitizingAppender">
             <appender-ref ref="CONSOLE_JSON"/>
             <appender-ref ref="OTEL"/>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="SANITIZED"/>
         </root>
     </springProfile>
 
@@ -115,9 +129,13 @@
     <springProfile name="staging">
         <logger name="com.umc.product" level="${LOGGING_APP_LEVEL:-INFO}"/>
 
-        <root level="INFO">
+        <appender name="SANITIZED" class="com.umc.product.global.logging.SanitizingAppender">
             <appender-ref ref="CONSOLE_JSON"/>
             <appender-ref ref="OTEL"/>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="SANITIZED"/>
         </root>
     </springProfile>
 
@@ -126,9 +144,13 @@
         <!-- 우리 앱에 대한 로그 기록 수준은 환경변수에 따름 -->
         <logger name="com.umc.product" level="${LOGGING_APP_LEVEL:-INFO}"/>
 
-        <root level="INFO">
+        <appender name="SANITIZED" class="com.umc.product.global.logging.SanitizingAppender">
             <appender-ref ref="CONSOLE_JSON"/>
             <appender-ref ref="OTEL"/>
+        </appender>
+
+        <root level="INFO">
+            <appender-ref ref="SANITIZED"/>
         </root>
     </springProfile>
 </configuration>
