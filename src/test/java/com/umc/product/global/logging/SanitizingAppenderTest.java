@@ -1,20 +1,30 @@
 package com.umc.product.global.logging;
 
+import static net.logstash.logback.argument.StructuredArguments.kv;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.sql.SQLException;
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Marker;
+import org.slf4j.event.KeyValuePair;
 import org.springframework.dao.DataIntegrityViolationException;
+
+import net.logstash.logback.marker.SingleFieldAppendingMarker;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.LoggerContext;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
+import ch.qos.logback.classic.spi.LoggerContextVO;
+import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.classic.util.LogbackMDCAdapter;
 import ch.qos.logback.core.read.ListAppender;
 
 class SanitizingAppenderTest {
@@ -30,6 +40,8 @@ class SanitizingAppenderTest {
     @BeforeEach
     void setUp() {
         context = new LoggerContext();
+        // 어댑터가 없으면 LoggingEvent.getMDCPropertyMap() 이 NPE 를 낸다. 운영과 같은 경로를 태운다.
+        context.setMDCAdapter(new LogbackMDCAdapter());
 
         appender = new ListAppender<>();
         appender.setContext(context);
@@ -145,6 +157,79 @@ class SanitizingAppenderTest {
     }
 
     @Test
+    @DisplayName("MDC 값의 민감정보를 치환한다")
+    void mdc_redaction() {
+        LoggingEvent event = event("요청 처리");
+        event.setMDCPropertyMap(Map.of("path", "/members/" + PROBE_EMAIL, "statusCode", "200"));
+
+        ILoggingEvent sanitized = SanitizedLoggingEvent.wrap(event);
+
+        assertThat(sanitized.getMDCPropertyMap().get("path")).doesNotContain(PROBE_EMAIL).contains("[REDACTED]");
+        assertThat(sanitized.getMDCPropertyMap().get("statusCode")).isEqualTo("200");
+    }
+
+    @Test
+    @DisplayName("MDC에 민감값이 없으면 원본 맵을 그대로 쓴다")
+    void mdc_변경_없으면_원본_유지() {
+        LoggingEvent event = event("요청 처리");
+        event.setMDCPropertyMap(Map.of("path", "/members/me", "statusCode", "200"));
+
+        ILoggingEvent sanitized = SanitizedLoggingEvent.wrap(event);
+
+        // 불필요한 복사를 하지 않는다.
+        assertThat(sanitized.getMDCPropertyMap()).isSameAs(event.getMDCPropertyMap());
+    }
+
+    @Test
+    @DisplayName("구조화 인자는 평문으로 평탄화하지 않고 필드를 유지한 채 치환한다")
+    void 구조화_인자_필드_보존() {
+        LoggingEvent event = new LoggingEvent(
+            SanitizingAppenderTest.class.getName(),
+            logger,
+            Level.ERROR,
+            "external_api_called",
+            null,
+            new Object[] {kv("provider", "KAKAO"), kv("email", PROBE_EMAIL)}
+        );
+
+        Object[] arguments = SanitizedLoggingEvent.wrap(event).getArgumentArray();
+
+        assertThat(arguments[0]).isInstanceOf(SingleFieldAppendingMarker.class);
+        assertThat(arguments[0].toString()).contains("KAKAO");
+
+        assertThat(arguments[1]).isInstanceOf(SingleFieldAppendingMarker.class);
+        assertThat(((SingleFieldAppendingMarker) arguments[1]).getFieldName()).isEqualTo("email");
+        assertThat(arguments[1].toString()).doesNotContain(PROBE_EMAIL).contains("[REDACTED]");
+    }
+
+    @Test
+    @DisplayName("KeyValuePair의 문자열 값만 치환하고 나머지 타입은 건드리지 않는다")
+    void keyValuePair_redaction() {
+        LoggingEvent event = event("요청 처리");
+        event.setKeyValuePairs(List.of(
+            new KeyValuePair("email", PROBE_EMAIL),
+            new KeyValuePair("durationMs", 120L)
+        ));
+
+        List<KeyValuePair> pairs = SanitizedLoggingEvent.wrap(event).getKeyValuePairs();
+
+        assertThat(pairs.get(0).value.toString()).doesNotContain(PROBE_EMAIL).contains("[REDACTED]");
+        assertThat(pairs.get(1).value).isEqualTo(120L);
+    }
+
+    @Test
+    @DisplayName("접근자 하나가 실패해도 로그를 잃지 않고 해당 필드만 비운다")
+    void 접근자_실패_시_이벤트_보존() {
+        ILoggingEvent hostile = new HostileMdcEvent(event("정상 메시지"));
+
+        ILoggingEvent sanitized = SanitizedLoggingEvent.wrap(hostile);
+
+        // AppenderBase.doAppend() 가 예외를 삼키므로, 여기서 던지면 로그 한 줄이 조용히 사라진다.
+        assertThat(sanitized.getFormattedMessage()).isEqualTo("정상 메시지");
+        assertThat(sanitized.getMDCPropertyMap()).isEmpty();
+    }
+
+    @Test
     @DisplayName("하위 어펜더가 없으면 시작하지 않고 오류를 남긴다")
     void 배선_누락_감지() {
         SanitizingAppender orphan = new SanitizingAppender();
@@ -156,6 +241,107 @@ class SanitizingAppenderTest {
         assertThat(orphan.isStarted()).isFalse();
         assertThat(context.getStatusManager().getCopyOfStatusList())
             .anyMatch(status -> status.getMessage().contains("ORPHAN"));
+    }
+
+    /** MDC 접근이 실패하는 이벤트. logback 이 MDC 어댑터를 갖추지 못한 상황을 재현한다. */
+    private record HostileMdcEvent(ILoggingEvent delegate) implements ILoggingEvent {
+
+        @Override
+        public Map<String, String> getMDCPropertyMap() {
+            throw new IllegalStateException("MDC 접근 실패");
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public Map<String, String> getMdc() {
+            return getMDCPropertyMap();
+        }
+
+        @Override
+        public String getThreadName() {
+            return delegate.getThreadName();
+        }
+
+        @Override
+        public Level getLevel() {
+            return delegate.getLevel();
+        }
+
+        @Override
+        public String getMessage() {
+            return delegate.getMessage();
+        }
+
+        @Override
+        public Object[] getArgumentArray() {
+            return delegate.getArgumentArray();
+        }
+
+        @Override
+        public String getFormattedMessage() {
+            return delegate.getFormattedMessage();
+        }
+
+        @Override
+        public String getLoggerName() {
+            return delegate.getLoggerName();
+        }
+
+        @Override
+        public LoggerContextVO getLoggerContextVO() {
+            return delegate.getLoggerContextVO();
+        }
+
+        @Override
+        public IThrowableProxy getThrowableProxy() {
+            return delegate.getThrowableProxy();
+        }
+
+        @Override
+        public StackTraceElement[] getCallerData() {
+            return delegate.getCallerData();
+        }
+
+        @Override
+        public boolean hasCallerData() {
+            return delegate.hasCallerData();
+        }
+
+        @Override
+        public List<Marker> getMarkerList() {
+            return delegate.getMarkerList();
+        }
+
+        @Override
+        public long getTimeStamp() {
+            return delegate.getTimeStamp();
+        }
+
+        @Override
+        public int getNanoseconds() {
+            return delegate.getNanoseconds();
+        }
+
+        @Override
+        public long getSequenceNumber() {
+            return delegate.getSequenceNumber();
+        }
+
+        @Override
+        public List<KeyValuePair> getKeyValuePairs() {
+            return delegate.getKeyValuePairs();
+        }
+
+        @Override
+        public void prepareForDeferredProcessing() {
+            delegate.prepareForDeferredProcessing();
+        }
+    }
+
+    private LoggingEvent event(String message) {
+        return new LoggingEvent(
+            SanitizingAppenderTest.class.getName(), logger, Level.ERROR, message, null, null
+        );
     }
 
     private String throwableText(IThrowableProxy throwable) {
