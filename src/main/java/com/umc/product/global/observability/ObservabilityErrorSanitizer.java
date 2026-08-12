@@ -47,30 +47,71 @@ public final class ObservabilityErrorSanitizer {
     private ObservabilityErrorSanitizer() {
     }
 
+    /**
+     * 새니타이저 호출자는 대부분 catch 블록이거나 로깅 경로다. 이곳에서 던진 예외는 원본 예외를
+     * 대체하거나 무관한 비즈니스 로직을 중단시키므로, 공개 진입점은 어떤 실패도 밖으로 내보내지 않는다.
+     *
+     * <p>{@code StackOverflowError}만 예외적으로 잡는다. 예외 전파 과정에서 스택이 풀리므로 catch
+     * 시점에는 복구 가능한 상태다. {@code OutOfMemoryError} 등 나머지 {@code Error}는 심각한 상태를
+     * 은폐하지 않도록 그대로 전파한다.
+     */
     public static void record(Span span, Throwable error) {
-        ErrorMetadata metadata = ErrorMetadata.from(error);
-        span.tag("app.error.class", metadata.errorClass());
-        if (metadata.sqlErrorClass() != null) {
-            span.tag("db.error.class", metadata.sqlErrorClass());
-            tagIfPresent(span, "db.response.sql_state", metadata.sqlState());
-            span.tag("db.response.vendor_code", String.valueOf(metadata.vendorCode()));
-            tagIfPresent(span, "db.constraint.name", metadata.constraintName());
+        try {
+            ErrorMetadata metadata = ErrorMetadata.from(error);
+            span.tag("app.error.class", metadata.errorClass());
+            if (metadata.sqlErrorClass() != null) {
+                span.tag("db.error.class", metadata.sqlErrorClass());
+                tagIfPresent(span, "db.response.sql_state", metadata.sqlState());
+                span.tag("db.response.vendor_code", String.valueOf(metadata.vendorCode()));
+                tagIfPresent(span, "db.constraint.name", metadata.constraintName());
+            }
+            span.error(sanitize(error));
+        } catch (RuntimeException | StackOverflowError failure) {
+            span.tag("app.error.sanitize_failed", failure.getClass().getSimpleName());
         }
-        span.error(sanitize(error));
     }
 
     public static Throwable sanitize(Throwable error) {
-        if (error == null || !containsSensitiveMessage(error, newIdentitySet())) {
-            return error;
+        if (error == null) {
+            return null;
         }
-        return copy(error, new IdentityHashMap<>());
+        try {
+            if (!containsSensitiveMessage(error, newIdentitySet())) {
+                return error;
+            }
+            return copy(error, new IdentityHashMap<>());
+        } catch (RuntimeException | StackOverflowError failure) {
+            // 정제 여부를 판단하지 못했으므로 원본을 그대로 내보내지 않는다.
+            return new SanitizedObservabilityException(
+                "errorClass=" + error.getClass().getName() + ", message=" + failureMarker(failure, null)
+            );
+        }
     }
 
     public static String sanitizeMessage(String message) {
         if (message == null || message.isEmpty()) {
             return message;
         }
+        try {
+            return redact(message);
+        } catch (RuntimeException | StackOverflowError failure) {
+            return failureMarker(failure, message);
+        }
+    }
 
+    /**
+     * 정제에 실패했을 때 남기는 마커. 정제가 완주하지 못했다는 것은 남은 내용을 확인할 수 없다는
+     * 뜻이므로 원문을 내보내지 않는다({@code fail-closed}). 대신 {@link #REDACTED}와 구분되는
+     * 마커와 안전한 메타데이터만 남겨 새니타이저 고장을 민감값 치환과 혼동하지 않게 한다.
+     *
+     * <p>여기서 로깅하지 않는다. 정제 어펜더가 재진입해 실패 상황에서 재귀할 수 있다.
+     */
+    private static String failureMarker(Throwable failure, String message) {
+        String length = message == null ? "unknown" : String.valueOf(message.length());
+        return "[SANITIZE_FAILED: " + failure.getClass().getSimpleName() + ", length=" + length + "]";
+    }
+
+    private static String redact(String message) {
         String sanitized = POSTGRES_KEY_DETAIL.matcher(message).replaceAll("$1(" + REDACTED + ")");
         sanitized = BIND_DETAIL.matcher(sanitized).replaceAll("$1[" + REDACTED + "]");
         sanitized = APPLICATION_KEY_VALUE.matcher(sanitized).replaceAll("$1" + REDACTED);

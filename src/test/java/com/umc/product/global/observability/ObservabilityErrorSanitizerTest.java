@@ -62,6 +62,39 @@ class ObservabilityErrorSanitizerTest {
     }
 
     @Test
+    @DisplayName("정제가 실패해도 예외를 던지지 않고 원문 대신 실패 마커를 반환한다")
+    void 정제_실패_시_원문_비노출() {
+        // `''` 반복은 그룹 반복의 재귀 깊이를 직접 늘려 StackOverflowError 를 유발한다.
+        String pathological = "'" + "''".repeat(100_000);
+
+        String sanitized = ObservabilityErrorSanitizer.sanitizeMessage(pathological);
+
+        assertThat(sanitized)
+            .startsWith("[SANITIZE_FAILED: ")
+            .contains("StackOverflowError")
+            .contains("length=" + pathological.length());
+    }
+
+    @Test
+    @DisplayName("정제 실패 마커는 민감값 치환과 구분된다")
+    void 실패_마커와_치환_구분() {
+        String redacted = ObservabilityErrorSanitizer.sanitizeMessage("email: person@example.invalid");
+
+        assertThat(redacted).contains("[REDACTED]").doesNotContain("SANITIZE_FAILED");
+    }
+
+    @Test
+    @DisplayName("예외 정제가 실패해도 원본 메시지를 노출하지 않는다")
+    void 예외_정제_실패_시_원문_비노출() {
+        IllegalStateException error = new IllegalStateException("'" + "''".repeat(100_000));
+
+        Throwable sanitized = ObservabilityErrorSanitizer.sanitize(error);
+
+        assertThat(sanitized).isNotSameAs(error);
+        assertThat(sanitized.getMessage()).doesNotContain("''''");
+    }
+
+    @Test
     @DisplayName("연속된 따옴표 이스케이프 경계에서도 기존 치환 결과를 유지한다")
     void 따옴표_이스케이프_경계() {
         assertThat(ObservabilityErrorSanitizer.sanitizeMessage("a 'he''llo' b"))
