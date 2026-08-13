@@ -62,17 +62,14 @@ class ObservabilityErrorSanitizerTest {
     }
 
     @Test
-    @DisplayName("정제가 실패해도 예외를 던지지 않고 원문 대신 실패 마커를 반환한다")
-    void 정제_실패_시_원문_비노출() {
-        // `''` 반복은 그룹 반복의 재귀 깊이를 직접 늘려 StackOverflowError 를 유발한다.
+    @DisplayName("따옴표가 대량 반복돼도 스택을 소모하지 않고 정상 치환한다")
+    void 반복_따옴표_스택오버플로_방지() {
+        // 정규식 그룹 반복을 쓰던 시절 이 입력이 StackOverflowError 를 유발했다.
         String pathological = "'" + "''".repeat(100_000);
 
         String sanitized = ObservabilityErrorSanitizer.sanitizeMessage(pathological);
 
-        assertThat(sanitized)
-            .startsWith("[SANITIZE_FAILED: ")
-            .contains("StackOverflowError")
-            .contains("length=" + pathological.length());
+        assertThat(sanitized).contains(ObservabilityErrorSanitizer.REDACTED).doesNotContain("SANITIZE_FAILED");
     }
 
     @Test
@@ -84,14 +81,43 @@ class ObservabilityErrorSanitizerTest {
     }
 
     @Test
-    @DisplayName("예외 정제가 실패해도 원본 메시지를 노출하지 않는다")
-    void 예외_정제_실패_시_원문_비노출() {
-        IllegalStateException error = new IllegalStateException("'" + "''".repeat(100_000));
+    @DisplayName("원인 체인이 비정상적으로 깊어도 예외를 던지지 않고 진단 정보를 남긴다")
+    void 깊은_원인_체인_실패_격리() {
+        // 원인 체인 순회는 재귀 구조라 깊은 체인에서 스택이 바닥난다.
+        StubException error = deepCauseChain(200_000);
 
         Throwable sanitized = ObservabilityErrorSanitizer.sanitize(error);
 
         assertThat(sanitized).isNotSameAs(error);
-        assertThat(sanitized.getMessage()).doesNotContain("''''");
+        assertThat(sanitized.getMessage())
+            .contains("[SANITIZE_FAILED: ")
+            .contains(StubException.class.getName())
+            .doesNotContain("person@example.invalid");
+        // 스택트레이스는 민감정보가 아니므로 실패해도 버리지 않는다.
+        assertThat(sanitized.getStackTrace()).isEqualTo(error.getStackTrace());
+    }
+
+    private StubException deepCauseChain(int depth) {
+        StubException error = new StubException("email: person@example.invalid");
+        for (int index = 0; index < depth; index++) {
+            StubException next = new StubException("level " + index);
+            next.initCause(error);
+            error = next;
+        }
+        return error;
+    }
+
+    /** 체인을 깊게 쌓아야 하므로 스택트레이스 수집 비용을 없앤다. */
+    private static final class StubException extends RuntimeException {
+
+        private StubException(String message) {
+            super(message);
+        }
+
+        @Override
+        public synchronized Throwable fillInStackTrace() {
+            return this;
+        }
     }
 
     @Test
