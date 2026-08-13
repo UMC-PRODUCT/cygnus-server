@@ -20,7 +20,7 @@ info:
   description: |
     ## 이 문서의 성격
 
-    데모데이 현장 투표 API의 **구현 전 계약 초안**입니다. 서버 컨트롤러가 아직 없어
+    데모데이 현장 투표 API의 **초안**입니다. 서버 컨트롤러가 아직 없어
     자동 생성 문서(`UMC PRODUCT API`)에는 이 경로들이 나타나지 않습니다.
     데모데이는 날짜가 고정된 현장 행사라 FE와 서버가 순차로 진행하면 일정을 맞출 수 없어,
     영속성 작업 기간에 계약을 먼저 확정해 배포합니다.
@@ -30,12 +30,87 @@ info:
 
     ### 여기에 없는 것
 
-    - **로그인 API** (`/api/v1/auth/**`) — 이미 구현되어 있으므로 자동 생성본을 보세요.
-      UMC 회원은 이메일·Google·Kakao 로그인으로 AT를 발급받은 뒤
-      `GET /demoday/polls/{pollId}/participations/me`로 참여 흐름에 진입합니다.
+    - **로그인 API** — 이미 구현되어 있으므로 [Scalar 자동 생성본](/docs/scalar.html)의
+      `UMC PRODUCT API`에서 아래 경로를 확인하세요.
+      - 이메일: `POST /api/v1/auth/login/email` (`Authentication | 로그인`)
+      - Google: `POST /api/v1/auth/login/google` (`Authentication | 소셜 로그인`)
+      - Kakao: `POST /api/v1/auth/login/kakao` (`Authentication | 소셜 로그인`)
+
+      UMC 회원은 위 API로 AT를 발급받은 뒤
+      `GET /api/v1/demoday/polls/{pollId}/participations/me`로 참여 흐름에 진입합니다.
     - 부스 등록 API — 이번 기수에는 관리자 화면 없이 운영자가 직접 호출하며 계약이 아직 없습니다.
-    - 이상 패턴 조회, Poll 구성 관리(생성·수정·상태 변경) — 아직 설계 전입니다.
+    - Poll 구성 관리(생성·수정·상태 변경) - 아직 미설계
+    - 이상 패턴 조회 — 이번 기수에서는 개발하지 않을 예정입니다.(시간 부족..)
     - QR 이미지 렌더링 — `qrValue` 문자열을 FE가 그대로 렌더링합니다.
+
+    ## API 호출 흐름 — FE 구현 순서
+
+    아래 경로는 `/api/v1`을 포함한 실제 호출 경로입니다. 참여 상태는 Poll별로 독립적입니다.
+    `{pollId}`가 바뀌면 회원은 새 Poll의 상태를 조회하고, 외부 방문자는 해당 Poll의 게스트 참여 등록을 다시 거쳐야 합니다.
+
+    ### 참여자 화면
+
+    ```text
+    사이트 진입
+      └─ GET /api/v1/demoday/polls
+         └─ Poll 선택
+            ├─ UMC 회원
+            │  ├─ POST /api/v1/auth/login/email | /api/v1/auth/login/google | /api/v1/auth/login/kakao
+            │  └─ GET /api/v1/demoday/polls/{pollId}/participations/me
+            └─ 외부 방문자
+               └─ POST /api/v1/demoday/polls/{pollId}/participations/guest
+                  └─ HttpOnly Cookie와 현재 참여 상태 수신
+
+    현재 참여 상태
+      ├─ 스탬프 미달
+      │  └─ 스탬프 QR 스캔
+      │     └─ POST /api/v1/demoday/polls/{pollId}/stamps
+      │        └─ 응답 상태로 화면 갱신
+      └─ canEnterVotePage == true
+         └─ GET /api/v1/demoday/polls/{pollId}/booths
+            └─ 투표할 부스 선택
+               └─ INFO QR 스캔
+                  └─ POST /api/v1/demoday/polls/{pollId}/vote-authorizations
+                     └─ selectedBooth와 expiresAt 최종 확인
+                        └─ POST /api/v1/demoday/polls/{pollId}/votes
+    ```
+
+    - 외부 방문자의 최초 참여 응답에는 현재 참여 상태가 포함되므로 곧바로 다시 조회할 필요가 없습니다.
+      새로고침·재접속 시에는 Cookie를 첨부해 `GET /api/v1/demoday/polls/{pollId}/participations/me`를 호출합니다.
+    - 스탬프 등록 후에는 응답의 `requiredStampCount`, `nextStampAvailableAt`, `canEnterVotePage`로 화면을 갱신합니다.
+    - `voteAuthorizationToken`은 메모리에만 보관하고, 최종 투표 요청에는 `boothId`가 아니라 이 토큰만 보냅니다.
+    - 처음으로·스탬프 현황으로 돌아가기·다시 선택하기는 FE 화면 이동이며 별도 API가 없습니다.
+
+    ### 관리자 화면
+
+    모든 관리자 호출에는 Bearer Access Token과 `SUPER_ADMIN` 권한이 필요합니다.
+
+    ```text
+    관리자 로그인 → Poll 선택
+      ├─ 현황판
+      │  └─ GET /api/v1/demoday/admin/polls/{pollId}/dashboard (polling)
+      ├─ 스탬프 QR 관리
+      │  ├─ GET  /api/v1/demoday/admin/polls/{pollId}/stamp-qrs
+      │  ├─ POST /api/v1/demoday/admin/polls/{pollId}/stamp-qrs
+      │  └─ POST /api/v1/demoday/admin/polls/{pollId}/booths/{boothId}/stamp-qr/reissue
+      ├─ INFO QR 표시
+      │  └─ GET /api/v1/demoday/admin/polls/{pollId}/vote-qr
+      └─ 투표 기록 관리
+         └─ GET /api/v1/demoday/admin/polls/{pollId}/votes
+            ├─ POST /api/v1/demoday/admin/polls/{pollId}/votes/{voteId}/revocation
+            └─ POST /api/v1/demoday/admin/polls/{pollId}/votes/{voteId}/restoration
+    ```
+
+    - 대시보드는 WebSocket이 아니라 polling으로 갱신하며, 같은 요청이 겹치지 않도록 이전 요청 완료 후 다음 요청을 보냅니다.
+    - 스탬프 QR 목록 조회는 QR을 생성하지 않습니다. 일괄 생성은 아직 없는 QR만 만들고, 재발급하면 이전 QR은 즉시 무효화됩니다.
+    - INFO QR은 응답의 `expiresAt`에 맞춰 다시 조회하고, 두 QR 모두 `qrValue` 전체를 수정 없이 렌더링합니다.
+
+    ### QR 전달 관계
+
+    ```text
+    관리자 스탬프 QR 조회·생성 → qrValue 렌더링 → 참여자 스캔 → POST .../stamps
+    관리자 INFO QR 조회          → qrValue 렌더링 → 참여자 스캔 → POST .../vote-authorizations → POST .../votes
+    ```
 
     ## 바뀌지 않는 것 — 이 계약에 맞춰 구현해도 됩니다
 
@@ -47,16 +122,22 @@ info:
       Poll당 1인 1표, Poll 간 완전 독립
     - 이미 번호가 붙은 오류 코드 (`DEMODAY-0300`, `0400`~`0404`, `0501`, `0503`)
 
-    ## 바뀔 수 있는 것 — 여기에 의존하지 마세요
+    ## 아직 확정되지 않은 것 — 화면 분기 기준으로 사용하지 마세요
 
     - **`code` 문자열이 `DEMODAY-XXXX`로 표기된 오류** — 서버 구현 시 확정해 별도 공유합니다.
       해당 상황의 HTTP status와 도메인 규칙은 확정이므로, 화면 분기는 status 기준으로 먼저 만드세요.
     - **외부 방문자 HttpOnly Cookie의 이름과 세부 속성** (`SameSite`·만료·CSRF 방어).
-      HttpOnly라 FE가 읽지 않고 `withCredentials`로 자동 첨부되므로 FE 코드에는 영향이 없습니다.
+      인증 방식 자체는 HttpOnly Cookie로 확정이며, 이름과 서버 보안 정책만 구현 시 확정합니다.
+
+    ## FE 구현 시 주의사항 — 값을 하드코딩하거나 조립하지 마세요
+
+    - 외부 방문자 인증 Cookie는 HttpOnly이므로 FE에서 직접 읽거나 저장하지 않습니다.
+      요청 시 `withCredentials`를 사용하면 브라우저가 자동으로 첨부합니다.
     - **`qrValue`의 호스트와 경로** — 배포 환경에 따라 달라집니다.
       FE는 조립하지 않고 받은 문자열을 그대로 렌더링합니다.
-    - `requiredStampCount`의 값 (현재 6). 서버가 내려주는 값을 쓰고 6을 상수로 박지 마세요.
-    - 관리자 대시보드에 향후 추가될 수 있는 통계 필드.
+    - `requiredStampCount`는 현재 계약상 6이지만, FE는 서버가 내려주는 값을 사용하고
+      6을 상수로 박지 마세요.
+    - 관리자 대시보드 응답에는 향후 통계 필드가 추가될 수 있으므로, 알 수 없는 필드를 허용하세요.
 
     ## 공통 응답 envelope
 
