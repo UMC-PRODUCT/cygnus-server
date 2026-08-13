@@ -1,7 +1,9 @@
 package com.umc.product.global.logging;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Set;
 
 import com.umc.product.global.observability.ObservabilityErrorSanitizer;
@@ -43,14 +45,19 @@ final class SanitizedThrowableProxy implements IThrowableProxy {
         return wrap(proxy, Collections.newSetFromMap(new IdentityHashMap<>()));
     }
 
+    /**
+     * Logback 은 {@code ThrowableProxy}를 만들 때 순환을 이미 끊어 마커 노드로 대체하므로
+     * ({@code isCyclic()}은 순회 중단 신호가 아니라 렌더링 힌트다) 같은 인스턴스가 두 번 나오지 않는다.
+     * {@code visited}는 그 보장이 깨졌을 때의 그물이며, 재방문하면 원본을 흘리는 대신 체인을 끊는다.
+     */
     private static IThrowableProxy wrap(IThrowableProxy proxy, Set<IThrowableProxy> visited) {
         if (proxy == null || !visited.add(proxy)) {
-            return proxy;
+            return null;
         }
 
         String message = proxy.getOverridingMessage() != null ? proxy.getOverridingMessage() : proxy.getMessage();
         String sanitizedMessage = ObservabilityErrorSanitizer.sanitizeMessage(message);
-        IThrowableProxy sanitizedCause = proxy.isCyclic() ? proxy.getCause() : wrap(proxy.getCause(), visited);
+        IThrowableProxy sanitizedCause = wrap(proxy.getCause(), visited);
         IThrowableProxy[] sanitizedSuppressed = wrapSuppressed(proxy.getSuppressed(), visited);
 
         return new SanitizedThrowableProxy(proxy, sanitizedMessage, sanitizedCause, sanitizedSuppressed);
@@ -61,11 +68,15 @@ final class SanitizedThrowableProxy implements IThrowableProxy {
             return suppressed;
         }
 
-        IThrowableProxy[] wrapped = new IThrowableProxy[suppressed.length];
-        for (int index = 0; index < suppressed.length; index++) {
-            wrapped[index] = wrap(suppressed[index], visited);
+        // 체인이 끊긴 자리는 null 이 되므로, 소비자가 순회 중 NPE 를 만나지 않도록 제외한다.
+        List<IThrowableProxy> wrapped = new ArrayList<>(suppressed.length);
+        for (IThrowableProxy each : suppressed) {
+            IThrowableProxy sanitized = wrap(each, visited);
+            if (sanitized != null) {
+                wrapped.add(sanitized);
+            }
         }
-        return wrapped;
+        return wrapped.toArray(new IThrowableProxy[0]);
     }
 
     @Override

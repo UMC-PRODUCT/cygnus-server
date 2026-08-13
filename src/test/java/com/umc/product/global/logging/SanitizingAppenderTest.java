@@ -24,6 +24,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.classic.spi.IThrowableProxy;
 import ch.qos.logback.classic.spi.LoggerContextVO;
 import ch.qos.logback.classic.spi.LoggingEvent;
+import ch.qos.logback.classic.spi.ThrowableProxyUtil;
 import ch.qos.logback.classic.util.LogbackMDCAdapter;
 import ch.qos.logback.core.read.ListAppender;
 
@@ -215,6 +216,34 @@ class SanitizingAppenderTest {
 
         assertThat(pairs.get(0).value.toString()).doesNotContain(PROBE_EMAIL).contains("[REDACTED]");
         assertThat(pairs.get(1).value).isEqualTo(120L);
+    }
+
+    @Test
+    @DisplayName("순환 원인 체인도 정제하고 logback 의 순환 표기를 유지한다")
+    void 순환_원인_체인_정제() {
+        RuntimeException outer = new RuntimeException("결제 실패: " + PROBE_EMAIL);
+        RuntimeException inner = new RuntimeException("커넥션 실패");
+        outer.initCause(inner);
+        inner.initCause(outer);
+
+        logger.error("작업 실패", outer);
+
+        String rendered = ThrowableProxyUtil.asString(appender.list.getFirst().getThrowableProxy());
+        assertThat(rendered).doesNotContain(PROBE_EMAIL);
+        assertThat(rendered).contains("[CIRCULAR REFERENCE:").contains("[REDACTED]");
+    }
+
+    @Test
+    @DisplayName("suppressed 예외의 민감값도 정제한다")
+    void suppressed_예외_정제() {
+        RuntimeException error = new RuntimeException("작업 실패");
+        error.addSuppressed(new IllegalStateException("close 실패: " + PROBE_EMAIL));
+
+        logger.error("작업 실패", error);
+
+        IThrowableProxy proxy = appender.list.getFirst().getThrowableProxy();
+        assertThat(proxy.getSuppressed()).hasSize(1);
+        assertThat(ThrowableProxyUtil.asString(proxy)).doesNotContain(PROBE_EMAIL).contains("[REDACTED]");
     }
 
     @Test
