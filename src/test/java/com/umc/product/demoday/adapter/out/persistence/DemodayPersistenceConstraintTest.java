@@ -1,10 +1,10 @@
 package com.umc.product.demoday.adapter.out.persistence;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 
+import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,11 +16,7 @@ import com.umc.product.demoday.domain.DemodayEntryCode;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.DemodayVote;
-import com.umc.product.demoday.domain.exception.DemodayDomainException;
-import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 import com.umc.product.support.PersistenceAdapterTest;
-
-import jakarta.persistence.EntityManager;
 
 @PersistenceAdapterTest
 class DemodayPersistenceConstraintTest {
@@ -47,12 +43,9 @@ class DemodayPersistenceConstraintTest {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @Autowired
-    private EntityManager entityManager;
-
     @Test
     @DisplayName("같은 투표에서 한 회원의 표를 중복 저장할 수 없다")
-    void rejectDuplicateMemberVote() {
+    void rejectDuplicateMemberVoteInSamePoll() {
         // Given
         DemodayPoll poll = savePoll("회원 중복 투표");
         DemodayBooth firstBooth = saveBooth(poll, 1L);
@@ -60,9 +53,25 @@ class DemodayPersistenceConstraintTest {
         voteRepository.saveAndFlush(DemodayVote.forMember(poll.getId(), MEMBER_ID, firstBooth));
 
         // When & Then
-        assertThatThrownBy(() -> voteRepository.saveAndFlush(
+        assertConstraintViolation(() -> voteRepository.saveAndFlush(
             DemodayVote.forMember(poll.getId(), MEMBER_ID, secondBooth)
-        )).isInstanceOf(DataIntegrityViolationException.class);
+        ), "uk_demoday_vote_poll_member");
+    }
+
+    @Test
+    @DisplayName("같은 입장 코드로 표를 중복 저장할 수 없다")
+    void rejectDuplicateVisitorVoteInSamePoll() {
+        // Given
+        DemodayPoll poll = savePoll("방문자 중복 투표");
+        DemodayBooth firstBooth = saveBooth(poll, 1L);
+        DemodayBooth secondBooth = saveBooth(poll, 2L);
+        DemodayEntryCode entryCode = saveEntryCode(poll, "a");
+        voteRepository.saveAndFlush(DemodayVote.forVisitor(poll.getId(), entryCode, firstBooth));
+
+        // When & Then
+        assertConstraintViolation(() -> voteRepository.saveAndFlush(
+            DemodayVote.forVisitor(poll.getId(), entryCode, secondBooth)
+        ), "uk_demoday_vote_entry_code");
     }
 
     @Test
@@ -73,8 +82,10 @@ class DemodayPersistenceConstraintTest {
         DemodayBooth booth = saveBooth(poll, 1L);
 
         // When & Then
-        assertThatThrownBy(() -> insertVote(poll.getId(), null, null, booth.getId()))
-            .isInstanceOf(DataIntegrityViolationException.class);
+        assertConstraintViolation(
+            () -> insertVote(poll.getId(), null, null, booth.getId()),
+            "ck_demoday_vote_identifier_xor"
+        );
     }
 
     @Test
@@ -86,8 +97,10 @@ class DemodayPersistenceConstraintTest {
         DemodayEntryCode entryCode = saveEntryCode(poll, "b");
 
         // When & Then
-        assertThatThrownBy(() -> insertVote(poll.getId(), MEMBER_ID, entryCode.getId(), booth.getId()))
-            .isInstanceOf(DataIntegrityViolationException.class);
+        assertConstraintViolation(
+            () -> insertVote(poll.getId(), MEMBER_ID, entryCode.getId(), booth.getId()),
+            "ck_demoday_vote_identifier_xor"
+        );
     }
 
     @Test
@@ -102,9 +115,9 @@ class DemodayPersistenceConstraintTest {
         voteRepository.saveAndFlush(revokedVote);
 
         // When & Then
-        assertThatThrownBy(() -> voteRepository.saveAndFlush(
+        assertConstraintViolation(() -> voteRepository.saveAndFlush(
             DemodayVote.forMember(poll.getId(), MEMBER_ID, secondBooth)
-        )).isInstanceOf(DataIntegrityViolationException.class);
+        ), "uk_demoday_vote_poll_member");
     }
 
     @Test
@@ -116,46 +129,61 @@ class DemodayPersistenceConstraintTest {
         stampRepository.saveAndFlush(DemodayStamp.forMember(MEMBER_ID, booth));
 
         // When & Then
-        assertThatThrownBy(() -> stampRepository.saveAndFlush(DemodayStamp.forMember(MEMBER_ID, booth)))
-            .isInstanceOf(DataIntegrityViolationException.class);
+        assertConstraintViolation(
+            () -> stampRepository.saveAndFlush(DemodayStamp.forMember(MEMBER_ID, booth)),
+            "uk_demoday_stamp_member_booth"
+        );
     }
 
     @Test
-    @DisplayName("영속화 후 다시 조회한 다른 투표의 부스에는 표를 생성할 수 없다")
-    void rejectVoteForBoothFromDifferentPollAfterReload() {
+    @DisplayName("같은 입장 코드로 같은 부스의 스탬프를 중복 저장할 수 없다")
+    void rejectDuplicateVisitorStamp() {
         // Given
-        DemodayPoll firstPoll = savePoll("첫 번째 투표");
-        DemodayPoll secondPoll = savePoll("두 번째 투표");
-        DemodayBooth secondPollBooth = saveBooth(secondPoll, 2L);
-        entityManager.flush();
-        entityManager.clear();
-        DemodayBooth reloadedBooth = boothRepository.findById(secondPollBooth.getId()).orElseThrow();
+        DemodayPoll poll = savePoll("방문자 중복 스탬프");
+        DemodayBooth booth = saveBooth(poll, 1L);
+        DemodayEntryCode entryCode = saveEntryCode(poll, "c");
+        stampRepository.saveAndFlush(DemodayStamp.forVisitor(entryCode, booth));
 
         // When & Then
-        assertThatThrownBy(() -> DemodayVote.forMember(firstPoll.getId(), MEMBER_ID, reloadedBooth))
-            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
-                assertThat(exception.getBaseCode()).isEqualTo(DemodayErrorCode.DEMODAY_VOTE_POLL_MISMATCH)
-            );
+        assertConstraintViolation(
+            () -> stampRepository.saveAndFlush(DemodayStamp.forVisitor(entryCode, booth)),
+            "uk_demoday_stamp_entry_code_booth"
+        );
     }
 
     @Test
-    @DisplayName("영속화 후 다시 조회한 입장 코드와 부스의 투표가 다르면 스탬프를 생성할 수 없다")
-    void rejectStampForBoothFromDifferentPollAfterReload() {
+    @DisplayName("스탬프의 회원 식별자와 입장 코드 식별자가 모두 없으면 저장할 수 없다")
+    void rejectStampWithoutCollectorIdentifier() {
         // Given
-        DemodayPoll firstPoll = savePoll("첫 번째 투표");
-        DemodayPoll secondPoll = savePoll("두 번째 투표");
-        DemodayEntryCode firstPollEntryCode = saveEntryCode(firstPoll, "c");
-        DemodayBooth secondPollBooth = saveBooth(secondPoll, 2L);
-        entityManager.flush();
-        entityManager.clear();
-        DemodayEntryCode reloadedEntryCode = entryCodeRepository.findById(firstPollEntryCode.getId()).orElseThrow();
-        DemodayBooth reloadedBooth = boothRepository.findById(secondPollBooth.getId()).orElseThrow();
+        DemodayPoll poll = savePoll("스탬프 식별자 누락");
+        DemodayBooth booth = saveBooth(poll, 1L);
 
         // When & Then
-        assertThatThrownBy(() -> DemodayStamp.forVisitor(reloadedEntryCode, reloadedBooth))
-            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
-                assertThat(exception.getBaseCode()).isEqualTo(DemodayErrorCode.DEMODAY_STAMP_POLL_MISMATCH)
-            );
+        assertConstraintViolation(
+            () -> insertStamp(null, null, booth.getId()),
+            "ck_demoday_stamp_identifier_xor"
+        );
+    }
+
+    @Test
+    @DisplayName("스탬프의 회원 식별자와 입장 코드 식별자를 동시에 저장할 수 없다")
+    void rejectStampWithBothCollectorIdentifiers() {
+        // Given
+        DemodayPoll poll = savePoll("스탬프 식별자 중복");
+        DemodayBooth booth = saveBooth(poll, 1L);
+        DemodayEntryCode entryCode = saveEntryCode(poll, "d");
+
+        // When & Then
+        assertConstraintViolation(
+            () -> insertStamp(MEMBER_ID, entryCode.getId(), booth.getId()),
+            "ck_demoday_stamp_identifier_xor"
+        );
+    }
+
+    private void assertConstraintViolation(ThrowingCallable operation, String constraintName) {
+        assertThatThrownBy(operation)
+            .isInstanceOf(DataIntegrityViolationException.class)
+            .hasStackTraceContaining(constraintName);
     }
 
     private DemodayPoll savePoll(String name) {
@@ -183,5 +211,17 @@ class DemodayPersistenceConstraintTest {
                 target_booth_id
             ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?)
             """, pollId, memberId, entryCodeId, boothId);
+    }
+
+    private void insertStamp(Long memberId, Long entryCodeId, Long boothId) {
+        jdbcTemplate.update("""
+            INSERT INTO demoday_stamp (
+                created_at,
+                updated_at,
+                member_id,
+                entry_code_id,
+                booth_id
+            ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+            """, memberId, entryCodeId, boothId);
     }
 }
