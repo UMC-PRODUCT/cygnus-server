@@ -3,6 +3,7 @@ package com.umc.product.demoday.adapter.out.persistence;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
@@ -15,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DemodayBoothPersistenceAdapter implements LoadDemodayBoothPort, SaveDemodayBoothPort {
 
+    private static final Sort BOOTH_ORDER = Sort.by(Sort.Order.asc("id"));
+
     private final DemodayBoothJpaRepository repository;
 
     @Override
@@ -24,7 +27,7 @@ public class DemodayBoothPersistenceAdapter implements LoadDemodayBoothPort, Sav
 
     @Override
     public List<DemodayBooth> listByPollId(Long pollId) {
-        return repository.findAllByPollIdOrderByIdAsc(pollId);
+        return repository.findAllByPollId(pollId, BOOTH_ORDER);
     }
 
     @Override
@@ -33,7 +36,7 @@ public class DemodayBoothPersistenceAdapter implements LoadDemodayBoothPort, Sav
     }
 
     @Override
-    public List<DemodayBooth> saveAll(Iterable<DemodayBooth> booths) {
+    public List<DemodayBooth> saveAll(List<DemodayBooth> booths) {
         return repository.saveAll(booths);
     }
 }

@@ -9,11 +9,11 @@ public interface LoadDemodayStampPort {
 
     Optional<DemodayStamp> findById(Long stampId);
 
-    Optional<DemodayStamp> findByMemberIdAndBoothId(Long memberId, Long boothId);
+    Optional<DemodayStamp> findMemberStamp(Long memberId, Long boothId);
 
-    Optional<DemodayStamp> findByEntryCodeIdAndBoothId(Long entryCodeId, Long boothId);
+    Optional<DemodayStamp> findVisitorStamp(Long entryCodeId, Long boothId);
 
-    List<DemodayStamp> listByMemberId(Long memberId);
+    List<DemodayStamp> listMemberStamps(Long memberId);
 
-    List<DemodayStamp> listByEntryCodeId(Long entryCodeId);
+    List<DemodayStamp> listVisitorStamps(Long entryCodeId);
 }

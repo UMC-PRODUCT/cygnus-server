@@ -8,5 +8,5 @@ public interface SaveDemodayEntryCodePort {
 
     DemodayEntryCode save(DemodayEntryCode entryCode);
 
-    List<DemodayEntryCode> saveAll(Iterable<DemodayEntryCode> entryCodes);
+    List<DemodayEntryCode> saveAll(List<DemodayEntryCode> entryCodes);
 }

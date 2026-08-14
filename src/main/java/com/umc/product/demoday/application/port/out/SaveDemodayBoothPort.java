@@ -8,5 +8,5 @@ public interface SaveDemodayBoothPort {
 
     DemodayBooth save(DemodayBooth booth);
 
-    List<DemodayBooth> saveAll(Iterable<DemodayBooth> booths);
+    List<DemodayBooth> saveAll(List<DemodayBooth> booths);
 }

@@ -34,7 +34,7 @@ public class DemodayEntryCodePersistenceAdapter
     }
 
     @Override
-    public List<DemodayEntryCode> saveAll(Iterable<DemodayEntryCode> entryCodes) {
+    public List<DemodayEntryCode> saveAll(List<DemodayEntryCode> entryCodes) {
         return repository.saveAll(entryCodes);
     }
 }

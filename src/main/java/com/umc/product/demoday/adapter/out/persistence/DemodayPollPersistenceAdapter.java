@@ -3,6 +3,7 @@ package com.umc.product.demoday.adapter.out.persistence;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
@@ -15,6 +16,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DemodayPollPersistenceAdapter implements LoadDemodayPollPort, SaveDemodayPollPort {
 
+    private static final Sort POLL_ORDER = Sort.by(
+        Sort.Order.desc("opensAt"),
+        Sort.Order.desc("id")
+    );
+
     private final DemodayPollJpaRepository repository;
 
     @Override
@@ -24,7 +30,7 @@ public class DemodayPollPersistenceAdapter implements LoadDemodayPollPort, SaveD
 
     @Override
     public List<DemodayPoll> listAll() {
-        return repository.findAllByOrderByOpensAtDescIdDesc();
+        return repository.findAll(POLL_ORDER);
     }
 
     @Override
