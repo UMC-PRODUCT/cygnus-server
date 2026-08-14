@@ -36,7 +36,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("UMC 내부 인원이 투표하는 경우에는 입장 코드를 사용하지 않는다.")
-    void 멤버_투표() {
+    void createMemberVote() {
         //given
         DemodayBooth booth = createBooth(POLL_ID);
 
@@ -53,7 +53,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("UMC 외부 인원이 투표하는 경우에는 입장 코드를 사용해야 한다.")
-    void 외부인_투표() {
+    void createVisitorVote() {
         //given
         DemodayBooth booth = createBooth(POLL_ID);
         DemodayEntryCode entryCode = createEntryCode(POLL_ID);
@@ -71,7 +71,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("부스가 같은 투표에 속하면 투표할 수 있다.")
-    void 같은_투표의_부스에는_투표할_수_있다() {
+    void allowVoteForBoothInSamePoll() {
         //given
         DemodayBooth booth = createBooth(POLL_ID);
 
@@ -82,7 +82,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("투표와 부스의 ID가 다르면 투표할 수 없다.")
-    void 투표와_부스의_ID가_다르면_예외가_발생한다() {
+    void rejectVoteForBoothFromDifferentPoll() {
         // given
         DemodayBooth anotherPollBooth = createBooth(2L);
 
@@ -95,7 +95,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("입장 코드가 다른 투표에 속하면 투표할 수 없다.")
-    void 입장_코드의_투표가_다르면_예외가_발생한다() {
+    void rejectVisitorVoteWithEntryCodeFromDifferentPoll() {
         // given
         DemodayBooth booth = createBooth(POLL_ID);
         DemodayEntryCode anotherPollEntryCode = createEntryCode(2L);
@@ -109,7 +109,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("저장되지 않은 부스에는 투표할 수 없다.")
-    void 저장되지_않은_부스에는_투표할_수_없다() {
+    void rejectVoteForUnsavedBooth() {
         // given
         DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
 
@@ -120,7 +120,7 @@ class DemodayVoteTest {
 
     @Test
     @DisplayName("무효화된 표는 다시 무효화 할 수 없다.")
-    void 표_무효화_검증() {
+    void rejectRevokingVoteTwice() {
         //given
         DemodayBooth booth = createBooth(POLL_ID);
         DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, booth);

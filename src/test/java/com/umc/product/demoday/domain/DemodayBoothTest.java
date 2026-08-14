@@ -18,7 +18,7 @@ class DemodayBoothTest {
 
     @Test
     @DisplayName("등록된 프로젝트로 만든 부스는 프로젝트만 갖고 표시 이름은 비어 있다.")
-    void 프로젝트_부스_생성() {
+    void createProjectBooth() {
 
         // given
         DemodayBooth demodayBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
@@ -31,7 +31,7 @@ class DemodayBoothTest {
 
     @Test
     @DisplayName("외부 부스 생성은 프로젝트는 비어 있고 부스 이름은 갖고 있다.")
-    void 외부_부스_생성() {
+    void createExternalBooth() {
         //given
         DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, "external");
 
@@ -43,7 +43,7 @@ class DemodayBoothTest {
 
     @Test
     @DisplayName("부스는 투표 식별자 없이 만들 수 없다.")
-    void 투표_식별자_없이_부스를_만들_수_없다() {
+    void rejectBoothWithoutPollId() {
         //when & then
         assertThatThrownBy(() -> DemodayBooth.forProject(null, PROJECT_ID))
             .isInstanceOf(NullPointerException.class);
@@ -54,7 +54,7 @@ class DemodayBoothTest {
 
     @Test
     @DisplayName("외부 부스 생성시 부스 이름이 비어 있으면 안된다.")
-    void 외부_부스_이름_생성() {
+    void rejectBlankExternalBoothName() {
         //when & then
         assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, null))
             .isInstanceOf(DemodayDomainException.class)
@@ -69,7 +69,7 @@ class DemodayBoothTest {
 
     @Test
     @DisplayName("부스 이른은 255자까지 허용한다.")
-    void 부스_이름_길이_경계() {
+    void validateBoothNameLengthBoundary() {
         // given
         String maxLength = "가".repeat(255);
         String tooLong = "가".repeat(256);

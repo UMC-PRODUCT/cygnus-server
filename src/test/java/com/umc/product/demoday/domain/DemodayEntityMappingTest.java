@@ -41,7 +41,7 @@ class DemodayEntityMappingTest {
 
     @Test
     @DisplayName("부스는 자기 pollId로 FK를 쓰고, 투표는 그 부스들을 읽기 전용 컬렉션으로 다시 읽는다.")
-    void 부스_컬렉션_매핑() {
+    void mapBoothCollection() {
         // given
         DemodayPoll poll = persistPoll();
         em.persistAndFlush(DemodayBooth.forProject(poll.getId(), PROJECT_ID));
@@ -61,7 +61,7 @@ class DemodayEntityMappingTest {
 
     @Test
     @DisplayName("표와 스탬프는 식별자 참조만으로 저장되고 다시 읽어온다.")
-    void 표_스탬프_매핑() {
+    void mapVoteAndStamp() {
         // given
         DemodayPoll poll = persistPoll();
         DemodayBooth booth = em.persistAndFlush(DemodayBooth.forProject(poll.getId(), PROJECT_ID));

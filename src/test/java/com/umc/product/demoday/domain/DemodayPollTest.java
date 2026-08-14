@@ -23,7 +23,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("생성된 투표는 창을 그대로 보관하고 항상 닫힌 상태로 시작한다")
-    void 생성_직후_상태는_CLOSED다() {
+    void initializePollAsClosed() {
         // when
         DemodayPoll poll = DemodayPoll.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
 
@@ -37,7 +37,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("이름은 앞뒤 공백을 제거한 값으로 저장된다")
-    void 이름은_정규화되어_저장된다() {
+    void normalizePollName() {
         // when
         DemodayPoll poll = DemodayPoll.create(GISU_ID, "  8기 데모데이  ", OPENS_AT, CLOSES_AT);
 
@@ -47,7 +47,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("기수 없이는 투표를 만들 수 없다")
-    void 기수가_null이면_생성_실패() {
+    void rejectNullGisu() {
         // when & then
         assertThatThrownBy(() -> DemodayPoll.create(null, NAME, OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
@@ -57,7 +57,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("투표 시작 시각 없이는 투표를 만들 수 없다")
-    void 시작_시각이_null이면_생성_실패() {
+    void rejectNullOpensAt() {
         // when & then
         assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, null, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
@@ -67,7 +67,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("투표 종료 시각 없이는 투표를 만들 수 없다")
-    void 종료_시각이_null이면_생성_실패() {
+    void rejectNullClosesAt() {
         // when & then
         assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, OPENS_AT, null))
             .isInstanceOf(DemodayDomainException.class)
@@ -77,7 +77,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("투표 창은 시작이 종료보다 앞서야 한다 - 같거나 뒤면 생성 실패")
-    void 투표_창이_역전되면_생성_실패() {
+    void rejectInvalidPollWindow() {
         // when & then
         assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, NAME, CLOSES_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
@@ -92,7 +92,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("이름이 비어 있으면 생성 실패 - null과 공백만 있는 값 모두")
-    void 이름이_비면_생성_실패() {
+    void rejectBlankPollName() {
         // when & then
         assertThatThrownBy(() -> DemodayPoll.create(GISU_ID, null, OPENS_AT, CLOSES_AT))
             .isInstanceOf(DemodayDomainException.class)
@@ -107,7 +107,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("이름은 100자까지 허용하고 101자부터 거부한다")
-    void 이름_길이_경계() {
+    void validatePollNameLengthBoundary() {
         // given
         String maxLength = "가".repeat(100);
         String tooLong = "가".repeat(101);
@@ -124,7 +124,7 @@ class DemodayPollTest {
 
     @Test
     @DisplayName("이름 길이는 UTF-16 단위가 아니라 code point로 센다 - 이모지 100개는 허용된다")
-    void 이모지_이름은_code_point로_센다() {
+    void countEmojiPollNameByCodePoint() {
         // given
         String hundredEmojis = "😀".repeat(100);
         String hundredOneEmojis = "😀".repeat(101);
