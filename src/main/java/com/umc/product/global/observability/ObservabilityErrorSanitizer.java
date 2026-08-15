@@ -33,8 +33,6 @@ public final class ObservabilityErrorSanitizer {
     private static final Pattern JWT = Pattern.compile(
         "\\beyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+\\b"
     );
-    private static final Pattern SINGLE_QUOTED_VALUE = Pattern.compile("'(?:''|[^'])*'", Pattern.DOTALL);
-    private static final Pattern DOUBLE_QUOTED_VALUE = Pattern.compile("\"(?:\"\"|[^\"])*\"", Pattern.DOTALL);
     private static final Pattern CONSTRAINT_PREFIX = Pattern.compile("(?i)\\bconstraint\\s*$");
     private static final Pattern MIXED_APPLICATION_KEY = Pattern.compile(
         "\\b(?=[A-Z0-9]{6}\\b)(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\\d)[A-Z0-9]{6}\\b"
@@ -46,30 +44,76 @@ public final class ObservabilityErrorSanitizer {
     private ObservabilityErrorSanitizer() {
     }
 
+    /**
+     * 새니타이저 호출자는 대부분 catch 블록이거나 로깅 경로다. 이곳에서 던진 예외는 원본 예외를
+     * 대체하거나 무관한 비즈니스 로직을 중단시키므로, 공개 진입점은 어떤 실패도 밖으로 내보내지 않는다.
+     *
+     * <p>예외를 다루는 진입점은 {@code StackOverflowError}도 함께 잡는다. 원인/suppressed 체인 순회가
+     * 재귀 구조라 비정상적으로 깊은 체인에서 스택이 바닥날 수 있기 때문이다. 문자열만 다루는
+     * {@link #sanitizeMessage}는 재귀 경로가 없으므로 {@code RuntimeException}만 잡는다.
+     *
+     * <p>{@code OutOfMemoryError} 등 나머지 {@code Error}는 심각한 상태를 은폐하지 않도록 전파한다.
+     */
     public static void record(Span span, Throwable error) {
-        ErrorMetadata metadata = ErrorMetadata.from(error);
-        span.tag("app.error.class", metadata.errorClass());
-        if (metadata.sqlErrorClass() != null) {
-            span.tag("db.error.class", metadata.sqlErrorClass());
-            tagIfPresent(span, "db.response.sql_state", metadata.sqlState());
-            span.tag("db.response.vendor_code", String.valueOf(metadata.vendorCode()));
-            tagIfPresent(span, "db.constraint.name", metadata.constraintName());
+        try {
+            ErrorMetadata metadata = ErrorMetadata.from(error);
+            span.tag("app.error.class", metadata.errorClass());
+            if (metadata.sqlErrorClass() != null) {
+                span.tag("db.error.class", metadata.sqlErrorClass());
+                tagIfPresent(span, "db.response.sql_state", metadata.sqlState());
+                span.tag("db.response.vendor_code", String.valueOf(metadata.vendorCode()));
+                tagIfPresent(span, "db.constraint.name", metadata.constraintName());
+            }
+            span.error(sanitize(error));
+        } catch (RuntimeException | StackOverflowError failure) {
+            span.tag("app.error.sanitize_failed", failure.getClass().getSimpleName());
         }
-        span.error(sanitize(error));
     }
 
     public static Throwable sanitize(Throwable error) {
-        if (error == null || !containsSensitiveMessage(error, newIdentitySet())) {
-            return error;
+        if (error == null) {
+            return null;
         }
-        return copy(error, new IdentityHashMap<>());
+        try {
+            if (!containsSensitiveMessage(error, newIdentitySet())) {
+                return error;
+            }
+            return copy(error, new IdentityHashMap<>());
+        } catch (RuntimeException | StackOverflowError failure) {
+            // 정제 여부를 판단하지 못했으므로 원본 메시지는 내보내지 않는다. 다만 스택트레이스와
+            // 예외 클래스는 민감정보가 아니므로 그대로 남긴다 — 실패해도 진단 경로는 유지된다.
+            SanitizedObservabilityException fallback = new SanitizedObservabilityException(
+                "errorClass=" + error.getClass().getName() + ", message=" + failureMarker(failure, error.getMessage())
+            );
+            fallback.setStackTrace(error.getStackTrace());
+            return fallback;
+        }
     }
 
     public static String sanitizeMessage(String message) {
         if (message == null || message.isEmpty()) {
             return message;
         }
+        try {
+            return redact(message);
+        } catch (RuntimeException failure) {
+            return failureMarker(failure, message);
+        }
+    }
 
+    /**
+     * 정제에 실패했을 때 남기는 마커. 정제가 완주하지 못했다는 것은 남은 내용을 확인할 수 없다는
+     * 뜻이므로 원문을 내보내지 않는다({@code fail-closed}). 대신 {@link #REDACTED}와 구분되는
+     * 마커와 안전한 메타데이터만 남겨 새니타이저 고장을 민감값 치환과 혼동하지 않게 한다.
+     *
+     * <p>여기서 로깅하지 않는다. 정제 어펜더가 재진입해 실패 상황에서 재귀할 수 있다.
+     */
+    private static String failureMarker(Throwable failure, String message) {
+        String length = message == null ? "unknown" : String.valueOf(message.length());
+        return "[SANITIZE_FAILED: " + failure.getClass().getSimpleName() + ", length=" + length + "]";
+    }
+
+    private static String redact(String message) {
         String sanitized = POSTGRES_KEY_DETAIL.matcher(message).replaceAll("$1(" + REDACTED + ")");
         sanitized = BIND_DETAIL.matcher(sanitized).replaceAll("$1[" + REDACTED + "]");
         sanitized = APPLICATION_KEY_VALUE.matcher(sanitized).replaceAll("$1" + REDACTED);
@@ -77,21 +121,84 @@ public final class ObservabilityErrorSanitizer {
         sanitized = EMAIL.matcher(sanitized).replaceAll(REDACTED);
         sanitized = BEARER_TOKEN.matcher(sanitized).replaceAll("$1" + REDACTED);
         sanitized = JWT.matcher(sanitized).replaceAll(REDACTED);
-        sanitized = SINGLE_QUOTED_VALUE.matcher(sanitized).replaceAll("'" + REDACTED + "'");
-        sanitized = redactDoubleQuotedValues(sanitized);
+        sanitized = redactQuotedValues(sanitized, '\'', false);
+        sanitized = redactQuotedValues(sanitized, '"', true);
         return MIXED_APPLICATION_KEY.matcher(sanitized).replaceAll(REDACTED);
     }
 
-    private static String redactDoubleQuotedValues(String message) {
-        Matcher matcher = DOUBLE_QUOTED_VALUE.matcher(message);
-        StringBuilder result = new StringBuilder();
-        while (matcher.find()) {
-            String prefix = message.substring(Math.max(0, matcher.start() - 32), matcher.start());
-            String replacement = CONSTRAINT_PREFIX.matcher(prefix).find() ? matcher.group() : "\"" + REDACTED + "\"";
-            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+    /**
+     * 따옴표로 감싼 값을 치환한다. 문자열을 한 번만 훑으며 재귀하지 않는다.
+     *
+     * <p>정규식으로 표현하면 {@code '[^']*(?:''[^']*)*'} 인데, 그룹 반복은 Java 에서 {@code Loop}
+     * 노드로 컴파일되어 반복마다 스택 프레임을 쓴다. 긴 입력에서 {@code StackOverflowError} 가 나므로
+     * 스캐너로 대체한다. 치환 결과는 정규식 버전과 동일하다.
+     *
+     * @param preserveConstraintName {@code constraint "..."} 의 식별자는 진단 정보이므로 보존할지 여부
+     */
+    private static String redactQuotedValues(String message, char quote, boolean preserveConstraintName) {
+        StringBuilder result = null;
+        int cursor = 0;
+        int open = message.indexOf(quote);
+
+        while (open >= 0) {
+            int end = quotedValueEnd(message, quote, open);
+            if (end < 0) {
+                break;
+            }
+            if (result == null) {
+                result = new StringBuilder(message.length());
+            }
+            result.append(message, cursor, open);
+            if (preserveConstraintName && followsConstraintKeyword(message, open)) {
+                result.append(message, open, end);
+            } else {
+                result.append(quote).append(REDACTED).append(quote);
+            }
+            cursor = end;
+            open = message.indexOf(quote, end);
         }
-        matcher.appendTail(result);
-        return result.toString();
+
+        return result == null ? message : result.append(message, cursor, message.length()).toString();
+    }
+
+    /**
+     * 여는 따옴표 위치에서 닫는 따옴표 <b>다음</b> 위치를 찾는다. 닫히지 않으면 {@code -1}.
+     *
+     * <p>연속된 따옴표는 이스케이프로 취급한다. 길이가 홀수인 따옴표 런은 마지막 하나가 닫는
+     * 따옴표이고, 짝수인 런은 전부 이스케이프다. 끝까지 홀수 런을 만나지 못하면 마지막 짝수 런에서
+     * 한 쌍을 되돌려 닫는 따옴표로 쓴다 — 정규식의 백트래킹과 같은 결과다.
+     */
+    private static int quotedValueEnd(String message, char quote, int open) {
+        int length = message.length();
+        int backtrackEnd = -1;
+        int index = open + 1;
+
+        while (index < length) {
+            while (index < length && message.charAt(index) != quote) {
+                index++;
+            }
+            if (index >= length) {
+                break;
+            }
+
+            int runStart = index;
+            while (index < length && message.charAt(index) == quote) {
+                index++;
+            }
+            int runLength = index - runStart;
+
+            if (runLength % 2 == 1) {
+                return index;
+            }
+            backtrackEnd = runStart + runLength - 1;
+        }
+
+        return backtrackEnd;
+    }
+
+    private static boolean followsConstraintKeyword(String message, int open) {
+        String prefix = message.substring(Math.max(0, open - 32), open);
+        return CONSTRAINT_PREFIX.matcher(prefix).find();
     }
 
     private static boolean containsSensitiveMessage(Throwable error, Set<Throwable> visited) {

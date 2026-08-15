@@ -1,20 +1,23 @@
 package com.umc.product.global.observability;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
+
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 
 class TraceFlowAspectTest {
 
@@ -101,6 +104,19 @@ class TraceFlowAspectTest {
         assertThat(result).isEqualTo("result");
         then(span).should().name("usecase.DemoUseCase.getById");
         then(span).should().tag("app.usecase", "DemoUseCase");
+    }
+
+    @Test
+    @DisplayName("예외 기록이 실패해도 애플리케이션의 원본 예외를 그대로 다시 던진다")
+    void 원본_예외_보존() throws Throwable {
+        Method method = DemoUseCase.class.getMethod("getById", Long.class);
+        // 정제 대상 메시지가 정규식 재귀를 유발해도 원본 예외가 대체되면 안 된다.
+        IllegalStateException original = new IllegalStateException("'" + "''".repeat(100_000));
+
+        ProceedingJoinPoint joinPoint = joinPoint(method, new DemoQueryService(), null);
+        given(joinPoint.proceed()).willThrow(original);
+
+        assertThatThrownBy(() -> sut.traceUseCaseAndAdapter(joinPoint)).isSameAs(original);
     }
 
     private ProceedingJoinPoint joinPoint(Method method, Object target, Object result) throws Throwable {
