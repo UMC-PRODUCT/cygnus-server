@@ -14,6 +14,7 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
@@ -83,6 +84,18 @@ public class RecruitingSeasonCommandService implements
         }
         if (getChallengerRoleUseCase.isSuperAdmin(requesterMemberId)) {
             return;
+        }
+        try {
+            ChapterInfo chapter = getChapterUseCase.byGisuAndSchool(command.gisuId(), command.schoolId());
+            if (getChallengerRoleUseCase.isChapterPresidentInGisu(
+                requesterMemberId,
+                command.gisuId(),
+                chapter.id()
+            )) {
+                return;
+            }
+        } catch (OrganizationDomainException ignored) {
+            // 해당 기수/학교에 지부가 매핑되어 있지 않으면 무시합니다.
         }
         throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_SEASON_CREATION_FORBIDDEN);
     }
