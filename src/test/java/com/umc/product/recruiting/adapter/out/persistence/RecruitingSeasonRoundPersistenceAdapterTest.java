@@ -157,6 +157,42 @@ class RecruitingSeasonRoundPersistenceAdapterTest {
     }
 
     @Test
+    @DisplayName("복구한 차수는 삭제 시각이 비워지고 일반 조회에 다시 잡힌다")
+    void restoredRoundBecomesVisibleAgain() {
+        RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(18L, 190L));
+        RecruitingRound round = roundAdapter.save(RecruitingRound.createRegular(
+            season,
+            "본모집",
+            noInterviewConfiguration()
+        ));
+        roundAdapter.save(RecruitingRound.createAdditional(season, 1, "추가모집 1차", noInterviewConfiguration()));
+        round.delete(Instant.parse("2026-08-16T00:00:00Z"));
+        roundAdapter.save(round);
+        em.flush();
+        em.clear();
+
+        RecruitingRound deleted = roundAdapter.getByIdForUpdateIncludingDeleted(round.getId());
+        deleted.restore();
+        roundAdapter.save(deleted);
+        em.flush();
+        em.clear();
+
+        RecruitingRound restored = roundAdapter.getById(round.getId());
+        assertThat(restored.isDeleted()).isFalse();
+        assertThat(restored.getDeletedAt()).isNull();
+        assertThat(roundAdapter.findById(round.getId())).isPresent();
+        assertThat(roundAdapter.listBySeasonId(season.getId()))
+            .extracting(RecruitingRound::getTitle)
+            .containsExactly("본모집", "추가모집 1차");
+        assertThat(roundAdapter.existsBySeasonIdAndTitleIgnoreCase(season.getId(), "본모집")).isTrue();
+        assertThat(roundAdapter.existsBySeasonIdAndTypeAndRoundNo(
+            season.getId(),
+            RecruitingRoundType.REGULAR,
+            1
+        )).isTrue();
+    }
+
+    @Test
     @DisplayName("삭제된 차수는 슬롯을 점유하지 않아 같은 유형과 번호로 다시 만들 수 있다")
     void deletedRoundReleasesUniqueSlot() {
         RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(16L, 170L));
