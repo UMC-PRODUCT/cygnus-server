@@ -80,5 +80,6 @@ public class RecruitingApplicationFormPersistenceAdapter
     @Override
     public void delete(RecruitingApplicationForm applicationForm) {
         recruitingApplicationFormJpaRepository.delete(applicationForm);
+        recruitingApplicationFormJpaRepository.flush();
     }
 }
