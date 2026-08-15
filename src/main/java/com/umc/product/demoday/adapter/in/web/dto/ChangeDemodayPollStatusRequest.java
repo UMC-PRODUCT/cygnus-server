@@ -1,10 +1,10 @@
 package com.umc.product.demoday.adapter.in.web.dto;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.NotNull;
-
 import com.umc.product.demoday.application.port.in.command.dto.ChangeDemodayPollStatusCommand;
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
 
 @Schema(description = "데모데이 투표 운영 상태 변경 요청")
 public record ChangeDemodayPollStatusRequest(

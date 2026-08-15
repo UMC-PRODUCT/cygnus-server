@@ -2,10 +2,9 @@ package com.umc.product.demoday.adapter.in.web.dto;
 
 import java.time.Instant;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-
 import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayPollCommand;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
