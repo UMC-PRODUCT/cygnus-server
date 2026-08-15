@@ -166,6 +166,7 @@ class RecruitingSeasonCommandServiceTest {
             .schoolId(10L)
             .build();
         given(getChallengerRoleUseCase.isSchoolCoreInGisu(99L, 1L, 10L)).willReturn(false);
+        given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(100L, "A 지부"));
 
         assertThatThrownBy(() -> sut.createSeason(command))
             .isInstanceOf(RecruitingDomainException.class)
@@ -186,6 +187,7 @@ class RecruitingSeasonCommandServiceTest {
             .schoolId(10L)
             .build();
         given(getChallengerRoleUseCase.isCentralCoreInGisu(99L, 1L)).willReturn(false);
+        given(getChapterUseCase.byGisuAndSchool(1L, 10L)).willReturn(new ChapterInfo(100L, "A 지부"));
 
         assertThatThrownBy(() -> sut.createSeason(command))
             .isInstanceOf(RecruitingDomainException.class)
