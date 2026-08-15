@@ -27,20 +27,18 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+/**
+ * (recruiting_season_id, type, round_no) 유일성은 활성 차수에만 적용된다.
+ * 삭제된 차수가 슬롯을 점유하지 않도록 DB에 부분 유니크 인덱스로 정의되어 있으며,
+ * JPA로는 표현할 수 없어 {@code @UniqueConstraint}를 선언하지 않는다.
+ */
 @Entity
-@Table(
-    name = "recruiting_round",
-    uniqueConstraints = @UniqueConstraint(
-        name = "uk_recruiting_round_season_type_no",
-        columnNames = {"recruiting_season_id", "type", "round_no"}
-    )
-)
+@Table(name = "recruiting_round")
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RecruitingRound extends BaseEntity {
@@ -112,6 +110,9 @@ public class RecruitingRound extends BaseEntity {
 
     @Column(name = "created_by_member_id")
     private Long createdByMemberId;
+
+    @Column(name = "deleted_at")
+    private Instant deletedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
     private RecruitingRound(
@@ -320,6 +321,27 @@ public class RecruitingRound extends BaseEntity {
     public void unpublish() {
         validateStatus(RecruitingRoundStatus.OPEN);
         this.status = RecruitingRoundStatus.DRAFT;
+    }
+
+    /**
+     * 삭제 여부만 표시하고 하위 데이터(평가자, 면접 질문·세션, 지원 Form 구조)는 그대로 둔다.
+     * 복구가 이 플래그를 되돌리는 것만으로 끝나야 하기 때문이다.
+     */
+    public void delete(Instant deletedAt) {
+        if (this.deletedAt == null) {
+            if (deletedAt == null) {
+                throw new IllegalArgumentException("deletedAt must not be null");
+            }
+            this.deletedAt = deletedAt;
+        }
+    }
+
+    public void restore() {
+        this.deletedAt = null;
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
     }
 
     private static void validateRoundNo(Integer roundNo) {
