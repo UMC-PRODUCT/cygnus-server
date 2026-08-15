@@ -86,9 +86,4 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
     public RecruitingRound save(RecruitingRound round) {
         return recruitingRoundJpaRepository.save(round);
     }
-
-    @Override
-    public void delete(RecruitingRound round) {
-        recruitingRoundJpaRepository.delete(round);
-    }
 }

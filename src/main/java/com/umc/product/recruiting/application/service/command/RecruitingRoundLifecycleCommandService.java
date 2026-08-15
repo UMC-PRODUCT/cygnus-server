@@ -1,5 +1,6 @@
 package com.umc.product.recruiting.application.service.command;
 
+import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -9,8 +10,6 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.umc.product.form.application.port.in.command.ManageFormUseCase;
-import com.umc.product.form.application.port.in.command.dto.DeleteFormCommand;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
@@ -32,10 +31,6 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingApplication
 import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingFormSectionPolicyPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSessionPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
@@ -57,21 +52,17 @@ public class RecruitingRoundLifecycleCommandService implements
 
     private final LoadRecruitingRoundPort loadRoundPort;
     private final SaveRecruitingRoundPort saveRoundPort;
-    private final SaveRecruitingInterviewSessionPort saveInterviewSessionPort;
     private final LoadRecruitingApplicationPort loadApplicationPort;
     private final LoadRecruitingApplicationFormPort loadApplicationFormPort;
-    private final SaveRecruitingApplicationFormPort saveApplicationFormPort;
     private final LoadRecruitingFormSectionPolicyPort loadPolicyPort;
-    private final SaveRecruitingFormSectionPolicyPort savePolicyPort;
-    private final SaveRecruitingRoundEvaluatorPort saveEvaluatorPort;
     private final LoadRecruitingRoundInterviewQuestionPort loadQuestionPort;
     private final SaveRecruitingRoundInterviewQuestionPort saveQuestionPort;
-    private final ManageFormUseCase manageFormUseCase;
     private final GetFormUseCase getFormUseCase;
     private final GetFormResponseUseCase getFormResponseUseCase;
     private final CreateRecruitingRoundUseCase createRoundUseCase;
     private final UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
     private final AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
+    private final Clock clock;
 
     @Override
     public void deleteRound(DeleteRecruitingRoundCommand command) {
@@ -90,18 +81,8 @@ public class RecruitingRoundLifecycleCommandService implements
             throw deleteConflict();
         }
 
-        saveEvaluatorPort.deleteByRoundId(round.getId());
-        saveQuestionPort.deleteByRoundId(round.getId());
-        saveInterviewSessionPort.deleteByRoundId(round.getId());
-        if (applicationForm != null) {
-            savePolicyPort.deleteByApplicationFormId(applicationForm.getId());
-            saveApplicationFormPort.delete(applicationForm);
-            manageFormUseCase.deleteForm(DeleteFormCommand.builder()
-                .formId(applicationForm.getFormId())
-                .requesterMemberId(command.requesterMemberId())
-                .build());
-        }
-        saveRoundPort.delete(round);
+        round.delete(clock.instant());
+        saveRoundPort.save(round);
     }
 
     @Override

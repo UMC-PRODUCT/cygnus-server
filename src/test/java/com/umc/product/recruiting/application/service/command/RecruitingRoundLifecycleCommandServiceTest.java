@@ -5,9 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
-import static org.mockito.Mockito.inOrder;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,13 +17,11 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.common.domain.enums.ChallengerTrack;
-import com.umc.product.form.application.port.in.command.ManageFormUseCase;
 import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
 import com.umc.product.form.application.port.in.query.GetFormUseCase;
 import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
@@ -39,10 +38,6 @@ import com.umc.product.recruiting.application.port.out.LoadRecruitingApplication
 import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingRoundPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingApplicationFormPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingFormSectionPolicyPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingInterviewSessionPort;
-import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundEvaluatorPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundInterviewQuestionPort;
 import com.umc.product.recruiting.application.port.out.SaveRecruitingRoundPort;
 import com.umc.product.recruiting.domain.RecruitingApplicationForm;
@@ -59,21 +54,18 @@ class RecruitingRoundLifecycleCommandServiceTest {
 
     @Mock LoadRecruitingRoundPort loadRoundPort;
     @Mock SaveRecruitingRoundPort saveRoundPort;
-    @Mock SaveRecruitingInterviewSessionPort saveInterviewSessionPort;
     @Mock LoadRecruitingApplicationPort loadApplicationPort;
     @Mock LoadRecruitingApplicationFormPort loadApplicationFormPort;
-    @Mock SaveRecruitingApplicationFormPort saveApplicationFormPort;
     @Mock LoadRecruitingFormSectionPolicyPort loadPolicyPort;
-    @Mock SaveRecruitingFormSectionPolicyPort savePolicyPort;
-    @Mock SaveRecruitingRoundEvaluatorPort saveEvaluatorPort;
     @Mock LoadRecruitingRoundInterviewQuestionPort loadQuestionPort;
     @Mock SaveRecruitingRoundInterviewQuestionPort saveQuestionPort;
-    @Mock ManageFormUseCase manageFormUseCase;
     @Mock GetFormUseCase getFormUseCase;
     @Mock GetFormResponseUseCase getFormResponseUseCase;
     @Mock CreateRecruitingRoundUseCase createRoundUseCase;
     @Mock UpsertRecruitingApplicationFormUseCase upsertFormUseCase;
     @Mock AuthorizeRecruitingManagementUseCase authorizeManagementUseCase;
+
+    static final Instant NOW = Instant.parse("2026-08-16T00:00:00Z");
 
     RecruitingRoundLifecycleCommandService sut;
     RecruitingRound source;
@@ -83,27 +75,23 @@ class RecruitingRoundLifecycleCommandServiceTest {
         sut = new RecruitingRoundLifecycleCommandService(
             loadRoundPort,
             saveRoundPort,
-            saveInterviewSessionPort,
             loadApplicationPort,
             loadApplicationFormPort,
-            saveApplicationFormPort,
             loadPolicyPort,
-            savePolicyPort,
-            saveEvaluatorPort,
             loadQuestionPort,
             saveQuestionPort,
-            manageFormUseCase,
             getFormUseCase,
             getFormResponseUseCase,
             createRoundUseCase,
             upsertFormUseCase,
-            authorizeManagementUseCase
+            authorizeManagementUseCase,
+            Clock.fixed(NOW, ZoneOffset.UTC)
         );
         source = round(10L, 20L, true, 999L, 1999L);
     }
 
     @Test
-    @DisplayName("응답이 존재하는 DRAFT Round는 hard delete하지 않는다")
+    @DisplayName("응답이 존재하는 DRAFT Round는 삭제되지 않는다")
     void rejectDeleteWhenFormResponseExists() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(source, 100L);
         given(loadRoundPort.getByIdForUpdate(20L)).willReturn(source);
@@ -122,12 +110,11 @@ class RecruitingRoundLifecycleCommandServiceTest {
             .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_DELETE_CONFLICT);
 
         then(saveRoundPort).shouldHaveNoInteractions();
-        then(manageFormUseCase).shouldHaveNoInteractions();
     }
 
     @Test
-    @DisplayName("지원서와 응답이 없는 DRAFT Round는 명시적인 자식 삭제 순서로 hard delete한다")
-    void hardDeleteDraftRoundInExplicitOrder() {
+    @DisplayName("지원서와 응답이 없는 DRAFT Round는 삭제 시각만 기록하고 하위 데이터는 남긴다")
+    void softDeleteDraftRound() {
         RecruitingApplicationForm form = RecruitingApplicationForm.create(source, 100L);
         ReflectionTestUtils.setField(form, "id", 200L);
         given(loadRoundPort.getByIdForUpdate(20L)).willReturn(source);
@@ -140,22 +127,9 @@ class RecruitingRoundLifecycleCommandServiceTest {
             .requesterMemberId(99L)
             .build());
 
-        InOrder order = inOrder(
-            saveEvaluatorPort,
-            saveQuestionPort,
-            saveInterviewSessionPort,
-            savePolicyPort,
-            saveApplicationFormPort,
-            manageFormUseCase,
-            saveRoundPort
-        );
-        then(saveEvaluatorPort).should(order).deleteByRoundId(20L);
-        then(saveQuestionPort).should(order).deleteByRoundId(20L);
-        then(saveInterviewSessionPort).should(order).deleteByRoundId(20L);
-        then(savePolicyPort).should(order).deleteByApplicationFormId(200L);
-        then(saveApplicationFormPort).should(order).delete(form);
-        then(manageFormUseCase).should(order).deleteForm(any());
-        then(saveRoundPort).should(order).delete(source);
+        assertThat(source.isDeleted()).isTrue();
+        assertThat(source.getDeletedAt()).isEqualTo(NOW);
+        then(saveRoundPort).should().save(source);
     }
 
     @Test
