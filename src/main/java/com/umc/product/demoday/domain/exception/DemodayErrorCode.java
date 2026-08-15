@@ -17,6 +17,9 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_POLL_BOOTH_LOCKED(HttpStatus.CONFLICT, "DEMODAY-0105", "투표가 시작되어 부스를 추가할 수 없어요."),
     DEMODAY_POLL_INVALID_NAME(HttpStatus.BAD_REQUEST, "DEMODAY-0106", "데모데이 이름은 1자 이상 100자 이하여야 해요."),
     DEMODAY_POLL_GISU_REQUIRED(HttpStatus.BAD_REQUEST, "DEMODAY-0107", "데모데이가 진행되는 기수를 입력해주세요."),
+    DEMODAY_POLL_ALREADY_OPEN(HttpStatus.CONFLICT, "DEMODAY-0108", "이미 오픈된 데모데이 투표 행사 입니다."),
+    DEMODAY_POLL_ALREADY_CLOSED(HttpStatus.CONFLICT, "DEMODAY-0109", "이미 종료된 데모데이 투표 행사 입니다."),
+    DEMODAY_POLL_NOT_FOUND(HttpStatus.NOT_FOUND, "DEMODAY-0110", "데모데이 투표 행사를 찾을 수 없습니다."),
 
     DEMODAY_BOOTH_INVALID_IDENTIFIER(HttpStatus.BAD_REQUEST, "DEMODAY-0200", "부스는 등록된 프로젝트나 표시 이름 중 하나를 가져야 합니다."),
     DEMODAY_BOOTH_INVALID_NAME(HttpStatus.BAD_REQUEST, "DEMODAY-0201", "부스 이름은 1자 이상 255자 이하로 작성해주세요."),
@@ -32,7 +35,10 @@ public enum DemodayErrorCode implements BaseCode {
 
     DEMODAY_STAMP_ALREADY_COLLECTED(HttpStatus.CONFLICT, "DEMODAY-0501", "이미 스탬프를 받은 부스예요."),
     DEMODAY_STAMP_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0502", "이미 무효 처리된 스탬프예요."),
-    DEMODAY_STAMP_POLL_MISMATCH(HttpStatus.CONFLICT, "DEMODAY-0503", "이번 데모데이의 부스에만 스탬프를 받을 수 있어요.");
+    DEMODAY_STAMP_POLL_MISMATCH(HttpStatus.CONFLICT, "DEMODAY-0503", "이번 데모데이의 부스에만 스탬프를 받을 수 있어요."),
+
+    DEMODAY_ADMIN_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "DEMODAY-0600", "접근 권한이 없는 사용자입니다.")
+    ;
 
     private final HttpStatus httpStatus;
     private final String code;

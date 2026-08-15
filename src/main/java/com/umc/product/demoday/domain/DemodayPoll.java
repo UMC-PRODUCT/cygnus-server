@@ -129,5 +129,19 @@ public class DemodayPoll extends BaseEntity {
         return Collections.unmodifiableList(booths);
     }
 
-    // TODO: 투표 시작과 종료 상태 전이 메서드 제작
+    public void open() {
+        if (DemodayPollStatus.OPEN == status) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_ALREADY_OPEN);
+        }
+
+        status = DemodayPollStatus.OPEN;
+    }
+
+    public void close() {
+        if (DemodayPollStatus.CLOSED == status) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_ALREADY_CLOSED);
+        }
+
+        status = DemodayPollStatus.CLOSED;
+    }
 }
