@@ -1,10 +1,12 @@
 package com.umc.product.demoday.application.service.command;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
 
 @Component
 @RequiredArgsConstructor
