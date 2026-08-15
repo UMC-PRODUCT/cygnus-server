@@ -6,8 +6,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import com.umc.product.organization.exception.OrganizationDomainException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +13,7 @@ import com.umc.product.authorization.application.port.in.query.GetChallengerRole
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
+import com.umc.product.organization.exception.OrganizationDomainException;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
