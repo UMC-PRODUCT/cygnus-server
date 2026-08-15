@@ -12,4 +12,8 @@ public class DemodayDomainException extends BusinessException {
     public DemodayDomainException(DemodayErrorCode demodayErrorCode, String message) {
         super(Domain.DEMODAY, demodayErrorCode, message);
     }
+
+    public DemodayDomainException(DemodayErrorCode demodayErrorCode, Throwable cause) {
+        super(Domain.DEMODAY, demodayErrorCode, cause);
+    }
 }

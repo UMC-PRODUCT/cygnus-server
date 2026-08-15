@@ -36,7 +36,7 @@ class DemodayStampTest {
 
     @Test
     @DisplayName("UMC 내부 인원이 스탬프를 받으면 회원 식별자를 보관한다.")
-    void 멤버_스탬프_생성() {
+    void createMemberStamp() {
         // given
         DemodayBooth booth = createBooth(POLL_ID);
 
@@ -53,7 +53,7 @@ class DemodayStampTest {
 
     @Test
     @DisplayName("UMC 외부 인원이 스탬프를 받으면 입장 코드를 보관한다.")
-    void 외부인_스탬프_생성() {
+    void createVisitorStamp() {
         // given
         DemodayEntryCode entryCode = createEntryCode(POLL_ID);
         DemodayBooth booth = createBooth(POLL_ID);
@@ -69,7 +69,7 @@ class DemodayStampTest {
 
     @Test
     @DisplayName("입장 코드 날짜와 부스의 행사일이 같으면 스탬프를 생성할 수 있다.")
-    void 입장_코드_날짜와_동일한_날에_운영되는_부스만_스탬프를_생성한다() {
+    void allowVisitorStampForBoothOperatingOnEntryDate() {
         // given
         DemodayEntryCode entryCode = createEntryCode(POLL_ID);
         DemodayBooth booth = createBooth(POLL_ID);
@@ -81,7 +81,7 @@ class DemodayStampTest {
 
     @Test
     @DisplayName("외부인 스탬프는 입장 코드가 발급된 날과 동일한 부스에서만 받을 수 있다.")
-    void 외부인_스탬프_투표_불일치_검증() {
+    void rejectVisitorStampForBoothFromDifferentPoll() {
         // given
         DemodayEntryCode entryCode = createEntryCode(POLL_ID);
         DemodayBooth anotherPollBooth = createBooth(2L);
@@ -95,7 +95,7 @@ class DemodayStampTest {
 
     @Test
     @DisplayName("저장되지 않은 부스에서는 스탬프를 받을 수 없다.")
-    void 저장되지_않은_부스에서는_스탬프를_받을_수_없다() {
+    void rejectStampForUnsavedBooth() {
         // given
         DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
 
@@ -106,7 +106,7 @@ class DemodayStampTest {
 
     @Test
     @DisplayName("무효화된 스탬프는 다시 무효화할 수 없다.")
-    void 스탬프_무효화_검증() {
+    void rejectRevokingStampTwice() {
         // given
         DemodayStamp stamp = DemodayStamp.forMember(MEMBER_ID, createBooth(POLL_ID));
         Instant revokedAt = Instant.parse("2026-08-01T06:00:00Z");

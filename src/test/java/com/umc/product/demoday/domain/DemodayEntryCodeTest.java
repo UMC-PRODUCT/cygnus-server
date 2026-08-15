@@ -19,7 +19,7 @@ class DemodayEntryCodeTest {
 
     @Test
     @DisplayName("입장 코드를 생성하면 투표와 코드 해시를 보관한다.")
-    void 입장_코드_생성() {
+    void createEntryCode() {
         // when
         DemodayEntryCode entryCode = DemodayEntryCode.create(POLL_ID, CODE_HASH);
 
@@ -33,7 +33,7 @@ class DemodayEntryCodeTest {
 
     @Test
     @DisplayName("사용하지 않은 입장 코드는 한 번만 사용할 수 있다.")
-    void 입장_코드_사용() {
+    void useEntryCode() {
         // given
         DemodayEntryCode entryCode = DemodayEntryCode.create(POLL_ID, CODE_HASH);
         Instant redeemedAt = Instant.parse("2026-08-01T05:30:00Z");
