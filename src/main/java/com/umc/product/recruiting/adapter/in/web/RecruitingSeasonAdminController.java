@@ -36,10 +36,12 @@ import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
+import com.umc.product.recruiting.application.port.in.command.RestoreRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.RestoreRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
@@ -71,6 +73,7 @@ public class RecruitingSeasonAdminController {
     private final CheckRecruitingRoundTitleUseCase checkRoundTitleUseCase;
     private final CloneRecruitingRoundUseCase cloneRoundUseCase;
     private final DeleteRecruitingRoundUseCase deleteRoundUseCase;
+    private final RestoreRecruitingRoundUseCase restoreRoundUseCase;
 
     @GetMapping("/rounds")
     @CheckAccess(resourceType = ResourceType.RECRUITMENT, permission = PermissionType.READ)
@@ -261,7 +264,7 @@ public class RecruitingSeasonAdminController {
     @Operation(
         operationId = "RECRUITING-ADMIN-017",
         summary = "모집 Round 삭제",
-        description = "지원서와 Form 응답이 없는 DRAFT Round와 소유한 Form 구조를 완전히 삭제합니다."
+        description = "지원서와 Form 응답이 없는 DRAFT Round를 삭제 상태로 표시합니다. Form 구조를 비롯한 하위 데이터는 남아 있어 복구 API로 되돌릴 수 있습니다."
     )
     public void deleteRound(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
@@ -269,6 +272,25 @@ public class RecruitingSeasonAdminController {
         @PathVariable @Positive Long roundId
     ) {
         deleteRoundUseCase.deleteRound(DeleteRecruitingRoundCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .requesterMemberId(memberPrincipal.getMemberId())
+            .build());
+    }
+
+    @PostMapping("/seasons/{seasonId}/rounds/{roundId}/restore")
+    @CheckAccess(resourceType = ResourceType.RECRUITMENT, resourceId = "#seasonId", permission = PermissionType.EDIT)
+    @Operation(
+        operationId = "RECRUITING-ADMIN-018",
+        summary = "모집 Round 복구",
+        description = "삭제한 Round를 되돌립니다. 삭제된 사이에 같은 차수 번호나 제목이 다시 사용된 경우에는 복구할 수 없습니다."
+    )
+    public void restoreRound(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @PathVariable @Positive Long seasonId,
+        @PathVariable @Positive Long roundId
+    ) {
+        restoreRoundUseCase.restoreRound(RestoreRecruitingRoundCommand.builder()
             .seasonId(seasonId)
             .roundId(roundId)
             .requesterMemberId(memberPrincipal.getMemberId())

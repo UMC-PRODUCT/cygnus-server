@@ -63,6 +63,7 @@ type Mutation {
     input: CloneRecruitingRoundInput!
   ): RecruitingIdPayload!
   deleteRecruitingRound(seasonId: ID!, roundId: ID!): Boolean!
+  restoreRecruitingRound(seasonId: ID!, roundId: ID!): Boolean!
   addRecruitingRoundEvaluator(
     seasonId: ID!
     roundId: ID!

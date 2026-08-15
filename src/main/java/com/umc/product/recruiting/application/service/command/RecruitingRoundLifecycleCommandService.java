@@ -17,11 +17,13 @@ import com.umc.product.recruiting.application.port.in.command.AuthorizeRecruitin
 import com.umc.product.recruiting.application.port.in.command.CloneRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
+import com.umc.product.recruiting.application.port.in.command.RestoreRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingApplicationFormUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CloneRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.RecruitingRoundConfigurationCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.RestoreRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand.OptionEntry;
 import com.umc.product.recruiting.application.port.in.command.dto.UpsertRecruitingApplicationFormCommand.QuestionEntry;
@@ -48,6 +50,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class RecruitingRoundLifecycleCommandService implements
     DeleteRecruitingRoundUseCase,
+    RestoreRecruitingRoundUseCase,
     CloneRecruitingRoundUseCase {
 
     private final LoadRecruitingRoundPort loadRoundPort;
@@ -82,6 +85,32 @@ public class RecruitingRoundLifecycleCommandService implements
         }
 
         round.delete(clock.instant());
+        saveRoundPort.save(round);
+    }
+
+    /**
+     * 삭제 기간에 제한이 없어, 삭제된 사이에 같은 (유형, 차수 번호)나 제목이 다시 사용될 수 있다.
+     * 활성 차수만 대상으로 하는 부분 유니크 인덱스가 슬롯을 풀어 주기 때문이며,
+     * 그대로 복구하면 인덱스 위반이 나므로 선점 여부를 먼저 확인한다.
+     */
+    @Override
+    public void restoreRound(RestoreRecruitingRoundCommand command) {
+        authorizeManagementUseCase.authorizeSeasonManagement(command.requesterMemberId(), command.seasonId());
+        RecruitingRound round = loadRoundPort.getByIdForUpdateIncludingDeleted(command.roundId());
+        validateRoundInSeason(round, command.seasonId());
+        if (!round.isDeleted()) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_NOT_DELETED);
+        }
+        boolean slotTaken = loadRoundPort.existsBySeasonIdAndTypeAndRoundNo(
+            command.seasonId(),
+            round.getType(),
+            round.getRoundNo()
+        );
+        if (slotTaken || loadRoundPort.existsBySeasonIdAndTitleIgnoreCase(command.seasonId(), round.getTitle())) {
+            throw new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_RESTORE_CONFLICT);
+        }
+
+        round.restore();
         saveRoundPort.save(round);
     }
 

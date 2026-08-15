@@ -85,6 +85,7 @@ class RecruitingRestContractTest {
                 "RECRUITING-ADMIN-015",
                 "RECRUITING-ADMIN-016",
                 "RECRUITING-ADMIN-017",
+                "RECRUITING-ADMIN-018",
                 "RECRUITING-ADMIN-021",
                 "RECRUITING-ADMIN-022",
                 "RECRUITING-ADMIN-031",

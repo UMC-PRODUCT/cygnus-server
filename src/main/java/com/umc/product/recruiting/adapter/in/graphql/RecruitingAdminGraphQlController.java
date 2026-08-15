@@ -34,10 +34,12 @@ import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
+import com.umc.product.recruiting.application.port.in.command.RestoreRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.RestoreRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingEvaluationStatisticsUseCase;
@@ -66,6 +68,7 @@ public class RecruitingAdminGraphQlController {
     private final UpdateRecruitingRoundUseCase updateRoundUseCase;
     private final CloneRecruitingRoundUseCase cloneRoundUseCase;
     private final DeleteRecruitingRoundUseCase deleteRoundUseCase;
+    private final RestoreRecruitingRoundUseCase restoreRoundUseCase;
     private final GetRecruitingFormQueryUseCase getRecruitingFormQueryUseCase;
     private final RecruitingGraphQlPermissionSupport permissionSupport;
 
@@ -246,6 +249,21 @@ public class RecruitingAdminGraphQlController {
     ) {
         Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
         deleteRoundUseCase.deleteRound(DeleteRecruitingRoundCommand.builder()
+            .seasonId(seasonId)
+            .roundId(roundId)
+            .requesterMemberId(requesterMemberId)
+            .build());
+        return true;
+    }
+
+    @MutationMapping
+    public Boolean restoreRecruitingRound(
+        @Nullable @CurrentMember MemberPrincipal memberPrincipal,
+        @Argument Long seasonId,
+        @Argument Long roundId
+    ) {
+        Long requesterMemberId = permissionSupport.currentMemberId(memberPrincipal);
+        restoreRoundUseCase.restoreRound(RestoreRecruitingRoundCommand.builder()
             .seasonId(seasonId)
             .roundId(roundId)
             .requesterMemberId(requesterMemberId)
