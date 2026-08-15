@@ -33,6 +33,7 @@ import com.umc.product.recruiting.application.port.in.command.UpsertRecruitingAp
 import com.umc.product.recruiting.application.port.in.command.dto.CloneRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.RestoreRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationFormPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingApplicationPort;
 import com.umc.product.recruiting.application.port.out.LoadRecruitingFormSectionPolicyPort;
@@ -130,6 +131,77 @@ class RecruitingRoundLifecycleCommandServiceTest {
         assertThat(source.isDeleted()).isTrue();
         assertThat(source.getDeletedAt()).isEqualTo(NOW);
         then(saveRoundPort).should().save(source);
+    }
+
+    @Test
+    @DisplayName("삭제된 Round 복구는 삭제 시각을 비우고 저장한다")
+    void restoreDeletedRound() {
+        source.delete(NOW);
+        given(loadRoundPort.getByIdForUpdateIncludingDeleted(20L)).willReturn(source);
+        given(loadRoundPort.existsBySeasonIdAndTypeAndRoundNo(10L, source.getType(), source.getRoundNo()))
+            .willReturn(false);
+        given(loadRoundPort.existsBySeasonIdAndTitleIgnoreCase(10L, source.getTitle())).willReturn(false);
+
+        sut.restoreRound(restoreCommand());
+
+        assertThat(source.isDeleted()).isFalse();
+        assertThat(source.getDeletedAt()).isNull();
+        then(saveRoundPort).should().save(source);
+    }
+
+    @Test
+    @DisplayName("삭제 상태가 아닌 Round는 복구할 수 없다")
+    void rejectRestoreWhenRoundIsNotDeleted() {
+        given(loadRoundPort.getByIdForUpdateIncludingDeleted(20L)).willReturn(source);
+
+        assertThatThrownBy(() -> sut.restoreRound(restoreCommand()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_NOT_DELETED);
+
+        then(saveRoundPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("삭제된 사이에 같은 차수 번호가 선점되면 복구를 거절한다")
+    void rejectRestoreWhenRoundNoIsTaken() {
+        source.delete(NOW);
+        given(loadRoundPort.getByIdForUpdateIncludingDeleted(20L)).willReturn(source);
+        given(loadRoundPort.existsBySeasonIdAndTypeAndRoundNo(10L, source.getType(), source.getRoundNo()))
+            .willReturn(true);
+
+        assertThatThrownBy(() -> sut.restoreRound(restoreCommand()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_RESTORE_CONFLICT);
+
+        assertThat(source.isDeleted()).isTrue();
+        then(saveRoundPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("삭제된 사이에 같은 제목이 선점되면 복구를 거절한다")
+    void rejectRestoreWhenTitleIsTaken() {
+        source.delete(NOW);
+        given(loadRoundPort.getByIdForUpdateIncludingDeleted(20L)).willReturn(source);
+        given(loadRoundPort.existsBySeasonIdAndTypeAndRoundNo(10L, source.getType(), source.getRoundNo()))
+            .willReturn(false);
+        given(loadRoundPort.existsBySeasonIdAndTitleIgnoreCase(10L, source.getTitle())).willReturn(true);
+
+        assertThatThrownBy(() -> sut.restoreRound(restoreCommand()))
+            .isInstanceOf(RecruitingDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(RecruitingErrorCode.RECRUITING_ROUND_RESTORE_CONFLICT);
+
+        then(saveRoundPort).shouldHaveNoInteractions();
+    }
+
+    private RestoreRecruitingRoundCommand restoreCommand() {
+        return RestoreRecruitingRoundCommand.builder()
+            .seasonId(10L)
+            .roundId(20L)
+            .requesterMemberId(99L)
+            .build();
     }
 
     @Test

@@ -38,6 +38,7 @@ import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.RestoreRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.UpdateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingApplicationQueryUseCase;
@@ -217,6 +218,26 @@ class RecruitingRoundAdminGraphQlControllerTest {
             .isEqualTo(Instant.parse("2026-08-01T00:00:00Z"));
         assertThat(captor.getValue().configuration().availabilityFormId()).isEqualTo(100L);
         assertThat(captor.getValue().configuration().availabilityScheduleQuestionId()).isEqualTo(200L);
+    }
+
+    @Test
+    @DisplayName("GraphQL 차수 복구는 seasonId와 roundId를 command로 전달한다")
+    void restoreRound() {
+        graphQlTester.document("""
+                mutation {
+                  restoreRecruitingRound(seasonId: 10, roundId: 20)
+                }
+                """)
+            .execute()
+            .path("restoreRecruitingRound")
+            .entity(Boolean.class)
+            .isEqualTo(true);
+
+        ArgumentCaptor<RestoreRecruitingRoundCommand> captor =
+            ArgumentCaptor.forClass(RestoreRecruitingRoundCommand.class);
+        then(restoreRoundUseCase).should().restoreRound(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().roundId()).isEqualTo(20L);
     }
 
     @Test

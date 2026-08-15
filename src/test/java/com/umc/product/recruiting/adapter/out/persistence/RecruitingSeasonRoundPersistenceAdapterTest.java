@@ -18,6 +18,7 @@ import com.umc.product.recruiting.domain.RecruitingRound;
 import com.umc.product.recruiting.domain.RecruitingRoundConfiguration;
 import com.umc.product.recruiting.domain.RecruitingSeason;
 import com.umc.product.recruiting.domain.RecruitingSeasonTrackQuota;
+import com.umc.product.recruiting.domain.enums.RecruitingRoundType;
 import com.umc.product.support.PersistenceAdapterTest;
 
 @PersistenceAdapterTest
@@ -121,6 +122,80 @@ class RecruitingSeasonRoundPersistenceAdapterTest {
         assertThat(roundAdapter.listBySeasonIds(List.of(firstSeason.getId(), secondSeason.getId())))
             .extracting(RecruitingRound::getId)
             .containsExactlyInAnyOrder(firstRound.getId(), secondRound.getId());
+    }
+
+    @Test
+    @DisplayName("삭제된 차수는 목록, 단건, 제목 중복 검사, 추가모집 채번에서 제외된다")
+    void deletedRoundIsExcludedFromQueries() {
+        RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(15L, 160L));
+        RecruitingRound round = roundAdapter.save(RecruitingRound.createRegular(
+            season,
+            "본모집",
+            noInterviewConfiguration()
+        ));
+        roundAdapter.save(RecruitingRound.createAdditional(season, 1, "추가모집 1차", noInterviewConfiguration()));
+        em.flush();
+
+        round.delete(Instant.parse("2026-08-16T00:00:00Z"));
+        roundAdapter.save(round);
+        em.flush();
+        em.clear();
+
+        assertThat(roundAdapter.findById(round.getId())).isEmpty();
+        assertThat(roundAdapter.listBySeasonId(season.getId()))
+            .extracting(RecruitingRound::getTitle)
+            .containsExactly("추가모집 1차");
+        assertThat(roundAdapter.listBySeasonIds(List.of(season.getId())))
+            .hasSize(1);
+        assertThat(roundAdapter.existsBySeasonIdAndTitleIgnoreCase(season.getId(), "본모집")).isFalse();
+        assertThat(roundAdapter.existsBySeasonIdAndTypeAndRoundNo(
+            season.getId(),
+            RecruitingRoundType.REGULAR,
+            1
+        )).isFalse();
+        assertThat(roundAdapter.getByIdForUpdateIncludingDeleted(round.getId()).isDeleted()).isTrue();
+    }
+
+    @Test
+    @DisplayName("삭제된 차수는 슬롯을 점유하지 않아 같은 유형과 번호로 다시 만들 수 있다")
+    void deletedRoundReleasesUniqueSlot() {
+        RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(16L, 170L));
+        RecruitingRound round = roundAdapter.save(RecruitingRound.createRegular(
+            season,
+            "본모집",
+            noInterviewConfiguration()
+        ));
+        em.flush();
+
+        round.delete(Instant.parse("2026-08-16T00:00:00Z"));
+        roundAdapter.save(round);
+        em.flush();
+
+        RecruitingRound recreated = roundAdapter.save(RecruitingRound.createRegular(
+            season,
+            "새 본모집",
+            noInterviewConfiguration()
+        ));
+        em.flush();
+        em.clear();
+
+        assertThat(recreated.getRoundNo()).isEqualTo(1);
+        assertThat(roundAdapter.listBySeasonId(season.getId()))
+            .extracting(RecruitingRound::getTitle)
+            .containsExactly("새 본모집");
+    }
+
+    @Test
+    @DisplayName("활성 차수끼리는 같은 유형과 번호를 가질 수 없다")
+    void activeRoundsKeepUniqueSlot() {
+        RecruitingSeason season = seasonAdapter.save(RecruitingSeason.create(17L, 180L));
+        roundAdapter.save(RecruitingRound.createRegular(season, "본모집", noInterviewConfiguration()));
+        em.flush();
+
+        assertThatThrownBy(() -> {
+            roundAdapter.save(RecruitingRound.createRegular(season, "본모집 중복", noInterviewConfiguration()));
+            em.flush();
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private RecruitingRoundConfiguration noInterviewConfiguration() {
