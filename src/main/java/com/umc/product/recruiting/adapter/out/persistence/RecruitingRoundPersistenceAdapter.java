@@ -22,7 +22,7 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
 
     @Override
     public Optional<RecruitingRound> findById(Long id) {
-        return recruitingRoundJpaRepository.findById(id);
+        return recruitingRoundJpaRepository.findActiveById(id);
     }
 
     @Override
@@ -40,8 +40,16 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
     }
 
     @Override
+    public RecruitingRound getByIdForUpdateIncludingDeleted(Long id) {
+        return RecruitingLockExceptionTranslator.translate(() ->
+            recruitingRoundJpaRepository.findByIdForUpdateIncludingDeleted(id)
+                .orElseThrow(() -> new RecruitingDomainException(RecruitingErrorCode.RECRUITING_ROUND_NOT_FOUND))
+        );
+    }
+
+    @Override
     public List<RecruitingRound> listBySeasonId(Long seasonId) {
-        return recruitingRoundJpaRepository.findAllBySeason_IdOrderByRoundNoAscIdAsc(seasonId);
+        return recruitingRoundJpaRepository.findAllBySeason_IdAndDeletedAtIsNullOrderByRoundNoAscIdAsc(seasonId);
     }
 
     @Override
@@ -54,17 +62,19 @@ public class RecruitingRoundPersistenceAdapter implements LoadRecruitingRoundPor
 
     @Override
     public boolean existsBySeasonIdAndTypeAndRoundNo(Long seasonId, RecruitingRoundType type, Integer roundNo) {
-        return recruitingRoundJpaRepository.existsBySeason_IdAndTypeAndRoundNo(seasonId, type, roundNo);
+        return recruitingRoundJpaRepository
+            .existsBySeason_IdAndTypeAndRoundNoAndDeletedAtIsNull(seasonId, type, roundNo);
     }
 
     @Override
     public boolean existsBySeasonIdAndTitleIgnoreCase(Long seasonId, String title) {
-        return recruitingRoundJpaRepository.existsBySeason_IdAndTitleIgnoreCase(seasonId, title);
+        return recruitingRoundJpaRepository.existsBySeason_IdAndTitleIgnoreCaseAndDeletedAtIsNull(seasonId, title);
     }
 
     @Override
     public boolean existsBySeasonIdAndTitleIgnoreCaseAndIdNot(Long seasonId, String title, Long id) {
-        return recruitingRoundJpaRepository.existsBySeason_IdAndTitleIgnoreCaseAndIdNot(seasonId, title, id);
+        return recruitingRoundJpaRepository
+            .existsBySeason_IdAndTitleIgnoreCaseAndIdNotAndDeletedAtIsNull(seasonId, title, id);
     }
 
     @Override
