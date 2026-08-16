@@ -38,8 +38,22 @@ info:
 
       UMC 회원은 위 API로 AT를 발급받은 뒤
       `GET /api/v1/demoday/polls/{pollId}/participations/me`로 참여 흐름에 진입합니다.
-    - 부스 등록 API — 이번 기수에는 관리자 화면 없이 운영자가 직접 호출하며 계약이 아직 없습니다.
-    - Poll 구성 관리(생성·수정·상태 변경) - 아직 미설계
+    - **부스 등록·등록 현황 조회 API** — 구현되었으므로
+      [Scalar 자동 생성본](/docs/scalar.html)의 `데모데이 부스 관리자`에서 확인하세요.
+      - 등록: `POST /api/v1/demoday/admin/polls/{pollId}/booths`
+      - 일괄 등록(SUPER_ADMIN 전용): `POST /api/v1/demoday/admin/polls/{pollId}/booths/batch`
+      - 현황 조회: `GET /api/v1/demoday/admin/polls/{pollId}/booths`
+
+      이번 기수에는 관리자 화면 없이 운영자가 직접 호출합니다. 부스는 투표를 OPEN하기 전에 모두 등록해야 하며,
+      OPEN 이후 등록 요청은 `409 DEMODAY-0105`로 거부됩니다.
+    - **Poll 생성·상태 변경 API** — 구현되었으므로
+      [Scalar 자동 생성본](/docs/scalar.html)의 `데모데이 투표 관리자`에서 확인하세요.
+      - 생성: `POST /api/v1/demoday/admin/polls`
+      - 상태 변경: `PATCH /api/v1/demoday/admin/polls/{pollId}/status`
+
+      Poll은 항상 `CLOSED`로 생성되고, `opensAt`·`closesAt`이 지나도 상태가 자동으로 바뀌지 않습니다.
+      OPEN·CLOSED 전환은 위 상태 변경 API 호출로만 일어납니다.
+    - Poll 수정(이름·투표 창 변경) — 아직 미설계
     - 이상 패턴 조회 — 이번 기수에서는 개발하지 않을 예정입니다.(시간 부족..)
     - QR 이미지 렌더링 — `qrValue` 문자열을 FE가 그대로 렌더링합니다.
 
