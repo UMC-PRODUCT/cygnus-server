@@ -7,6 +7,7 @@ import com.umc.product.demoday.application.port.in.command.ChangeDemodayPollStat
 import com.umc.product.demoday.application.port.in.command.dto.ChangeDemodayPollStatusCommand;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
+import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;

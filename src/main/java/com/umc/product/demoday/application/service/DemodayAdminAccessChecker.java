@@ -1,4 +1,4 @@
-package com.umc.product.demoday.application.service.command;
+package com.umc.product.demoday.application.service;
 
 import org.springframework.stereotype.Component;
 
@@ -15,7 +15,7 @@ public class DemodayAdminAccessChecker {
     private final CheckChallengerAuthorityUseCase authorityUseCase;
 
     public void validateAdminAccess(Long memberId, Long gisuId) {
-        if(!authorityUseCase.isCentralCoreInGisu(memberId, gisuId)){
+        if (!authorityUseCase.isCentralCoreInGisu(memberId, gisuId)) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_ADMIN_ACCESS_DENIED);
         }
     }
