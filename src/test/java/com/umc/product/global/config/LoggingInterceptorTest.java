@@ -2,15 +2,10 @@ package com.umc.product.global.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
-import com.umc.product.common.domain.enums.ClientType;
-import com.umc.product.global.security.MemberPrincipal;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,6 +18,19 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.servlet.HandlerMapping;
 
+import com.umc.product.common.domain.enums.ClientType;
+import com.umc.product.global.client.ClientContextProperties;
+import com.umc.product.global.client.ClientOriginRegistry;
+import com.umc.product.global.client.ClientRequestClassifier;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.global.security.MemberPrincipal;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+
 /**
  * ADR-016 의 LoggingInterceptor MDC 라이프사이클을 검증한다.
  *
@@ -34,7 +42,10 @@ import org.springframework.web.servlet.HandlerMapping;
  */
 class LoggingInterceptorTest {
 
-    private final LoggingInterceptor interceptor = new LoggingInterceptor();
+    private final LoggingInterceptor interceptor = new LoggingInterceptor(
+        new ClientRequestClassifier(new ClientOriginRegistry(new ClientContextProperties(List.of()))),
+        new OperationalMetrics(new SimpleMeterRegistry())
+    );
 
     private Logger interceptorLogger;
     private ListAppender<ILoggingEvent> listAppender;

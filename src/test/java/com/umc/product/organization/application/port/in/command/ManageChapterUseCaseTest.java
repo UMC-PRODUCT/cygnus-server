@@ -3,6 +3,11 @@ package com.umc.product.organization.application.port.in.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.organization.application.port.in.command.dto.CreateChapterCommand;
 import com.umc.product.organization.application.port.out.command.SaveSchoolPort;
@@ -14,9 +19,6 @@ import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.GisuFixture;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 class ManageChapterUseCaseTest extends UseCaseTestSupport {
 
@@ -57,8 +59,8 @@ class ManageChapterUseCaseTest extends UseCaseTestSupport {
     void 학교와_함께_지부를_생성한다() {
         // given
         Gisu gisu = gisuFixture.활성_기수(9L);
-        School school1 = saveSchoolPort.save(School.create("한성대", null));
-        School school2 = saveSchoolPort.save(School.create("동국대", null));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, null));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, null));
 
         CreateChapterCommand command = new CreateChapterCommand(
             gisu.getId(),
@@ -128,8 +130,8 @@ class ManageChapterUseCaseTest extends UseCaseTestSupport {
     void 지부_삭제_시_소속_학교는_유지된다() {
         // given
         Gisu gisu = gisuFixture.활성_기수(9L);
-        School school1 = saveSchoolPort.save(School.create("한성대", null));
-        School school2 = saveSchoolPort.save(School.create("동국대", null));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, null));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, null));
 
         Long chapterId = manageChapterUseCase.create(
             new CreateChapterCommand(gisu.getId(), "Scorpio", List.of(school1.getId(), school2.getId()))
@@ -147,7 +149,7 @@ class ManageChapterUseCaseTest extends UseCaseTestSupport {
     void 지부_삭제_시_학교와_지부_연결이_제거된다() {
         // given
         Gisu gisu = gisuFixture.활성_기수(9L);
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
 
         Long chapterId = manageChapterUseCase.create(
             new CreateChapterCommand(gisu.getId(), "Scorpio", List.of(school.getId()))
@@ -183,7 +185,7 @@ class ManageChapterUseCaseTest extends UseCaseTestSupport {
     void 같은_기수에_이미_다른_지부에_배정된_학교로_생성하면_예외가_발생한다() {
         // given
         Gisu gisu = gisuFixture.활성_기수(9L);
-        School school = saveSchoolPort.save(School.create("한성대", null));
+        School school = saveSchoolPort.save(School.create("한성대", null, null));
 
         manageChapterUseCase.create(
             new CreateChapterCommand(gisu.getId(), "Scorpio", List.of(school.getId()))

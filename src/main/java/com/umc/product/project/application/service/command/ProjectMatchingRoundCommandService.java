@@ -194,6 +194,9 @@ public class ProjectMatchingRoundCommandService implements
     }
 
     private void validateManageAccess(Long memberId, Long chapterId) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            return;
+        }
         List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
         boolean allowed = roles.stream()
             .anyMatch(role -> role.roleType().isAtLeastCentralCore()

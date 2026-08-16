@@ -1,11 +1,12 @@
 package com.umc.product.organization.adapter.out.persistence.umcproduct;
 
-import static com.umc.product.organization.domain.QUmcProductFunctionalMembership.umcProductFunctionalMembership;
-import static com.umc.product.organization.domain.QUmcProductFunctionalUnit.umcProductFunctionalUnit;
+import static com.umc.product.organization.domain.QUmcProductChapterMembership.umcProductChapterMembership;
+import static com.umc.product.organization.domain.QUmcProductLeadership.umcProductLeadership;
 import static com.umc.product.organization.domain.QUmcProductMember.umcProductMember;
+import static com.umc.product.organization.domain.QUmcProductMemberActivityPeriod.umcProductMemberActivityPeriod;
 import static com.umc.product.organization.domain.QUmcProductSquadParticipant.umcProductSquadParticipant;
 
-import java.util.Collection;
+import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -15,12 +16,9 @@ import org.springframework.stereotype.Repository;
 
 import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductMemberSearchCondition;
-import com.umc.product.organization.domain.UmcProductFunctionalMembership;
-import com.umc.product.organization.domain.enums.UmcProductFunctionalRole;
-import com.umc.product.organization.domain.enums.UmcProductFunctionalUnitType;
-import com.umc.product.organization.domain.enums.UmcProductPosition;
 
 import lombok.RequiredArgsConstructor;
 
@@ -32,73 +30,23 @@ public class UmcProductMemberQueryRepository {
 
     public Page<Long> searchMemberIds(UmcProductMemberSearchCondition condition, Pageable pageable) {
         BooleanBuilder where = buildCondition(condition);
-        boolean hasMembershipFilter = where.hasValue();
-        boolean hasSquadFilter = condition != null && condition.squadId() != null;
 
-        List<Long> content = hasMembershipFilter || hasSquadFilter
-            ? queryFactory
-                .select(umcProductMember.id)
-                .distinct()
-                .from(umcProductMember)
-                .leftJoin(umcProductFunctionalMembership)
-                .on(umcProductFunctionalMembership.umcProductMember.eq(umcProductMember))
-                .leftJoin(umcProductFunctionalUnit)
-                .on(umcProductFunctionalUnit.id.eq(umcProductFunctionalMembership.functionalUnitId))
-                .leftJoin(umcProductSquadParticipant)
-                .on(umcProductSquadParticipant.umcProductMember.eq(umcProductMember))
-                .where(where)
-                .orderBy(umcProductMember.id.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch()
-            : queryFactory
-                .select(umcProductMember.id)
-                .from(umcProductMember)
-                .orderBy(umcProductMember.id.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
+        List<Long> content = queryFactory
+            .select(umcProductMember.id)
+            .from(umcProductMember)
+            .where(where)
+            .orderBy(umcProductMember.id.desc())
+            .offset(pageable.getOffset())
+            .limit(pageable.getPageSize())
+            .fetch();
 
-        Long total = hasMembershipFilter || hasSquadFilter
-            ? queryFactory
-                .select(umcProductMember.id.countDistinct())
-                .from(umcProductMember)
-                .leftJoin(umcProductFunctionalMembership)
-                .on(umcProductFunctionalMembership.umcProductMember.eq(umcProductMember))
-                .leftJoin(umcProductFunctionalUnit)
-                .on(umcProductFunctionalUnit.id.eq(umcProductFunctionalMembership.functionalUnitId))
-                .leftJoin(umcProductSquadParticipant)
-                .on(umcProductSquadParticipant.umcProductMember.eq(umcProductMember))
-                .where(where)
-                .fetchOne()
-            : queryFactory
-                .select(umcProductMember.count())
-                .from(umcProductMember)
-                .fetchOne();
+        Long total = queryFactory
+            .select(umcProductMember.count())
+            .from(umcProductMember)
+            .where(where)
+            .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
-    }
-
-    public List<UmcProductFunctionalMembership> listFunctionalMembershipsByMemberIds(
-        Collection<Long> umcProductMemberIds
-    ) {
-        if (umcProductMemberIds == null || umcProductMemberIds.isEmpty()) {
-            return List.of();
-        }
-        return queryFactory
-            .selectFrom(umcProductFunctionalMembership)
-            .join(umcProductFunctionalMembership.umcProductMember).fetchJoin()
-            .leftJoin(umcProductFunctionalUnit)
-            .on(umcProductFunctionalUnit.id.eq(umcProductFunctionalMembership.functionalUnitId))
-            .where(umcProductFunctionalMembership.umcProductMember.id.in(umcProductMemberIds))
-            .orderBy(
-                umcProductFunctionalMembership.umcProductGenerationId.desc(),
-                umcProductFunctionalMembership.functionalUnitId.asc(),
-                umcProductFunctionalMembership.role.desc(),
-                umcProductFunctionalMembership.position.asc(),
-                umcProductFunctionalMembership.id.asc()
-            )
-            .fetch();
     }
 
     private BooleanBuilder buildCondition(UmcProductMemberSearchCondition condition) {
@@ -106,38 +54,133 @@ public class UmcProductMemberQueryRepository {
         if (condition == null) {
             return builder;
         }
-        builder.and(umcProductGenerationIdEq(condition.umcProductGenerationId()));
-        builder.and(functionalUnitIdEq(condition.functionalUnitId()));
-        builder.and(functionalUnitTypeEq(condition.functionalUnitType()));
-        builder.and(roleEq(condition.role()));
-        builder.and(positionEq(condition.position()));
-        builder.and(squadIdEq(condition.squadId()));
+        builder.and(memberActivityPeriodActiveOn(condition.activeOn()));
+        builder.and(chapterMembershipMatches(condition));
+        builder.and(leadershipMatches(condition));
+        builder.and(squadParticipationMatches(condition));
         return builder;
     }
 
-    private BooleanExpression umcProductGenerationIdEq(Long umcProductGenerationId) {
-        return umcProductGenerationId == null
+    private BooleanExpression memberActivityPeriodActiveOn(LocalDate activeOn) {
+        if (activeOn == null) {
+            return null;
+        }
+        return JPAExpressions
+            .selectOne()
+            .from(umcProductMemberActivityPeriod)
+            .where(
+                umcProductMemberActivityPeriod.umcProductMember.eq(umcProductMember),
+                activityPeriodActiveOn(activeOn)
+            )
+            .exists();
+    }
+
+    private BooleanExpression chapterMembershipMatches(UmcProductMemberSearchCondition condition) {
+        boolean hasChapterFilter = condition.chapterId() != null
+            || condition.position() != null;
+        if (!hasChapterFilter) {
+            return null;
+        }
+
+        BooleanBuilder where = new BooleanBuilder()
+            .and(umcProductChapterMembership.memberActivityPeriod.umcProductMember.eq(umcProductMember));
+        where.and(condition.chapterId() == null
             ? null
-            : umcProductFunctionalMembership.umcProductGenerationId.eq(umcProductGenerationId);
+            : umcProductChapterMembership.chapter.id.eq(condition.chapterId()));
+        where.and(condition.position() == null
+            ? null
+            : umcProductChapterMembership.position.eq(condition.position()));
+        if (condition.activeOn() != null) {
+            where.and(chapterMembershipActiveOn(condition.activeOn()));
+            where.and(chapterMembershipActivityPeriodActiveOn(condition.activeOn()));
+        }
+
+        return JPAExpressions
+            .selectOne()
+            .from(umcProductChapterMembership)
+            .where(where)
+            .exists();
     }
 
-    private BooleanExpression functionalUnitIdEq(Long functionalUnitId) {
-        return functionalUnitId == null ? null : umcProductFunctionalMembership.functionalUnitId.eq(functionalUnitId);
+    private BooleanExpression leadershipMatches(UmcProductMemberSearchCondition condition) {
+        if (condition.leadershipRole() == null) {
+            return null;
+        }
+
+        BooleanBuilder where = new BooleanBuilder()
+            .and(umcProductLeadership.memberActivityPeriod.umcProductMember.eq(umcProductMember))
+            .and(umcProductLeadership.role.eq(condition.leadershipRole()));
+        if (condition.activeOn() != null) {
+            where.and(leadershipActiveOn(condition.activeOn()));
+            where.and(leadershipActivityPeriodActiveOn(condition.activeOn()));
+        }
+
+        return JPAExpressions
+            .selectOne()
+            .from(umcProductLeadership)
+            .where(where)
+            .exists();
     }
 
-    private BooleanExpression functionalUnitTypeEq(UmcProductFunctionalUnitType functionalUnitType) {
-        return functionalUnitType == null ? null : umcProductFunctionalUnit.type.eq(functionalUnitType);
+    private BooleanExpression squadParticipationMatches(UmcProductMemberSearchCondition condition) {
+        if (condition.squadId() == null) {
+            return null;
+        }
+
+        BooleanBuilder where = new BooleanBuilder()
+            .and(umcProductSquadParticipant.memberActivityPeriod.umcProductMember.eq(umcProductMember))
+            .and(umcProductSquadParticipant.squad.id.eq(condition.squadId()));
+        if (condition.activeOn() != null) {
+            where.and(squadParticipationActiveOn(condition.activeOn()));
+            where.and(squadParticipationActivityPeriodActiveOn(condition.activeOn()));
+        }
+
+        return JPAExpressions
+            .selectOne()
+            .from(umcProductSquadParticipant)
+            .where(where)
+            .exists();
     }
 
-    private BooleanExpression roleEq(UmcProductFunctionalRole role) {
-        return role == null ? null : umcProductFunctionalMembership.role.eq(role);
+    private BooleanExpression activityPeriodActiveOn(LocalDate activeOn) {
+        return umcProductMemberActivityPeriod.period.startDate.loe(activeOn)
+            .and(umcProductMemberActivityPeriod.period.endDate.isNull()
+                .or(umcProductMemberActivityPeriod.period.endDate.goe(activeOn)));
     }
 
-    private BooleanExpression positionEq(UmcProductPosition position) {
-        return position == null ? null : umcProductFunctionalMembership.position.eq(position);
+    private BooleanExpression chapterMembershipActiveOn(LocalDate activeOn) {
+        return umcProductChapterMembership.period.startDate.loe(activeOn)
+            .and(umcProductChapterMembership.period.endDate.isNull()
+                .or(umcProductChapterMembership.period.endDate.goe(activeOn)));
     }
 
-    private BooleanExpression squadIdEq(Long squadId) {
-        return squadId == null ? null : umcProductSquadParticipant.squad.id.eq(squadId);
+    private BooleanExpression chapterMembershipActivityPeriodActiveOn(LocalDate activeOn) {
+        return umcProductChapterMembership.memberActivityPeriod.period.startDate.loe(activeOn)
+            .and(umcProductChapterMembership.memberActivityPeriod.period.endDate.isNull()
+                .or(umcProductChapterMembership.memberActivityPeriod.period.endDate.goe(activeOn)));
+    }
+
+    private BooleanExpression leadershipActiveOn(LocalDate activeOn) {
+        return umcProductLeadership.period.startDate.loe(activeOn)
+            .and(umcProductLeadership.period.endDate.isNull()
+                .or(umcProductLeadership.period.endDate.goe(activeOn)));
+    }
+
+    private BooleanExpression leadershipActivityPeriodActiveOn(LocalDate activeOn) {
+        return umcProductLeadership.memberActivityPeriod.period.startDate.loe(activeOn)
+            .and(umcProductLeadership.memberActivityPeriod.period.endDate.isNull()
+                .or(umcProductLeadership.memberActivityPeriod.period.endDate.goe(activeOn)));
+    }
+
+    private BooleanExpression squadParticipationActiveOn(LocalDate activeOn) {
+        return umcProductSquadParticipant.period.startDate.loe(activeOn)
+            .and(umcProductSquadParticipant.period.endDate.isNull()
+                .or(umcProductSquadParticipant.period.endDate.goe(activeOn)));
+    }
+
+    private BooleanExpression squadParticipationActivityPeriodActiveOn(LocalDate activeOn) {
+        return umcProductSquadParticipant.memberActivityPeriod.period.startDate.loe(activeOn)
+            .and(umcProductSquadParticipant.memberActivityPeriod.period.endDate.isNull()
+                .or(umcProductSquadParticipant.memberActivityPeriod.period.endDate.goe(activeOn)));
     }
 }

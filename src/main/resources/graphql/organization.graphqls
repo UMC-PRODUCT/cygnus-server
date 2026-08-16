@@ -1,0 +1,88 @@
+type Query {
+  gisuOrganizations(input: GisuOrganizationInput!): GisuOrganizationPayload!
+  gisu(id: ID!): Gisu!
+  activeGisu: Gisu!
+  chapters: [Chapter!]!
+  chapter(id: ID!): Chapter!
+  schools: [SchoolName!]!
+  school(id: ID!): SchoolDetail!
+}
+
+input GisuOrganizationInput {
+  ids: [ID!]
+  generations: [ID!]
+  active: Boolean
+}
+
+type GisuOrganizationPayload {
+  gisus: [Gisu!]!
+}
+
+type Gisu {
+  gisuId: ID!
+  generation: ID!
+  startAt: String!
+  endAt: String!
+  active: Boolean!
+  chapters: [GisuChapter!]!
+  schools: [GisuSchool!]!
+}
+
+type GisuChapter {
+  chapterId: ID!
+  chapterName: String!
+  schools: [ChapterSchool!]!
+}
+
+type ChapterSchool {
+  schoolId: ID!
+  schoolName: String!
+}
+
+type GisuSchool {
+  chapterId: ID
+  chapterName: String
+  schoolId: ID!
+  schoolName: String!
+  remark: String
+  logoImageUrl: String
+  links: [SchoolLink!]!
+  active: Boolean!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type Chapter {
+  id: ID!
+  name: String!
+}
+
+type SchoolName {
+  schoolId: ID!
+  schoolName: String!
+}
+
+type SchoolDetail {
+  chapterId: ID
+  chapterName: String
+  schoolId: ID!
+  schoolName: String!
+  remark: String
+  logoImageUrl: String
+  links: [SchoolLink!]!
+  active: Boolean!
+  createdAt: String!
+  updatedAt: String!
+}
+
+type SchoolLink {
+  title: String
+  type: SchoolLinkType!
+  url: String!
+}
+
+enum SchoolLinkType {
+  KAKAO
+  YOUTUBE
+  INSTAGRAM
+}

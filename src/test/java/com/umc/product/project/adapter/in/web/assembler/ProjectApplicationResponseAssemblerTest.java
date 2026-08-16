@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,6 +26,8 @@ import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.MemberStatus;
+import com.umc.product.form.application.port.in.query.dto.FormResponseInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.project.adapter.in.web.dto.common.MatchingRoundPhaseView;
@@ -48,6 +51,7 @@ import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectMatchingRoundInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectPartQuotaInfo;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsQuery;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
@@ -55,8 +59,6 @@ import com.umc.product.project.domain.enums.PartQuotaStatus;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
 import com.umc.product.project.domain.enums.ProjectStatus;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseInfo;
-import com.umc.product.survey.domain.enums.FormResponseStatus;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationResponseAssemblerTest {
@@ -458,6 +460,111 @@ class ProjectApplicationResponseAssemblerTest {
         //   THIRD  / IOS(4)      / 06:00  -> g (107)   // 시간이 가장 빨라도 차수가 가장 늦으면 마지막
         assertThat(result).extracting(ProjectApplicantResponse::applicationId)
             .containsExactly(103L, 106L, 102L, 104L, 108L, 101L, 105L, 107L);
+    }
+
+    @Test
+    @DisplayName("applicantsForBatch_프로젝트별로_응답을_묶고_part_필터를_적용한다")
+    void applicantsForBatch_프로젝트별_그룹핑_및_part_필터() {
+        // given
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(100L)
+            .projectIds(List.of(1L, 2L, 3L))
+            .part(ChallengerPart.WEB)
+            .build();
+        ProjectApplicationSummaryInfo webApp = applicationSummaryOf(55L, 1L, 7L, 200L);
+        ProjectApplicationSummaryInfo androidApp = applicationSummaryOf(56L, 1L, 7L, 201L);
+        ProjectApplicationSummaryInfo secondProjectApp = applicationSummaryOf(57L, 2L, 8L, 202L);
+
+        Map<Long, List<ProjectApplicationSummaryInfo>> applicationsByProject = new LinkedHashMap<>();
+        applicationsByProject.put(1L, List.of(androidApp, webApp));
+        applicationsByProject.put(2L, List.of(secondProjectApp));
+        applicationsByProject.put(3L, List.of());
+
+        given(searchProjectApplicationsUseCase.searchByProjects(query))
+            .willReturn(applicationsByProject);
+        given(getProjectUseCase.findAllByIds(eq(Set.of(1L, 2L))))
+            .willReturn(Map.of(
+                1L, projectInfoOf(1L, "프로젝트A", 99L),
+                2L, projectInfoOf(2L, "프로젝트B", 88L)
+            ));
+        given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(eq(Set.of(200L, 201L, 202L)), eq(GISU_ID)))
+            .willReturn(Map.of(
+                200L, challengerInfoOf(200L, ChallengerPart.WEB),
+                201L, challengerInfoOf(201L, ChallengerPart.ANDROID),
+                202L, challengerInfoOf(202L, ChallengerPart.WEB)
+            ));
+        given(getProjectMatchingRoundUseCase.findAllByIds(eq(Set.of(7L, 8L))))
+            .willReturn(Map.of(
+                7L, roundInfoOf(7L, MatchingPhase.FIRST),
+                8L, roundInfoOf(8L, MatchingPhase.SECOND)
+            ));
+        given(getMemberUseCase.findAllByIds(eq(Set.of(200L, 201L, 202L))))
+            .willReturn(Map.of(
+                200L, memberOf(200L, "웹지원자", "김웹", "중앙대"),
+                202L, memberOf(202L, "웹지원자2", "이웹", "숭실대")
+            ));
+
+        // when
+        Map<Long, List<ProjectApplicantResponse>> result = sut.applicantsForBatch(query);
+
+        // then
+        assertThat(result.keySet()).containsExactly(1L, 2L, 3L);
+        assertThat(result.get(1L)).extracting(ProjectApplicantResponse::applicationId)
+            .containsExactly(55L);
+        assertThat(result.get(1L).get(0).applicant().part()).isEqualTo(ChallengerPart.WEB);
+        assertThat(result.get(1L).get(0).applicant().nickname()).isEqualTo("웹지원자");
+        assertThat(result.get(2L)).extracting(ProjectApplicantResponse::applicationId)
+            .containsExactly(57L);
+        assertThat(result.get(3L)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("applicantsForBatch_프로젝트별_차수_파트_시간_순으로_정렬되어_반환된다")
+    void applicantsForBatch_정렬_순서() {
+        // given
+        Long roundFirstId = 11L;
+        Long roundSecondId = 22L;
+        ProjectApplicationSummaryInfo secondDesignLate = applicationSummaryOf(
+            101L, 1L, roundSecondId, 300L, Instant.parse("2026-04-22T10:00:00Z"));
+        ProjectApplicationSummaryInfo firstWebLate = applicationSummaryOf(
+            102L, 1L, roundFirstId, 301L, Instant.parse("2026-04-22T09:00:00Z"));
+        ProjectApplicationSummaryInfo firstDesign = applicationSummaryOf(
+            103L, 1L, roundFirstId, 302L, Instant.parse("2026-04-22T11:00:00Z"));
+        ProjectApplicationSummaryInfo firstWebEarly = applicationSummaryOf(
+            104L, 1L, roundFirstId, 303L, Instant.parse("2026-04-22T07:00:00Z"));
+
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(100L)
+            .projectIds(List.of(1L))
+            .build();
+        Map<Long, List<ProjectApplicationSummaryInfo>> applicationsByProject = new LinkedHashMap<>();
+        applicationsByProject.put(1L, List.of(secondDesignLate, firstWebLate, firstDesign, firstWebEarly));
+
+        given(searchProjectApplicationsUseCase.searchByProjects(query))
+            .willReturn(applicationsByProject);
+        given(getProjectUseCase.findAllByIds(eq(Set.of(1L))))
+            .willReturn(Map.of(1L, projectInfoOf(1L, "프로젝트A", 99L)));
+        given(getChallengerUseCase.batchGetByMemberIdsAndGisuId(eq(Set.of(300L, 301L, 302L, 303L)), eq(GISU_ID)))
+            .willReturn(Map.of(
+                300L, challengerInfoOf(300L, ChallengerPart.DESIGN),
+                301L, challengerInfoOf(301L, ChallengerPart.WEB),
+                302L, challengerInfoOf(302L, ChallengerPart.DESIGN),
+                303L, challengerInfoOf(303L, ChallengerPart.WEB)
+            ));
+        given(getProjectMatchingRoundUseCase.findAllByIds(eq(Set.of(roundFirstId, roundSecondId))))
+            .willReturn(Map.of(
+                roundFirstId, roundInfoOf(roundFirstId, MatchingPhase.FIRST),
+                roundSecondId, roundInfoOf(roundSecondId, MatchingPhase.SECOND)
+            ));
+        given(getMemberUseCase.findAllByIds(eq(Set.of(300L, 301L, 302L, 303L))))
+            .willReturn(Map.of());
+
+        // when
+        Map<Long, List<ProjectApplicantResponse>> result = sut.applicantsForBatch(query);
+
+        // then
+        assertThat(result.get(1L)).extracting(ProjectApplicantResponse::applicationId)
+            .containsExactly(103L, 104L, 102L, 101L);
     }
 
     // ============================================================

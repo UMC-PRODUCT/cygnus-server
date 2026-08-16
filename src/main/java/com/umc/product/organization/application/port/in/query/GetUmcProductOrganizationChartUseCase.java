@@ -4,5 +4,5 @@ import com.umc.product.organization.application.port.in.query.dto.umcproduct.Umc
 
 public interface GetUmcProductOrganizationChartUseCase {
 
-    UmcProductOrganizationChartInfo getByGenerationId(Long umcProductGenerationId);
+    UmcProductOrganizationChartInfo getCurrent();
 }

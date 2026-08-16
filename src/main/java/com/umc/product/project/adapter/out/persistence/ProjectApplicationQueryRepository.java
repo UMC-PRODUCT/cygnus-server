@@ -151,11 +151,53 @@ public class ProjectApplicationQueryRepository {
             .fetch();
     }
 
+    /**
+     * PM/운영진용 복수 프로젝트의 지원자 목록을 조회한다.
+     * <p>
+     * 단건 조회와 동일하게 DRAFT 를 제외하고, {@code includeOngoingProjectIds} 에 포함된 프로젝트만 진행 중 차수의 지원서를 함께 노출한다.
+     */
+    public List<ProjectApplication> searchProjectApplicationsByProjectIds(
+        Collection<Long> projectIds,
+        Collection<Long> includeOngoingProjectIds,
+        Long matchingRoundId,
+        ProjectApplicationStatus status,
+        Instant now
+    ) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+            .selectFrom(projectApplication)
+            .innerJoin(projectApplication.applicationForm, projectApplicationForm).fetchJoin()
+            .innerJoin(projectApplicationForm.project, project).fetchJoin()
+            .innerJoin(projectApplication.appliedMatchingRound, projectMatchingRound).fetchJoin()
+            .where(
+                project.id.in(projectIds),
+                matchingRoundIdEq(matchingRoundId),
+                managedStatusCond(status),
+                matchingRoundViewableByProjectCond(includeOngoingProjectIds, now)
+            )
+            .orderBy(project.id.asc(), projectMatchingRound.phase.asc(), projectApplication.submittedAt.asc())
+            .fetch();
+    }
+
     private BooleanExpression matchingRoundViewableCond(Instant now, boolean includeOngoingMatchingRounds) {
         if (includeOngoingMatchingRounds) {
             return null;
         }
         return projectMatchingRound.endsAt.before(now);
+    }
+
+    private BooleanExpression matchingRoundViewableByProjectCond(
+        Collection<Long> includeOngoingProjectIds,
+        Instant now
+    ) {
+        if (includeOngoingProjectIds == null || includeOngoingProjectIds.isEmpty()) {
+            return projectMatchingRound.endsAt.before(now);
+        }
+        return project.id.in(includeOngoingProjectIds)
+            .or(projectMatchingRound.endsAt.before(now));
     }
 
     /**
@@ -239,6 +281,24 @@ public class ProjectApplicationQueryRepository {
             .where(projectApplication.id.eq(applicationId))
             .fetchOne();
         return Optional.ofNullable(result);
+    }
+
+    /**
+     * 여러 지원서 상세 조회용 fetch join.
+     */
+    public List<ProjectApplication> findAllByIdInWithDetails(Collection<Long> applicationIds) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+            .selectFrom(projectApplication)
+            .innerJoin(projectApplication.applicationForm, projectApplicationForm).fetchJoin()
+            .innerJoin(projectApplicationForm.project, project).fetchJoin()
+            .innerJoin(projectApplication.appliedMatchingRound, projectMatchingRound).fetchJoin()
+            .where(projectApplication.id.in(applicationIds))
+            .orderBy(projectApplication.id.asc())
+            .fetch();
     }
 
     private BooleanExpression matchingRoundIdEq(Long matchingRoundId) {

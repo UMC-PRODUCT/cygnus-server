@@ -1,3 +1,20 @@
+# Required repository variables:
+# - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
+# Required repository secrets:
+# - secrets.UMC_GITHUB_APP_PRIVATE_KEY (used by reusable CI feedback)
+# - secrets.AWS_ACCESS_KEY_ID (used by reusable CI build/push)
+# - secrets.AWS_SECRET_ACCESS_KEY (used by reusable CI build/push)
+# - secrets.DOCKERHUB_USERNAME
+# - secrets.DOCKERHUB_TOKEN
+# - secrets.DOCKERHUB_REPOSITORY_NAME
+# - secrets.SERVER_APP_DIRECTORY
+# - secrets.SERVER_SSH_HOST
+# - secrets.SERVER_SSH_USERNAME
+# - secrets.SERVER_SSH_PRIVATE_KEY
+# - secrets.SERVER_SSH_PORT
+# - secrets.DOCKER_COMPOSE_ENV
+# - secrets.DISCORD_CD_WEBHOOK_URL
+
 name: CD [Home Server]
 
 on:
@@ -39,7 +56,7 @@ jobs:
   # 2. Deploy Job
   deploy:
     needs: ci-and-build
-    if: needs.ci-and-build.outputs.environment != 'test'
+    if: needs.ci-and-build.outputs.environment != 'Test'
     #    runs-on: [ self-hosted, cd-runner ]
     runs-on: ubuntu-latest
     # 빌드 단계에서 결정된 환경 사용
@@ -304,10 +321,25 @@ jobs:
           echo "::error::Deployment to ${{ env.ENVIRONMENT }} failed!"
           echo "::error::Please check the deployment logs for details."
 
+      - name: Discord 배포 결과 알림
+        if: always()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: ${{ job.status }}
+          DEPLOY_ENVIRONMENT: ${{ env.ENVIRONMENT }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_TARGET: Home Server
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs
+
   # 3. Test 환경 스킵 알림
   skip-test-deployment:
     needs: ci-and-build
-    if: needs.ci-and-build.outputs.environment == 'test'
+    if: needs.ci-and-build.outputs.environment == 'Test'
     runs-on: ubuntu-latest
     steps:
       - name: ℹ️ Test 환경 배포 스킵
@@ -332,3 +364,20 @@ jobs:
           echo "- ✅ **CI Build**: Completed" >> $GITHUB_STEP_SUMMARY
           echo "- 📦 **Image**: \`${{ secrets.DOCKERHUB_REPOSITORY_NAME }}:${{ needs.ci-and-build.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- 🚫 **Deployment**: Skipped" >> $GITHUB_STEP_SUMMARY
+
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Discord 배포 스킵 알림
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: skipped
+          DEPLOY_ENVIRONMENT: Test
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: ${{ needs.ci-and-build.outputs.image_tag }}
+          DEPLOY_TARGET: Home Server
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs

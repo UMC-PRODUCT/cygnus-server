@@ -1,6 +1,7 @@
 package com.umc.product.community.application.service.evaluator;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
@@ -8,9 +9,9 @@ import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.community.application.port.in.query.GetPostDetailUseCase;
 import com.umc.product.community.application.port.in.query.dto.PostInfo;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 @Component
 @Slf4j
@@ -19,7 +20,6 @@ public class CommunityPostPermissionEvaluator implements ResourcePermissionEvalu
 
     private final GetPostDetailUseCase getPostDetailUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
 
 
     /**
@@ -54,7 +54,7 @@ public class CommunityPostPermissionEvaluator implements ResourcePermissionEvalu
             }
             case DELETE -> {
                 // 삭제는 게시글 작성자나 총괄단이 가능
-                return getChallengerRoleUseCase.isCentralCore(subjectAttributes.memberId())
+                return subjectAttributes.toAuthoritySnapshot().isCentralCoreInAnyGisu()
                     || authorMemberId.equals(subjectAttributes.memberId());
             }
             default -> {

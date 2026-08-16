@@ -1,3 +1,13 @@
+# Required repository variables:
+# - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
+# Required repository secrets:
+# - secrets.UMC_GITHUB_APP_PRIVATE_KEY (used by reusable CI feedback)
+# - secrets.AWS_ACCESS_KEY_ID
+# - secrets.AWS_SECRET_ACCESS_KEY
+# - secrets.AWS_ECS_CLUSTER
+# - secrets.AWS_ECS_SERVICE
+# - secrets.DISCORD_CD_WEBHOOK_URL
+
 name: CD [ECR-ECS]
 
 on:
@@ -37,7 +47,7 @@ jobs:
 
   deploy:
     needs: ci-and-build
-    if: needs.ci-and-build.outputs.environment != 'test'
+    if: needs.ci-and-build.outputs.environment != 'Test'
     runs-on: ubuntu-latest
     #    runs-on: [ self-hosted, cd-runner ]
     environment: ${{ needs.ci-and-build.outputs.environment }}
@@ -50,6 +60,9 @@ jobs:
       ECS_SERVICE: ${{ secrets.AWS_ECS_SERVICE }}
 
     steps:
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
       - name: 🔑 AWS 인증
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -97,10 +110,42 @@ jobs:
           echo "::error::ECS deployment to ${{ env.ENVIRONMENT }} failed!"
           echo "CloudWatch 로그를 확인해주세요"
 
+      - name: Discord 배포 결과 알림
+        if: always()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: ${{ job.status }}
+          DEPLOY_ENVIRONMENT: ${{ env.ENVIRONMENT }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_TARGET: ECS
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs
+
   skip-test-deployment:
     needs: ci-and-build
-    if: needs.ci-and-build.outputs.environment == 'test'
+    if: needs.ci-and-build.outputs.environment == 'Test'
     runs-on: ubuntu-latest
     steps:
       - name: ℹ️ Test 환경 배포 스킵
         run: echo "Test 환경은 CI만 실행합니다."
+
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Discord 배포 스킵 알림
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: skipped
+          DEPLOY_ENVIRONMENT: Test
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: ${{ needs.ci-and-build.outputs.image_tag }}
+          DEPLOY_TARGET: ECS
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs

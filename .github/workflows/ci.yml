@@ -1,3 +1,12 @@
+# Required repository variables:
+# - vars.UMC_GITHUB_APP_CLIENT_ID
+# Required repository secrets:
+# - secrets.UMC_GITHUB_APP_PRIVATE_KEY
+# - secrets.AWS_ACCESS_KEY_ID
+# - secrets.AWS_SECRET_ACCESS_KEY
+# Built-in GitHub token:
+# - secrets.GITHUB_TOKEN (no manual setup required)
+
 name: CI
 
 on:
@@ -16,6 +25,7 @@ on:
       #      - '.github/workflows/cd.yml'
       - '.github/workflows/cd-ecr.yml'
       - '.github/workflows/cd-asg.yml'
+      - '.github/scripts/**'
       - 'infra/asg/**'
 
   workflow_dispatch:
@@ -70,6 +80,7 @@ jobs:
       environment: ${{ steps.set-env.outputs.environment }}
       repo_owner: ${{ steps.set-env.outputs.repo_owner }}
       image_tag: ${{ steps.set-env.outputs.image_tag }}
+      test_outcome: ${{ steps.test.outcome }}
 
     #    strategy:
     #      matrix:
@@ -211,80 +222,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: 📝 PR Comment & Commit Status
-        if: always()
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const testFailed = '${{ steps.test.outcome }}' === 'failure';
-            const isPR = context.eventName === 'pull_request';
-
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            const sha = isPR
-              ? context.payload.pull_request.head.sha
-              : context.sha;
-
-            const marker = '<!-- umc-product-ci-status -->';
-            const stateText = testFailed ? '실패' : '성공';
-            const icon = testFailed ? '❌' : '✅';
-            const kstTime = new Intl.DateTimeFormat('ko-KR', {
-              timeZone: 'Asia/Seoul',
-              dateStyle: 'medium',
-              timeStyle: 'medium'
-            }).format(new Date());
-
-            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
-            const entry = [
-              `## ${icon} CI 상태: ${stateText}`,
-              '',
-              `- Workflow: \`${context.workflow}\``,
-              `- Branch: \`${context.ref}\``,
-              `- Commit: \`${sha.substring(0, 7)}\``,
-              `- Update Time (KST): ${kstTime}`,
-              `- Action Logs: [GitHub Actions](${runUrl})`
-            ].join('\n');
-
-            if (isPR) {
-              const issue_number = context.issue.number;
-              let existing = null;
-              for await (const { data: comments } of github.paginate.iterator(
-                github.rest.issues.listComments,
-                { owner, repo, issue_number, per_page: 100 }
-              )) {
-                const found = comments.find(c => c.body?.includes(marker));
-                if (found) { existing = found; break; }
-              }
-              const body = `${marker}\n\n${entry}`;
-
-              if (existing) {
-                await github.rest.issues.updateComment({
-                  owner,
-                  repo,
-                  comment_id: existing.id,
-                  body
-                });
-              } else {
-                await github.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number,
-                  body
-                });
-              }
-            }
-
-            await github.rest.repos.createCommitStatus({
-              owner,
-              repo,
-              sha,
-              state: testFailed ? 'failure' : 'success',
-              target_url: runUrl,
-              description: testFailed ? `테스트 실패 (${kstTime})` : `테스트 성공 (${kstTime})`,
-              context: 'Product Team Server CI'
-            });
-
       - name: 📝 Build Summary
         if: always()
         run: |
@@ -293,3 +230,30 @@ jobs:
           echo "- **Environment:** ${{ steps.set-env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image Tag:** ${{ steps.set-env.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
+
+  ci-feedback:
+    name: CI Feedback
+    needs: build-and-test
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: GitHub App token 생성
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ vars.UMC_GITHUB_APP_CLIENT_ID }}
+          private-key: ${{ secrets.UMC_GITHUB_APP_PRIVATE_KEY }}
+
+      - name: CI 댓글 및 status 반영
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          FEEDBACK_MODE: ci
+          JOB_RESULT: ${{ needs.build-and-test.result }}
+          TEST_OUTCOME: ${{ needs.build-and-test.outputs.test_outcome }}
+        run: node .github/scripts/github-pr-feedback.mjs

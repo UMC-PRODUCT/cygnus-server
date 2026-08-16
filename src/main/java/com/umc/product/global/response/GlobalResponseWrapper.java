@@ -2,11 +2,13 @@ package com.umc.product.global.response;
 
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageConverter;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 
 @RestControllerAdvice
 public class GlobalResponseWrapper implements ResponseBodyAdvice<Object> {
@@ -18,7 +20,15 @@ public class GlobalResponseWrapper implements ResponseBodyAdvice<Object> {
     public boolean supports(MethodParameter returnType,
                             Class<? extends HttpMessageConverter<?>> converterType) {
         // 이미 ApiResponse로 래핑된 경우 제외
-        if (returnType.getParameterType().equals(ApiResponse.class)) {
+        Class<?> parameterType = returnType.getParameterType();
+        if (ApiResponse.class.isAssignableFrom(parameterType)
+                || ResponseEntity.class.isAssignableFrom(parameterType)
+                || StreamingResponseBody.class.isAssignableFrom(parameterType)
+                || byte[].class.isAssignableFrom(parameterType)) {
+            return false;
+        }
+
+        if (ResponseEntity.class.isAssignableFrom(returnType.getParameterType())) {
             return false;
         }
 

@@ -38,9 +38,9 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardAct
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardContextInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminDashboardSummaryInfo;
 import com.umc.product.analytics.application.port.in.query.dto.AdminOperationsOverviewInfo;
+import com.umc.product.analytics.domain.AdminAnalyticsRoleType;
 import com.umc.product.analytics.domain.AdminAnalyticsScopeType;
 import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -116,7 +116,7 @@ class AdminDashboardControllerTest {
             Map.of()
         ));
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/summary")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/summary")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.activeChallengerCount").value(10L))
@@ -131,7 +131,7 @@ class AdminDashboardControllerTest {
         given(getAdminDashboardActionQueueUseCase.getActionQueue(any()))
             .willReturn(AdminDashboardActionQueueInfo.of(4L, 3L, 5L));
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/action-queue")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/action-queue")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.pendingAttendanceDecisionCount").value(4L))
@@ -146,7 +146,7 @@ class AdminDashboardControllerTest {
     @DisplayName("대시보드 context API 응답")
     void 대시보드_context_API_응답() throws Exception {
         given(getAdminDashboardContextUseCase.getContext(MEMBER_ID)).willReturn(new AdminDashboardContextInfo(
-            ChallengerRoleType.CENTRAL_PRESIDENT,
+            AdminAnalyticsRoleType.SUPER_ADMIN,
             7L,
             null,
             null,
@@ -154,9 +154,9 @@ class AdminDashboardControllerTest {
             AdminAnalyticsScopeType.CENTRAL
         ));
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/context"))
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/context"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result.roleType").value("CENTRAL_PRESIDENT"))
+            .andExpect(jsonPath("$.result.roleType").value("SUPER_ADMIN"))
             .andExpect(jsonPath("$.result.scopeType").value("CENTRAL"))
             .andDo(restDocsHandler);
     }
@@ -166,7 +166,7 @@ class AdminDashboardControllerTest {
     void 대시보드_riskChallengers_API_응답() throws Exception {
         given(getAdminRiskChallengerUseCase.getRiskChallengers(any())).willReturn(Page.empty());
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/risk-challengers")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/risk-challengers")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.content").isArray())
@@ -206,7 +206,7 @@ class AdminDashboardControllerTest {
             )
         );
 
-        mockMvc.perform(get("/api/v1/admin/dashboard/operations")
+        mockMvc.perform(get("/api/v1/analytics/admin/dashboard/operations")
                 .param("gisuId", "7")
                 .param("from", "2026-05-01T00:00:00Z")
                 .param("to", "2026-05-13T00:00:00Z"))

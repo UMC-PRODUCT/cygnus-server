@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Component;
 
+import com.umc.product.global.observability.ScheduledTaskTracer;
 import com.umc.product.project.adapter.in.scheduler.MatchingRoundDeadlineHandler;
 import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
 import com.umc.product.project.application.port.out.ScheduleMatchingRoundDeadlinePort;
@@ -52,6 +53,7 @@ public class MatchingRoundDeadlineScheduler implements ScheduleMatchingRoundDead
     private final TaskScheduler taskScheduler;
     private final MatchingRoundDeadlineHandler handler;
     private final LoadProjectMatchingRoundPort loadProjectMatchingRoundPort;
+    private final ScheduledTaskTracer scheduledTaskTracer;
 
     private final Map<Long, ScheduledFuture<?>> pendingTasks = new ConcurrentHashMap<>();
 
@@ -59,12 +61,14 @@ public class MatchingRoundDeadlineScheduler implements ScheduleMatchingRoundDead
         @Qualifier("matchingDeadlineTaskScheduler") TaskScheduler taskScheduler,
         MatchingRoundDeadlineHandler handler,
         LoadProjectMatchingRoundPort loadProjectMatchingRoundPort,
-        MatchingRoundDeadlineSchedulerProperties properties
+        MatchingRoundDeadlineSchedulerProperties properties,
+        ScheduledTaskTracer scheduledTaskTracer
     ) {
         this.taskScheduler = taskScheduler;
         this.handler = handler;
         this.loadProjectMatchingRoundPort = loadProjectMatchingRoundPort;
         this.deadlineBuffer = properties.deadlineBuffer();
+        this.scheduledTaskTracer = scheduledTaskTracer;
     }
 
     @PostConstruct
@@ -78,14 +82,16 @@ public class MatchingRoundDeadlineScheduler implements ScheduleMatchingRoundDead
         cancel(roundId);
 
         Instant runAt = round.getDecisionDeadline().plus(deadlineBuffer);
+        // 동적 등록 task 는 @Scheduled 가 아니라 Spring 의 관측 span 이 붙지 않는다.
+        // 실행 시 새 root span 을 열어 마감 자동 선발 처리를 하나의 traceId 로 묶는다.
         ScheduledFuture<?> future = taskScheduler.schedule(
-            () -> {
+            scheduledTaskTracer.trace("matchingRoundDeadline", () -> {
                 try {
                     handler.handle(roundId);
                 } finally {
                     pendingTasks.remove(roundId);
                 }
-            },
+            }),
             runAt
         );
         pendingTasks.put(roundId, future);

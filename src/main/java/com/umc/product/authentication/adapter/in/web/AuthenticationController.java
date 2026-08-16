@@ -42,18 +42,18 @@ public class AuthenticationController implements AuthenticationControllerInterfa
     @PostMapping("login/google")
     @Public
     public OAuthLoginResponse googleOAuthLogin(
-        @RequestBody GoogleLoginRequest request
+        @Valid @RequestBody GoogleLoginRequest request
     ) {
-        return processAccessTokenLogin(OAuthProvider.GOOGLE, request.accessToken(), request.clientType());
+        return processAccessTokenLogin(OAuthProvider.GOOGLE, request.token(), request.clientType());
     }
 
     @Override
     @PostMapping("login/kakao")
     @Public
     public OAuthLoginResponse kakaoOAuthLogin(
-        @RequestBody KakaoLoginRequest request
+        @Valid @RequestBody KakaoLoginRequest request
     ) {
-        return processAccessTokenLogin(OAuthProvider.KAKAO, request.accessToken(), request.clientType());
+        return processAccessTokenLogin(OAuthProvider.KAKAO, request.token(), request.clientType());
     }
 
     @Override
@@ -77,7 +77,7 @@ public class AuthenticationController implements AuthenticationControllerInterfa
     @Public
     @PostMapping("login/apple")
     public OAuthLoginResponse appleOAuthLogin(
-        @RequestBody AppleLoginRequest request
+        @Valid @RequestBody AppleLoginRequest request
     ) {
         // Authorization Code 방식. Apple은 플랫폼별로 다른 client_id를 사용하므로 clientType을 함께 전달한다.
         AppleAuthorizationCodeResult codeResult = verifyOAuthTokenPort.verifyAppleAuthorizationCode(

@@ -1,8 +1,10 @@
 package com.umc.product.community.domain;
 
 import com.umc.product.common.BaseEntity;
+import com.umc.product.community.domain.enums.ReportReason;
 import com.umc.product.community.domain.enums.ReportStatus;
 import com.umc.product.community.domain.enums.ReportTargetType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -26,54 +28,95 @@ public class Report extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    /** 신고를 생성한 회원의 {@code member.id}. */
     @Column(nullable = false)
-    private Long reporterId;  // 신고자 챌린저 ID
+    private Long reporterId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ReportTargetType targetType;  // POST, COMMENT
+    private ReportTargetType targetType;
 
     @Column(nullable = false)
-    private Long targetId;  // 게시글 ID 또는 댓글 ID
+    private Long targetId;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ReportStatus status;  // PENDING, APPROVED, REJECTED
+    private ReportStatus status;
 
     @Column(length = 500)
-    private String reason;  // 선택적 신고 사유
+    private String reason;
+
+    @Column(name = "thread_id")
+    private Long threadId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reason_code", length = 32)
+    private ReportReason reasonCode;
 
     @Builder
-    private Report(Long reporterId, ReportTargetType targetType, Long targetId, String reason) {
+    private Report(
+        Long reporterId,
+        ReportTargetType targetType,
+        Long targetId,
+        String reason,
+        Long threadId,
+        ReportReason reasonCode
+    ) {
         this.reporterId = reporterId;
         this.targetType = targetType;
         this.targetId = targetId;
         this.status = ReportStatus.PENDING;
         this.reason = reason;
+        this.threadId = threadId;
+        this.reasonCode = reasonCode;
     }
 
-    /**
-     * 신고 생성 팩토리 메서드
-     * @param reporterId 신고자 챌린저 ID
-     * @param targetType 신고 대상 타입 (POST, COMMENT)
-     * @param targetId 신고 대상 ID
-     * @param reason 신고 사유 (선택)
-     */
     public static Report create(Long reporterId, ReportTargetType targetType, Long targetId, String reason) {
+        if (targetType == ReportTargetType.THREAD_MESSAGE) {
+            throw new IllegalArgumentException("THREAD_MESSAGE reports require threadId and reasonCode");
+        }
         return Report.builder()
-                .reporterId(reporterId)
-                .targetType(targetType)
-                .targetId(targetId)
-                .reason(reason)
-                .build();
+            .reporterId(reporterId)
+            .targetType(targetType)
+            .targetId(targetId)
+            .reason(reason)
+            .build();
     }
 
-    // 신고 상태 변경 (관리자용)
+    public static Report createThreadMessage(
+        Long reporterId,
+        Long threadId,
+        Long messageId,
+        ReportReason reason
+    ) {
+        return Report.builder()
+            .reporterId(requirePositive(reporterId, "reporterId"))
+            .targetType(ReportTargetType.THREAD_MESSAGE)
+            .targetId(requirePositive(messageId, "messageId"))
+            .threadId(requirePositive(threadId, "threadId"))
+            .reasonCode(requireReason(reason))
+            .build();
+    }
+
     public void approve() {
         this.status = ReportStatus.APPROVED;
     }
 
     public void reject() {
         this.status = ReportStatus.REJECTED;
+    }
+
+    private static Long requirePositive(Long value, String name) {
+        if (value == null || value <= 0) {
+            throw new IllegalArgumentException(name + " must be positive");
+        }
+        return value;
+    }
+
+    private static ReportReason requireReason(ReportReason reason) {
+        if (reason == null) {
+            throw new IllegalArgumentException("reason must not be null");
+        }
+        return reason;
     }
 }

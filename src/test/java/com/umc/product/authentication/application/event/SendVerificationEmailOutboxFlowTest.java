@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.authentication.application.port.out.DeleteRefreshTokenPort;
 import com.umc.product.authentication.application.port.out.LoadEmailVerificationPort;
 import com.umc.product.authentication.application.port.out.LoadRefreshTokenPort;
+import com.umc.product.authentication.application.port.out.LoadSsoClientPort;
 import com.umc.product.authentication.application.port.out.SaveEmailVerificationPort;
 import com.umc.product.authentication.application.service.AuthenticationService;
 import com.umc.product.authentication.application.service.AuthenticationTokenIssuer;
@@ -30,6 +31,8 @@ import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.EventOutbox;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.member.application.port.in.query.GetMemberCredentialUseCase;
+
+import io.micrometer.tracing.Tracer;
 
 @DisplayName("SendVerificationEmailEvent outbox flow")
 @ExtendWith(MockitoExtension.class)
@@ -50,6 +53,9 @@ class SendVerificationEmailOutboxFlowTest {
     private DeleteRefreshTokenPort deleteRefreshTokenPort;
 
     @Mock
+    private LoadSsoClientPort loadSsoClientPort;
+
+    @Mock
     private JwtTokenProvider jwtTokenProvider;
 
     @Mock
@@ -67,12 +73,14 @@ class SendVerificationEmailOutboxFlowTest {
             saveEmailVerificationPort,
             loadRefreshTokenPort,
             deleteRefreshTokenPort,
+            loadSsoClientPort,
             jwtTokenProvider,
             authenticationTokenIssuer,
             getMemberCredentialUseCase,
             new OutboxDomainEventPublisher(
                 saveEventOutboxPort,
-                new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules())
+                new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules()),
+                Tracer.NOOP
             )
         );
         EmailVerification persisted = EmailVerification.builder()

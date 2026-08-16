@@ -1,6 +1,13 @@
 package com.umc.product.global.event.domain;
 
+import java.time.Instant;
+import java.util.UUID;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import com.umc.product.common.BaseEntity;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,13 +16,10 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import java.time.Instant;
-import java.util.UUID;
+import jakarta.persistence.Version;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 @Entity
 @Getter
@@ -26,6 +30,10 @@ public class EventOutbox extends BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private long version;
 
     @Column(name = "event_id", nullable = false, unique = true)
     private UUID eventId;
@@ -56,7 +64,18 @@ public class EventOutbox extends BaseEntity {
     @Column(name = "published_at")
     private Instant publishedAt;
 
-    private EventOutbox(UUID eventId, String eventType, String eventClass, String payload, Instant nextAttemptAt) {
+    // 발행 시점(원 요청 trace 컨텍스트)의 W3C traceparent. relay span link 복원에 사용한다. 없을 수 있음.
+    @Column(name = "traceparent", length = 64)
+    private String traceparent;
+
+    private EventOutbox(
+        UUID eventId,
+        String eventType,
+        String eventClass,
+        String payload,
+        Instant nextAttemptAt,
+        String traceparent
+    ) {
         this.eventId = eventId;
         this.eventType = eventType;
         this.eventClass = eventClass;
@@ -64,9 +83,14 @@ public class EventOutbox extends BaseEntity {
         this.status = EventOutboxStatus.PENDING;
         this.attempts = 0;
         this.nextAttemptAt = nextAttemptAt;
+        this.traceparent = traceparent;
     }
 
     public static EventOutbox record(DomainEvent event, String payload) {
+        return record(event, payload, null);
+    }
+
+    public static EventOutbox record(DomainEvent event, String payload, String traceparent) {
         if (event == null) {
             throw new IllegalArgumentException("domain event는 필수입니다.");
         }
@@ -78,7 +102,8 @@ public class EventOutbox extends BaseEntity {
             event.eventType(),
             event.getClass().getName(),
             payload,
-            Instant.now()
+            Instant.now(),
+            traceparent
         );
     }
 

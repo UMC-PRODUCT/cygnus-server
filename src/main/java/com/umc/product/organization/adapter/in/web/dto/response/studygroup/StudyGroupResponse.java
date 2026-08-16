@@ -13,7 +13,7 @@ public record StudyGroupResponse(
     @Schema(description = "스터디 그룹 ID", example = "1")
     Long studyGroupId,
 
-    @Schema(description = "스터디 그룹명", example = "UMC Product 짱짱맨")
+    @Schema(description = "스터디 그룹명", example = "UMC PRODUCT 짱짱맨")
     String name,
 
     Long gisuId,

@@ -1,12 +1,18 @@
 package com.umc.product.project.adapter.out.persistence;
 
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
 import com.umc.product.project.application.port.out.SaveProjectApplicationFormPolicyPort;
 import com.umc.product.project.domain.ProjectApplicationFormPolicy;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @RequiredArgsConstructor
@@ -18,6 +24,18 @@ public class ProjectApplicationFormPolicyPersistenceAdapter
     @Override
     public List<ProjectApplicationFormPolicy> listByApplicationFormId(Long applicationFormId) {
         return repository.findAllByApplicationFormId(applicationFormId);
+    }
+
+    @Override
+    public Map<Long, List<ProjectApplicationFormPolicy>> listByApplicationFormIds(
+        Collection<Long> applicationFormIds
+    ) {
+        if (applicationFormIds == null || applicationFormIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return repository.findAllByApplicationFormIdIn(applicationFormIds).stream()
+            .collect(Collectors.groupingBy(policy -> policy.getApplicationForm().getId()));
     }
 
     @Override

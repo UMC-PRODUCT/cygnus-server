@@ -31,11 +31,6 @@ public class ChallengerRoleFixture extends FixtureSupport {
             ChallengerRole.create(challengerId, ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER, null, null, gisuId));
     }
 
-    public ChallengerRole 슈퍼_관리자(Long challengerId, Long gisuId) {
-        return saveChallengerRolePort.save(
-            ChallengerRole.create(challengerId, ChallengerRoleType.SUPER_ADMIN, null, null, gisuId));
-    }
-
     // 지부
 
     public ChallengerRole 지부장(Long challengerId, Long chapterId, Long gisuId) {

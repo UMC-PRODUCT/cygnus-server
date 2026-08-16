@@ -5,23 +5,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.core.env.Environment;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ChallengerDeactivationType;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.DeactivateChallengerCommand;
+import com.umc.product.challenger.application.port.in.command.dto.DeleteChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.GrantChallengerPointCommand;
 import com.umc.product.challenger.application.port.in.command.dto.UpdateChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.UpdateChallengerPointCommand;
@@ -36,6 +42,7 @@ import com.umc.product.challenger.domain.exception.ChallengerDomainException;
 import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerStatus;
+import com.umc.product.common.domain.enums.ChallengerTrack;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChallengerCommandService")
@@ -55,6 +62,9 @@ class ChallengerCommandServiceTest {
 
     @Mock
     SaveChallengerPointPort saveChallengerPointPort;
+
+    @Mock
+    EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @InjectMocks
     ChallengerCommandService sut;
@@ -82,6 +92,46 @@ class ChallengerCommandServiceTest {
 
             assertThat(result).isEqualTo(100L);
             then(saveChallengerPort).should().save(any(Challenger.class));
+        }
+
+        @Test
+        @DisplayName("동일 기수 챌린저가 없으면 생성 후 해당 회원의 권한 snapshot 캐시를 제거한다")
+        void 동일_기수_챌린저가_없으면_생성_후_해당_회원의_권한_snapshot_캐시를_제거한다() {
+            CreateChallengerCommand command = CreateChallengerCommand.builder()
+                .memberId(1L)
+                .part(ChallengerPart.SPRINGBOOT)
+                .gisuId(9L)
+                .build();
+            given(loadChallengerPort.findByMemberIdAndGisuId(1L, 9L)).willReturn(Optional.empty());
+            given(saveChallengerPort.save(any(Challenger.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            sut.createChallenger(command);
+
+            then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+        }
+
+        @Test
+        @DisplayName("트랙 기반 챌린저는 파트 없이 생성한다")
+        void 트랙_기반_챌린저는_파트_없이_생성한다() {
+            CreateChallengerCommand command = CreateChallengerCommand.builder()
+                .memberId(1L)
+                .tracks(List.of(ChallengerTrack.WEB_PRODUCT_ENGINEER))
+                .gisuId(9L)
+                .build();
+            given(loadChallengerPort.findByMemberIdAndGisuId(1L, 9L)).willReturn(Optional.empty());
+            given(saveChallengerPort.save(any(Challenger.class))).willAnswer(invocation -> {
+                Challenger challenger = invocation.getArgument(0);
+                ReflectionTestUtils.setField(challenger, "id", 101L);
+                return challenger;
+            });
+
+            Long result = sut.createChallenger(command);
+
+            ArgumentCaptor<Challenger> captor = ArgumentCaptor.forClass(Challenger.class);
+            assertThat(result).isEqualTo(101L);
+            then(saveChallengerPort).should().save(captor.capture());
+            assertThat(captor.getValue().getPart()).isNull();
+            assertThat(captor.getValue().getTracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         }
 
         @Test
@@ -137,6 +187,38 @@ class ChallengerCommandServiceTest {
 
             then(saveChallengerPort).should(never()).save(any());
         }
+
+        @Test
+        @DisplayName("파트를 변경하면 해당 회원의 권한 snapshot 캐시를 제거한다")
+        void 파트를_변경하면_해당_회원의_권한_snapshot_캐시를_제거한다() {
+            given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
+
+            sut.updateChallenger(UpdateChallengerCommand.forPartChange(1L, ChallengerPart.WEB, 99L));
+
+            then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+        }
+    }
+
+    @Test
+    @DisplayName("챌린저를 대량 생성하면 생성된 회원들의 권한 snapshot 캐시를 제거한다")
+    void 챌린저를_대량_생성하면_생성된_회원들의_권한_snapshot_캐시를_제거한다() {
+        given(environment.getActiveProfiles()).willReturn(new String[] {"local"});
+        given(saveChallengerPort.saveAll(any())).willAnswer(invocation -> invocation.getArgument(0));
+
+        sut.createChallengerBulk(List.of(
+            CreateChallengerCommand.builder()
+                .memberId(1L)
+                .part(ChallengerPart.SPRINGBOOT)
+                .gisuId(9L)
+                .build(),
+            CreateChallengerCommand.builder()
+                .memberId(2L)
+                .part(ChallengerPart.WEB)
+                .gisuId(9L)
+                .build()
+        ));
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberIds(List.of(1L, 2L));
     }
 
     @Test
@@ -158,6 +240,44 @@ class ChallengerCommandServiceTest {
     }
 
     @Test
+    @DisplayName("챌린저를 비활성화하면 해당 회원의 권한 snapshot 캐시를 제거한다")
+    void 챌린저를_비활성화하면_해당_회원의_권한_snapshot_캐시를_제거한다() {
+        given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
+
+        sut.deactivateChallenger(DeactivateChallengerCommand.of(
+            1L,
+            ChallengerDeactivationType.WITHDRAW,
+            99L,
+            "탈퇴"
+        ));
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+    }
+
+    @Test
+    @DisplayName("챌린저 삭제 후 해당 회원의 권한 snapshot 캐시를 제거한다")
+    void 챌린저_삭제_후_해당_회원의_권한_snapshot_캐시를_제거한다() {
+        given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.ACTIVE));
+
+        sut.deleteChallenger(DeleteChallengerCommand.of(1L, "잘못 생성된 기록"));
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(1L);
+    }
+
+    @Test
+    @DisplayName("Challenger 삭제 전에 소속 Point를 port로 삭제한다")
+    void Challenger_삭제_전에_소속_Point를_port로_삭제한다() {
+        Challenger challenger = challenger(1L, ChallengerStatus.ACTIVE);
+        given(loadChallengerPort.getById(1L)).willReturn(challenger);
+
+        sut.deleteChallenger(DeleteChallengerCommand.of(1L, "잘못 생성"));
+
+        InOrder order = inOrder(saveChallengerPointPort, saveChallengerPort);
+        order.verify(saveChallengerPointPort).deleteAllByChallengerId(1L);
+        order.verify(saveChallengerPort).delete(challenger);
+    }
+
+    @Test
     @DisplayName("비활성 챌린저에게 상벌점을 부여할 수 없다")
     void 비활성_챌린저에게_상벌점을_부여할_수_없다() {
         given(loadChallengerPort.getById(1L)).willReturn(challenger(1L, ChallengerStatus.WITHDRAWN));
@@ -173,6 +293,55 @@ class ChallengerCommandServiceTest {
             .isEqualTo(ChallengerErrorCode.CHALLENGER_NOT_ACTIVE);
 
         then(saveChallengerPort).should(never()).save(any());
+        then(saveChallengerPointPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상벌점은 Challenger 컬렉션 cascade 없이 Point port로 저장한다")
+    void 상벌점은_Challenger_컬렉션_cascade_없이_Point_port로_저장한다() {
+        Challenger challenger = challenger(1L, ChallengerStatus.ACTIVE);
+        given(loadChallengerPort.getById(1L)).willReturn(challenger);
+
+        sut.grantChallengerPoint(GrantChallengerPointCommand.builder()
+            .challengerId(1L)
+            .pointType(PointType.CUSTOM)
+            .pointValue(3)
+            .description("기여")
+            .build());
+
+        ArgumentCaptor<ChallengerPoint> captor = ArgumentCaptor.forClass(ChallengerPoint.class);
+        then(saveChallengerPointPort).should().save(captor.capture());
+        assertThat(captor.getValue().getChallengerId()).isEqualTo(1L);
+        assertThat(captor.getValue().getPointValue()).isEqualTo(3.0);
+        then(saveChallengerPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("상벌점 일괄 부여는 Point port로 한 번에 저장한다")
+    void 상벌점_일괄_부여는_Point_port로_한_번에_저장한다() {
+        Challenger challenger = challenger(1L, ChallengerStatus.ACTIVE);
+        given(environment.getActiveProfiles()).willReturn(new String[]{"test"});
+        given(loadChallengerPort.getAllByIds(java.util.Set.of(1L))).willReturn(List.of(challenger));
+
+        sut.grantChallengerPointBulk(List.of(
+            GrantChallengerPointCommand.builder()
+                .challengerId(1L)
+                .pointType(PointType.BEST_WORKBOOK)
+                .description("워크북")
+                .build(),
+            GrantChallengerPointCommand.builder()
+                .challengerId(1L)
+                .pointType(PointType.WARNING)
+                .description("경고")
+                .build()
+        ));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<ChallengerPoint>> captor = ArgumentCaptor.forClass(List.class);
+        then(saveChallengerPointPort).should().saveAll(captor.capture());
+        assertThat(captor.getValue()).hasSize(2)
+            .allSatisfy(point -> assertThat(point.getChallengerId()).isEqualTo(1L));
+        then(saveChallengerPort).shouldHaveNoInteractions();
     }
 
     @Test

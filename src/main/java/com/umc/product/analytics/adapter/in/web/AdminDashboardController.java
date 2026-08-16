@@ -47,7 +47,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
 @RestController
-@RequestMapping("/api/v1/admin/dashboard")
+@RequestMapping("/api/v1/analytics/admin/dashboard")
 @RequiredArgsConstructor
 @Tag(name = "Analytics | 운영진 종합 대시보드", description = "운영진이 주요 운영 지표와 액션 큐를 확인합니다.")
 public class AdminDashboardController {

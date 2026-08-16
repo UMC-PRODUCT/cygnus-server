@@ -1,59 +1,101 @@
 package com.umc.product.community.domain;
 
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.annotations.BatchSize;
+
+import com.umc.product.common.BaseEntity;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
-import java.time.Instant;
+
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Entity
+@Table(name = "comment")
 @Getter
-@Builder
-public class Comment {
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Comment extends BaseEntity {
 
-    private final CommentId commentId;
-    private final Long postId;
-    private final Long challengerId;
-    private final int likeCount;
-    private final boolean liked;
-    private final Instant createdAt;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "post_id", nullable = false, updatable = false)
+    @Getter(AccessLevel.NONE)
+    private Post post;
+
+    @Column(name = "challenger_id", nullable = false)
+    private Long challengerId;
+
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    public static Comment create(
-        Long postId, Long challengerId, String content, Long parentId
-    ) {
-        validateRequired(postId, challengerId, content);
+    @Column(name = "parent_id")
+    private Long parentId;
 
-        return Comment.builder()
-            .postId(postId)
-            .challengerId(challengerId)
-            .content(content)
-            .likeCount(0)
-            .liked(false)
-            .createdAt(Instant.now())
-            .build();
+    @ElementCollection
+    @BatchSize(size = 100)
+    @CollectionTable(name = "comment_like", joinColumns = @JoinColumn(name = "comment_id"))
+    @Column(name = "challenger_id")
+    @Getter(AccessLevel.NONE)
+    private Set<Long> likedChallengerIds = new HashSet<>();
+
+    private Comment(Post post, Long challengerId, String content, Long parentId) {
+        this.post = post;
+        this.challengerId = challengerId;
+        this.content = content;
+        this.parentId = parentId;
     }
 
-    public static Comment reconstruct(
-        CommentId commentId, Long postId, Long challengerId,
-        String content, Long parentId, int likeCount, boolean liked,
-        Instant createdAt
-    ) {
-        return Comment.builder()
-            .commentId(commentId)
-            .postId(postId)
-            .challengerId(challengerId)
-            .content(content)
-            .likeCount(likeCount)
-            .liked(liked)
-            .createdAt(createdAt)
-            .build();
+    public static Comment create(Post post, Long challengerId, String content, Long parentId) {
+        validateRequired(post, challengerId, content);
+        return new Comment(post, challengerId, content, parentId);
     }
 
-    private static void validateRequired(Long postId, Long challengerId, String content) {
-        if (postId == null || postId <= 0) {
+    public Long getPostId() {
+        return post.getId();
+    }
+
+    public void updateContent(String content) {
+        if (content == null || content.isBlank()) {
+            throw new CommunityDomainException(CommunityErrorCode.INVALID_COMMENT_CONTENT);
+        }
+        this.content = content;
+    }
+
+    public boolean toggleLike(Long challengerId) {
+        if (!likedChallengerIds.remove(challengerId)) {
+            likedChallengerIds.add(challengerId);
+            return true;
+        }
+        return false;
+    }
+
+    public int getLikeCount() {
+        return likedChallengerIds.size();
+    }
+
+    public boolean isLikedBy(Long challengerId) {
+        return likedChallengerIds.contains(challengerId);
+    }
+
+    private static void validateRequired(Post post, Long challengerId, String content) {
+        if (post == null || post.getId() == null || post.getId() <= 0) {
             throw new CommunityDomainException(CommunityErrorCode.INVALID_COMMENT_POST_ID);
         }
         if (challengerId == null || challengerId <= 0) {
@@ -64,18 +106,4 @@ public class Comment {
         }
     }
 
-    public void updateContent(String content) {
-        if (content == null || content.isBlank()) {
-            throw new CommunityDomainException(CommunityErrorCode.INVALID_COMMENT_CONTENT);
-        }
-        this.content = content;
-    }
-
-    public record CommentId(Long id) {
-        public CommentId {
-            if (id <= 0) {
-                throw new CommunityDomainException(CommunityErrorCode.INVALID_ID);
-            }
-        }
-    }
 }

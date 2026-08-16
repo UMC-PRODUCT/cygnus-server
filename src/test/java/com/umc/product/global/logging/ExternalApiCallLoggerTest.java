@@ -3,17 +3,20 @@ package com.umc.product.global.logging;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import ch.qos.logback.classic.Level;
-import ch.qos.logback.classic.Logger;
-import ch.qos.logback.classic.spi.ILoggingEvent;
-import ch.qos.logback.core.read.ListAppender;
 import java.util.List;
-import net.logstash.logback.argument.StructuredArgument;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
+
+import net.logstash.logback.argument.StructuredArgument;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 
 /**
  * ExternalApiCallLogger 가 external_api_called 이벤트를 통일된 스키마로 남기는지 검증한다.
@@ -32,6 +35,7 @@ class ExternalApiCallLoggerTest {
 
     @BeforeEach
     void setUp() {
+        ExternalApiCallLogger.setOperationalMetrics(null);
         externalApiLogger = (Logger) LoggerFactory.getLogger("external_api");
         listAppender = new ListAppender<>();
         listAppender.start();
@@ -42,6 +46,7 @@ class ExternalApiCallLoggerTest {
     @AfterEach
     void tearDown() {
         externalApiLogger.detachAppender(listAppender);
+        ExternalApiCallLogger.setOperationalMetrics(null);
     }
 
     @Test

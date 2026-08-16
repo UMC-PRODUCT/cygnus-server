@@ -1,8 +1,10 @@
 package com.umc.product.organization.adapter.in.web.dto.response.school;
 
-import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
-import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
+
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 @Schema(description = "학교 목록 항목")
 public record SchoolListItemResponse(
@@ -11,6 +13,9 @@ public record SchoolListItemResponse(
 
     @Schema(description = "학교명", example = "서울대학교")
     String schoolName,
+
+    @Schema(description = "학교 약칭", example = "서울대")
+    String shortName,
 
     @Schema(description = "지부 ID", example = "1")
     Long chapterId,
@@ -32,9 +37,8 @@ public record SchoolListItemResponse(
 ) {
 
     public static SchoolListItemResponse of(SchoolListItemInfo summary) {
-        return new SchoolListItemResponse(summary.schoolId(), summary.schoolName(), summary.chapterId(),
-            summary.chapterName(), summary.createdAt(), summary.isActive(),
+        return new SchoolListItemResponse(summary.schoolId(), summary.schoolName(), summary.shortName(),
+            summary.chapterId(), summary.chapterName(), summary.createdAt(), summary.isActive(),
             summary.remark(), summary.logoImageUrl());
     }
 }
-

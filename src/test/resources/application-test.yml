@@ -18,11 +18,18 @@ spring:
     enabled: true
     out-of-order: true
 
+# 테스트(Testcontainers) 콘솔에서 SQL flood 제거 — 명시적으로 OFF 유지.
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: false
+
 jwt:
   access-token-secret: access_token_secret
   refresh-token-secret: refresh_token_secret
   oauth-verification-token-secret: oauth_verification_token_secret
   email-verification-token-secret: email_verification_token_secret
+  sso-login-token-secret: sso_login_token_secret
   access-token-validity-in-seconds: 3600
   refresh-token-validity-in-seconds: 604800
   verification-token-validity-in-seconds: 600
@@ -57,6 +64,9 @@ logging:
 
 app:
   base-url: http://localhost:8080
+  websocket:
+    broker:
+      mode: simple
   observability:
     tracing:
       enabled: false

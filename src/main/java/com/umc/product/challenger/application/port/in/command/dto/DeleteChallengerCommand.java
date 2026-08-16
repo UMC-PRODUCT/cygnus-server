@@ -7,7 +7,10 @@ package com.umc.product.challenger.application.port.in.command.dto;
  * @param description  삭제 사유 (필수)
  */
 public record DeleteChallengerCommand(
-        Long challengerId,
-        String description
+    Long challengerId,
+    String description
 ) {
+    public static DeleteChallengerCommand of(Long challengerId, String description) {
+        return new DeleteChallengerCommand(challengerId, description);
+    }
 }

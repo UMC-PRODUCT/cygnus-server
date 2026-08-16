@@ -1,0 +1,272 @@
+{
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "umc-product-server-logs"
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "cursorSync": "Crosshair",
+    "description": "로그 탐색 전용 대시보드. traceId / memberId / clientType / 레벨 / 텍스트 기반으로 Loki 로그를 필터링한다.",
+    "editable": true,
+    "elements": {
+      "panel-1": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "direction": "backward",
+                        "editorMode": "code",
+                        "expr": "{service_name=~\"$service\"} | detected_level=~\"$log_level\" | traceId =~ \"(?i).*$traceId.*\" | memberId =~ \"(?i).*$memberId.*\" | clientType =~ \"^$clientType$\" |~ \"(?i)$log_search\"",
+                        "queryType": "range"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "traceId / memberId / clientType / 레벨 / 텍스트 필터가 모두 적용된 로그 탐색 뷰. 빈 필드는 전체 매칭으로 처리된다.",
+          "id": 1,
+          "links": [],
+          "title": "Log Explorer",
+          "vizConfig": {
+            "group": "logs",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "dedupStrategy": "none",
+                "enableInfiniteScrolling": false,
+                "enableLogDetails": true,
+                "prettifyLogMessage": true,
+                "showCommonLabels": false,
+                "showControls": false,
+                "showFieldSelector": false,
+                "showLabels": false,
+                "showLevel": true,
+                "showTime": true,
+                "sortOrder": "Descending",
+                "timestampResolution": "ms",
+                "unwrappedColumns": false,
+                "wrapLogMessage": false
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      }
+    },
+    "layout": {
+      "kind": "GridLayout",
+      "spec": {
+        "items": [
+          {
+            "kind": "GridLayoutItem",
+            "spec": {
+              "element": {
+                "kind": "ElementReference",
+                "name": "panel-1"
+              },
+              "height": 24,
+              "width": 24,
+              "x": 0,
+              "y": 0
+            }
+          }
+        ]
+      }
+    },
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "umc-product",
+      "loki",
+      "logs"
+    ],
+    "timeSettings": {
+      "autoRefresh": "30s",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h"
+      ],
+      "fiscalYearStartMonth": 0,
+      "from": "now-1h",
+      "hideTimepicker": false,
+      "timezone": "Asia/Seoul",
+      "to": "now"
+    },
+    "title": "서버팀 로그 탐색",
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "All",
+            "value": "$__all"
+          },
+          "definition": "label_values(service_name)",
+          "hide": "dontHide",
+          "includeAll": true,
+          "label": "Service",
+          "multi": false,
+          "name": "service",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "loki"
+            },
+            "group": "loki",
+            "kind": "DataQuery",
+            "spec": {
+              "label": "service_name",
+              "refId": "LokiVariableQuery",
+              "type": 1
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "alphabeticalAsc"
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "error|warn",
+            "value": "error|warn"
+          },
+          "hide": "dontHide",
+          "label": "Log Level",
+          "multi": false,
+          "name": "log_level",
+          "options": [
+            {"selected": true,  "text": "error|warn", "value": "error|warn"},
+            {"selected": false, "text": "error",       "value": "error"},
+            {"selected": false, "text": "warn",        "value": "warn"},
+            {"selected": false, "text": "info",        "value": "info"},
+            {"selected": false, "text": "전체",        "value": ".*"}
+          ],
+          "query": "error|warn,error,warn,info,.*",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "dontHide",
+          "label": "Trace ID",
+          "name": "traceId",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "dontHide",
+          "label": "Member ID",
+          "name": "memberId",
+          "query": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "전체",
+            "value": ".*"
+          },
+          "hide": "dontHide",
+          "label": "Client Type",
+          "multi": false,
+          "name": "clientType",
+          "options": [
+            {"selected": true,  "text": "전체",    "value": ".*"},
+            {"selected": false, "text": "WEB",     "value": "WEB"},
+            {"selected": false, "text": "IOS",     "value": "IOS"},
+            {"selected": false, "text": "ANDROID", "value": "ANDROID"},
+            {"selected": false, "text": "UNKNOWN", "value": "UNKNOWN"}
+          ],
+          "query": ".*,WEB,IOS,ANDROID,UNKNOWN",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "TextVariable",
+        "spec": {
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "hide": "dontHide",
+          "label": "Log Search",
+          "name": "log_search",
+          "query": "",
+          "skipUrlSync": false
+        }
+      }
+    ]
+  }
+}

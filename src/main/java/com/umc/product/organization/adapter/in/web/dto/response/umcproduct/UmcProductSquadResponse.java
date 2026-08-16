@@ -1,16 +1,18 @@
 package com.umc.product.organization.adapter.in.web.dto.response.umcproduct;
 
-import java.time.Instant;
+import java.time.LocalDate;
 
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductSquadInfo;
+
+import io.swagger.v3.oas.annotations.media.Schema;
 
 public record UmcProductSquadResponse(
     Long squadId,
     String code,
     String name,
     String description,
-    Instant startAt,
-    Instant endAt,
+    @Schema(type = "string", format = "date") LocalDate startDate,
+    @Schema(type = "string", format = "date", nullable = true) LocalDate endDate,
     int sortOrder,
     boolean active
 ) {
@@ -20,8 +22,8 @@ public record UmcProductSquadResponse(
             info.code(),
             info.name(),
             info.description(),
-            info.startAt(),
-            info.endAt(),
+            info.startDate(),
+            info.endDate(),
             info.sortOrder(),
             info.active()
         );

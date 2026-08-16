@@ -29,10 +29,18 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.FormStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.port.in.command.dto.ApplicationDecisionStatus;
 import com.umc.product.project.application.port.in.command.dto.CancelProjectApplicationCommand;
 import com.umc.product.project.application.port.in.command.dto.SubmitProjectApplicationCommand;
@@ -58,14 +66,6 @@ import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.command.dto.AnswerCommand;
-import com.umc.product.survey.application.port.in.command.dto.SubmitDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.domain.enums.FormStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -113,7 +113,7 @@ class ProjectApplicationCommandServiceTest {
     @Mock
     GetChallengerUseCase getChallengerUseCase;
     @Mock
-    GetChallengerRoleUseCase getChallengerRoleUseCase;
+    CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     @Mock
     GetFormUseCase getFormUseCase;
 
@@ -131,7 +131,7 @@ class ProjectApplicationCommandServiceTest {
             loadProjectMatchingRoundPort,
             manageFormResponseUseCase,
             getChallengerUseCase,
-            getChallengerRoleUseCase,
+            checkChallengerAuthorityUseCase,
             List.of(new DeveloperMatchingPolicy(), new DesignerMatchingPolicy()),
             getFormUseCase
         );
@@ -485,7 +485,7 @@ class ProjectApplicationCommandServiceTest {
             ReflectionTestUtils.setField(application, "id", APPLICATION_ID);
             ReflectionTestUtils.setField(application, "status", ProjectApplicationStatus.SUBMITTED);
             given(loadProjectApplicationPort.findById(APPLICATION_ID)).willReturn(Optional.of(application));
-            given(getChallengerRoleUseCase.isSuperAdmin(DECIDER_MEMBER_ID)).willReturn(true);
+            given(checkChallengerAuthorityUseCase.isSuperAdmin(DECIDER_MEMBER_ID)).willReturn(true);
 
             ProjectApplicationInfo result = sut.decide(
                 APPLICATION_ID, ApplicationDecisionStatus.APPROVED, "슈퍼어드민 수정", DECIDER_MEMBER_ID

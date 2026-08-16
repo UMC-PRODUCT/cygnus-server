@@ -1,8 +1,9 @@
 package com.umc.product.authentication.adapter.out.external;
 
 
-import com.umc.product.common.domain.enums.ClientType;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+
+import com.umc.product.common.domain.enums.ClientType;
 
 @ConfigurationProperties(prefix = "app.oauth2.apple")
 public record AppleOAuthProperties(
@@ -10,8 +11,15 @@ public record AppleOAuthProperties(
     String webClientId,
     String teamId,
     String keyId,
-    String privateKey
+    String privateKey,
+    OidcJwksCacheProperties jwksCache
 ) {
+    public AppleOAuthProperties {
+        if (jwksCache == null) {
+            jwksCache = OidcJwksCacheProperties.defaults();
+        }
+    }
+
     /**
      * ClientType에 매칭되는 Apple client_id를 반환합니다.
      * <p>

@@ -6,6 +6,7 @@ import static org.mockito.BDDMockito.given;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -20,6 +21,7 @@ import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.authorization.domain.SubjectAttributes.GisuChallengerInfo;
+import com.umc.product.authorization.domain.SystemRoleType;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.OrganizationType;
@@ -130,7 +132,7 @@ class ProjectPermissionEvaluatorTest {
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.DRAFT)));
 
-        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
         assertThat(sut.evaluate(subject, permission)).isFalse();
@@ -143,7 +145,7 @@ class ProjectPermissionEvaluatorTest {
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.DRAFT)));
 
-        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
@@ -310,8 +312,7 @@ class ProjectPermissionEvaluatorTest {
         given(loadProjectPort.findById(projectId))
             .willReturn(Optional.of(project(projectId, 10L, ProjectStatus.PENDING_REVIEW)));
 
-        // SUPER_ADMIN 은 과거 기수 role 이라도 글로벌 권한
-        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(superAdminRoleInGisu(99L)));
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.of(ResourceType.PROJECT, projectId, PermissionType.READ);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
@@ -350,6 +351,14 @@ class ProjectPermissionEvaluatorTest {
     @Test
     void WRITE는_총괄단_허용() {
         SubjectAttributes subject = subjectWith(1L, List.of(), List.of(centralCoreRole()));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
+
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    void WRITE는_SUPER_ADMIN_허용() {
+        SubjectAttributes subject = superAdminSubject(20L);
         ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.WRITE);
 
         assertThat(sut.evaluate(subject, permission)).isTrue();
@@ -750,6 +759,42 @@ class ProjectPermissionEvaluatorTest {
         assertThat(sut.evaluate(subject, permission)).isFalse();
     }
 
+    // --- MANAGE 진입 게이트 (resourceId 없음 — 배치 complete 등 다건 액션의 Controller 관문) ---
+
+    @Test
+    void MANAGE_진입게이트는_중앙총괄이면_리소스_로드없이_허용() {
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(centralCoreRole()));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        // 리소스 로드 없이 통과 — findById stubbing 없이도 성공하는 것으로 증명된다.
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    void MANAGE_진입게이트는_지부장이면_허용() {
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(chapterPresidentRole(1L, 1L)));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        assertThat(sut.evaluate(subject, permission)).isTrue();
+    }
+
+    @Test
+    void MANAGE_진입게이트는_운영진_역할이_없으면_거부() {
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of());
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        assertThat(sut.evaluate(subject, permission)).isFalse();
+    }
+
+    @Test
+    void MANAGE_진입게이트는_학교_회장단이면_거부() {
+        // 학교 회장단은 프로젝트 MANAGE(publish/abort/complete) 자격이 아니다 — 총괄단/지부장만 통과.
+        SubjectAttributes subject = subjectWith(20L, List.of(), List.of(schoolPresidentRole(1L, 1L)));
+        ResourcePermission permission = ResourcePermission.ofType(ResourceType.PROJECT, PermissionType.MANAGE);
+
+        assertThat(sut.evaluate(subject, permission)).isFalse();
+    }
+
     // --- DELETE ---
 
     @Test
@@ -863,6 +908,16 @@ class ProjectPermissionEvaluatorTest {
             .build();
     }
 
+    private SubjectAttributes superAdminSubject(Long memberId) {
+        return SubjectAttributes.builder()
+            .memberId(memberId)
+            .schoolId(1L)
+            .gisuChallengerInfos(List.of())
+            .roleAttributes(List.of())
+            .systemRoles(Set.of(SystemRoleType.SUPER_ADMIN))
+            .build();
+    }
+
     private GisuChallengerInfo gisuInfo(Long gisuId, Long chapterId,
                                         ChallengerPart part, Long challengerId) {
         return GisuChallengerInfo.builder()
@@ -880,14 +935,6 @@ class ProjectPermissionEvaluatorTest {
     private RoleAttribute centralCoreRoleInGisu(Long gisuId) {
         return new RoleAttribute(
             ChallengerRoleType.CENTRAL_PRESIDENT,
-            OrganizationType.CENTRAL,
-            null, null, gisuId
-        );
-    }
-
-    private RoleAttribute superAdminRoleInGisu(Long gisuId) {
-        return new RoleAttribute(
-            ChallengerRoleType.SUPER_ADMIN,
             OrganizationType.CENTRAL,
             null, null, gisuId
         );

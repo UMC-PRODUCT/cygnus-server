@@ -8,7 +8,7 @@ import java.util.List;
 public record ChapterProjectStatisticsSummaryInfo(
     List<RoundApplicationStatisticsInfo> roundApplicationStatistics,
     List<RoundSchoolApplicationStatisticsInfo> roundSchoolRankings,
-    List<SchoolMatchingStatisticsInfo> schoolMatchingStatistics,
+    List<SchoolApplicationMatchingStatisticsInfo> schoolMatchingStatistics,
     List<ProjectRoundMemberStatisticsInfo> projectRoundStatistics
 ) {
 }

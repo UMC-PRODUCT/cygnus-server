@@ -1,9 +1,11 @@
 package com.umc.product.organization.adapter.out.persistence.umcproduct;
 
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Component;
 
 import com.umc.product.organization.application.port.out.command.SaveUmcProductSquadPort;
@@ -18,6 +20,11 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UmcProductSquadPersistenceAdapter implements LoadUmcProductSquadPort, SaveUmcProductSquadPort {
 
+    private static final Map<String, OrganizationErrorCode> CONSTRAINT_ERROR_CODES = Map.of(
+        "uk_umc_product_squad_code",
+        OrganizationErrorCode.UMC_PRODUCT_SQUAD_ALREADY_EXISTS
+    );
+
     private final UmcProductSquadJpaRepository umcProductSquadJpaRepository;
 
     @Override
@@ -27,19 +34,14 @@ public class UmcProductSquadPersistenceAdapter implements LoadUmcProductSquadPor
     }
 
     @Override
-    public List<UmcProductSquad> listAll(Boolean active) {
-        if (active == null) {
-            return umcProductSquadJpaRepository.findAllByOrderBySortOrderAscIdAsc();
-        }
-        return umcProductSquadJpaRepository.findAllByIsActiveOrderBySortOrderAscIdAsc(active);
+    public UmcProductSquad getByIdWithLock(Long squadId) {
+        return umcProductSquadJpaRepository.findByIdWithLock(squadId)
+            .orElseThrow(() -> new OrganizationDomainException(OrganizationErrorCode.UMC_PRODUCT_SQUAD_NOT_FOUND));
     }
 
     @Override
-    public List<UmcProductSquad> listOverlapping(Instant startAt, Instant endAt) {
-        if (startAt == null || endAt == null) {
-            return List.of();
-        }
-        return umcProductSquadJpaRepository.findAllOverlapping(startAt, endAt);
+    public List<UmcProductSquad> listAll(Boolean active, LocalDate activeOn) {
+        return umcProductSquadJpaRepository.findAll(active, activeOn);
     }
 
     @Override
@@ -51,8 +53,17 @@ public class UmcProductSquadPersistenceAdapter implements LoadUmcProductSquadPor
     }
 
     @Override
+    public boolean existsByCode(String code, Long excludedSquadId) {
+        return umcProductSquadJpaRepository.existsByCode(code, excludedSquadId);
+    }
+
+    @Override
     public UmcProductSquad save(UmcProductSquad squad) {
-        return umcProductSquadJpaRepository.save(squad);
+        try {
+            return umcProductSquadJpaRepository.saveAndFlush(squad);
+        } catch (DataIntegrityViolationException exception) {
+            throw UmcProductConstraintViolationTranslator.translate(exception, CONSTRAINT_ERROR_CODES);
+        }
     }
 
     @Override

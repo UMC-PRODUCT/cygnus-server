@@ -25,6 +25,7 @@ import com.querydsl.jpa.JPQLQuery;
 import com.querydsl.jpa.impl.JPAQuery;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
@@ -47,6 +48,7 @@ public class SchoolQueryRepository {
             .select(Projections.constructor(SchoolListItemInfo.class,
                 school.id,
                 school.name,
+                school.shortName,
                 chapter.id,      // 활성 기수에 속하지 않으면 null
                 chapter.name,    // 활성 기수에 속하지 않으면 null
                 school.createdAt,
@@ -112,6 +114,7 @@ public class SchoolQueryRepository {
                 chapter.id,
                 chapter.name,
                 school.name,
+                school.shortName,
                 school.id,
                 school.remark,
                 school.logoImageId,
@@ -135,12 +138,29 @@ public class SchoolQueryRepository {
                 chapter.id,
                 chapter.name,
                 school.name,
+                school.shortName,
                 school.id,
                 school.remark,
                 school.logoImageId,
                 gisu.isActive,
                 school.createdAt,
                 school.updatedAt
+            ))
+            .from(school)
+            .join(chapterSchool).on(chapterSchool.school.eq(school))
+            .join(chapterSchool.chapter, chapter)
+            .join(chapter.gisu, gisu)
+            .where(gisu.id.eq(gisuId))
+            .fetch();
+    }
+
+    public List<SchoolChapterNameInfo> getSchoolChapterNamesByGisuId(Long gisuId) {
+        return queryFactory
+            .select(Projections.constructor(SchoolChapterNameInfo.class,
+                chapter.id,
+                chapter.name,
+                school.name,
+                school.id
             ))
             .from(school)
             .join(chapterSchool).on(chapterSchool.school.eq(school))
@@ -161,6 +181,7 @@ public class SchoolQueryRepository {
                 chapter.id,
                 chapter.name,
                 school.name,
+                school.shortName,
                 school.id,
                 school.remark,
                 school.logoImageId,
@@ -173,6 +194,36 @@ public class SchoolQueryRepository {
             .join(chapterSchool.chapter, chapter)
             .join(chapter.gisu, gisu)
             .where(gisu.id.in(gisuIds))
+            .fetch();
+    }
+
+    public List<SchoolChapterInfo> getSchoolDetailsByIds(Set<Long> schoolIds) {
+        if (schoolIds.isEmpty()) {
+            return List.of();
+        }
+
+        JPQLQuery<Long> activeChapterIds = activeChapterIdSubQuery();
+
+        return queryFactory
+            .select(Projections.constructor(SchoolChapterInfo.class,
+                chapter.id,
+                chapter.name,
+                school.name,
+                school.shortName,
+                school.id,
+                school.remark,
+                school.logoImageId,
+                chapter.id.isNotNull(),
+                school.createdAt,
+                school.updatedAt
+            ))
+            .from(school)
+            .leftJoin(chapterSchool).on(
+                chapterSchool.school.eq(school)
+                    .and(chapterSchool.chapter.id.in(activeChapterIds))
+            )
+            .leftJoin(chapterSchool.chapter, chapter)
+            .where(school.id.in(schoolIds))
             .fetch();
     }
 

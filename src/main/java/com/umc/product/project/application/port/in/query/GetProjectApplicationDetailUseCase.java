@@ -1,5 +1,8 @@
 package com.umc.product.project.application.port.in.query;
 
+import java.util.Collection;
+import java.util.Map;
+
 import com.umc.product.project.application.port.in.query.dto.GetProjectApplicationDetailQuery;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 
@@ -17,4 +20,13 @@ public interface GetProjectApplicationDetailUseCase {
      * PROJECT_APPLICATION_NOT_FOUND 예외를 던진다.
      */
     ProjectApplicationDetailInfo getDetail(GetProjectApplicationDetailQuery query);
+
+    /**
+     * 지원서 상세를 여러 건 조회한다.
+     * <p>
+     * 모든 query.applicationId 는 존재해야 하며, 각 application 의 projectId 정합성도 단건 조회와 동일하게 검증한다.
+     *
+     * @return applicationId -> 상세 정보
+     */
+    Map<Long, ProjectApplicationDetailInfo> batchGetDetails(Collection<GetProjectApplicationDetailQuery> queries);
 }

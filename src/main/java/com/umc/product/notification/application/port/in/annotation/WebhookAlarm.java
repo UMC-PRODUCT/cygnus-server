@@ -1,10 +1,11 @@
 package com.umc.product.notification.application.port.in.annotation;
 
-import com.umc.product.notification.domain.WebhookPlatform;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+
+import com.umc.product.notification.domain.WebhookPlatform;
 
 /**
  * 메서드 실행 성공 후 웹훅 알람을 전송하는 선언형 어노테이션.
@@ -53,7 +54,7 @@ public @interface WebhookAlarm {
     String content();
 
     /**
-     * {@code true}이면 즉시 전송하지 않고 버퍼에 적재하여 스케줄러가 모아서 전송합니다. 기본값은 {@code false} (즉시 전송).
+     * {@code true}이면 현재 흐름에서 즉시 전송하지 않고 도메인 이벤트로 발행하여 commit 이후 listener가 전송합니다. 기본값은 {@code false} (즉시 전송).
      */
     boolean buffered() default false;
 }

@@ -1,13 +1,15 @@
 package com.umc.product.test.application.service;
 
-import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationFormSectionEntry;
-import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionEntry;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.survey.domain.enums.QuestionType;
 import java.util.List;
+
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
+
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationFormSectionEntry;
+import com.umc.product.project.application.port.in.command.dto.UpsertApplicationFormCommand.ApplicationQuestionEntry;
+import com.umc.product.project.domain.enums.FormSectionType;
 
 /**
  * 시나리오 시딩용 최소 ApplicationForm 스펙 생성기.

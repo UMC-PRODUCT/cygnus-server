@@ -2,12 +2,16 @@ package com.umc.product.project.application.service.query;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -16,6 +20,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.project.application.access.ProjectApplicationAccessScope;
 import com.umc.product.project.application.access.ProjectApplicationAccessScopeResolver;
 import com.umc.product.project.application.port.in.query.GetMyProjectApplicationsUseCase;
@@ -25,6 +34,7 @@ import com.umc.product.project.application.port.in.query.dto.GetMyProjectApplica
 import com.umc.product.project.application.port.in.query.dto.GetProjectApplicationDetailQuery;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationSummaryInfo;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsQuery;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationPort;
@@ -39,11 +49,6 @@ import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import com.umc.product.survey.application.port.in.query.GetFormResponseUseCase;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.AnswerInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseWithAnswersInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -132,6 +137,75 @@ public class ProjectApplicationQueryService
         );
     }
 
+    @Override
+    public Map<Long, ProjectApplicationDetailInfo> batchGetDetails(
+        Collection<GetProjectApplicationDetailQuery> queries
+    ) {
+        if (queries == null || queries.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId = queries.stream()
+            .collect(Collectors.toMap(
+                GetProjectApplicationDetailQuery::applicationId,
+                Function.identity(),
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+        if (queriesByApplicationId.isEmpty()) {
+            return Map.of();
+        }
+
+        List<ProjectApplication> applications =
+            loadProjectApplicationPort.batchGetByIdsWithDetails(queriesByApplicationId.keySet());
+        validateProjectConsistency(applications, queriesByApplicationId);
+        validateMatchingRoundVisibility(applications, queriesByApplicationId);
+
+        Map<Long, ProjectApplication> applicationsById = applications.stream()
+            .collect(Collectors.toMap(
+                ProjectApplication::getId,
+                Function.identity(),
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+        Map<GisuMemberKey, ChallengerPart> applicantPartsByKey = resolveApplicantParts(applications);
+        Map<Long, List<ProjectApplicationFormPolicy>> policiesByApplicationFormId =
+            loadProjectApplicationFormPolicyPort.listByApplicationFormIds(applicationFormIds(applications));
+        Map<Long, FormResponseWithAnswersInfo> formResponsesById =
+            getFormResponseUseCase.findResponsesWithAnswers(formResponseIds(applications));
+        Map<Long, Map<String, FileInfo>> filesByApplicationId =
+            resolveFilesByApplicationId(applications, formResponsesById);
+
+        Map<FormStructureKey, FormWithStructureInfo> formStructuresByKey = new LinkedHashMap<>();
+        Map<Long, ProjectApplicationDetailInfo> result = new LinkedHashMap<>();
+        for (Long applicationId : queriesByApplicationId.keySet()) {
+            ProjectApplication application = applicationsById.get(applicationId);
+            Project project = application.getApplicationForm().getProject();
+            FormResponseWithAnswersInfo formResponseWithAnswers =
+                getRequiredFormResponse(formResponsesById, application.getFormResponseId());
+            FormStructureKey formStructureKey = formStructureKey(application, formResponseWithAnswers);
+            FormWithStructureInfo formStructure = formStructuresByKey.computeIfAbsent(
+                formStructureKey,
+                key -> getFormUseCase.getFormWithStructureByQuestionIds(key.formId(), key.questionIds())
+            );
+
+            boolean isApplicantSelf = Objects.equals(
+                application.getApplicantMemberId(),
+                queriesByApplicationId.get(applicationId).requesterMemberId()
+            );
+            result.put(applicationId, ProjectApplicationDetailInfo.of(
+                application,
+                getRequiredApplicantPart(applicantPartsByKey, project.getGisuId(), application.getApplicantMemberId()),
+                formStructure,
+                policiesByApplicationFormId.getOrDefault(application.getApplicationForm().getId(), List.of()),
+                formResponseWithAnswers,
+                filesByApplicationId.getOrDefault(applicationId, Map.of()),
+                !isApplicantSelf || isStatusVisibleToApplicantSelf(application)
+            ));
+        }
+        return result;
+    }
+
     /**
      * 본인 지원 내역 목록 조회.
      * <p>
@@ -200,6 +274,64 @@ public class ProjectApplicationQueryService
             .toList();
     }
 
+    /**
+     * PM/운영진용 복수 프로젝트 지원자 목록 조회.
+     * <p>
+     * 요청한 projectId 는 결과 Map 의 key 로 보존한다. 존재하지 않거나 권한이 없는 프로젝트는 빈 리스트를 반환하여 단건 조회의 권한 없음 위장 정책과 맞춘다.
+     */
+    @Override
+    public Map<Long, List<ProjectApplicationSummaryInfo>> searchByProjects(
+        SearchProjectApplicationsBatchQuery query
+    ) {
+        // 요청한 projectId key 는 응답에서 그대로 보존한다. 권한 없음/미존재 프로젝트도 빈 리스트로 채운다.
+        Map<Long, List<ProjectApplicationSummaryInfo>> result = new LinkedHashMap<>();
+        for (Long projectId : query.projectIds()) {
+            result.put(projectId, new ArrayList<>());
+        }
+
+        List<Project> projects = loadProjectPort.listByIds(query.projectIds());
+        if (projects.isEmpty()) {
+            return freeze(result);
+        }
+
+        Map<Long, ProjectApplicationAccessScope> scopes =
+            accessScopeResolver.resolveForProjectApplicantLists(query.requesterMemberId(), projects);
+
+        Set<Long> accessibleProjectIds = scopes.entrySet().stream()
+            .filter(entry -> entry.getValue() instanceof ProjectApplicationAccessScope.ProjectScoped)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toSet());
+        if (accessibleProjectIds.isEmpty()) {
+            return freeze(result);
+        }
+
+        // 중앙총괄/SUPER_ADMIN scope 프로젝트만 진행 중 차수 지원서를 함께 조회한다.
+        Set<Long> includeOngoingProjectIds = scopes.entrySet().stream()
+            .filter(entry -> entry.getValue() instanceof ProjectApplicationAccessScope.ProjectScoped projectScoped
+                && projectScoped.includeOngoingMatchingRounds())
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toSet());
+
+        // 권한이 확인된 프로젝트만 DB 조회 대상에 넣어 권한 없는 프로젝트의 존재 여부가 결과로 새지 않게 한다.
+        List<ProjectApplication> applications = loadProjectApplicationPort.searchProjectApplicationsByProjectIds(
+            accessibleProjectIds,
+            includeOngoingProjectIds,
+            query.matchingRoundId(),
+            query.status(),
+            Instant.now()
+        );
+
+        for (ProjectApplication application : applications) {
+            ProjectApplicationSummaryInfo info = ProjectApplicationSummaryInfo.from(application);
+            List<ProjectApplicationSummaryInfo> projectApplications = result.get(info.projectId());
+            if (projectApplications != null) {
+                projectApplications.add(info);
+            }
+        }
+
+        return freeze(result);
+    }
+
     // ==============================================================
     //                      Helper Method
     // ==============================================================
@@ -236,6 +368,14 @@ public class ProjectApplicationQueryService
         return application.getAppliedMatchingRound().isDecisionDeadlinePassed(Instant.now());
     }
 
+    private Map<Long, List<ProjectApplicationSummaryInfo>> freeze(
+        Map<Long, List<ProjectApplicationSummaryInfo>> source
+    ) {
+        Map<Long, List<ProjectApplicationSummaryInfo>> frozen = new LinkedHashMap<>();
+        source.forEach((projectId, applications) -> frozen.put(projectId, List.copyOf(applications)));
+        return frozen;
+    }
+
     /**
      * 단건 상세에 포함될 모든 답변의 fileIds 를 모아 storage 도메인에서 IN 쿼리 1회로 batch 조회한다. 첨부 파일이 하나도 없으면 빈 Map 을 반환한다.
      */
@@ -250,5 +390,173 @@ public class ProjectApplicationQueryService
             return Map.of();
         }
         return getFileUseCase.findAllByIds(new ArrayList<>(fileIds));
+    }
+
+    private void validateProjectConsistency(
+        List<ProjectApplication> applications,
+        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId
+    ) {
+        for (ProjectApplication application : applications) {
+            Long projectId = application.getApplicationForm().getProject().getId();
+            GetProjectApplicationDetailQuery query = queriesByApplicationId.get(application.getId());
+            if (query == null || !Objects.equals(projectId, query.projectId())) {
+                throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+            }
+        }
+    }
+
+    private void validateMatchingRoundVisibility(
+        List<ProjectApplication> applications,
+        Map<Long, GetProjectApplicationDetailQuery> queriesByApplicationId
+    ) {
+        Map<Long, Map<Long, Project>> projectsByRequesterId = new LinkedHashMap<>();
+        for (ProjectApplication application : applications) {
+            GetProjectApplicationDetailQuery query = queriesByApplicationId.get(application.getId());
+            Project project = application.getApplicationForm().getProject();
+            if (Objects.equals(application.getApplicantMemberId(), query.requesterMemberId())) {
+                continue;
+            }
+            projectsByRequesterId
+                .computeIfAbsent(query.requesterMemberId(), ignored -> new LinkedHashMap<>())
+                .putIfAbsent(project.getId(), project);
+        }
+
+        Map<RequesterProjectKey, Boolean> ongoingVisibilityByKey = new LinkedHashMap<>();
+        projectsByRequesterId.forEach((requesterMemberId, projectsById) -> {
+            Map<Long, ProjectApplicationAccessScope> scopes =
+                accessScopeResolver.resolveForProjectApplicantLists(requesterMemberId, projectsById.values());
+            scopes.forEach((projectId, scope) -> ongoingVisibilityByKey.put(
+                new RequesterProjectKey(requesterMemberId, projectId),
+                scope instanceof ProjectApplicationAccessScope.ProjectScoped projectScoped
+                    && projectScoped.includeOngoingMatchingRounds()
+            ));
+        });
+
+        Instant now = Instant.now();
+        for (ProjectApplication application : applications) {
+            GetProjectApplicationDetailQuery query = queriesByApplicationId.get(application.getId());
+            Project project = application.getApplicationForm().getProject();
+            if (Objects.equals(application.getApplicantMemberId(), query.requesterMemberId())) {
+                continue;
+            }
+            boolean canViewOngoingMatchingRoundApplications = ongoingVisibilityByKey.getOrDefault(
+                new RequesterProjectKey(query.requesterMemberId(), project.getId()),
+                false
+            );
+            if (!canViewOngoingMatchingRoundApplications) {
+                application.getAppliedMatchingRound().validateIsViewableAt(now);
+            }
+        }
+    }
+
+    private Map<GisuMemberKey, ChallengerPart> resolveApplicantParts(List<ProjectApplication> applications) {
+        Map<Long, Set<Long>> memberIdsByGisuId = applications.stream()
+            .collect(Collectors.groupingBy(
+                application -> application.getApplicationForm().getProject().getGisuId(),
+                Collectors.mapping(
+                    ProjectApplication::getApplicantMemberId,
+                    Collectors.toCollection(LinkedHashSet::new)
+                )
+            ));
+
+        Map<GisuMemberKey, ChallengerPart> result = new LinkedHashMap<>();
+        memberIdsByGisuId.forEach((gisuId, memberIds) ->
+            getChallengerUseCase.listByMemberIdsAndGisuId(memberIds, gisuId)
+                .forEach((memberId, challenger) ->
+                    result.put(new GisuMemberKey(gisuId, memberId), challenger.part()))
+        );
+        return result;
+    }
+
+    private ChallengerPart getRequiredApplicantPart(
+        Map<GisuMemberKey, ChallengerPart> applicantPartsByKey,
+        Long gisuId,
+        Long memberId
+    ) {
+        ChallengerPart applicantPart = applicantPartsByKey.get(new GisuMemberKey(gisuId, memberId));
+        if (applicantPart == null) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+        }
+        return applicantPart;
+    }
+
+    private Set<Long> applicationFormIds(List<ProjectApplication> applications) {
+        return applications.stream()
+            .map(application -> application.getApplicationForm().getId())
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private Set<Long> formResponseIds(List<ProjectApplication> applications) {
+        return applications.stream()
+            .map(ProjectApplication::getFormResponseId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    private FormResponseWithAnswersInfo getRequiredFormResponse(
+        Map<Long, FormResponseWithAnswersInfo> formResponsesById,
+        Long formResponseId
+    ) {
+        FormResponseWithAnswersInfo formResponse = formResponsesById.get(formResponseId);
+        if (formResponse == null) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+        }
+        return formResponse;
+    }
+
+    private FormStructureKey formStructureKey(
+        ProjectApplication application,
+        FormResponseWithAnswersInfo formResponseWithAnswers
+    ) {
+        Set<Long> answeredQuestionIds = formResponseWithAnswers.answers().stream()
+            .map(AnswerInfo::questionId)
+            .collect(Collectors.toUnmodifiableSet());
+        return new FormStructureKey(application.getApplicationForm().getFormId(), answeredQuestionIds);
+    }
+
+    private Map<Long, Map<String, FileInfo>> resolveFilesByApplicationId(
+        List<ProjectApplication> applications,
+        Map<Long, FormResponseWithAnswersInfo> formResponsesById
+    ) {
+        List<AnswerInfo> allAnswers = applications.stream()
+            .map(ProjectApplication::getFormResponseId)
+            .map(formResponsesById::get)
+            .filter(Objects::nonNull)
+            .flatMap(formResponse -> formResponse.answers().stream())
+            .toList();
+        Map<String, FileInfo> allFilesByFileId = resolveFiles(allAnswers);
+        if (allFilesByFileId.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, Map<String, FileInfo>> result = new LinkedHashMap<>();
+        for (ProjectApplication application : applications) {
+            FormResponseWithAnswersInfo formResponse = formResponsesById.get(application.getFormResponseId());
+            if (formResponse == null) {
+                continue;
+            }
+            Set<String> applicationFileIds = formResponse.answers().stream()
+                .filter(answer -> answer.fileIds() != null)
+                .flatMap(answer -> answer.fileIds().stream())
+                .collect(Collectors.toSet());
+            Map<String, FileInfo> filesByFileId = applicationFileIds.stream()
+                .filter(allFilesByFileId::containsKey)
+                .collect(Collectors.toMap(
+                    Function.identity(),
+                    allFilesByFileId::get,
+                    (left, right) -> left,
+                    LinkedHashMap::new
+                ));
+            result.put(application.getId(), filesByFileId);
+        }
+        return result;
+    }
+
+    private record RequesterProjectKey(Long requesterMemberId, Long projectId) {
+    }
+
+    private record GisuMemberKey(Long gisuId, Long memberId) {
+    }
+
+    private record FormStructureKey(Long formId, Set<Long> questionIds) {
     }
 }

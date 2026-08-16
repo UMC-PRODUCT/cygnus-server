@@ -1,6 +1,18 @@
 package com.umc.product.challenger.application.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.core.env.Environment;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
+import com.umc.product.challenger.application.port.in.command.AddChallengerTrackUseCase;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerUseCase;
+import com.umc.product.challenger.application.port.in.command.dto.AddChallengerTrackCommand;
 import com.umc.product.challenger.application.port.in.command.dto.ChallengerDeactivationType;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerCommand;
 import com.umc.product.challenger.application.port.in.command.dto.DeactivateChallengerCommand;
@@ -20,17 +32,13 @@ import com.umc.product.challenger.domain.exception.ChallengerErrorCode;
 import com.umc.product.common.domain.enums.ChallengerStatus;
 import com.umc.product.common.domain.exception.CommonException;
 import com.umc.product.global.exception.constant.CommonErrorCode;
-import java.util.List;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.env.Environment;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class ChallengerCommandService implements ManageChallengerUseCase {
+public class ChallengerCommandService implements ManageChallengerUseCase, AddChallengerTrackUseCase {
 
     private final Environment environment;
 
@@ -38,6 +46,7 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
     private final SaveChallengerPort saveChallengerPort;
     private final LoadChallengerPointPort loadChallengerPointPort;
     private final SaveChallengerPointPort saveChallengerPointPort;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     // NOTE: 같은 도메인은 port를 통해서 접근하도록 함.
     // 동일 도메인 내에서 UseCase를 통해서 접근할 경우, 의존 방향이 역전된 것
@@ -50,13 +59,15 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
                 throw new ChallengerDomainException(ChallengerErrorCode.CHALLENGER_ALREADY_EXISTS);
             });
 
-        Challenger challenger = new Challenger(
-            command.memberId(),
-            command.part(),
-            command.gisuId()
-        );
+        Challenger challenger = Challenger.builder()
+            .memberId(command.memberId())
+            .part(command.part())
+            .tracks(command.tracks())
+            .gisuId(command.gisuId())
+            .build();
 
         Challenger savedChallenger = saveChallengerPort.save(challenger);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(savedChallenger.getMemberId());
         return savedChallenger.getId();
     }
 
@@ -71,16 +82,37 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
         validateEnvIsNotProduction();
 
         List<Challenger> challengers = commands.stream()
-            .map(command -> new Challenger(
-                command.memberId(),
-                command.part(),
-                command.gisuId()
-            ))
+            .map(command -> Challenger.builder()
+                .memberId(command.memberId())
+                .part(command.part())
+                .tracks(command.tracks())
+                .gisuId(command.gisuId())
+                .build())
             .toList();
 
-        return saveChallengerPort.saveAll(challengers).stream()
+        List<Challenger> savedChallengers = saveChallengerPort.saveAll(challengers);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberIds(savedChallengers.stream()
+            .map(Challenger::getMemberId)
+            .toList());
+
+        return savedChallengers.stream()
             .map(Challenger::getId)
             .toList();
+    }
+
+    @Override
+    public void addTrack(AddChallengerTrackCommand command) {
+        Challenger challenger = loadChallengerPort.findByMemberIdAndGisuId(command.memberId(), command.gisuId())
+            .orElseGet(() -> Challenger.builder()
+                .memberId(command.memberId())
+                .tracks(List.of(command.track()))
+                .gisuId(command.gisuId())
+                .build());
+
+        if (challenger.getId() == null || challenger.addTrack(command.track())) {
+            saveChallengerPort.save(challenger);
+            evictAuthoritySnapshotCacheUseCase.evictByMemberId(command.memberId());
+        }
     }
 
     @Override
@@ -105,12 +137,15 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
         }
 
         saveChallengerPort.save(challenger);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(challenger.getMemberId());
     }
 
     @Override
     public void deleteChallenger(DeleteChallengerCommand command) {
         Challenger challenger = loadChallengerPort.getById(command.challengerId());
+        saveChallengerPointPort.deleteAllByChallengerId(challenger.getId());
         saveChallengerPort.delete(challenger);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(challenger.getMemberId());
     }
 
     @Override
@@ -121,6 +156,7 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
             command.modifiedBy(),
             command.reason()
         );
+        evictAuthoritySnapshotCacheUseCase.evictByMemberId(challenger.getMemberId());
     }
 
     @Override
@@ -135,39 +171,34 @@ public class ChallengerCommandService implements ManageChallengerUseCase {
             command.description()
         );
 
-        challenger.addPoint(point);
-        saveChallengerPort.save(challenger);
+        saveChallengerPointPort.save(point);
     }
 
     @Override
     public void grantChallengerPointBulk(List<GrantChallengerPointCommand> commands) {
         validateEnvIsNotProduction();
 
-        List<Challenger> challengers = loadChallengerPort.getAllByIds(
-            commands.stream()
-                .map(GrantChallengerPointCommand::challengerId)
-                .collect(Collectors.toSet())
-        );
+        Map<Long, List<GrantChallengerPointCommand>> commandsByChallengerId = commands.stream()
+            .collect(Collectors.groupingBy(GrantChallengerPointCommand::challengerId));
+        List<Challenger> challengers = loadChallengerPort.getAllByIds(commandsByChallengerId.keySet());
+        List<ChallengerPoint> points = new ArrayList<>();
 
         for (Challenger challenger : challengers) {
-            List<GrantChallengerPointCommand> challengerCommands = commands.stream()
-                .filter(cmd -> cmd.challengerId().equals(challenger.getId()))
-                .toList();
-
             challenger.validateChallengerStatus();
 
-            for (GrantChallengerPointCommand command : challengerCommands) {
-                ChallengerPoint point = ChallengerPoint.create(
+            for (GrantChallengerPointCommand command : commandsByChallengerId.getOrDefault(
+                challenger.getId(),
+                List.of()
+            )) {
+                points.add(ChallengerPoint.create(
                     challenger,
                     command.pointType(),
                     command.description()
-                );
-
-                challenger.addPoint(point);
+                ));
             }
         }
 
-        saveChallengerPort.saveAll(challengers);
+        saveChallengerPointPort.saveAll(points);
     }
 
     @Override

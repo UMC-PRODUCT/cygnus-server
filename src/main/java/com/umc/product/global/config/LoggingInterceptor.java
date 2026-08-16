@@ -1,15 +1,24 @@
 package com.umc.product.global.config;
 
-import com.umc.product.global.security.MemberPrincipal;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
+
+import com.umc.product.global.client.ClientDeviceType;
+import com.umc.product.global.client.ClientEnvironment;
+import com.umc.product.global.client.ClientRequestClassifier;
+import com.umc.product.global.client.ClientRequestContext;
+import com.umc.product.global.client.ClientServiceType;
+import com.umc.product.global.logging.OperationalMetrics;
+import com.umc.product.global.security.MemberPrincipal;
+
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * HTTP 요청/응답 로깅 인터셉터 (ADR-016 구조화 로그 기반)
@@ -27,10 +36,12 @@ import org.springframework.web.servlet.HandlerMapping;
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class LoggingInterceptor implements HandlerInterceptor {
 
     private static final String START_TIME_ATTR = "startTime";
     private static final String CLIENT_IP_ATTR = "clientIp";
+    public static final String CLIENT_REQUEST_CONTEXT_ATTR = "clientRequestContext";
 
     private static final String TRACE_ID_HEADER = "X-Trace-Id";
 
@@ -48,10 +59,20 @@ public class LoggingInterceptor implements HandlerInterceptor {
     private static final String MDC_EVENT = "event";
     private static final String MDC_EXCEPTION = "exception";
     private static final String MDC_TRACE_ID = "traceId";
+    private static final String MDC_CLIENT_SERVICE = "clientService";
+    private static final String MDC_CLIENT_DEVICE = "clientDevice";
+    private static final String MDC_CLIENT_ENVIRONMENT = "clientEnvironment";
+    private static final String MDC_CLIENT_CONTEXT_SOURCE = "clientContextSource";
 
     private static final String EVENT_REQUEST_STARTED = "api_request_started";
     private static final String EVENT_REQUEST_COMPLETED = "api_request_completed";
     private static final String UNKNOWN = "UNKNOWN";
+    private static final String SECURITY_DOMAIN_AUTHENTICATION = "AUTHENTICATION";
+    private static final String SECURITY_OPERATION_CLIENT_CONTEXT_MISMATCH = "CLIENT_CONTEXT_MISMATCH";
+    private static final String SECURITY_RESULT_DETECTED = "detected";
+
+    private final ClientRequestClassifier clientRequestClassifier;
+    private final OperationalMetrics operationalMetrics;
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
@@ -77,7 +98,17 @@ public class LoggingInterceptor implements HandlerInterceptor {
 
         // 인증된 사용자라면 memberId / clientType 을 MDC 에 등록.
         // clientType 이 없으면 UNKNOWN 으로 남겨 메트릭에서 누락 트래픽을 집계할 수 있게 한다.
-        putMemberContextToMdcIfAuthenticated();
+        MemberPrincipal memberPrincipal = putMemberContextToMdcIfAuthenticated();
+        ClientRequestContext clientRequestContext = clientRequestClassifier.classify(request, memberPrincipal);
+        request.setAttribute(CLIENT_REQUEST_CONTEXT_ATTR, clientRequestContext);
+        putClientRequestContextToMdc(clientRequestContext);
+        if (clientRequestContext.mismatched()) {
+            operationalMetrics.recordSecurityEvent(
+                SECURITY_DOMAIN_AUTHENTICATION,
+                SECURITY_OPERATION_CLIENT_CONTEXT_MISMATCH,
+                SECURITY_RESULT_DETECTED
+            );
+        }
 
         // ADR-016 §MDC 키 표준: api_request_completed 와 동일하게 event 필드를 채워
         // LogQL `| json | event="api_request_started"` 필터링이 가능하도록 한다.
@@ -108,17 +139,19 @@ public class LoggingInterceptor implements HandlerInterceptor {
      *     <li>인증 책임은 Filter, 로그 컨텍스트 책임은 Interceptor 로 분리된다.</li>
      * </ul>
      */
-    private void putMemberContextToMdcIfAuthenticated() {
+    private MemberPrincipal putMemberContextToMdcIfAuthenticated() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            return;
+            return null;
         }
         if (authentication.getPrincipal() instanceof MemberPrincipal memberPrincipal) {
             MDC.put(MDC_MEMBER_ID, String.valueOf(memberPrincipal.getMemberId()));
             if (memberPrincipal.getClientType() != null) {
                 MDC.put(MDC_CLIENT_TYPE, memberPrincipal.getClientType().name());
             }
+            return memberPrincipal;
         }
+        return null;
     }
 
     @Override
@@ -154,6 +187,16 @@ public class LoggingInterceptor implements HandlerInterceptor {
             if (clientIp != null) {
                 MDC.put(MDC_CLIENT_IP, clientIp);
             }
+
+            ClientRequestContext clientRequestContext = getClientRequestContext(request);
+            putClientRequestContextToMdc(clientRequestContext);
+            operationalMetrics.recordClientRequest(
+                clientRequestContext.serviceType(),
+                clientRequestContext.deviceType(),
+                clientRequestContext.environment(),
+                clientRequestContext.source(),
+                statusFamily(response.getStatus())
+            );
 
             // 로컬 콘솔 패턴은 MDC 키를 렌더링하지 않으므로 (traceId 만 노출),
             // 메시지 본문에 핵심 메트릭을 함께 실어 로컬에서도 한 줄로 가시화한다.
@@ -192,4 +235,33 @@ public class LoggingInterceptor implements HandlerInterceptor {
 
         return request.getRemoteAddr();
     }
+
+    private void putClientRequestContextToMdc(ClientRequestContext context) {
+        MDC.put(MDC_CLIENT_SERVICE, context.serviceType().name());
+        MDC.put(MDC_CLIENT_DEVICE, context.deviceType().name());
+        MDC.put(MDC_CLIENT_ENVIRONMENT, context.environment().name());
+        MDC.put(MDC_CLIENT_CONTEXT_SOURCE, context.source());
+    }
+
+    private ClientRequestContext getClientRequestContext(HttpServletRequest request) {
+        Object context = request.getAttribute(CLIENT_REQUEST_CONTEXT_ATTR);
+        if (context instanceof ClientRequestContext clientRequestContext) {
+            return clientRequestContext;
+        }
+        return new ClientRequestContext(
+            ClientServiceType.UNKNOWN,
+            ClientDeviceType.UNKNOWN,
+            ClientEnvironment.UNKNOWN,
+            "unknown",
+            false
+        );
+    }
+
+    private String statusFamily(int status) {
+        if (status < 100 || status > 599) {
+            return UNKNOWN;
+        }
+        return (status / 100) + "xx";
+    }
+
 }

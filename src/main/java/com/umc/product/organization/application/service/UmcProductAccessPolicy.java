@@ -1,12 +1,13 @@
 package com.umc.product.organization.application.service;
 
+import java.time.LocalDate;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
 
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
-import com.umc.product.organization.application.port.out.query.LoadUmcProductFunctionalMembershipPort;
-import com.umc.product.organization.domain.enums.UmcProductFunctionalRole;
+import com.umc.product.organization.application.port.out.query.LoadUmcProductLeadershipPort;
+import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
 
 import lombok.RequiredArgsConstructor;
 
@@ -14,42 +15,27 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class UmcProductAccessPolicy {
 
-    public static final Set<UmcProductFunctionalRole> MANAGER_ROLES = Set.of(
-        UmcProductFunctionalRole.UMC_PRODUCT_LEAD,
-        UmcProductFunctionalRole.UMC_PRODUCT_VICE_LEAD
+    public static final Set<UmcProductLeadershipRole> MANAGER_ROLES = Set.of(
+        UmcProductLeadershipRole.UMC_PRODUCT_LEAD,
+        UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD
     );
 
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
-    private final LoadUmcProductFunctionalMembershipPort loadUmcProductFunctionalMembershipPort;
-
-    public boolean canCreateGeneration(Long requesterMemberId) {
-        return isCentralCore(requesterMemberId);
-    }
-
-    public boolean canManageGeneration(Long requesterMemberId, Long umcProductGenerationId) {
-        if (isCentralCore(requesterMemberId)) {
-            return true;
-        }
-        if (requesterMemberId == null || umcProductGenerationId == null) {
-            return false;
-        }
-        return loadUmcProductFunctionalMembershipPort.existsByMemberIdAndGenerationIdAndRoles(
-            requesterMemberId,
-            umcProductGenerationId,
-            MANAGER_ROLES
-        );
-    }
+    private final LoadUmcProductLeadershipPort loadUmcProductLeadershipPort;
+    private final UmcProductDateProvider umcProductDateProvider;
 
     public boolean canManageUmcProduct(Long requesterMemberId) {
-        if (isCentralCore(requesterMemberId)) {
+        if (isCentralCoreInAnyGisu(requesterMemberId)) {
             return true;
         }
         if (requesterMemberId == null) {
             return false;
         }
-        return loadUmcProductFunctionalMembershipPort.existsByMemberIdAndActiveGenerationAndRoles(
+        LocalDate today = umcProductDateProvider.today();
+        return loadUmcProductLeadershipPort.existsByMemberIdAndRolesOnDate(
             requesterMemberId,
-            MANAGER_ROLES
+            MANAGER_ROLES,
+            today
         );
     }
 
@@ -63,8 +49,7 @@ public class UmcProductAccessPolicy {
         return canManageUmcProduct(requesterMemberId);
     }
 
-    @SuppressWarnings("removal")
-    private boolean isCentralCore(Long requesterMemberId) {
-        return requesterMemberId != null && getChallengerRoleUseCase.isCentralCore(requesterMemberId);
+    private boolean isCentralCoreInAnyGisu(Long requesterMemberId) {
+        return requesterMemberId != null && getChallengerRoleUseCase.isCentralCoreInAnyGisu(requesterMemberId);
     }
 }

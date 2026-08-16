@@ -10,7 +10,7 @@ import com.umc.product.project.application.port.in.query.dto.statistics.ChapterP
 import com.umc.product.project.application.port.in.query.dto.statistics.ProjectMatchingRoundStatisticsInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.ProjectRoundMemberCountInfo;
 import com.umc.product.project.application.port.in.query.dto.statistics.ProjectRoundMemberStatisticsInfo;
-import com.umc.product.project.application.port.in.query.dto.statistics.SchoolMatchingStatisticsInfo;
+import com.umc.product.project.application.port.in.query.dto.statistics.SchoolApplicationMatchingStatisticsInfo;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -39,7 +39,7 @@ public record ChapterProjectStatisticsResponse(
         List<RoundApplicationStatisticsResponse> roundApplicationStatistics,
         @Schema(description = "매칭 차수별 지원자 학교 순위")
         List<RoundSchoolApplicationStatisticsResponse> roundSchoolRankings,
-        @Schema(description = "학교별 총 매칭 인원 수와 총원")
+        @Schema(description = "학교별 지원 가능 총원, 지원 완료 인원 수, 매칭 완료 인원 수")
         List<SchoolMatchingStatisticsResponse> schoolMatchingStatistics,
         @Schema(description = "프로젝트별 매칭 차수 인원 수")
         List<ProjectRoundMemberStatisticsResponse> projectRoundStatistics
@@ -62,20 +62,23 @@ public record ChapterProjectStatisticsResponse(
         }
     }
 
-    @Schema(description = "학교별 총 매칭 인원 수와 총원")
+    @Schema(description = "학교별 지원 가능 총원, 지원 완료 인원 수, 매칭 완료 인원 수")
     public record SchoolMatchingStatisticsResponse(
         @Schema(description = "학교 ID")
         Long schoolId,
         @Schema(description = "매칭 완료 인원 수")
         long matchedMemberCount,
         @Schema(description = "학교별 지원 가능 총원")
-        long totalMemberCount
+        long totalMemberCount,
+        @Schema(description = "매칭 차수 중 한 번이라도 지원한 인원 수")
+        long appliedMemberCount
     ) {
-        private static SchoolMatchingStatisticsResponse from(SchoolMatchingStatisticsInfo info) {
+        private static SchoolMatchingStatisticsResponse from(SchoolApplicationMatchingStatisticsInfo info) {
             return new SchoolMatchingStatisticsResponse(
                 info.schoolId(),
                 info.matchedMemberCount(),
-                info.totalMemberCount()
+                info.totalMemberCount(),
+                info.appliedMemberCount()
             );
         }
     }

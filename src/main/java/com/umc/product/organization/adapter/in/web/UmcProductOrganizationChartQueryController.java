@@ -2,7 +2,6 @@ package com.umc.product.organization.adapter.in.web;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.global.security.annotation.Public;
@@ -17,7 +16,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1/umc-product/organization-chart")
 @RequiredArgsConstructor
-@Tag(name = "Organization | UMC PRODUCT 조직도 Query", description = "UMC PRODUCT 기수별 조직도를 조회합니다.")
+@Tag(name = "Organization | UMC PRODUCT 조직도 Query", description = "현재 UMC PRODUCT 조직도를 조회합니다.")
 public class UmcProductOrganizationChartQueryController {
 
     private final GetUmcProductOrganizationChartUseCase getUmcProductOrganizationChartUseCase;
@@ -26,11 +25,9 @@ public class UmcProductOrganizationChartQueryController {
     @Operation(
         operationId = "UMC-PRODUCT-ORGANIZATION-CHART-101",
         summary = "UMC PRODUCT 조직도 조회",
-        description = "기수 ID 기준으로 UMC PRODUCT 조직도를 조회합니다. 기수 정보, 해당 기수의 기능 조직 목록, 운영 기간과 겹치는 스쿼드 목록을 함께 반환합니다."
+        description = "활성 Chapter와 하위 활성 Part, KST 오늘 날짜에 유효한 Squad를 반환합니다."
     )
-    public UmcProductOrganizationChartResponse get(@RequestParam Long umcProductGenerationId) {
-        return UmcProductOrganizationChartResponse.from(
-            getUmcProductOrganizationChartUseCase.getByGenerationId(umcProductGenerationId)
-        );
+    public UmcProductOrganizationChartResponse get() {
+        return UmcProductOrganizationChartResponse.from(getUmcProductOrganizationChartUseCase.getCurrent());
     }
 }

@@ -6,11 +6,6 @@
             "description": "클라우드 저장소 제공자 유형."
         },
         {
-            "name": "app.webhook.buffer.enabled",
-            "type": "java.lang.Boolean",
-            "description": "WebHook Buffer 활성화 여부."
-        },
-        {
             "name": "app.metrics-report.enabled",
             "type": "java.lang.Boolean",
             "description": "Webhook으로 Metric Report 전송 여부."

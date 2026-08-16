@@ -41,6 +41,14 @@ public enum ResourceType {
         Set.of(PermissionType.READ)),
     ORIGINAL_WORKBOOK("original_workbook", "원본 워크북",
         Set.of(PermissionType.MANAGE, PermissionType.RELEASE)),
+    CHALLENGER_WORKBOOK("challenger_workbook", "챌린저 워크북",
+        Set.of(PermissionType.WRITE, PermissionType.DELETE)),
+    WEEKLY_BEST_WORKBOOK("weekly_best_workbook", "주간 베스트 워크북",
+        Set.of(PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
+    MISSION_SUBMISSION("mission_submission", "미션 제출물",
+        Set.of(PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
+    MISSION_FEEDBACK("mission_feedback", "미션 피드백",
+        Set.of(PermissionType.WRITE, PermissionType.EDIT, PermissionType.DELETE)),
 
     // 기수 - 지부 - 학교
     GISU("gisu", "기수",
@@ -94,7 +102,7 @@ public enum ResourceType {
 
     // Notification
     FCM("fcm", "FCM 알람 관련",
-        Set.of(PermissionType.DELETE)),
+        Set.of(PermissionType.WRITE, PermissionType.DELETE)),
 
     // UPMS, 프로젝트 관련
 
@@ -104,13 +112,7 @@ public enum ResourceType {
     // 프로젝트 지원서 관련
     PROJECT_APPLICATION("project_application", "프로젝트 지원서",
         Set.of(PermissionType.READ, PermissionType.WRITE, PermissionType.EDIT,
-            PermissionType.DELETE, PermissionType.APPROVE)),
-
-    // 프로젝트 지원서 관련
-    // Figma 통합 admin
-    FIGMA("figma", "Figma 통합",
-        Set.of(PermissionType.READ,
-            PermissionType.DELETE, PermissionType.MANAGE)),
+            PermissionType.DELETE, PermissionType.APPROVE))
     ;
 
     private final String code;

@@ -1,15 +1,16 @@
 package com.umc.product.community.application.service.command;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.community.application.port.in.command.post.ToggleScrapUseCase;
 import com.umc.product.community.application.port.out.post.LoadPostPort;
 import com.umc.product.community.application.port.out.scrap.LoadScrapPort;
 import com.umc.product.community.application.port.out.scrap.SaveScrapPort;
-import com.umc.product.community.domain.Scrap;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -22,24 +23,10 @@ public class ScrapCommandService implements ToggleScrapUseCase {
 
     @Override
     public ScrapResult toggleScrap(Long postId, Long challengerId) {
-        // 게시글 존재 확인
         loadPostPort.findById(postId)
             .orElseThrow(() -> new CommunityDomainException(CommunityErrorCode.POST_NOT_FOUND));
 
-        // 스크랩 토글
-        boolean scrapped;
-        if (loadScrapPort.existsByPostIdAndChallengerId(postId, challengerId)) {
-            // 이미 스크랩했으면 취소
-            saveScrapPort.deleteByPostIdAndChallengerId(postId, challengerId);
-            scrapped = false;
-        } else {
-            // 스크랩 추가
-            Scrap scrap = Scrap.create(postId, challengerId);
-            saveScrapPort.save(scrap);
-            scrapped = true;
-        }
-
-        // 현재 스크랩 수 조회
+        boolean scrapped = saveScrapPort.toggleScrap(postId, challengerId);
         int scrapCount = loadScrapPort.countByPostId(postId);
 
         return new ScrapResult(scrapped, scrapCount);

@@ -14,10 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
-import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.authorization.application.port.in.query.CheckChallengerAuthorityUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.command.ManageFormResponseUseCase;
+import com.umc.product.form.application.port.in.command.dto.AnswerCommand;
+import com.umc.product.form.application.port.in.command.dto.CreateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.SubmitDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.command.dto.UpdateDraftFormResponseCommand;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
 import com.umc.product.global.exception.constant.Domain;
 import com.umc.product.project.application.port.in.command.CancelProjectApplicationUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectApplicationUseCase;
@@ -47,13 +54,6 @@ import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.command.ManageFormResponseUseCase;
-import com.umc.product.survey.application.port.in.command.dto.AnswerCommand;
-import com.umc.product.survey.application.port.in.command.dto.CreateDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.SubmitDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.command.dto.UpdateDraftFormResponseCommand;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
 
 import lombok.RequiredArgsConstructor;
 
@@ -76,7 +76,7 @@ public class ProjectApplicationCommandService implements
     private final LoadProjectMatchingRoundPort loadProjectMatchingRoundPort;
     private final ManageFormResponseUseCase manageFormResponseUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
-    private final GetChallengerRoleUseCase getChallengerRoleUseCase;
+    private final CheckChallengerAuthorityUseCase checkChallengerAuthorityUseCase;
     private final List<MatchingDecisionPolicy> matchingDecisionPolicies;
     private final GetFormUseCase getFormUseCase;
 
@@ -210,7 +210,7 @@ public class ProjectApplicationCommandService implements
 
         VisibleQuestionScope questionScope = resolveVisibleQuestionScope(application);
 
-        // Survey submitDraft — Project 가 계산한 노출 질문 scope 안에서 필수 답변 누락 검증 포함
+        // Form submitDraft — Project 가 계산한 노출 질문 scope 안에서 필수 답변 누락 검증 포함
         manageFormResponseUseCase.submitDraft(
             SubmitDraftFormResponseCommand.builder()
                 .formResponseId(application.getFormResponseId())
@@ -274,7 +274,7 @@ public class ProjectApplicationCommandService implements
         Long decidedByMemberId
     ) {
         boolean superAdmin = decidedByMemberId != null
-            && getChallengerRoleUseCase.isSuperAdmin(decidedByMemberId);
+            && checkChallengerAuthorityUseCase.isSuperAdmin(decidedByMemberId);
 
         switch (targetStatus) {
             case APPROVED -> {

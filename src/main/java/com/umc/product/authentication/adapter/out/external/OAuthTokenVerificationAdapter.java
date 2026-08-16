@@ -1,16 +1,18 @@
 package com.umc.product.authentication.adapter.out.external;
 
-import com.umc.product.authentication.domain.OAuthAttributes;
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authentication.application.port.out.AppleAuthorizationCodeResult;
 import com.umc.product.authentication.application.port.out.RevokeOAuthTokenPort;
 import com.umc.product.authentication.application.port.out.VerifyOAuthTokenPort;
+import com.umc.product.authentication.domain.OAuthAttributes;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.common.domain.enums.ClientType;
 import com.umc.product.common.domain.enums.OAuthProvider;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 
 /**
  * OAuth Token 검증
@@ -32,8 +34,8 @@ public class OAuthTokenVerificationAdapter implements VerifyOAuthTokenPort, Revo
         log.info("OAuth 토큰 검증 시작: provider={}", provider);
 
         return switch (provider) {
-            case GOOGLE -> googleTokenVerifier.verifyAccessToken(token);
-            case KAKAO -> kakaoTokenVerifier.verifyAccessToken(token);
+            case GOOGLE -> googleTokenVerifier.verify(token);
+            case KAKAO -> kakaoTokenVerifier.verify(token);
             // Apple은 일반 verify가 아닌 verifyAppleAuthorizationCode 사용을 권장하지만,
             // ID Token 직접 검증이 필요한 경우를 위해 web Services ID 기준으로 audience를 검증한다.
             case APPLE -> appleTokenVerifier.verifyIdToken(token, appleOAuthProperties.webClientId());

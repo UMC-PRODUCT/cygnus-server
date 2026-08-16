@@ -1,15 +1,23 @@
 package com.umc.product.project.application.service.query;
 
+import java.util.Collection;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
+import com.umc.product.project.application.port.in.query.GetProjectMemberUseCase;
 import com.umc.product.project.application.port.in.query.GetRandomMatchedProjectMemberUseCase;
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
+import com.umc.product.project.domain.ProjectMember;
 import com.umc.product.project.domain.enums.MatchingType;
 
 import lombok.RequiredArgsConstructor;
@@ -20,7 +28,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ProjectMemberQueryService implements GetRandomMatchedProjectMemberUseCase {
+public class ProjectMemberQueryService implements GetRandomMatchedProjectMemberUseCase, GetProjectMemberUseCase {
 
     private final LoadProjectMemberPort loadProjectMemberPort;
 
@@ -43,6 +51,44 @@ public class ProjectMemberQueryService implements GetRandomMatchedProjectMemberU
             .flatMap(MatchingType::fromPart)
             .flatMap(matchingType -> loadProjectMemberPort
                 .findActiveWithoutApplicationByMemberIdAndGisuIdAndMatchingType(memberId, gisuId, matchingType))
+            .map(ProjectMemberInfo::from);
+    }
+
+    @Override
+    public List<ProjectMemberInfo> listByProjectId(Long projectId) {
+        return loadProjectMemberPort.listByProjectId(projectId).stream()
+            .map(ProjectMemberInfo::from)
+            .toList();
+    }
+
+    @Override
+    public Map<Long, List<ProjectMemberInfo>> listByProjectIds(Collection<Long> projectIds) {
+        List<Long> uniqueProjectIds = projectIds.stream()
+            .collect(Collectors.collectingAndThen(
+                Collectors.toCollection(LinkedHashSet::new),
+                List::copyOf
+            ));
+        Map<Long, List<ProjectMember>> membersByProjectId = loadProjectMemberPort.listByProjectIds(uniqueProjectIds);
+
+        return uniqueProjectIds.stream()
+            .collect(Collectors.toMap(
+                projectId -> projectId,
+                projectId -> membersByProjectId.getOrDefault(projectId, List.of()).stream()
+                    .map(ProjectMemberInfo::from)
+                    .toList(),
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+    }
+
+    @Override
+    public ProjectMemberInfo getByProjectIdAndMemberId(Long projectId, Long memberId) {
+        return ProjectMemberInfo.from(loadProjectMemberPort.getByProjectIdAndMemberId(projectId, memberId));
+    }
+
+    @Override
+    public Optional<ProjectMemberInfo> findByProjectIdAndMemberId(Long projectId, Long memberId) {
+        return loadProjectMemberPort.findByProjectIdAndMemberId(projectId, memberId)
             .map(ProjectMemberInfo::from);
     }
 }

@@ -2,6 +2,12 @@ package com.umc.product.organization.application.port.in.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterWithSchoolsInfo;
 import com.umc.product.organization.application.port.out.command.SaveChapterPort;
@@ -13,10 +19,6 @@ import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.GisuFixture;
-import java.util.List;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 @Disabled
 class GetChapterUseCaseTest extends UseCaseTestSupport {
@@ -63,9 +65,9 @@ class GetChapterUseCaseTest extends UseCaseTestSupport {
         Chapter leoChapter = saveChapterPort.save(Chapter.create(gisu9, "Leo"));
         saveChapterPort.save(Chapter.create(gisu10, "Ain"));
 
-        School school1 = saveSchoolPort.save(School.create("한성대", null));
-        School school2 = saveSchoolPort.save(School.create("동국대", null));
-        School school3 = saveSchoolPort.save(School.create("중앙대", null));
+        School school1 = saveSchoolPort.save(School.create("한성대", null, null));
+        School school2 = saveSchoolPort.save(School.create("동국대", null, null));
+        School school3 = saveSchoolPort.save(School.create("중앙대", null, null));
 
         saveChapterSchoolPort.save(ChapterSchool.create(scorpioChapter, school1));
         saveChapterSchoolPort.save(ChapterSchool.create(scorpioChapter, school2));

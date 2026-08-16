@@ -1,0 +1,33 @@
+[versions]
+asciidoctor = "4.0.5"
+aws = "2.40.12"
+bouncycastle = "1.78.1"
+bucket4j = "8.19.0"
+checkstyle = "13.4.2"
+datafaker = "2.5.4"
+firebase-admin = "9.7.1"
+fixture-monkey = "1.1.19"
+jackson2 = "2.22.1"
+jackson3 = "3.2.1"
+jjwt = "0.13.0"
+jts = "1.19.0"
+logstash-logback-encoder = "9.0"
+markdown-it = "14.1.0"
+otel = "1.61.0"
+otel-instrumentation = "2.27.0-alpha"
+p6spy-spring-boot-starter = "1.10.0"
+pdfbox = "2.0.24"
+protobuf = "4.29.3"
+querydsl = "5.1.0"
+spring-ai = "1.1.8"
+spring-boot = "3.5.15"
+spring-dependency-management = "1.1.7"
+springdoc = "2.8.17"
+spotless = "8.5.1"
+zxing = "3.5.4"
+
+[plugins]
+asciidoctor-jvm-convert = { id = "org.asciidoctor.jvm.convert", version.ref = "asciidoctor" }
+spring-boot = { id = "org.springframework.boot", version.ref = "spring-boot" }
+spring-dependency-management = { id = "io.spring.dependency-management", version.ref = "spring-dependency-management" }
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

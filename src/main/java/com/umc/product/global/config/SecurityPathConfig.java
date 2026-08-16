@@ -7,11 +7,18 @@ public final class SecurityPathConfig {
 
     public static final String SCALAR_ENTRY_PATH = "/docs";
     public static final String SCALAR_ENTRY_SLASH_PATH = "/docs/";
+    public static final String ASYNCAPI_ENTRY_PATH = "/docs/asyncapi";
+    public static final String ASYNCAPI_ENTRY_SLASH_PATH = "/docs/asyncapi/";
+    public static final String ASYNCAPI_HTML_PATH = "/docs/asyncapi.html";
+    public static final String ASYNCAPI_DOCUMENT_PATH = "/docs/asyncapi.yaml";
     public static final String SCALAR_DOCUMENTATION_PATTERN = "/docs/**";
     public static final String OPENAPI_JSON_PATH = "/docs-json";
     public static final String OPENAPI_JSON_PATTERN = "/docs-json/**";
     public static final String MARKDOWN_IT_WEBJAR_PATTERN = "/webjars/markdown-it/**";
     public static final String UMC_LOGO_PATH = "/umc-logo.svg";
+    public static final String GRAPHQL_PATH = "/graphql";
+    public static final String GRAPHIQL_PATH = "/graphiql";
+    public static final String GRAPHIQL_PATTERN = "/graphiql/**";
 
     public static final List<String> SWAGGER_BLOCKED_PATHS = List.of(
         "/swagger-ui/**",
@@ -32,18 +39,30 @@ public final class SecurityPathConfig {
         UMC_LOGO_PATH
     );
 
+    public static final List<String> GRAPHQL_PUBLIC_PATHS = List.of(
+        GRAPHQL_PATH,
+        GRAPHIQL_PATH,
+        GRAPHIQL_PATTERN
+    );
+
     public static final List<String> SECURITY_PERMIT_ALL_PATHS = Stream.concat(
-        Stream.of(
-            "/actuator/**",
-            "/error"
+        Stream.concat(
+            Stream.of(
+                "/actuator/**",
+                "/error",
+                "/ws/**"
+            ),
+            DOCUMENTATION_PATHS.stream()
         ),
-        DOCUMENTATION_PATHS.stream()
+        GRAPHQL_PUBLIC_PATHS.stream()
     ).toList();
 
     public static final List<String> MAINTENANCE_ALWAYS_ALLOW_PATHS = Stream.concat(
         Stream.of(
             "/api/v1/system/status",
-            "/api/v1/admin/maintenance/**",
+            "/api/v1/maintenance/admin/**",
+            "/api/v1/auth/sso/oauth/**",
+            "/api/v1/auth/sso/**",
             "/api/v1/auth/**",
             "/api/v1/terms",
             "/api/v1/terms/**",
@@ -66,8 +85,11 @@ public final class SecurityPathConfig {
 
     public static String[] loggingExcludedPaths() {
         return Stream.concat(
-            Stream.of("/actuator/**"),
-            DOCUMENTATION_PATHS.stream()
+            Stream.concat(
+                Stream.of("/actuator/**"),
+                DOCUMENTATION_PATHS.stream()
+            ),
+            GRAPHQL_PUBLIC_PATHS.stream()
         ).toArray(String[]::new);
     }
 }

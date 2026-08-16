@@ -1,6 +1,7 @@
 package com.umc.product.global.security;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Date;
@@ -12,14 +13,19 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import com.umc.product.authentication.application.service.SsoLoginTokenClaims;
 import com.umc.product.authentication.domain.EmailVerificationPurpose;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
 import com.umc.product.common.domain.enums.ClientType;
 import com.umc.product.common.domain.enums.OAuthProvider;
+import com.umc.product.global.client.ClientContextClaims;
+import com.umc.product.global.client.ClientEnvironment;
+import com.umc.product.global.client.ClientServiceType;
 
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.UnsupportedJwtException;
@@ -32,10 +38,17 @@ public class JwtTokenProvider {
 
     private static final String AUTHORITIES_KEY = "auth"; // 권한 정보를 저장할 키
     private static final String CLIENT_TYPE_KEY = "clientType"; // 클라이언트 플랫폼(ANDROID/IOS/WEB) 정보를 저장할 키
+    private static final String CLIENT_ID_KEY = "clientId";
+    private static final String CLIENT_SERVICE_KEY = "clientService";
+    private static final String CLIENT_ENVIRONMENT_KEY = "clientEnvironment";
+    private static final String SSO_LOGIN_TYPE = "SSO_LOGIN";
+    private static final String TOKEN_TYPE_KEY = "typ";
+    private static final String AUTHENTICATION_METHOD_KEY = "authenticationMethod";
     private final SecretKey accessTokenSecret;
     private final SecretKey refreshTokenSecret;
     private final SecretKey oAuthVerificationTokenSecret;
     private final SecretKey emailVerificationTokenSecret;
+    private final SecretKey ssoLoginTokenSecret;
     private final long accessTokenValidityInMilliseconds;
     private final long refreshTokenValidityInMilliseconds;
     private final long verificationTokenValidityInMilliseconds;
@@ -45,10 +58,19 @@ public class JwtTokenProvider {
         @Value("${jwt.refresh-token-secret}") String refreshTokenSecret,
         @Value("${jwt.oauth-verification-token-secret}") String oAuthVerificationTokenSecret,
         @Value("${jwt.email-verification-token-secret}") String emailVerificationTokenSecret,
+        @Value("${jwt.sso-login-token-secret}") String ssoLoginTokenSecret,
         @Value("${jwt.access-token-validity-in-seconds}") long accessTokenValidityInSeconds,
         @Value("${jwt.refresh-token-validity-in-seconds}") long refreshTokenValidityInSeconds,
         @Value("${jwt.verification-token-validity-in-seconds}") long verificationTokenValidityInSeconds
     ) {
+
+        validateSsoLoginTokenSecret(
+            accessTokenSecret,
+            refreshTokenSecret,
+            oAuthVerificationTokenSecret,
+            emailVerificationTokenSecret,
+            ssoLoginTokenSecret
+        );
 
         // SecretKey 객체로 안전하게 변환
         this.accessTokenSecret = Keys.hmacShaKeyFor(accessTokenSecret.getBytes(StandardCharsets.UTF_8));
@@ -57,10 +79,40 @@ public class JwtTokenProvider {
             .getBytes(StandardCharsets.UTF_8));
         this.emailVerificationTokenSecret = Keys.hmacShaKeyFor(emailVerificationTokenSecret
             .getBytes(StandardCharsets.UTF_8));
+        this.ssoLoginTokenSecret = Keys.hmacShaKeyFor(ssoLoginTokenSecret.getBytes(StandardCharsets.UTF_8));
 
         this.accessTokenValidityInMilliseconds = accessTokenValidityInSeconds * 1000;
         this.refreshTokenValidityInMilliseconds = refreshTokenValidityInSeconds * 1000;
         this.verificationTokenValidityInMilliseconds = verificationTokenValidityInSeconds * 1000;
+    }
+
+    private void validateSsoLoginTokenSecret(
+        String accessTokenSecret,
+        String refreshTokenSecret,
+        String oAuthVerificationTokenSecret,
+        String emailVerificationTokenSecret,
+        String ssoLoginTokenSecret
+    ) {
+        if (ssoLoginTokenSecret.equals(accessTokenSecret)) {
+            throw new IllegalArgumentException(
+                "jwt.sso-login-token-secret must be different from jwt.access-token-secret"
+            );
+        }
+        if (ssoLoginTokenSecret.equals(refreshTokenSecret)) {
+            throw new IllegalArgumentException(
+                "jwt.sso-login-token-secret must be different from jwt.refresh-token-secret"
+            );
+        }
+        if (ssoLoginTokenSecret.equals(oAuthVerificationTokenSecret)) {
+            throw new IllegalArgumentException(
+                "jwt.sso-login-token-secret must be different from jwt.oauth-verification-token-secret"
+            );
+        }
+        if (ssoLoginTokenSecret.equals(emailVerificationTokenSecret)) {
+            throw new IllegalArgumentException(
+                "jwt.sso-login-token-secret must be different from jwt.email-verification-token-secret"
+            );
+        }
     }
 
     /**
@@ -102,6 +154,25 @@ public class JwtTokenProvider {
     }
 
     /**
+     * SSO Auth App 브라우저 로그인 상태를 표현하는 stateless JWT.
+     * <p>
+     * 일반 API 인증용 AccessToken/RefreshToken 과 분리하기 위해 {@code typ=SSO_LOGIN} claim 을 포함하고,
+     * 일반 API 인증용 AccessToken/RefreshToken 및 OAuth 검증 토큰과 분리된 전용 secret 으로 서명한다.
+     */
+    public String createSsoLoginToken(Long memberId, String authenticationMethod, Instant expiresAt) {
+        Date now = new Date();
+
+        return Jwts.builder()
+            .subject(String.valueOf(memberId))
+            .claim(TOKEN_TYPE_KEY, SSO_LOGIN_TYPE)
+            .claim(AUTHENTICATION_METHOD_KEY, authenticationMethod)
+            .issuedAt(now)
+            .expiration(Date.from(expiresAt))
+            .signWith(ssoLoginTokenSecret)
+            .compact();
+    }
+
+    /**
      * AccessToken 생성 메소드
      */
     public String createAccessToken(Long memberId, List<String> roles) {
@@ -128,6 +199,41 @@ public class JwtTokenProvider {
         if (clientType != null) {
             builder.claim(CLIENT_TYPE_KEY, clientType.name());
         }
+
+        return builder.compact();
+    }
+
+    public String createAccessToken(
+        Long memberId,
+        List<String> roles,
+        ClientType clientType,
+        ClientContextClaims clientContext,
+        Duration expiresIn
+    ) {
+        return createAccessToken(memberId, roles, clientType, clientContext, expiresIn.toSeconds());
+    }
+
+    public String createAccessToken(
+        Long memberId,
+        List<String> roles,
+        ClientType clientType,
+        ClientContextClaims clientContext,
+        Long expiresInSeconds
+    ) {
+        Date now = new Date();
+        Date validityDate = new Date(now.getTime() + expiresInSeconds * 1000);
+
+        var builder = Jwts.builder()
+            .subject(String.valueOf(memberId))
+            .claim(AUTHORITIES_KEY, roles)
+            .issuedAt(now)
+            .expiration(validityDate)
+            .signWith(accessTokenSecret);
+
+        if (clientType != null) {
+            builder.claim(CLIENT_TYPE_KEY, clientType.name());
+        }
+        addClientContextClaims(builder, clientContext);
 
         return builder.compact();
     }
@@ -161,8 +267,24 @@ public class JwtTokenProvider {
             .compact();
     }
 
+    public String createRefreshToken(Long memberId, ClientContextClaims clientContext) {
+        Date now = new Date();
+        Date validityDate = new Date(now.getTime() + refreshTokenValidityInMilliseconds);
+
+        var builder = Jwts.builder()
+            .subject(String.valueOf(memberId))
+            .id(UUID.randomUUID().toString())
+            .issuedAt(now)
+            .expiration(validityDate)
+            .signWith(refreshTokenSecret);
+
+        addClientContextClaims(builder, clientContext);
+
+        return builder.compact();
+    }
+
     public List<String> getRolesFromAccessToken(String token) {
-        Claims claims = parseClaims(token, accessTokenSecret);
+        Claims claims = parseAccessTokenClaims(token);
         Object roles = claims.get(AUTHORITIES_KEY);
         if (roles instanceof List<?>) {
             return (List<String>) roles;
@@ -178,7 +300,7 @@ public class JwtTokenProvider {
      * 통계에서는 "UNKNOWN" 으로 집계한다. 절대 예외를 던지지 않는다.
      */
     public ClientType getClientTypeFromAccessToken(String token) {
-        Claims claims = parseClaims(token, accessTokenSecret);
+        Claims claims = parseAccessTokenClaims(token);
         String clientTypeStr = claims.get(CLIENT_TYPE_KEY, String.class);
         if (clientTypeStr == null) {
             return null;
@@ -192,8 +314,68 @@ public class JwtTokenProvider {
         }
     }
 
+    public ClientContextClaims getClientContextClaimsFromAccessToken(String token) {
+        return getClientContextClaims(parseAccessTokenClaims(token));
+    }
+
+    /**
+     * JWT 서명 검증(HMAC-SHA)을 요청당 1회로 한정하여 memberId, roles, clientType을 반환한다. clientType claim이 없거나 알 수 없는 값이면 null을
+     * 반환한다.
+     */
+    @SuppressWarnings("unchecked")
+    public ParsedAccessToken parseAndValidateAccessToken(String token) {
+        try {
+            Claims claims = parseAccessTokenClaims(token);
+            Long memberId = Long.parseLong(claims.getSubject());
+
+            Object rolesObj = claims.get(AUTHORITIES_KEY);
+            List<String> roles = (rolesObj instanceof List<?>) ? (List<String>) rolesObj : Collections.emptyList();
+
+            String clientTypeStr = claims.get(CLIENT_TYPE_KEY, String.class);
+            ClientType clientType = null;
+            if (clientTypeStr != null) {
+                try {
+                    clientType = ClientType.valueOf(clientTypeStr);
+                } catch (IllegalArgumentException e) {
+                    log.warn("AccessToken 의 clientType claim 값을 해석할 수 없습니다: {}", clientTypeStr);
+                }
+            }
+
+            return new ParsedAccessToken(memberId, roles, clientType);
+        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+            log.info("잘못된 JWT 서명입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.WRONG_JWT_SIGNATURE);
+        } catch (ExpiredJwtException e) {
+            log.info("만료된 JWT 토큰입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.EXPIRED_JWT_TOKEN);
+        } catch (UnsupportedJwtException e) {
+            log.info("지원되지 않는 JWT 토큰입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.UNSUPPORTED_JWT);
+        } catch (IllegalArgumentException e) {
+            log.info("JWT 토큰이 잘못되었습니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_JWT);
+        }
+    }
+
     public boolean validateAccessToken(String token) {
-        return validateToken(token, accessTokenSecret);
+        try {
+            parseAccessTokenClaims(token);
+            return true;
+        } catch (AuthenticationDomainException e) {
+            throw e;
+        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+            log.debug("잘못된 JWT 서명입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.WRONG_JWT_SIGNATURE);
+        } catch (ExpiredJwtException e) {
+            log.debug("만료된 JWT 토큰입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.EXPIRED_JWT_TOKEN);
+        } catch (UnsupportedJwtException e) {
+            log.debug("지원되지 않는 JWT 토큰입니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.UNSUPPORTED_JWT);
+        } catch (IllegalArgumentException e) {
+            log.debug("JWT token 형식이 올바르지 않습니다.");
+            throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_JWT);
+        }
     }
 
     // 4. 토큰 검증
@@ -231,7 +413,20 @@ public class JwtTokenProvider {
      * AccessToken에서 memberId를 추출하는데 사용됩니다.
      */
     public Long parseAccessToken(String token) {
-        return Long.parseLong(parseClaims(token, accessTokenSecret).getSubject());
+        return Long.parseLong(parseAccessTokenClaims(token).getSubject());
+    }
+
+    private Claims parseAccessTokenClaims(String token) {
+        Claims claims = parseClaims(token, accessTokenSecret);
+        rejectSsoLoginTokenType(claims);
+        return claims;
+    }
+
+    private void rejectSsoLoginTokenType(Claims claims) {
+        String tokenType = claims.get(TOKEN_TYPE_KEY, String.class);
+        if (SSO_LOGIN_TYPE.equals(tokenType)) {
+            throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_JWT);
+        }
     }
 
     /**
@@ -250,7 +445,8 @@ public class JwtTokenProvider {
             return new RefreshTokenClaims(
                 Long.parseLong(claims.getSubject()),
                 UUID.fromString(jti),
-                toInstant(claims.getExpiration())
+                toInstant(claims.getExpiration()),
+                getClientContextClaims(claims)
             );
         } catch (IllegalArgumentException e) {
             throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_REFRESH_TOKEN);
@@ -262,6 +458,56 @@ public class JwtTokenProvider {
             throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_REFRESH_TOKEN);
         }
         return date.toInstant();
+    }
+
+    private void addClientContextClaims(io.jsonwebtoken.JwtBuilder builder, ClientContextClaims clientContext) {
+        ClientContextClaims claims = clientContext == null ? ClientContextClaims.empty() : clientContext;
+        if (claims.clientId() != null && !claims.clientId().isBlank()) {
+            builder.claim(CLIENT_ID_KEY, claims.clientId());
+            builder.audience().add(claims.clientId()).and();
+        }
+        builder.claim(CLIENT_SERVICE_KEY, claims.serviceType().name());
+        builder.claim(CLIENT_ENVIRONMENT_KEY, claims.environment().name());
+    }
+
+    private ClientContextClaims getClientContextClaims(Claims claims) {
+        String clientId = claims.get(CLIENT_ID_KEY, String.class);
+        String clientService = claims.get(CLIENT_SERVICE_KEY, String.class);
+        String clientEnvironment = claims.get(CLIENT_ENVIRONMENT_KEY, String.class);
+
+        if (clientId == null && clientService == null && clientEnvironment == null) {
+            return ClientContextClaims.empty();
+        }
+
+        return ClientContextClaims.of(
+            clientId,
+            parseClientServiceType(clientService),
+            parseClientEnvironment(clientEnvironment)
+        );
+    }
+
+    private ClientServiceType parseClientServiceType(String value) {
+        if (value == null) {
+            return ClientServiceType.UNKNOWN;
+        }
+        try {
+            return ClientServiceType.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            log.warn("JWT 의 clientService claim 값을 해석할 수 없습니다: {}", value);
+            return ClientServiceType.UNKNOWN;
+        }
+    }
+
+    private ClientEnvironment parseClientEnvironment(String value) {
+        if (value == null) {
+            return ClientEnvironment.UNKNOWN;
+        }
+        try {
+            return ClientEnvironment.valueOf(value);
+        } catch (IllegalArgumentException e) {
+            log.warn("JWT 의 clientEnvironment claim 값을 해석할 수 없습니다: {}", value);
+            return ClientEnvironment.UNKNOWN;
+        }
     }
 
     /**
@@ -298,5 +544,35 @@ public class JwtTokenProvider {
         }
 
         return claims.get("email", String.class);
+    }
+
+    public SsoLoginTokenClaims parseSsoLoginToken(String token) {
+        try {
+            Claims claims = parseClaims(token, ssoLoginTokenSecret);
+            String tokenType = claims.get(TOKEN_TYPE_KEY, String.class);
+            String authenticationMethod = claims.get(AUTHENTICATION_METHOD_KEY, String.class);
+
+            if (!SSO_LOGIN_TYPE.equals(tokenType) || authenticationMethod == null || authenticationMethod.isBlank()) {
+                throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_SSO_BROWSER_LOGIN);
+            }
+
+            return SsoLoginTokenClaims.of(
+                Long.parseLong(claims.getSubject()),
+                toInstant(claims.getIssuedAt(), AuthenticationErrorCode.INVALID_SSO_BROWSER_LOGIN),
+                toInstant(claims.getExpiration(), AuthenticationErrorCode.INVALID_SSO_BROWSER_LOGIN),
+                authenticationMethod
+            );
+        } catch (AuthenticationDomainException e) {
+            throw e;
+        } catch (JwtException | IllegalArgumentException e) {
+            throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_SSO_BROWSER_LOGIN);
+        }
+    }
+
+    private Instant toInstant(Date date, AuthenticationErrorCode errorCode) {
+        if (date == null) {
+            throw new AuthenticationDomainException(errorCode);
+        }
+        return date.toInstant();
     }
 }

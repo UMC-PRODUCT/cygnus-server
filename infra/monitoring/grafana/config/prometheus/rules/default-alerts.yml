@@ -114,7 +114,7 @@ groups:
   - name: umc-product.host
     rules:
       - alert: HighCpuUsage
-        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+        expr: 100 - (avg by (instance, job, os) (rate(node_cpu_seconds_total{job="node-exporter", os="linux", mode="idle"}[5m])) * 100) > 80
         for: 10m
         labels:
           severity: warning
@@ -123,7 +123,7 @@ groups:
           description: "instance={{ $labels.instance }} 의 CPU usage가 10분 이상 80%를 넘었어요. 높은 process와 최근 배포를 확인해주세요."
 
       - alert: HighCpuUsage
-        expr: 100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 90
+        expr: 100 - (avg by (instance, job, os) (rate(node_cpu_seconds_total{job="node-exporter", os="linux", mode="idle"}[5m])) * 100) > 90
         for: 10m
         labels:
           severity: critical
@@ -132,7 +132,7 @@ groups:
           description: "instance={{ $labels.instance }} 의 CPU usage가 10분 이상 90%를 넘었어요. 높은 process와 최근 배포를 확인해주세요."
 
       - alert: HighMemoryUsage
-        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 85
+        expr: (1 - (node_memory_MemAvailable_bytes{job="node-exporter", os="linux"} / node_memory_MemTotal_bytes{job="node-exporter", os="linux"})) * 100 > 85
         for: 10m
         labels:
           severity: warning
@@ -141,7 +141,7 @@ groups:
           description: "instance={{ $labels.instance }} 의 memory usage가 10분 이상 85%를 넘었어요. memory 증가 원인과 OOM log를 확인해주세요."
 
       - alert: HighMemoryUsage
-        expr: (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 95
+        expr: (1 - (node_memory_MemAvailable_bytes{job="node-exporter", os="linux"} / node_memory_MemTotal_bytes{job="node-exporter", os="linux"})) * 100 > 95
         for: 10m
         labels:
           severity: critical
@@ -150,7 +150,14 @@ groups:
           description: "instance={{ $labels.instance }} 의 memory usage가 10분 이상 95%를 넘었어요. memory 증가 원인과 OOM log를 확인해주세요."
 
       - alert: HighDiskUsage
-        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})) * 100 > 80
+        expr: |
+          (
+            1 - (
+              node_filesystem_avail_bytes{job="node-exporter", os="linux", device_error="", fstype!~"tmpfs|overlay|squashfs|devtmpfs|proc|sysfs|cgroup2?|pstore|tracefs|debugfs|securityfs|configfs|nsfs|autofs|fuse\\..*|ramfs|binfmt_misc|rpc_pipefs", mountpoint!~"^/(dev|proc|sys|run|var/lib/docker|var/lib/containers|var/lib/kubelet|snap)($|/)"}
+              /
+              node_filesystem_size_bytes{job="node-exporter", os="linux", device_error="", fstype!~"tmpfs|overlay|squashfs|devtmpfs|proc|sysfs|cgroup2?|pstore|tracefs|debugfs|securityfs|configfs|nsfs|autofs|fuse\\..*|ramfs|binfmt_misc|rpc_pipefs", mountpoint!~"^/(dev|proc|sys|run|var/lib/docker|var/lib/containers|var/lib/kubelet|snap)($|/)"}
+            )
+          ) * 100 > 80
         for: 10m
         labels:
           severity: warning
@@ -159,7 +166,14 @@ groups:
           description: "instance={{ $labels.instance }}, mountpoint={{ $labels.mountpoint }} 의 disk usage가 10분 이상 80%를 넘었어요. log, chunk, volume 사용량을 확인해주세요."
 
       - alert: HighDiskUsage
-        expr: (1 - (node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs"})) * 100 > 90
+        expr: |
+          (
+            1 - (
+              node_filesystem_avail_bytes{job="node-exporter", os="linux", device_error="", fstype!~"tmpfs|overlay|squashfs|devtmpfs|proc|sysfs|cgroup2?|pstore|tracefs|debugfs|securityfs|configfs|nsfs|autofs|fuse\\..*|ramfs|binfmt_misc|rpc_pipefs", mountpoint!~"^/(dev|proc|sys|run|var/lib/docker|var/lib/containers|var/lib/kubelet|snap)($|/)"}
+              /
+              node_filesystem_size_bytes{job="node-exporter", os="linux", device_error="", fstype!~"tmpfs|overlay|squashfs|devtmpfs|proc|sysfs|cgroup2?|pstore|tracefs|debugfs|securityfs|configfs|nsfs|autofs|fuse\\..*|ramfs|binfmt_misc|rpc_pipefs", mountpoint!~"^/(dev|proc|sys|run|var/lib/docker|var/lib/containers|var/lib/kubelet|snap)($|/)"}
+            )
+          ) * 100 > 90
         for: 10m
         labels:
           severity: critical
@@ -168,13 +182,22 @@ groups:
           description: "instance={{ $labels.instance }}, mountpoint={{ $labels.mountpoint }} 의 disk usage가 10분 이상 90%를 넘었어요. 불필요한 파일 정리와 volume 증설을 검토해주세요."
 
       - alert: LowDiskFreeSpace
-        expr: node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs"} < 10 * 1024 * 1024 * 1024
+        expr: |
+          count by (instance, job, os) (
+            (
+              node_filesystem_avail_bytes{job="node-exporter", os="linux", device_error="", fstype!~"tmpfs|overlay|squashfs|devtmpfs|proc|sysfs|cgroup2?|pstore|tracefs|debugfs|securityfs|configfs|nsfs|autofs|fuse\\..*|ramfs|binfmt_misc|rpc_pipefs", mountpoint!~"^/(dev|proc|sys|run|var/lib/docker|var/lib/containers|var/lib/kubelet|snap)($|/)"} < 10 * 1024 * 1024 * 1024
+            )
+            and
+            (
+              node_filesystem_size_bytes{job="node-exporter", os="linux", device_error="", fstype!~"tmpfs|overlay|squashfs|devtmpfs|proc|sysfs|cgroup2?|pstore|tracefs|debugfs|securityfs|configfs|nsfs|autofs|fuse\\..*|ramfs|binfmt_misc|rpc_pipefs", mountpoint!~"^/(dev|proc|sys|run|var/lib/docker|var/lib/containers|var/lib/kubelet|snap)($|/)"} > 20 * 1024 * 1024 * 1024
+            )
+          ) > 0
         for: 10m
         labels:
           severity: warning
         annotations:
-          summary: "Disk free space가 10GB 미만이에요"
-          description: "instance={{ $labels.instance }}, mountpoint={{ $labels.mountpoint }} 의 disk free space가 10GB 미만이에요. retention 설정과 volume 여유 공간을 확인해주세요."
+          summary: "Disk free space가 부족한 filesystem이 있어요"
+          description: "instance={{ $labels.instance }} 의 관리 대상 filesystem {{ printf \"%.0f\" $value }}개에서 disk free space가 10GB 미만이에요. Grafana filesystem 대시보드에서 mountpoint별 여유 공간을 확인해주세요."
 
       - alert: ContainerRestarted
         expr: changes(container_start_time_seconds{name!=""}[10m]) > 0

@@ -1,5 +1,8 @@
 # Event Outbox 및 Cache Adapter 초기 검토 계획
 
+> 이 문서는 구현 당시 계획의 기록이다. Spring local publisher 결정은
+> [ADR-026](../../adr/026-enforce-event-outbox-publisher.md)으로 대체되었다.
+
 > 작성일: 2026-05-21
 > 상태: superseded
 

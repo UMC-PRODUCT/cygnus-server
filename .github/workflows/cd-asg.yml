@@ -1,3 +1,24 @@
+# Required repository variables:
+# - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
+# - vars.ASG_NAME
+# - vars.LAUNCH_TEMPLATE_NAME
+# - vars.SECRET_S3_URI
+# Optional repository variables:
+# - vars.AWS_REGION (default: ap-northeast-2)
+# - vars.ECR_REPOSITORY (default: umc-product-server)
+# - vars.APP_PORT (default: 8080)
+# - vars.MANAGEMENT_PORT (default: 9090)
+# - vars.ASG_MIN_HEALTHY_PERCENTAGE (default: 100)
+# - vars.ASG_MAX_HEALTHY_PERCENTAGE (default: 200)
+# - vars.ASG_INSTANCE_WARMUP (default: 300)
+# Required repository secrets:
+# - secrets.UMC_GITHUB_APP_PRIVATE_KEY (used by reusable CI feedback)
+# - secrets.AWS_ACCESS_KEY_ID
+# - secrets.AWS_SECRET_ACCESS_KEY
+# - secrets.DISCORD_CD_WEBHOOK_URL
+# Optional repository secrets:
+# - secrets.AWS_ACCOUNT_ID (inferred from AWS STS when empty)
+
 name: CD [ASG]
 
 on:
@@ -262,6 +283,21 @@ jobs:
           echo "::error::ASG deployment to ${{ env.ENVIRONMENT }} failed!"
           echo "EC2 /var/log/umc-product-user-data.log, /var/log/cloud-init-output.log, ASG Instance Refresh 상태를 확인해주세요."
 
+      - name: Discord 배포 결과 알림
+        if: always()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: ${{ job.status }}
+          DEPLOY_ENVIRONMENT: ${{ env.ENVIRONMENT }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DEPLOY_TARGET: ASG
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs
+
   skip-test-deployment:
     needs: ci-and-build
     if: needs.ci-and-build.outputs.environment == 'Test'
@@ -269,3 +305,20 @@ jobs:
     steps:
       - name: ℹ️ Test 환경 배포 스킵
         run: echo "Test 환경은 CI만 실행합니다."
+
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: Discord 배포 스킵 알림
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: skipped
+          DEPLOY_ENVIRONMENT: Test
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: ${{ needs.ci-and-build.outputs.image_tag }}
+          DEPLOY_TARGET: ASG
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs

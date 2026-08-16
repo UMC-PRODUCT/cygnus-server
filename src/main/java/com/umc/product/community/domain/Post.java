@@ -1,46 +1,97 @@
 package com.umc.product.community.domain;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.HashSet;
+import java.util.Set;
+
+import org.hibernate.annotations.BatchSize;
+
+import com.umc.product.common.BaseEntity;
 import com.umc.product.community.domain.enums.Category;
 import com.umc.product.community.domain.exception.CommunityDomainException;
 import com.umc.product.community.domain.exception.CommunityErrorCode;
-import java.time.Instant;
+
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Table;
 import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-//해당 부분 공유
-@AllArgsConstructor(access = AccessLevel.PRIVATE)
-@Builder(access = AccessLevel.PRIVATE)
-public class Post {
-    @Getter
-    private final PostId postId;
+@Entity
+@Table(name = "post")
+@Getter
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+public class Post extends BaseEntity {
 
-    @Getter
+    private static final String DEFAULT_REGION = "";
+    private static final boolean DEFAULT_ANONYMOUS = false;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false)
     private String title;
 
-    @Getter
+    @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Getter
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private Category category;
 
-    @Getter
-    private final Long authorChallengerId;
+    @Column(name = "author_challenger_id", nullable = false)
+    private Long authorChallengerId;
 
-    @Getter
-    private LightningInfo lightningInfo;
+    @Column(nullable = false)
+    private String region = DEFAULT_REGION;
 
-    @Getter
-    private final int likeCount;
+    @Column(nullable = false)
+    private boolean anonymous = DEFAULT_ANONYMOUS;
 
-    @Getter
-    private final boolean liked; // TODO:
+    @Column(name = "meet_at")
+    private LocalDateTime meetAt;
 
-    @Getter
-    private final Instant createdAt;
+    private String location;
 
-    // ============== 예은 ==============
+    @Column(name = "max_participants")
+    private Integer maxParticipants;
+
+    @Column(name = "open_chat_url")
+    private String openChatUrl;
+
+    @ElementCollection
+    @BatchSize(size = 100)
+    @CollectionTable(name = "post_like", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "challenger_id")
+    @Getter(AccessLevel.NONE)
+    private Set<Long> likedChallengerIds = new HashSet<>();
+
+    private Post(
+        String title,
+        String content,
+        Category category,
+        Long authorChallengerId,
+        LightningInfo lightningInfo
+    ) {
+        this.title = title;
+        this.content = content;
+        this.category = category;
+        this.authorChallengerId = authorChallengerId;
+        applyLightningInfo(lightningInfo);
+    }
 
     public static Post createPost(String title, String content, Category category, Long authorChallengerId) {
         if (category.isLightning()) {
@@ -48,7 +99,7 @@ public class Post {
         }
         validateCommonFields(title, content);
         validateAuthorChallengerId(authorChallengerId);
-        return new Post(null, title, content, category, authorChallengerId, null, 0, false, null);
+        return new Post(title, content, category, authorChallengerId, null);
     }
 
     public static Post createLightning(String title, String content, LightningInfo info, Long authorChallengerId) {
@@ -58,43 +109,31 @@ public class Post {
 
         validateCommonFields(title, content);
         validateAuthorChallengerId(authorChallengerId);
-        // 시간 검증은 Service 레이어에서 수행
-        return new Post(null, title, content, Category.LIGHTNING, authorChallengerId, info, 0, false, null);
+        return new Post(title, content, Category.LIGHTNING, authorChallengerId, info);
     }
 
-    // TODO: 이건 정체가 뭐임? - 경운
-    public static Post reconstruct(
-        PostId postId, String title, String content, Category category,
-        Long authorChallengerId, LightningInfo lightningInfo,
-        int likeCount, boolean liked, Instant createdAt) {
-        return new Post(postId, title, content, category, authorChallengerId, lightningInfo, likeCount, liked,
-            createdAt);
+    public LightningInfo getLightningInfo() {
+        if (!isLightning() || meetAt == null) {
+            return null;
+        }
+        return new LightningInfo(
+            meetAt.toInstant(ZoneOffset.UTC),
+            location,
+            maxParticipants,
+            openChatUrl
+        );
     }
 
     public boolean isLightning() {
-        return this.category == Category.LIGHTNING;
+        return category == Category.LIGHTNING;
     }
 
     public LightningInfo getLightningInfoOrThrow() {
-        if (!isLightning() || lightningInfo == null) {
+        LightningInfo lightningInfo = getLightningInfo();
+        if (lightningInfo == null) {
             throw new CommunityDomainException(CommunityErrorCode.NOT_LIGHTNING_POST);
         }
         return lightningInfo;
-    }
-
-    private static void validateCommonFields(String title, String content) {
-        if (title == null || title.isBlank()) {
-            throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_TITLE);
-        }
-        if (content == null || content.isBlank()) {
-            throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_CONTENT);
-        }
-    }
-
-    private static void validateAuthorChallengerId(Long authorChallengerId) {
-        if (authorChallengerId == null) {
-            throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_AUTHOR);
-        }
     }
 
     public void update(String title, String content, Category category) {
@@ -102,11 +141,9 @@ public class Post {
         if (category == null) {
             throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_CATEGORY);
         }
-        // 번개 게시글로 카테고리 변경 불가
         if (category == Category.LIGHTNING && this.category != Category.LIGHTNING) {
             throw new CommunityDomainException(CommunityErrorCode.CANNOT_CHANGE_TO_LIGHTNING);
         }
-        // 번개 게시글에서 일반 게시글로 변경 불가
         if (this.category == Category.LIGHTNING && category != Category.LIGHTNING) {
             throw new CommunityDomainException(CommunityErrorCode.CANNOT_CHANGE_FROM_LIGHTNING);
         }
@@ -124,19 +161,54 @@ public class Post {
         if (newLightningInfo == null) {
             throw new CommunityDomainException(CommunityErrorCode.LIGHTNING_INFO_REQUIRED);
         }
-        // 시간 검증은 Service 레이어에서 수행
 
         this.title = title;
         this.content = content;
-        this.lightningInfo = newLightningInfo;
+        applyLightningInfo(newLightningInfo);
     }
 
-    @Builder
-    public record PostId(Long id) {
-        public PostId {
-            if (id <= 0) {
-                throw new CommunityDomainException(CommunityErrorCode.INVALID_ID);
-            }
+    public boolean toggleLike(Long challengerId) {
+        if (!likedChallengerIds.remove(challengerId)) {
+            likedChallengerIds.add(challengerId);
+            return true;
+        }
+        return false;
+    }
+
+    public int getLikeCount() {
+        return likedChallengerIds.size();
+    }
+
+    public boolean isLikedBy(Long challengerId) {
+        return likedChallengerIds.contains(challengerId);
+    }
+
+    private void applyLightningInfo(LightningInfo lightningInfo) {
+        if (lightningInfo == null) {
+            meetAt = null;
+            location = null;
+            maxParticipants = null;
+            openChatUrl = null;
+            return;
+        }
+        meetAt = LocalDateTime.ofInstant(lightningInfo.meetAt(), ZoneOffset.UTC);
+        location = lightningInfo.location();
+        maxParticipants = lightningInfo.maxParticipants();
+        openChatUrl = lightningInfo.openChatUrl();
+    }
+
+    private static void validateCommonFields(String title, String content) {
+        if (title == null || title.isBlank()) {
+            throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_TITLE);
+        }
+        if (content == null || content.isBlank()) {
+            throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_CONTENT);
+        }
+    }
+
+    private static void validateAuthorChallengerId(Long authorChallengerId) {
+        if (authorChallengerId == null) {
+            throw new CommunityDomainException(CommunityErrorCode.INVALID_POST_AUTHOR);
         }
     }
 
@@ -148,9 +220,6 @@ public class Post {
         String openChatUrl
     ) {
         public LightningInfo {
-            // Entity 조회 시에도 생성자가 호출되므로, 비즈니스 로직 검증(미래 시간 체크)은 하지 않음
-            // 비즈니스 로직 검증은 Request DTO에서 수행
-            // 필수 필드만 검증
             if (meetAt == null) {
                 throw new CommunityDomainException(CommunityErrorCode.INVALID_LIGHTNING_MEET_AT);
             }
@@ -168,12 +237,6 @@ public class Post {
             }
         }
 
-        /**
-         * 모임 시간이 현재 이후인지 검증 (Service 레이어에서 호출)
-         *
-         * @param now 비교할 현재 시간 (테스트 용이성을 위해 외부에서 주입)
-         * @throws CommunityDomainException 모임 시간이 현재 이전인 경우
-         */
         public void validateMeetAtIsFuture(Instant now) {
             if (meetAt.isBefore(now)) {
                 throw new CommunityDomainException(CommunityErrorCode.INVALID_LIGHTNING_MEET_AT_PAST);

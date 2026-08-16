@@ -1,6 +1,7 @@
 package com.umc.product.authentication.adapter.out.external;
 
 import java.util.List;
+
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /**
@@ -15,15 +16,25 @@ public record KakaoOAuthProperties(
     String clientId,
     String clientSecret,
     String adminKey,
-    List<String> allowedRedirectUris
+    List<String> allowedRedirectUris,
+    OidcJwksCacheProperties jwksCache
 ) {
+    public KakaoOAuthProperties {
+        if (allowedRedirectUris == null) {
+            allowedRedirectUris = List.of();
+        }
+        if (jwksCache == null) {
+            jwksCache = OidcJwksCacheProperties.defaults();
+        }
+    }
+
     /**
      * 주어진 redirect URI가 화이트리스트에 포함되어 있는지 확인합니다.
      * <p>
      * 공개 클라이언트가 임의 redirect URI를 주입해 Kakao 응답을 가로채는 경우를 차단하기 위한 방어선입니다.
      */
     public boolean isAllowedRedirectUri(String redirectUri) {
-        if (allowedRedirectUris == null || redirectUri == null) {
+        if (redirectUri == null) {
             return false;
         }
         return allowedRedirectUris.contains(redirectUri);

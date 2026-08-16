@@ -28,7 +28,12 @@ public interface StudyGroupCommandControllerApi {
     })
     void create(CreateStudyGroupRequest request);
 
-    @Operation(operationId = "STUDY-GROUP-002", summary = "스터디 그룹 수정 (이름만 가능)", description = "스터디 그룹의 이름을 수정합니다. 파트 수정은 별도로 불가능하며, 스터디원 및 파트장 수정은 별도의 API 사용 바랍니다.")
+    @Operation(operationId = "STUDY-GROUP-002", summary = "스터디 그룹 수정", description = """
+        스터디 그룹의 이름과 파트를 수정합니다. 전달하지 않은 필드는 변경되지 않습니다.
+
+        파트 변경 시, 현재 스터디원 중 같은 기수의 변경할 파트 스터디에 이미 속한 회원이 있으면 400 에러가 발생합니다.
+        스터디원 및 파트장 수정은 별도의 API 사용 바랍니다.
+        """)
     @ApiResponses(value = {
         @ApiResponse(responseCode = "400", description = "잘못된 요청"),
         @ApiResponse(responseCode = "404", description = "스터디 그룹을 찾을 수 없음")

@@ -16,13 +16,16 @@ import com.umc.product.authentication.application.port.in.command.dto.ValidateEm
 import com.umc.product.authentication.application.port.out.DeleteRefreshTokenPort;
 import com.umc.product.authentication.application.port.out.LoadEmailVerificationPort;
 import com.umc.product.authentication.application.port.out.LoadRefreshTokenPort;
+import com.umc.product.authentication.application.port.out.LoadSsoClientPort;
 import com.umc.product.authentication.application.port.out.SaveEmailVerificationPort;
 import com.umc.product.authentication.domain.CredentialPolicy;
 import com.umc.product.authentication.domain.EmailVerification;
 import com.umc.product.authentication.domain.EmailVerificationPurpose;
 import com.umc.product.authentication.domain.RefreshToken;
+import com.umc.product.authentication.domain.SsoClient;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
+import com.umc.product.global.client.ClientContextClaims;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.RefreshTokenClaims;
@@ -45,6 +48,7 @@ public class AuthenticationService implements ManageAuthenticationUseCase {
     private final SaveEmailVerificationPort saveEmailVerificationPort;
     private final LoadRefreshTokenPort loadRefreshTokenPort;
     private final DeleteRefreshTokenPort deleteRefreshTokenPort;
+    private final LoadSsoClientPort loadSsoClientPort;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationTokenIssuer authenticationTokenIssuer;
     private final GetMemberCredentialUseCase getMemberCredentialUseCase;
@@ -70,9 +74,25 @@ public class AuthenticationService implements ManageAuthenticationUseCase {
         RefreshToken storedRefreshToken = loadRefreshTokenPort.findByJti(claims.jti())
             .orElseThrow(() -> new AuthenticationDomainException(AuthenticationErrorCode.INVALID_REFRESH_TOKEN));
 
-        storedRefreshToken.validateActiveFor(claims.memberId());
+        String clientId = claims.clientContext().clientId();
+        storedRefreshToken.validateActiveFor(claims.memberId(), clientId);
         if (!deleteRefreshTokenPort.deleteByJti(claims.jti())) {
             throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        if (clientId != null && !clientId.isBlank()) {
+            SsoClient client = loadSsoClientPort.getByClientId(clientId);
+            ClientContextClaims clientContext = ClientContextClaims.of(
+                client.clientId(),
+                client.serviceType(),
+                client.environment()
+            );
+            return authenticationTokenIssuer.issue(
+                claims.memberId(),
+                null,
+                clientContext,
+                client.accessTokenTtl()
+            );
         }
 
         return authenticationTokenIssuer.issue(claims.memberId(), null);

@@ -7,13 +7,22 @@ import java.util.Properties;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
+import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.core.io.ClassPathResource;
 
 class SecurityPathConfigTest {
 
+    private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
+        .withInitializer(new ConfigDataApplicationContextInitializer());
+
     @Test
-    @DisplayName("문서 공개 경로는 Scalar와 문서 카탈로그에 필요한 경로만 포함한다")
+    @DisplayName("문서 공개 경로는 Scalar와 AsyncAPI 및 문서 카탈로그에 필요한 경로만 포함한다")
     void documentationPathsExposeScalarAndCatalogOnly() {
+        assertThat(SecurityPathConfig.ASYNCAPI_ENTRY_PATH).isEqualTo("/docs/asyncapi");
+        assertThat(SecurityPathConfig.ASYNCAPI_ENTRY_SLASH_PATH).isEqualTo("/docs/asyncapi/");
+        assertThat(SecurityPathConfig.ASYNCAPI_HTML_PATH).isEqualTo("/docs/asyncapi.html");
+        assertThat(SecurityPathConfig.ASYNCAPI_DOCUMENT_PATH).isEqualTo("/docs/asyncapi.yaml");
         assertThat(SecurityPathConfig.DOCUMENTATION_PATHS)
             .contains(
                 "/docs",
@@ -31,6 +40,23 @@ class SecurityPathConfigTest {
                 "/swagger-resources/**",
                 "/webjars/**",
                 "/webjars/swagger-ui/**"
+            );
+    }
+
+    @Test
+    @DisplayName("GraphQL 파일럿 경로는 공개 접근과 로깅 제외 대상이다")
+    void graphqlPilotPathsArePublicAndExcludedFromLogging() {
+        assertThat(SecurityPathConfig.SECURITY_PERMIT_ALL_PATHS)
+            .contains(
+                "/graphql",
+                "/graphiql",
+                "/graphiql/**"
+            );
+        assertThat(SecurityPathConfig.loggingExcludedPaths())
+            .contains(
+                "/graphql",
+                "/graphiql",
+                "/graphiql/**"
             );
     }
 
@@ -66,6 +92,40 @@ class SecurityPathConfigTest {
         assertThat(properties)
             .containsEntry("springdoc.swagger-ui.enabled", Boolean.FALSE)
             .containsEntry("springdoc.api-docs.path", "/docs-json")
-            .containsEntry("springdoc.api-docs.enabled", "${OPENAPI_ENABLE:${SWAGGER_ENABLE:false}}");
+            .containsEntry("springdoc.api-docs.enabled", "${OPENAPI_ENABLE:${SWAGGER_ENABLE:false}}")
+            .containsEntry("spring.graphql.http.path", "/graphql")
+            .containsEntry("management.metrics.distribution.percentiles-histogram.http.server.requests", Boolean.TRUE)
+            .containsEntry("management.metrics.distribution.percentiles-histogram.graphql.request", Boolean.TRUE)
+            .containsEntry("management.metrics.distribution.percentiles-histogram.graphql.datafetcher", Boolean.TRUE)
+            .containsEntry("management.metrics.distribution.percentiles-histogram.graphql.dataloader", Boolean.TRUE)
+            .containsEntry("management.metrics.enable.graphql", Boolean.TRUE);
+    }
+
+    @Test
+    @DisplayName("dev 프로필은 GraphiQL을 기본 활성화한다")
+    void devProfileEnablesGraphiqlByDefault() {
+        contextRunner
+            .withPropertyValues("spring.profiles.active=dev")
+            .run(context -> assertThat(context.getEnvironment().getProperty("spring.graphql.graphiql.enabled"))
+                .isEqualTo("true"));
+    }
+
+    @Test
+    @DisplayName("local 프로필은 GraphiQL을 기본 활성화한다")
+    void localProfileEnablesGraphiqlByDefault() {
+        contextRunner
+            .withPropertyValues("spring.profiles.active=local")
+            .run(context -> assertThat(context.getEnvironment().getProperty("spring.graphql.graphiql.enabled"))
+                .isEqualTo("true"));
+    }
+
+    @Test
+    @DisplayName("maintenance allowlist는 SSO 공개 진입 경로를 명시적으로 포함한다")
+    void maintenanceAllowlistContainsSsoPublicPaths() {
+        assertThat(SecurityPathConfig.MAINTENANCE_ALWAYS_ALLOW_PATHS)
+            .contains(
+                "/api/v1/auth/sso/oauth/**",
+                "/api/v1/auth/sso/**"
+            );
     }
 }

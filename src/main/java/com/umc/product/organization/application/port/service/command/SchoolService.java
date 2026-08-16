@@ -1,5 +1,15 @@
 package com.umc.product.organization.application.port.service.command;
 
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
+import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.organization.application.port.in.command.ManageSchoolUseCase;
 import com.umc.product.organization.application.port.in.command.dto.AssignSchoolCommand;
 import com.umc.product.organization.application.port.in.command.dto.CreateSchoolCommand;
@@ -12,10 +22,8 @@ import com.umc.product.organization.application.port.out.query.LoadSchoolPort;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.School;
 import com.umc.product.organization.domain.SchoolLink;
-import java.util.List;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -26,11 +34,13 @@ public class SchoolService implements ManageSchoolUseCase {
     private final LoadSchoolPort loadSchoolPort;
     private final SaveSchoolPort saveSchoolPort;
     private final SaveChapterSchoolPort saveChapterSchoolPort;
+    private final GetMemberUseCase getMemberUseCase;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @Override
     public Long create(CreateSchoolCommand command) {
 
-        School newSchool = School.create(command.schoolName(), command.remark());
+        School newSchool = School.create(command.schoolName(), command.shortName(), command.remark());
         newSchool.updateLogoImageId(command.logoImageId());
 
         List<SchoolLink> links = command.links().stream()
@@ -49,6 +59,7 @@ public class SchoolService implements ManageSchoolUseCase {
         School school = loadSchoolPort.findById(schoolId);
 
         school.updateName(command.schoolName());
+        school.updateShortName(command.shortName());
         school.updateRemark(command.remark());
         school.updateLogoImageId(command.logoImageId());
 
@@ -63,6 +74,7 @@ public class SchoolService implements ManageSchoolUseCase {
             Chapter chapter = loadChapterPort.findById(command.chapterId());
 
             school.updateChapterSchool(chapter);
+            evictAuthoritySnapshotsBySchoolId(schoolId);
         }
     }
 
@@ -73,9 +85,12 @@ public class SchoolService implements ManageSchoolUseCase {
             return;
         }
 
+        Set<Long> memberIds = listMemberIdsBySchoolIds(schoolIds);
+
         saveChapterSchoolPort.deleteAllBySchoolIds(schoolIds);
         saveSchoolPort.deleteAllLinksBySchoolIds(schoolIds);
         saveSchoolPort.deleteAllByIds(schoolIds);
+        evictAuthoritySnapshotCacheUseCase.evictByMemberIds(memberIds);
     }
 
     @Override
@@ -84,6 +99,7 @@ public class SchoolService implements ManageSchoolUseCase {
         Chapter chapter = loadChapterPort.findById(command.chapterId());
 
         school.assignToChapter(chapter);
+        evictAuthoritySnapshotsBySchoolId(command.schoolId());
     }
 
     @Override
@@ -91,5 +107,24 @@ public class SchoolService implements ManageSchoolUseCase {
         School school = loadSchoolPort.findSchoolDetailById(command.schoolId());
 
         school.unassignFromGisu(command.gisuId());
+        evictAuthoritySnapshotsBySchoolId(command.schoolId());
+    }
+
+    private void evictAuthoritySnapshotsBySchoolId(Long schoolId) {
+        evictAuthoritySnapshotCacheUseCase.evictByMemberIds(getMemberUseCase.listIdsBySchoolId(schoolId));
+    }
+
+    private Set<Long> listMemberIdsBySchoolIds(List<Long> schoolIds) {
+        Set<Long> schoolIdSet = schoolIds.stream()
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        if (schoolIdSet.isEmpty()) {
+            return Set.of();
+        }
+
+        return getMemberUseCase.listIdsBySchoolIds(schoolIdSet).values().stream()
+            .flatMap(Set::stream)
+            .collect(Collectors.toSet());
     }
 }

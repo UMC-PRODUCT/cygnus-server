@@ -35,6 +35,10 @@ public class ProjectStatisticsAccessPolicy {
     }
 
     public boolean canReadChapterStatistics(Long memberId, Long chapterId) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
+            return true;
+        }
+
         List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
         return roles.stream().anyMatch(role -> role.roleType().isAtLeastCentralCore()
                 || (role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT

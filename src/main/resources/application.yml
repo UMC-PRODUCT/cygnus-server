@@ -10,6 +10,9 @@ server:
 
   # 톰캣 튜닝 옵션 - 부하테스트 하면서 수정할 것
   tomcat:
+    # 스레드 지표(tomcat_threads_*)를 micrometer 로 노출한다 — 부하 테스트에서 스레드 포화 관측용
+    mbeanregistry:
+      enabled: true
     threads:
       max: ${TOMCAT_MAX_THREADS:200}
       min-spare: ${TOMCAT_MIN_SPARE_THREADS:10}
@@ -28,6 +31,15 @@ spring:
       # Local DB를 위한 Compose: 기본적으로 비활성화
       enabled: false
       lifecycle-management: start_and_stop
+
+  graphql:
+    http:
+      path: /graphql
+    schema:
+      introspection:
+        enabled: false
+    graphiql:
+      enabled: ${GRAPHQL_GRAPHIQL_ENABLED:false}
 
   # Thymeleaf 템플릿 엔진 설정
   thymeleaf:
@@ -70,8 +82,9 @@ spring:
     properties:
       hibernate:
         default_schema: public
-        format_sql: false
-        show_sql: false # p6spy가 있어서 꺼둠
+        # SQL 출력 포맷은 P6SpyConfig 가 담당하므로 hibernate.format_sql 은 두지 않는다.
+        # show_sql 도 P6Spy 라인 출력과의 중복을 막기 위해 끔.
+        show_sql: false
 
   # ====================================================================
   # Spring AI / LLM provider 설정
@@ -144,6 +157,7 @@ jwt:
   refresh-token-secret: ${JWT_REFRESH_TOKEN_SECRET}
   oauth-verification-token-secret: ${JWT_OAUTH_VERIFICATION_TOKEN_SECRET}
   email-verification-token-secret: ${JWT_EMAIL_VERIFICATION_TOKEN_SECRET}
+  sso-login-token-secret: ${JWT_SSO_LOGIN_TOKEN_SECRET}
   access-token-validity-in-seconds: ${JWT_ACCESS_TOKEN_VALIDITY_IN_SECONDS:3600}
   refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_IN_SECONDS:604800}
   verification-token-validity-in-seconds: ${JWT_VERIFICATION_TOKEN_VALIDITY_IN_SECONDS:600}
@@ -158,6 +172,22 @@ springdoc:
     enabled: ${OPENAPI_ENABLE:${SWAGGER_ENABLE:false}}
 
   show-actuator: ${OPENAPI_ENABLE_ACTUATOR:${SWAGGER_ENABLE_ACTUATOR:false}}
+
+# ====================================================================
+# P6Spy (datasource-decorator) — 라인 단위 SQL 로깅 제어
+# 기본값은 OFF(false) — fail-safe. 트래픽 환경에서 env 주입을 깜빡해도 로그 폭증이 발생하지 않는다.
+#   - 라인 로깅이 꺼져도 QueryStatsJdbcEventListener 통계(queryCount/queryTimeMs)와
+#     DB span 트레이싱은 그대로 동작한다 (SQL 원문 라인만 사라짐).
+#   - local 프로필은 파일 하단(on-profile: local)에서 enable-logging=true 로 재정의하므로,
+#     로컬 개발자는 별도 env 설정 없이 SQL 라인을 본다.
+# 환경변수 기본값: local=true / dev·staging·prod·test=false
+# ====================================================================
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: ${P6SPY_ENABLE_LOGGING:false}
+      tracing:
+        include-parameter-values: false
 
 logging:
   level:
@@ -227,6 +257,14 @@ management:
       loki.resource.labels: service.name, environment
 
   metrics:
+    distribution:
+      # Prometheus에서 URI별 P95/P99를 집계할 수 있도록 HTTP 요청 duration histogram을 발행한다.
+      percentiles-histogram:
+        http.server.requests: true
+        graphql.request: true
+        graphql.datafetcher: true
+        graphql.dataloader: true
+
     tags:
       application: ${spring.application.name}
       instance: ${HOSTNAME:${LOCAL_DEVELOPER_ID:${USER:${USERNAME:unknown}}}}
@@ -238,6 +276,7 @@ management:
       jvm: true
       process: true
       http: true
+      graphql: true # GraphQL 요청 및 datafetcher 메트릭
       jdbc: true # DB 쿼리 메트릭
       #      rabbitmq: true # messaging, 사용 시 추가
       system: true # CPU, 메모리 등 시스템 메트릭
@@ -252,9 +291,86 @@ management:
         enabled: true
 
 app:
-  # Figma_댓글_dev_prod_중복_방지_계획 §L4: Discord embed footer 의 환경 라벨 ([ENV: ...]) 으로 노출됨.
   # spring.profiles.active 가 콤마 구분 다중 profile 일 수 있으므로 운영자가 단일 라벨을 명시적으로 override 가능.
   environment: ${APP_ENVIRONMENT:${SPRING_PROFILES_ACTIVE:local}}
+
+  graphql:
+    timeout: ${GRAPHQL_TIMEOUT:5s}
+    max-depth: ${GRAPHQL_MAX_DEPTH:15}
+    max-complexity: ${GRAPHQL_MAX_COMPLEXITY:200}
+
+  client-context:
+    origins:
+      - origin: https://university.neordinary.com
+        service-type: UMC_WEBSITE
+        environment: PROD
+      - origin: https://admin.university.neordinary.com
+        service-type: UMC_BACKOFFICE
+        environment: PROD
+      - origin: https://tech.university.neordinary.com
+        service-type: UMC_TECH_BLOG
+        environment: PROD
+
+  sso:
+    issuer: ${SSO_ISSUER:https://api.university.neordinary.com}
+    authorization-code-ttl: ${SSO_AUTHORIZATION_CODE_TTL:PT3M}
+    browser-login-ttl: ${SSO_BROWSER_LOGIN_TTL:PT12H}
+    cookie:
+      name: ${SSO_BROWSER_LOGIN_COOKIE_NAME:UMC_SSO_LOGIN}
+      domain: ${SSO_BROWSER_LOGIN_COOKIE_DOMAIN:}
+      secure: ${SSO_BROWSER_LOGIN_COOKIE_SECURE:true}
+      same-site: ${SSO_BROWSER_LOGIN_COOKIE_SAME_SITE:Lax}
+    clients:
+      backoffice:
+        name: backoffice
+        service-type: UMC_BACKOFFICE
+        environment: PROD
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - https://admin.university.neordinary.com/auth/callback
+        allowed-origins:
+          - https://admin.university.neordinary.com
+      website:
+        name: UMC Website
+        service-type: UMC_WEBSITE
+        environment: PROD
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - https://university.neordinary.com/auth/callback
+        allowed-origins:
+          - https://university.neordinary.com
+      tech:
+        name: UMC Tech Blog
+        service-type: UMC_TECH_BLOG
+        environment: PROD
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - https://tech.university.neordinary.com/auth/callback
+        allowed-origins:
+          - https://tech.university.neordinary.com
+      ios-app:
+        name: UMC iOS App
+        service-type: IOS_APP
+        environment: PROD
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - umc-ios://auth/callback
+          - https://auth.university.neordinary.com/ios/auth/callback
+        allowed-origins: []
+      android-app:
+        name: UMC Android App
+        service-type: ANDROID_APP
+        environment: PROD
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - umc-android://auth/callback
+          - https://auth.university.neordinary.com/android/auth/callback
+        allowed-origins: []
 
   project:
     matching-round:
@@ -277,24 +393,66 @@ app:
       include-sql: ${APP_OBSERVABILITY_INCLUDE_SQL:false}
       max-sql-length: ${APP_OBSERVABILITY_MAX_SQL_LENGTH:500}
 
+  api-rate-limit:
+    enabled: ${API_RATE_LIMIT_ENABLED:true}
+    include-paths:
+      - /api/**
+      - /graphql
+    exclude-paths:
+      - /actuator/**
+      - /docs
+      - /docs/
+      - /docs/**
+      - /docs-json
+      - /docs-json/**
+      - /webjars/**
+      - /umc-logo.svg
+      - /error
+    authenticated-default:
+      requests-per-second: ${API_RATE_LIMIT_AUTH_REQUESTS_PER_SECOND:20}
+      requests-per-minute: ${API_RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE:300}
+    anonymous-default:
+      requests-per-second: ${API_RATE_LIMIT_ANON_REQUESTS_PER_SECOND:5}
+      requests-per-minute: ${API_RATE_LIMIT_ANON_REQUESTS_PER_MINUTE:60}
+    cache:
+      maximum-size: ${API_RATE_LIMIT_CACHE_MAXIMUM_SIZE:100000}
+      expire-after-access: ${API_RATE_LIMIT_CACHE_EXPIRE_AFTER_ACCESS:PT10M}
+
+  websocket:
+    broker:
+      mode: ${WEBSOCKET_BROKER_MODE:simple}
+      relay:
+        host: ${WEBSOCKET_BROKER_RELAY_HOST:}
+        port: ${WEBSOCKET_BROKER_RELAY_PORT:}
+        tls-enabled: ${WEBSOCKET_BROKER_RELAY_TLS_ENABLED:true}
+        virtual-host: ${WEBSOCKET_BROKER_RELAY_VIRTUAL_HOST:}
+        system-login: ${WEBSOCKET_BROKER_RELAY_SYSTEM_LOGIN:}
+        system-password: ${WEBSOCKET_BROKER_RELAY_SYSTEM_PASSWORD:}
+        client-login: ${WEBSOCKET_BROKER_RELAY_CLIENT_LOGIN:}
+        client-password: ${WEBSOCKET_BROKER_RELAY_CLIENT_PASSWORD:}
+        system-heartbeat-send-interval: ${WEBSOCKET_BROKER_RELAY_HEARTBEAT_SEND_INTERVAL:PT10S}
+        system-heartbeat-receive-interval: ${WEBSOCKET_BROKER_RELAY_HEARTBEAT_RECEIVE_INTERVAL:PT10S}
+        startup-timeout: ${WEBSOCKET_BROKER_RELAY_STARTUP_TIMEOUT:PT5S}
+
   event-outbox:
-    enabled: ${EVENT_OUTBOX_ENABLED:false}
-    poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:5000}
+    relay-enabled: ${EVENT_OUTBOX_RELAY_ENABLED:true}
+    poll-interval-ms: ${EVENT_OUTBOX_POLL_INTERVAL_MS:1000}
     batch-size: ${EVENT_OUTBOX_BATCH_SIZE:100}
     max-attempts: ${EVENT_OUTBOX_MAX_ATTEMPTS:5}
 
   fcm:
     enabled: ${FCM_ENABLED:false}
     outbox-interval-ms: ${FCM_OUTBOX_INTERVAL_MS:60000}
-    firebase-configuration: ${FIREBASE_CONFIGURATION}
+    token-validation-enabled: ${FCM_TOKEN_VALIDATION_ENABLED:true}
+    token-validation-interval-ms: ${FCM_TOKEN_VALIDATION_INTERVAL_MS:86400000}
+    token-validation-batch-size: ${FCM_TOKEN_VALIDATION_BATCH_SIZE:500}
+    token-validation-stale-duration: ${FCM_TOKEN_VALIDATION_STALE_DURATION:P30D}
+    firebase-configuration: ${FIREBASE_CONFIGURATION:}
 
   cors:
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}
 
   webhook:
-    buffer:
-      enabled: ${WEBHOOK_BUFFER_ENABLED:true}
-      flush-interval-ms: ${WEBHOOK_BUFFER_FLUSH_INTERVAL_MS:60000} # 1분마다 버퍼 플러시
     telegram:
       bot-token: ${TELEGRAM_BOT_TOKEN:}
       chat-id: ${TELEGRAM_CHAT_ID:}
@@ -314,17 +472,26 @@ app:
   oauth2:
     google:
       client-id-list: ${GOOGLE_CLIENT_ID_LIST:}
+      jwks-cache:
+        ttl: ${GOOGLE_JWKS_CACHE_TTL:PT6H}
+        max-size: ${GOOGLE_JWKS_CACHE_MAX_SIZE:1}
     apple:
       ios-client-id: ${APPLE_IOS_CLIENT_ID}
       web-client-id: ${APPLE_WEB_CLIENT_ID}
       team-id: ${APPLE_TEAM_ID}
       key-id: ${APPLE_KEY_ID}
       private-key: ${APPLE_PRIVATE_KEY}
+      jwks-cache:
+        ttl: ${APPLE_JWKS_CACHE_TTL:PT24H}
+        max-size: ${APPLE_JWKS_CACHE_MAX_SIZE:1}
     kakao:
       client-id: ${KAKAO_CLIENT_ID:}
       client-secret: ${KAKAO_CLIENT_SECRET:}
       admin-key: ${KAKAO_ADMIN_KEY:}
       allowed-redirect-uris: ${KAKAO_ALLOWED_REDIRECT_URIS:}
+      jwks-cache:
+        ttl: ${KAKAO_JWKS_CACHE_TTL:PT24H}
+        max-size: ${KAKAO_JWKS_CACHE_MAX_SIZE:1}
 
   llm:
     provider: ${LLM_PROVIDER:mock}
@@ -344,31 +511,6 @@ app:
       requests-per-minute: ${LLM_RATE_LIMIT_RPM:10}
       burst: ${LLM_RATE_LIMIT_BURST:5}
 
-  figma:
-    oauth:
-      client-id: ${FIGMA_OAUTH_CLIENT_ID:}
-      client-secret: ${FIGMA_OAUTH_CLIENT_SECRET:}
-      redirect-uri: ${FIGMA_OAUTH_REDIRECT_URI:http://localhost:8080/api/v1/admin/figma/oauth/callback}
-      scope: ${FIGMA_OAUTH_SCOPE:}
-      authorize-uri: https://www.figma.com/oauth
-      token-uri: https://api.figma.com/v1/oauth/token
-      refresh-uri: https://api.figma.com/v1/oauth/refresh
-      token-encryption-key: ${FIGMA_TOKEN_ENCRYPTION_KEY} # 필수 — 기본값 없음. 미설정 시 애플리케이션 기동 실패.
-    sync:
-      enabled: ${FIGMA_SYNC_ENABLED:false}
-      poll-interval: ${FIGMA_SYNC_POLL_INTERVAL:PT5M}
-      max-files-per-run: ${FIGMA_SYNC_MAX_FILES_PER_RUN:50}
-    summary:
-      # ADR-004 §Implementation Plan §7: dispatch 회수 보존 기간 (90일 기본)
-      dispatch-retention: ${FIGMA_DISPATCH_RETENTION:P90D}
-      # 회수 잡 실행 주기 (기본 24시간)
-      retention-poll-interval: ${FIGMA_RETENTION_POLL_INTERVAL:PT24H}
-    classifier:
-      # LLM_분류_캐시_점검_보고서 §3.7: 운영 중 튜닝을 위한 외부화 (기본값은 보고서 §1.3 과 동일)
-      cache:
-        max-size: ${FIGMA_CLASSIFIER_CACHE_MAX_SIZE:10000}
-        ttl: ${FIGMA_CLASSIFIER_CACHE_TTL:PT5M}
-
   notification:
     # 인증 이메일 등 SES v2 발송 설정.
     # access-key/secret을 비워두면 DefaultCredentialsProvider 체인(IAM Role / IRSA / 환경변수 등)으로 폴백한다.
@@ -384,6 +526,14 @@ app:
         no-reply-address: ${EMAIL_NO_REPLY_ADDRESS}
         no-reply-display-name: ${EMAIL_NO_REPLY_DISPLAY_NAME:University MakeUs Challenge}
 
+  ssm:
+    region: ${SSM_REGION:${S3_REGION:ap-northeast-2}}
+    access-key-id: ${SSM_ACCESS_KEY_ID:}
+    secret-access-key: ${SSM_SECRET_ACCESS_KEY:}
+
+certificate:
+  verification-url-template: "${CERTIFICATE_VERIFICATION_URL_TEMPLATE:/api/v1/certificates/verify/{serialNumber}}"
+
 storage:
   provider: ${STORAGE_PROVIDER:s3}
 
@@ -395,17 +545,102 @@ storage:
     cloudfront:
       enabled: ${AWS_CLOUDFRONT_ENABLED:false}
       distribution-domain: ${AWS_CLOUDFRONT_DISTRIBUTION_DOMAIN:cdn.umc.it.kr}
-      private-key: ${CDN_PRIVATE_KEY}
-      key-pair-id: ${CDN_KEY_PAIR_ID}
+      key-pair-id: ${CDN_KEY_PAIR_ID:}
+      private-key: ${CDN_PRIVATE_KEY:}
+      private-key-parameter-name: ${CDN_PRIVATE_KEY_PARAMETER_NAME:/umc/common/cloudfront/private-key}
+
+
 # ==================================================================
-# dev 환경에 대한 default override
+# configuration override for dev profile
 # ==================================================================
+
 ---
 spring:
   config:
     activate:
       on-profile: dev
+  graphql:
+    schema:
+      introspection:
+        enabled: true
+    graphiql:
+      enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
 
 app:
+  client-context:
+    origins:
+      - origin: http://localhost:5173
+        service-type: UNKNOWN
+        environment: DEV
+
   seed:
     enabled: ${APP_SEED_ENABLED:true}
+
+  sso:
+    clients:
+      backoffice:
+        name: dev backoffice
+        service-type: UMC_BACKOFFICE
+        environment: DEV
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - https://dev.admin.university.neordinary.com/auth/callback
+        allowed-origins:
+          - https://dev.admin.university.neordinary.com
+      website:
+        name: dev website
+        service-type: UMC_WEBSITE
+        environment: DEV
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - https://dev.university.neordinary.com/auth/callback
+        allowed-origins:
+          - https://dev.university.neordinary.com
+      tech:
+        name: UMC Tech Blog
+        service-type: UMC_TECH_BLOG
+        environment: DEV
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - https://dev.tech.university.neordinary.com/auth/callback
+        allowed-origins:
+          - https://dev.tech.university.neordinary.com
+      local:
+        name: local dev
+        service-type: UNKNOWN
+        environment: DEV
+        require-pkce: true
+        access-token-ttl: PT1H
+        redirect-uris:
+          - http://localhost:5173/auth/callback
+        allowed-origins:
+          - http://localhost:5173
+
+# ==================================================================
+# configuration override for local profile
+# ==================================================================
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  graphql:
+    schema:
+      introspection:
+        enabled: true
+    graphiql:
+      enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
+
+decorator:
+  datasource:
+    p6spy:
+      enable-logging: ${P6SPY_ENABLE_LOGGING:true}
+
+app:
+  websocket:
+    broker:
+      mode: ${WEBSOCKET_BROKER_MODE:simple}

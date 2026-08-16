@@ -15,6 +15,7 @@ import static org.mockito.Mockito.verify;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.GetFormResponseUseCase;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.AnswerInfo;
+import com.umc.product.form.application.port.in.query.dto.FormResponseWithAnswersInfo;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.FormResponseStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.access.ProjectApplicationAccessScope;
 import com.umc.product.project.application.access.ProjectApplicationAccessScopeResolver;
 import com.umc.product.project.application.port.in.query.dto.GetMyProjectApplicationsQuery;
@@ -34,6 +42,7 @@ import com.umc.product.project.application.port.in.query.dto.GetProjectApplicati
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationDetailInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationSummaryInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationViewStatus;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsQuery;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationPort;
@@ -51,13 +60,6 @@ import com.umc.product.project.domain.exception.ProjectErrorCode;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
 import com.umc.product.storage.domain.enums.FileCategory;
-import com.umc.product.survey.application.port.in.query.GetFormResponseUseCase;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.AnswerInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormResponseWithAnswersInfo;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.domain.enums.FormResponseStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationQueryServiceTest {
@@ -511,6 +513,96 @@ class ProjectApplicationQueryServiceTest {
             eq(1L), eq(7L), eq(ProjectApplicationStatus.APPROVED), any(), eq(false));
     }
 
+    @Test
+    @DisplayName("searchByProjects_요청한_projectId_key를_보존하고_권한_없는_프로젝트와_없는_프로젝트는_빈_리스트")
+    void searchByProjects_키_보존_및_빈_리스트() {
+        // given
+        Project projectA = createProject(1L, "프로젝트A", null, 99L);
+        Project projectB = createProject(2L, "프로젝트B", null, 88L);
+        ProjectMatchingRound round = createMatchingRound(
+            7L, MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST);
+        ProjectApplication application = createSubmittedApplication(
+            55L, projectA, round, 200L, ProjectApplicationStatus.SUBMITTED);
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(REQUESTER_ID)
+            .projectIds(List.of(1L, 2L, 3L))
+            .build();
+
+        given(loadProjectPort.listByIds(List.of(1L, 2L, 3L)))
+            .willReturn(List.of(projectA, projectB));
+        given(accessScopeResolver.resolveForProjectApplicantLists(REQUESTER_ID, List.of(projectA, projectB)))
+            .willReturn(Map.of(
+                1L, new ProjectApplicationAccessScope.ProjectScoped(1L),
+                2L, new ProjectApplicationAccessScope.None()
+            ));
+        given(loadProjectApplicationPort.searchProjectApplicationsByProjectIds(
+            eq(Set.of(1L)), eq(Set.of()), isNull(), isNull(), any()))
+            .willReturn(List.of(application));
+
+        // when
+        Map<Long, List<ProjectApplicationSummaryInfo>> result = sut.searchByProjects(query);
+
+        // then
+        assertThat(result.keySet()).containsExactly(1L, 2L, 3L);
+        assertThat(result.get(1L)).extracting(ProjectApplicationSummaryInfo::id).containsExactly(55L);
+        assertThat(result.get(2L)).isEmpty();
+        assertThat(result.get(3L)).isEmpty();
+        verify(loadProjectApplicationPort).searchProjectApplicationsByProjectIds(
+            eq(Set.of(1L)), eq(Set.of()), isNull(), isNull(), any());
+    }
+
+    @Test
+    @DisplayName("searchByProjects_ProjectScoped_includeOngoing_true인_프로젝트만_진행중_차수_포함_목록으로_전달")
+    void searchByProjects_includeOngoing_프로젝트만_전달() {
+        // given
+        Project projectA = createProject(1L, "프로젝트A", null, 99L);
+        Project projectB = createProject(2L, "프로젝트B", null, 88L);
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(REQUESTER_ID)
+            .projectIds(List.of(1L, 2L))
+            .matchingRoundId(7L)
+            .status(ProjectApplicationStatus.APPROVED)
+            .build();
+
+        given(loadProjectPort.listByIds(List.of(1L, 2L)))
+            .willReturn(List.of(projectA, projectB));
+        given(accessScopeResolver.resolveForProjectApplicantLists(REQUESTER_ID, List.of(projectA, projectB)))
+            .willReturn(Map.of(
+                1L, new ProjectApplicationAccessScope.ProjectScoped(1L),
+                2L, new ProjectApplicationAccessScope.ProjectScoped(2L, true)
+            ));
+        given(loadProjectApplicationPort.searchProjectApplicationsByProjectIds(
+            eq(Set.of(1L, 2L)),
+            eq(Set.of(2L)),
+            eq(7L),
+            eq(ProjectApplicationStatus.APPROVED),
+            any()
+        )).willReturn(List.of());
+
+        // when
+        sut.searchByProjects(query);
+
+        // then
+        verify(loadProjectApplicationPort).searchProjectApplicationsByProjectIds(
+            eq(Set.of(1L, 2L)),
+            eq(Set.of(2L)),
+            eq(7L),
+            eq(ProjectApplicationStatus.APPROVED),
+            any()
+        );
+    }
+
+    @Test
+    @DisplayName("searchByProjects_DRAFT_상태_필터를_사용하면_도메인_예외")
+    void searchByProjects_DRAFT_필터_금지() {
+        assertThatThrownBy(() -> SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(REQUESTER_ID)
+            .projectIds(List.of(1L))
+            .status(ProjectApplicationStatus.DRAFT)
+            .build())
+            .isInstanceOf(ProjectDomainException.class);
+    }
+
     // ============================================================
     //                getDetail (지원서 단건 상세 조회) 테스트
     // ============================================================
@@ -933,6 +1025,59 @@ class ProjectApplicationQueryServiceTest {
         assertThat(result.answersByQuestionId()).containsOnlyKeys(10L);
         assertThat(result.answersByQuestionId().get(10L).textValue()).isEqualTo("답변 내용");
         verify(getFormUseCase).getFormWithStructureByQuestionIds(eq(7L), eq(java.util.Set.of(10L)));
+    }
+
+    @Test
+    @DisplayName("batchGetDetails_applicationId_목록을_batch_port와_batch_facade로_조회")
+    void batchGetDetails_batch_조회() {
+        // given
+        Project project = createProject(1L, "프로젝트A", null, 99L);
+        ProjectMatchingRound round = createMatchingRound(
+            7L, MatchingType.PLAN_DESIGN, MatchingPhase.FIRST);
+        ProjectApplication firstApplication = createApplicationWithFormResponse(
+            55L, project, round, 200L, ProjectApplicationStatus.SUBMITTED, 123L);
+        ProjectApplication secondApplication = createApplicationWithFormResponse(
+            56L, project, round, 201L, ProjectApplicationStatus.SUBMITTED, 124L);
+
+        given(loadProjectApplicationPort.batchGetByIdsWithDetails(Set.of(55L, 56L)))
+            .willReturn(List.of(firstApplication, secondApplication));
+        given(accessScopeResolver.resolveForProjectApplicantLists(eq(REQUESTER_ID), any()))
+            .willReturn(Map.of(1L, new ProjectApplicationAccessScope.ProjectScoped(1L, true)));
+        given(getChallengerUseCase.listByMemberIdsAndGisuId(Set.of(200L, 201L), GISU_ID))
+            .willReturn(Map.of(
+                200L, challengerInfoOf(200L, ChallengerPart.DESIGN),
+                201L, challengerInfoOf(201L, ChallengerPart.WEB)
+            ));
+        given(loadProjectApplicationFormPolicyPort.listByApplicationFormIds(Set.of(33L)))
+            .willReturn(Map.of(33L, List.of()));
+        given(getFormResponseUseCase.findResponsesWithAnswers(Set.of(123L, 124L)))
+            .willReturn(Map.of(
+                123L, FormResponseWithAnswersInfo.builder()
+                    .id(123L).formId(7L).respondentMemberId(200L)
+                    .status(FormResponseStatus.SUBMITTED)
+                    .answers(List.of())
+                    .build(),
+                124L, FormResponseWithAnswersInfo.builder()
+                    .id(124L).formId(7L).respondentMemberId(201L)
+                    .status(FormResponseStatus.SUBMITTED)
+                    .answers(List.of())
+                    .build()
+            ));
+        given(getFormUseCase.getFormWithStructureByQuestionIds(7L, Set.of()))
+            .willReturn(FormWithStructureInfo.builder().formId(7L).sections(List.of()).build());
+
+        // when
+        Map<Long, ProjectApplicationDetailInfo> result = sut.batchGetDetails(List.of(
+            detailQuery(1L, 55L),
+            detailQuery(1L, 56L)
+        ));
+
+        // then
+        assertThat(result).containsOnlyKeys(55L, 56L);
+        assertThat(result.get(55L).applicantPart()).isEqualTo(ChallengerPart.DESIGN);
+        assertThat(result.get(56L).applicantPart()).isEqualTo(ChallengerPart.WEB);
+        verify(loadProjectApplicationPort, never()).findByIdWithDetails(any());
+        verify(getFormResponseUseCase, never()).findResponseWithAnswers(any());
     }
 
     // ============================================================

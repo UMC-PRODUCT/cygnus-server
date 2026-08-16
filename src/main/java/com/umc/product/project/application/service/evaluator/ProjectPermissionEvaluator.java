@@ -78,6 +78,9 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
      * PO target 이 호출자와 다른 경우의 scope 검증은 Service 레벨에서 수행한다.
      */
     private boolean canWrite(SubjectAttributes subject) {
+        if (isSuperAdmin(subject)) {
+            return true;
+        }
         boolean isPlanChallenger = subject.gisuChallengerInfos().stream()
             .anyMatch(info -> info.part() == ChallengerPart.PLAN);
         if (isPlanChallenger) {
@@ -133,13 +136,30 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
      * <p>
      * 해당 기수의 총괄단(SUPER_ADMIN 은 글로벌) 또는 본인 지부장(해당 기수)만 통과.
      * 종료 상태(COMPLETED/ABORTED)는 절대 차단.
+     * <p>
+     * {@code resourceId} 가 없으면 특정 프로젝트가 아닌 타입 전체에 대한 진입 게이트로 동작한다
+     * (배치 complete 등 다건 액션의 Controller 관문). 이때는 리소스를 로드하지 않고 운영진 자격만 본다.
+     * 프로젝트별 상태·scope 검증은 각 리소스 id 로 다시 evaluate 하는 Service 레이어가 담당한다.
      */
     private boolean canManage(SubjectAttributes subject, ResourcePermission permission) {
+        if (permission.resourceId() == null) {
+            return hasAnyProjectAdminRole(subject);
+        }
         Project project = loadProject(permission);
         return switch (project.getStatus()) {
             case PENDING_REVIEW, IN_PROGRESS -> isProjectAdmin(subject, project);
             case DRAFT, COMPLETED, ABORTED -> false;
         };
+    }
+
+    /**
+     * 특정 프로젝트와 무관하게, 어느 기수/지부에서든 프로젝트 운영진(총괄단 또는 지부장) 역할을 가졌는지 여부.
+     * 타입 전체 MANAGE 진입 게이트 판정에 사용한다.
+     */
+    private boolean hasAnyProjectAdminRole(SubjectAttributes subject) {
+        return subject.roleAttributes().stream()
+            .anyMatch(role -> role.roleType().isAtLeastCentralCore()
+                || role.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT);
     }
 
     /**
@@ -165,14 +185,11 @@ public class ProjectPermissionEvaluator implements ResourcePermissionEvaluator {
     }
 
     private boolean isSuperAdmin(SubjectAttributes subject) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin());
+        return subject.toAuthoritySnapshot().isSuperAdmin();
     }
 
     private boolean isCentralCoreInGisu(SubjectAttributes subject, Long gisuId) {
-        return subject.roleAttributes().stream()
-            .anyMatch(role -> role.roleType().isSuperAdmin()
-                || (role.roleType().isAtLeastCentralCore() && Objects.equals(role.gisuId(), gisuId)));
+        return subject.toAuthoritySnapshot().isCentralCoreInGisu(gisuId);
     }
 
     private boolean isOwner(SubjectAttributes subject, Project project) {

@@ -1,8 +1,10 @@
 package com.umc.product.project.application.port.in.query;
 
 import java.util.List;
+import java.util.Map;
 
 import com.umc.product.project.application.port.in.query.dto.ProjectApplicationSummaryInfo;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsQuery;
 
 /**
@@ -18,4 +20,11 @@ import com.umc.product.project.application.port.in.query.dto.SearchProjectApplic
 public interface SearchProjectApplicationsUseCase {
 
     List<ProjectApplicationSummaryInfo> searchByProject(SearchProjectApplicationsQuery query);
+
+    /**
+     * PM/운영진용 복수 프로젝트 지원자 목록을 조회한다.
+     * <p>
+     * 요청한 projectId 는 권한 없음/미존재 여부와 무관하게 결과 Map 의 key 로 유지하며, 노출할 지원서가 없으면 빈 리스트를 반환한다.
+     */
+    Map<Long, List<ProjectApplicationSummaryInfo>> searchByProjects(SearchProjectApplicationsBatchQuery query);
 }

@@ -15,7 +15,9 @@ public record UmcProductMemberResponse(
     String introduction,
     String umcProductProfileImageId,
     String umcProductProfileImageUrl,
-    List<UmcProductFunctionalMembershipResponse> functionalMemberships,
+    List<UmcProductMemberActivityPeriodResponse> activityPeriods,
+    List<UmcProductChapterMembershipResponse> chapterMemberships,
+    List<UmcProductLeadershipResponse> productLeaderships,
     List<UmcProductSquadParticipationResponse> squadParticipations
 ) {
     public static UmcProductMemberResponse from(UmcProductMemberInfo info) {
@@ -30,7 +32,9 @@ public record UmcProductMemberResponse(
             info.introduction(),
             info.umcProductProfileImageId(),
             info.umcProductProfileImageUrl(),
-            info.functionalMemberships().stream().map(UmcProductFunctionalMembershipResponse::from).toList(),
+            info.activityPeriods().stream().map(UmcProductMemberActivityPeriodResponse::from).toList(),
+            info.chapterMemberships().stream().map(UmcProductChapterMembershipResponse::from).toList(),
+            info.productLeaderships().stream().map(UmcProductLeadershipResponse::from).toList(),
             info.squadParticipations().stream().map(UmcProductSquadParticipationResponse::from).toList()
         );
     }

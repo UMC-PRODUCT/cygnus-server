@@ -6,10 +6,26 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.GetFormUseCase;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.FormStatus;
+import com.umc.product.form.domain.enums.QuestionType;
 import com.umc.product.project.application.port.in.query.dto.ApplicationFormInfo;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPolicyPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
@@ -20,19 +36,6 @@ import com.umc.product.project.domain.enums.FormSectionType;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
-import com.umc.product.survey.application.port.in.query.GetFormUseCase;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.domain.enums.FormStatus;
-import com.umc.product.survey.domain.enums.QuestionType;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class ProjectApplicationFormQueryServiceTest {
@@ -281,6 +284,39 @@ class ProjectApplicationFormQueryServiceTest {
         var orphanSection = result.sections().get(1);
         assertThat(orphanSection.type()).isEqualTo(FormSectionType.PART);
         assertThat(orphanSection.allowedParts()).isEmpty();
+    }
+
+    @Test
+    void findAllByProjectIds_지원폼을_batch_port로_조회하고_프로젝트_ID별로_매핑() {
+        // given
+        Project project = createProject();
+        ProjectApplicationForm applicationForm = createApplicationForm(project);
+
+        given(loadApplicationFormPort.findAllByProjectIds(List.of(PROJECT_ID, 99L))).willReturn(Map.of(
+            PROJECT_ID, applicationForm
+        ));
+        given(getFormUseCase.batchGetFormsWithStructure(Set.of(FORM_ID)))
+            .willReturn(Map.of(FORM_ID, buildFormStructure()));
+        given(loadPolicyPort.listByApplicationFormIds(Set.of(APPLICATION_FORM_ID))).willReturn(Map.of(
+            APPLICATION_FORM_ID,
+            List.of(
+                ProjectApplicationFormPolicy.createCommon(applicationForm, COMMON_SECTION_ID),
+                ProjectApplicationFormPolicy.createForParts(applicationForm, PART_SECTION_ID,
+                    Set.of(ChallengerPart.WEB))
+            )
+        ));
+
+        // when
+        Map<Long, ApplicationFormInfo> result = sut.findAllByProjectIds(
+            List.of(PROJECT_ID, PROJECT_ID, 99L),
+            PM_MEMBER_ID
+        );
+
+        // then
+        assertThat(result).containsOnlyKeys(PROJECT_ID);
+        assertThat(result.get(PROJECT_ID).applicationFormId()).isEqualTo(APPLICATION_FORM_ID);
+        assertThat(result.get(PROJECT_ID).sections()).hasSize(2);
+        then(loadApplicationFormPort).should().findAllByProjectIds(List.of(PROJECT_ID, 99L));
     }
 
     private static <T> T any() {

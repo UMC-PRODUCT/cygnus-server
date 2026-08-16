@@ -25,16 +25,17 @@ import com.umc.product.blog.application.port.out.SaveBlogContentPort;
 import com.umc.product.blog.domain.BlogContent;
 import com.umc.product.blog.domain.BlogContentStatus;
 import com.umc.product.blog.domain.BlogContentType;
-import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.member.adapter.out.persistence.MemberSystemRoleJpaRepository;
 import com.umc.product.member.application.port.out.SaveMemberPort;
 import com.umc.product.member.domain.Member;
+import com.umc.product.member.domain.MemberSystemRole;
+import com.umc.product.member.domain.MemberSystemRoleType;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.IntegrationTestSupport;
 import com.umc.product.support.fixture.ChallengerFixture;
-import com.umc.product.support.fixture.ChallengerRoleFixture;
 import com.umc.product.support.fixture.ChapterFixture;
 import com.umc.product.support.fixture.GisuFixture;
 import com.umc.product.support.fixture.SchoolFixture;
@@ -61,10 +62,10 @@ class BlogInteractionControllerIntegrationTest extends IntegrationTestSupport {
     SchoolFixture schoolFixture;
 
     @Autowired
-    ChallengerRoleFixture challengerRoleFixture;
+    SaveBlogContentPort saveBlogContentPort;
 
     @Autowired
-    SaveBlogContentPort saveBlogContentPort;
+    MemberSystemRoleJpaRepository memberSystemRoleJpaRepository;
 
     private String authorToken;
     private String otherToken;
@@ -83,8 +84,8 @@ class BlogInteractionControllerIntegrationTest extends IntegrationTestSupport {
 
         challengerFixture.챌린저(authorMemberId, ChallengerPart.SPRINGBOOT, gisu.getId());
         challengerFixture.챌린저(otherMemberId, ChallengerPart.SPRINGBOOT, gisu.getId());
-        Challenger adminChallenger = challengerFixture.챌린저(adminMemberId, ChallengerPart.SPRINGBOOT, gisu.getId());
-        challengerRoleFixture.슈퍼_관리자(adminChallenger.getId(), gisu.getId());
+        challengerFixture.챌린저(adminMemberId, ChallengerPart.SPRINGBOOT, gisu.getId());
+        memberSystemRoleJpaRepository.save(MemberSystemRole.create(adminMemberId, MemberSystemRoleType.SUPER_ADMIN));
 
         authorToken = mockToken("author-token", authorMemberId);
         otherToken = mockToken("other-token", otherMemberId);

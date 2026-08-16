@@ -1,9 +1,11 @@
 package com.umc.product.project.application.port.in.query.dto;
 
+import java.time.Instant;
+
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.project.domain.ProjectMember;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
-import java.time.Instant;
+
 import lombok.Builder;
 
 /**
@@ -16,6 +18,9 @@ import lombok.Builder;
 public record ProjectMemberInfo(
     Long projectMemberId,
     Long projectId,
+    Long applicationId,
+    Long projectGisuId,
+    String projectName,
     Long memberId,
     ChallengerPart part,
     boolean isLeader,
@@ -27,6 +32,9 @@ public record ProjectMemberInfo(
         return ProjectMemberInfo.builder()
             .projectMemberId(entity.getId())
             .projectId(entity.getProject().getId())
+            .applicationId(entity.getApplication() == null ? null : entity.getApplication().getId())
+            .projectGisuId(entity.getProject().getGisuId())
+            .projectName(entity.getProject().getName())
             .memberId(entity.getMemberId())
             .part(entity.getPart())
             .isLeader(entity.isLeader())

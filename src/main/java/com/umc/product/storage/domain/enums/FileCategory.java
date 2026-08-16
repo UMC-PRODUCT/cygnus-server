@@ -50,6 +50,8 @@ public enum FileCategory {
      */
     PORTFOLIO("private/portfolio", 200 * 1024 * 1024, new String[]{"pdf"}),
 
+    CERTIFICATE("private/certificate", 20 * 1024 * 1024, new String[]{"pdf"}),
+
     /**
      * 프로젝트 썸네일 이미지 (S-CHL-01 카드용 540x286)
      */
@@ -61,7 +63,7 @@ public enum FileCategory {
     PROJECT_LOGO("public/project-logo", 10 * 1024 * 1024, new String[]{"jpg", "jpeg", "png", "svg"}),
 
     /**
-     * UMC Product 전용 프로필 이미지
+     * UMC PRODUCT 전용 프로필 이미지
      */
     UMC_PRODUCT_PROFILE_IMAGE("public/umc-product-profile", 5 * 1024 * 1024,
         new String[]{"jpg", "jpeg", "png", "webp"}),

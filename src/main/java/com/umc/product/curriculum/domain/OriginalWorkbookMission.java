@@ -2,6 +2,7 @@ package com.umc.product.curriculum.domain;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.curriculum.domain.enums.MissionType;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -43,5 +45,49 @@ public class OriginalWorkbookMission extends BaseEntity {
     @Column(nullable = false)
     private boolean isNecessary;
 
+    @Builder(access = AccessLevel.PRIVATE)
+    private OriginalWorkbookMission(
+        OriginalWorkbook originalWorkbook,
+        String title,
+        String description,
+        MissionType missionType,
+        boolean isNecessary
+    ) {
+        this.originalWorkbook = originalWorkbook;
+        this.title = title;
+        this.description = description;
+        this.missionType = missionType;
+        this.isNecessary = isNecessary;
+    }
 
+    public static OriginalWorkbookMission create(
+        OriginalWorkbook originalWorkbook,
+        String title,
+        String description,
+        MissionType missionType,
+        boolean isNecessary
+    ) {
+        return OriginalWorkbookMission.builder()
+            .originalWorkbook(originalWorkbook)
+            .title(title)
+            .description(description)
+            .missionType(missionType)
+            .isNecessary(isNecessary)
+            .build();
+    }
+
+    public void edit(String title, String description, MissionType missionType, Boolean isNecessary) {
+        if (title != null && !title.isBlank()) {
+            this.title = title;
+        }
+        if (description != null) {
+            this.description = description;
+        }
+        if (missionType != null) {
+            this.missionType = missionType;
+        }
+        if (isNecessary != null) {
+            this.isNecessary = isNecessary;
+        }
+    }
 }

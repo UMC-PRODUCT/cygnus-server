@@ -1,0 +1,71 @@
+package com.umc.product.form.domain.exception;
+
+import org.springframework.http.HttpStatus;
+
+import com.umc.product.global.response.code.BaseCode;
+
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+
+@Getter
+@AllArgsConstructor
+public enum FormErrorCode implements BaseCode {
+
+    FORM_NOT_FOUND(HttpStatus.NOT_FOUND, "FORM-0001", "폼을 찾을 수 없어요. 선택한 폼을 확인해주세요."),
+    FORM_NOT_DRAFT(HttpStatus.CONFLICT, "FORM-0002", "임시저장 상태의 폼만 편집할 수 있어요. 폼 상태를 확인해주세요."),
+    QUESTION_NOT_FOUND(HttpStatus.NOT_FOUND, "FORM-0003", "질문을 찾을 수 없어요. 선택한 질문을 확인해주세요."),
+    FORM_ALREADY_PUBLISHED(HttpStatus.BAD_REQUEST, "FORM-0005", "이미 발행된 폼이에요. 폼 상태를 확인해주세요."),
+    FORM_RESPONSE_NOT_FOUND(HttpStatus.NOT_FOUND, "FORM-0006", "폼 응답을 찾을 수 없어요. 응답 목록을 확인해주세요."),
+    QUESTION_IS_NOT_OWNED_BY_FORM(HttpStatus.BAD_REQUEST, "FORM-0007", "이 폼에 포함된 질문이 아니에요. 질문을 다시 선택해주세요."),
+    FORM_RESPONSE_FORBIDDEN(HttpStatus.FORBIDDEN, "FORM-0008",
+        "이 폼 응답에 접근할 권한이 없어요. 필요한 권한이 있다면 운영진에게 문의해주세요."),
+    QUESTION_TYPE_MISMATCH(HttpStatus.BAD_REQUEST, "FORM-0009", "질문 유형이 맞지 않아요. 질문 유형을 확인해주세요."),
+    REQUIRED_QUESTION_NOT_ANSWERED(HttpStatus.BAD_REQUEST, "FORM-0010", "필수 질문에 답변해주세요."),
+    INVALID_ANSWER_FORMAT(HttpStatus.BAD_REQUEST, "FORM-0011", "응답 형식이 올바르지 않아요. 답변을 확인해주세요."),
+    OTHER_OPTION_DUPLICATED(HttpStatus.BAD_REQUEST, "FORM-0012", "'기타' 선택지가 중복됐어요. 선택지를 확인해주세요."),
+    OPTION_NOT_IN_QUESTION(HttpStatus.BAD_REQUEST, "FORM-0013", "해당 질문에 없는 선택지예요. 선택지를 다시 선택해주세요."),
+    OPTION_TEXT_REQUIRED(HttpStatus.BAD_REQUEST, "FORM-0014", "'기타' 선택지의 내용을 입력해주세요."),
+    INVALID_FORM_ACTIVE_PERIOD(HttpStatus.BAD_REQUEST, "FORM-0015", "폼 응답 가능 기간이 올바르지 않아요. 기간을 다시 선택해주세요."),
+    // FORM-0016 ~ FORM-0022 (투표 항목/기간/상태 관련): notice 도메인으로 이관
+    INVALID_VOTE_SELECTION(HttpStatus.BAD_REQUEST, "FORM-0023", "투표 선택이 올바르지 않아요. 선택지를 확인해주세요."),
+    // FORM-0024 (INVALID_VOTE_QUESTION_TYPE): notice 도메인으로 이관
+    INVALID_VOTE_FORM_STRUCTURE(HttpStatus.BAD_REQUEST, "FORM-0025", "투표 질문 형식이 올바르지 않아요. 투표 구성을 확인해주세요."),
+    // FORM-0026 (VOTE_RESPONSE_NOT_FOUND): notice 도메인으로 이관
+    FORM_RESPONSE_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "FORM-0027", "이미 제출한 응답이 있어요. 제출 내역을 확인해주세요."),
+    FORM_NOT_PUBLISHED(HttpStatus.CONFLICT, "FORM-0028", "발행된 폼에만 응답할 수 있어요. 폼 상태를 확인해주세요."),
+    QUESTION_OPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "FORM-0029", "선택지를 찾을 수 없어요. 선택지를 다시 확인해주세요."),
+    ANSWER_NOT_FOUND(HttpStatus.NOT_FOUND, "FORM-0030", "답변을 찾을 수 없어요. 응답 내용을 확인해주세요."),
+    FORM_RESPONSE_NOT_DRAFT(HttpStatus.CONFLICT, "FORM-0031", "임시저장 상태의 응답에서만 할 수 있는 작업이에요. 응답 상태를 확인해주세요."),
+    ANSWER_ALREADY_EXISTS(HttpStatus.BAD_REQUEST, "FORM-0032", "이미 해당 질문에 대한 답변이 있어요. 기존 답변을 수정해주세요."),
+    FORM_RESPONSE_LOOKUP_AMBIGUOUS(HttpStatus.CONFLICT, "FORM-0033",
+        "중복 응답을 허용하는 폼은 응답을 하나로 특정할 수 없어요. 응답 ID를 사용해주세요."),
+    RESPONDENT_MEMBER_ID_REQUIRED(HttpStatus.BAD_REQUEST, "FORM-0034",
+        "응답자 정보가 필요해요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    RESPONSE_ACCESS_KEY_REQUIRED(HttpStatus.BAD_REQUEST, "FORM-0035",
+        "응답 접근 키가 필요해요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    INVALID_SUBMIT_SCOPE(HttpStatus.BAD_REQUEST, "FORM-0036",
+        "제출 범위가 올바르지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    INVALID_NEXT_SECTION_SELF_LOOP(HttpStatus.BAD_REQUEST, "FORM-0037",
+        "조건부 섹션 이동은 자기 자신을 대상으로 할 수 없어요. 이동 대상 섹션을 다시 선택해주세요."),
+    FORM_INVALID_TRANSITION(HttpStatus.CONFLICT, "FORM-0038", "현재 폼 상태에서는 할 수 없는 작업이에요."),
+    FORM_HAS_RESPONSES(HttpStatus.CONFLICT, "FORM-0039", "응답이 있는 폼은 초안 상태로 되돌릴 수 없어요."),
+    INVALID_NEXT_SECTION_BACKWARD(HttpStatus.BAD_REQUEST, "FORM-0040",
+        "조건부 섹션 이동은 뒤 섹션으로만 갈 수 있어요. 앞이나 같은 위치 섹션은 선택할 수 없어요."),
+    MULTIPLE_BRANCHING_QUESTIONS_IN_SECTION(HttpStatus.BAD_REQUEST, "FORM-0041",
+        "한 섹션에는 조건부 이동을 지정한 질문을 하나만 둘 수 있어요. 다른 질문의 이동 설정을 먼저 해제해주세요."),
+    FORM_RESPONSE_ALREADY_CLAIMED(HttpStatus.CONFLICT, "FORM-0042",
+        "이미 다른 사용자에게 등록된 응답이에요. 응답을 다시 확인해주세요."),
+    DRAFT_SCHEMA_MISMATCH(HttpStatus.BAD_REQUEST, "FORM-0043",
+        "폼이 수정되었어요. 아래 질문의 답변을 다시 확인해주세요."),
+    FORM_RESPONSE_CONCURRENT_MODIFICATION(HttpStatus.CONFLICT, "FORM-0044",
+        "이 응답이 방금 다른 곳에서 수정됐어요. 새로고침 후 다시 시도해주세요."),
+    FORM_RESPONSE_NOT_IN_FORM(HttpStatus.BAD_REQUEST, "FORM-0045",
+        "요청한 응답이 이 폼에 속해 있지 않아요. 이 문제가 계속되면 운영진에게 문의해주세요."),
+    FORM_RESPONSE_NOT_SUBMITTED(HttpStatus.BAD_REQUEST, "FORM-0046",
+        "아직 제출되지 않은 응답이 포함되어 있어요. 제출된 응답으로 다시 시도해주세요."),
+    ;
+
+    private final HttpStatus httpStatus;
+    private final String code;
+    private final String message;
+}

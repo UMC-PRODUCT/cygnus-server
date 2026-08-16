@@ -2,6 +2,16 @@ package com.umc.product.member.application.port.in.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.Instant;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+
 import com.umc.product.authorization.application.port.out.SaveChallengerRolePort;
 import com.umc.product.authorization.domain.ChallengerRole;
 import com.umc.product.challenger.application.port.out.SaveChallengerPort;
@@ -19,14 +29,6 @@ import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
 import com.umc.product.support.UseCaseTestSupport;
-import java.time.Instant;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.PageRequest;
 
 @Disabled
 class SearchMemberUseCaseTest extends UseCaseTestSupport {
@@ -57,9 +59,11 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
     private School school1;
     private School school2;
     private Chapter chapter;
+    private Long requesterMemberId;
 
     @BeforeEach
     void setUp() {
+        requesterMemberId = null;
         gisu7 = saveGisuPort.save(Gisu.create(7L,
             Instant.parse("2024-03-01T00:00:00Z"),
             Instant.parse("2024-08-31T23:59:59Z"),
@@ -69,8 +73,8 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             Instant.parse("2025-02-28T23:59:59Z"),
             true));
 
-        school1 = saveSchoolPort.save(School.create("한양대학교 ERICA", null));
-        school2 = saveSchoolPort.save(School.create("한성대학교", null));
+        school1 = saveSchoolPort.save(School.create("한양대학교 ERICA", null, null));
+        school2 = saveSchoolPort.save(School.create("한성대학교", null, null));
 
         chapter = saveChapterPort.save(Chapter.create(gisu8, "Scorpio"));
         school1.updateChapterSchool(chapter);
@@ -78,12 +82,18 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
     }
 
     private Member saveMember(String name, String nickname, String email, Long schoolId) {
-        return saveMemberPort.save(Member.builder()
+        Member member = saveMemberPort.save(Member.builder()
             .name(name)
             .nickname(nickname)
             .email(email)
             .schoolId(schoolId)
             .build());
+
+        if (requesterMemberId == null) {
+            requesterMemberId = member.getId();
+        }
+
+        return member;
     }
 
     @Nested
@@ -106,7 +116,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(2);
@@ -128,7 +138,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(2);
@@ -157,7 +167,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -180,7 +190,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -203,7 +213,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -226,7 +236,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -245,7 +255,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).isEmpty();
@@ -273,7 +283,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -296,7 +306,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -320,7 +330,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -343,7 +353,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -370,7 +380,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(2);
@@ -398,7 +408,7 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest pageable = PageRequest.of(0, 10);
 
             // when
-            SearchMemberResult result = searchMemberUseCase.searchBy(query, pageable);
+            SearchMemberResult result = searchMemberUseCase.searchBy(query, requesterMemberId, pageable);
 
             // then
             assertThat(result.page().getContent()).hasSize(1);
@@ -428,8 +438,8 @@ class SearchMemberUseCaseTest extends UseCaseTestSupport {
             PageRequest secondPage = PageRequest.of(1, 3);
 
             // when
-            SearchMemberResult firstResult = searchMemberUseCase.searchBy(query, firstPage);
-            SearchMemberResult secondResult = searchMemberUseCase.searchBy(query, secondPage);
+            SearchMemberResult firstResult = searchMemberUseCase.searchBy(query, requesterMemberId, firstPage);
+            SearchMemberResult secondResult = searchMemberUseCase.searchBy(query, requesterMemberId, secondPage);
 
             // then
             assertThat(firstResult.page().getContent()).hasSize(3);

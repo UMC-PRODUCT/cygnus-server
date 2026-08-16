@@ -1,0 +1,20 @@
+-- school.name 가나다 정렬 복구.
+--
+-- DB 기본 collation 이 en_US.utf8(libc) 인데, glibc 정렬 테이블에는 한글 음절(U+AC00~U+D7A3)의
+-- 가중치가 없다. 그래서 한글끼리는 1차 비교가 전부 무승부가 되고 길이 -> 코드포인트 라는
+-- 최후 수단으로 떨어진다. 그 결과 ORDER BY name 이
+--   가천대학교 ... 한성대학교(5글자 전부) -> 가톨릭대학교(6글자) -> 강릉원주대학교(7글자) ...
+-- 순서로 나온다.
+--
+-- 컬럼 collation 을 ICU ko-KR 로 지정하면 ORDER BY name 이 가나다순이 된다.
+-- ko-KR-x-icu 는 deterministic 이라 동등성 비교와 unique 제약 의미는 바뀌지 않고,
+-- 라틴 문자 정렬 순서도 기존 en_US.utf8 과 동일하다(ICU 가 라틴을 CLDR 공통 규칙으로 처리).
+--
+-- 근본 해결은 DB 를 LOCALE_PROVIDER icu ICU_LOCALE 'ko-KR' 로 생성하는 것이다.
+-- PostgreSQL 은 기존 DB 의 collation 을 제자리에서 바꿀 수 없어(덤프/복원 필요)
+-- k3s 이관 시 신규 DB 생성 단계에서 적용한다. 지금은 사용자에게 노출 중인 school.name 만 막는다.
+-- 같은 이유로 member/chapter/study_group/project 의 name 도 여전히 깨진 순서로 정렬된다.
+--
+-- collation 만 바꾸는 ALTER 는 힙을 재작성하지 않고 딸린 인덱스만 재생성한다.
+-- school.name 에는 인덱스가 없어 메타데이터 변경으로 끝난다.
+ALTER TABLE school ALTER COLUMN name TYPE varchar(255) COLLATE "ko-KR-x-icu";

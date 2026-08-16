@@ -6,6 +6,7 @@ import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
 
 import com.umc.product.notification.application.port.in.SendEmailUseCase;
+import com.umc.product.notification.application.port.in.dto.SendHtmlEmailCommand;
 import com.umc.product.notification.application.port.in.dto.SendVerificationEmailCommand;
 import com.umc.product.notification.application.port.out.SendEmailPort;
 import com.umc.product.notification.application.port.out.dto.EmailMessage;
@@ -39,9 +40,33 @@ public class SendEmailService implements SendEmailUseCase {
             SUBJECT_PREFIX + command.verificationCode(),
             htmlContent
         );
-        // 발송 실패 시 SesEmailAdapter 가 AWS error code 와 cause 를 포함해 도메인 예외로 변환한다.
-        // 비동기 호출이므로 예외는 AsyncUncaughtExceptionHandler 에서 처리된다.
-        sendEmailPort.send(message);
+        // 인증 이메일은 발송 실패 시 사용자가 가입/로그인을 진행할 수 없는 핵심 경로다.
+        // 어댑터(SesEmailAdapter)의 WARN 과 별개로, 인증 usecase 에서는 ERROR 로 남겨 운영자가 즉시 인지하도록 한다.
+        // 예외는 그대로 재던져 비동기 핸들러/상위 흐름이 처리하게 둔다.
+        try {
+            sendEmailPort.send(message);
+        } catch (EmailDomainException e) {
+            log.error("인증 이메일 발송 실패: recipientPresent={}", hasRecipient(command.to()), e);
+            throw e;
+        }
+    }
+
+    @Override
+    public void sendHtmlEmail(SendHtmlEmailCommand command) {
+        String htmlContent = renderHtmlTemplate(command);
+        EmailMessage message = new EmailMessage(
+            senderProperties.noReplyAddress(),
+            senderProperties.noReplyDisplayName(),
+            command.to(),
+            command.subject(),
+            htmlContent
+        );
+        try {
+            sendEmailPort.send(message);
+        } catch (EmailDomainException e) {
+            log.error("HTML 이메일 발송 실패: recipientPresent={}", hasRecipient(command.to()), e);
+            throw e;
+        }
     }
 
     private String renderVerificationTemplate(SendVerificationEmailCommand command) {
@@ -52,6 +77,17 @@ public class SendEmailService implements SendEmailUseCase {
         } catch (RuntimeException e) {
             // 예외 삼킴 방지: 비동기 컨텍스트에서도 원인 추적이 가능하도록 stacktrace 와 컨텍스트를 로그에 남긴다.
             log.error("이메일 템플릿 렌더링 실패: recipientPresent={}", hasRecipient(command.to()), e);
+            throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED, e);
+        }
+    }
+
+    private String renderHtmlTemplate(SendHtmlEmailCommand command) {
+        try {
+            Context context = new Context();
+            context.setVariables(command.variables());
+            return templateEngine.process(command.templateName(), context);
+        } catch (RuntimeException e) {
+            log.error("HTML 이메일 템플릿 렌더링 실패: recipientPresent={}", hasRecipient(command.to()), e);
             throw new EmailDomainException(EmailErrorCode.EMAIL_TEMPLATE_RENDER_FAILED, e);
         }
     }

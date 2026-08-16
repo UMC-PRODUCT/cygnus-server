@@ -2,6 +2,7 @@ package com.umc.product.global.config;
 
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -21,6 +22,55 @@ class SecurityConfigIntegrationTest extends IntegrationTestSupport {
         mockMvc.perform(get("/docs"))
             .andExpect(status().is3xxRedirection())
             .andExpect(redirectedUrl("/docs/scalar.html"));
+    }
+
+    @Test
+    @DisplayName("AsyncAPI 문서 진입 경로는 전용 HTML로 리다이렉트한다")
+    void asyncApiEntryRedirectsToDocumentationHtml() throws Exception {
+        mockMvc.perform(get("/docs/asyncapi"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/docs/asyncapi.html"));
+
+        mockMvc.perform(get("/docs/asyncapi/"))
+            .andExpect(status().is3xxRedirection())
+            .andExpect(redirectedUrl("/docs/asyncapi.html"));
+    }
+
+    @Test
+    @DisplayName("AsyncAPI UI와 원본 YAML은 인증 없이 제공한다")
+    void asyncApiDocumentationIsServedWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/docs/asyncapi.html"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("AsyncApiStandalone.render")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("/docs/asyncapi.yaml")));
+
+        mockMvc.perform(get("/docs/asyncapi.yaml"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("asyncapi: 3.0.0")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "/app/community/threads/{threadId}/messages"
+            )));
+
+        mockMvc.perform(get("/docs/community-thread.html"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "Community Thread WebSocket Console"
+            )));
+
+        mockMvc.perform(get("/docs/community-thread-websocket.html"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Apollo Sandbox 문서는 인증 없이 정적 HTML로 제공한다")
+    void apolloSandboxDocumentationIsServedWithoutAuthentication() throws Exception {
+        mockMvc.perform(get("/docs/apollo-sandbox.html"))
+            .andExpect(status().isOk())
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("EmbeddedSandbox")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString("initialEndpoint: '/graphql'")))
+            .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                "https://embeddable-sandbox.cdn.apollographql.com"
+            )));
     }
 
     @Test

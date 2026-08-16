@@ -1,5 +1,6 @@
 package com.umc.product.project.application.service.policy;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.TaskScheduler;
@@ -11,6 +12,11 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler;
  * 본 도메인 전용 풀로 분리하여 다른 도메인의 {@code @Scheduled} 풀과 자원이 섞이지 않도록 한다.
  */
 @Configuration
+@ConditionalOnProperty(
+    name = "scheduler.matching-round-deadline.enabled",
+    havingValue = "true",
+    matchIfMissing = true
+)
 public class MatchingDeadlineSchedulerConfig {
 
     @Bean(name = "matchingDeadlineTaskScheduler", destroyMethod = "shutdown")

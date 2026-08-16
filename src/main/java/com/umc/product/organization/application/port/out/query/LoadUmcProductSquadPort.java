@@ -1,6 +1,6 @@
 package com.umc.product.organization.application.port.out.query;
 
-import java.time.Instant;
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 
@@ -10,9 +10,11 @@ public interface LoadUmcProductSquadPort {
 
     UmcProductSquad getById(Long squadId);
 
-    List<UmcProductSquad> listAll(Boolean active);
+    UmcProductSquad getByIdWithLock(Long squadId);
 
-    List<UmcProductSquad> listOverlapping(Instant startAt, Instant endAt);
+    List<UmcProductSquad> listAll(Boolean active, LocalDate activeOn);
 
     List<UmcProductSquad> listByIds(Collection<Long> ids);
+
+    boolean existsByCode(String code, Long excludedSquadId);
 }

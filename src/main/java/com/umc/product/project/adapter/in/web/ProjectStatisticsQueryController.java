@@ -60,29 +60,31 @@ public class ProjectStatisticsQueryController {
     @GetMapping("/statistics")
     @Operation(
         operationId = "PROJECT-STAT-002",
-        summary = "프로젝트 지원/매칭 현황 통합 조회",
+        summary = "프로젝트 지원 현황 조회",
         description = """
+            프로젝트 지원 현황 조회 API입니다.
             projectIds 또는 chapterId 중 정확히 하나만 query parameter로 제공해야 합니다.
 
-            - projectIds 제공: 프로젝트 지원/매칭 현황을 `projects` 배열로 반환합니다. 단건은 1개 값으로 요청하고, 다건은 같은 지부 프로젝트만 요청할 수 있습니다.
-            - chapterId 제공: 지부 전체 프로젝트 지원/매칭 현황을 반환합니다.
+            - projectIds 제공: 요청한 프로젝트의 지원 현황을 `projects` 배열로 반환합니다. 단건은 1개 값으로 요청하고, 다건은 같은 지부 프로젝트만 요청할 수 있습니다.
+            - chapterId 제공: 지부 전체 프로젝트 지원 현황을 반환합니다.
 
-            chapterId에 속한 전체 프로젝트를 대상으로 ACTIVE ProjectMember 목록과
-            각 멤버가 해당 프로젝트에 작성한 지원 이력을 프로젝트별로 반환합니다.
-            summary에는 차수별 지원 완료 인원/지원 가능 총원, 학교 순위, 학교별 매칭 인원,
-            프로젝트별 차수 인원 수를 함께 반환합니다.
-
-            지부 내 회장단 이상의 운영진이 매칭 통계를 조회할 때 활용합니다.
-
-            지부 내 모든 프로젝트 목록 및 각 프로젝트에 대한 프로젝트 멤버를 포함하고 있으며,
+            지부 내 모든 프로젝트 목록 및 각 프로젝트에 대한 프로젝트 멤버를 포함하며,
             이는 `/api/v1/projects/{projectId}/statistics` 에서 제공하는 것과 동일한 형태입니다.
+            추가로 BFF 패턴을 적용하여 FE단 데이터 가공 책임을 줄이기 위해 `summary` 필드를 제공합니다.
 
-            추가로 BFF 패턴을 적용하여 FE단 데이터 가공 책임을 줄이기 위해 `summary` 필드를 제공하고 있습니다.
+            응답 필드 설명:
+            - projects: 프로젝트별 지원 현황 목록입니다.
+            - projects[].projectMembers: 해당 프로젝트에 최종 합류한 ACTIVE ProjectMember 목록입니다.
+            - projects[].projectMembers[].applications: 해당 멤버가 해당 프로젝트에 작성한 지원 이력입니다. 강제 배정처럼 지원서 없이 합류한 경우 빈 배열입니다.
+            - projects[].roundApplicationStatistics: 프로젝트 단위의 매칭 차수별 지원서 수와 지원 가능 인원 수입니다.
+            - projects[].schoolApplicationStatistics: 프로젝트 단위의 매칭 차수별 학교 지원자 수입니다. 같은 차수 안에서는 memberId 기준으로 중복 제거합니다.
+            - summary.roundApplicationStatistics: 조회 범위 전체의 매칭 차수별 지원서 수와 지원 가능 인원 수입니다. `appliedMemberCount`는 지원서 수 합계이고, `availableMemberCount`는 지원 가능 챌린저 총원에서 이전 차수까지 이미 ProjectMember로 합류한 인원을 제외한 값입니다.
+            - summary.roundSchoolRankings: 조회 범위 전체의 매칭 차수별 학교 지원자 수입니다. 같은 차수 안에서는 memberId 기준으로 중복 제거합니다.
+            - summary.schoolMatchingStatistics: 학교별 지원 가능 총원, 매칭 완료 인원, 한 번이라도 지원한 인원 수입니다. `totalMemberCount`는 지원 가능한 ACTIVE 챌린저 수, `matchedMemberCount`는 ACTIVE ProjectMember 수, `appliedMemberCount`는 조회 범위에서 한 번이라도 지원한 memberId 기준 unique 인원 수입니다.
+            - summary.projectRoundStatistics: 프로젝트별 매칭 차수 지원 현황입니다. `appliedMemberCount`는 프로젝트와 차수 안에서 memberId 기준으로 중복 제거한 지원자 수이고, `matchedMemberCount`는 해당 프로젝트와 차수에서 매칭 완료된 인원 수입니다.
 
-            - roundApplicationStatistics: N차 매칭 지원 현황 카드에 활용합니다. 각 매칭 차수별 정보 (매칭 종류 및 차수) 와 각 차수별 지원자 수 & 지원 가능했던 인원
-            - roundSchoolRankings: N차 매칭 지원 Top N에 활용합니다. 각 차수별로, 각 학교별 지원자 수
-            - schoolMatchingStatistics: 총원 N명 카드에 활용합니다. 차수와 무관하게, 각 학교별 총 매칭 완료 인원 & 지원 가능 총원
-            - projectRoundStatistics: 프로젝트별 지원 현황 필드에 활용합니다. 각 프로젝트별로, 각 매칭 차수별 정보 (매칭 종류 & 차수) 와 지원자 수
+            프로젝트별 지원자 목록은 `/api/v1/projects/{projectId}/applications`를 호출해서 조회해야 합니다.
+            공개 매칭 요약은 `/api/v1/projects/statistics/matchings`를 호출해서 조회해야 합니다.
 
             권한: projectIds 조회는 각 프로젝트의 PO/Sub-PM(본인 프로젝트), 총괄단, 해당 지부장, 해당 지부 소속 학교 회장/부회장만 조회할 수 있습니다.
             chapterId 조회는 총괄단(모든 지부), 해당 지부장, 해당 지부 소속 학교 회장/부회장만 조회할 수 있습니다. 그 외에는 403.

@@ -15,6 +15,16 @@ datasources:
     jsonData:
       timeInterval: 30s
 
+  # 홈서버에 주입된 AWS SDK 기본 자격 증명 체인으로 CloudWatch를 조회한다.
+  # Access Key, Secret, Role ARN 등 민감한 인증 정보는 provisioning 파일에 두지 않는다.
+  - name: cloudwatch
+    type: cloudwatch
+    uid: cloudwatch
+    access: proxy
+    jsonData:
+      authType: default
+      defaultRegion: ap-northeast-2
+
   - name: Alertmanager
     type: alertmanager
     uid: alertmanager

@@ -11,4 +11,8 @@ public class CommunityDomainException extends BusinessException {
     public CommunityDomainException(CommunityErrorCode errorCode, String message) {
         super(Domain.COMMUNITY, errorCode, message);
     }
+
+    public CommunityDomainException(CommunityErrorCode errorCode, Throwable cause) {
+        super(Domain.COMMUNITY, errorCode, cause);
+    }
 }

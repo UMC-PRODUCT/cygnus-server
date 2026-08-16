@@ -6,7 +6,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public enum CacheNamespace {
-    FIGMA_CLASSIFICATION("figma.classification", "figma.classifier.l1");
+    APPLE_JWKS("authentication.apple.jwks", "authentication.apple.jwks.l1"),
+    GOOGLE_JWKS("authentication.google.jwks", "authentication.google.jwks.l1"),
+    KAKAO_JWKS("authentication.kakao.jwks", "authentication.kakao.jwks.l1"),
+    AUTHORITY_SNAPSHOT("authorization.authority-snapshot", "authorization.authority.snapshot");
 
     private final String value;
     private final String metricName;

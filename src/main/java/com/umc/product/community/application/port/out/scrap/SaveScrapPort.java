@@ -17,4 +17,6 @@ public interface SaveScrapPort {
     void delete(Scrap scrap);
 
     void deleteByPostIdAndChallengerId(Long postId, Long challengerId);
+
+    void deleteByPostId(Long postId);
 }

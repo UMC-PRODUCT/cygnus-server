@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolLinkInfo;
@@ -65,6 +66,42 @@ public class SchoolQueryService implements GetSchoolUseCase {
     }
 
     @Override
+    public List<SchoolDetailInfo> listDetailsByIds(Set<Long> schoolIds) {
+        if (schoolIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<SchoolChapterInfo> schools = loadSchoolPort.findSchoolDetailsByIds(schoolIds);
+        if (schools.isEmpty()) {
+            return List.of();
+        }
+
+        List<Long> orderedSchoolIds = schools.stream()
+            .map(SchoolChapterInfo::schoolId)
+            .toList();
+        Map<Long, List<SchoolDetailInfo.SchoolLinkItem>> linksMap =
+            loadSchoolPort.findLinksBySchoolIds(orderedSchoolIds);
+
+        List<String> logoImageIds = schools.stream()
+            .map(SchoolChapterInfo::logoImageId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
+
+        Map<String, String> logoImageUrls = logoImageIds.isEmpty()
+            ? Map.of()
+            : getFileUseCase.getFileLinks(logoImageIds);
+
+        return schools.stream()
+            .map(school -> toSchoolDetailInfo(
+                school,
+                logoImageUrl(logoImageUrls, school.logoImageId()),
+                linksMap.getOrDefault(school.schoolId(), List.of())
+            ))
+            .toList();
+    }
+
+    @Override
     public List<UnassignedSchoolInfo> getUnassignedSchools(Long gisuId) {
         return loadSchoolPort.findUnassignedByGisuId(gisuId).stream()
             .map(UnassignedSchoolInfo::from)
@@ -99,6 +136,11 @@ public class SchoolQueryService implements GetSchoolUseCase {
                 linksMap.getOrDefault(school.schoolId(), List.of())
             ))
             .toList();
+    }
+
+    @Override
+    public List<SchoolChapterNameInfo> getSchoolChapterNamesByGisuId(Long gisuId) {
+        return loadSchoolPort.findSchoolChapterNamesByGisuId(gisuId);
     }
 
     @Override
@@ -149,6 +191,7 @@ public class SchoolQueryService implements GetSchoolUseCase {
             info.chapterId(),
             info.chapterName(),
             info.schoolName(),
+            info.shortName(),
             info.schoolId(),
             info.remark(),
             logoImageUrl,
@@ -172,6 +215,7 @@ public class SchoolQueryService implements GetSchoolUseCase {
             info.chapterId(),
             info.chapterName(),
             info.schoolName(),
+            info.shortName(),
             info.schoolId(),
             info.remark(),
             logoImageUrl,

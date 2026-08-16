@@ -1,23 +1,25 @@
 package com.umc.product.project.application.port.in.query.dto;
 
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.project.domain.ProjectApplicationForm;
-import com.umc.product.project.domain.ProjectApplicationFormPolicy;
-import com.umc.product.project.domain.enums.FormSectionType;
-import com.umc.product.survey.application.port.in.query.dto.FormWithStructureInfo;
-import com.umc.product.survey.domain.enums.QuestionType;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.form.application.port.in.query.dto.FormWithStructureInfo;
+import com.umc.product.form.domain.enums.QuestionType;
+import com.umc.product.project.domain.ProjectApplicationForm;
+import com.umc.product.project.domain.ProjectApplicationFormPolicy;
+import com.umc.product.project.domain.enums.FormSectionType;
+
 import lombok.Builder;
 
 /**
  * 지원 폼 구조 (폼 메타 + 섹션 → 질문 → 옵션) Info DTO.
  * <p>
- * Survey 도메인의 {@link FormWithStructureInfo} 와 Project 도메인의 정책({@link ProjectApplicationFormPolicy}) 을 합성하여 단일 응답 구조를
+ * Form 도메인의 {@link FormWithStructureInfo} 와 Project 도메인의 정책({@link ProjectApplicationFormPolicy}) 을 합성하여 단일 응답 구조를
  * 만든다.
  * <ul>
  *   <li>{@link #of} — PM/운영진 시점의 마스킹 없는 전체 섹션 노출</li>

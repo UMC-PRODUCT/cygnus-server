@@ -1,5 +1,8 @@
 # Global Cache, Local Pub/Sub, Event Outbox 실행 계획
 
+> 이 문서는 구현 당시 계획의 기록이다. publisher 선택 feature flag는
+> [ADR-026](../../adr/026-enforce-event-outbox-publisher.md)으로 대체되었다.
+
 > 작성일: 2026-05-21
 > 기준 브랜치: `origin/develop`
 > 목표 PR 수: 2개

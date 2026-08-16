@@ -1,7 +1,5 @@
 package com.umc.product.authentication.application.service;
 
-import java.util.Optional;
-
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -44,7 +42,7 @@ public class CredentialAuthenticationService implements CredentialAuthentication
     private final AuthenticationTokenIssuer authenticationTokenIssuer;
     private final GetMemberCredentialUseCase getMemberCredentialUseCase;
     private final ManageMemberCredentialUseCase manageMemberCredentialUseCase;
-    private final CredentialRehashService rehashService;
+    private final SsoCredentialVerifier credentialVerifier;
     private final OperationalMetrics operationalMetrics;
 
     @Override
@@ -110,27 +108,7 @@ public class CredentialAuthenticationService implements CredentialAuthentication
     @Transactional
     public LocalLoginResult loginByEmail(LoginByEmailCommand command) {
         try {
-            // 1) 자격증명 조회: 부재 / 실패 모두 동일 메시지로 처리하여 사용자 열거 공격을 방지한다.
-            Optional<MemberCredentialInfo> credentialOpt =
-                getMemberCredentialUseCase.findCredentialByEmail(command.email());
-
-            if (credentialOpt.isEmpty()) {
-                throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_LOGIN_CREDENTIAL);
-            }
-
-            MemberCredentialInfo credential = credentialOpt.get();
-
-            // 2) 비밀번호 검증
-            if (!passwordEncoder.matches(command.rawPassword(), credential.passwordHash())) {
-                throw new AuthenticationDomainException(AuthenticationErrorCode.INVALID_LOGIN_CREDENTIAL);
-            }
-
-            // 3) 점진적 rehash: 해시 정책이 갱신되었으면 최신 정책으로 재저장한다.
-            // 별도 트랜잭션(REQUIRES_NEW)에서 수행하여 실패가 로그인에 영향을 주지 않도록 한다.
-            rehashService.rehashIfNeeded(credential, command.rawPassword());
-
-            // 4) 토큰 발급
-            Long memberId = credential.memberId();
+            Long memberId = credentialVerifier.verifyEmailPassword(command.email(), command.rawPassword());
             NewTokens newTokens = authenticationTokenIssuer.issue(
                 memberId,
                 command.clientType()

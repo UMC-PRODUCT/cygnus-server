@@ -1,7 +1,9 @@
 package com.umc.product.global.config;
 
 import java.util.List;
+import java.util.Optional;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
@@ -22,8 +24,10 @@ import lombok.RequiredArgsConstructor;
 @Configuration
 public class OpenApiConfig {
 
+    private static final String DEFAULT_API_VERSION = "local";
+
     private final String accessToken = "Access Token";
-    private final BuildProperties buildProperties;
+    private final ObjectProvider<BuildProperties> buildPropertiesProvider;
 
     @Value("${server.port:8080}")
     private String serverPort;
@@ -39,7 +43,7 @@ public class OpenApiConfig {
     }
 
     private Info apiInfo() {
-        String version = buildProperties.getVersion();
+        String version = apiVersion();
 
         String description = """
             #### 국내 최대 규모 대학생 개발 연합 동아리, University MakeUs Challenge
@@ -59,8 +63,7 @@ public class OpenApiConfig {
             - 동덕여자대학교 **세니/박세은** [1st, 2nd]
             - 중앙대학교 **스읍/이예은** [1st, 2nd]
             - 한양대학교 ERICA **라미/권도희** [2nd]
-            - 가천대학교 **커너/박성현** [2nd]
-            - 홍익대학교 서울캠퍼스 **이람/박승범** [2nd]
+            - 가천대학교 **우디/박성현** [2nd]
             - 한성대학교 **리버/이재원** [2nd]
             """;
 
@@ -68,6 +71,13 @@ public class OpenApiConfig {
             .title("UMC PRODUCT API")
             .version(version)
             .description(description);
+    }
+
+    private String apiVersion() {
+        return Optional.ofNullable(buildPropertiesProvider.getIfAvailable())
+            .map(BuildProperties::getVersion)
+            .filter(version -> !version.isBlank())
+            .orElse(DEFAULT_API_VERSION);
     }
 
     private List<Server> servers() {

@@ -7,7 +7,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.community.application.port.in.command.report.ReportCommentUseCase;
 import com.umc.product.community.application.port.in.command.report.ReportPostUseCase;
 import com.umc.product.community.application.port.in.command.report.dto.ReportCommentCommand;
@@ -27,7 +26,6 @@ public class ReportController {
 
     private final ReportPostUseCase reportPostUseCase;
     private final ReportCommentUseCase reportCommentUseCase;
-    private final GetChallengerUseCase getChallengerUseCase;
 
     @PostMapping("/posts/{postId}/reports")
     @ResponseStatus(HttpStatus.CREATED)
@@ -36,8 +34,7 @@ public class ReportController {
         @PathVariable Long postId,
         @CurrentMember MemberPrincipal memberPrincipal
     ) {
-        Long reporterId = getReporterId(memberPrincipal);
-        ReportPostCommand command = new ReportPostCommand(postId, reporterId);
+        ReportPostCommand command = new ReportPostCommand(postId, memberPrincipal.getMemberId());
         reportPostUseCase.report(command);
     }
 
@@ -48,19 +45,7 @@ public class ReportController {
         @PathVariable Long commentId,
         @CurrentMember MemberPrincipal memberPrincipal
     ) {
-        Long reporterId = getReporterId(memberPrincipal);
-        ReportCommentCommand command = new ReportCommentCommand(commentId, reporterId);
+        ReportCommentCommand command = new ReportCommentCommand(commentId, memberPrincipal.getMemberId());
         reportCommentUseCase.report(command);
-    }
-
-    /**
-     * 현재 로그인한 사용자의 챌린저 ID를 조회합니다.
-     *
-     * @param memberPrincipal 현재 로그인한 사용자 정보
-     * @return 챌린저 ID
-     */
-    private Long getReporterId(MemberPrincipal memberPrincipal) {
-        Long memberId = memberPrincipal.getMemberId();
-        return getChallengerUseCase.getLatestActiveChallengerByMemberId(memberId).challengerId();
     }
 }

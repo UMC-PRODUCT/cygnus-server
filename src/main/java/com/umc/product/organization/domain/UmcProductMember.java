@@ -66,6 +66,6 @@ public class UmcProductMember extends BaseEntity {
     }
 
     private static String normalizeNullable(String value) {
-        return value == null || value.isBlank() ? null : value;
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

@@ -1,14 +1,19 @@
 package com.umc.product.global.security;
 
-import com.umc.product.common.domain.enums.ClientType;
 import java.util.Collection;
 import java.util.Collections;
-import lombok.Builder;
-import lombok.Getter;
+
+import org.springframework.security.core.AuthenticatedPrincipal;
 import org.springframework.security.core.GrantedAuthority;
 
+import com.umc.product.common.domain.enums.ClientType;
+import com.umc.product.global.client.ClientContextClaims;
+
+import lombok.Builder;
+import lombok.Getter;
+
 @Getter
-public class MemberPrincipal {
+public class MemberPrincipal implements AuthenticatedPrincipal {
 
     private final Long memberId;
 
@@ -16,14 +21,21 @@ public class MemberPrincipal {
     // 통계/로그 컨텍스트용 메타데이터이며, 인가 결정에는 영향을 주지 않는다.
     private final ClientType clientType;
 
+    private final ClientContextClaims clientContextClaims;
+
     @Builder
-    public MemberPrincipal(Long memberId, ClientType clientType) {
+    public MemberPrincipal(Long memberId, ClientType clientType, ClientContextClaims clientContextClaims) {
         this.memberId = memberId;
         this.clientType = clientType;
+        this.clientContextClaims = clientContextClaims == null ? ClientContextClaims.empty() : clientContextClaims;
     }
 
     public MemberPrincipal(Long memberId) {
         this(memberId, null);
+    }
+
+    public MemberPrincipal(Long memberId, ClientType clientType) {
+        this(memberId, clientType, ClientContextClaims.empty());
     }
 
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -31,10 +43,16 @@ public class MemberPrincipal {
     }
 
     @Override
+    public String getName() {
+        return String.valueOf(memberId);
+    }
+
+    @Override
     public String toString() {
         return "MemberPrincipal{" +
                 "memberId=" + memberId +
                 ", clientType=" + clientType +
+                ", clientContextClaims=" + clientContextClaims +
                 '}';
     }
 }

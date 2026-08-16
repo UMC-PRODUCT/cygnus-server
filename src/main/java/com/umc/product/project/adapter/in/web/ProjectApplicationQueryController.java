@@ -1,7 +1,11 @@
 package com.umc.product.project.adapter.in.web;
 
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,14 +24,19 @@ import com.umc.product.project.adapter.in.web.dto.response.ProjectApplicantRespo
 import com.umc.product.project.adapter.in.web.dto.response.ProjectApplicationDetailResponse;
 import com.umc.product.project.application.port.in.query.dto.GetMyProjectApplicationsQuery;
 import com.umc.product.project.application.port.in.query.dto.GetProjectApplicationDetailQuery;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsQuery;
 import com.umc.product.project.domain.enums.ProjectApplicationStatus;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 
+@Validated
 @RestController
 @RequestMapping("/api/v1/projects")
 @RequiredArgsConstructor
@@ -81,6 +90,48 @@ public class ProjectApplicationQueryController {
             .build();
 
         return assembler.myApplicationsFor(query);
+    }
+
+    @GetMapping("/applications")
+    @Operation(
+        operationId = "APPLY-101-BATCH",
+        summary = "PM/운영진 복수 프로젝트 지원자 목록 조회",
+        description = """
+            복수 프로젝트의 제출된 지원자 목록을 프로젝트별로 조회합니다. 임시저장(DRAFT) 지원서는 포함하지 않습니다.
+            권한이 없거나 존재하지 않는 프로젝트는 해당 projectId 의 값을 빈 목록으로 반환합니다.
+            <p>
+            필터:
+            <ul>
+              <li>projectIds: 프로젝트 ID 목록. 최대 100개까지 조회할 수 있습니다.</li>
+              <li>matchingRoundId: 매칭 차수 ID</li>
+              <li>part: 지원자(챌린저) 파트</li>
+              <li>status: 지원 상태. SUBMITTED, APPROVED, REJECTED 만 사용할 수 있습니다.
+                  DRAFT 를 보내면 APPLICATION_DRAFT_FILTER_NOT_ALLOWED 오류를 반환합니다.</li>
+            </ul>
+            """
+    )
+    public Map<Long, List<ProjectApplicantResponse>> getProjectApplicantsBatch(
+        @CurrentMember MemberPrincipal memberPrincipal,
+        @RequestParam
+        @NotEmpty(message = "projectIds는 비어 있을 수 없습니다.") @Size(max = 100, message = "projectIds는 최대 100개까지 조회할 수 있습니다.") List<@NotNull Long> projectIds,
+        @RequestParam(required = false) Long matchingRoundId,
+        @RequestParam(required = false) ChallengerPart part,
+        @Parameter(description = """
+            지원 상태 필터입니다. DRAFT 는 지원자 목록에서 사용할 수 없습니다.
+            허용 값: SUBMITTED / APPROVED / REJECTED.
+            """)
+        @RequestParam(required = false) ProjectApplicationStatus status
+    ) {
+        List<Long> deduplicatedProjectIds = new ArrayList<>(new LinkedHashSet<>(projectIds));
+        SearchProjectApplicationsBatchQuery query = SearchProjectApplicationsBatchQuery.builder()
+            .requesterMemberId(memberPrincipal.getMemberId())
+            .projectIds(deduplicatedProjectIds)
+            .matchingRoundId(matchingRoundId)
+            .part(part)
+            .status(status)
+            .build();
+
+        return assembler.applicantsForBatch(query);
     }
 
     @GetMapping("/{projectId}/applications")
@@ -156,7 +207,8 @@ public class ProjectApplicationQueryController {
                   <li>지원자 본인</li>
                   <li>해당 프로젝트의 PO</li>
                   <li>해당 프로젝트의 Sub-PO (ACTIVE PLAN 멤버)</li>
-                  <li>해당 프로젝트 기수의 Central Core (총괄/부총괄/SUPER_ADMIN)</li>
+                  <li>전역 SUPER_ADMIN</li>
+                  <li>해당 프로젝트 기수의 Central Core (총괄/부총괄)</li>
                   <li>해당 프로젝트 지부의 지부장 (같은 기수)</li>
                 </ul>
               </li>

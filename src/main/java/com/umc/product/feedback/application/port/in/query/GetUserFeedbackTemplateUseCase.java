@@ -9,7 +9,7 @@ import com.umc.product.feedback.domain.enums.UserFeedbackContext;
  * 사용자 피드백 템플릿 조회 UseCase.
  * <p>
  * 요청자의 memberId를 기반으로 UserFeedbackTargetType(신규/기존/어드민)을 판별한 뒤,
- * 해당 context에 맞는 활성 템플릿과 Survey 폼 전체 구조를 반환합니다.
+ * 해당 context에 맞는 활성 템플릿과 Form 폼 전체 구조를 반환합니다.
  */
 public interface GetUserFeedbackTemplateUseCase {
 

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
 import com.umc.product.challenger.application.port.in.command.ManageChallengerRecordUseCase;
@@ -47,6 +48,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
     private final GetChapterUseCase getChapterUseCase;
     private final GetMemberUseCase getMemberUseCase;
     private final ManageChallengerRoleUseCase manageChallengerRoleUseCase;
+    private final EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     private final SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
 
@@ -164,6 +166,7 @@ public class ChallengerRecordCommandService implements ManageChallengerRecordUse
                     .gisuId(record.getGisuId())
                     .build()
             );
+            evictAuthoritySnapshotCacheUseCase.evictByMemberId(memberId);
 
             sendWebhookAlarmUseCase.sendBuffered(
                 SendWebhookAlarmCommand.builder()

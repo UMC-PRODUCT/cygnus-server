@@ -1,0 +1,1066 @@
+asyncapi: 3.0.0
+id: urn:umc-product:community-thread-realtime-api
+info:
+  title: UMC PRODUCT Community Thread Realtime API
+  version: 1.0.0
+  description: |
+    Community Thread의 실시간 메시지, reaction, read command와 lifecycle event 계약입니다.
+
+    이 문서는 **서버 관점**으로 작성됩니다. `receive` operation은 클라이언트가 서버로 보내는
+    STOMP SEND command이고, `send` operation은 서버가 구독 destination으로 전달하는 event입니다.
+
+    Native WebSocket client는 `/ws/websocket`에 연결한 뒤 STOMP 1.2 frame을 사용해야 합니다.
+    `/ws`는 SockJS endpoint입니다. 임의 JSON frame을 직접 교환하는 별도 raw WebSocket protocol은
+    제공하지 않습니다.
+
+    모든 ID와 count는 JSON string으로 전달합니다. 단, error의 HTTP-like `status`는 number이고
+    boolean과 null은 JSON 원시 타입을 유지합니다.
+  x-logo: /umc-logo.svg
+  tags:
+    - name: command
+      description: 클라이언트가 SEND하는 상태 변경 명령
+    - name: event
+      description: 서버가 구독자에게 전달하는 상태 이벤트와 ACK
+    - name: error
+      description: 세션을 유지한 채 복구 가능한 command 오류
+
+defaultContentType: application/json
+
+servers:
+  application:
+    host: "{host}"
+    pathname: /ws/websocket
+    protocol: stomp
+    protocolVersion: "1.2"
+    title: UMC PRODUCT WebSocket
+    summary: Native WebSocket transport 위의 STOMP 1.2 endpoint
+    description: |
+      CONNECT frame의 `Authorization` native header에 `Bearer <access-token>`을 전송합니다.
+      운영 환경에서는 `wss` transport를 사용합니다. SockJS client는 `/ws` endpoint를 사용합니다.
+      Server heartbeat는 4초 간격으로 설정됩니다.
+    variables:
+      host:
+        default: localhost:8080
+        description: 환경별 API host와 port
+    security:
+      - $ref: "#/components/securitySchemes/bearerAuth"
+    x-websocket-transport: true
+    x-sockjs-path: /ws
+
+channels:
+  createMessageCommand:
+    address: /app/community/threads/{threadId}/messages
+    title: 메시지 생성 command
+    description: TEXT 또는 IMAGE 메시지를 생성합니다.
+    parameters:
+      threadId:
+        $ref: "#/components/parameters/threadId"
+    messages:
+      createMessage:
+        $ref: "#/components/messages/CreateMessageCommand"
+
+  editMessageCommand:
+    address: /app/community/threads/{threadId}/messages/{messageId}/edit
+    title: 메시지 수정 command
+    description: 작성자가 기존 메시지의 content만 수정합니다.
+    parameters:
+      threadId:
+        $ref: "#/components/parameters/threadId"
+      messageId:
+        $ref: "#/components/parameters/messageId"
+    messages:
+      editMessage:
+        $ref: "#/components/messages/EditMessageCommand"
+
+  deleteMessageCommand:
+    address: /app/community/threads/{threadId}/messages/{messageId}/delete
+    title: 메시지 삭제 command
+    description: 메시지를 SYSTEM tombstone으로 전환합니다.
+    parameters:
+      threadId:
+        $ref: "#/components/parameters/threadId"
+      messageId:
+        $ref: "#/components/parameters/messageId"
+    messages:
+      deleteMessage:
+        $ref: "#/components/messages/DeleteMessageCommand"
+
+  addReactionCommand:
+    address: /app/community/threads/{threadId}/messages/{messageId}/reactions/add
+    title: Reaction 추가 command
+    parameters:
+      threadId:
+        $ref: "#/components/parameters/threadId"
+      messageId:
+        $ref: "#/components/parameters/messageId"
+    messages:
+      addReaction:
+        $ref: "#/components/messages/AddReactionCommand"
+
+  removeReactionCommand:
+    address: /app/community/threads/{threadId}/messages/{messageId}/reactions/remove
+    title: Reaction 제거 command
+    parameters:
+      threadId:
+        $ref: "#/components/parameters/threadId"
+      messageId:
+        $ref: "#/components/parameters/messageId"
+    messages:
+      removeReaction:
+        $ref: "#/components/messages/RemoveReactionCommand"
+
+  updateReadCommand:
+    address: /app/community/threads/{threadId}/read
+    title: 읽음 watermark 갱신 command
+    parameters:
+      threadId:
+        $ref: "#/components/parameters/threadId"
+    messages:
+      updateRead:
+        $ref: "#/components/messages/UpdateReadCommand"
+
+  communityThreadEvents:
+    address: /user/queue/community/threads/events
+    title: 개인화된 Community Thread event
+    description: |
+      인증 principal의 Spring User Destination입니다. 클라이언트는 연결 후 한 번 구독하며
+      `threadId`와 `type`으로 이벤트를 분류합니다. ACK와 message/reaction/read/thread/member
+      lifecycle event를 전달하고, relay 특성상 같은 `eventId`가 중복 전달될 수 있습니다.
+    messages:
+      commandAcknowledged:
+        $ref: "#/components/messages/CommandAcknowledgedEvent"
+      messageCreated:
+        $ref: "#/components/messages/MessageCreatedEvent"
+      messageUpdated:
+        $ref: "#/components/messages/MessageUpdatedEvent"
+      messageDeleted:
+        $ref: "#/components/messages/MessageDeletedEvent"
+      reactionChanged:
+        $ref: "#/components/messages/ReactionChangedEvent"
+      readUpdated:
+        $ref: "#/components/messages/ReadUpdatedEvent"
+      threadUpdated:
+        $ref: "#/components/messages/ThreadUpdatedEvent"
+      threadDeleted:
+        $ref: "#/components/messages/ThreadDeletedEvent"
+      memberKicked:
+        $ref: "#/components/messages/MemberKickedEvent"
+      memberLeft:
+        $ref: "#/components/messages/MemberLeftEvent"
+      threadInvited:
+        $ref: "#/components/messages/ThreadInvitedEvent"
+
+  recoverableErrors:
+    address: /user/queue/errors
+    title: 복구 가능한 command error
+    description: |
+      command validation, permission, not-found, conflict, application failure와 rate limit 오류입니다.
+      해당 command만 거절하고 WebSocket session은 유지합니다.
+    messages:
+      commandError:
+        $ref: "#/components/messages/CommandError"
+
+operations:
+  receiveCreateMessage:
+    action: receive
+    title: 메시지 생성
+    summary: 서버가 메시지 생성 command를 수신합니다.
+    description: |
+      `clientMessageId`는 thread와 sender를 포함한 저장 idempotency key입니다. 같은 key와 같은
+      canonical payload를 retry하면 기존 결과와 `deduplicated=true` ACK를 반환하고, payload가
+      다르면 409 conflict를 반환합니다.
+    channel:
+      $ref: "#/channels/createMessageCommand"
+    messages:
+      - $ref: "#/channels/createMessageCommand/messages/createMessage"
+    tags:
+      - $ref: "#/components/tags/command"
+
+  receiveEditMessage:
+    action: receive
+    title: 메시지 수정
+    summary: 서버가 content 수정 command를 수신합니다.
+    channel:
+      $ref: "#/channels/editMessageCommand"
+    messages:
+      - $ref: "#/channels/editMessageCommand/messages/editMessage"
+    tags:
+      - $ref: "#/components/tags/command"
+
+  receiveDeleteMessage:
+    action: receive
+    title: 메시지 삭제
+    summary: 서버가 빈 JSON body의 tombstone command를 수신합니다.
+    channel:
+      $ref: "#/channels/deleteMessageCommand"
+    messages:
+      - $ref: "#/channels/deleteMessageCommand/messages/deleteMessage"
+    tags:
+      - $ref: "#/components/tags/command"
+
+  receiveAddReaction:
+    action: receive
+    title: Reaction 추가
+    channel:
+      $ref: "#/channels/addReactionCommand"
+    messages:
+      - $ref: "#/channels/addReactionCommand/messages/addReaction"
+    tags:
+      - $ref: "#/components/tags/command"
+
+  receiveRemoveReaction:
+    action: receive
+    title: Reaction 제거
+    channel:
+      $ref: "#/channels/removeReactionCommand"
+    messages:
+      - $ref: "#/channels/removeReactionCommand/messages/removeReaction"
+    tags:
+      - $ref: "#/components/tags/command"
+
+  receiveUpdateRead:
+    action: receive
+    title: 읽음 watermark 갱신
+    summary: 낮거나 같은 watermark는 성공하는 state-idempotent no-op입니다.
+    channel:
+      $ref: "#/channels/updateReadCommand"
+    messages:
+      - $ref: "#/channels/updateReadCommand/messages/updateRead"
+    tags:
+      - $ref: "#/components/tags/command"
+
+  sendCommunityThreadEvents:
+    action: send
+    title: 개인화된 Community Thread event와 ACK 전달
+    summary: 서버가 인증 회원의 단일 User Destination으로 event를 보냅니다.
+    description: |
+      state event는 transaction commit 이후 at-least-once로 전달됩니다. `eventId`로 중복을 제거해야
+      하며 ACK와 state event의 상대적 순서는 보장되지 않습니다.
+    channel:
+      $ref: "#/channels/communityThreadEvents"
+    messages:
+      - $ref: "#/channels/communityThreadEvents/messages/commandAcknowledged"
+      - $ref: "#/channels/communityThreadEvents/messages/messageCreated"
+      - $ref: "#/channels/communityThreadEvents/messages/messageUpdated"
+      - $ref: "#/channels/communityThreadEvents/messages/messageDeleted"
+      - $ref: "#/channels/communityThreadEvents/messages/reactionChanged"
+      - $ref: "#/channels/communityThreadEvents/messages/readUpdated"
+      - $ref: "#/channels/communityThreadEvents/messages/threadUpdated"
+      - $ref: "#/channels/communityThreadEvents/messages/threadDeleted"
+      - $ref: "#/channels/communityThreadEvents/messages/memberKicked"
+      - $ref: "#/channels/communityThreadEvents/messages/memberLeft"
+      - $ref: "#/channels/communityThreadEvents/messages/threadInvited"
+    tags:
+      - $ref: "#/components/tags/event"
+
+  sendRecoverableErrors:
+    action: send
+    title: 복구 가능한 command error 전달
+    channel:
+      $ref: "#/channels/recoverableErrors"
+    messages:
+      - $ref: "#/channels/recoverableErrors/messages/commandError"
+    tags:
+      - $ref: "#/components/tags/error"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: httpApiKey
+      name: Authorization
+      in: header
+      description: "STOMP CONNECT native header `Authorization: Bearer <access-token>`"
+
+  tags:
+    command:
+      name: command
+      description: STOMP SEND command
+    event:
+      name: event
+      description: STOMP subscription event
+    error:
+      name: error
+      description: Recoverable command error
+
+  parameters:
+    threadId:
+      description: Community Thread ID. 양의 십진수 문자열입니다.
+      examples:
+        - "100"
+    messageId:
+      description: Chat message ID. 양의 십진수 문자열입니다.
+      examples:
+        - "1234"
+  messages:
+    CreateMessageCommand:
+      name: CreateMessageCommand
+      title: 메시지 생성 command
+      summary: TEXT 또는 IMAGE 메시지를 생성합니다.
+      contentType: application/json
+      headers:
+        $ref: "#/components/schemas/CommandHeaders"
+      payload:
+        $ref: "#/components/schemas/CreateMessageCommandPayload"
+      examples:
+        - name: createText
+          summary: TEXT 메시지 생성
+          headers:
+            content-type: application/json
+            x-command-id: 40d0ef35-95f0-4a5f-af12-8ab7f4a3d919
+          payload:
+            clientMessageId: 9fcfce7d-07f4-46bb-9df3-7b867c261aed
+            type: TEXT
+            content: 안녕하세요
+            fileMetadataIds: []
+            mentionedMemberIds: ["42"]
+            replyToId: null
+
+    EditMessageCommand:
+      name: EditMessageCommand
+      title: 메시지 수정 command
+      contentType: application/json
+      headers:
+        $ref: "#/components/schemas/CommandHeaders"
+      payload:
+        $ref: "#/components/schemas/EditMessageCommandPayload"
+
+    DeleteMessageCommand:
+      name: DeleteMessageCommand
+      title: 메시지 tombstone command
+      contentType: application/json
+      headers:
+        $ref: "#/components/schemas/CommandHeaders"
+      payload:
+        $ref: "#/components/schemas/DeleteMessageCommandPayload"
+
+    AddReactionCommand:
+      name: AddReactionCommand
+      title: Reaction 추가 command
+      contentType: application/json
+      headers:
+        $ref: "#/components/schemas/CommandHeaders"
+      payload:
+        $ref: "#/components/schemas/ChangeReactionCommandPayload"
+
+    RemoveReactionCommand:
+      name: RemoveReactionCommand
+      title: Reaction 제거 command
+      contentType: application/json
+      headers:
+        $ref: "#/components/schemas/CommandHeaders"
+      payload:
+        $ref: "#/components/schemas/ChangeReactionCommandPayload"
+
+    UpdateReadCommand:
+      name: UpdateReadCommand
+      title: 읽음 watermark 갱신 command
+      contentType: application/json
+      headers:
+        $ref: "#/components/schemas/CommandHeaders"
+      payload:
+        $ref: "#/components/schemas/UpdateReadCommandPayload"
+
+    CommandAcknowledgedEvent:
+      name: CommandAcknowledgedEvent
+      title: Command 처리 ACK
+      summary: caller에게 best-effort로 전달되며 state event와 순서가 보장되지 않습니다.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/CommandAcknowledgedEventEnvelope"
+
+    MessageCreatedEvent:
+      name: MessageCreatedEvent
+      title: 메시지 생성 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/MessageCreatedEventEnvelope"
+
+    MessageUpdatedEvent:
+      name: MessageUpdatedEvent
+      title: 메시지 수정 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/MessageUpdatedEventEnvelope"
+
+    MessageDeletedEvent:
+      name: MessageDeletedEvent
+      title: 메시지 삭제 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/MessageDeletedEventEnvelope"
+
+    ReactionChangedEvent:
+      name: ReactionChangedEvent
+      title: Reaction 집계 변경 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ReactionChangedEventEnvelope"
+
+    ReadUpdatedEvent:
+      name: ReadUpdatedEvent
+      title: 읽음 watermark 변경 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ReadUpdatedEventEnvelope"
+
+    ThreadInvitedEvent:
+      name: ThreadInvitedEvent
+      title: Thread 초대 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ThreadInvitedEventEnvelope"
+
+    ThreadUpdatedEvent:
+      name: ThreadUpdatedEvent
+      title: Thread 메타데이터 변경 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ThreadUpdatedEventEnvelope"
+
+    ThreadDeletedEvent:
+      name: ThreadDeletedEvent
+      title: Thread 삭제 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/ThreadDeletedEventEnvelope"
+
+    MemberKickedEvent:
+      name: MemberKickedEvent
+      title: Member 강퇴 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/MemberKickedEventEnvelope"
+
+    MemberLeftEvent:
+      name: MemberLeftEvent
+      title: Member 퇴장 event
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/MemberLeftEventEnvelope"
+
+    CommandError:
+      name: CommandError
+      title: 복구 가능한 command error
+      summary: 해당 command만 거절하며 session은 유지합니다.
+      contentType: application/json
+      payload:
+        $ref: "#/components/schemas/CommandErrorPayload"
+      examples:
+        - name: conflict
+          payload:
+            commandId: 40d0ef35-95f0-4a5f-af12-8ab7f4a3d919
+            clientMessageId: 9fcfce7d-07f4-46bb-9df3-7b867c261aed
+            status: 409
+            code: CHAT-0014
+            message: 동일한 clientMessageId로 다른 메시지를 생성할 수 없어요.
+            retryable: false
+
+  schemas:
+    PositiveDecimalString:
+      type: string
+      pattern: "^[1-9][0-9]*$"
+      examples: ["100"]
+
+    NonNegativeDecimalString:
+      type: string
+      pattern: "^(0|[1-9][0-9]*)$"
+      examples: ["0"]
+
+    CanonicalUuid:
+      type: string
+      format: uuid
+      pattern: "^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+
+    NullableUuid:
+      oneOf:
+        - $ref: "#/components/schemas/CanonicalUuid"
+        - type: "null"
+
+    NullablePositiveDecimalString:
+      oneOf:
+        - $ref: "#/components/schemas/PositiveDecimalString"
+        - type: "null"
+
+    NullableString:
+      oneOf:
+        - type: string
+        - type: "null"
+
+    NullableDateTime:
+      oneOf:
+        - type: string
+          format: date-time
+        - type: "null"
+
+    CommandHeaders:
+      type: object
+      additionalProperties: true
+      required: [x-command-id]
+      properties:
+        x-command-id:
+          $ref: "#/components/schemas/CanonicalUuid"
+        content-type:
+          type: string
+          const: application/json
+      description: |
+        `x-command-id`는 매 SEND마다 새로 발급하는 command correlation ID입니다. 이 값의 재사용은
+        idempotency를 보장하지 않습니다.
+
+    CreateMessageCommandPayload:
+      type: object
+      additionalProperties: false
+      required: [clientMessageId, type]
+      properties:
+        clientMessageId:
+          $ref: "#/components/schemas/CanonicalUuid"
+        type:
+          type: string
+          enum: [TEXT, IMAGE]
+        content:
+          oneOf:
+            - type: string
+              maxLength: 2000
+            - type: "null"
+          description: TEXT는 non-blank 필수, IMAGE는 optional caption입니다.
+        fileMetadataIds:
+          type: array
+          uniqueItems: true
+          maxItems: 4
+          default: []
+          items:
+            type: string
+            pattern: ".*\\S.*"
+          description: 생략 시 빈 배열입니다. TEXT는 비어 있어야 하고 IMAGE는 1~4개가 필요합니다.
+        mentionedMemberIds:
+          type: array
+          default: []
+          items:
+            $ref: "#/components/schemas/PositiveDecimalString"
+          description: 생략 시 빈 배열이며 중복 제거·정렬 후 서로 다른 member ID를 최대 100개 허용합니다.
+        replyToId:
+          $ref: "#/components/schemas/NullablePositiveDecimalString"
+      allOf:
+        - if:
+            properties:
+              type:
+                const: TEXT
+          then:
+            required: [content]
+            properties:
+              content:
+                type: string
+                maxLength: 2000
+                pattern: ".*\\S.*"
+              fileMetadataIds:
+                maxItems: 0
+        - if:
+            properties:
+              type:
+                const: IMAGE
+          then:
+            required: [fileMetadataIds]
+            properties:
+              fileMetadataIds:
+                minItems: 1
+                maxItems: 4
+
+    EditMessageCommandPayload:
+      type: object
+      additionalProperties: false
+      required: [content]
+      properties:
+        content:
+          oneOf:
+            - type: string
+              maxLength: 2000
+            - type: "null"
+
+    DeleteMessageCommandPayload:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+
+    ChangeReactionCommandPayload:
+      type: object
+      additionalProperties: false
+      required: [emoji]
+      properties:
+        emoji:
+          type: string
+          minLength: 1
+          maxLength: 32
+          description: 하나의 extended grapheme cluster여야 합니다.
+
+    UpdateReadCommandPayload:
+      type: object
+      additionalProperties: false
+      required: [lastReadMessageId]
+      properties:
+        lastReadMessageId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+
+    EventEnvelopeBase:
+      type: object
+      required: [eventId, type, threadId, occurredAt]
+      properties:
+        eventId:
+          $ref: "#/components/schemas/CanonicalUuid"
+        type:
+          type: string
+        threadId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        occurredAt:
+          type: string
+          format: date-time
+
+    CommandAcknowledgement:
+      type: object
+      additionalProperties: false
+      required: [commandId, command, messageId, clientMessageId, deduplicated]
+      properties:
+        commandId:
+          $ref: "#/components/schemas/CanonicalUuid"
+        command:
+          type: string
+          enum: [MESSAGE_CREATE, MESSAGE_EDIT, MESSAGE_DELETE, REACTION_ADD, REACTION_REMOVE, READ_UPDATE]
+        messageId:
+          $ref: "#/components/schemas/NullablePositiveDecimalString"
+        clientMessageId:
+          $ref: "#/components/schemas/NullableUuid"
+        deduplicated:
+          type: boolean
+
+    CommandAcknowledgedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: command.acknowledged
+            payload:
+              $ref: "#/components/schemas/CommandAcknowledgement"
+
+    MessageCreatedPayload:
+      type: object
+      additionalProperties: false
+      required: [message, clientMessageId]
+      properties:
+        message:
+          $ref: "#/components/schemas/CommunityThreadMessage"
+        clientMessageId:
+          $ref: "#/components/schemas/NullableUuid"
+
+    MessageMutationPayload:
+      type: object
+      additionalProperties: false
+      required: [message]
+      properties:
+        message:
+          $ref: "#/components/schemas/CommunityThreadMessage"
+
+    MessageCreatedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: message.created
+            payload:
+              $ref: "#/components/schemas/MessageCreatedPayload"
+
+    MessageUpdatedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: message.updated
+            payload:
+              $ref: "#/components/schemas/MessageMutationPayload"
+
+    MessageDeletedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: message.deleted
+            payload:
+              $ref: "#/components/schemas/MessageMutationPayload"
+
+    ReactionChangedPayload:
+      type: object
+      additionalProperties: false
+      required: [messageId, reactions]
+      properties:
+        messageId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reaction"
+
+    ReactionChangedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: reaction.changed
+            payload:
+              $ref: "#/components/schemas/ReactionChangedPayload"
+
+    ReadUpdatedPayload:
+      type: object
+      additionalProperties: false
+      required: [memberId, lastReadMessageId]
+      properties:
+        memberId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        lastReadMessageId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+
+    ReadUpdatedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: read.updated
+            payload:
+              $ref: "#/components/schemas/ReadUpdatedPayload"
+
+    ThreadInvitedPayload:
+      type: object
+      additionalProperties: false
+      required: [thread]
+      properties:
+        thread:
+          $ref: "#/components/schemas/ThreadSummary"
+
+    ThreadInvitedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: thread.invited
+            payload:
+              $ref: "#/components/schemas/ThreadInvitedPayload"
+
+    ThreadUpdatedPayload:
+      type: object
+      additionalProperties: false
+      required: [threadId, title, description, category, icon, memberCount, maxMembers, lastActivityAt, updatedAt]
+      properties:
+        threadId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        title:
+          type: string
+        description:
+          $ref: "#/components/schemas/NullableString"
+        category:
+          $ref: "#/components/schemas/ThreadCategory"
+        icon:
+          $ref: "#/components/schemas/NullableString"
+        memberCount:
+          $ref: "#/components/schemas/NonNegativeDecimalString"
+        maxMembers:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        lastActivityAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ThreadUpdatedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: thread.updated
+            payload:
+              $ref: "#/components/schemas/ThreadUpdatedPayload"
+
+    ThreadDeletedPayload:
+      type: object
+      additionalProperties: false
+      required: [threadId, deletedAt]
+      properties:
+        threadId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        deletedAt:
+          type: string
+          format: date-time
+
+    ThreadDeletedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: thread.deleted
+            payload:
+              $ref: "#/components/schemas/ThreadDeletedPayload"
+
+    MemberCountChangedPayload:
+      type: object
+      additionalProperties: false
+      required: [memberId, memberCount]
+      properties:
+        memberId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        memberCount:
+          $ref: "#/components/schemas/NonNegativeDecimalString"
+
+    MemberKickedEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: member.kicked
+            payload:
+              $ref: "#/components/schemas/MemberCountChangedPayload"
+
+    MemberLeftEventEnvelope:
+      allOf:
+        - $ref: "#/components/schemas/EventEnvelopeBase"
+        - type: object
+          required: [payload]
+          properties:
+            type:
+              type: string
+              const: member.left
+            payload:
+              $ref: "#/components/schemas/MemberCountChangedPayload"
+
+    CommunityThreadMessage:
+      type: object
+      additionalProperties: false
+      required:
+        - messageId
+        - threadId
+        - senderId
+        - senderName
+        - content
+        - type
+        - status
+        - files
+        - mentions
+        - replyTo
+        - reactions
+        - clientMessageId
+        - createdAt
+        - editedAt
+        - deletedAt
+      properties:
+        messageId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        threadId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        senderId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        senderName:
+          type: string
+        content:
+          $ref: "#/components/schemas/NullableString"
+        type:
+          type: string
+          enum: [TEXT, IMAGE, SYSTEM]
+        status:
+          type: string
+          enum: [SENT]
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageFile"
+          description: >-
+            첨부 파일. fileId 와 접근 URL 을 한 객체로 묶어 내려주므로 인덱스 매칭이 필요 없습니다.
+            storage 에서 누락된 파일은 목록에서 제외되며, 남은 파일의 순서는 전송 시점 순서를 유지합니다.
+        mentions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessageMention"
+        replyTo:
+          oneOf:
+            - $ref: "#/components/schemas/MessageReply"
+            - type: "null"
+        reactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Reaction"
+        clientMessageId:
+          $ref: "#/components/schemas/NullableUuid"
+        createdAt:
+          type: string
+          format: date-time
+        editedAt:
+          $ref: "#/components/schemas/NullableDateTime"
+        deletedAt:
+          $ref: "#/components/schemas/NullableDateTime"
+
+    MessageFile:
+      type: object
+      additionalProperties: false
+      required: [fileId, fileName, fileSize, fileUrl]
+      properties:
+        fileId:
+          type: string
+        fileName:
+          $ref: "#/components/schemas/NullableString"
+        fileSize:
+          $ref: "#/components/schemas/NullableString"
+        fileUrl:
+          $ref: "#/components/schemas/NullableString"
+          description: 유효기간 60분의 서명 URL 입니다. 조회할 때마다 새로 발급되므로 장기 캐싱하면 만료됩니다.
+
+    MessageMention:
+      type: object
+      additionalProperties: false
+      required: [memberId, name]
+      properties:
+        memberId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        name:
+          type: string
+
+    MessageReply:
+      type: object
+      additionalProperties: false
+      required: [messageId, senderName, snippet]
+      properties:
+        messageId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        senderName:
+          type: string
+        snippet:
+          type: string
+
+    Reaction:
+      type: object
+      additionalProperties: false
+      required: [emoji, count, reactedByMe]
+      properties:
+        emoji:
+          type: string
+        count:
+          $ref: "#/components/schemas/NonNegativeDecimalString"
+        reactedByMe:
+          type: boolean
+
+    ThreadSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - threadId
+        - title
+        - description
+        - category
+        - icon
+        - memberCount
+        - unreadCount
+        - maxMembers
+        - isPinned
+        - isMuted
+        - myRole
+        - lastMessage
+        - createdBy
+        - createdAt
+        - updatedAt
+      properties:
+        threadId:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        title:
+          type: string
+        description:
+          $ref: "#/components/schemas/NullableString"
+        category:
+          $ref: "#/components/schemas/ThreadCategory"
+        icon:
+          $ref: "#/components/schemas/NullableString"
+        memberCount:
+          $ref: "#/components/schemas/NonNegativeDecimalString"
+        unreadCount:
+          $ref: "#/components/schemas/NonNegativeDecimalString"
+        maxMembers:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        isPinned:
+          type: boolean
+        isMuted:
+          type: boolean
+        myRole:
+          type: string
+          enum: [OWNER, ADMIN, MEMBER]
+        lastMessage:
+          oneOf:
+            - $ref: "#/components/schemas/ThreadLastMessage"
+            - type: "null"
+        createdBy:
+          $ref: "#/components/schemas/PositiveDecimalString"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ThreadLastMessage:
+      type: object
+      additionalProperties: false
+      required: [preview, senderName, createdAt]
+      properties:
+        preview:
+          $ref: "#/components/schemas/NullableString"
+        senderName:
+          $ref: "#/components/schemas/NullableString"
+        createdAt:
+          type: string
+          format: date-time
+
+    ThreadCategory:
+      type: string
+      enum: [STUDY, QNA, PROJECT, FREE]
+
+    CommandErrorPayload:
+      type: object
+      additionalProperties: false
+      required: [commandId, clientMessageId, status, code, message, retryable]
+      properties:
+        commandId:
+          $ref: "#/components/schemas/NullableUuid"
+        clientMessageId:
+          $ref: "#/components/schemas/NullableUuid"
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+          description: HTTP-like numeric status입니다. 다른 숫자 필드와 달리 JSON number입니다.
+        code:
+          type: string
+        message:
+          type: string
+        retryable:
+          type: boolean

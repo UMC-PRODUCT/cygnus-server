@@ -248,7 +248,7 @@ class ProjectStatisticsQueryServiceTest {
                 s -> s.availableMemberCount()
             )
             .containsExactly(
-                tuple(1L, 2L, 4L),
+                tuple(1L, 3L, 4L),
                 tuple(2L, 1L, 3L)
             );
         assertThat(result.summary().roundSchoolRankings().get(0).schools())
@@ -258,10 +258,10 @@ class ProjectStatisticsQueryServiceTest {
                 tuple(502L, 1L)
             );
         assertThat(result.summary().schoolMatchingStatistics())
-            .extracting("schoolId", "matchedMemberCount", "totalMemberCount")
+            .extracting("schoolId", "matchedMemberCount", "totalMemberCount", "appliedMemberCount")
             .containsExactly(
-                tuple(501L, 2L, 2L),
-                tuple(502L, 0L, 2L)
+                tuple(501L, 2L, 2L, 2L),
+                tuple(502L, 1L, 2L, 1L)
             );
         assertThat(result.summary().projectRoundStatistics())
             .extracting("projectId")
@@ -361,6 +361,33 @@ class ProjectStatisticsQueryServiceTest {
             .containsExactly(10L, 11L);
 
         verify(loadProjectStatisticsPort).listActiveMembersByProjectIds(projectIds);
+    }
+
+    @Test
+    @DisplayName("getByChapterId_null_memberId는_학교별_summary_집계에서_무시한다")
+    void 지부_통계_null_memberId_학교별_summary_집계_무시() {
+        // given
+        Long chapterId = 3L;
+        Long gisuId = 1L;
+        Long requesterMemberId = 7000L;
+        given(loadProjectStatisticsPort.listProjectsByChapterId(chapterId))
+            .willReturn(List.of(projectRow(10L, gisuId, chapterId)));
+        given(loadProjectStatisticsPort.listMatchingRoundsByChapterId(chapterId))
+            .willReturn(List.of(roundRow(1L, MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST)));
+        given(loadProjectStatisticsPort.listActiveMembersByChapterId(chapterId))
+            .willReturn(List.of(memberRow(10L, 101L, null, ChallengerPart.WEB)));
+        given(loadProjectStatisticsPort.listCountedApplicationsByProjectIds(Set.of(10L)))
+            .willReturn(List.of());
+        given(getChallengerUseCase.listByChapterId(chapterId))
+            .willReturn(List.of());
+        given(projectStatisticsAccessPolicy.canReadChapterStatistics(requesterMemberId, chapterId))
+            .willReturn(true);
+
+        // when
+        ChapterProjectStatisticsInfo result = sut.getByChapterId(chapterId, requesterMemberId);
+
+        // then
+        assertThat(result.summary().schoolMatchingStatistics()).isEmpty();
     }
 
     @Test

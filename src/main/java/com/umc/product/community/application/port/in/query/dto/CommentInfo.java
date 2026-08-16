@@ -1,10 +1,12 @@
 package com.umc.product.community.application.port.in.query.dto;
 
+import java.time.Instant;
+
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.community.domain.Comment;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
-import java.time.Instant;
+
 import lombok.Builder;
 
 @Builder
@@ -28,7 +30,7 @@ public record CommentInfo(
         ChallengerPart part = challengerInfo != null ? challengerInfo.part() : null;
 
         return CommentInfo.builder()
-            .commentId(comment.getCommentId() != null ? comment.getCommentId().id() : null)
+            .commentId(comment.getId())
             .postId(comment.getPostId())
             .challengerId(challengerId)
             .challengerName(name)
@@ -60,7 +62,7 @@ public record CommentInfo(
         Comment comment, String challengerName, String challengerProfileImage,
         ChallengerPart challengerPart, boolean isAuthor
     ) {
-        Long id = comment.getCommentId() != null ? comment.getCommentId().id() : null;
+        Long id = comment.getId();
 
         return CommentInfo.builder()
             .commentId(id)

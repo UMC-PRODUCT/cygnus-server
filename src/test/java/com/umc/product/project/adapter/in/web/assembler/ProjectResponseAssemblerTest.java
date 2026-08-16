@@ -32,12 +32,14 @@ import com.umc.product.project.adapter.in.web.dto.response.DraftProjectResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ManagedProjectSummaryResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectDetailResponse;
 import com.umc.product.project.adapter.in.web.dto.response.ProjectMembersResponse;
+import com.umc.product.project.adapter.in.web.dto.response.ProjectSummaryResponse;
 import com.umc.product.project.application.port.in.query.GetProjectStatisticsUseCase;
 import com.umc.product.project.application.port.in.query.GetProjectUseCase;
 import com.umc.product.project.application.port.in.query.SearchManagedProjectUseCase;
 import com.umc.product.project.application.port.in.query.SearchProjectUseCase;
 import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.SearchManagedProjectQuery;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectQuery;
 import com.umc.product.project.application.port.out.LoadProjectApplicationFormPort;
 import com.umc.product.project.application.port.out.LoadProjectApplicationPort;
 import com.umc.product.project.application.port.out.LoadProjectMemberPort;
@@ -101,6 +103,21 @@ class ProjectResponseAssemblerTest {
         ProjectDetailResponse response = sut.detailFor(42L);
 
         assertThat(response.applicationFormId()).isNull();
+    }
+
+    @Test
+    void detailFor_는_owner_실명과_학교명을_노출하지_않는다() {
+        ProjectInfo info = projectInfo(42L);
+        given(getProjectUseCase.getById(42L)).willReturn(info);
+        given(getMemberUseCase.findAllByIds(java.util.Set.of(99L)))
+            .willReturn(Map.of(99L, memberInfo(99L)));
+        given(loadProjectApplicationFormPort.findByProjectId(42L)).willReturn(Optional.empty());
+
+        ProjectDetailResponse response = sut.detailFor(42L);
+
+        assertThat(response.productOwner().nickname()).isEqualTo("이방토");
+        assertThat(response.productOwner().name()).isNull();
+        assertThat(response.productOwner().schoolName()).isNull();
     }
 
     @Test
@@ -280,6 +297,29 @@ class ProjectResponseAssemblerTest {
                 MatchingType.PLAN_DEVELOPER,
                 MatchingPhase.THIRD
             ));
+    }
+
+    @Test
+    void searchFor_는_owner_실명과_학교명을_노출하지_않는다() {
+        ProjectInfo info = projectInfo(42L);
+        SearchProjectQuery query =
+            SearchProjectQuery.forChallenger(
+                1L, null, null, null, null, null,
+                org.springframework.data.domain.PageRequest.of(0, 20));
+
+        given(searchProjectUseCase.search(query, 99L))
+            .willReturn(new org.springframework.data.domain.PageImpl<>(java.util.List.of(info),
+                query.pageable(), 1));
+        given(getMemberUseCase.findAllByIds(java.util.Set.of(99L)))
+            .willReturn(Map.of(99L, memberInfo(99L)));
+
+        PageResponse<ProjectSummaryResponse> response =
+            sut.searchFor(query, 99L);
+
+        assertThat(response.content()).hasSize(1);
+        assertThat(response.content().get(0).productOwner().nickname()).isEqualTo("이방토");
+        assertThat(response.content().get(0).productOwner().name()).isNull();
+        assertThat(response.content().get(0).productOwner().schoolName()).isNull();
     }
 
     @Test

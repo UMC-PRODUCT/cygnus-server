@@ -112,6 +112,20 @@ public class ProjectApplicationPersistenceAdapter implements LoadProjectApplicat
     }
 
     @Override
+    public List<ProjectApplication> batchGetByIdsWithDetails(Collection<Long> applicationIds) {
+        if (applicationIds == null || applicationIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<ProjectApplication> applications =
+            projectApplicationQueryRepository.findAllByIdInWithDetails(applicationIds);
+        if (applications.size() != applicationIds.stream().distinct().count()) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_APPLICATION_NOT_FOUND);
+        }
+        return applications;
+    }
+
+    @Override
     public List<ProjectApplication> searchMyApplications(
         Long applicantMemberId,
         Long gisuId,
@@ -135,6 +149,23 @@ public class ProjectApplicationPersistenceAdapter implements LoadProjectApplicat
             status,
             now,
             includeOngoingMatchingRounds
+        );
+    }
+
+    @Override
+    public List<ProjectApplication> searchProjectApplicationsByProjectIds(
+        Collection<Long> projectIds,
+        Collection<Long> includeOngoingProjectIds,
+        Long matchingRoundId,
+        ProjectApplicationStatus status,
+        Instant now
+    ) {
+        return projectApplicationQueryRepository.searchProjectApplicationsByProjectIds(
+            projectIds,
+            includeOngoingProjectIds,
+            matchingRoundId,
+            status,
+            now
         );
     }
 

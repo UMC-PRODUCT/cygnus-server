@@ -1,187 +1,68 @@
-name: PR 제목 검증
+# Required repository variables:
+# - vars.UMC_GITHUB_APP_CLIENT_ID
+# Optional repository variables:
+# - vars.GEMINI_PR_TITLE_MODEL (default: gemini-3.5-flash)
+# Required repository secrets:
+# - secrets.UMC_GITHUB_APP_PRIVATE_KEY
+# - secrets.GEMINI_API_KEY
+
+name: Validate PR Title
 
 on:
-  pull_request:
-    types: [ opened, edited, synchronize, reopened ]
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+  statuses: write
 
 jobs:
   validate-pr-title:
-    name: 🔍 Validate PR Title
+    name: Validate PR Title
     runs-on: ubuntu-latest
 
     steps:
-      - name: 📝 Get PR Title
-        id: get-title
+      - name: 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: GitHub App token 생성
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.UMC_GITHUB_APP_CLIENT_ID }}
+          private-key: ${{ secrets.UMC_GITHUB_APP_PRIVATE_KEY }}
+
+      - name: PR 변경 파일 조회
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
-          echo "title=${{ github.event.pull_request.title }}" >> $GITHUB_OUTPUT
-          echo "PR Title: ${{ github.event.pull_request.title }}"
+          gh api --method GET --paginate \
+            "repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/files" \
+            -F per_page=100 \
+            --jq '.[] | {filename, additions, deletions, changes}' \
+            | jq -s '.' > "${RUNNER_TEMP}/pr-files.json"
 
-      - name: ✅ Check Tag Format
-        id: check-tag
+      - name: Gemini 기반 PR 제목 검증
+        id: review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_PR_TITLE_MODEL: ${{ vars.GEMINI_PR_TITLE_MODEL || 'gemini-3.5-flash' }}
+          CHANGED_FILES_PATH: ${{ runner.temp }}/pr-files.json
+          RESULT_PATH: ${{ runner.temp }}/pr-title-review-result.json
+        run: node .github/scripts/pr-title-review.mjs
+
+      - name: PR 제목 댓글 및 status 반영
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
+          FEEDBACK_MODE: pr-title
+          RESULT_PATH: ${{ runner.temp }}/pr-title-review-result.json
+        run: node .github/scripts/github-pr-feedback.mjs
+
+      - name: PR 제목 검증 실패 처리
+        if: steps.review.outputs.valid != 'true'
         run: |
-          # 환경 변수에서 제목 가져오기
-          TITLE="${{ github.event.pull_request.title }}"
-
-          # 앞뒤 공백/개행 제거
-          TITLE=$(echo "$TITLE" | xargs)
-
-          echo "PR 제목: $TITLE"
-
-          # Tag가 [ ]로 감싸져 있는지 확인
-          if ! echo "$TITLE" | grep -qE '^\[.*\]'; then
-            echo "error=❌ Tag는 [Tag] 형식으로 대괄호로 감싸야 합니다." >> $GITHUB_OUTPUT
-            echo "::error::Tag format error - Tag must be wrapped in square brackets [Tag]"
-            exit 1
-          fi
-
-          # Tag 추출 (첫 번째 [...] 부분)
-          TAG=$(echo "$TITLE" | grep -oE '^\[[^]]+\]' | head -1 | tr -d '[]')
-
-          echo "추출된 Tag: '$TAG'"
-
-          # TAG가 비어있는지 확인
-          if [ -z "$TAG" ]; then
-            echo "error=❌ Tag를 추출할 수 없습니다." >> $GITHUB_OUTPUT
-            echo "::error::Failed to extract tag from title"
-            exit 1
-          fi
-
-          # 유효한 Tag 종류인지 확인
-          if ! echo "$TAG" | grep -qE '^(Feat|Refactor|Fix|HotFix|Chore|Release|Docs)$'; then
-            echo "error=❌ 유효하지 않은 Tag입니다. 허용된 Tag 목록: Feat, Refactor, Fix, HotFix, Chore, Release, Docs (대소문자를 구분해주세요)" >> $GITHUB_OUTPUT
-            echo "::error::Invalid tag '$TAG' - Allowed tags: Feat, Refactor, Fix, HotFix, Chore, Release, Docs"
-            exit 1
-          fi
-
-          echo "✅ Tag 형식이 올바릅니다: [$TAG]"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: 🔤 Check Space After Tag
-        id: check-space
-        run: |
-          TITLE="${{ github.event.pull_request.title }}"
-
-          # Tag 뒤에 정확히 공백 1개 + 내용이 있는지 한 번에 체크
-          if ! echo "$TITLE" | grep -qE '^\[[^]]+\] [^ ]'; then
-            echo "error=❌ Tag 형식 오류: [Tag] 내용 형식이어야 합니다 (공백 1개)" >> $GITHUB_OUTPUT
-            echo "::error::Invalid format - Must be [Tag] Content with exactly one space"
-            exit 1
-          fi
-
-          echo "✅ Tag와 Title 형식이 올바릅니다"
-
-      - name: 🚫 Check Special Characters
-        id: check-special-chars
-        run: |
-          TITLE="${{ github.event.pull_request.title }}"
-
-          # Tag 부분 제거
-          TITLE_WITHOUT_TAG=$(echo "$TITLE" | sed 's/^\[[^]]*\] //')
-
-          echo "Title without tag: '$TITLE_WITHOUT_TAG'"
-
-          # 특수문자만 추출한 후, 허용된 문자(, / &)를 제거하여 금지된 문자 찾기
-          # [:punct:]는 모든 구두점(특수문자)를 의미
-          INVALID_CHARS=$(echo "$TITLE_WITHOUT_TAG" | LC_ALL=C tr -cd '[:punct:]' | tr -d ',/&' | fold -w1 | sort -u | tr -d '\n')
-
-          if [ -n "$INVALID_CHARS" ]; then
-            echo "error=❌ Title에 허용되지 않은 특수문자가 있습니다: '$INVALID_CHARS' (허용: , / &)" >> $GITHUB_OUTPUT
-            echo "::error::Invalid special characters found: '$INVALID_CHARS' - Only comma(,), slash(/), ampersand(&) are allowed"
-            exit 1
-          fi
-
-          echo "✅ 특수문자 사용이 올바릅니다"
-
-      - name: 📏 Check Title Length
-        id: check-length
-        run: |
-          TITLE="${{ github.event.pull_request.title }}"
-          TITLE_WITHOUT_TAG=$(echo "$TITLE" | sed 's/^\[[^]]*\] //')
-          LENGTH=${#TITLE_WITHOUT_TAG}
-
-          if [ $LENGTH -lt 5 ]; then
-            echo "error=❌ Title이 너무 짧습니다 (최소 5자 이상)" >> $GITHUB_OUTPUT
-            echo "::error::Title too short - minimum 5 characters required"
-            exit 1
-          fi
-
-          if [ $LENGTH -gt 100 ]; then
-            echo "error=❌ Title이 너무 깁니다 (최대 100자)" >> $GITHUB_OUTPUT
-            echo "::error::Title too long - maximum 100 characters allowed"
-            exit 1
-          fi
-
-          echo "✅ Title 길이가 적절합니다 ($LENGTH자)"
-
-      - name: 🎯 Check Title Quality
-        id: check-quality
-        run: |
-          TITLE="${{ github.event.pull_request.title }}"
-          TITLE_WITHOUT_TAG=$(echo "$TITLE" | sed 's/^\[[^]]*\] //')
-
-          # 연속된 공백 체크
-          if echo "$TITLE_WITHOUT_TAG" | grep -qE '  +'; then
-            echo "error=⚠️ Title에 연속된 공백이 있습니다" >> $GITHUB_OUTPUT
-            echo "::warning::Multiple consecutive spaces found in title"
-            exit 1
-          fi
-
-          # 앞뒤 공백 체크
-          if echo "$TITLE_WITHOUT_TAG" | grep -qE '(^ | $)'; then
-            echo "error=⚠️ Title 앞뒤에 불필요한 공백이 있습니다" >> $GITHUB_OUTPUT
-            echo "::warning::Leading or trailing spaces found in title"
-            exit 1
-          fi
-
-          echo "✅ Title 품질 검사를 통과했습니다"
-
-      - name: 🎉 Validation Success
-        if: success()
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✨ PR Title 검증을 모두 통과했습니다!"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "📋 PR Title: ${{ steps.get-title.outputs.title }}"
-          echo "🏷️  Tag: ${{ steps.check-tag.outputs.tag }}"
-          echo ""
-          echo "✅ Tag 형식 검증 통과"
-          echo "✅ 공백 검증 통과"
-          echo "✅ 특수문자 검증 통과"
-          echo "✅ 길이 검증 통과"
-          echo "✅ 품질 검증 통과"
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-
-      - name: ❌ Validation Failed
-        if: failure()
-        run: |
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "💥 PR Title 검증에 실패했습니다"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "📋 현재 Title: ${{ steps.get-title.outputs.title }}"
-          echo ""
-          echo "📖 PR Title 작성 규칙:"
-          echo "  1. Tag는 [Tag] 형식으로 대괄호로 감싸야 합니다"
-          echo "  2. 허용된 Tag: Feat, Refactor, Fix, HotFix, Chore, Release, Docs"
-          echo "  3. Tag는 대소문자를 정확히 지켜야 합니다"
-          echo "  4. Tag와 Title 사이에는 공백이 하나만 있어야 합니다"
-          echo "  5. Title에 허용된 특수문자: , / & 만 사용 가능"
-          echo "  6. Title은 5자 이상 100자 이하여야 합니다"
-          echo "  7. 연속된 공백이나 앞뒤 공백이 없어야 합니다"
-          echo ""
-          echo "✏️  올바른 예시:"
-          echo "  - [Feat] 사용자 로그인 기능 추가"
-          echo "  - [Fix] null pointer exception 수정"
-          echo "  - [Refactor] 코드 구조 개선 & 성능 최적화"
-          echo ""
-          echo "❌ 잘못된 예시:"
-          echo "  - Feat: 기능 추가 (Tag가 대괄호로 감싸지지 않음)"
-          echo "  - [feat] 기능 추가 (Tag 대소문자 오류)"
-          echo "  - [Feat]기능 추가 (공백 누락)"
-          echo "  - [Feat] 기능 추가! (허용되지 않은 특수문자 사용)"
-          echo ""
-          echo "📚 자세한 내용은 Wiki를 참고해주세요"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "::error::PR 제목이 컨벤션에 맞지 않습니다. 댓글의 추천 제목을 확인해주세요."
           exit 1

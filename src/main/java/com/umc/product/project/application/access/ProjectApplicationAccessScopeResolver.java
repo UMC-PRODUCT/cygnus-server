@@ -1,5 +1,8 @@
 package com.umc.product.project.application.access;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -64,11 +67,11 @@ public class ProjectApplicationAccessScopeResolver {
             return new ProjectScoped(projectId);
         }
 
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-        if (roles.stream().anyMatch(r -> r.roleType().isSuperAdmin())) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
             return new ProjectScoped(projectId, true);
         }
 
+        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
         List<ChallengerRoleInfo> rolesInGisu = roles.stream()
             .filter(r -> Objects.equals(r.gisuId(), project.getGisuId()))
             .toList();
@@ -89,7 +92,89 @@ public class ProjectApplicationAccessScopeResolver {
         return new None();
     }
 
+    /**
+     * 복수 프로젝트 지원자 목록(APPLY-101 batch) 화면의 프로젝트별 scope 를 한 번에 결정한다.
+     * <p>
+     * 단건 판정의 우선순위(PO/Sub-PM -> SUPER_ADMIN -> Central Core -> 지부장 -> 학교 회장단)를 유지하되, 역할/보조 PM/학교-지부 매핑 조회를 batch 로
+     * 수행한다.
+     */
+    public Map<Long, ProjectApplicationAccessScope> resolveForProjectApplicantLists(
+        Long memberId,
+        Collection<Project> projects
+    ) {
+        if (projects == null || projects.isEmpty()) {
+            return Map.of();
+        }
+
+        Set<Long> projectIds = projects.stream()
+            .map(Project::getId)
+            .collect(Collectors.toSet());
+        Set<Long> activePlanProjectIds = new HashSet<>(
+            loadProjectMemberPort.listProjectIdsByActivePlanMember(projectIds, memberId));
+
+        boolean superAdmin = getChallengerRoleUseCase.isSuperAdmin(memberId);
+        List<ChallengerRoleInfo> roles = superAdmin
+            ? List.of()
+            : getChallengerRoleUseCase.findAllByMemberId(memberId);
+
+        Set<Long> gisuIds = projects.stream()
+            .map(Project::getGisuId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Set<Long> schoolIds = roles.stream()
+            .filter(r -> r.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
+                || r.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
+            .map(ChallengerRoleInfo::organizationId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Map<Long, Map<Long, ChapterInfo>> chapterByGisuAndSchool = schoolIds.isEmpty() || gisuIds.isEmpty()
+            ? Map.of()
+            : getChapterUseCase.getChapterMapByGisuIdsAndSchoolIds(gisuIds, schoolIds);
+
+        Map<Long, ProjectApplicationAccessScope> result = new LinkedHashMap<>();
+        for (Project project : projects) {
+            Long projectId = project.getId();
+            if (Objects.equals(project.getProductOwnerMemberId(), memberId)
+                || activePlanProjectIds.contains(projectId)) {
+                result.put(projectId, new ProjectScoped(projectId));
+                continue;
+            }
+
+            if (superAdmin) {
+                result.put(projectId, new ProjectScoped(projectId, true));
+                continue;
+            }
+
+            List<ChallengerRoleInfo> rolesInGisu = roles.stream()
+                .filter(r -> Objects.equals(r.gisuId(), project.getGisuId()))
+                .toList();
+
+            if (rolesInGisu.stream().anyMatch(r -> r.roleType().isAtLeastCentralCore())) {
+                result.put(projectId, new ProjectScoped(projectId, true));
+                continue;
+            }
+
+            if (rolesInGisu.stream().anyMatch(r -> r.roleType() == ChallengerRoleType.CHAPTER_PRESIDENT
+                && Objects.equals(r.organizationId(), project.getChapterId()))) {
+                result.put(projectId, new ProjectScoped(projectId));
+                continue;
+            }
+
+            if (isSchoolCoreInProjectChapter(rolesInGisu, project, chapterByGisuAndSchool)) {
+                result.put(projectId, new ProjectScoped(projectId));
+                continue;
+            }
+
+            result.put(projectId, new None());
+        }
+        return result;
+    }
+
     private boolean isSchoolCoreInProjectChapter(List<ChallengerRoleInfo> rolesInGisu, Project project) {
+        if (project.getGisuId() == null) {
+            return false;
+        }
+
         Set<Long> schoolIds = rolesInGisu.stream()
             .filter(r -> r.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
                 || r.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
@@ -111,6 +196,35 @@ public class ProjectApplicationAccessScopeResolver {
             .anyMatch(chapter -> Objects.equals(chapter.id(), project.getChapterId()));
     }
 
+    private boolean isSchoolCoreInProjectChapter(
+        List<ChallengerRoleInfo> rolesInGisu,
+        Project project,
+        Map<Long, Map<Long, ChapterInfo>> chapterByGisuAndSchool
+    ) {
+        if (project.getGisuId() == null) {
+            return false;
+        }
+
+        Set<Long> schoolIds = rolesInGisu.stream()
+            .filter(r -> r.roleType() == ChallengerRoleType.SCHOOL_PRESIDENT
+                || r.roleType() == ChallengerRoleType.SCHOOL_VICE_PRESIDENT)
+            .map(ChallengerRoleInfo::organizationId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+
+        if (schoolIds.isEmpty()) {
+            return false;
+        }
+
+        Map<Long, ChapterInfo> chapterBySchool =
+            chapterByGisuAndSchool.getOrDefault(project.getGisuId(), Map.of());
+
+        return schoolIds.stream()
+            .map(chapterBySchool::get)
+            .filter(Objects::nonNull)
+            .anyMatch(chapter -> Objects.equals(chapter.id(), project.getChapterId()));
+    }
+
     /**
      * 운영진 모니터링 화면.
      * <ol>
@@ -121,12 +235,11 @@ public class ProjectApplicationAccessScopeResolver {
      * </ol>
      */
     public ProjectApplicationAccessScope resolveForManagement(Long memberId, Long gisuId) {
-        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
-
-        if (roles.stream().anyMatch(r -> r.roleType().isSuperAdmin())) {
+        if (getChallengerRoleUseCase.isSuperAdmin(memberId)) {
             return new All();
         }
 
+        List<ChallengerRoleInfo> roles = getChallengerRoleUseCase.findAllByMemberId(memberId);
         List<ChallengerRoleInfo> rolesInGisu = roles.stream()
             .filter(r -> Objects.equals(r.gisuId(), gisuId))
             .toList();

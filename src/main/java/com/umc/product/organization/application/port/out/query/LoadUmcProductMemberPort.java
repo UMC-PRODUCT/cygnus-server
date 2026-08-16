@@ -14,9 +14,13 @@ public interface LoadUmcProductMemberPort {
 
     UmcProductMember getById(Long umcProductMemberId);
 
+    UmcProductMember getByIdWithLock(Long umcProductMemberId);
+
     Optional<UmcProductMember> findById(Long umcProductMemberId);
 
     UmcProductMember getByMemberId(Long memberId);
+
+    UmcProductMember getByMemberIdWithLock(Long memberId);
 
     Optional<UmcProductMember> findByMemberId(Long memberId);
 

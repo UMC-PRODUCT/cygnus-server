@@ -2,7 +2,9 @@ package com.umc.product.project.adapter.in.web.assembler;
 
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +35,7 @@ import com.umc.product.project.application.port.in.query.dto.ProjectApplicationS
 import com.umc.product.project.application.port.in.query.dto.ProjectInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectMatchingRoundInfo;
 import com.umc.product.project.application.port.in.query.dto.ProjectMemberInfo;
+import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsBatchQuery;
 import com.umc.product.project.application.port.in.query.dto.SearchProjectApplicationsQuery;
 
 import lombok.RequiredArgsConstructor;
@@ -167,6 +170,68 @@ public class ProjectApplicationResponseAssembler {
     }
 
     /**
+     * 복수 프로젝트의 지원자 목록 카드 조립 (APPLY-101 batch).
+     * <p>
+     * Service 는 요청 projectId 별 ProjectApplication 자원 Map 을 돌려준다. 여기서는 프로젝트/차수/회원/챌린저 정보를 batch 로 조회한 뒤 프로젝트별로 기존
+     * 지원자 카드 응답을 조립한다.
+     */
+    public Map<Long, List<ProjectApplicantResponse>> applicantsForBatch(SearchProjectApplicationsBatchQuery query) {
+        Map<Long, List<ProjectApplicationSummaryInfo>> applicationsByProject =
+            searchProjectApplicationsUseCase.searchByProjects(query);
+        if (applicationsByProject.isEmpty()) {
+            return Map.of();
+        }
+
+        // Service 가 보존한 요청 projectId key 를 Web 응답에서도 그대로 유지한다.
+        Map<Long, List<ProjectApplicantResponse>> result = new LinkedHashMap<>();
+        applicationsByProject.keySet().forEach(projectId -> result.put(projectId, List.of()));
+
+        List<ProjectApplicationSummaryInfo> applications = applicationsByProject.values().stream()
+            .flatMap(List::stream)
+            .toList();
+        if (applications.isEmpty()) {
+            return result;
+        }
+
+        Set<Long> projectIds = applications.stream()
+            .map(ProjectApplicationSummaryInfo::projectId)
+            .collect(Collectors.toSet());
+        Set<Long> applicantMemberIds = applications.stream()
+            .map(ProjectApplicationSummaryInfo::applicantMemberId)
+            .collect(Collectors.toSet());
+        Set<Long> roundIds = applications.stream()
+            .map(ProjectApplicationSummaryInfo::matchingRoundId)
+            .collect(Collectors.toSet());
+
+        Map<Long, ProjectInfo> projects = getProjectUseCase.findAllByIds(projectIds);
+        Map<MemberGisuKey, ChallengerPart> partsByMemberAndGisu =
+            resolveApplicantParts(applications, projects);
+        Map<Long, ProjectMatchingRoundInfo> rounds =
+            getProjectMatchingRoundUseCase.findAllByIds(roundIds);
+        Map<Long, MemberInfo> memberMap = getMemberUseCase.findAllByIds(applicantMemberIds);
+
+        for (Map.Entry<Long, List<ProjectApplicationSummaryInfo>> entry : applicationsByProject.entrySet()) {
+            // 전체 부가 정보는 batch 로 한 번에 가져오고, 마지막 단계에서 프로젝트별 필터/정렬만 적용한다.
+            List<ProjectApplicantResponse> responses = entry.getValue().stream()
+                .filter(application -> {
+                    ChallengerPart applicantPart = applicantPartOf(application, projects, partsByMemberAndGisu);
+                    return query.part() == null || query.part() == applicantPart;
+                })
+                .sorted(applicantSortOrder(rounds, projects, partsByMemberAndGisu))
+                .map(application -> {
+                    ChallengerPart applicantPart = applicantPartOf(application, projects, partsByMemberAndGisu);
+                    ProjectMatchingRoundInfo round = rounds.get(application.matchingRoundId());
+                    MemberBrief brief = toBrief(memberMap.get(application.applicantMemberId()));
+                    return ProjectApplicantResponse.from(application, applicantPart, round, brief);
+                })
+                .toList();
+            result.put(entry.getKey(), responses);
+        }
+
+        return result;
+    }
+
+    /**
      * APPLY-101 지원자 카드 정렬자: 매칭 차수(phase) ASC -> 파트(part) ASC -> 제출 시각(submittedAt) ASC.
      */
     private Comparator<ProjectApplicationSummaryInfo> applicantSortOrder(
@@ -179,6 +244,58 @@ public class ProjectApplicationResponseAssembler {
             .thenComparingInt(application ->
                 partsByMember.get(application.applicantMemberId()).getSortOrder())
             .thenComparing(ProjectApplicationSummaryInfo::submittedAt);
+    }
+
+    /**
+     * APPLY-101 batch 지원자 카드 정렬자: 매칭 차수(phase) ASC -> 파트(part) ASC -> 제출 시각(submittedAt) ASC.
+     */
+    private Comparator<ProjectApplicationSummaryInfo> applicantSortOrder(
+        Map<Long, ProjectMatchingRoundInfo> rounds,
+        Map<Long, ProjectInfo> projects,
+        Map<MemberGisuKey, ChallengerPart> partsByMemberAndGisu
+    ) {
+        return Comparator
+            .comparingInt((ProjectApplicationSummaryInfo application) ->
+                rounds.get(application.matchingRoundId()).phase().ordinal())
+            .thenComparingInt(application ->
+                applicantPartOf(application, projects, partsByMemberAndGisu).getSortOrder())
+            .thenComparing(ProjectApplicationSummaryInfo::submittedAt);
+    }
+
+    private Map<MemberGisuKey, ChallengerPart> resolveApplicantParts(
+        List<ProjectApplicationSummaryInfo> applications,
+        Map<Long, ProjectInfo> projects
+    ) {
+        Map<Long, Set<Long>> memberIdsByGisu = new HashMap<>();
+        for (ProjectApplicationSummaryInfo application : applications) {
+            ProjectInfo project = projects.get(application.projectId());
+            if (project == null) {
+                continue;
+            }
+            memberIdsByGisu
+                .computeIfAbsent(project.gisuId(), ignored -> new HashSet<>())
+                .add(application.applicantMemberId());
+        }
+
+        // Challenger part 는 같은 memberId 여도 기수별로 다를 수 있어 gisuId 를 key 에 함께 넣는다.
+        Map<MemberGisuKey, ChallengerPart> result = new HashMap<>();
+        memberIdsByGisu.forEach((gisuId, memberIds) ->
+            getChallengerUseCase.batchGetByMemberIdsAndGisuId(memberIds, gisuId)
+                .forEach((memberId, challenger) ->
+                    result.put(new MemberGisuKey(memberId, gisuId), challenger.part())));
+        return result;
+    }
+
+    private ChallengerPart applicantPartOf(
+        ProjectApplicationSummaryInfo application,
+        Map<Long, ProjectInfo> projects,
+        Map<MemberGisuKey, ChallengerPart> partsByMemberAndGisu
+    ) {
+        ProjectInfo project = projects.get(application.projectId());
+        if (project == null) {
+            return null;
+        }
+        return partsByMemberAndGisu.get(new MemberGisuKey(application.applicantMemberId(), project.gisuId()));
     }
 
     /**
@@ -205,5 +322,8 @@ public class ProjectApplicationResponseAssembler {
 
     private MemberBrief toBrief(MemberInfo info) {
         return info == null ? null : MemberBrief.from(info);
+    }
+
+    private record MemberGisuKey(Long memberId, Long gisuId) {
     }
 }

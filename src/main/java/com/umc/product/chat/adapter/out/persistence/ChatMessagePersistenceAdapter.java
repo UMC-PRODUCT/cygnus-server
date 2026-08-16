@@ -1,0 +1,81 @@
+package com.umc.product.chat.adapter.out.persistence;
+
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+
+import org.springframework.stereotype.Component;
+
+import com.umc.product.chat.application.port.out.LoadChatMessagePort;
+import com.umc.product.chat.application.port.out.SaveChatMessagePort;
+import com.umc.product.chat.application.port.out.dto.RoomUnreadCount;
+import com.umc.product.chat.domain.ChatMessage;
+import com.umc.product.chat.domain.exception.ChatDomainException;
+import com.umc.product.chat.domain.exception.ChatErrorCode;
+
+import lombok.RequiredArgsConstructor;
+
+@Component
+@RequiredArgsConstructor
+public class ChatMessagePersistenceAdapter implements
+    SaveChatMessagePort,
+    LoadChatMessagePort {
+
+    private final ChatMessageJpaRepository chatMessageJpaRepository;
+    private final ChatMessageQueryRepository chatMessageQueryRepository;
+
+    @Override
+    public ChatMessage save(ChatMessage chatMessage) {
+        return chatMessageJpaRepository.save(chatMessage);
+    }
+
+    @Override
+    public ChatMessage getById(Long messageId) {
+        return chatMessageJpaRepository.findById(messageId)
+            .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
+    }
+
+    @Override
+    public ChatMessage getByIdAndRoomId(Long messageId, Long roomId) {
+        return chatMessageJpaRepository.findByIdAndRoomId(messageId, roomId)
+            .orElseThrow(() -> new ChatDomainException(ChatErrorCode.CHAT_MESSAGE_NOT_FOUND));
+    }
+
+    @Override
+    public boolean existsByIdAndRoomId(Long messageId, Long roomId) {
+        return chatMessageJpaRepository.existsByIdAndRoomId(messageId, roomId);
+    }
+
+    @Override
+    public Optional<ChatMessage> findByRoomIdAndSenderMemberIdAndClientMessageId(
+        Long roomId,
+        Long senderMemberId,
+        UUID clientMessageId
+    ) {
+        return chatMessageJpaRepository.findByRoomIdAndSenderMemberIdAndClientMessageId(
+            roomId,
+            senderMemberId,
+            clientMessageId
+        );
+    }
+
+    @Override
+    public List<ChatMessage> listByIds(List<Long> messageIds) {
+        return chatMessageJpaRepository.findAllById(messageIds);
+    }
+
+    @Override
+    public List<ChatMessage> listByRoomId(Long roomId, Long cursorId, int size) {
+        return chatMessageQueryRepository.listByRoomId(roomId, cursorId, size);
+    }
+
+    @Override
+    public List<ChatMessage> listLatestPerRoom(List<Long> roomIds) {
+        return chatMessageQueryRepository.listLatestPerRoom(roomIds);
+    }
+
+    @Override
+    public List<RoomUnreadCount> countUnreadByRooms(Long memberId, List<Long> roomIds) {
+        return chatMessageQueryRepository.countUnreadByRooms(memberId, roomIds);
+    }
+}

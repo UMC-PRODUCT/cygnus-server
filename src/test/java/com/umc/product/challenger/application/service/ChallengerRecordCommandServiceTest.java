@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
@@ -61,6 +62,9 @@ class ChallengerRecordCommandServiceTest {
 
     @Mock
     ManageChallengerRoleUseCase manageChallengerRoleUseCase;
+
+    @Mock
+    EvictAuthoritySnapshotCacheUseCase evictAuthoritySnapshotCacheUseCase;
 
     @Mock
     SendWebhookAlarmUseCase sendWebhookAlarmUseCase;
@@ -111,6 +115,19 @@ class ChallengerRecordCommandServiceTest {
         assertThat(record.isUsed()).isTrue();
         assertThat(record.getUsedMemberId()).isEqualTo(100L);
         then(saveChallengerPort).should().save(any(Challenger.class));
+    }
+
+    @Test
+    @DisplayName("일반 기록 코드를 소비하면 대상 회원의 권한 snapshot 캐시를 제거한다")
+    void 일반_기록_코드를_소비하면_대상_회원의_권한_snapshot_캐시를_제거한다() {
+        ChallengerRecord record = normalRecord();
+        given(loadChallengerRecordPort.getByCode("ABC123")).willReturn(record);
+        given(getMemberUseCase.getById(100L)).willReturn(member("홍길동", 3L));
+        given(loadChallengerPort.findByMemberIdAndGisuId(100L, 9L)).willReturn(Optional.empty());
+
+        sut.consumeCode(consumeCommand());
+
+        then(evictAuthoritySnapshotCacheUseCase).should().evictByMemberId(100L);
     }
 
     @Test

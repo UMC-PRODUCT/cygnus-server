@@ -1,5 +1,247 @@
 # Project Domain
 
+## 빠른 구조 다이어그램
+
+### Entity 관계
+
+`project` 도메인의 외부 도메인 참조는 Aggregate 직접 참조가 아니라 ID 참조로 유지한다. 예를 들어 `Project.gisuId`, `Project.chapterId`, `Project.productOwnerMemberId`, `Project.productOwnerSchoolId`, `ProjectApplicationForm.formId`, `ProjectApplication.formResponseId`, `ProjectMember.memberId`가 그 경계다.
+
+```mermaid
+classDiagram
+direction LR
+
+class Project {
+  +Long id
+  +Long gisuId
+  +Long chapterId
+  +ProjectStatus status
+  +String name
+  +String logoFileId
+  +String thumbnailFileId
+  +Long productOwnerMemberId
+  +Long productOwnerSchoolId
+  +Long creatorMemberId
+  +createDraft()
+  +updateBasicInfo()
+  +transferOwnership()
+  +submit()
+  +publish()
+  +complete()
+  +abort()
+}
+
+class ProjectApplicationForm {
+  +Long id
+  +Long formId
+  +create()
+  +belongsTo()
+}
+
+class ProjectApplicationFormPolicy {
+  +Long id
+  +Long formSectionId
+  +FormSectionType type
+  +List allowedParts
+  +createCommon()
+  +createForParts()
+  +updatePolicy()
+  +canAccess()
+}
+
+class ProjectMatchingRound {
+  +Long id
+  +MatchingType type
+  +MatchingPhase phase
+  +Long chapterId
+  +Instant startsAt
+  +Instant endsAt
+  +Instant decisionDeadline
+  +Instant autoDecisionExecutedAt
+  +create()
+  +update()
+  +executeAutoDecision()
+  +isOpenAt()
+  +validateIsMutableAt()
+}
+
+class ProjectApplication {
+  +Long id
+  +Long formResponseId
+  +Long applicantMemberId
+  +ProjectApplicationStatus status
+  +Instant submittedAt
+  +approve()
+  +reject()
+  +forceApprove()
+  +forceReject()
+  +applyAutoDecision()
+  +cancel()
+  +submit()
+}
+
+class ProjectMember {
+  +Long id
+  +Long memberId
+  +ChallengerPart part
+  +ProjectMemberStatus status
+  +create()
+  +createFromApplication()
+  +dismiss()
+  +withdraw()
+}
+
+class ProjectPartQuota {
+  +Long id
+  +ChallengerPart part
+  +Long quota
+  +Long lastEditedMemberId
+  +create()
+  +updateQuota()
+}
+
+Project "1" <-- "0..*" ProjectApplicationForm : project
+ProjectApplicationForm "1" <-- "0..*" ProjectApplicationFormPolicy : applicationForm
+ProjectApplicationForm "1" <-- "0..*" ProjectApplication : applicationForm
+ProjectMatchingRound "1" <-- "0..*" ProjectApplication : appliedMatchingRound
+Project "1" <-- "0..*" ProjectPartQuota : project
+Project "1" <-- "0..*" ProjectMember : project
+ProjectApplication "0..1" <-- "0..*" ProjectMember : application nullable
+```
+
+### 상태 전이와 핵심 Action
+
+```mermaid
+stateDiagram-v2
+  [*] --> DRAFT: CreateDraftProjectUseCase.create
+  DRAFT --> DRAFT: UpdateProjectUseCase.update
+  DRAFT --> PENDING_REVIEW: SubmitProjectUseCase.submit
+  PENDING_REVIEW --> IN_PROGRESS: PublishProjectUseCase.publish
+  DRAFT --> [*]: DeleteProjectUseCase.delete
+  PENDING_REVIEW --> [*]: DeleteProjectUseCase.delete
+  DRAFT --> ABORTED: AbortProjectUseCase.abort
+  PENDING_REVIEW --> ABORTED: AbortProjectUseCase.abort
+  IN_PROGRESS --> ABORTED: AbortProjectUseCase.abort
+  IN_PROGRESS --> COMPLETED: Project.complete
+  DRAFT --> DRAFT: TransferProjectOwnershipUseCase.transfer
+  PENDING_REVIEW --> PENDING_REVIEW: TransferProjectOwnershipUseCase.transfer
+  IN_PROGRESS --> IN_PROGRESS: TransferProjectOwnershipUseCase.transfer
+```
+
+```mermaid
+stateDiagram-v2
+  [*] --> DRAFT: CreateDraftProjectApplicationUseCase.create
+  DRAFT --> DRAFT: UpdateProjectApplicationDraftUseCase.update
+  DRAFT --> SUBMITTED: SubmitProjectApplicationUseCase.submit
+  DRAFT --> CANCELLED: CancelProjectApplicationUseCase.cancel
+  SUBMITTED --> CANCELLED: CancelProjectApplicationUseCase.cancel
+  SUBMITTED --> APPROVED: DecideApplicationUseCase.decide
+  SUBMITTED --> REJECTED: DecideApplicationUseCase.decide
+  APPROVED --> REJECTED: DecideApplicationUseCase.decide
+  REJECTED --> APPROVED: DecideApplicationUseCase.decide
+  SUBMITTED --> APPROVED: AutoDecideProjectMatchingRoundUseCase.autoDecide
+  SUBMITTED --> REJECTED: AutoDecideProjectMatchingRoundUseCase.autoDecide
+  APPROVED --> APPROVED: ProjectMember.createFromApplication
+```
+
+### Command UseCase 지도
+
+```mermaid
+flowchart TB
+  subgraph InAdapter["adapter/in"]
+    ProjectCommandController["ProjectCommandController"]
+    ProjectApplicationController["ProjectApplicationController"]
+    ProjectApplicationFormController["ProjectApplicationFormController"]
+    ProjectMatchingRoundController["ProjectMatchingRoundController"]
+    MatchingRoundDeadlineHandler["MatchingRoundDeadlineHandler"]
+  end
+
+  subgraph CommandService["application/service/command"]
+    ProjectCommandService["ProjectCommandService"]
+    ProjectApplicationCommandService["ProjectApplicationCommandService"]
+    ProjectApplicationFormCommandService["ProjectApplicationFormCommandService"]
+    ProjectPartQuotaCommandService["ProjectPartQuotaCommandService"]
+    ProjectMemberCommandService["ProjectMemberCommandService"]
+    ProjectMatchingRoundCommandService["ProjectMatchingRoundCommandService"]
+    ProjectMatchingRoundFinalizationCommandService["ProjectMatchingRoundFinalizationCommandService"]
+  end
+
+  subgraph UseCaseAction["port/in/command -> domain action"]
+    ProjectLifecycle["Create/Update/Submit/Transfer/Publish/Complete/Delete/Abort Project<br/>Project.createDraft, updateBasicInfo, submit, publish, complete, abort"]
+    ApplicationLifecycle["Create/Update/Submit/Cancel/Decide Application<br/>ProjectApplication.create, submit, cancel, approve, reject"]
+    ApplicationFormUpsert["UpsertProjectApplicationFormUseCase.upsert<br/>Survey Form diff + ProjectApplicationFormPolicy sync"]
+    QuotaMember["UpdatePartQuotas, AddProjectMember, RemoveProjectMember<br/>ProjectPartQuota.create/updateQuota, ProjectMember.create/dismiss"]
+    MatchingRoundLifecycle["Create/Update/Delete MatchingRound<br/>ProjectMatchingRound.create/update + deadline schedule"]
+    MatchingRoundFinalize["AutoDecideProjectMatchingRoundUseCase.autoDecide<br/>ProjectApplication.applyAutoDecision + ProjectMember.createFromApplication"]
+  end
+
+  ProjectCommandController --> ProjectCommandService
+  ProjectCommandController --> ProjectPartQuotaCommandService
+  ProjectCommandController --> ProjectMemberCommandService
+  ProjectApplicationController --> ProjectApplicationCommandService
+  ProjectApplicationFormController --> ProjectApplicationFormCommandService
+  ProjectMatchingRoundController --> ProjectMatchingRoundCommandService
+  ProjectMatchingRoundController --> ProjectMatchingRoundFinalizationCommandService
+  MatchingRoundDeadlineHandler --> ProjectMatchingRoundFinalizationCommandService
+
+  ProjectCommandService --> ProjectLifecycle
+  ProjectApplicationCommandService --> ApplicationLifecycle
+  ProjectApplicationFormCommandService --> ApplicationFormUpsert
+  ProjectPartQuotaCommandService --> QuotaMember
+  ProjectMemberCommandService --> QuotaMember
+  ProjectMatchingRoundCommandService --> MatchingRoundLifecycle
+  ProjectMatchingRoundFinalizationCommandService --> MatchingRoundFinalize
+
+  ProjectLifecycle --> ProjectPorts["Load/SaveProject*, Load/SaveApplicationForm*, Load/SavePartQuota*, Load/SaveMember* Port"]
+  ApplicationLifecycle --> ApplicationPorts["Load/SaveProjectApplication*, LoadMatchingRound, LoadPartQuota, LoadProjectMember Port"]
+  ApplicationFormUpsert --> SurveyCommand["survey ManageForm/Section/Question/Option UseCase"]
+  MatchingRoundFinalize --> MatchingPolicy["MatchingDecisionPolicy<br/>DesignerMatchingPolicy / DeveloperMatchingPolicy"]
+```
+
+### Query UseCase 지도
+
+```mermaid
+flowchart TB
+  subgraph QueryController["adapter/in query"]
+    ProjectQueryController["ProjectQueryController"]
+    ProjectApplicationQueryController["ProjectApplicationQueryController"]
+    ProjectApplicationFormControllerQ["ProjectApplicationFormController"]
+    ProjectPermissionController["ProjectPermissionController"]
+    ProjectStatisticsQueryController["ProjectStatisticsQueryController"]
+    ProjectMatchingRoundControllerQ["ProjectMatchingRoundController"]
+  end
+
+  subgraph QueryService["application/service/query"]
+    ProjectQueryService["ProjectQueryService<br/>GetProject, SearchProject, SearchManagedProject"]
+    ProjectApplicationQueryService["ProjectApplicationQueryService<br/>GetMyApplications, GetApplicationDetail, SearchApplications"]
+    ProjectApplicationFormQueryService["ProjectApplicationFormQueryService<br/>GetProjectApplicationForm"]
+    ProjectMatchingRoundQueryService["ProjectMatchingRoundQueryService<br/>GetProjectMatchingRound"]
+    ProjectMemberQueryService["ProjectMemberQueryService<br/>GetRandomMatchedProjectMember"]
+    ProjectPermissionQueryService["ProjectPermissionQueryService<br/>GetProjectPermissions"]
+    ProjectStatisticsQueryService["ProjectStatisticsQueryService<br/>GetProjectStatistics"]
+  end
+
+  ProjectQueryController --> ProjectQueryService
+  ProjectQueryController --> ProjectMemberQueryService
+  ProjectApplicationQueryController --> ProjectApplicationQueryService
+  ProjectApplicationFormControllerQ --> ProjectApplicationFormQueryService
+  ProjectPermissionController --> ProjectPermissionQueryService
+  ProjectStatisticsQueryController --> ProjectStatisticsQueryService
+  ProjectMatchingRoundControllerQ --> ProjectMatchingRoundQueryService
+
+  ProjectQueryService --> ProjectReadPorts["LoadProject, LoadProjectMember, LoadProjectPartQuota Port"]
+  ProjectApplicationQueryService --> ApplicationReadPorts["LoadProjectApplication, LoadApplicationForm, LoadPolicy Port"]
+  ProjectApplicationFormQueryService --> FormReadPorts["LoadApplicationForm, LoadPolicy Port"]
+  ProjectMatchingRoundQueryService --> RoundReadPorts["LoadProjectMatchingRound Port"]
+  ProjectMemberQueryService --> MemberReadPorts["LoadProjectMember Port"]
+  ProjectPermissionQueryService --> PermissionEval["ProjectPermissionEvaluator"]
+  ProjectStatisticsQueryService --> StatisticsPort["LoadProjectStatistics Port"]
+
+  ProjectReadPorts --> CrossDomainQuery["storage/member/challenger/survey/organization 공개 Query UseCase로 응답 조립"]
+  ApplicationReadPorts --> CrossDomainQuery
+  FormReadPorts --> CrossDomainQuery
+  StatisticsPort --> CrossDomainQuery
+```
+
 ## 역할
 
 `project` 도메인은 프로젝트 생성, 제출, 공개, 팀원 관리, 지원서, 지원 폼, 매칭 차수와 자동 선발 정책을 관리한다.

@@ -3,7 +3,9 @@ package com.umc.product.global.logging;
 import java.time.Duration;
 import java.util.regex.Pattern;
 
-import org.springframework.stereotype.Component;
+import com.umc.product.global.client.ClientDeviceType;
+import com.umc.product.global.client.ClientEnvironment;
+import com.umc.product.global.client.ClientServiceType;
 
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -14,7 +16,6 @@ import io.micrometer.core.instrument.Timer;
  *
  * <p>cardinality 폭증을 막기 위해 memberId, fileId, requestId 같은 개별 식별자는 tag 로 받지 않는다.
  */
-@Component
 public class OperationalMetrics {
 
     private static final String METRIC_EXTERNAL_LATENCY = "operational.external.call.seconds";
@@ -24,6 +25,7 @@ public class OperationalMetrics {
     private static final String METRIC_BATCH_PROCESSED = "operational.batch.job.processed.total";
     private static final String METRIC_NOTIFICATION_TOTAL = "operational.notification.send.total";
     private static final String METRIC_SECURITY_TOTAL = "operational.security.event.total";
+    private static final String METRIC_CLIENT_REQUEST_TOTAL = "operational.client.request.total";
     private static final int MAX_TAG_VALUE_LENGTH = 64;
     private static final Pattern HIGH_CARDINALITY_VALUE = Pattern.compile(
         ".*([/?=&@]|[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|\\d{6,}).*"
@@ -91,6 +93,23 @@ public class OperationalMetrics {
             .increment();
     }
 
+    public void recordClientRequest(
+        ClientServiceType serviceType,
+        ClientDeviceType deviceType,
+        ClientEnvironment environment,
+        String source,
+        String statusFamily
+    ) {
+        Counter.builder(METRIC_CLIENT_REQUEST_TOTAL)
+            .tag("service", normalize(enumName(serviceType)))
+            .tag("device", normalize(enumName(deviceType)))
+            .tag("environment", normalize(enumName(environment)))
+            .tag("source", normalize(source))
+            .tag("statusFamily", normalize(statusFamily))
+            .register(registry)
+            .increment();
+    }
+
     private static String normalize(String value) {
         if (value == null || value.isBlank()) {
             return "unknown";
@@ -100,6 +119,10 @@ public class OperationalMetrics {
             return "other";
         }
         return normalized;
+    }
+
+    private static String enumName(Enum<?> value) {
+        return value == null ? null : value.name();
     }
 
     private static Duration nonNegative(Duration duration) {

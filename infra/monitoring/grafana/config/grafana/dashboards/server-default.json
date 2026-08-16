@@ -678,7 +678,8 @@
                         "editorMode": "code",
                         "expr": "sum(rate(http_server_requests_milliseconds_count{application=~\"$service\", instance=~\"$instance\"}[$__rate_interval])) by (uri, method)",
                         "legendFormat": "{{method}} {{uri}}",
-                        "range": true
+                        "range": true,
+                        "interval": "$http_requests_interval"
                       },
                       "version": "v0"
                     },
@@ -793,7 +794,8 @@
                         "editorMode": "code",
                         "expr": "rate(http_server_requests_milliseconds_sum{application=~\"$service\", instance=~\"$instance\"}[$__rate_interval]) / rate(http_server_requests_milliseconds_count{application=~\"$service\", instance=~\"$instance\"}[$__rate_interval])",
                         "legendFormat": "{{method}} {{uri}}",
-                        "range": true
+                        "range": true,
+                        "interval": "$http_requests_interval"
                       },
                       "version": "v0"
                     },
@@ -916,7 +918,8 @@
                         "editorMode": "code",
                         "expr": "sum(rate(http_server_requests_milliseconds_count{application=~\"$service\", instance=~\"$instance\", status=~\"4..|5..\"}[$__rate_interval])) by (status, uri)",
                         "legendFormat": "{{status}} {{uri}}",
-                        "range": true
+                        "range": true,
+                        "interval": "$http_requests_interval"
                       },
                       "version": "v0"
                     },
@@ -1035,7 +1038,8 @@
                         "editorMode": "code",
                         "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_milliseconds_bucket{application=~\"$service\", instance=~\"$instance\"}[$__rate_interval])) by (le, uri, method))",
                         "legendFormat": "p95 {{method}} {{uri}}",
-                        "range": true
+                        "range": true,
+                        "interval": "$http_requests_interval"
                       },
                       "version": "v0"
                     },
@@ -1926,72 +1930,6 @@
           }
         }
       },
-      "panel-7": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "loki"
-                      },
-                      "group": "loki",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "direction": "backward",
-                        "editorMode": "code",
-                        "expr": "{service_name=~\"$service\"} | event=\"api_request_completed\"",
-                        "queryType": "range"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "최근 애플리케이션 로그. Loki OTLP 기본 라벨 service_name 을 기준으로 필터링한다.",
-          "id": 7,
-          "links": [],
-          "title": "Recent Loki Logs",
-          "vizConfig": {
-            "group": "logs",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              },
-              "options": {
-                "dedupStrategy": "none",
-                "enableInfiniteScrolling": false,
-                "enableLogDetails": true,
-                "prettifyLogMessage": true,
-                "showCommonLabels": false,
-                "showControls": false,
-                "showFieldSelector": false,
-                "showLabels": false,
-                "showLevel": true,
-                "showTime": true,
-                "sortOrder": "Descending",
-                "timestampResolution": "ms",
-                "unwrappedColumns": false,
-                "wrapLogMessage": false
-              }
-            },
-            "version": "13.0.1"
-          }
-        }
-      },
       "panel-71": {
         "kind": "Panel",
         "spec": {
@@ -2445,285 +2383,6 @@
           }
         }
       },
-      "panel-80": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "prometheus"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "expr": "1 - avg by (instance) (rate(node_cpu_seconds_total{mode=\"idle\"}[$__rate_interval]))",
-                        "legendFormat": "{{instance}}",
-                        "range": true
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "node-exporter가 켜져 있는 Linux 서버에서만 값이 나온다. macOS local에서는 비어 있을 수 있다.",
-          "id": 80,
-          "links": [],
-          "title": "Host CPU Usage",
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "drawStyle": "line",
-                    "fillOpacity": 15,
-                    "lineWidth": 2,
-                    "showPoints": "never",
-                    "stacking": {
-                      "mode": "none"
-                    }
-                  },
-                  "max": 1,
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "green"
-                      },
-                      {
-                        "color": "yellow",
-                        "value": 0.7
-                      },
-                      {
-                        "color": "red",
-                        "value": 0.9
-                      }
-                    ]
-                  },
-                  "unit": "percentunit"
-                },
-                "overrides": []
-              },
-              "options": {
-                "legend": {
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "multi",
-                  "sort": "desc"
-                }
-              }
-            },
-            "version": ""
-          }
-        }
-      },
-      "panel-81": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "prometheus"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "expr": "1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)",
-                        "legendFormat": "{{instance}}",
-                        "range": true
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 81,
-          "links": [],
-          "title": "Host Memory Usage",
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "drawStyle": "line",
-                    "fillOpacity": 15,
-                    "lineWidth": 2,
-                    "showPoints": "never",
-                    "stacking": {
-                      "mode": "none"
-                    }
-                  },
-                  "max": 1,
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "green"
-                      },
-                      {
-                        "color": "yellow",
-                        "value": 0.75
-                      },
-                      {
-                        "color": "red",
-                        "value": 0.9
-                      }
-                    ]
-                  },
-                  "unit": "percentunit"
-                },
-                "overrides": []
-              },
-              "options": {
-                "legend": {
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "multi",
-                  "sort": "desc"
-                }
-              }
-            },
-            "version": ""
-          }
-        }
-      },
-      "panel-82": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "prometheus"
-                      },
-                      "group": "prometheus",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "expr": "1 - (node_filesystem_avail_bytes{fstype!~\"tmpfs|overlay|squashfs\"} / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs\"})",
-                        "legendFormat": "{{instance}} {{mountpoint}}",
-                        "range": true
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 82,
-          "links": [],
-          "title": "Host Filesystem Usage",
-          "vizConfig": {
-            "group": "timeseries",
-            "kind": "VizConfig",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {
-                  "color": {
-                    "mode": "palette-classic"
-                  },
-                  "custom": {
-                    "drawStyle": "line",
-                    "fillOpacity": 15,
-                    "lineWidth": 2,
-                    "showPoints": "never",
-                    "stacking": {
-                      "mode": "none"
-                    }
-                  },
-                  "max": 1,
-                  "min": 0,
-                  "thresholds": {
-                    "mode": "absolute",
-                    "steps": [
-                      {
-                        "color": "green"
-                      },
-                      {
-                        "color": "yellow",
-                        "value": 0.75
-                      },
-                      {
-                        "color": "red",
-                        "value": 0.9
-                      }
-                    ]
-                  },
-                  "unit": "percentunit"
-                },
-                "overrides": []
-              },
-              "options": {
-                "legend": {
-                  "displayMode": "list",
-                  "placement": "bottom",
-                  "showLegend": true
-                },
-                "tooltip": {
-                  "mode": "multi",
-                  "sort": "desc"
-                }
-              }
-            },
-            "version": ""
-          }
-        }
-      },
       "panel-76": {
         "kind": "Panel",
         "spec": {
@@ -2825,7 +2484,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "topk(10, sum by (method, uri) (increase(http_server_requests_milliseconds_count{application=~\"$service\", instance=~\"$instance\"}[$__range])))",
+                        "expr": "topk(10, sum by (method, uri) (increase(http_server_requests_milliseconds_count{application=~\"$service\", instance=~\"$instance\", method!=\"OPTIONS\", uri!=\"UNKNOWN\"}[$__range])) > 0)",
                         "format": "table",
                         "instant": true,
                         "range": false
@@ -2964,7 +2623,7 @@
                       "kind": "DataQuery",
                       "spec": {
                         "editorMode": "code",
-                        "expr": "topk(10, histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_milliseconds_bucket{application=~\"$service\", instance=~\"$instance\"}[$__rate_interval]))))",
+                        "expr": "topk(10, histogram_quantile(0.95, sum by (le, method, uri) (rate(http_server_requests_milliseconds_bucket{application=~\"$service\", instance=~\"$instance\", uri!=\"UNKNOWN\"}[$__rate_interval]))) > 0)",
                         "format": "table",
                         "instant": true,
                         "range": false
@@ -3083,6 +2742,996 @@
             "version": "13.0.1"
           }
         }
+      },
+      "panel-79": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "max by (uriTemplate, method) (max_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap queryCount | __error__=\"\" [$__range]))",
+                        "queryType": "instant"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (uriTemplate, method) (sum_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap queryCount | __error__=\"\" [$__range])) / sum by (uriTemplate, method) (count_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" [$__range]))",
+                        "queryType": "instant"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (uriTemplate, method) (sum_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap queryTimeMs | __error__=\"\" [$__range])) / sum by (uriTemplate, method) (sum_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap queryCount | __error__=\"\" [$__range]))",
+                        "queryType": "instant"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "C"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (uriTemplate, method) (sum_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap queryTimeMs | __error__=\"\" [$__range])) / sum by (uriTemplate, method) (sum_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap durationMs | __error__=\"\" [$__range])) * 100",
+                        "queryType": "instant"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "D"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "loki"
+                      },
+                      "group": "loki",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "expr": "sum by (uriTemplate, method) (sum_over_time({service_name=~\"$service\"} | event=\"api_request_completed\" | unwrap queryTimeMs | __error__=\"\" [$__range]))",
+                        "queryType": "instant"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "E"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "Transformation",
+                  "group": "merge",
+                  "spec": {
+                    "options": {}
+                  }
+                },
+                {
+                  "kind": "Transformation",
+                  "group": "organize",
+                  "spec": {
+                    "options": {
+                      "excludeByName": {
+                        "Time": true
+                      },
+                      "indexByName": {
+                        "method": 0,
+                        "uriTemplate": 1,
+                        "Value #A": 2,
+                        "Value #B": 3,
+                        "Value #C": 4,
+                        "Value #D": 5,
+                        "Value #E": 6
+                      },
+                      "renameByName": {
+                        "Value #A": "max queryCount",
+                        "Value #B": "avg queryCount",
+                        "Value #C": "쿼리당 시간(ms)",
+                        "Value #D": "DB 비중(%)",
+                        "Value #E": "total queryTimeMs"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "description": "api_request_completed 로그 기반 API별 DB 쿼리 통계(원본값=정확). 쿼리당시간=느린쿼리, DB비중=DB가 병목인지, total=DB부하 순위. 동기 쿼리만(@Async 제외). 진단은 Tempo.",
+          "id": 79,
+          "links": [],
+          "title": "DB queries by API (Loki 로그 기반)",
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  },
+                  "unit": "short"
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "쿼리당 시간(ms)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "ms"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "total queryTimeMs"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "ms"
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "DB 비중(%)"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "cellHeight": "sm",
+                "footer": {
+                  "countRows": false,
+                  "fields": "",
+                  "reducer": [
+                    "sum"
+                  ],
+                  "show": false
+                },
+                "showHeader": true,
+                "sortBy": [
+                  {
+                    "displayName": "max queryCount",
+                    "desc": true
+                  }
+                ]
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-90": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "cpu_utilization",
+                        "label": "CPUUtilization",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "CPUUtilization",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS CPUUtilization 지표입니다. 선택한 RDS 인스턴스의 CPU 사용률을 백분율로 표시합니다.",
+          "id": 90,
+          "links": [],
+          "title": "RDS CPU Utilization",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "stacking": {
+                      "mode": "none"
+                    }
+                  },
+                  "max": 100,
+                  "min": 0,
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green"
+                      },
+                      {
+                        "color": "yellow",
+                        "value": 70
+                      },
+                      {
+                        "color": "red",
+                        "value": 90
+                      }
+                    ]
+                  },
+                  "unit": "percent"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-91": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "cpu_credit_balance",
+                        "label": "CPUCreditBalance",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "CPUCreditBalance",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "300",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "db.t2, db.t3, db.t4g 계열에서만 제공되는 AWS/RDS CPUCreditBalance 지표입니다. T 계열이 아닌 인스턴스는 데이터가 표시되지 않는 것이 정상입니다.",
+          "id": 91,
+          "links": [],
+          "title": "RDS CPU Credit Balance",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "stacking": {
+                      "mode": "none"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-92": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "cpu_credit_usage",
+                        "label": "CPUCreditUsage",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "CPUCreditUsage",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "300",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Sum"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "db.t2, db.t3, db.t4g 계열에서만 제공되는 AWS/RDS CPUCreditUsage 지표입니다. 5분 동안 소비한 CPU Credit 합계를 표시합니다.",
+          "id": 92,
+          "links": [],
+          "title": "RDS CPU Credit Usage",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "color": {
+                    "mode": "palette-classic"
+                  },
+                  "custom": {
+                    "drawStyle": "line",
+                    "fillOpacity": 15,
+                    "lineWidth": 2,
+                    "showPoints": "never",
+                    "stacking": {
+                      "mode": "none"
+                    }
+                  },
+                  "thresholds": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "green"
+                      }
+                    ]
+                  },
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-93": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "database_connections",
+                        "label": "DatabaseConnections",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "DatabaseConnections",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS DatabaseConnections 지표입니다. 선택한 RDS 인스턴스에 연결된 클라이언트 네트워크 연결 수를 표시합니다.",
+          "id": 93,
+          "links": [],
+          "title": "RDS Database Connections",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-94": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "freeable_memory",
+                        "label": "FreeableMemory",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "FreeableMemory",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS FreeableMemory 지표입니다. PostgreSQL 인스턴스에서 사용 가능한 메모리를 표시합니다.",
+          "id": 94,
+          "links": [],
+          "title": "RDS Freeable Memory",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-95": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "free_storage_space",
+                        "label": "FreeStorageSpace",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "FreeStorageSpace",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS FreeStorageSpace 지표입니다. 선택한 RDS 인스턴스의 사용 가능한 스토리지 공간을 표시합니다.",
+          "id": 95,
+          "links": [],
+          "title": "RDS Free Storage Space",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-96": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "disk_queue_depth",
+                        "label": "DiskQueueDepth",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "DiskQueueDepth",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS DiskQueueDepth 지표입니다. 디스크 I/O 처리를 기다리는 읽기·쓰기 요청 수를 표시합니다.",
+          "id": 96,
+          "links": [],
+          "title": "RDS Disk Queue Depth",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "short"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-97": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "read_latency",
+                        "label": "ReadLatency",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "ReadLatency",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                },
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "write_latency",
+                        "label": "WriteLatency",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "WriteLatency",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "B"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS ReadLatency와 WriteLatency 지표입니다. 디스크 읽기·쓰기 I/O 작업당 평균 지연 시간을 초 단위로 표시합니다.",
+          "id": 97,
+          "links": [],
+          "title": "RDS Read / Write Latency",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "s"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
+      },
+      "panel-98": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "cloudwatch"
+                      },
+                      "group": "cloudwatch",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dimensions": {
+                          "DBInstanceIdentifier": "$rds_instance"
+                        },
+                        "id": "swap_usage",
+                        "label": "SwapUsage",
+                        "matchExact": true,
+                        "metricEditorMode": 0,
+                        "metricName": "SwapUsage",
+                        "metricQueryType": 0,
+                        "namespace": "AWS/RDS",
+                        "period": "auto",
+                        "queryMode": "Metrics",
+                        "region": "$aws_region",
+                        "statistic": "Average"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "AWS/RDS SwapUsage 지표입니다. PostgreSQL 인스턴스에서 사용 중인 swap 공간을 표시합니다.",
+          "id": 98,
+          "links": [],
+          "title": "RDS Swap Usage",
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "bytes"
+                },
+                "overrides": []
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "desc"
+                }
+              }
+            },
+            "version": "13.0.1"
+          }
+        }
       }
     },
     "layout": {
@@ -3173,19 +3822,6 @@
                         "width": 4,
                         "x": 20,
                         "y": 0
-                      }
-                    },
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-7"
-                        },
-                        "height": 10,
-                        "width": 24,
-                        "x": 0,
-                        "y": 4
                       }
                     }
                   ]
@@ -3371,6 +4007,19 @@
                         "x": 16,
                         "y": 26
                       }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-79"
+                        },
+                        "height": 12,
+                        "width": 24,
+                        "x": 0,
+                        "y": 34
+                      }
                     }
                   ]
                 }
@@ -3550,10 +4199,10 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "panel-80"
+                          "name": "panel-90"
                         },
-                        "height": 8,
-                        "width": 12,
+                        "height": 9,
+                        "width": 8,
                         "x": 0,
                         "y": 0
                       }
@@ -3563,11 +4212,11 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "panel-81"
+                          "name": "panel-91"
                         },
-                        "height": 8,
-                        "width": 12,
-                        "x": 12,
+                        "height": 9,
+                        "width": 8,
+                        "x": 8,
                         "y": 0
                       }
                     },
@@ -3576,18 +4225,96 @@
                       "spec": {
                         "element": {
                           "kind": "ElementReference",
-                          "name": "panel-82"
+                          "name": "panel-92"
                         },
-                        "height": 8,
-                        "width": 24,
+                        "height": 9,
+                        "width": 8,
+                        "x": 16,
+                        "y": 0
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-93"
+                        },
+                        "height": 9,
+                        "width": 8,
                         "x": 0,
-                        "y": 8
+                        "y": 9
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-94"
+                        },
+                        "height": 9,
+                        "width": 8,
+                        "x": 8,
+                        "y": 9
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-95"
+                        },
+                        "height": 9,
+                        "width": 8,
+                        "x": 16,
+                        "y": 9
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-96"
+                        },
+                        "height": 9,
+                        "width": 8,
+                        "x": 0,
+                        "y": 18
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-97"
+                        },
+                        "height": 9,
+                        "width": 8,
+                        "x": 8,
+                        "y": 18
+                      }
+                    },
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-98"
+                        },
+                        "height": 9,
+                        "width": 8,
+                        "x": 16,
+                        "y": 18
                       }
                     }
                   ]
                 }
               },
-              "title": "💻 Host Metrics — node-exporter"
+              "title": "☁️ AWS RDS PostgreSQL — CloudWatch"
             }
           }
         ]
@@ -3616,7 +4343,10 @@
       "performance",
       "prometheus",
       "loki",
-      "otel"
+      "otel",
+      "aws",
+      "rds",
+      "cloudwatch"
     ],
     "timeSettings": {
       "autoRefresh": "30s",
@@ -3655,6 +4385,51 @@
           "pluginId": "prometheus",
           "refresh": "onDashboardLoad",
           "regex": "",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "selected": true,
+            "text": "2m",
+            "value": "2m"
+          },
+          "hide": "dontHide",
+          "includeAll": false,
+          "label": "HTTP Noise Reduction Interval",
+          "multi": false,
+          "name": "http_requests_interval",
+          "options": [
+            {
+              "selected": false,
+              "text": "15s",
+              "value": "15s"
+            },
+            {
+              "selected": false,
+              "text": "30s",
+              "value": "30s"
+            },
+            {
+              "selected": false,
+              "text": "1m",
+              "value": "1m"
+            },
+            {
+              "selected": true,
+              "text": "2m",
+              "value": "2m"
+            },
+            {
+              "selected": false,
+              "text": "5m",
+              "value": "5m"
+            }
+          ],
+          "query": "15s : 15s,30s : 30s,1m : 1m,2m : 2m,5m : 5m",
           "skipUrlSync": false
         }
       },
@@ -3719,6 +4494,89 @@
             "spec": {
               "query": "label_values(jvm_memory_used_bytes{application=~\"$service\"}, instance)",
               "refId": "StandardVariableQuery"
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "alphabeticalAsc"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "ap-northeast-2",
+            "value": "ap-northeast-2"
+          },
+          "definition": "regions()",
+          "hide": "dontHide",
+          "includeAll": false,
+          "label": "AWS Region",
+          "multi": false,
+          "name": "aws_region",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "cloudwatch"
+            },
+            "group": "cloudwatch",
+            "kind": "DataQuery",
+            "spec": {
+              "attributeName": "",
+              "dimensionKey": "",
+              "instanceID": "",
+              "metricName": "",
+              "namespace": "",
+              "queryType": "regions",
+              "refId": "CloudWatchRegionsVariableQuery",
+              "region": "default",
+              "resourceType": ""
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "alphabeticalAsc"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "server-rds-prod",
+            "value": "server-rds-prod"
+          },
+          "definition": "dimension_values($aws_region, AWS/RDS, CPUUtilization, DBInstanceIdentifier)",
+          "hide": "dontHide",
+          "includeAll": false,
+          "label": "RDS Instance",
+          "multi": false,
+          "name": "rds_instance",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "cloudwatch"
+            },
+            "group": "cloudwatch",
+            "kind": "DataQuery",
+            "spec": {
+              "attributeName": "",
+              "dimensionFilters": {},
+              "dimensionKey": "DBInstanceIdentifier",
+              "instanceID": "",
+              "metricName": "CPUUtilization",
+              "namespace": "AWS/RDS",
+              "queryType": "dimensionValues",
+              "refId": "CloudWatchRdsInstanceVariableQuery",
+              "region": "$aws_region",
+              "resourceType": ""
             },
             "version": "v0"
           },

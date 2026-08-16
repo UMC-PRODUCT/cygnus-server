@@ -1,0 +1,266 @@
+scalar Long
+
+extend type Query {
+  project(id: ID!): Project
+  projects(input: ProjectSearchInput!, page: ProjectPageInput): ProjectPage!
+}
+
+input ProjectSearchInput {
+  gisuId: ID!
+  keyword: String
+  chapterId: ID
+  productOwnerSchoolIds: [ID!]
+  parts: [ChallengerPart!]
+  partQuotaStatus: PartQuotaStatus
+  statuses: [ProjectStatus!]
+}
+
+input ProjectPageInput {
+  page: Int = 0
+  size: Int = 20
+  sort: [ProjectSort!] = [CREATED_AT_ASC, NAME_ASC]
+}
+
+type ProjectPage {
+  content: [Project!]!
+  page: Int!
+  size: Int!
+  totalElements: Long!
+  totalPages: Int!
+  hasNext: Boolean!
+}
+
+type Project {
+  id: ID!
+  status: ProjectStatus!
+  name: String!
+  description: String
+  thumbnailImageUrl: String
+  logoImageUrl: String
+  externalLink: String
+  gisuId: ID!
+  chapterId: ID!
+  productOwner: MemberBrief
+  coProductOwners: [MemberBrief!]!
+  partQuotas: [ProjectPartQuota!]!
+  createdAt: String!
+  updatedAt: String!
+  members: [ProjectMember!]!
+  applicationForm: ProjectApplicationForm
+}
+
+type ProjectMember {
+  projectMemberId: ID!
+  projectId: ID!
+  member: MemberBrief!
+  part: ChallengerPart!
+  leader: Boolean!
+  description: String
+  decidedAt: String
+  status: ProjectMemberStatus!
+  application: ProjectApplication
+}
+
+type ProjectApplication {
+  applicationId: ID!
+  applicant: ProjectApplicant!
+  applicantPart: ChallengerPart!
+  matchingRound: ProjectMatchingRoundBrief
+  status: ProjectApplicationViewStatus
+  submittedAt: String
+  statusChangedAt: String
+  formResponse: ProjectApplicationFormResponse
+}
+
+type ProjectApplicationForm {
+  projectId: ID!
+  applicationFormId: ID!
+  title: String!
+  description: String
+  sections: [ApplicationFormSection!]!
+}
+
+type ApplicationFormSection {
+  sectionId: ID!
+  type: FormSectionType!
+  allowedParts: [ChallengerPart!]!
+  title: String!
+  description: String
+  orderNo: Int!
+  questions: [ApplicationFormQuestion!]!
+}
+
+type ApplicationFormQuestion {
+  questionId: ID!
+  type: QuestionType!
+  title: String!
+  description: String
+  required: Boolean!
+  orderNo: Int!
+  options: [ApplicationFormOption!]!
+}
+
+type ApplicationFormOption {
+  optionId: ID!
+  content: String!
+  orderNo: Int!
+  other: Boolean!
+}
+
+type MemberBrief {
+  memberId: ID!
+  nickname: String
+  name: String
+  schoolName: String
+}
+
+type ProjectPartQuota {
+  part: ChallengerPart!
+  quota: Long!
+  currentCount: Long!
+  remainingCount: Long!
+  status: PartQuotaStatus!
+}
+
+type ProjectApplicant {
+  memberId: ID!
+  nickname: String
+  name: String
+  schoolName: String
+  part: ChallengerPart!
+}
+
+type ProjectMatchingRoundBrief {
+  id: ID!
+  type: MatchingType!
+  phase: MatchingRoundPhaseView!
+}
+
+type ProjectApplicationFormResponse {
+  formResponseId: ID!
+  formId: ID!
+  status: FormResponseStatus!
+  submittedAt: String
+  lastSavedAt: String
+  sections: [ProjectApplicationResponseSection!]!
+}
+
+type ProjectApplicationResponseSection {
+  sectionId: ID!
+  type: FormSectionType!
+  allowedParts: [ChallengerPart!]!
+  title: String!
+  description: String
+  orderNo: Int!
+  questions: [ProjectApplicationResponseQuestion!]!
+}
+
+type ProjectApplicationResponseQuestion {
+  questionId: ID!
+  type: QuestionType!
+  title: String!
+  description: String
+  required: Boolean!
+  orderNo: Int!
+  options: [ApplicationFormOption!]!
+  answer: ProjectApplicationAnswer
+}
+
+type ProjectApplicationAnswer {
+  answerId: ID!
+  answeredAsType: QuestionType!
+  textValue: String
+  selectedOptions: [ProjectApplicationSelectedOption!]!
+  files: [ProjectApplicationFile!]!
+  times: [String!]!
+}
+
+type ProjectApplicationSelectedOption {
+  questionOptionId: ID
+  answeredAsContent: String!
+}
+
+type ProjectApplicationFile {
+  fileId: ID!
+  originalFileName: String!
+  url: String!
+}
+
+enum ProjectSort {
+  CREATED_AT_ASC
+  CREATED_AT_DESC
+  NAME_ASC
+  NAME_DESC
+}
+
+enum ChallengerPart {
+  PLAN
+  DESIGN
+  WEB
+  ANDROID
+  IOS
+  NODEJS
+  SPRINGBOOT
+  ADMIN
+}
+
+enum PartQuotaStatus {
+  RECRUITING
+  COMPLETED
+}
+
+enum ProjectStatus {
+  DRAFT
+  PENDING_REVIEW
+  IN_PROGRESS
+  COMPLETED
+  ABORTED
+}
+
+enum ProjectMemberStatus {
+  ACTIVE
+  COMPLETED
+  WITHDRAWN
+  DISMISSED
+}
+
+enum ProjectApplicationViewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum FormSectionType {
+  COMMON
+  PART
+}
+
+enum MatchingType {
+  PLAN_DESIGN
+  PLAN_DEVELOPER
+}
+
+enum MatchingRoundPhaseView {
+  FIRST
+  SECOND
+  THIRD
+  RANDOM_MATCHING
+}
+
+enum FormResponseStatus {
+  DRAFT
+  SUBMITTED
+}
+
+enum QuestionType {
+  SHORT_TEXT
+  LONG_TEXT
+  RADIO
+  CHECKBOX
+  DROPDOWN
+  SCHEDULE
+  FILE
+  PORTFOLIO
+}

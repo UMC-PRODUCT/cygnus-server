@@ -1,0 +1,397 @@
+package com.umc.product.community.adapter.out.persistence;
+
+import static com.umc.product.community.domain.QCommunityThread.communityThread;
+import static com.umc.product.community.domain.QCommunityThreadMember.communityThreadMember;
+
+import java.util.List;
+import java.util.Optional;
+
+import org.springframework.stereotype.Repository;
+
+import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.Tuple;
+import com.querydsl.core.types.OrderSpecifier;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.core.types.dsl.CaseBuilder;
+import com.querydsl.jpa.JPAExpressions;
+import com.querydsl.jpa.JPQLQuery;
+import com.querydsl.jpa.impl.JPAQuery;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.community.application.port.out.thread.dto.CommunityThreadListCondition;
+import com.umc.product.community.application.port.out.thread.dto.CommunityThreadListRows;
+import com.umc.product.community.application.port.out.thread.dto.CommunityThreadMemberRow;
+import com.umc.product.community.application.port.out.thread.dto.CommunityThreadQueryRow;
+import com.umc.product.community.domain.QCommunityThreadMember;
+import com.umc.product.community.domain.enums.CommunityThreadMemberState;
+
+import lombok.RequiredArgsConstructor;
+
+@Repository
+@RequiredArgsConstructor
+public class CommunityThreadQueryRepository {
+
+    private final JPAQueryFactory queryFactory;
+
+    /**
+     * @deprecated 스레드 목록은 {@link #browseThreads}를 사용한다. requester가 ACTIVE 멤버인 스레드만 반환하는 이 조회는 "내 참여 스레드만 모아보기" 재사용을 위해
+     * 보류한 상태다.
+     */
+    @Deprecated
+    public CommunityThreadListRows searchThreads(CommunityThreadListCondition condition) {
+        List<CommunityThreadQueryRow> pinned = fetchThreadRows(condition, true);
+        List<CommunityThreadQueryRow> unpinned = fetchThreadRows(condition, false);
+        long unpinnedTotal = countUnpinned(condition);
+        return new CommunityThreadListRows(pinned, unpinned, unpinnedTotal);
+    }
+
+    /**
+     * 목록 화면은 "고정"과 "전체"를 나눠 보여주므로 keyword가 없으면 두 목록으로 분리한다. 검색 화면은 단일 목록에 "검색 결과 N개"를 표시하므로 keyword가 있으면
+     * pinned를 비우고 매칭된 스레드 전체를 unpinned 하나에 담는다. 이때 unpinnedTotal은 고정 스레드를 포함한 전체 매칭 수다.
+     */
+    public CommunityThreadListRows browseThreads(CommunityThreadListCondition condition) {
+        if (condition.keyword() != null) {
+            return new CommunityThreadListRows(
+                List.of(), fetchSearchRows(condition), countSearch(condition)
+            );
+        }
+        List<CommunityThreadQueryRow> pinned = fetchThreadRows(condition, true);
+        List<CommunityThreadQueryRow> unpinned = fetchBrowseRows(condition);
+        long unpinnedTotal = countBrowse(condition);
+        return new CommunityThreadListRows(pinned, unpinned, unpinnedTotal);
+    }
+
+    public Optional<CommunityThreadQueryRow> findThread(Long threadId, Long requesterMemberId) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("detailRequesterMembership");
+        JPQLQuery<Long> memberCount = activeMemberCount("detailActiveMembership");
+
+        Tuple row = queryFactory
+            .select(threadProjection(requesterMembership, memberCount))
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(requesterMemberId)
+            )
+            .where(communityThread.id.eq(threadId))
+            .fetchOne();
+
+        return Optional.ofNullable(row)
+            .map(tuple -> toThreadRow(tuple, requesterMembership, memberCount));
+    }
+
+    public List<CommunityThreadMemberRow> listActiveThreadMembers(Long threadId) {
+        return queryFactory
+            .select(
+                communityThreadMember.memberId,
+                communityThreadMember.role,
+                communityThreadMember.state,
+                communityThreadMember.joinedAt
+            )
+            .from(communityThreadMember)
+            .where(
+                communityThreadMember.threadId.eq(threadId),
+                communityThreadMember.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .orderBy(communityThreadMember.memberId.asc())
+            .fetch()
+            .stream()
+            .map(row -> new CommunityThreadMemberRow(
+                row.get(communityThreadMember.memberId),
+                row.get(communityThreadMember.role),
+                row.get(communityThreadMember.state),
+                row.get(communityThreadMember.joinedAt)
+            ))
+            .toList();
+    }
+
+    public List<Long> listActiveMemberIdsByThreadId(Long threadId, int limit) {
+        if (limit < 1) {
+            throw new IllegalArgumentException("limit must be positive");
+        }
+        return queryFactory
+            .select(communityThreadMember.memberId)
+            .from(communityThreadMember)
+            .where(
+                communityThreadMember.threadId.eq(threadId),
+                communityThreadMember.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .orderBy(communityThreadMember.memberId.asc())
+            .limit(limit)
+            .fetch();
+    }
+
+    public List<Long> listInvitationBlockedMemberIds(Long threadId) {
+        return queryFactory
+            .select(communityThreadMember.memberId)
+            .from(communityThreadMember)
+            .where(
+                communityThreadMember.threadId.eq(threadId),
+                communityThreadMember.state.in(
+                    CommunityThreadMemberState.ACTIVE,
+                    CommunityThreadMemberState.KICKED
+                )
+            )
+            .orderBy(communityThreadMember.memberId.asc())
+            .fetch();
+    }
+
+    private List<CommunityThreadQueryRow> fetchThreadRows(
+        CommunityThreadListCondition condition,
+        boolean pinned
+    ) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("listRequesterMembership");
+        JPQLQuery<Long> memberCount = activeMemberCount("listActiveMembership");
+        BooleanBuilder where = listCondition(condition, requesterMembership)
+            .and(requesterMembership.pinned.eq(pinned));
+
+        JPAQuery<Tuple> query = queryFactory
+            .select(threadProjection(requesterMembership, memberCount))
+            .from(communityThread)
+            .join(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(where)
+            .orderBy(communityThread.lastActivityAt.desc(), communityThread.id.desc());
+
+        if (!pinned) {
+            query.offset(condition.offset()).limit(condition.limit());
+        }
+        return query.fetch().stream()
+            .map(row -> toThreadRow(row, requesterMembership, memberCount))
+            .toList();
+    }
+
+    private List<CommunityThreadQueryRow> fetchBrowseRows(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("browseRequesterMembership");
+        JPQLQuery<Long> memberCount = activeMemberCount("browseActiveMembership");
+
+        return queryFactory
+            .select(threadProjection(requesterMembership, memberCount))
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(browseUnpinnedCondition(condition, requesterMembership))
+            .orderBy(communityThread.lastActivityAt.desc(), communityThread.id.desc())
+            .offset(condition.offset())
+            .limit(condition.limit())
+            .fetch()
+            .stream()
+            .map(row -> toThreadRow(row, requesterMembership, memberCount))
+            .toList();
+    }
+
+    private List<CommunityThreadQueryRow> fetchSearchRows(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("searchRequesterMembership");
+        JPQLQuery<Long> memberCount = activeMemberCount("searchActiveMembership");
+
+        return queryFactory
+            .select(threadProjection(requesterMembership, memberCount))
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(listCondition(condition, requesterMembership))
+            .orderBy(
+                pinnedFirst(requesterMembership),
+                communityThread.lastActivityAt.desc(),
+                communityThread.id.desc()
+            )
+            .offset(condition.offset())
+            .limit(condition.limit())
+            .fetch()
+            .stream()
+            .map(row -> toThreadRow(row, requesterMembership, memberCount))
+            .toList();
+    }
+
+    private long countSearch(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countSearchMembership");
+        Long count = queryFactory
+            .select(communityThread.id.count())
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(listCondition(condition, requesterMembership))
+            .fetchOne();
+        return count == null ? 0L : count;
+    }
+
+    private long countBrowse(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countBrowseMembership");
+        Long count = queryFactory
+            .select(communityThread.id.count())
+            .from(communityThread)
+            .leftJoin(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(browseUnpinnedCondition(condition, requesterMembership))
+            .fetchOne();
+        return count == null ? 0L : count;
+    }
+
+    private long countUnpinned(CommunityThreadListCondition condition) {
+        QCommunityThreadMember requesterMembership = new QCommunityThreadMember("countRequesterMembership");
+        Long count = queryFactory
+            .select(communityThread.id.count())
+            .from(communityThread)
+            .join(requesterMembership).on(
+                requesterMembership.threadId.eq(communityThread.id),
+                requesterMembership.memberId.eq(condition.requesterMemberId()),
+                requesterMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            )
+            .where(
+                listCondition(condition, requesterMembership),
+                requesterMembership.pinned.isFalse()
+            )
+            .fetchOne();
+        return count == null ? 0L : count;
+    }
+
+    private BooleanBuilder baseCondition(CommunityThreadListCondition condition) {
+        BooleanBuilder where = new BooleanBuilder()
+            .and(communityThread.deletedAt.isNull())
+            .and(notKicked(condition.requesterMemberId()));
+        if (condition.category() != null) {
+            where.and(communityThread.category.eq(condition.category()));
+        }
+        if (condition.keyword() != null) {
+            where.and(keywordContains(condition.keyword()));
+        }
+        return where;
+    }
+
+    /**
+     * 강퇴된 스레드를 목록에서 제외한다.
+     *
+     * <p>requester 멤버십 join은 ACTIVE만 매칭하므로 KICKED는 join 결과가 비어 "미참여 스레드"와
+     * 구분되지 않는다. 따라서 KICKED 행의 존재 여부를 별도 subquery로 확인한다.</p>
+     */
+    private BooleanExpression notKicked(Long requesterMemberId) {
+        QCommunityThreadMember kickedMembership = new QCommunityThreadMember("kickedMembership");
+        return JPAExpressions.selectOne()
+            .from(kickedMembership)
+            .where(
+                kickedMembership.threadId.eq(communityThread.id),
+                kickedMembership.memberId.eq(requesterMemberId),
+                kickedMembership.state.eq(CommunityThreadMemberState.KICKED)
+            )
+            .notExists();
+    }
+
+    private BooleanBuilder listCondition(
+        CommunityThreadListCondition condition,
+        QCommunityThreadMember requesterMembership
+    ) {
+        BooleanBuilder where = baseCondition(condition);
+        if (condition.unreadOnly()) {
+            where.and(requesterMembership.unreadCount.gt(0L));
+        }
+        return where;
+    }
+
+    private BooleanBuilder browseUnpinnedCondition(
+        CommunityThreadListCondition condition,
+        QCommunityThreadMember requesterMembership
+    ) {
+        BooleanBuilder where = baseCondition(condition)
+            .and(requesterMembership.pinned.isNull().or(requesterMembership.pinned.isFalse()));
+        if (condition.unreadOnly()) {
+            where.and(requesterMembership.unreadCount.gt(0L));
+        }
+        return where;
+    }
+
+    /**
+     * pinned는 left join 컬럼이라 비멤버 스레드에서 null이 된다. boolean 정렬은 DB마다 null 위치가 달라지므로 정렬 키를 0/1로 고정한다.
+     */
+    private OrderSpecifier<Integer> pinnedFirst(QCommunityThreadMember requesterMembership) {
+        return new CaseBuilder()
+            .when(requesterMembership.pinned.isTrue()).then(0)
+            .otherwise(1)
+            .asc();
+    }
+
+    private BooleanExpression keywordContains(String keyword) {
+        return communityThread.title.containsIgnoreCase(keyword)
+            .or(communityThread.description.containsIgnoreCase(keyword));
+    }
+
+    private JPQLQuery<Long> activeMemberCount(String alias) {
+        QCommunityThreadMember activeMembership = new QCommunityThreadMember(alias);
+        return JPAExpressions
+            .select(activeMembership.id.count())
+            .from(activeMembership)
+            .where(
+                activeMembership.threadId.eq(communityThread.id),
+                activeMembership.state.eq(CommunityThreadMemberState.ACTIVE)
+            );
+    }
+
+    private com.querydsl.core.types.Expression<?>[] threadProjection(
+        QCommunityThreadMember requesterMembership,
+        JPQLQuery<Long> memberCount
+    ) {
+        return new com.querydsl.core.types.Expression<?>[]{
+            communityThread.id,
+            communityThread.title,
+            communityThread.description,
+            communityThread.category,
+            communityThread.icon,
+            memberCount,
+            requesterMembership.unreadCount,
+            requesterMembership.pinned,
+            requesterMembership.muted,
+            requesterMembership.role,
+            requesterMembership.state,
+            communityThread.lastMessagePreview,
+            communityThread.lastMessageSenderMemberId,
+            communityThread.lastMessageCreatedAt,
+            communityThread.creatorMemberId,
+            communityThread.lastActivityAt,
+            communityThread.deletedAt,
+            communityThread.createdAt,
+            communityThread.updatedAt
+        };
+    }
+
+    private CommunityThreadQueryRow toThreadRow(
+        Tuple row,
+        QCommunityThreadMember requesterMembership,
+        JPQLQuery<Long> memberCount
+    ) {
+        Long activeMemberCount = row.get(memberCount);
+        Long unreadCount = row.get(requesterMembership.unreadCount);
+        return new CommunityThreadQueryRow(
+            row.get(communityThread.id),
+            row.get(communityThread.title),
+            row.get(communityThread.description),
+            row.get(communityThread.category),
+            row.get(communityThread.icon),
+            activeMemberCount == null ? 0L : activeMemberCount,
+            unreadCount == null ? 0L : unreadCount,
+            Boolean.TRUE.equals(row.get(requesterMembership.pinned)),
+            Boolean.TRUE.equals(row.get(requesterMembership.muted)),
+            row.get(requesterMembership.role),
+            row.get(requesterMembership.state),
+            row.get(communityThread.lastMessagePreview),
+            row.get(communityThread.lastMessageSenderMemberId),
+            row.get(communityThread.lastMessageCreatedAt),
+            row.get(communityThread.creatorMemberId),
+            row.get(communityThread.lastActivityAt),
+            row.get(communityThread.deletedAt),
+            row.get(communityThread.createdAt),
+            row.get(communityThread.updatedAt)
+        );
+    }
+}

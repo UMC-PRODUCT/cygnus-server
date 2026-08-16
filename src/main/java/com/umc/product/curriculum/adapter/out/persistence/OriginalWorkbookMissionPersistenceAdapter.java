@@ -1,16 +1,29 @@
 package com.umc.product.curriculum.adapter.out.persistence;
 
-import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
-import com.umc.product.curriculum.domain.OriginalWorkbookMission;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Component;
+
+import com.umc.product.curriculum.application.port.out.LoadOriginalWorkbookMissionPort;
+import com.umc.product.curriculum.application.port.out.SaveOriginalWorkbookMissionPort;
+import com.umc.product.curriculum.domain.OriginalWorkbookMission;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
+
+import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
-public class OriginalWorkbookMissionPersistenceAdapter implements LoadOriginalWorkbookMissionPort {
+public class OriginalWorkbookMissionPersistenceAdapter
+    implements LoadOriginalWorkbookMissionPort, SaveOriginalWorkbookMissionPort {
 
     private final OriginalWorkbookMissionJpaRepository originalWorkbookMissionJpaRepository;
+
+    @Override
+    public OriginalWorkbookMission getById(Long originalWorkbookMissionId) {
+        return originalWorkbookMissionJpaRepository.findById(originalWorkbookMissionId)
+            .orElseThrow(() -> new CurriculumDomainException(CurriculumErrorCode.MISSION_NOT_FOUND));
+    }
 
     @Override
     public List<OriginalWorkbookMission> findByOriginalWorkbookId(Long originalWorkbookId) {
@@ -23,5 +36,15 @@ public class OriginalWorkbookMissionPersistenceAdapter implements LoadOriginalWo
             return List.of();
         }
         return originalWorkbookMissionJpaRepository.findByOriginalWorkbookIdIn(originalWorkbookIds);
+    }
+
+    @Override
+    public OriginalWorkbookMission save(OriginalWorkbookMission mission) {
+        return originalWorkbookMissionJpaRepository.save(mission);
+    }
+
+    @Override
+    public void delete(OriginalWorkbookMission mission) {
+        originalWorkbookMissionJpaRepository.delete(mission);
     }
 }

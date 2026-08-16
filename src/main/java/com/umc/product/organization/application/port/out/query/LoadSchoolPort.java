@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterInfo;
+import com.umc.product.organization.application.port.in.query.dto.school.SchoolChapterNameInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolGisuChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolListItemInfo;
@@ -31,7 +32,11 @@ public interface LoadSchoolPort {
 
     Map<Long, List<SchoolDetailInfo.SchoolLinkItem>> findLinksBySchoolIds(List<Long> schoolIds);
 
+    List<SchoolChapterInfo> findSchoolDetailsByIds(Set<Long> schoolIds);
+
     List<SchoolChapterInfo> findSchoolDetailsByGisuId(Long gisuId);
+
+    List<SchoolChapterNameInfo> findSchoolChapterNamesByGisuId(Long gisuId);
 
     List<SchoolGisuChapterInfo> findSchoolDetailsByGisuIds(Set<Long> gisuIds);
 

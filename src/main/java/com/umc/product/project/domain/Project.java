@@ -1,9 +1,12 @@
 package com.umc.product.project.domain;
 
+import java.util.Objects;
+
 import com.umc.product.common.BaseEntity;
 import com.umc.product.project.domain.enums.ProjectStatus;
 import com.umc.product.project.domain.exception.ProjectDomainException;
 import com.umc.product.project.domain.exception.ProjectErrorCode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -189,6 +192,13 @@ public class Project extends BaseEntity {
     }
 
     /**
+     * 전달된 멤버가 프로젝트의 메인 PM인지 확인합니다.
+     */
+    public boolean isOwner(Long memberId) {
+        return Objects.equals(this.productOwnerMemberId, memberId);
+    }
+
+    /**
      * 프로젝트 본체(이름·소개·소유권 등)를 변경 가능한 상태인지 검증한다.
      * 종료 상태({@code COMPLETED}, {@code ABORTED})에서는 변경 불가.
      */
@@ -249,11 +259,14 @@ public class Project extends BaseEntity {
     }
 
     /**
-     * 기수가 종료되었을 때, 프로젝트를 완료 처리 합니다.
+     * 기수가 종료되었을 때, 프로젝트를 완료 처리 합니다. IN_PROGRESS 상태에서만 허용합니다.
+     *
+     * @param decidedByMemberId 완료 처리한 운영진 Member ID (audit 용)
      */
-    public void complete() {
+    public void complete(Long decidedByMemberId) {
         validateStatus(ProjectStatus.IN_PROGRESS);
         this.status = ProjectStatus.COMPLETED;
+        this.statusChangedByMemberId = decidedByMemberId;
     }
 
     /**

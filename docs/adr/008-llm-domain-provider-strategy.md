@@ -18,7 +18,7 @@ ADR-003 (Amended 2026-05-07) 결정에 따라 Figma 댓글 → 서버 도메인 
 
 기술/운영 제약은 다음과 같다.
 
-- 서비스 환경: Java 21, Spring Boot 3.5.9. 이미 `spring-boot-starter-web`, `spring-boot-starter-actuator`, Micrometer, OpenTelemetry, Sentry 가 운영 중이다.
+- 서비스 환경: Java 21, Spring Boot 3.5.15. 이미 `spring-boot-starter-web`, `spring-boot-starter-actuator`, Micrometer, OpenTelemetry, Sentry 가 운영 중이다.
 - 호출 패턴: **분류 (classification)** 가 사실상 전부다. 입력 ~500 토큰, 출력 ~30 토큰. candidates 리스트가 함께 주어져 그 중 하나만 반환되면 된다.
 - 호출량 추정: 활성 watched file 50개 × 신규 댓글 5건/일 평균 = sync 250건/일. preview / 운영진 트리거 포함 시 ~500건/일. 즉 일 100만 토큰을 한참 못 미치는 소규모.
 - 한국어 분류 정확도가 운영진 신뢰의 핵심. 어색한 매핑은 fallback 채널 누적으로 이어진다.
@@ -229,19 +229,24 @@ Claude 모델로 분류를 수행한다.
 
 ### 의존성 추가
 
-`build.gradle.kts`:
+`gradle/libs.versions.toml`:
+
+```toml
+spring-ai = "1.1.8"
+```
+
+`gradle/dependencies.gradle.kts`:
 
 ```kotlin
-val springAiVersion = "1.0.0"
-
 dependencies {
-    implementation(platform("org.springframework.ai:spring-ai-bom:${springAiVersion}"))
-    implementation("org.springframework.ai:spring-ai-starter-model-vertex-ai-gemini")
-    implementation("org.springframework.ai:spring-ai-starter-model-openai")
+    add("implementation", platform("org.springframework.ai:spring-ai-bom:${version("spring-ai")}"))
+    add("implementation", "org.springframework.ai:spring-ai-starter-model-vertex-ai-gemini")
+    add("implementation", "org.springframework.ai:spring-ai-starter-model-openai")
+    add("implementation", "org.springframework.ai:spring-ai-starter-model-google-genai")
 
     // 단기 캐시 (figma classifier 측에서 사용)
-    implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("org.springframework.boot:spring-boot-starter-cache")
+    add("implementation", "com.github.ben-manes.caffeine:caffeine")
+    add("implementation", "org.springframework.boot:spring-boot-starter-cache")
 }
 ```
 

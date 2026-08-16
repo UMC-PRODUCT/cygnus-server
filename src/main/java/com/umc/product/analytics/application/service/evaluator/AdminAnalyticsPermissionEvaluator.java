@@ -1,13 +1,13 @@
 package com.umc.product.analytics.application.service.evaluator;
 
+import org.springframework.stereotype.Component;
+
 import com.umc.product.authorization.application.port.out.ResourcePermissionEvaluator;
 import com.umc.product.authorization.domain.PermissionType;
 import com.umc.product.authorization.domain.ResourcePermission;
 import com.umc.product.authorization.domain.ResourceType;
-import com.umc.product.authorization.domain.RoleAttribute;
 import com.umc.product.authorization.domain.SubjectAttributes;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
-import org.springframework.stereotype.Component;
 
 @Component
 public class AdminAnalyticsPermissionEvaluator implements ResourcePermissionEvaluator {
@@ -23,10 +23,13 @@ public class AdminAnalyticsPermissionEvaluator implements ResourcePermissionEval
             return false;
         }
 
+        if (subjectAttributes.toAuthoritySnapshot().isSuperAdmin()) {
+            return true;
+        }
+
         return subjectAttributes.roleAttributes().stream()
-            .map(RoleAttribute::roleType)
-            .anyMatch(roleType -> roleType.isSuperAdmin()
-                || roleType.isAtLeastCentralMember()
+            .map(role -> role.roleType())
+            .anyMatch(roleType -> roleType.isAtLeastCentralMember()
                 || roleType == ChallengerRoleType.CHAPTER_PRESIDENT
                 || roleType.isAtLeastSchoolAdmin());
     }

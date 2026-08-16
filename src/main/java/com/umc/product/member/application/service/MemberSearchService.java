@@ -1,11 +1,25 @@
 package com.umc.product.member.application.service;
 
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
+import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
-import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.challenger.domain.Challenger;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
+import com.umc.product.member.application.dto.MemberSearchAccessScope;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.SearchMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.ChallengerSearchItemV2Info;
@@ -19,20 +33,12 @@ import com.umc.product.member.application.port.in.query.dto.SearchMemberQuery;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberResult;
 import com.umc.product.member.application.port.in.query.dto.SearchMemberV2Result;
 import com.umc.product.member.application.port.out.SearchMemberPort;
+import com.umc.product.member.domain.exception.MemberDomainException;
+import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -42,12 +48,15 @@ public class MemberSearchService implements SearchMemberUseCase {
     private final SearchMemberPort searchMemberPort;
 
     private final GetMemberUseCase getMemberUseCase;
+    private final CheckChallengerHistoryUseCase checkChallengerHistoryUseCase;
     private final GetChallengerUseCase getChallengerUseCase;
     private final GetChallengerRoleUseCase getChallengerRoleUseCase;
     private final GetGisuUseCase getGisuUseCase;
+    private final MemberSearchAccessScopeResolver memberSearchAccessScopeResolver;
 
     @Override
-    public SearchMemberResult searchBy(SearchMemberQuery query, Pageable pageable) {
+    public SearchMemberResult searchBy(SearchMemberQuery query, Long requesterMemberId, Pageable pageable) {
+        assertMemberSearchAccess(requesterMemberId);
         Page<Challenger> challengers = searchMemberPort.search(query, pageable);
 
         // 배치 데이터 로딩
@@ -63,7 +72,12 @@ public class MemberSearchService implements SearchMemberUseCase {
     }
 
     @Override
-    public ChallengerSearchV2Result searchChallengersByV2(SearchMemberQuery query, Pageable pageable) {
+    public ChallengerSearchV2Result searchChallengersByV2(
+        SearchMemberQuery query,
+        Long requesterMemberId,
+        Pageable pageable
+    ) {
+        assertMemberSearchAccess(requesterMemberId);
         Page<Challenger> challengers = searchMemberPort.search(query, pageable);
         List<Challenger> content = challengers.getContent();
 
@@ -89,8 +103,28 @@ public class MemberSearchService implements SearchMemberUseCase {
     }
 
     @Override
-    public SearchMemberV2Result searchByV2(SearchMemberQuery query, Pageable pageable) {
+    public SearchMemberV2Result searchByV2(SearchMemberQuery query, Long requesterMemberId, Pageable pageable) {
+        assertMemberSearchAccess(requesterMemberId);
         Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, pageable);
+        return assembleV2Result(memberIdPage);
+    }
+
+    @Override
+    public SearchMemberV2Result searchByV2ForGraphQl(
+        SearchMemberQuery query,
+        Long requesterMemberId,
+        Pageable pageable
+    ) {
+        MemberSearchAccessScope scope = memberSearchAccessScopeResolver.resolve(requesterMemberId);
+        if (scope.denied()) {
+            throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
+        }
+
+        Page<Long> memberIdPage = searchMemberPort.searchMemberIds(query, scope, pageable);
+        return assembleV2Result(memberIdPage);
+    }
+
+    private SearchMemberV2Result assembleV2Result(Page<Long> memberIdPage) {
         List<Long> memberIds = memberIdPage.getContent();
 
         if (memberIds.isEmpty()) {
@@ -127,6 +161,12 @@ public class MemberSearchService implements SearchMemberUseCase {
         ));
 
         return new SearchMemberV2Result(items);
+    }
+
+    private void assertMemberSearchAccess(Long requesterMemberId) {
+        if (!checkChallengerHistoryUseCase.hasChallengerHistory(requesterMemberId)) {
+            throw new MemberDomainException(MemberErrorCode.MEMBER_SEARCH_ACCESS_DENIED);
+        }
     }
 
     // ======= PRIVATE — v1 helpers =========

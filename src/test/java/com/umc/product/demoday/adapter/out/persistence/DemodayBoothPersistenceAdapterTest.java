@@ -1,0 +1,106 @@
+package com.umc.product.demoday.adapter.out.persistence;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import java.time.Instant;
+import java.util.List;
+
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Import;
+
+import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
+import com.umc.product.demoday.application.port.out.SaveDemodayBoothPort;
+import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
+import com.umc.product.demoday.domain.DemodayBooth;
+import com.umc.product.demoday.domain.DemodayPoll;
+import com.umc.product.support.PersistenceAdapterTest;
+
+import jakarta.persistence.EntityManager;
+
+@PersistenceAdapterTest
+@Import({
+    DemodayPollPersistenceAdapter.class,
+    DemodayBoothPersistenceAdapter.class
+})
+class DemodayBoothPersistenceAdapterTest {
+
+    private static final Instant OPENS_AT = Instant.parse("2026-07-27T09:00:00Z");
+    private static final Instant CLOSES_AT = Instant.parse("2026-07-27T12:00:00Z");
+
+    @Autowired
+    private LoadDemodayBoothPort loadDemodayBoothPort;
+
+    @Autowired
+    private SaveDemodayBoothPort saveDemodayBoothPort;
+
+    @Autowired
+    private SaveDemodayPollPort saveDemodayPollPort;
+
+    @Autowired
+    private EntityManager entityManager;
+
+    @Test
+    @DisplayName("데모데이 부스를 저장한 뒤 식별자로 조회한다")
+    void saveAndFindBoothById() {
+        // Given
+        DemodayPoll poll = savePoll();
+        DemodayBooth booth = saveDemodayBoothPort.save(DemodayBooth.forProject(poll.getId(), 1L));
+        clearPersistenceContext();
+
+        // When
+        DemodayBooth found = loadDemodayBoothPort.findById(booth.getId()).orElseThrow();
+
+        // Then
+        assertThat(found.getId()).isEqualTo(booth.getId());
+    }
+
+    @Test
+    @DisplayName("부스 목록을 입력 순서와 대응하는 결과 목록으로 일괄 저장한다")
+    void saveAllBoothsInInputOrder() {
+        // Given
+        DemodayPoll poll = savePoll();
+        List<DemodayBooth> booths = List.of(
+            DemodayBooth.forProject(poll.getId(), 1L),
+            DemodayBooth.forExternal(poll.getId(), "외부 참가팀")
+        );
+
+        // When
+        List<DemodayBooth> saved = saveDemodayBoothPort.saveAll(booths);
+
+        // Then
+        assertThat(saved)
+            .extracting(DemodayBooth::getProjectId)
+            .containsExactly(1L, null);
+    }
+
+    @Test
+    @DisplayName("투표의 부스 목록을 식별자 오름차순으로 조회한다")
+    void listBoothsByIdAscending() {
+        // Given
+        DemodayPoll poll = savePoll();
+        List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
+            DemodayBooth.forProject(poll.getId(), 1L),
+            DemodayBooth.forProject(poll.getId(), 2L)
+        ));
+        clearPersistenceContext();
+
+        // When
+        List<DemodayBooth> found = loadDemodayBoothPort.listByPollId(poll.getId());
+
+        // Then
+        assertThat(found)
+            .extracting(DemodayBooth::getId)
+            .containsExactly(booths.get(0).getId(), booths.get(1).getId());
+    }
+
+    private DemodayPoll savePoll() {
+        return saveDemodayPollPort.save(DemodayPoll.create(9L, "9기 데모데이", OPENS_AT, CLOSES_AT));
+    }
+
+    private void clearPersistenceContext() {
+        entityManager.flush();
+        entityManager.clear();
+    }
+}

@@ -175,6 +175,85 @@ class ProjectApplicationQueryRepositoryTest {
             .containsExactly(ongoingApp.getId());
     }
 
+    @Test
+    @DisplayName("searchProjectApplicationsByProjectIds_includeOngoingProjectIds에_포함된_프로젝트만_진행중_차수_지원서를_반환한다")
+    void searchProjectApplicationsByProjectIdsIncludesOngoingOnlyForAllowedProjects() {
+        // given
+        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Project projectB = persistProject("프로젝트 베타", 20L);
+        ProjectApplicationForm formB = ProjectApplicationForm.create(projectB, 600L);
+        em.persist(formB);
+
+        ProjectMatchingRound endedRound = persistRound(
+            "종료 차수", MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST,
+            now.minusSeconds(7_200));
+        ProjectMatchingRound ongoingRound = persistRound(
+            "진행 차수", MatchingType.PLAN_DEVELOPER, MatchingPhase.SECOND,
+            now.minusSeconds(1_800));
+
+        ProjectApplication projectAEnded = persistApplication(200L, endedRound, ProjectApplicationStatus.SUBMITTED);
+        persistApplication(201L, ongoingRound, ProjectApplicationStatus.SUBMITTED);
+        persistApplication(202L, endedRound, ProjectApplicationStatus.DRAFT);
+        ProjectApplication projectBEnded = persistApplication(
+            formB, 300L, endedRound, ProjectApplicationStatus.APPROVED);
+        ProjectApplication projectBOngoing = persistApplication(
+            formB, 301L, ongoingRound, ProjectApplicationStatus.SUBMITTED);
+        em.flush();
+        em.clear();
+
+        // when
+        List<ProjectApplication> result = sut.searchProjectApplicationsByProjectIds(
+            Set.of(project.getId(), projectB.getId()),
+            Set.of(projectB.getId()),
+            null,
+            null,
+            now
+        );
+
+        // then
+        assertThat(result)
+            .extracting(ProjectApplication::getId)
+            .containsExactly(projectAEnded.getId(), projectBEnded.getId(), projectBOngoing.getId());
+    }
+
+    @Test
+    @DisplayName("searchProjectApplicationsByProjectIds_matchingRoundId_status_필터를_적용한다")
+    void searchProjectApplicationsByProjectIdsAppliesMatchingRoundAndStatusFilters() {
+        // given
+        Instant now = Instant.parse("2026-05-10T00:00:00Z");
+        Project projectB = persistProject("프로젝트 베타", 20L);
+        ProjectApplicationForm formB = ProjectApplicationForm.create(projectB, 600L);
+        em.persist(formB);
+
+        ProjectMatchingRound firstRound = persistRound(
+            "1차", MatchingType.PLAN_DEVELOPER, MatchingPhase.FIRST,
+            now.minusSeconds(7_200));
+        ProjectMatchingRound secondRound = persistRound(
+            "2차", MatchingType.PLAN_DEVELOPER, MatchingPhase.SECOND,
+            now.minusSeconds(7_200));
+
+        persistApplication(200L, firstRound, ProjectApplicationStatus.SUBMITTED);
+        ProjectApplication approved = persistApplication(201L, firstRound, ProjectApplicationStatus.APPROVED);
+        persistApplication(formB, 300L, firstRound, ProjectApplicationStatus.REJECTED);
+        persistApplication(formB, 301L, secondRound, ProjectApplicationStatus.APPROVED);
+        em.flush();
+        em.clear();
+
+        // when
+        List<ProjectApplication> result = sut.searchProjectApplicationsByProjectIds(
+            Set.of(project.getId(), projectB.getId()),
+            Set.of(),
+            firstRound.getId(),
+            ProjectApplicationStatus.APPROVED,
+            now
+        );
+
+        // then
+        assertThat(result)
+            .extracting(ProjectApplication::getId)
+            .containsExactly(approved.getId());
+    }
+
     private Project persistProject(String name, Long ownerId) {
         Project project;
         try {
@@ -220,8 +299,17 @@ class ProjectApplicationQueryRepositoryTest {
         ProjectMatchingRound round,
         ProjectApplicationStatus status
     ) {
+        return persistApplication(form, applicantMemberId, round, status);
+    }
+
+    private ProjectApplication persistApplication(
+        ProjectApplicationForm applicationForm,
+        Long applicantMemberId,
+        ProjectMatchingRound round,
+        ProjectApplicationStatus status
+    ) {
         ProjectApplication application = ProjectApplication.create(
-            form, applicantMemberId * 10, applicantMemberId, round);
+            applicationForm, applicantMemberId * 10, applicantMemberId, round);
         ReflectionTestUtils.setField(application, "status", status);
         em.persist(application);
         return application;

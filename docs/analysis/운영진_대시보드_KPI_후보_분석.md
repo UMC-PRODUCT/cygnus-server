@@ -1,6 +1,7 @@
 # 운영진 대시보드 KPI 후보 분석
 
 > 작성일: 2026-05-13  
+> 갱신일: 2026-07-17 — Trophy 기능 제거 이후 현재 도메인 기준으로 갱신
 > 분석 대상: `src/main/java/com/umc/product/**/domain`, `src/main/java/com/umc/product/**/application/port/in`, `src/main/java/com/umc/product/analytics/**`  
 > 목적: 현재 백엔드 Entity와 UseCase 기준으로 운영진 대시보드에서 조회할 가치가 높은 KPI 후보를 추리고, 산출 근거와 선정 사유를 정리한다.
 
@@ -39,7 +40,7 @@
 | `curriculum` | `Curriculum`, `WeeklyCurriculum`, `OriginalWorkbook`, `ChallengerWorkbook`, `MissionSubmission`, `MissionFeedback`, `WeeklyBestWorkbook` | 주차별 워크북, 배포 상태, 제출 상태, 피드백 결과, 우수 워크북 |
 | `notice` | `Notice`, `NoticeRead`, `NoticeTarget`, `NoticeVote` | 공지 발송 필요 여부, 발송 시각, 필독 여부, 읽음 기록, 투표 기간 |
 | `survey` | `Form`, `FormResponse`, `Answer` | 폼 발행 상태, 제출/임시저장 응답 수, 제출 시각 |
-| `community` | `Post`, `Comment`, `Scrap`, `Report`, `Trophy` | 게시글/댓글/스크랩/신고/트로피 활동량 |
+| `community` | `Post`, `Comment`, `Scrap`, `Report` | 게시글/댓글/스크랩/신고 활동량 |
 | `notification` | `FcmToken`, `FcmOutbox` | 활성 토큰 수, 발송 대기/성공/실패, 재시도 수 |
 | `audit` | `AuditLog` | 도메인별 운영 행위, 액션, 수행자, 대상, IP, 발생 시각 |
 | `figma`, `llm`, `storage`, `term` | `FigmaWatchedFile`, `FigmaCommentClassification`, `FileMetadata`, `TermConsent` 등 | 동기화 오류, 분류량, 업로드량, 약관 동의 현황 |
@@ -56,6 +57,12 @@
 | `GetAdminDashboardActionQueueUseCase` | 처리 대기 지원서, 진행 중 매칭 차수, 미발송 공지, 이번 주 신규 위험군, 수료 임박 인원 |
 | `GetAdminDashboardContextUseCase` | 운영진 역할 기반 데이터 스코프 |
 | `GetAdminOperationsOverviewUseCase` | 지부/학교/파트/출석/스터디/가입 추이형 운영 현황. `AdminOperationsAnalyticsPersistenceAdapter`와 `AdminOperationsAnalyticsQueryRepository`로 집계 구현이 존재한다. |
+
+### 2.3 기능 보존 기준
+
+- `WeeklyBestWorkbook`은 커리큘럼 도메인의 주차별 우수 워크북 선정 결과로 계속 운영한다. 베스트 워크북 KPI는 이 모델만 집계한다.
+- `Certificate`는 인증서 발급·검증·폐기 흐름을 보유한 독립 도메인으로 계속 운영한다. 인증서 발급 수와 폐기/검증 실패 수는 별도 KPI 후보로 유지한다.
+- 과거 커뮤니티 `Trophy` 모델은 현재 KPI 산출 대상이 아니며, 이 문서에는 현재 운영 지표로 다시 추가하지 않는다.
 
 ---
 
@@ -221,7 +228,6 @@
 | 게시글/댓글 생성 추이 | `Post.createdAt`, `Comment.createdAt` 기간별 count | `Post`, `Comment` | 커뮤니티 활성도를 보여준다. |
 | 스크랩/좋아요 참여율 | 스크랩/좋아요 수 / 게시글 수 | `Scrap`, `Post.likeCount`, `Comment.likeCount` | 콘텐츠 반응도를 측정한다. |
 | 신고 대기 건수 | `Report.status = PENDING` count | `Report` | 운영진 moderation 업무량을 보여준다. |
-| 트로피 발급 수 | `Trophy` 기간별 count | `Trophy`, `CreateTrophyUseCase` | 긍정적 활동 보상 현황을 보여준다. |
 
 ### 6.5 시스템 운영 KPI
 

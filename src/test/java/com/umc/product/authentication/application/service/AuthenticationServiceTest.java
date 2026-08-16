@@ -6,11 +6,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
 
+import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -31,12 +34,17 @@ import com.umc.product.authentication.application.port.in.command.dto.ValidateEm
 import com.umc.product.authentication.application.port.out.DeleteRefreshTokenPort;
 import com.umc.product.authentication.application.port.out.LoadEmailVerificationPort;
 import com.umc.product.authentication.application.port.out.LoadRefreshTokenPort;
+import com.umc.product.authentication.application.port.out.LoadSsoClientPort;
 import com.umc.product.authentication.application.port.out.SaveEmailVerificationPort;
 import com.umc.product.authentication.domain.EmailVerification;
 import com.umc.product.authentication.domain.EmailVerificationPurpose;
 import com.umc.product.authentication.domain.RefreshToken;
+import com.umc.product.authentication.domain.SsoClient;
 import com.umc.product.authentication.domain.exception.AuthenticationDomainException;
 import com.umc.product.authentication.domain.exception.AuthenticationErrorCode;
+import com.umc.product.global.client.ClientContextClaims;
+import com.umc.product.global.client.ClientEnvironment;
+import com.umc.product.global.client.ClientServiceType;
 import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.RefreshTokenClaims;
@@ -77,6 +85,9 @@ class AuthenticationServiceTest {
     DeleteRefreshTokenPort deleteRefreshTokenPort;
 
     @Mock
+    LoadSsoClientPort loadSsoClientPort;
+
+    @Mock
     JwtTokenProvider jwtTokenProvider;
 
     @Mock
@@ -105,7 +116,7 @@ class AuthenticationServiceTest {
     class RenewAccessToken {
 
         @Test
-        @DisplayName("allow-list에 있는 RefreshToken이면 기존 jti를 삭제하고 새 토큰을 발급한다")
+        @DisplayName("legacy RefreshToken이면 기존 jti를 삭제하고 legacy 경로로 새 토큰을 발급한다")
         void refresh_token_회전_성공() {
             // given
             RefreshTokenClaims claims = new RefreshTokenClaims(MEMBER_ID, REFRESH_JTI, REFRESH_EXPIRES_AT);
@@ -131,6 +142,117 @@ class AuthenticationServiceTest {
             assertThat(result).isSameAs(newTokens);
             then(deleteRefreshTokenPort).should().deleteByJti(REFRESH_JTI);
             then(authenticationTokenIssuer).should().issue(MEMBER_ID, null);
+            then(loadSsoClientPort).shouldHaveNoInteractions();
+        }
+
+        @Test
+        @DisplayName("SSO RefreshToken이면 client context를 보존해서 새 토큰을 발급한다")
+        void sso_refresh_token_context_보존_재발급() {
+            // given
+            String clientId = "backoffice";
+            ClientContextClaims refreshTokenContext = ClientContextClaims.of(
+                clientId,
+                ClientServiceType.UNKNOWN,
+                ClientEnvironment.UNKNOWN
+            );
+            ClientContextClaims expectedClientContext = ClientContextClaims.of(
+                clientId,
+                ClientServiceType.UMC_BACKOFFICE,
+                ClientEnvironment.PROD
+            );
+            RefreshTokenClaims claims = new RefreshTokenClaims(
+                MEMBER_ID,
+                REFRESH_JTI,
+                REFRESH_EXPIRES_AT,
+                refreshTokenContext
+            );
+            RefreshToken stored = RefreshToken.create(REFRESH_JTI, MEMBER_ID, REFRESH_EXPIRES_AT, clientId);
+            SsoClient client = SsoClient.of(
+                clientId,
+                "UMC Backoffice",
+                ClientServiceType.UMC_BACKOFFICE,
+                ClientEnvironment.PROD,
+                true,
+                Duration.ofHours(1),
+                List.of("https://backoffice.university.neordinary.com/auth/callback"),
+                List.of("https://backoffice.university.neordinary.com")
+            );
+            NewTokens newTokens = NewTokens.builder()
+                .accessToken("new-sso-access-token")
+                .refreshToken("new-sso-refresh-token")
+                .clientContextClaims(expectedClientContext)
+                .expiresIn(3600L)
+                .build();
+
+            given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(claims);
+            given(loadRefreshTokenPort.findByJti(REFRESH_JTI)).willReturn(Optional.of(stored));
+            given(deleteRefreshTokenPort.deleteByJti(REFRESH_JTI)).willReturn(true);
+            given(loadSsoClientPort.getByClientId(clientId)).willReturn(client);
+            given(authenticationTokenIssuer.issue(
+                eq(MEMBER_ID),
+                isNull(),
+                eq(expectedClientContext),
+                eq(Duration.ofHours(1))
+            )).willReturn(newTokens);
+
+            // when
+            NewTokens result = service.renewAccessToken(
+                RenewAccessTokenCommand.builder()
+                    .refreshToken(REFRESH_TOKEN)
+                    .build()
+            );
+
+            // then
+            assertThat(result).isSameAs(newTokens);
+            then(deleteRefreshTokenPort).should().deleteByJti(REFRESH_JTI);
+            then(loadSsoClientPort).should().getByClientId(clientId);
+            then(authenticationTokenIssuer).should().issue(
+                MEMBER_ID,
+                null,
+                expectedClientContext,
+                Duration.ofHours(1)
+            );
+            then(authenticationTokenIssuer).should(never()).issue(MEMBER_ID, null);
+        }
+
+        @Test
+        @DisplayName("SSO RefreshToken의 stored clientId와 claim clientId가 다르면 갱신을 거부한다")
+        void sso_refresh_token_client_id_mismatch_거부() {
+            // given
+            String claimClientId = "backoffice";
+            RefreshTokenClaims claims = new RefreshTokenClaims(
+                MEMBER_ID,
+                REFRESH_JTI,
+                REFRESH_EXPIRES_AT,
+                ClientContextClaims.of(
+                    claimClientId,
+                    ClientServiceType.UMC_BACKOFFICE,
+                    ClientEnvironment.PROD
+                )
+            );
+            RefreshToken stored = RefreshToken.create(
+                REFRESH_JTI,
+                MEMBER_ID,
+                REFRESH_EXPIRES_AT,
+                "website"
+            );
+
+            given(jwtTokenProvider.parseRefreshToken(REFRESH_TOKEN)).willReturn(claims);
+            given(loadRefreshTokenPort.findByJti(REFRESH_JTI)).willReturn(Optional.of(stored));
+
+            // when / then
+            assertThatThrownBy(() -> service.renewAccessToken(
+                RenewAccessTokenCommand.builder()
+                    .refreshToken(REFRESH_TOKEN)
+                    .build()
+            ))
+                .isInstanceOf(AuthenticationDomainException.class)
+                .extracting("baseCode")
+                .isEqualTo(AuthenticationErrorCode.INVALID_REFRESH_TOKEN);
+
+            then(deleteRefreshTokenPort).should(never()).deleteByJti(any());
+            then(loadSsoClientPort).shouldHaveNoInteractions();
+            then(authenticationTokenIssuer).shouldHaveNoInteractions();
         }
 
         @Test

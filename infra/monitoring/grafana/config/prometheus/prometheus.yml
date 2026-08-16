@@ -19,11 +19,16 @@ scrape_configs:
     static_configs:
       - targets: [ 'localhost:9090' ]
 
-  # node-exporter 는 후속 커밋에서 추가된다 (Commit 5). 그 전까지는 endpoint 가 없어
-  # "context deadline exceeded" 류 오류가 발생할 수 있지만 prometheus 자체 동작에는 영향 없다.
+  # macOS 로컬은 Homebrew node_exporter 를 host 에 띄우고, Linux 운영은 compose profile 의
+  # node-exporter 컨테이너를 scrape 한다. os 라벨은 Grafana 대시보드와 host alert 대상 구분에 사용한다.
   - job_name: node-exporter
     static_configs:
+      - targets: [ 'host.docker.internal:9100' ]
+        labels:
+          os: macos
       - targets: [ 'node-exporter:9100' ]
+        labels:
+          os: linux
 
   - job_name: alertmanager
     static_configs:

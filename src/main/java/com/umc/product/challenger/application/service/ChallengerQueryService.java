@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.umc.product.challenger.application.port.in.query.CheckChallengerHistoryUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerPointUseCase;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerBasicInfo;
@@ -26,7 +27,7 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class ChallengerQueryService implements GetChallengerUseCase {
+public class ChallengerQueryService implements GetChallengerUseCase, CheckChallengerHistoryUseCase {
 
     private final LoadChallengerPort loadChallengerPort;
     private final GetChallengerPointUseCase getChallengerPointUseCase;
@@ -83,6 +84,14 @@ public class ChallengerQueryService implements GetChallengerUseCase {
     }
 
     @Override
+    public boolean hasChallengerHistory(Long memberId) {
+        if (memberId == null) {
+            return false;
+        }
+        return loadChallengerPort.existsByMemberId(memberId);
+    }
+
+    @Override
     public Map<Long, List<ChallengerInfo>> getAllByMemberIds(Set<Long> memberIds) {
         if (memberIds == null || memberIds.isEmpty()) {
             return Map.of();
@@ -113,6 +122,13 @@ public class ChallengerQueryService implements GetChallengerUseCase {
     @Override
     public List<ChallengerBasicInfo> listBasicByMemberIdsAndGisuId(Set<Long> memberIds, Long gisuId) {
         return loadChallengerPort.listByMemberIdsAndGisuId(memberIds, gisuId).stream()
+            .map(ChallengerBasicInfo::from)
+            .toList();
+    }
+
+    @Override
+    public List<ChallengerBasicInfo> listBasicByGisuId(Long gisuId) {
+        return loadChallengerPort.getAllByGisuId(gisuId).stream()
             .map(ChallengerBasicInfo::from)
             .toList();
     }

@@ -7,7 +7,12 @@
         </encoder>
     </appender>
 
-    <root level="WARN">
+    <!-- 민감정보 정제. 운영과 동일하게 root 는 정제 어펜더만 참조한다. -->
+    <appender name="SANITIZED" class="com.umc.product.global.logging.SanitizingAppender">
         <appender-ref ref="CONSOLE"/>
+    </appender>
+
+    <root level="WARN">
+        <appender-ref ref="SANITIZED"/>
     </root>
 </configuration>

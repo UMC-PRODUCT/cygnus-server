@@ -24,11 +24,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import com.umc.product.global.observability.ScheduledTaskTracer;
 import com.umc.product.project.adapter.in.scheduler.MatchingRoundDeadlineHandler;
 import com.umc.product.project.application.port.out.LoadProjectMatchingRoundPort;
 import com.umc.product.project.domain.ProjectMatchingRound;
 import com.umc.product.project.domain.enums.MatchingPhase;
 import com.umc.product.project.domain.enums.MatchingType;
+
+import io.micrometer.tracing.Tracer;
 
 @ExtendWith(MockitoExtension.class)
 class MatchingRoundDeadlineSchedulerTest {
@@ -54,7 +57,9 @@ class MatchingRoundDeadlineSchedulerTest {
             taskScheduler,
             handler,
             loadProjectMatchingRoundPort,
-            new MatchingRoundDeadlineSchedulerProperties(TEST_DEADLINE_BUFFER.toMinutes())
+            new MatchingRoundDeadlineSchedulerProperties(TEST_DEADLINE_BUFFER.toMinutes()),
+            // NOOP Tracer 기반 — trace() 래퍼는 task 를 그대로 실행하므로 스케줄러 동작 검증에 영향이 없다.
+            new ScheduledTaskTracer(Tracer.NOOP)
         );
     }
 

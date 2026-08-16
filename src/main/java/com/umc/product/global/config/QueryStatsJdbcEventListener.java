@@ -1,27 +1,33 @@
 package com.umc.product.global.config;
 
-import com.p6spy.engine.common.PreparedStatementInformation;
-import com.p6spy.engine.common.StatementInformation;
-import com.p6spy.engine.event.JdbcEventListener;
-import com.umc.product.global.observability.ObservabilityTracingProperties;
-import io.micrometer.tracing.Span;
-import io.micrometer.tracing.Tracer;
 import java.sql.SQLException;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import com.p6spy.engine.common.PreparedStatementInformation;
+import com.p6spy.engine.common.StatementInformation;
+import com.p6spy.engine.event.JdbcEventListener;
+import com.umc.product.global.observability.ObservabilityErrorSanitizer;
+import com.umc.product.global.observability.ObservabilityTracingProperties;
+
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
+
 /**
  * P6Spy JdbcEventListener를 통해 요청 단위 쿼리 통계를 수집합니다. p6spy-spring-boot-starter가 @Component JdbcEventListener 빈을 자동 등록합니다.
+ *
+ * <p>성공한 쿼리만 통계({@link QueryStatsHolder})에 누적합니다 (실패한 쿼리는 별도 추적하지 않음).
+ * SQL 원문 라인 로깅은 P6Spy 자체 출력({@link P6SpyConfig})이 담당하며, 본 리스너는 라인 로깅 책임을 갖지 않습니다 —
+ * {@code decorator.datasource.p6spy.enable-logging=false} 로 라인 로깅을 꺼도 {@code queryCount}/{@code queryTimeMs} 집계는 그대로 동작합니다.
  */
 @Component
-@Slf4j
 public class QueryStatsJdbcEventListener extends JdbcEventListener {
 
     private static final Pattern SQL_OPERATION_PATTERN = Pattern.compile(
@@ -69,11 +75,6 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
     public void onAfterExecuteQuery(
         PreparedStatementInformation info, long timeElapsedNanos, SQLException e
     ) {
-//        log.trace(
-//            "[executeQuery] sql={}, elapsed={} ms",
-//            info.getSqlWithValues(), timeElapsedNanos / 1_000_000.0
-//        );
-
         completeDbSpan(timeElapsedNanos, e);
         record(timeElapsedNanos, e);
     }
@@ -88,11 +89,6 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
         PreparedStatementInformation info, long timeElapsedNanos, int rowCount,
         SQLException e
     ) {
-        log.debug(
-            "[executeUpdate] sql={}, elapsed={} ms",
-            info.getSqlWithValues(), timeElapsedNanos / 1_000_000.0
-        );
-
         completeDbSpan(timeElapsedNanos, e);
         record(timeElapsedNanos, e);
     }
@@ -107,11 +103,6 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
         StatementInformation info, long timeElapsedNanos, int[] updateCounts,
         SQLException e
     ) {
-        log.debug(
-            "[executeBatch] sql={}, batchSize={}, elapsed={} ms",
-            info.getSqlWithValues(), updateCounts != null ? updateCounts.length : 0, timeElapsedNanos / 1_000_000.0
-        );
-
         completeDbSpan(timeElapsedNanos, e);
         record(timeElapsedNanos, e);
     }
@@ -180,7 +171,7 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
             .start();
 
         if (tracingProperties.isIncludeSql()) {
-            span.tag("db.statement", limitSql(sql));
+            span.tag("db.statement", limitSql(SqlLogRedactor.redact(sql)));
         }
 
         Tracer.SpanInScope scope = tracer.withSpan(span);
@@ -198,7 +189,7 @@ public class QueryStatsJdbcEventListener extends JdbcEventListener {
         try {
             context.span().tag("db.query.elapsed_ms", String.valueOf(timeElapsedNanos / 1_000_000L));
             if (e != null) {
-                context.span().error(e);
+                ObservabilityErrorSanitizer.record(context.span(), e);
             }
         } finally {
             context.scope().close();

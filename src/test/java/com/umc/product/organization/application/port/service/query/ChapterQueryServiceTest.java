@@ -104,7 +104,7 @@ class ChapterQueryServiceTest {
     }
 
     private School school(Long id, String name) {
-        School school = School.create(name, null);
+        School school = School.create(name, null, null);
         ReflectionTestUtils.setField(school, "id", id);
         return school;
     }

@@ -69,7 +69,7 @@ public class ReportCommandService implements ReportPostUseCase, ReportCommentUse
     /**
      * 중복 신고를 확인하고 신고를 생성합니다.
      *
-     * @param reporterId 신고자 챌린저 ID
+     * @param reporterId 신고자 회원 ID
      * @param targetType 신고 대상 타입
      * @param targetId   신고 대상 ID
      * @throws BusinessException 이미 신고한 경우

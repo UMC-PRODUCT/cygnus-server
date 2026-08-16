@@ -15,6 +15,8 @@ import com.umc.product.project.application.port.out.SaveProjectMemberPort;
 import com.umc.product.project.domain.ProjectMember;
 import com.umc.product.project.domain.enums.MatchingType;
 import com.umc.product.project.domain.enums.ProjectMemberStatus;
+import com.umc.product.project.domain.exception.ProjectDomainException;
+import com.umc.product.project.domain.exception.ProjectErrorCode;
 
 import lombok.RequiredArgsConstructor;
 
@@ -94,6 +96,12 @@ public class ProjectMemberPersistenceAdapter implements LoadProjectMemberPort, S
     }
 
     @Override
+    public ProjectMember getByProjectIdAndMemberId(Long projectId, Long memberId) {
+        return repository.findByProjectIdAndMemberId(projectId, memberId)
+            .orElseThrow(() -> new ProjectDomainException(ProjectErrorCode.PROJECT_MEMBER_NOT_FOUND));
+    }
+
+    @Override
     public boolean existsByGisuAndMember(Long gisuId, Long memberId) {
         return repository.existsByProject_GisuIdAndMemberIdAndStatus(gisuId, memberId, ProjectMemberStatus.ACTIVE);
     }
@@ -103,6 +111,11 @@ public class ProjectMemberPersistenceAdapter implements LoadProjectMemberPort, S
         return repository.existsByProjectIdAndMemberIdAndPartAndStatus(
             projectId, memberId, ChallengerPart.PLAN, ProjectMemberStatus.ACTIVE
         );
+    }
+
+    @Override
+    public List<Long> listProjectIdsByActivePlanMember(Collection<Long> projectIds, Long memberId) {
+        return queryRepository.listProjectIdsByActivePlanMember(projectIds, memberId);
     }
 
     @Override

@@ -1,7 +1,13 @@
 package com.umc.product.curriculum.domain;
 
+import java.time.Instant;
+import java.util.Objects;
+
 import com.umc.product.common.BaseEntity;
 import com.umc.product.curriculum.domain.enums.MissionType;
+import com.umc.product.curriculum.domain.exception.CurriculumDomainException;
+import com.umc.product.curriculum.domain.exception.CurriculumErrorCode;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -15,6 +21,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
@@ -58,5 +65,70 @@ public class MissionSubmission extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String content;
 
+    @Column(name = "withdrawn_at")
+    private Instant withdrawnAt;
+
+    @Builder(access = AccessLevel.PRIVATE)
+    private MissionSubmission(
+        OriginalWorkbookMission originalWorkbookMission,
+        ChallengerWorkbook challengerWorkbook,
+        MissionType submittedAsType,
+        String content
+    ) {
+        this.originalWorkbookMission = originalWorkbookMission;
+        this.challengerWorkbook = challengerWorkbook;
+        this.submittedAsType = submittedAsType;
+        this.content = content;
+    }
+
+    public static MissionSubmission create(
+        OriginalWorkbookMission originalWorkbookMission,
+        ChallengerWorkbook challengerWorkbook,
+        String content
+    ) {
+        MissionType submittedAsType = originalWorkbookMission.getMissionType();
+        validateContent(submittedAsType, content);
+
+        return MissionSubmission.builder()
+            .originalWorkbookMission(originalWorkbookMission)
+            .challengerWorkbook(challengerWorkbook)
+            .submittedAsType(submittedAsType)
+            .content(content)
+            .build();
+    }
+
+    public void edit(String content) {
+        validateActive();
+        validateContent(this.submittedAsType, content);
+        this.content = content;
+    }
+
+    public void withdraw(Instant withdrawnAt) {
+        validateActive();
+        this.withdrawnAt = Objects.requireNonNull(withdrawnAt);
+    }
+
+    public boolean isSubmittedBy(Long memberId) {
+        return Objects.equals(this.challengerWorkbook.getMemberId(), memberId);
+    }
+
+    public boolean isWithdrawn() {
+        return withdrawnAt != null;
+    }
+
+    private void validateActive() {
+        if (isWithdrawn()) {
+            throw new CurriculumDomainException(CurriculumErrorCode.MISSION_SUBMISSION_ALREADY_WITHDRAWN);
+        }
+    }
+
+    private static void validateContent(MissionType submittedAsType, String content) {
+        if (submittedAsType == MissionType.PLAIN) {
+            return;
+        }
+        if (content == null || content.isBlank()) {
+            throw new CurriculumDomainException(CurriculumErrorCode.SUBMISSION_REQUIRED);
+        }
+    }
 
 }

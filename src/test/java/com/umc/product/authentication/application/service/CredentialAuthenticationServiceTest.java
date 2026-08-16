@@ -61,6 +61,8 @@ class CredentialAuthenticationServiceTest {
     @Mock
     CredentialRehashService rehashService;
     @Mock
+    SsoCredentialVerifier credentialVerifier;
+    @Mock
     OperationalMetrics operationalMetrics;
     @InjectMocks
     CredentialAuthenticationService service;
@@ -214,13 +216,10 @@ class CredentialAuthenticationServiceTest {
     class LoginByEmail {
 
         @Test
-        @DisplayName("정상 로그인 시 clientType 을 포함해 토큰 발급을 위임하고, 별도 트랜잭션의 rehashService.rehashIfNeeded 를 호출한다")
+        @DisplayName("정상 로그인 시 공통 credential verifier로 검증하고 clientType 을 포함해 토큰 발급을 위임한다")
         void 로그인_성공_clientType_토큰_발급_rehash호출_확인() {
             // given
-            MemberCredentialInfo credential = new MemberCredentialInfo(MEMBER_ID, ENCODED_PASSWORD);
-            given(getMemberCredentialUseCase.findCredentialByEmail(EMAIL))
-                .willReturn(Optional.of(credential));
-            given(passwordEncoder.matches(RAW_PASSWORD, ENCODED_PASSWORD)).willReturn(true);
+            given(credentialVerifier.verifyEmailPassword(EMAIL, RAW_PASSWORD)).willReturn(MEMBER_ID);
             given(authenticationTokenIssuer.issue(eq(MEMBER_ID), eq(ClientType.IOS)))
                 .willReturn(NewTokens.builder()
                     .accessToken("access-token")
@@ -236,16 +235,17 @@ class CredentialAuthenticationServiceTest {
             assertThat(result.memberId()).isEqualTo(MEMBER_ID);
             assertThat(result.accessToken()).isEqualTo("access-token");
             assertThat(result.refreshToken()).isEqualTo("refresh-token");
+            then(credentialVerifier).should().verifyEmailPassword(EMAIL, RAW_PASSWORD);
             then(authenticationTokenIssuer).should().issue(MEMBER_ID, ClientType.IOS);
-            then(rehashService).should().rehashIfNeeded(credential, RAW_PASSWORD);
+            then(operationalMetrics).should().recordSecurityEvent("AUTHENTICATION", "EMAIL_LOGIN", "success");
         }
 
         @Test
         @DisplayName("자격증명을 찾을 수 없으면 INVALID_LOGIN_CREDENTIAL 단일 메시지를 반환한다")
         void 자격증명_없으면_단일_메시지() {
             // given
-            given(getMemberCredentialUseCase.findCredentialByEmail(EMAIL))
-                .willReturn(Optional.empty());
+            given(credentialVerifier.verifyEmailPassword(EMAIL, RAW_PASSWORD))
+                .willThrow(new AuthenticationDomainException(AuthenticationErrorCode.INVALID_LOGIN_CREDENTIAL));
 
             // when & then
             assertThatThrownBy(() -> service.loginByEmail(LoginByEmailCommand.of(EMAIL, RAW_PASSWORD)))
@@ -256,16 +256,15 @@ class CredentialAuthenticationServiceTest {
             // 매칭/토큰 발급은 호출되지 않아야 한다
             then(passwordEncoder).should(never()).matches(anyString(), anyString());
             then(authenticationTokenIssuer).should(never()).issue(any(), any());
+            then(operationalMetrics).should().recordSecurityEvent("AUTHENTICATION", "EMAIL_LOGIN", "failure");
         }
 
         @Test
         @DisplayName("비밀번호가 다르면 INVALID_LOGIN_CREDENTIAL 단일 메시지를 반환한다")
         void 비밀번호_불일치면_단일_메시지() {
             // given
-            MemberCredentialInfo credential = new MemberCredentialInfo(MEMBER_ID, ENCODED_PASSWORD);
-            given(getMemberCredentialUseCase.findCredentialByEmail(EMAIL))
-                .willReturn(Optional.of(credential));
-            given(passwordEncoder.matches(RAW_PASSWORD, ENCODED_PASSWORD)).willReturn(false);
+            given(credentialVerifier.verifyEmailPassword(EMAIL, RAW_PASSWORD))
+                .willThrow(new AuthenticationDomainException(AuthenticationErrorCode.INVALID_LOGIN_CREDENTIAL));
 
             // when & then
             assertThatThrownBy(() -> service.loginByEmail(LoginByEmailCommand.of(EMAIL, RAW_PASSWORD)))
@@ -275,6 +274,7 @@ class CredentialAuthenticationServiceTest {
 
             then(authenticationTokenIssuer).should(never()).issue(any(), any());
             then(manageMemberCredentialUseCase).should(never()).changePassword(any());
+            then(operationalMetrics).should().recordSecurityEvent("AUTHENTICATION", "EMAIL_LOGIN", "failure");
         }
     }
 }

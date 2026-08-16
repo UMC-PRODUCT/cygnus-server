@@ -4,17 +4,6 @@ import static com.umc.product.organization.domain.QStudyGroup.studyGroup;
 import static com.umc.product.organization.domain.QStudyGroupMember.studyGroupMember;
 import static com.umc.product.organization.domain.QStudyGroupMentor.studyGroupMentor;
 
-import com.querydsl.core.types.Projections;
-import com.querydsl.core.types.dsl.BooleanExpression;
-import com.querydsl.jpa.JPAExpressions;
-import com.querydsl.jpa.impl.JPAQueryFactory;
-import com.umc.product.common.domain.enums.ChallengerPart;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
-import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
-import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
-import com.umc.product.organization.domain.QStudyGroupMember;
-import com.umc.product.organization.domain.QStudyGroupMentor;
-import com.umc.product.organization.domain.StudyGroup;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -24,8 +13,23 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.stereotype.Repository;
+
+import com.querydsl.core.types.Projections;
+import com.querydsl.core.types.dsl.BooleanExpression;
+import com.querydsl.jpa.JPAExpressions;
+import com.querydsl.jpa.impl.JPAQueryFactory;
+import com.umc.product.common.domain.enums.ChallengerPart;
+import com.umc.product.organization.application.port.in.query.dto.OrganizationRoleScope;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupHeaderInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupMemberPageInfo;
+import com.umc.product.organization.application.port.in.query.dto.studygroup.StudyGroupNameInfo;
+import com.umc.product.organization.domain.QStudyGroupMember;
+import com.umc.product.organization.domain.QStudyGroupMentor;
+import com.umc.product.organization.domain.StudyGroup;
+
+import lombok.RequiredArgsConstructor;
 
 @Repository
 @RequiredArgsConstructor
@@ -70,6 +74,24 @@ public class StudyGroupQueryRepository {
             .fetchOne();
 
         return Optional.of(group);
+    }
+
+    public Optional<StudyGroup> findEntityByMemberIdAndGisuIdAndPart(
+        Long memberId,
+        Long gisuId,
+        ChallengerPart part
+    ) {
+        Long groupId = queryFactory
+            .select(studyGroup.id)
+            .from(studyGroupMember)
+            .join(studyGroupMember.studyGroup, studyGroup)
+            .where(
+                studyGroupMember.memberId.eq(memberId),
+                studyGroup.gisuId.eq(gisuId),
+                studyGroup.part.eq(part)
+            )
+            .fetchFirst();
+        return groupId == null ? Optional.empty() : findEntityById(groupId);
     }
 
     // ============================================================================
@@ -138,6 +160,45 @@ public class StudyGroupQueryRepository {
                     Collectors.toList()
                 )
             ));
+    }
+
+    /**
+     * 여러 스터디 그룹에 속한 스터디원을 커서 페이지네이션으로 조회한다. 반환 순서는 {@code study_group_member.id} 오름차순.
+     * <p>
+     * {@link #findMemberIdsByStudyGroupIds} 는 그룹별로 전량을 반환하므로 목록 화면처럼 인원이 많은 경우에 쓸 수 없어 분리했다.
+     * <p>
+     * 커서를 {@code study_group_member.id} 로 잡은 이유: 이 테이블은 재등록 시 새 행이 생기고 기존 행은 삭제되므로 id 가 단조 증가하며 중복되지 않는다. memberId 를
+     * 커서로 쓰면 여러 그룹에 같은 멤버가 있을 때 페이지가 어긋난다.
+     *
+     * @param groupIds 조회 대상 그룹 ID (호출 측에서 권한 Scope 로 이미 좁혀진 집합)
+     * @param cursor   직전 페이지 마지막 studyGroupMemberId (첫 페이지는 null)
+     * @param size     조회 건수. hasNext 판별이 필요하면 호출 측에서 +1 하여 전달한다.
+     */
+    public List<StudyGroupMemberPageInfo> findStudyGroupMemberPage(
+        Collection<Long> groupIds, Long cursor, int size
+    ) {
+        if (groupIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+            .select(Projections.constructor(
+                StudyGroupMemberPageInfo.class,
+                studyGroupMember.id,
+                studyGroup.id,
+                studyGroup.name,
+                studyGroup.part,
+                studyGroupMember.memberId
+            ))
+            .from(studyGroupMember)
+            .join(studyGroupMember.studyGroup, studyGroup)
+            .where(
+                studyGroup.id.in(groupIds),
+                ascCursorCondition(cursor)
+            )
+            .orderBy(studyGroupMember.id.asc())
+            .limit(size)
+            .fetch();
     }
 
     /**
@@ -286,6 +347,11 @@ public class StudyGroupQueryRepository {
     /** id DESC 정렬 기준 커서. cursor null 이면 조건 미적용 (첫 페이지). */
     private BooleanExpression descCursorCondition(Long cursor) {
         return cursor != null ? studyGroup.id.lt(cursor) : null;
+    }
+
+    /** study_group_member.id ASC 정렬 기준 커서. cursor null 이면 조건 미적용 (첫 페이지). */
+    private BooleanExpression ascCursorCondition(Long cursor) {
+        return cursor != null ? studyGroupMember.id.gt(cursor) : null;
     }
 
     // ============================================================================

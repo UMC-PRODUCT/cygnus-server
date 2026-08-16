@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import java.util.ArrayList;
@@ -14,6 +15,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -427,7 +429,8 @@ class StudyGroupQueryServiceTest {
     }
 
     @Test
-    void resolveOrganizationRoleScopes_회장과_파트장_겸직시_두_scope_반환() {
+    @DisplayName("회장단과 파트장을 겸직하면 두 역할의 scope 합집합으로 스터디 그룹을 조회한다")
+    void findVisibleStudyGroupIdsMergesScopesWhenMemberHoldsBothRoles() {
         // given
         Long memberId = 1L;
         Long schoolId = 100L;
@@ -440,18 +443,22 @@ class StudyGroupQueryServiceTest {
         given(getMemberUseCase.listIdsBySchoolId(schoolId)).willReturn(schoolMemberIds);
         given(getChallengerRoleUseCase.hasRoleTypeInGisu(memberId, gisuId, ChallengerRoleType.SCHOOL_PART_LEADER))
             .willReturn(true);
+        given(loadStudyGroupPort.findStudyGroupIds(any(), eq(gisuId))).willReturn(Set.of(100L, 200L));
 
         // when
-        List<OrganizationRoleScope> scopes = sut.resolveOrganizationRoleScopes(memberId);
+        Set<Long> result = sut.findVisibleStudyGroupIds(memberId);
 
         // then
-        assertThat(scopes).hasSize(2);
-        assertThat(scopes).hasAtLeastOneElementOfType(AsSchoolCore.class);
-        assertThat(scopes).hasAtLeastOneElementOfType(AsPartLeader.class);
+        assertThat(result).containsExactlyInAnyOrder(100L, 200L);
+        assertThat(captureVisibleScopes())
+            .hasSize(2)
+            .hasAtLeastOneElementOfType(AsSchoolCore.class)
+            .hasAtLeastOneElementOfType(AsPartLeader.class);
     }
 
     @Test
-    void resolveOrganizationRoleScopes_권한이_없으면_빈_리스트() {
+    @DisplayName("회장단도 파트장도 아니면 port 호출 없이 빈 Set을 반환한다")
+    void findVisibleStudyGroupIdsReturnsEmptyWithoutPortCallWhenNoRole() {
         // given
         Long memberId = 1L;
         Long schoolId = 100L;
@@ -464,16 +471,7 @@ class StudyGroupQueryServiceTest {
             .willReturn(false);
 
         // when
-        List<OrganizationRoleScope> scopes = sut.resolveOrganizationRoleScopes(memberId);
-
-        // then
-        assertThat(scopes).isEmpty();
-    }
-
-    @Test
-    void findStudyGroupIds_scope_비어있으면_port_호출없이_빈_Set() {
-        // when
-        Set<Long> result = sut.findStudyGroupIds(List.of(), 10L);
+        Set<Long> result = sut.findVisibleStudyGroupIds(memberId);
 
         // then
         assertThat(result).isEmpty();
@@ -481,17 +479,26 @@ class StudyGroupQueryServiceTest {
     }
 
     @Test
-    void findStudyGroupIds_scope_가_있으면_port_위임() {
-        // given
-        Long gisuId = 10L;
-        List<OrganizationRoleScope> scopes = List.of(new AsPartLeader(1L));
-        given(loadStudyGroupPort.findStudyGroupIds(scopes, gisuId)).willReturn(Set.of(100L, 200L));
+    @DisplayName("활성 기수를 한 번만 읽어 scope 판단 기수와 조회 기수가 어긋나지 않는다")
+    void findVisibleStudyGroupIdsReadsActiveGisuOnce() {
+        // given - scope 조립과 그룹 조회가 서로 다른 기수를 보면 권한 범위가 어긋난다
+        Long memberId = 1L;
+        Long schoolId = 100L;
+        Long activeGisuId = 10L;
+
+        given(getMemberUseCase.getById(memberId)).willReturn(memberInfo(memberId, schoolId));
+        given(getGisuUseCase.getActiveGisuId()).willReturn(activeGisuId);
+        given(getChallengerRoleUseCase.isSchoolCoreInGisu(memberId, activeGisuId, schoolId)).willReturn(false);
+        given(getChallengerRoleUseCase.hasRoleTypeInGisu(
+            memberId, activeGisuId, ChallengerRoleType.SCHOOL_PART_LEADER)).willReturn(true);
+        given(loadStudyGroupPort.findStudyGroupIds(any(), eq(activeGisuId))).willReturn(Set.of(100L));
 
         // when
-        Set<Long> result = sut.findStudyGroupIds(scopes, gisuId);
+        sut.findVisibleStudyGroupIds(memberId);
 
         // then
-        assertThat(result).containsExactlyInAnyOrder(100L, 200L);
+        verify(getGisuUseCase, times(1)).getActiveGisuId();
+        verify(loadStudyGroupPort).findStudyGroupIds(any(), eq(activeGisuId));
     }
 
     // ========== Helper Methods ==========
@@ -500,6 +507,13 @@ class StudyGroupQueryServiceTest {
     private List<OrganizationRoleScope> captureScopes() {
         ArgumentCaptor<List<OrganizationRoleScope>> captor = ArgumentCaptor.forClass(List.class);
         verify(loadStudyGroupPort).findStudyGroupHeaders(captor.capture(), any(), any(), anyInt());
+        return captor.getValue();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<OrganizationRoleScope> captureVisibleScopes() {
+        ArgumentCaptor<List<OrganizationRoleScope>> captor = ArgumentCaptor.forClass(List.class);
+        verify(loadStudyGroupPort).findStudyGroupIds(captor.capture(), any());
         return captor.getValue();
     }
 

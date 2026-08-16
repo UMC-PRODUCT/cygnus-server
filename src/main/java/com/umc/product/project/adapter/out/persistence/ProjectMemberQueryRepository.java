@@ -110,6 +110,27 @@ public class ProjectMemberQueryRepository {
     }
 
     /**
+     * 여러 프로젝트 중 특정 멤버가 ACTIVE PLAN 멤버인 프로젝트 ID 를 조회한다.
+     */
+    public List<Long> listProjectIdsByActivePlanMember(Collection<Long> projectIds, Long memberId) {
+        if (projectIds == null || projectIds.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+            .select(projectMember.project.id)
+            .distinct()
+            .from(projectMember)
+            .where(
+                projectMember.project.id.in(projectIds),
+                projectMember.memberId.eq(memberId),
+                projectMember.part.eq(ChallengerPart.PLAN),
+                projectMember.status.eq(ProjectMemberStatus.ACTIVE)
+            )
+            .fetch();
+    }
+
+    /**
      * 여러 프로젝트의 (projectId, part) 별 ACTIVE 멤버 수를 한 번에 집계한다.
      *
      * @return projectId -> (part -> 인원수) 맵. 인원이 0 인 (project, part) 조합은 엔트리 없음.
