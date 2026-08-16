@@ -11,9 +11,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.demoday.adapter.in.web.dto.request.ChangeDemodayPollStatusRequest;
 import com.umc.product.demoday.adapter.in.web.dto.request.CreateDemodayPollRequest;
+import com.umc.product.demoday.adapter.in.web.dto.request.GenerateDemodayEntryCodesRequest;
+import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayEntryCodeResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayPollResponse;
 import com.umc.product.demoday.application.port.in.command.ChangeDemodayPollStatusUseCase;
+import com.umc.product.demoday.application.port.in.command.CreateDemodayEntryCodeUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayPollUseCase;
+import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayEntryCodesInfo;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 
@@ -34,6 +38,7 @@ public class DemodayPollAdminController {
 
     private final CreateDemodayPollUseCase createDemodayPollUseCase;
     private final ChangeDemodayPollStatusUseCase changeDemodayPollStatusUseCase;
+    private final CreateDemodayEntryCodeUseCase createDemodayEntryCodeUseCase;
 
     @Operation(
         operationId = "createDemodayPoll",
@@ -75,5 +80,20 @@ public class DemodayPollAdminController {
         @Valid @RequestBody ChangeDemodayPollStatusRequest request) {
 
         changeDemodayPollStatusUseCase.changeStatus(request.toCommand(pollId, memberPrincipal.getMemberId()));
+    }
+
+    @PostMapping("/{pollId}/entry-codes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CreateDemodayEntryCodeResponse createEntryCodes(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal principal,
+        @PathVariable("pollId") Long pollId,
+        @Valid @RequestBody GenerateDemodayEntryCodesRequest request
+        ) {
+
+        CreateDemodayEntryCodesInfo demodayEntryCodesInfo = createDemodayEntryCodeUseCase.create(
+            principal.getMemberId(), request.toCommand(pollId));
+
+        return CreateDemodayEntryCodeResponse.from(demodayEntryCodesInfo);
+
     }
 }

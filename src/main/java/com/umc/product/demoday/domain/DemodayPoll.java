@@ -191,4 +191,24 @@ public class DemodayPoll extends BaseEntity {
 
         status = DemodayPollStatus.CLOSED;
     }
+
+    public boolean canGenerateEtnryCode() {
+        return status == DemodayPollStatus.READY || status == DemodayPollStatus.OPEN;
+    }
+
+    public void validEntryCodeGenerationAvailable(Instant now) {
+        if (!now.isBefore(closesAt)) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_GENERATION_NOT_ALLOWED);
+        }
+    }
+
+    public void validParticipationAvailable(Instant now) {
+        if (!isOpen() || now.isBefore(opensAt) || !now.isBefore(closesAt)) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_NOT_FOUND);
+        }
+    }
+
+    private boolean isOpen() {
+        return status == DemodayPollStatus.OPEN;
+    }
 }

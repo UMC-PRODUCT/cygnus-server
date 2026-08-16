@@ -106,10 +106,9 @@ CREATE UNIQUE INDEX uk_demoday_stamp_member_booth
 CREATE UNIQUE INDEX uk_demoday_stamp_entry_code_booth
     ON demoday_stamp (entry_code_id, booth_id) WHERE entry_code_id IS NOT NULL;
 
--- 한 사람(소셜 계정)이 투표당 코드를 하나만 바인딩 할 수 있도록 제한한다.
+-- 한 사람이 투표당 코드를 하나만 바인딩 할 수 있도록 제한한다.
 -- 분실된 인증 코드를 주워 1인 N투표를 하는 것을 방지하기 위한 제약이다.
 -- demoday_vote의 UNIQUE(entry_code_id)와 합쳐져 1인당 1표를 제한한다.
--- 소셜 로그인 미도입 시에는 전 행이 NULL이기 때문에 인덱스가 비어버리게 되어 아무것도 제약하지 않게 된다.
 CREATE UNIQUE INDEX uk_demoday_entry_code_identity
     ON demoday_entry_code (demoday_poll_id, bound_identity_hash) WHERE bound_identity_hash IS NOT NULL;
 

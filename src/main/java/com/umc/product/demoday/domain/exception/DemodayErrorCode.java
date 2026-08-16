@@ -20,12 +20,14 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_POLL_ALREADY_OPEN(HttpStatus.CONFLICT, "DEMODAY-0108", "이미 오픈된 데모데이 투표 행사 입니다."),
     DEMODAY_POLL_ALREADY_CLOSED(HttpStatus.CONFLICT, "DEMODAY-0109", "이미 종료된 데모데이 투표 행사 입니다."),
     DEMODAY_POLL_NOT_FOUND(HttpStatus.NOT_FOUND, "DEMODAY-0110", "데모데이 투표 행사를 찾을 수 없습니다."),
+    DEMODAY_POLL_NOT_OPEN(HttpStatus.NOT_FOUND, "DEMODAY-0111", "데모데이 투표 행사가 아직 시작되지 않았습니다."),
 
     DEMODAY_BOOTH_INVALID_IDENTIFIER(HttpStatus.BAD_REQUEST, "DEMODAY-0200", "부스는 등록된 프로젝트나 표시 이름 중 하나를 가져야 합니다."),
     DEMODAY_BOOTH_INVALID_NAME(HttpStatus.BAD_REQUEST, "DEMODAY-0201", "부스 이름은 1자 이상 255자 이하로 작성해주세요."),
 
     DEMODAY_ENTRY_CODE_ALREADY_REDEEMED(HttpStatus.CONFLICT, "DEMODAY-0300", "이미 사용된 인증 코드예요."),
     DEMODAY_ENTRY_CODE_ALREADY_BOUND(HttpStatus.CONFLICT, "DEMODAY-0301", "이미 다른 계정에 연결된 인증 코드예요."),
+    DEMODAY_ENTRY_CODE_GENERATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DEMODAY-0302","행사 진행 전 또는 진행 중에만 생성할 수 있습니다"),
 
     DEMODAY_VOTE_NOT_OPENED_YET(HttpStatus.CONFLICT, "DEMODAY-0400", "아직 투표 시간이 아니에요."),
     DEMODAY_VOTE_CLOSED(HttpStatus.CONFLICT, "DEMODAY-0401", "투표가 종료되었어요."),
