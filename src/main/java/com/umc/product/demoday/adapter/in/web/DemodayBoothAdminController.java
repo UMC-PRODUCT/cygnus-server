@@ -121,7 +121,9 @@ public class DemodayBoothAdminController {
         @Parameter(description = "부스를 조회할 데모데이 투표 ID", required = true, example = "1")
         @PathVariable("pollId") Long pollId) {
 
-        DemodayAdminBoothListInfo boothListInfo = listDemodayAdminBoothUseCase.listBooths(pollId, memberPrincipal.getMemberId());
+        DemodayAdminBoothListInfo boothListInfo =
+            listDemodayAdminBoothUseCase.listBooths(pollId, memberPrincipal.getMemberId());
+
         return DemodayAdminBoothListResponse.from(boothListInfo);
     }
 }
