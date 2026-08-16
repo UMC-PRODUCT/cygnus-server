@@ -37,6 +37,7 @@ import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
+import com.umc.product.recruiting.application.port.in.command.RestoreRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
@@ -106,6 +107,9 @@ class RecruitingSeasonAdminGraphQlControllerTest {
     CloneRecruitingRoundUseCase cloneRoundUseCase;
     @MockitoBean
     DeleteRecruitingRoundUseCase deleteRoundUseCase;
+
+    @MockitoBean
+    RestoreRecruitingRoundUseCase restoreRoundUseCase;
     @MockitoBean
     CreateRecruitingSeasonUseCase createSeasonUseCase;
     @MockitoBean

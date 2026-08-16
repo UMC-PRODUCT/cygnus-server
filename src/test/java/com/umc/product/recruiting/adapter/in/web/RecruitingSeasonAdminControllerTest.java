@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.never;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -37,12 +38,15 @@ import com.umc.product.recruiting.application.port.in.command.CreateRecruitingRo
 import com.umc.product.recruiting.application.port.in.command.CreateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.DeleteRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.ReplaceRecruitingSeasonTrackQuotasUseCase;
+import com.umc.product.recruiting.application.port.in.command.RestoreRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundStatusUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingRoundUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingSeasonUseCase;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.CreateRecruitingSeasonCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.DeleteRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.command.dto.ReplaceRecruitingSeasonTrackQuotasCommand;
+import com.umc.product.recruiting.application.port.in.command.dto.RestoreRecruitingRoundCommand;
 import com.umc.product.recruiting.application.port.in.query.CheckRecruitingRoundTitleUseCase;
 import com.umc.product.recruiting.application.port.in.query.GetRecruitingSeasonConfigurationUseCase;
 import com.umc.product.recruiting.application.port.in.query.SearchRecruitingRoundGroupUseCase;
@@ -94,6 +98,9 @@ class RecruitingSeasonAdminControllerTest {
     CloneRecruitingRoundUseCase cloneRoundUseCase;
     @MockitoBean
     DeleteRecruitingRoundUseCase deleteRoundUseCase;
+
+    @MockitoBean
+    RestoreRecruitingRoundUseCase restoreRoundUseCase;
 
     @BeforeEach
     void authenticate() {
@@ -177,6 +184,43 @@ class RecruitingSeasonAdminControllerTest {
             .andExpect(jsonPath("$.result.chapterTotalTargetCount").value(740))
             .andExpect(jsonPath("$.result.rounds[0].availabilityFormId").value(100L))
             .andExpect(jsonPath("$.result.rounds[0].availabilityScheduleQuestionId").value(200L));
+    }
+
+    @Test
+    @DisplayName("차수 삭제 요청은 seasonId와 roundId를 command로 전달한다")
+    void deleteRoundPassesIdsToCommand() throws Exception {
+        mockMvc.perform(delete("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}", 10L, 20L))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<DeleteRecruitingRoundCommand> captor =
+            ArgumentCaptor.forClass(DeleteRecruitingRoundCommand.class);
+        then(deleteRoundUseCase).should().deleteRound(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().roundId()).isEqualTo(20L);
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("차수 복구 요청은 현재 회원과 함께 command로 전달한다")
+    void restoreRoundPassesIdsToCommand() throws Exception {
+        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/restore", 10L, 20L))
+            .andExpect(status().isOk());
+
+        ArgumentCaptor<RestoreRecruitingRoundCommand> captor =
+            ArgumentCaptor.forClass(RestoreRecruitingRoundCommand.class);
+        then(restoreRoundUseCase).should().restoreRound(captor.capture());
+        assertThat(captor.getValue().seasonId()).isEqualTo(10L);
+        assertThat(captor.getValue().roundId()).isEqualTo(20L);
+        assertThat(captor.getValue().requesterMemberId()).isEqualTo(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("양수가 아닌 roundId 복구 요청은 400을 반환한다")
+    void restoreRoundRejectsNonPositiveRoundId() throws Exception {
+        mockMvc.perform(post("/api/v1/recruiting/admin/seasons/{seasonId}/rounds/{roundId}/restore", 10L, 0L))
+            .andExpect(status().isBadRequest());
+
+        then(restoreRoundUseCase).should(never()).restoreRound(any());
     }
 
     @Test
