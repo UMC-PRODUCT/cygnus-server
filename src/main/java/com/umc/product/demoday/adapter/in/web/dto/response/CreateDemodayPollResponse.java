@@ -1,4 +1,4 @@
-package com.umc.product.demoday.adapter.in.web.dto;
+package com.umc.product.demoday.adapter.in.web.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 

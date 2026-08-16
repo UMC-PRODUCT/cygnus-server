@@ -7,9 +7,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.umc.product.demoday.adapter.in.web.dto.ChangeDemodayPollStatusRequest;
-import com.umc.product.demoday.adapter.in.web.dto.CreateDemodayPollRequest;
-import com.umc.product.demoday.adapter.in.web.dto.CreateDemodayPollResponse;
+import com.umc.product.demoday.adapter.in.web.dto.request.ChangeDemodayPollStatusRequest;
+import com.umc.product.demoday.adapter.in.web.dto.request.CreateDemodayPollRequest;
+import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayPollResponse;
 import com.umc.product.demoday.application.port.in.command.ChangeDemodayPollStatusUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayPollUseCase;
 import com.umc.product.global.security.MemberPrincipal;
