@@ -3,12 +3,13 @@ package com.umc.product.project.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.umc.product.project.domain.enums.ProjectStatus;
-import com.umc.product.project.domain.exception.ProjectDomainException;
-import com.umc.product.project.domain.exception.ProjectErrorCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+
+import com.umc.product.project.domain.enums.ProjectStatus;
+import com.umc.product.project.domain.exception.ProjectDomainException;
+import com.umc.product.project.domain.exception.ProjectErrorCode;
 
 class ProjectTest {
 
@@ -173,17 +174,18 @@ class ProjectTest {
     class complete {
 
         @Test
-        void IN_PROGRESS에서_COMPLETED로_전이된다() {
+        void IN_PROGRESS에서_COMPLETED로_전이되고_완료자를_기록한다() {
             setStatus(project, ProjectStatus.IN_PROGRESS);
 
-            project.complete();
+            project.complete(999L);
 
             assertThat(project.getStatus()).isEqualTo(ProjectStatus.COMPLETED);
+            assertThat(project.getStatusChangedByMemberId()).isEqualTo(999L);
         }
 
         @Test
         void IN_PROGRESS가_아니면_PROJECT_INVALID_STATE() {
-            assertThatThrownBy(() -> project.complete())
+            assertThatThrownBy(() -> project.complete(999L))
                 .isInstanceOf(ProjectDomainException.class)
                 .extracting("baseCode")
                 .isEqualTo(ProjectErrorCode.PROJECT_INVALID_STATE);

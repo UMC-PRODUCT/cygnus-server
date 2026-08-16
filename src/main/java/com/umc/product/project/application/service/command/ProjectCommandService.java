@@ -8,8 +8,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.umc.product.audit.application.port.in.annotation.Audited;
 import com.umc.product.audit.domain.AuditAction;
+import com.umc.product.authorization.application.port.in.CheckPermissionUseCase;
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
+import com.umc.product.authorization.domain.PermissionType;
+import com.umc.product.authorization.domain.ResourcePermission;
+import com.umc.product.authorization.domain.ResourceType;
 import com.umc.product.challenger.application.port.in.query.GetChallengerUseCase;
 import com.umc.product.challenger.application.port.in.query.dto.ChallengerInfo;
 import com.umc.product.common.domain.enums.ChallengerPart;
@@ -24,6 +28,7 @@ import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.project.application.port.in.command.AbortProjectUseCase;
+import com.umc.product.project.application.port.in.command.CompleteProjectsUseCase;
 import com.umc.product.project.application.port.in.command.CreateDraftProjectUseCase;
 import com.umc.product.project.application.port.in.command.DeleteProjectUseCase;
 import com.umc.product.project.application.port.in.command.PublishProjectUseCase;
@@ -31,6 +36,7 @@ import com.umc.product.project.application.port.in.command.SubmitProjectUseCase;
 import com.umc.product.project.application.port.in.command.TransferProjectOwnershipUseCase;
 import com.umc.product.project.application.port.in.command.UpdateProjectUseCase;
 import com.umc.product.project.application.port.in.command.dto.AbortProjectCommand;
+import com.umc.product.project.application.port.in.command.dto.CompleteProjectsCommand;
 import com.umc.product.project.application.port.in.command.dto.CreateDraftProjectCommand;
 import com.umc.product.project.application.port.in.command.dto.DeleteProjectCommand;
 import com.umc.product.project.application.port.in.command.dto.PublishProjectCommand;
@@ -68,7 +74,10 @@ public class ProjectCommandService implements
     TransferProjectOwnershipUseCase,
     PublishProjectUseCase,
     DeleteProjectUseCase,
-    AbortProjectUseCase {
+    AbortProjectUseCase,
+    CompleteProjectsUseCase {
+
+    private static final String COMPLETE_APPLICATION_CANCEL_REASON = "프로젝트가 완료되어 자동 취소되었습니다.";
 
     private final LoadProjectPort loadProjectPort;
     private final SaveProjectPort saveProjectPort;
@@ -80,6 +89,7 @@ public class ProjectCommandService implements
     private final SaveProjectPartQuotaPort saveProjectPartQuotaPort;
     private final SaveProjectApplicationFormPort saveProjectApplicationFormPort;
     private final SaveProjectApplicationFormPolicyPort saveProjectApplicationFormPolicyPort;
+    private final CheckPermissionUseCase checkPermissionUseCase;
 
     // Cross-domain UseCases
     private final GetMemberUseCase getMemberUseCase;
@@ -323,6 +333,51 @@ public class ProjectCommandService implements
             loadProjectApplicationPort.listInProgressByProjectId(project.getId());
         for (ProjectApplication application : inProgressApplications) {
             application.cancel(command.requesterMemberId(), command.reason());
+        }
+    }
+
+    /**
+     * 프로젝트 완료(complete). 기수 종료 시 여러 IN_PROGRESS 프로젝트를 COMPLETED 로 일괄 전이 + 자식 도메인 동기화.
+     * <ul>
+     *   <li>대상 프로젝트마다 MANAGE 권한을 검증 (배열 입력이라 Controller {@code @CheckAccess} 로는 단건 바인딩 불가)</li>
+     *   <li>{@link Project#complete} 로 상태 전이 (IN_PROGRESS 가 아니면 도메인 가드가 거부)</li>
+     *   <li>ACTIVE 인 ProjectMember 는 모두 COMPLETED (정상 졸업이므로 사유 없음)</li>
+     *   <li>진행 중(DRAFT/SUBMITTED) ProjectApplication 은 모두 CANCELLED, 사유에 완료 자동 취소 명시</li>
+     * </ul>
+     * {@code @Transactional} 이므로 대상 중 하나라도 권한/상태 조건을 만족하지 못하면 전체 롤백된다.
+     */
+    @Audited(
+        domain = Domain.PROJECT,
+        action = AuditAction.FINALIZE,
+        targetType = "Project",
+        targetId = "#command.projectIds()",
+        description = "'프로젝트를 완료 처리했습니다.'"
+    )
+    @Override
+    public void complete(CompleteProjectsCommand command) {
+        List<Project> projects = loadProjectPort.listByIds(command.projectIds());
+        if (projects.size() != command.projectIds().size()) {
+            throw new ProjectDomainException(ProjectErrorCode.PROJECT_NOT_FOUND);
+        }
+
+        for (Project project : projects) {
+            checkPermissionUseCase.checkOrThrow(
+                command.requesterMemberId(),
+                ResourcePermission.of(ResourceType.PROJECT, project.getId(), PermissionType.MANAGE)
+            );
+
+            project.complete(command.requesterMemberId());
+
+            List<ProjectMember> activeMembers = loadProjectMemberPort.listByProjectId(project.getId());
+            for (ProjectMember member : activeMembers) {
+                member.complete(command.requesterMemberId());
+            }
+
+            List<ProjectApplication> inProgressApplications =
+                loadProjectApplicationPort.listInProgressByProjectId(project.getId());
+            for (ProjectApplication application : inProgressApplications) {
+                application.cancel(command.requesterMemberId(), COMPLETE_APPLICATION_CANCEL_REASON);
+            }
         }
     }
 }
