@@ -8,6 +8,7 @@ import java.time.Instant;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
@@ -17,6 +18,8 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 class DemodayPollTest {
 
     private static final Long GISU_ID = 8L;
+    private static final Long POLL_ID = 1L;
+    private static final Long PROJECT_ID = 101L;
     private static final String NAME = "8기 데모데이 현장 투표";
     private static final Instant OPENS_AT = Instant.parse("2026-08-01T05:00:00Z");
     private static final Instant CLOSES_AT = Instant.parse("2026-08-01T08:00:00Z");
@@ -138,5 +141,112 @@ class DemodayPollTest {
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_POLL_INVALID_NAME);
+    }
+
+    @Test
+    @DisplayName("닫힌 투표는 등록된 프로젝트로 부스를 만든다")
+    void registerProjectBoothWhileClosed() {
+        // given
+        DemodayPoll poll = persistedPoll();
+
+        // when
+        DemodayBooth booth = poll.registerProjectBooth(PROJECT_ID);
+
+        // then
+        assertThat(booth.getPollId()).isEqualTo(POLL_ID);
+        assertThat(booth.getProjectId()).isEqualTo(PROJECT_ID);
+        assertThat(booth.getDisplayName()).isNull();
+    }
+
+    @Test
+    @DisplayName("닫힌 투표는 표시 이름으로 외부 부스를 만든다")
+    void registerExternalBoothWhileClosed() {
+        // given
+        DemodayPoll poll = persistedPoll();
+
+        // when
+        DemodayBooth booth = poll.registerExternalBooth("외부 참가팀 A");
+
+        // then
+        assertThat(booth.getPollId()).isEqualTo(POLL_ID);
+        assertThat(booth.getProjectId()).isNull();
+        assertThat(booth.getDisplayName()).isEqualTo("외부 참가팀 A");
+    }
+
+    @Test
+    @DisplayName("등록한 부스는 저장 전이므로 조회 전용 부스 목록에 나타나지 않는다")
+    void doNotAddRegisteredBoothToReadOnlyCollection() {
+        // given
+        DemodayPoll poll = persistedPoll();
+
+        // when
+        poll.registerProjectBooth(PROJECT_ID);
+
+        // then
+        assertThat(poll.getBooths()).isEmpty();
+    }
+
+    @Test
+    @DisplayName("투표가 열리면 두 경로 모두 부스를 추가할 수 없다")
+    void rejectBoothRegistrationWhenPollIsOpen() {
+        // given
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+
+        // when & then
+        assertThat(poll.isBoothRegistrable()).isFalse();
+
+        assertThatThrownBy(() -> poll.registerProjectBooth(PROJECT_ID))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_BOOTH_LOCKED);
+
+        assertThatThrownBy(() -> poll.registerExternalBooth("외부 참가팀 A"))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_BOOTH_LOCKED);
+    }
+
+    @Test
+    @DisplayName("열었던 투표를 다시 닫으면 부스를 추가할 수 있다")
+    void allowBoothRegistrationAfterReclosingPoll() {
+        // given
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+        poll.close();
+
+        // when & then
+        assertThat(poll.isBoothRegistrable()).isTrue();
+        assertThatCode(() -> poll.registerProjectBooth(PROJECT_ID)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("저장되지 않은 투표에는 부스를 등록할 수 없다")
+    void rejectBoothRegistrationForUnsavedPoll() {
+        // given
+        DemodayPoll unsavedPoll = DemodayPoll.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
+
+        // when & then
+        assertThatThrownBy(() -> unsavedPoll.registerProjectBooth(PROJECT_ID))
+            .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("부스 이름 규칙은 투표를 거쳐 등록해도 그대로 적용된다")
+    void keepBoothNameRuleWhenRegisteringThroughPoll() {
+        // given
+        DemodayPoll poll = persistedPoll();
+
+        // when & then
+        assertThatThrownBy(() -> poll.registerExternalBooth("  "))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
+    }
+
+    private DemodayPoll persistedPoll() {
+        DemodayPoll poll = DemodayPoll.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
+        ReflectionTestUtils.setField(poll, "id", POLL_ID);
+        return poll;
     }
 }
