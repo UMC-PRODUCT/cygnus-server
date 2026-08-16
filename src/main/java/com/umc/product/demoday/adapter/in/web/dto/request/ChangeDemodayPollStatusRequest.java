@@ -1,4 +1,4 @@
-package com.umc.product.demoday.adapter.in.web.dto;
+package com.umc.product.demoday.adapter.in.web.dto.request;
 
 import com.umc.product.demoday.application.port.in.command.dto.ChangeDemodayPollStatusCommand;
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;

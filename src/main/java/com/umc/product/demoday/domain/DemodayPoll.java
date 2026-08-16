@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import com.umc.product.common.BaseEntity;
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;
@@ -127,6 +128,52 @@ public class DemodayPoll extends BaseEntity {
 
     public List<DemodayBooth> getBooths() {
         return Collections.unmodifiableList(booths);
+    }
+
+    /**
+     * 등록된 프로젝트에 연결되는 부스를 만든다.
+     *
+     * <p>부스 생성 자체는 {@link DemodayBooth#forProject(Long, Long)}가 담당하지만, 진입점을 투표에 두는 이유는
+     * 부스를 더 받을 수 있는지 판단하는 근거가 투표의 운영 상태이기 때문이다. 식별자만 넘기는 팩토리를 직접
+     * 호출하면 이 판단을 호출자가 대신해야 하고, 호출자가 빠뜨리면 규칙이 사라진다.
+     *
+     * <p>반환된 부스는 아직 저장되지 않았고 {@link #getBooths()}에도 반영되지 않는다. 이 컬렉션은 조회 전용
+     * 뷰이므로 저장은 호출자가 부스 저장 Port로 수행한다.
+     */
+    public DemodayBooth registerProjectBooth(Long projectId) {
+        requireBoothRegistrable();
+        return DemodayBooth.forProject(requirePersistedId(), projectId);
+    }
+
+    /**
+     * UPMS에 등록되지 않은 외부 참가팀의 부스를 표시 이름으로 만든다.
+     *
+     * @see #registerProjectBooth(Long)
+     */
+    public DemodayBooth registerExternalBooth(String displayName) {
+        requireBoothRegistrable();
+        return DemodayBooth.forExternal(requirePersistedId(), displayName);
+    }
+
+    /**
+     * 부스를 더 등록할 수 있는지 여부다.
+     *
+     * <p>투표가 시작된 뒤에 부스가 늘어나면 먼저 투표한 사람은 그 부스를 보지 못한 채 표를 던진 것이 되어,
+     * 같은 투표 안에서 사람마다 선택지가 달라진다. 그러면 순위를 비교할 근거가 사라지므로 OPEN이 되는 순간부터
+     * 부스 추가를 막는다.
+     */
+    public boolean isBoothRegistrable() {
+        return DemodayPollStatus.OPEN != status;
+    }
+
+    private void requireBoothRegistrable() {
+        if (!isBoothRegistrable()) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_BOOTH_LOCKED);
+        }
+    }
+
+    private Long requirePersistedId() {
+        return Objects.requireNonNull(id, "poll must be persisted before registering a booth");
     }
 
     public void open() {

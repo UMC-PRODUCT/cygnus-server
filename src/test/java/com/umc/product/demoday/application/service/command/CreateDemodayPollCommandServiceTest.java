@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayPollCommand;
 import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
+import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;

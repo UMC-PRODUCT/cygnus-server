@@ -1,15 +1,17 @@
 package com.umc.product.demoday.adapter.in.web;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.umc.product.demoday.adapter.in.web.dto.ChangeDemodayPollStatusRequest;
-import com.umc.product.demoday.adapter.in.web.dto.CreateDemodayPollRequest;
-import com.umc.product.demoday.adapter.in.web.dto.CreateDemodayPollResponse;
+import com.umc.product.demoday.adapter.in.web.dto.request.ChangeDemodayPollStatusRequest;
+import com.umc.product.demoday.adapter.in.web.dto.request.CreateDemodayPollRequest;
+import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayPollResponse;
 import com.umc.product.demoday.application.port.in.command.ChangeDemodayPollStatusUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayPollUseCase;
 import com.umc.product.global.security.MemberPrincipal;
@@ -35,7 +37,7 @@ public class DemodayPollAdminController {
 
     @Operation(
         operationId = "createDemodayPoll",
-        summary = "데모데이 투표 생성",
+        summary = "데모데이 투표 행사 생성",
         description = """
             데모데이 투표를 CLOSED 상태로 생성합니다.
 
@@ -44,6 +46,7 @@ public class DemodayPollAdminController {
             """
     )
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     public CreateDemodayPollResponse createPoll(
         @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
         @Valid @RequestBody CreateDemodayPollRequest request) {
