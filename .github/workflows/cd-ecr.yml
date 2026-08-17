@@ -27,7 +27,7 @@ on:
         required: true
         type: choice
         options:
-          - Development
+          - Alpha
           - Production
 
 jobs:

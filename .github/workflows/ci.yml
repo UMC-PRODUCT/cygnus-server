@@ -35,7 +35,7 @@ on:
         required: true
         type: choice
         options:
-          - Development
+          - Alpha
           - Production
           - Test
 
@@ -113,7 +113,7 @@ jobs:
           elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             ENVIRONMENT="Production"
           elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            ENVIRONMENT="Development"
+            ENVIRONMENT="Alpha"
           else
             ENVIRONMENT="Test"
           fi

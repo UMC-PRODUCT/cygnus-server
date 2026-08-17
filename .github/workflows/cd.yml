@@ -35,7 +35,7 @@ on:
         required: true
         type: choice
         options:
-          - Development
+          - Alpha
           - Production
 
 jobs:
@@ -223,7 +223,7 @@ jobs:
 
             case "${{ env.ENVIRONMENT }}" in
               "Production") PROFILE="prod" ;;
-              "Development") PROFILE="alpha" ;;
+              "Alpha") PROFILE="alpha" ;;
               "Test") PROFILE="test" ;;
               *) PROFILE="alpha" ;;
             esac
