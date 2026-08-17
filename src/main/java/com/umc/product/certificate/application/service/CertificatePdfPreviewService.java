@@ -17,7 +17,7 @@ import com.umc.product.certificate.application.port.out.dto.CertificatePdfRender
 import lombok.RequiredArgsConstructor;
 
 @Service
-@Profile("local | dev")
+@Profile("local | alpha")
 @RequiredArgsConstructor
 public class CertificatePdfPreviewService implements PreviewCertificatePdfUseCase {
 

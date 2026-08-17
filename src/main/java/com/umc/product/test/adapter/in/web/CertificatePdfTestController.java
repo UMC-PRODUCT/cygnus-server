@@ -25,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/test/certificates")
-@Profile("local | dev")
+@Profile("local | alpha")
 @RequiredArgsConstructor
 @Public
 @Tag(name = "Test | 인증서 PDF", description = "개발 환경에서 인증서 PDF 템플릿을 미리보기합니다.")

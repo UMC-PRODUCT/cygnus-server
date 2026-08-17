@@ -62,7 +62,7 @@ class WebSocketBrokerRelayStartupValidatorTest {
         WebSocketBrokerProperties properties = relayProperties();
         given(monitor.awaitAvailable(properties.relay().startupTimeout())).willReturn(false);
 
-        for (String[] profiles : new String[][] {{"test", "dev"}, {"local", "prod"}}) {
+        for (String[] profiles : new String[][] {{"test", "alpha"}, {"local", "prod"}}) {
             MockEnvironment environment = new MockEnvironment();
             environment.setActiveProfiles(profiles);
             WebSocketBrokerRelayStartupValidator sut = new WebSocketBrokerRelayStartupValidator(

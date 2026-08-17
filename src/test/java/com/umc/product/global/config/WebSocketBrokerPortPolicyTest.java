@@ -65,7 +65,7 @@ class WebSocketBrokerPortPolicyTest {
     void sharedProfilesRejectMissingPortWithoutExposingCredentials() {
         WebSocketBrokerProperties properties = relayProperties(null);
 
-        for (String[] profiles : new String[][] {{"test", "dev"}, {"local", "prod"}}) {
+        for (String[] profiles : new String[][] {{"test", "alpha"}, {"local", "prod"}}) {
             MockEnvironment environment = new MockEnvironment();
             environment.setActiveProfiles(profiles);
 

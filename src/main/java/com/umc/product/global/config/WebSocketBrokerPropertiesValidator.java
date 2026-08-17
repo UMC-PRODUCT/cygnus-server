@@ -10,7 +10,7 @@ import org.springframework.util.StringUtils;
 
 public final class WebSocketBrokerPropertiesValidator {
 
-    private static final Profiles SHARED_ENVIRONMENT_PROFILES = Profiles.of("dev", "prod");
+    private static final Profiles SHARED_ENVIRONMENT_PROFILES = Profiles.of("alpha", "prod");
 
     private WebSocketBrokerPropertiesValidator() {
     }

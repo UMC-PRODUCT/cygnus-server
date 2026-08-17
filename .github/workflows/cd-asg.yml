@@ -127,12 +127,11 @@ jobs:
           fi
 
           # SPRING_PROFILE 은 Spring profile 이름, SSM_ENV 는 SSM 경로 세그먼트다.
-          # Spring profile 이 alpha 로 rename 되기 전까지 dev/alpha 매핑이 서로 다르다.
           case "${ENVIRONMENT}" in
             Production) SPRING_PROFILE="prod"; SSM_ENV="prod" ;;
-            Development) SPRING_PROFILE="dev"; SSM_ENV="alpha" ;;
+            Development) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
             Test) SPRING_PROFILE="test"; SSM_ENV="alpha" ;;
-            *) SPRING_PROFILE="dev"; SSM_ENV="alpha" ;;
+            *) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
           esac
 
           SSM_PARAMETER_PATH="${SSM_BASE_PATH}/${SSM_ENV}"
