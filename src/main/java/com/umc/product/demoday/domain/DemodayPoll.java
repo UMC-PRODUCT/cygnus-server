@@ -85,8 +85,9 @@ public class DemodayPoll extends BaseEntity {
             .name(normalizeName(name))
             // status는 창에서 파생하지 않는다.
             // 창(opensAt ~ closesAt)은 예정 시각이고, status는 운영진의 활성화 의사다.
-            // 생성 시점에는 항상 close 상태여야 하고, 명시적인 행위를 통해서만 상태를 변경한다.
-            .status(DemodayPollStatus.CLOSED)
+            // 생성 시점에는 행사 전 코드 발급이 가능한 준비 상태여야 하고,
+            // 명시적인 행위를 통해서만 상태를 변경한다.
+            .status(DemodayPollStatus.READY)
             .opensAt(opensAt)
             .closesAt(closesAt)
             .build();
@@ -180,6 +181,9 @@ public class DemodayPoll extends BaseEntity {
         if (DemodayPollStatus.OPEN == status) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_ALREADY_OPEN);
         }
+        if (DemodayPollStatus.READY != status) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_INVALID_STATUS_TRANSITION);
+        }
 
         status = DemodayPollStatus.OPEN;
     }
@@ -187,6 +191,9 @@ public class DemodayPoll extends BaseEntity {
     public void close() {
         if (DemodayPollStatus.CLOSED == status) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_ALREADY_CLOSED);
+        }
+        if (DemodayPollStatus.OPEN != status) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_INVALID_STATUS_TRANSITION);
         }
 
         status = DemodayPollStatus.CLOSED;

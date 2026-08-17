@@ -1,5 +1,6 @@
 package com.umc.product.demoday.application.service.command;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,6 +42,8 @@ public class CreateDemodayEntryCodeCommandService implements CreateDemodayEntryC
         if (!demodayPoll.canGenerateEtnryCode()) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_GENERATION_NOT_ALLOWED);
         }
+
+        demodayPoll.validEntryCodeGenerationAvailable(Instant.now());
 
         demodayAdminAccessChecker.validateAdminAccess(memberId, demodayPoll.getGisuId());
 
