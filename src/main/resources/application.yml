@@ -180,7 +180,7 @@ springdoc:
 #     DB span 트레이싱은 그대로 동작한다 (SQL 원문 라인만 사라짐).
 #   - local 프로필은 파일 하단(on-profile: local)에서 enable-logging=true 로 재정의하므로,
 #     로컬 개발자는 별도 env 설정 없이 SQL 라인을 본다.
-# 환경변수 기본값: local=true / dev·staging·prod·test=false
+# 환경변수 기본값: local=true / alpha·staging·prod·test=false
 # ====================================================================
 decorator:
   datasource:
@@ -551,14 +551,14 @@ storage:
 
 
 # ==================================================================
-# configuration override for dev profile
+# configuration override for alpha profile
 # ==================================================================
 
 ---
 spring:
   config:
     activate:
-      on-profile: dev
+      on-profile: alpha
   graphql:
     schema:
       introspection:
@@ -579,7 +579,7 @@ app:
   sso:
     clients:
       backoffice:
-        name: dev backoffice
+        name: alpha backoffice
         service-type: UMC_BACKOFFICE
         environment: DEV
         require-pkce: true
@@ -589,7 +589,7 @@ app:
         allowed-origins:
           - https://dev.admin.university.neordinary.com
       website:
-        name: dev website
+        name: alpha website
         service-type: UMC_WEBSITE
         environment: DEV
         require-pkce: true

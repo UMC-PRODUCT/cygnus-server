@@ -60,12 +60,12 @@ class WebSocketBrokerPortPolicyTest {
 
     @Test
     @DisplayName(
-        "dev 또는 prod가 포함된 프로필은 relay port 미공급을 credential 노출 없이 거부한다"
+        "alpha 또는 prod가 포함된 프로필은 relay port 미공급을 credential 노출 없이 거부한다"
     )
     void sharedProfilesRejectMissingPortWithoutExposingCredentials() {
         WebSocketBrokerProperties properties = relayProperties(null);
 
-        for (String[] profiles : new String[][] {{"test", "dev"}, {"local", "prod"}}) {
+        for (String[] profiles : new String[][] {{"test", "alpha"}, {"local", "prod"}}) {
             MockEnvironment environment = new MockEnvironment();
             environment.setActiveProfiles(profiles);
 

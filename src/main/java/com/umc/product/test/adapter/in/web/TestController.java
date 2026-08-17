@@ -45,7 +45,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @RequiredArgsConstructor
-@Profile("local | dev")
+@Profile("local | alpha")
 @RestController
 @RequestMapping("/test")
 @Tag(name = "Test | 일반 테스트", description = "개발과 테스트 환경에서만 사용하는 점검 API입니다.")

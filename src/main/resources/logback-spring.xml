@@ -107,11 +107,11 @@
 
 
     <!--
-        ========== dev: stdout JSON + OTLP logs ==========
-        dev stdout 은 한 줄 JSON 으로 유지하고, 원격 로그는 OpenTelemetryAppender 가
+        ========== alpha: stdout JSON + OTLP logs ==========
+        alpha stdout 은 한 줄 JSON 으로 유지하고, 원격 로그는 OpenTelemetryAppender 가
         OTLP logs 로 Collector 에 송신한다.
     -->
-    <springProfile name="dev">
+    <springProfile name="alpha">
         <!-- 우리 앱 패키지만 DEBUG -->
         <logger name="com.umc.product" level="DEBUG"/>
 
