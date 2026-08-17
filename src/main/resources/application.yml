@@ -652,3 +652,11 @@ app:
   websocket:
     broker:
       mode: ${WEBSOCKET_BROKER_MODE:simple}
+
+# ==================================================================
+# configuration for demdoay domain
+# ==================================================================
+
+demoday:
+  stamp-credential:
+    encryption-key: ${DEMODAY_STAMP_CREDENTIAL_ENCRYPTION_KEY}

@@ -1,5 +1,6 @@
 package com.umc.product.demoday.domain;
 
+import java.time.Instant;
 import java.util.Objects;
 
 import com.umc.product.common.BaseEntity;
@@ -41,6 +42,15 @@ public class DemodayBooth extends BaseEntity {
     @Column(name = "display_name")
     private String displayName;
 
+    @Column(name = "stamp_credential_hash")
+    private String stampCredentialHash;
+
+    @Column(name = "stamp_credential_cipher")
+    private String stampCredentialCipher;
+
+    @Column(name = "stamp_credential_generated_at")
+    private Instant stampCredentialGeneratedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
     private DemodayBooth(Long pollId, Long projectId, String displayName) {
         this.pollId = pollId;
@@ -65,6 +75,24 @@ public class DemodayBooth extends BaseEntity {
             .displayName(normalizedName)
             .build();
     }
+
+    public void applyStampCredential(
+        String stampCredentialHash,
+        String stampCredentialCipher,
+        Instant stampCredentialGeneratedAt
+    ) {
+        this.stampCredentialHash = Objects.requireNonNull(stampCredentialHash);
+        this.stampCredentialCipher = Objects.requireNonNull(stampCredentialCipher);
+        this.stampCredentialGeneratedAt = Objects.requireNonNull(stampCredentialGeneratedAt);
+    }
+
+    public boolean hasStampCredential() {
+        return stampCredentialHash != null
+            && stampCredentialCipher != null
+            && stampCredentialGeneratedAt != null;
+    }
+
+    //=== Private Method ===
 
     private static void validateProject(Long projectId) {
         if (projectId == null) {
