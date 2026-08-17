@@ -180,6 +180,10 @@ AWS_PROFILE=umc ./scripts/upload-env-to-ssm.sh .env.alpha alpha
   변경 후 재배포(인스턴스 refresh)가 필요하다.
 - 4KB 초과 값은 Advanced tier 로 저장되어 파라미터당 월 $0.05 가 과금된다.
   큰 JSON 은 가급적 base64 압축 전에 필요한 필드만 남기는 것을 검토한다.
+- **`FLYWAY_ENABLED` 는 prod/alpha 모두 `false` 로 유지한다.** 배포가 DB 스키마를 변경하지 않도록
+  하는 스위치이며, 마이그레이션은 `DB Migrate [Flyway]` 워크플로우로 따로 실행한다.
+  `JPA_DDL_AUTO` 는 기본값 `validate` 를 유지한다 (DB 를 변경하지 않는 검증이고, 마이그레이션 누락 시
+  부팅을 실패시켜 배포를 막아준다). 자세한 내용은 [Flyway 마이그레이션 런북](./flyway-migration-runbook.md).
 
 ## 콘솔 UI
 
