@@ -28,6 +28,7 @@ public class ChangeDemodayPollStatusCommandService implements ChangeDemodayPollS
         DemodayPoll poll = getDemodayPoll(command);
 
         switch (command.status()) {
+            case READY -> throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_INVALID_STATUS_TRANSITION);
             case OPEN -> poll.open();
             case CLOSED -> poll.close();
         }

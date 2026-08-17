@@ -57,7 +57,7 @@ class DemodayAdminBoothQueryServiceTest {
     @DisplayName("닫힌 투표의 부스 목록과 등록 개수를 조회하고 아직 추가할 수 있다고 알린다")
     void listBoothsOfClosedPoll() {
         // given
-        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(persistedPoll()));
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(persistedClosedPoll()));
         given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(
             booth(20L, 101L, null),
             booth(21L, null, "외부 참가팀 A")
@@ -133,6 +133,13 @@ class DemodayAdminBoothQueryServiceTest {
     private DemodayPoll persistedPoll() {
         DemodayPoll poll = DemodayPoll.create(GISU_ID, POLL_NAME, OPENS_AT, CLOSES_AT);
         ReflectionTestUtils.setField(poll, "id", POLL_ID);
+        return poll;
+    }
+
+    private DemodayPoll persistedClosedPoll() {
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+        poll.close();
         return poll;
     }
 

@@ -31,8 +31,8 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
-public class DemodayPollQueryService implements ListDemodayPollUseCase, GetDemodayParticipationUseCase,
-        ListDemodayBoothUseCase {
+public class DemodayPollQueryService implements
+    ListDemodayPollUseCase, GetDemodayParticipationUseCase, ListDemodayBoothUseCase {
 
     private static final int REQUIRED_STAMP_COUNT = 6;
 
