@@ -39,6 +39,8 @@ demoday:
     base-url: https://vote.test.umc.it.kr
   vote-qr:
     signing-key: test-dummy-vote-qr-signing-key-needs-32-bytes-min
+  stamp-credential:
+    encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
 
 management:
   tracing:
