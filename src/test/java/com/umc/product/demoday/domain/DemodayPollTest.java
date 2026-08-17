@@ -25,8 +25,8 @@ class DemodayPollTest {
     private static final Instant CLOSES_AT = Instant.parse("2026-08-01T08:00:00Z");
 
     @Test
-    @DisplayName("생성된 투표는 창을 그대로 보관하고 항상 닫힌 상태로 시작한다")
-    void initializePollAsClosed() {
+    @DisplayName("생성된 투표는 창을 그대로 보관하고 준비 상태로 시작한다")
+    void initializePollAsReady() {
         // when
         DemodayPoll poll = DemodayPoll.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
 
@@ -35,7 +35,7 @@ class DemodayPollTest {
         assertThat(poll.getName()).isEqualTo(NAME);
         assertThat(poll.getOpensAt()).isEqualTo(OPENS_AT);
         assertThat(poll.getClosesAt()).isEqualTo(CLOSES_AT);
-        assertThat(poll.getStatus()).isEqualTo(DemodayPollStatus.CLOSED);
+        assertThat(poll.getStatus()).isEqualTo(DemodayPollStatus.READY);
     }
 
     @Test
