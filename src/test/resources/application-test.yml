@@ -117,4 +117,4 @@ app:
 
 demoday:
   stamp-credential:
-    encryption-key: ${DEMODAY_STAMP_CREDENTIAL_ENCRYPTION_KEY}
+    encryption-key: test-dummy-encryption-key-value

@@ -13,10 +13,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.umc.product.demoday.adapter.in.web.dto.request.RegisterDemodayBoothBatchRequest;
 import com.umc.product.demoday.adapter.in.web.dto.request.RegisterDemodayBoothRequest;
+import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayStampQrResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayAdminBoothListResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.RegisterDemodayBoothBatchResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.RegisterDemodayBoothResponse;
+import com.umc.product.demoday.application.port.in.command.CreateDemodayStampUseCase;
 import com.umc.product.demoday.application.port.in.command.RegisterDemodayBoothUseCase;
+import com.umc.product.demoday.application.port.in.command.dto.CreateStampCredentialCommand;
+import com.umc.product.demoday.application.port.in.command.dto.StampCredentialInfo;
 import com.umc.product.demoday.application.port.in.query.ListDemodayAdminBoothUseCase;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayAdminBoothListInfo;
 import com.umc.product.global.security.MemberPrincipal;
@@ -37,6 +41,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class DemodayBoothAdminController {
 
+    private final CreateDemodayStampUseCase createDemodayStampUseCase;
     private final RegisterDemodayBoothUseCase registerDemodayBoothUseCase;
     private final ListDemodayAdminBoothUseCase listDemodayAdminBoothUseCase;
 
@@ -100,6 +105,31 @@ public class DemodayBoothAdminController {
             request.toCommand(pollId, memberPrincipal.getMemberId()));
 
         return RegisterDemodayBoothBatchResponse.from(boothIds);
+    }
+
+    @Operation(
+        operationId = "createOrReissueDemodayBoothStampQr",
+        summary = "데모데이 부스 스탬프 QR 생성 또는 재발급",
+        description = """
+            해당 부스의 스탬프 QR을 생성합니다. 이미 생성된 QR이 있으면 새 QR로 교체되고,
+            이전 QR은 즉시 무효가 됩니다.
+
+            QR 값은 이 응답에서만 확인할 수 있으므로 운영자는 안전하게 전달·보관해야 합니다.
+            """
+    )
+    @PostMapping("/{boothId}/stamp-qr")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CreateDemodayStampQrResponse createOrReissueStampQr(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @Parameter(description = "부스가 속한 데모데이 투표 ID", required = true, example = "1")
+        @PathVariable("pollId") Long pollId,
+        @Parameter(description = "스탬프 QR을 생성하거나 재발급할 부스 ID", required = true, example = "1")
+        @PathVariable("boothId") Long boothId) {
+
+        StampCredentialInfo stampCredentialInfo = createDemodayStampUseCase.create(
+            memberPrincipal.getMemberId(), new CreateStampCredentialCommand(pollId, boothId));
+
+        return CreateDemodayStampQrResponse.from(stampCredentialInfo);
     }
 
     @Operation(

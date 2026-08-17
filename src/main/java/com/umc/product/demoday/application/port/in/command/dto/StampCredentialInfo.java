@@ -4,6 +4,6 @@ import java.time.Instant;
 
 public record StampCredentialInfo(
     String qrValue,
-    Instant generatedAT
+    Instant generatedAt
 ) {
 }

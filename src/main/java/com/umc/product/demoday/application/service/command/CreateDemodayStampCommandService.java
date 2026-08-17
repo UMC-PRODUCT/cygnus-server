@@ -13,8 +13,10 @@ import com.umc.product.demoday.application.port.out.EncryptDemodayStampCredentia
 import com.umc.product.demoday.application.port.out.GenerateDemodayStampCredentialPort;
 import com.umc.product.demoday.application.port.out.HashDemodayStampCredentialPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
+import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
 import com.umc.product.demoday.domain.DemodayBooth;
+import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 
@@ -27,6 +29,7 @@ public class CreateDemodayStampCommandService implements CreateDemodayStampUseCa
 
     private final DemodayAdminAccessChecker adminAccessChecker;
     private final LoadDemodayBoothPort loadDemodayBoothPort;
+    private final LoadDemodayPollPort loadDemodayPollPort;
     private final EncryptDemodayStampCredentialPort encryptDemodayStampCredentialPort;
     private final GenerateDemodayStampCredentialPort generateDemodayStampCredentialPort;
     private final HashDemodayStampCredentialPort hashDemodayStampCredentialPort;
@@ -38,14 +41,21 @@ public class CreateDemodayStampCommandService implements CreateDemodayStampUseCa
         DemodayBooth demodayBooth = loadDemodayBoothPort.findById(command.boothId())
             .orElseThrow(() -> new DemodayDomainException(DemodayErrorCode.DEMODAY_BOOTH_NOT_FOUND));
 
-        adminAccessChecker.validateAdminAccess(memberId, demodayBooth.getPollId());
+        if (!demodayBooth.getPollId().equals(command.pollId())) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_BOOTH_NOT_FOUND);
+        }
+
+        DemodayPoll demodayPoll = loadDemodayPollPort.findById(command.pollId())
+            .orElseThrow(() -> new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_NOT_FOUND));
+
+        adminAccessChecker.validateAdminAccess(memberId, demodayPoll.getGisuId());
 
         String credential = generateDemodayStampCredentialPort.generate();
         String credentialHash = hashDemodayStampCredentialPort.hash(credential);
-        String encryptedCredential = encryptDemodayStampCredentialPort.encrypt(credentialHash);
+        String encryptedCredential = encryptDemodayStampCredentialPort.encrypt(credential);
         Instant generatedAt = clock.instant();
 
-        demodayBooth.applyStampCredential(credentialHash, encryptedCredential, Instant.now());
+        demodayBooth.applyStampCredential(credentialHash, encryptedCredential, generatedAt);
 
         return new StampCredentialInfo(credential, generatedAt);
     }
