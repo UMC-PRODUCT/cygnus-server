@@ -70,14 +70,22 @@ spring:
       keepalive-time: 60000 # DB에 1분마다 생존 신고 (유휴 커넥션 방지)
 
   flyway:
-    enabled: true
+    # 부팅 시 자동 migrate 여부. 로컬/테스트는 true(기본값), 배포 환경(prod/alpha)은
+    # SSM 에 FLYWAY_ENABLED=false 를 넣어 끈다. 배포 환경의 마이그레이션은
+    # `DB Migrate [Flyway]` 워크플로우(workflow_dispatch)로만 수행한다.
+    # 참고: docs/infra/flyway-migration-runbook.md
+    enabled: ${FLYWAY_ENABLED:true}
     baseline-version: 2026.02.25.01.30
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
     out-of-order: ${FLYWAY_OUT_OF_ORDER:false}
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      # validate 는 DB를 변경하지 않는 읽기 전용 검증이다. 마이그레이션 없이 신버전이 배포되면
+      # 부팅이 실패하고 ASG instance refresh 가 중단되므로 안전장치로 유지한다.
+      # expand-contract 중간 단계처럼 "스키마가 아직 안 맞아도 떠야 하는" 예외 상황에서만
+      # JPA_DDL_AUTO=none 으로 일시 완화한다. create/update 계열은 절대 주입하지 않는다.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     open-in-view: false
     properties:
       hibernate:

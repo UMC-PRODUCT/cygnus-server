@@ -1,0 +1,267 @@
+# 배포와 분리된 DB 마이그레이션 실행 워크플로우.
+#
+# 배포 환경(prod/alpha)은 SSM 의 FLYWAY_ENABLED=false 로 부팅 시 자동 migrate 를 끄고,
+# 스키마 변경은 이 워크플로우(workflow_dispatch)로만 수행한다.
+# 런북: docs/infra/flyway-migration-runbook.md
+#
+# Required repository secrets:
+# - secrets.AWS_ACCESS_KEY_ID
+# - secrets.AWS_SECRET_ACCESS_KEY
+# Optional repository secrets:
+# - secrets.DISCORD_CD_WEBHOOK_URL
+# Optional repository variables:
+# - vars.AWS_REGION (default: ap-northeast-2)
+# - vars.SSM_BASE_PATH (default: /umc-product/cygnus-server)
+#   ${SSM_BASE_PATH}/{prod|alpha}/DATABASE_URL, DATABASE_USERNAME, DATABASE_PASSWORD 를 읽는다.
+# - vars.FLYWAY_IMAGE (default: flyway/flyway:11-alpine)
+#   Spring Boot 3.5.x 가 관리하는 flyway-core 11.x 와 major 를 맞춘다.
+#
+# 사전 조건: GitHub-hosted 러너에서 RDS 5432 로 접속할 수 있어야 한다.
+# RDS 보안 그룹이 러너 IP 를 허용하지 않으면 이 워크플로우는 접속 단계에서 실패한다
+# (해결 방법은 런북의 "네트워크 경로" 절 참고).
+
+name: DB Migrate [Flyway]
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "대상 환경"
+        required: true
+        type: choice
+        options:
+          - Development
+          - Production
+      command:
+        description: "Flyway 명령 (info=조회, validate=검증, migrate=적용, repair=히스토리 복구)"
+        required: true
+        default: info
+        type: choice
+        options:
+          - info
+          - validate
+          - migrate
+          - repair
+      confirm:
+        description: "Production 에 migrate/repair 할 때만 필요. 'Production' 을 그대로 입력"
+        required: false
+        type: string
+      out_of_order:
+        description: "이미 적용된 버전보다 낮은 버전의 신규 마이그레이션 허용"
+        required: false
+        type: boolean
+        default: false
+      baseline_on_migrate:
+        description: "히스토리 테이블이 없는 DB 에 baseline 생성 (신규 DB 초기화 전용)"
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  # 같은 환경에 동시에 두 개의 마이그레이션이 붙지 않도록 직렬화한다.
+  group: db-migrate-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  flyway:
+    name: Flyway ${{ inputs.command }} (${{ inputs.environment }})
+    runs-on: ubuntu-latest
+    # Production 환경에 required reviewer 를 걸어두면 여기서 승인 게이트가 동작한다.
+    environment: ${{ inputs.environment }}
+
+    env:
+      ENVIRONMENT: ${{ inputs.environment }}
+      FLYWAY_COMMAND: ${{ inputs.command }}
+      CONFIRM_INPUT: ${{ inputs.confirm }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'ap-northeast-2' }}
+      SSM_BASE_PATH: ${{ vars.SSM_BASE_PATH || '/umc-product/cygnus-server' }}
+      FLYWAY_IMAGE: ${{ vars.FLYWAY_IMAGE || 'flyway/flyway:11-alpine' }}
+      MIGRATION_DIR: src/main/resources/db/migration
+      FLYWAY_OUT_OF_ORDER: ${{ inputs.out_of_order }}
+      FLYWAY_BASELINE_ON_MIGRATE: ${{ inputs.baseline_on_migrate }}
+      FLYWAY_CLEAN_DISABLED: "true"
+
+    steps:
+      - name: 🔒 입력 검증
+        run: |
+          set -euo pipefail
+
+          # migrate/repair 는 DB 상태를 바꾸므로 Production 에서는 환경명 재입력을 요구한다.
+          if [[ "${ENVIRONMENT}" == "Production" && "${FLYWAY_COMMAND}" =~ ^(migrate|repair)$ ]]; then
+            if [[ "${CONFIRM_INPUT}" != "Production" ]]; then
+              echo "::error::Production 에 ${FLYWAY_COMMAND} 를 실행하려면 confirm 입력에 'Production' 을 정확히 입력해야 합니다."
+              exit 1
+            fi
+          fi
+
+          if [[ "${FLYWAY_BASELINE_ON_MIGRATE}" == "true" ]]; then
+            echo "::warning::baseline_on_migrate=true 입니다. 기존 스키마가 있는 DB 에서 사용하면 미적용 마이그레이션이 건너뛰어질 수 있습니다."
+          fi
+
+          if [[ "${FLYWAY_COMMAND}" == "repair" ]]; then
+            echo "::warning::repair 는 flyway_schema_history 의 checksum/실패 기록을 재작성합니다. 스키마 자체는 고치지 않습니다."
+          fi
+
+      - name: 📦 코드베이스 체크아웃
+        uses: actions/checkout@v4
+
+      - name: 🔑 AWS 인증
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: 🔐 SSM 에서 DB 접속 정보 로드
+        run: |
+          set -euo pipefail
+
+          case "${ENVIRONMENT}" in
+            Production) SSM_ENV="prod" ;;
+            Development) SSM_ENV="alpha" ;;
+            *) echo "::error::지원하지 않는 환경: ${ENVIRONMENT}"; exit 1 ;;
+          esac
+
+          PARAM_PATH="${SSM_BASE_PATH}/${SSM_ENV}"
+          echo "SSM path: ${PARAM_PATH}"
+
+          fetch() {
+            aws ssm get-parameter \
+              --name "${PARAM_PATH}/$1" \
+              --with-decryption \
+              --region "${AWS_REGION}" \
+              --query 'Parameter.Value' \
+              --output text
+          }
+
+          DB_URL="$(fetch DATABASE_URL)"
+          DB_USER="$(fetch DATABASE_USERNAME)"
+          DB_PASSWORD="$(fetch DATABASE_PASSWORD)"
+
+          # 로그 유출 방지. URL 에도 호스트가 들어가므로 함께 마스킹한다.
+          echo "::add-mask::${DB_URL}"
+          echo "::add-mask::${DB_USER}"
+          echo "::add-mask::${DB_PASSWORD}"
+
+          {
+            echo "FLYWAY_URL=${DB_URL}"
+            echo "FLYWAY_USER=${DB_USER}"
+            echo "FLYWAY_PASSWORD=${DB_PASSWORD}"
+          } >> "$GITHUB_ENV"
+
+          echo "SSM_ENV=${SSM_ENV}" >> "$GITHUB_ENV"
+
+          # 이 워크플로우가 의미를 가지려면 앱의 부팅 시 자동 migrate 가 꺼져 있어야 한다.
+          FLYWAY_ENABLED_PARAM="$(aws ssm get-parameter \
+            --name "${PARAM_PATH}/FLYWAY_ENABLED" \
+            --with-decryption \
+            --region "${AWS_REGION}" \
+            --query 'Parameter.Value' \
+            --output text 2>/dev/null || echo "__MISSING__")"
+
+          if [[ "${FLYWAY_ENABLED_PARAM}" != "false" ]]; then
+            echo "::warning::${PARAM_PATH}/FLYWAY_ENABLED 가 'false' 가 아닙니다 (현재: ${FLYWAY_ENABLED_PARAM}). 앱이 부팅 시 자동으로 migrate 를 수행합니다."
+          fi
+
+      - name: 🧭 Flyway 실행
+        run: |
+          set -euo pipefail
+
+          # baseline-version 은 application.yml 을 단일 출처로 삼아 drift 를 막는다.
+          BASELINE_VERSION="$(grep -m1 -E '^\s*baseline-version:' src/main/resources/application.yml | awk '{print $2}')"
+          if [[ -z "${BASELINE_VERSION}" ]]; then
+            echo "::error::application.yml 에서 spring.flyway.baseline-version 을 찾지 못했습니다."
+            exit 1
+          fi
+          echo "Baseline version: ${BASELINE_VERSION}"
+
+          run_flyway() {
+            # 비밀값은 값 없는 -e 로 전달해 docker 인자(ps 출력)에 남지 않게 한다.
+            # schemas 는 지정하지 않는다 — 앱(Spring Boot Flyway 자동설정)과 동일하게
+            # 커넥션의 기본 스키마를 쓰도록 두어야 flyway_schema_history 위치가 어긋나지 않는다.
+            docker run --rm \
+              -v "${GITHUB_WORKSPACE}/${MIGRATION_DIR}:/flyway/sql:ro" \
+              -e FLYWAY_URL \
+              -e FLYWAY_USER \
+              -e FLYWAY_PASSWORD \
+              -e FLYWAY_LOCATIONS="filesystem:/flyway/sql" \
+              -e FLYWAY_BASELINE_VERSION="${BASELINE_VERSION}" \
+              -e FLYWAY_BASELINE_ON_MIGRATE \
+              -e FLYWAY_OUT_OF_ORDER \
+              -e FLYWAY_CLEAN_DISABLED \
+              -e FLYWAY_CONNECT_RETRIES=3 \
+              "${FLYWAY_IMAGE}" "$@"
+          }
+
+          echo "──────── flyway info (실행 전) ────────"
+          run_flyway info | tee /tmp/flyway-info-before.txt
+
+          if [[ "${FLYWAY_COMMAND}" != "info" ]]; then
+            echo "──────── flyway ${FLYWAY_COMMAND} ────────"
+            run_flyway "${FLYWAY_COMMAND}" | tee /tmp/flyway-command.txt
+
+            echo "──────── flyway info (실행 후) ────────"
+            run_flyway info | tee /tmp/flyway-info-after.txt
+          fi
+
+      - name: 📊 실행 결과 요약
+        if: always()
+        run: |
+          set -euo pipefail
+
+          {
+            echo "### 🗃️ Flyway ${FLYWAY_COMMAND} — ${ENVIRONMENT}"
+            echo ""
+            echo "| 항목 | 값 |"
+            echo "|------|-----|"
+            echo "| 🌍 Environment | \`${ENVIRONMENT}\` |"
+            echo "| 🧭 Command | \`${FLYWAY_COMMAND}\` |"
+            echo "| 🌿 Branch | \`${GITHUB_REF_NAME}\` |"
+            echo "| 🔀 out-of-order | \`${FLYWAY_OUT_OF_ORDER}\` |"
+            echo "| 🧱 baseline-on-migrate | \`${FLYWAY_BASELINE_ON_MIGRATE}\` |"
+            echo "| ✅ Status | \`${{ job.status }}\` |"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          append_block() {
+            local title="$1" file="$2"
+            [[ -s "${file}" ]] || return 0
+            {
+              echo "<details><summary>${title}</summary>"
+              echo ""
+              echo '```text'
+              cat "${file}"
+              echo '```'
+              echo ""
+              echo "</details>"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          append_block "flyway info (실행 전)" /tmp/flyway-info-before.txt
+          append_block "flyway ${FLYWAY_COMMAND} 출력" /tmp/flyway-command.txt
+          append_block "flyway info (실행 후)" /tmp/flyway-info-after.txt
+
+      - name: ❌ 마이그레이션 실패 알림
+        if: failure()
+        run: |
+          echo "::error::${ENVIRONMENT} 환경의 flyway ${FLYWAY_COMMAND} 실행이 실패했습니다."
+          echo "flyway_schema_history 의 마지막 행(success=false 여부)을 먼저 확인하고, 필요 시 repair 를 검토하세요."
+
+      - name: Discord 실행 결과 알림
+        if: always()
+        continue-on-error: true
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_CD_WEBHOOK_URL }}
+          DEPLOY_WORKFLOW: ${{ github.workflow }}
+          DEPLOY_STATUS: ${{ job.status }}
+          DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
+          DEPLOY_BRANCH: ${{ github.ref_name }}
+          DEPLOY_SHA: ${{ github.sha }}
+          DEPLOY_IMAGE_TAG: flyway ${{ inputs.command }}
+          DEPLOY_TARGET: DB Migration
+          DEPLOY_RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node .github/scripts/discord-deploy-notify.mjs

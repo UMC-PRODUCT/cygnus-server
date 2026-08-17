@@ -14,6 +14,11 @@ This directory contains PostgreSQL/PostGIS Flyway migrations. Files are ordered 
 - Match application entity changes with a migration in the same work item.
 - Baseline is `2026.02.25.01.30`; do not rewrite historical migrations after they have shipped.
 - PostgreSQL-specific SQL is acceptable; this project targets PostgreSQL with PostGIS.
+- Deployed environments (prod/alpha) do NOT migrate on boot: `FLYWAY_ENABLED=false` in SSM.
+  Schema changes there are applied by the `DB Migrate [Flyway]` workflow, run manually before the
+  app deploy. Local and test keep the default `FLYWAY_ENABLED=true`.
+- Order of operations for a shipped change: migrate first, deploy code second. Destructive changes
+  (column drops, constraint tightening) must be split expand-contract across two deploys.
 
 ## WHERE TO LOOK
 
@@ -22,6 +27,8 @@ This directory contains PostgreSQL/PostGIS Flyway migrations. Files are ordered 
 | Baseline schema | `V2026.02.25.01.30__init_schema.sql` | Large initial schema |
 | Flyway settings | `src/main/resources/application.yml` | baseline, out-of-order, validate behavior |
 | Duplicate check | `build.gradle.kts` | custom Gradle migration version check |
+| Deploy-time runbook | `docs/infra/flyway-migration-runbook.md` | manual migration workflow, failure handling |
+| Migration workflow | `.github/workflows/db-migrate.yml` | workflow_dispatch: info/validate/migrate/repair |
 
 ## ANTI-PATTERNS
 
