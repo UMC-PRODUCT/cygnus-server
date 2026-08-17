@@ -26,7 +26,7 @@ class WebSocketBrokerPropertiesValidatorTest {
     }
 
     @Test
-    @DisplayName("dev와 prod 프로필도 single instance에서는 simple broker로 시작할 수 있다")
+    @DisplayName("alpha와 prod 프로필도 single instance에서는 simple broker로 시작할 수 있다")
     void validate_sharedEnvironmentAllowsSimpleBroker() {
         for (String profile : new String[] {"alpha", "prod"}) {
             MockEnvironment environment = new MockEnvironment();
@@ -40,7 +40,7 @@ class WebSocketBrokerPropertiesValidatorTest {
     }
 
     @Test
-    @DisplayName("dev 또는 prod가 포함된 혼합 프로필도 simple broker로 시작할 수 있다")
+    @DisplayName("alpha 또는 prod가 포함된 혼합 프로필도 simple broker로 시작할 수 있다")
     void validate_mixedSharedProfilesAllowsSimpleBroker() {
         for (String[] profiles : new String[][] {{"test", "alpha"}, {"local", "prod"}}) {
             MockEnvironment environment = new MockEnvironment();
@@ -88,7 +88,7 @@ class WebSocketBrokerPropertiesValidatorTest {
     }
 
     @Test
-    @DisplayName("dev 또는 prod는 relay plaintext를 credential 노출 없이 거부한다")
+    @DisplayName("alpha 또는 prod는 relay plaintext를 credential 노출 없이 거부한다")
     void validate_sharedProfileRejectsPlaintextWithoutExposingCredentials() {
         String systemPassword = "system-plaintext-secret";
         String clientPassword = "client-plaintext-secret";

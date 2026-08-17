@@ -102,10 +102,10 @@ class SecurityPathConfigTest {
     }
 
     @Test
-    @DisplayName("dev 프로필은 GraphiQL을 기본 활성화한다")
-    void devProfileEnablesGraphiqlByDefault() {
+    @DisplayName("alpha 프로필은 GraphiQL을 기본 활성화한다")
+    void alphaProfileEnablesGraphiqlByDefault() {
         contextRunner
-            .withPropertyValues("spring.profiles.active=dev")
+            .withPropertyValues("spring.profiles.active=alpha")
             .run(context -> assertThat(context.getEnvironment().getProperty("spring.graphql.graphiql.enabled"))
                 .isEqualTo("true"));
     }

@@ -97,10 +97,10 @@ class ClientRequestClassifierTest {
     }
 
     @Test
-    @DisplayName("dev profile은 localhost 5173 Origin 하나만 UNKNOWN 서비스와 DEV 환경으로 바인딩한다")
-    void application_yml_dev_client_context_localhost_unknown_바인딩() {
+    @DisplayName("alpha profile은 localhost 5173 Origin 하나만 UNKNOWN 서비스와 DEV 환경으로 바인딩한다")
+    void application_yml_alpha_client_context_localhost_unknown_바인딩() {
         contextRunner
-            .withPropertyValues("spring.profiles.active=dev")
+            .withPropertyValues("spring.profiles.active=alpha")
             .run(context -> {
                 ClientContextProperties properties = context.getBean(ClientContextProperties.class);
 

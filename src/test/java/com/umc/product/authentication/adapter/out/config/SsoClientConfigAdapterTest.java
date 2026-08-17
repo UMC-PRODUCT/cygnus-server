@@ -168,11 +168,11 @@ class SsoClientConfigAdapterTest {
         });
     }
 
-    @DisplayName("dev profile은 웹 client를 localhost로 덮어쓰고 앱 client는 기본 설정을 유지한다")
+    @DisplayName("alpha profile은 웹 client를 localhost로 덮어쓰고 앱 client는 기본 설정을 유지한다")
     @Test
-    void application_yml_dev_sso_client_binding_성공() {
+    void application_yml_alpha_sso_client_binding_성공() {
         contextRunner
-            .withPropertyValues("spring.profiles.active=dev")
+            .withPropertyValues("spring.profiles.active=alpha")
             .run(context -> {
                 SsoClientConfigAdapter adapter = context.getBean(SsoClientConfigAdapter.class);
 
