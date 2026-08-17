@@ -36,6 +36,10 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_VOTE_ALREADY_CAST(HttpStatus.CONFLICT, "DEMODAY-0402", "이미 투표를 완료했어요."),
     DEMODAY_VOTE_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0403", "이미 무효 처리된 표에요"),
     DEMODAY_VOTE_POLL_MISMATCH(HttpStatus.CONFLICT, "DEMODAY-0404", "이번 데모데이의 부스에만 투표할 수 있어요."),
+    DEMODAY_VOTE_QR_INVALID(HttpStatus.UNAUTHORIZED, "DEMODAY-0405", "QR 서명이 유효하지 않아요."),
+    DEMODAY_VOTE_QR_EXPIRED(HttpStatus.UNAUTHORIZED, "DEMODAY-0406", "만료된 QR이에요. 다시 스캔해주세요."),
+    DEMODAY_VOTE_QR_PURPOSE_MISMATCH(HttpStatus.UNAUTHORIZED, "DEMODAY-0407", "투표 인증 용도의 QR이 아니에요."),
+    DEMODAY_VOTE_QR_POLL_MISMATCH(HttpStatus.UNAUTHORIZED, "DEMODAY-0408", "이번 데모데이의 QR이 아니에요."),
 
     DEMODAY_STAMP_ALREADY_COLLECTED(HttpStatus.CONFLICT, "DEMODAY-0501", "이미 스탬프를 받은 부스예요."),
     DEMODAY_STAMP_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0502", "이미 무효 처리된 스탬프예요."),
