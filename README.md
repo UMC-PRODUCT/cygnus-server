@@ -2,10 +2,10 @@
 
 # UMC PRODUCT SERVER
 
-[![codecov](https://codecov.io/gh/UMC-PRODUCT/umc-product-server/graph/badge.svg?token=0GUPQZQ40J)](https://codecov.io/gh/UMC-PRODUCT/umc-product-server)
-![GitHub Actions](https://github.com/UMC-PRODUCT/umc-product-server/actions/workflows/ci.yml/badge.svg)
-![GitHub Actions](https://github.com/UMC-PRODUCT/umc-product-server/actions/workflows/cd-asg.yml/badge.svg)
-![Version](https://img.shields.io/github/v/release/UMC-PRODUCT/umc-product-server)
+[![codecov](https://codecov.io/gh/UMC-PRODUCT/cygnus-server/graph/badge.svg?token=0GUPQZQ40J)](https://codecov.io/gh/UMC-PRODUCT/cygnus-server)
+![GitHub Actions](https://github.com/UMC-PRODUCT/cygnus-server/actions/workflows/ci.yml/badge.svg)
+![GitHub Actions](https://github.com/UMC-PRODUCT/cygnus-server/actions/workflows/cd-asg.yml/badge.svg)
+![Version](https://img.shields.io/github/v/release/UMC-PRODUCT/cygnus-server)
 
 <img alt="banner" width="1000" src="https://github.com/user-attachments/assets/42fbe96a-f3ef-40d4-956c-461a9d7f1600" />
 
@@ -34,7 +34,7 @@
 
 **_founded & maintained by_**
 
-  <a href="https://github.com/umc-product/umc-product-server/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=umc-product/umc-product-server" />
+  <a href="https://github.com/umc-product/cygnus-server/graphs/contributors">
+    <img src="https://contrib.rocks/image?repo=umc-product/cygnus-server" />
   </a>
 </div>
