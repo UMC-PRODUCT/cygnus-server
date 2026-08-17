@@ -17,10 +17,7 @@ import org.springframework.stereotype.Component;
 import com.umc.product.demoday.application.port.out.EncryptDemodayStampCredentialPort;
 import com.umc.product.demoday.config.DemodayStampCredentialProperties;
 
-import lombok.RequiredArgsConstructor;
-
 @Component
-@RequiredArgsConstructor
 public class AesGcmDemodayStampCredentialEncryptor implements EncryptDemodayStampCredentialPort {
 
     private static final int AES_256_KEY_LENGTH = 32;
@@ -74,7 +71,7 @@ public class AesGcmDemodayStampCredentialEncryptor implements EncryptDemodayStam
     @Override
     public String decrypt(String encryptedText) {
         try {
-            byte[] encrypted = Base64.getDecoder().decode(encryptedText);
+            byte[] encrypted = Base64.getUrlDecoder().decode(encryptedText);
 
             if (encrypted.length <= IV_LENGTH) {
                 throw new IllegalArgumentException("암호문 형식이 올바르지 않습니다.");
