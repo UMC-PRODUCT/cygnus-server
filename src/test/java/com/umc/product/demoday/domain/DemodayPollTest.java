@@ -249,4 +249,43 @@ class DemodayPollTest {
         ReflectionTestUtils.setField(poll, "id", POLL_ID);
         return poll;
     }
+
+    @Test
+    @DisplayName("OPEN 상태이고 투표 기간 안이면 INFO QR을 조회할 수 있다")
+    void allowVoteQrWhenOpenAndWithinWindow() {
+        // given
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+
+        // when & then
+        assertThatCode(() -> poll.validVoteQrAvailable(OPENS_AT.plusSeconds(60)))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("READY 상태에서는 INFO QR을 조회할 수 없다")
+    void rejectVoteQrWhenNotOpen() {
+        // given
+        DemodayPoll poll = persistedPoll();
+
+        // when & then
+        assertThatThrownBy(() -> poll.validVoteQrAvailable(OPENS_AT.plusSeconds(60)))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_NOT_OPEN);
+    }
+
+    @Test
+    @DisplayName("OPEN 상태여도 투표 기간을 벗어나면 INFO QR을 조회할 수 없다")
+    void rejectVoteQrWhenOutsideWindow() {
+        // given
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+
+        // when & then
+        assertThatThrownBy(() -> poll.validVoteQrAvailable(CLOSES_AT))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_POLL_NOT_OPEN);
+    }
 }
