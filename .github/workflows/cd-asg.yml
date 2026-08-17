@@ -44,7 +44,7 @@ on:
         required: true
         type: choice
         options:
-          - Development
+          - Alpha
           - Production
 
 concurrency:
@@ -129,7 +129,7 @@ jobs:
           # SPRING_PROFILE 은 Spring profile 이름, SSM_ENV 는 SSM 경로 세그먼트다.
           case "${ENVIRONMENT}" in
             Production) SPRING_PROFILE="prod"; SSM_ENV="prod" ;;
-            Development) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
+            Alpha) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
             Test) SPRING_PROFILE="test"; SSM_ENV="alpha" ;;
             *) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
           esac
