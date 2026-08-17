@@ -15,6 +15,7 @@ import com.umc.product.demoday.application.port.out.HashDemodayStampCredentialPo
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
+import com.umc.product.demoday.config.DemodayQrProperties;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
@@ -35,6 +36,7 @@ public class CreateDemodayStampCommandService implements CreateDemodayStampUseCa
     private final HashDemodayStampCredentialPort hashDemodayStampCredentialPort;
 
     private final Clock clock;
+    private final DemodayQrProperties demodayQrProperties;
 
     @Override
     public StampCredentialInfo create(Long memberId, CreateStampCredentialCommand command) {
@@ -57,6 +59,13 @@ public class CreateDemodayStampCommandService implements CreateDemodayStampUseCa
 
         demodayBooth.applyStampCredential(credentialHash, encryptedCredential, generatedAt);
 
-        return new StampCredentialInfo(credential, generatedAt);
+        return new StampCredentialInfo(
+            "%s/demoday/polls/%d/stamp#credential=%s".formatted(
+                demodayQrProperties.baseUrl(),
+                command.pollId(),
+                credential
+            ),
+            generatedAt
+        );
     }
 }

@@ -23,6 +23,7 @@ import com.umc.product.demoday.application.port.out.HashDemodayStampCredentialPo
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
+import com.umc.product.demoday.config.DemodayQrProperties;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
@@ -37,6 +38,7 @@ class CreateDemodayStampCommandServiceTest {
     private static final String CREDENTIAL = "stamp-credential";
     private static final String CREDENTIAL_HASH = "credential-hash";
     private static final String ENCRYPTED_CREDENTIAL = "encrypted-credential";
+    private static final String QR_BASE_URL = "https://vote.example.com";
     private static final Instant GENERATED_AT = Instant.parse("2026-08-17T00:00:00Z");
 
     @Mock
@@ -56,6 +58,9 @@ class CreateDemodayStampCommandServiceTest {
 
     @Mock
     private HashDemodayStampCredentialPort hashDemodayStampCredentialPort;
+
+    @Mock
+    private DemodayQrProperties demodayQrProperties;
 
     @Mock
     private Clock clock;
@@ -82,12 +87,15 @@ class CreateDemodayStampCommandServiceTest {
         given(hashDemodayStampCredentialPort.hash(CREDENTIAL)).willReturn(CREDENTIAL_HASH);
         given(encryptDemodayStampCredentialPort.encrypt(CREDENTIAL)).willReturn(ENCRYPTED_CREDENTIAL);
         given(clock.instant()).willReturn(GENERATED_AT);
+        given(demodayQrProperties.baseUrl()).willReturn(QR_BASE_URL);
 
         // when
         var result = createDemodayStampCommandService.create(MEMBER_ID, command);
 
         // then
-        assertThat(result.qrValue()).isEqualTo(CREDENTIAL);
+        assertThat(result.qrValue()).isEqualTo(
+            "%s/demoday/polls/%d/stamp#credential=%s".formatted(QR_BASE_URL, POLL_ID, CREDENTIAL)
+        );
         assertThat(result.generatedAt()).isEqualTo(GENERATED_AT);
         assertThat(demodayBooth.getStampCredentialHash()).isEqualTo(CREDENTIAL_HASH);
         assertThat(demodayBooth.getStampCredentialCipher()).isEqualTo(ENCRYPTED_CREDENTIAL);
@@ -98,6 +106,7 @@ class CreateDemodayStampCommandServiceTest {
         then(hashDemodayStampCredentialPort).should().hash(CREDENTIAL);
         then(encryptDemodayStampCredentialPort).should().encrypt(CREDENTIAL);
         then(clock).should().instant();
+        then(demodayQrProperties).should().baseUrl();
     }
 
     @Test
@@ -116,6 +125,7 @@ class CreateDemodayStampCommandServiceTest {
         then(generateDemodayStampCredentialPort).shouldHaveNoInteractions();
         then(hashDemodayStampCredentialPort).shouldHaveNoInteractions();
         then(encryptDemodayStampCredentialPort).shouldHaveNoInteractions();
+        then(demodayQrProperties).shouldHaveNoInteractions();
         then(clock).shouldHaveNoInteractions();
     }
 
@@ -137,6 +147,7 @@ class CreateDemodayStampCommandServiceTest {
         then(generateDemodayStampCredentialPort).shouldHaveNoInteractions();
         then(hashDemodayStampCredentialPort).shouldHaveNoInteractions();
         then(encryptDemodayStampCredentialPort).shouldHaveNoInteractions();
+        then(demodayQrProperties).shouldHaveNoInteractions();
         then(clock).shouldHaveNoInteractions();
     }
 
@@ -157,6 +168,7 @@ class CreateDemodayStampCommandServiceTest {
         then(generateDemodayStampCredentialPort).shouldHaveNoInteractions();
         then(hashDemodayStampCredentialPort).shouldHaveNoInteractions();
         then(encryptDemodayStampCredentialPort).shouldHaveNoInteractions();
+        then(demodayQrProperties).shouldHaveNoInteractions();
         then(clock).shouldHaveNoInteractions();
     }
 }

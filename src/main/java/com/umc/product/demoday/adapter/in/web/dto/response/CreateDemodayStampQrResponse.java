@@ -9,8 +9,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 @Schema(description = "데모데이 부스 스탬프 QR 생성 또는 재발급 결과")
 public record CreateDemodayStampQrResponse(
     @Schema(
-        description = "스탬프 적립에 사용하는 QR 값",
-        example = "sE2pIo7OMja2LLK1tWlM9G26WhxfZxuPw7Qqk6S8aF0="
+            description = "스탬프 적립 화면으로 이동하는 QR URL",
+            example = "https://vote.example.com/demoday/polls/1/stamp#credential=AbC123_-"
     )
     String qrValue,
     @Schema(description = "스탬프 QR 생성 또는 재발급 시각", example = "2026-08-17T10:00:00Z")

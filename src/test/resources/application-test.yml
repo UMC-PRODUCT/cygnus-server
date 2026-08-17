@@ -34,6 +34,11 @@ jwt:
   refresh-token-validity-in-seconds: 604800
   verification-token-validity-in-seconds: 600
 
+demoday:
+  qr:
+    base-url: https://vote.test.umc.it.kr
+  vote-qr:
+    signing-key: test-dummy-vote-qr-signing-key-needs-32-bytes-min
 
 management:
   tracing:
@@ -111,10 +116,3 @@ app:
     google:
       client-id-list: apps.googleusercontent.com
 
-# ==================================================================
-# configuration for demdoay domain
-# ==================================================================
-
-demoday:
-  stamp-credential:
-    encryption-key: test-dummy-encryption-key-value

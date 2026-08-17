@@ -114,7 +114,8 @@ public class DemodayBoothAdminController {
             해당 부스의 스탬프 QR을 생성합니다. 이미 생성된 QR이 있으면 새 QR로 교체되고,
             이전 QR은 즉시 무효가 됩니다.
 
-            QR 값은 이 응답에서만 확인할 수 있으므로 운영자는 안전하게 전달·보관해야 합니다.
+            QR 값은 스탬프 적립 화면으로 이동하는 URL입니다. URL fragment에 포함된 credential은
+            이 응답에서만 확인할 수 있으므로 운영자는 안전하게 전달·보관해야 합니다.
             """
     )
     @PostMapping("/{boothId}/stamp-qr")
