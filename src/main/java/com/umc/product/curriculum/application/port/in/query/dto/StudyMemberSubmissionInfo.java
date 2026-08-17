@@ -45,16 +45,18 @@ public record StudyMemberSubmissionInfo(
     /**
      * 특정 주차의 워크북 제출 현황.
      *
-     * @param weekNo               주차 번호
-     * @param weeklyCurriculumId   주차 커리큘럼 ID
-     * @param challengerWorkbookId 배포된 챌린저 워크북 ID. null 이면 아직 배포되지 않았다는 뜻이며 상세 조회로 이동할 수 없다.
-     * @param status               워크북 상태. 워크북이 없으면 {@code NOT_SUBMITTED}.
-     * @param isBest               해당 그룹·주차의 베스트로 선정되었는지. {@code status} 와 독립이다 (PASS 이면서 베스트일 수 있음).
+     * @param weekNo                 주차 번호
+     * @param weeklyCurriculumId     주차 커리큘럼 ID
+     * @param weeklyCurriculumTitle  주차 커리큘럼 제목
+     * @param challengerWorkbookId   배포된 챌린저 워크북 ID. null 이면 아직 배포되지 않았다는 뜻이며 상세 조회로 이동할 수 없다.
+     * @param status                 워크북 상태. 워크북이 없으면 {@code NOT_SUBMITTED}.
+     * @param isBest                 해당 그룹·주차의 베스트로 선정되었는지. {@code status} 와 독립이다 (PASS 이면서 베스트일 수 있음).
      */
     @Builder
     public record WeeklySubmissionInfo(
         Long weekNo,
         Long weeklyCurriculumId,
+        String weeklyCurriculumTitle,
         Long challengerWorkbookId,
         ChallengerWorkbookStatus status,
         boolean isBest
