@@ -1,6 +1,7 @@
 package com.umc.product.demoday.adapter.in.web;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,10 +15,12 @@ import com.umc.product.demoday.adapter.in.web.dto.request.CreateDemodayPollReque
 import com.umc.product.demoday.adapter.in.web.dto.request.GenerateDemodayEntryCodesRequest;
 import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayEntryCodeResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayPollResponse;
+import com.umc.product.demoday.adapter.in.web.dto.response.DemodayVoteQrResponse;
 import com.umc.product.demoday.application.port.in.command.ChangeDemodayPollStatusUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayEntryCodeUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayPollUseCase;
 import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayEntryCodesInfo;
+import com.umc.product.demoday.application.port.in.query.GetDemodayVoteQrUseCase;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
 
@@ -39,6 +42,7 @@ public class DemodayPollAdminController {
     private final CreateDemodayPollUseCase createDemodayPollUseCase;
     private final ChangeDemodayPollStatusUseCase changeDemodayPollStatusUseCase;
     private final CreateDemodayEntryCodeUseCase createDemodayEntryCodeUseCase;
+    private final GetDemodayVoteQrUseCase getDemodayVoteQrUseCase;
 
     @Operation(
         operationId = "createDemodayPoll",
@@ -95,5 +99,31 @@ public class DemodayPollAdminController {
 
         return CreateDemodayEntryCodeResponse.from(demodayEntryCodesInfo);
 
+    }
+
+    @Operation(
+        operationId = "getAdminVoteQr",
+        summary = "현재 시간 구간의 INFO 투표 인증 QR 조회",
+        description = """
+            **이 API는 호출할 때마다 새 QR을 생성하는 명령이 아닙니다.**
+            현재 시간 구간에서 유효한 INFO 투표 인증 QR을 조회합니다.
+
+            INFO QR credential은 서버가 발급한 토큰이며 1시간마다 변경됩니다.
+            같은 유효 구간에서는 여러 운영자가 조회하거나 화면을 새로고침해도
+            논리적으로 동일한 credential을 반환합니다.
+
+            `qrValue`는 FE가 추가로 조립하지 않고 그대로 QR 이미지로 렌더링할 수 있는 완성된 값입니다.
+
+            요청자는 투표가 속한 기수의 총괄단이거나 SUPER_ADMIN이어야 하며,
+            투표가 OPEN 상태이고 투표 기간 안일 때만 조회할 수 있습니다(404 DEMODAY-0111).
+            """
+    )
+    @GetMapping("/{pollId}/vote-qr")
+    public DemodayVoteQrResponse getVoteQr(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @Parameter(description = "INFO QR을 조회할 데모데이 투표 ID", required = true, example = "1")
+        @PathVariable("pollId") Long pollId) {
+
+        return DemodayVoteQrResponse.from(getDemodayVoteQrUseCase.get(pollId, memberPrincipal.getMemberId()));
     }
 }

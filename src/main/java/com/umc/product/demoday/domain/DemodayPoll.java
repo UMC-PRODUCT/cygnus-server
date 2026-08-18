@@ -215,6 +215,19 @@ public class DemodayPoll extends BaseEntity {
         }
     }
 
+    /**
+     * INFO QR을 표시할 수 있는지 검증한다.
+     *
+     * <p>INFO QR은 참여자가 투표 재인증에 사용하므로 {@link #validParticipationAvailable(Instant)}와 같은
+     * 조건(OPEN 상태이면서 투표 기간 안)을 요구한다. 이 창 밖에서 QR을 보여줘도 뒤이은 재인증이 성공할 수
+     * 없으므로, 조회 시점에 운영진 화면에 명시적인 오류로 알린다.
+     */
+    public void validVoteQrAvailable(Instant now) {
+        if (!isOpen() || now.isBefore(opensAt) || !now.isBefore(closesAt)) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_NOT_OPEN);
+        }
+    }
+
     private boolean isOpen() {
         return status == DemodayPollStatus.OPEN;
     }
