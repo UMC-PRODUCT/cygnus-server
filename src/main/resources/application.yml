@@ -170,6 +170,12 @@ jwt:
   refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_IN_SECONDS:604800}
   verification-token-validity-in-seconds: ${JWT_VERIFICATION_TOKEN_VALIDITY_IN_SECONDS:600}
 
+demoday:
+  qr:
+    base-url: ${DEMODAY_QR_BASE_URL}
+  stamp-credential:
+    encryption-key: ${DEMODAY_STAMP_CREDENTIAL_ENCRYPTION_KEY}
+
 # OpenAPI / Scalar 문서 설정
 springdoc:
   swagger-ui:

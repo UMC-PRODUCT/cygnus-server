@@ -25,6 +25,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.umc.product.demoday.application.port.in.command.CreateDemodayStampUseCase;
 import com.umc.product.demoday.application.port.in.command.RegisterDemodayBoothUseCase;
 import com.umc.product.demoday.application.port.in.command.dto.RegisterDemodayBoothBatchCommand;
 import com.umc.product.demoday.application.port.in.command.dto.RegisterDemodayBoothBatchCommand.BoothRegistration;
@@ -57,6 +58,8 @@ class DemodayBoothAdminControllerTest {
     @MockitoBean private RegisterDemodayBoothUseCase registerDemodayBoothUseCase;
 
     @MockitoBean private ListDemodayAdminBoothUseCase listDemodayAdminBoothUseCase;
+
+    @MockitoBean private CreateDemodayStampUseCase createDemodayStampUseCase;
 
     @BeforeEach
     void setUp() {
