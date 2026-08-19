@@ -17,4 +17,12 @@ public interface DemodayStampJpaRepository extends JpaRepository<DemodayStamp, L
     List<DemodayStamp> findAllByMemberId(Long memberId, Sort sort);
 
     List<DemodayStamp> findAllByEntryCodeId(Long entryCodeId, Sort sort);
+
+    int countByMemberIdAndRevokedAtIsNull(Long memberId);
+
+    int countByEntryCodeIdAndRevokedAtIsNull(Long entryCodeId);
+
+    Optional<DemodayStamp> findFirstByMemberIdAndRevokedAtIsNullOrderByCreatedAtDesc(Long memberId);
+
+    Optional<DemodayStamp> findFirstByEntryCodeIdAndRevokedAtIsNullOrderByCreatedAtDesc(Long entryCodeId);
 }

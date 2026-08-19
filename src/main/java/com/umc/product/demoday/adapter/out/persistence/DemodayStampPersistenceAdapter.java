@@ -56,6 +56,26 @@ public class DemodayStampPersistenceAdapter implements LoadDemodayStampPort, Sav
     }
 
     @Override
+    public int countActiveMemberStamps(Long memberId) {
+        return repository.countByMemberIdAndRevokedAtIsNull(memberId);
+    }
+
+    @Override
+    public int countActiveVisitorStamps(Long entryCodeId) {
+        return repository.countByEntryCodeIdAndRevokedAtIsNull(entryCodeId);
+    }
+
+    @Override
+    public Optional<DemodayStamp> findLatestActiveMemberStamp(Long memberId) {
+        return repository.findFirstByMemberIdAndRevokedAtIsNullOrderByCreatedAtDesc(memberId);
+    }
+
+    @Override
+    public Optional<DemodayStamp> findLatestActiveVisitorStamp(Long entryCodeId) {
+        return repository.findFirstByEntryCodeIdAndRevokedAtIsNullOrderByCreatedAtDesc(entryCodeId);
+    }
+
+    @Override
     public DemodayStamp save(DemodayStamp stamp) {
         try {
             return repository.saveAndFlush(stamp);

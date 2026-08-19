@@ -16,4 +16,12 @@ public interface LoadDemodayStampPort {
     List<DemodayStamp> listMemberStamps(Long memberId);
 
     List<DemodayStamp> listVisitorStamps(Long entryCodeId);
+
+    int countActiveMemberStamps(Long memberId);
+
+    int countActiveVisitorStamps(Long entryCodeId);
+
+    Optional<DemodayStamp> findLatestActiveMemberStamp(Long memberId);
+
+    Optional<DemodayStamp> findLatestActiveVisitorStamp(Long entryCodeId);
 }
