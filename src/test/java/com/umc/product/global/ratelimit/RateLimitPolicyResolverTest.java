@@ -142,6 +142,30 @@ class RateLimitPolicyResolverTest {
     }
 
     @Test
+    @DisplayName("게스트 입장 코드 제출 경로는 전역 정책에서 제외되어 전용 인터셉터가 단독으로 관장한다")
+    void exclude_demoday_guest_participation_path() {
+        List<String> excludePaths = new java.util.ArrayList<>(ApiRateLimitProperties.defaultExcludedPaths());
+        excludePaths.add("/api/v1/demoday/polls/*/participations/guest");
+        ApiRateLimitProperties properties = new ApiRateLimitProperties(
+            true,
+            List.of("/api/**"),
+            excludePaths,
+            new ApiRateLimitProperties.Limit(20, 300),
+            new ApiRateLimitProperties.Limit(5, 60),
+            List.of(),
+            new ApiRateLimitProperties.Cache(100_000, Duration.ofMinutes(10))
+        );
+        RateLimitPolicyResolver resolver = new RateLimitPolicyResolver(properties);
+
+        assertThat(resolver.resolve(
+            "POST",
+            "/api/v1/demoday/polls/{pollId}/participations/guest",
+            "/api/v1/demoday/polls/42/participations/guest",
+            false
+        )).isEmpty();
+    }
+
+    @Test
     @DisplayName("비활성화 설정이면 /api/** 요청도 정책을 반환하지 않는다")
     void disabled_properties_returns_empty_policy() {
         ApiRateLimitProperties properties = new ApiRateLimitProperties(
