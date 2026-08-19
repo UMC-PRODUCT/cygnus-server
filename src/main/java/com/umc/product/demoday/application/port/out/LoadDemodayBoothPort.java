@@ -9,5 +9,7 @@ public interface LoadDemodayBoothPort {
 
     Optional<DemodayBooth> findById(Long boothId);
 
+    Optional<DemodayBooth> findByStampCredentialHash(String stampCredentialHash);
+
     List<DemodayBooth> listByPollId(Long pollId);
 }

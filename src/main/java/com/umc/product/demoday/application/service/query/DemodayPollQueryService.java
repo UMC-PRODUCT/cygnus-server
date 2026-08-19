@@ -85,7 +85,7 @@ public class DemodayPollQueryService implements
                 stamps,
                 null,
                 hasVoted,
-                stampCount >= REQUIRED_STAMP_COUNT && !hasVoted
+                stampCount >= REQUIRED_STAMP_COUNT
         );
     }
 

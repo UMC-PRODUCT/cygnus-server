@@ -152,6 +152,30 @@ class DemodayStampPersistenceAdapterTest {
     }
 
     @Test
+    @DisplayName("무효화된 스탬프는 활성 스탬프 개수와 최근 활성 스탬프 조회에서 제외된다")
+    void excludeRevokedStampFromActiveCountAndLatest() {
+        // Given
+        DemodayPoll poll = savePoll("무효화 스탬프 제외");
+        List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
+            DemodayBooth.forProject(poll.getId(), 1L),
+            DemodayBooth.forProject(poll.getId(), 2L)
+        ));
+        DemodayStamp activeStamp = saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, booths.get(0)));
+        DemodayStamp revokedStamp = saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, booths.get(1)));
+        revokedStamp.revoke(Instant.parse("2026-08-19T10:00:00Z"));
+        saveDemodayStampPort.save(revokedStamp);
+
+        entityManager.clear();
+
+        // When & Then
+        assertThat(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).isEqualTo(1);
+        assertThat(loadDemodayStampPort.findLatestActiveMemberStamp(MEMBER_ID))
+            .get()
+            .extracting(DemodayStamp::getId)
+            .isEqualTo(activeStamp.getId());
+    }
+
+    @Test
     @DisplayName("영속화 후 다시 조회한 입장 코드와 부스의 투표가 다르면 스탬프를 생성할 수 없다")
     void rejectVisitorStampForBoothFromDifferentPollAfterReload() {
         // Given

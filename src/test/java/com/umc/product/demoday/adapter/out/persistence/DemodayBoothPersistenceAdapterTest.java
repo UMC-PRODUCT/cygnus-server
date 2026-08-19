@@ -95,6 +95,25 @@ class DemodayBoothPersistenceAdapterTest {
             .containsExactly(booths.get(0).getId(), booths.get(1).getId());
     }
 
+    @Test
+    @DisplayName("스탬프 credential 해시로 부스를 조회한다")
+    void findBoothByStampCredentialHash() {
+        // Given
+        DemodayPoll poll = savePoll();
+        DemodayBooth booth = DemodayBooth.forProject(poll.getId(), 1L);
+        booth.applyStampCredential("credential-hash", "encrypted-credential", Instant.parse("2026-08-19T00:00:00Z"));
+        DemodayBooth saved = saveDemodayBoothPort.save(booth);
+        clearPersistenceContext();
+
+        // When & Then
+        assertThat(loadDemodayBoothPort.findByStampCredentialHash("credential-hash"))
+            .get()
+            .extracting(DemodayBooth::getId)
+            .isEqualTo(saved.getId());
+        assertThat(loadDemodayBoothPort.findByStampCredentialHash("no-such-hash"))
+            .isEmpty();
+    }
+
     private DemodayPoll savePoll() {
         return saveDemodayPollPort.save(DemodayPoll.create(9L, "9기 데모데이", OPENS_AT, CLOSES_AT));
     }

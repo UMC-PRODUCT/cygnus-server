@@ -46,6 +46,9 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_STAMP_ALREADY_COLLECTED(HttpStatus.CONFLICT, "DEMODAY-0501", "이미 스탬프를 받은 부스예요."),
     DEMODAY_STAMP_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0502", "이미 무효 처리된 스탬프예요."),
     DEMODAY_STAMP_POLL_MISMATCH(HttpStatus.CONFLICT, "DEMODAY-0503", "이번 데모데이의 부스에만 스탬프를 받을 수 있어요."),
+    DEMODAY_STAMP_CREDENTIAL_INVALID(HttpStatus.CONFLICT, "DEMODAY-0504", "유효하지 않은 스탬프 QR이에요."),
+    DEMODAY_STAMP_COOLDOWN_ACTIVE(HttpStatus.CONFLICT, "DEMODAY-0505", "아직 다음 스탬프를 적립할 수 없어요."),
+    DEMODAY_STAMP_MAX_COUNT_REACHED(HttpStatus.CONFLICT, "DEMODAY-0506", "이미 모든 부스의 스탬프를 받았어요."),
 
     DEMODAY_ADMIN_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "DEMODAY-0600", "접근 권한이 없는 사용자입니다.")
     ;

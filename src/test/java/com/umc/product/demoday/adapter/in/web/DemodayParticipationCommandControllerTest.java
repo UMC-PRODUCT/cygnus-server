@@ -12,6 +12,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,28 +21,42 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantCookieWriter;
 import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantTokenProvider;
+import com.umc.product.demoday.adapter.in.web.security.DemodayParticipationPrincipal;
+import com.umc.product.demoday.adapter.in.web.support.DemodayParticipantResolverConfig;
+import com.umc.product.demoday.application.port.in.command.CollectDemodayStampUseCase;
 import com.umc.product.demoday.application.port.in.command.StartDemodayGuestParticipationUseCase;
+import com.umc.product.demoday.application.port.in.command.dto.CollectDemodayStampCommand;
+import com.umc.product.demoday.application.port.in.command.dto.DemodayStampCollectInfo;
 import com.umc.product.demoday.application.port.in.command.dto.StartDemodayGuestParticipationCommand;
 import com.umc.product.demoday.application.port.in.command.dto.StartDemodayGuestParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
+import com.umc.product.demoday.application.port.in.query.dto.DemodayStampInfo;
+import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
+import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantResolver;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantType;
+import com.umc.product.demoday.application.port.in.query.participant.MemberDemodayParticipant;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
+import com.umc.product.global.security.MemberPrincipal;
 
 @WebMvcTest(controllers = DemodayParticipationCommandController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({JacksonConfig.class, DemodayParticipantCookieWriter.class})
+@Import({JacksonConfig.class, DemodayParticipantCookieWriter.class, DemodayParticipantResolverConfig.class})
 @DisplayName("DemodayParticipationCommandController")
 class DemodayParticipationCommandControllerTest {
 
     private static final Long POLL_ID = 10L;
     private static final Long ENTRY_CODE_ID = 42L;
+    private static final Long MEMBER_ID = 1L;
+    private static final Long BOOTH_ID = 20L;
     // MockHttpServletResponse의 Set-Cookie 파서(MockCookie#parse)는 Max-Age를 int로 파싱한다.
     // 실제 poll.closesAt은 항상 근시일이라 문제되지 않지만, 테스트 데이터는 그 한계를 넘지 않게 근접 미래로 둔다.
     private static final Instant CLOSES_AT = Instant.now().plusSeconds(3600);
@@ -51,7 +67,27 @@ class DemodayParticipationCommandControllerTest {
 
     @MockitoBean private StartDemodayGuestParticipationUseCase startDemodayGuestParticipationUseCase;
 
+    @MockitoBean private CollectDemodayStampUseCase collectDemodayStampUseCase;
+
     @MockitoBean private DemodayParticipantTokenProvider demodayParticipantTokenProvider;
+
+    @MockitoBean private DemodayParticipantResolver<MemberPrincipal> memberDemodayParticipantResolver;
+
+    @MockitoBean private DemodayParticipantResolver<DemodayParticipationPrincipal> guestDemodayParticipantResolver;
+
+    private MemberPrincipal principal;
+
+    @BeforeEach
+    void setUp() {
+        principal = MemberPrincipal.builder().memberId(MEMBER_ID).build();
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
 
     @Test
     @DisplayName("정상 코드를 제출하면 201과 함께 HttpOnly Cookie를 설정한다")
@@ -125,6 +161,43 @@ class DemodayParticipationCommandControllerTest {
         mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/participations/guest", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"admissionCode\":\"\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("회원이 부스 QR을 스캔하면 201과 함께 적립 결과를 반환한다")
+    void collectStamp() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
+
+        DemodayStampCollectInfo info = new DemodayStampCollectInfo(
+            new DemodayStampInfo(BOOTH_ID, Instant.parse("2026-08-19T10:00:00Z")),
+            1, 6, null, false);
+        given(collectDemodayStampUseCase.collect(
+            new CollectDemodayStampCommand(POLL_ID, "sq_opaque_credential", participant)))
+            .willReturn(info);
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/stamps", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"qrCredential\":\"sq_opaque_credential\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.result.stamp.boothId").value(BOOTH_ID))
+            .andExpect(jsonPath("$.result.stampCount").value(1))
+            .andExpect(jsonPath("$.result.requiredStampCount").value(6))
+            .andExpect(jsonPath("$.result.canEnterVotePage").value(false));
+
+        then(collectDemodayStampUseCase).should().collect(
+            eq(new CollectDemodayStampCommand(POLL_ID, "sq_opaque_credential", participant)));
+    }
+
+    @Test
+    @DisplayName("qrCredential이 비어 있으면 400을 반환한다")
+    void collectStampWithBlankCredential() throws Exception {
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/stamps", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"qrCredential\":\"\"}"))
             .andExpect(status().isBadRequest());
     }
 }

@@ -26,6 +26,11 @@ public class DemodayBoothPersistenceAdapter implements LoadDemodayBoothPort, Sav
     }
 
     @Override
+    public Optional<DemodayBooth> findByStampCredentialHash(String stampCredentialHash) {
+        return repository.findByStampCredentialHash(stampCredentialHash);
+    }
+
+    @Override
     public List<DemodayBooth> listByPollId(Long pollId) {
         return repository.findAllByPollId(pollId, BOOTH_ORDER);
     }
