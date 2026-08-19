@@ -11,15 +11,16 @@ public class SecureRandomDemodayEntryCodeGenerator implements GenerateDemodayEnt
 
     // O, I, L, 0, 1을 제거하여 입력 시 혼동을 줄이기 위함
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    private static final int CODE_LENGTH = 16;
+    private static final String PREFIX = "GUEST-";
+    private static final int CODE_LENGTH = 6;
 
     private final SecureRandom secureRandom = new SecureRandom();
 
     @Override
     public String generate() {
-        StringBuilder code = new StringBuilder(CODE_LENGTH);
+        StringBuilder code = new StringBuilder(PREFIX.length() + CODE_LENGTH);
+        code.append(PREFIX);
 
-        // 80비트의 엔트로피를 가진 code 생성
         for (int i = 0; i < CODE_LENGTH; i++) {
             int index = secureRandom.nextInt(ALPHABET.length());
             code.append(ALPHABET.charAt(index));
