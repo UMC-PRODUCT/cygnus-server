@@ -30,6 +30,8 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_ENTRY_CODE_ALREADY_REDEEMED(HttpStatus.CONFLICT, "DEMODAY-0300", "이미 사용된 인증 코드예요."),
     DEMODAY_ENTRY_CODE_ALREADY_BOUND(HttpStatus.CONFLICT, "DEMODAY-0301", "이미 다른 계정에 연결된 인증 코드예요."),
     DEMODAY_ENTRY_CODE_GENERATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "DEMODAY-0302","행사 진행 전 또는 진행 중에만 생성할 수 있습니다"),
+    DEMODAY_ENTRY_CODE_NOT_FOUND(HttpStatus.NOT_FOUND, "DEMODAY-0303", "존재하지 않는 입장 코드예요."),
+    DEMODAY_ENTRY_CODE_POLL_MISMATCH(HttpStatus.CONFLICT, "DEMODAY-0304", "이번 데모데이의 입장 코드가 아니에요."),
 
     DEMODAY_VOTE_NOT_OPENED_YET(HttpStatus.CONFLICT, "DEMODAY-0400", "아직 투표 시간이 아니에요."),
     DEMODAY_VOTE_CLOSED(HttpStatus.CONFLICT, "DEMODAY-0401", "투표가 종료되었어요."),
@@ -45,8 +47,7 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_STAMP_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0502", "이미 무효 처리된 스탬프예요."),
     DEMODAY_STAMP_POLL_MISMATCH(HttpStatus.CONFLICT, "DEMODAY-0503", "이번 데모데이의 부스에만 스탬프를 받을 수 있어요."),
 
-    DEMODAY_ADMIN_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "DEMODAY-0600", "접근 권한이 없는 사용자입니다."),
-    DEMODAY_PARTICIPATION_UNSUPPORTED(HttpStatus.BAD_REQUEST, "DEMODAY-0601", "현재는 회원 참여 정보만 조회할 수 있습니다.")
+    DEMODAY_ADMIN_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "DEMODAY-0600", "접근 권한이 없는 사용자입니다.")
     ;
 
     private final HttpStatus httpStatus;

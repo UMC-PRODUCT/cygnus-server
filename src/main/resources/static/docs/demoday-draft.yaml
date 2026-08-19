@@ -277,7 +277,7 @@ paths:
     post:
       tags: [데모데이 - 참여자]
       operationId: startGuestParticipation
-      summary: 입장 코드 사용 및 외부 방문자 참여 시작
+      summary: 입장 코드 사용 및 외부 방문자 참여 시작(제작 완료)
       description: |
         외부 방문자가 현장에서 받은 입장 코드를 제출해 참여를 시작합니다.
 

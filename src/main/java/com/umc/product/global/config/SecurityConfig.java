@@ -28,6 +28,8 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
+import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantTokenProvider;
+import com.umc.product.demoday.adapter.in.web.security.DemodayParticipationCookieFilter;
 import com.umc.product.global.response.ApiErrorResponseWriter;
 import com.umc.product.global.security.ApiAccessDeniedHandler;
 import com.umc.product.global.security.ApiAuthenticationEntryPoint;
@@ -71,11 +73,27 @@ public class SecurityConfig {
     }
 
     /**
+     * 게스트(외부 방문자) participant Cookie 인증 필터. {@code @Component}가 아닌 명시 {@code @Bean}으로
+     * 두는 이유는 {@link #maintenanceFilter} javadoc과 동일하다. {@code @WebMvcTest} 슬라이스가 Filter를
+     * 자동으로 끌어와 그 의존성까지 컨텍스트에 요구하는 걸 막기 위함이다.
+     */
+    @Bean
+    public DemodayParticipationCookieFilter demodayParticipationCookieFilter(
+        DemodayParticipantTokenProvider tokenProvider
+    ) {
+        return new DemodayParticipationCookieFilter(tokenProvider);
+    }
+
+    /**
      * 메인 Security 체인. JWT → MaintenanceFilter → 인가 순서로 동작한다.
      */
     @Bean
     @Order(1)
-    public SecurityFilterChain filterChain(HttpSecurity http, MaintenanceFilter maintenanceFilter) throws Exception {
+    public SecurityFilterChain filterChain(
+        HttpSecurity http,
+        MaintenanceFilter maintenanceFilter,
+        DemodayParticipationCookieFilter demodayParticipationCookieFilter
+    ) throws Exception {
         List<PublicEndpointCollector.EndpointMatcher> publicEndpoints = PublicEndpointCollector
             .collectPublicEndpoints(requestMappingHandlerMapping);
 
@@ -120,8 +138,11 @@ public class SecurityConfig {
             })
             // Spring 기본 로그인 필터 동작 전에 JWT 동작
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            // JWT 로 SecurityContext 가 채워진 뒤 점검 필터에서 bypass 판정
-            .addFilterAfter(maintenanceFilter, JwtAuthenticationFilter.class)
+            // 회원 Bearer(JWT)가 채우지 못한 SecurityContext를 게스트 Cookie가 이어서 채운다.
+            // "회원 Bearer 또는 게스트 Cookie 둘 중 하나면 통과"를 위해 JWT 바로 다음에 둔다.
+            .addFilterAfter(demodayParticipationCookieFilter, JwtAuthenticationFilter.class)
+            // JWT/게스트 Cookie 로 SecurityContext 가 채워진 뒤 점검 필터에서 bypass 판정
+            .addFilterAfter(maintenanceFilter, DemodayParticipationCookieFilter.class)
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint) // 인증 실패 시
                 .accessDeniedHandler(accessDeniedHandler)           // 인가 실패 시

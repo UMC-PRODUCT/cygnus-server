@@ -22,6 +22,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.umc.product.demoday.adapter.in.web.security.DemodayParticipationPrincipal;
+import com.umc.product.demoday.adapter.in.web.support.DemodayParticipantResolverConfig;
 import com.umc.product.demoday.application.port.in.query.GetDemodayParticipationUseCase;
 import com.umc.product.demoday.application.port.in.query.ListDemodayBoothUseCase;
 import com.umc.product.demoday.application.port.in.query.ListDemodayPollUseCase;
@@ -40,7 +42,7 @@ import com.umc.product.global.security.MemberPrincipal;
 
 @WebMvcTest(controllers = DemodayPollQueryController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import(JacksonConfig.class)
+@Import({JacksonConfig.class, DemodayParticipantResolverConfig.class})
 @DisplayName("DemodayPollQueryController")
 class DemodayPollQueryControllerTest {
 
@@ -61,6 +63,9 @@ class DemodayPollQueryControllerTest {
 
     @MockitoBean
     private DemodayParticipantResolver<MemberPrincipal> participantResolver;
+
+    @MockitoBean
+    private DemodayParticipantResolver<DemodayParticipationPrincipal> guestDemodayParticipantResolver;
 
     private MemberPrincipal principal;
 
