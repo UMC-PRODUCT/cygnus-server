@@ -7,7 +7,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 public record GenerateDemodayEntryCodesRequest(
-    @NotNull @Min(1) @Max(64) Integer count
+    @NotNull @Min(1) @Max(100) Integer count
 ) {
     public CreateDemodayEntryCodeCommand toCommand(Long pollId) {
         return new CreateDemodayEntryCodeCommand(pollId, count);
