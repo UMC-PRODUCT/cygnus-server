@@ -480,6 +480,9 @@ app:
     trusted-origin-patterns: ""
     # 소유 도메인 밖의 오리진(로컬 프론트엔드, 외부 파트너 등)만 환경변수로 추가한다.
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}
+    # 허용 패턴보다 우선해서 차단한다. origin pattern 의 * 가 점을 넘어 매칭되므로,
+    # 상위 도메인을 여는 환경에서 하위 환경 오리진을 명시적으로 제외하는 용도다.
+    denied-origin-patterns: ""
 
   webhook:
     telegram:
@@ -592,6 +595,9 @@ spring:
 app:
   cors:
     trusted-origin-patterns: https://university.neordinary.com,https://*.university.neordinary.com
+    # alpha 는 prod 도메인의 하위 서브도메인이라 위 패턴에 자동으로 포함된다.
+    # 낮은 신뢰 환경이므로 prod 에서는 명시적으로 차단한다.
+    denied-origin-patterns: https://alpha.university.neordinary.com,https://*.alpha.university.neordinary.com
 
 
 # ==================================================================

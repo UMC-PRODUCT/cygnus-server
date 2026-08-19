@@ -28,15 +28,29 @@ class SecurityConfigCorsTest {
         "https://*.university.neordinary.com"
     );
 
+    private static final List<String> PROD_DENIED = List.of(
+        "https://alpha.university.neordinary.com",
+        "https://*.alpha.university.neordinary.com"
+    );
+
     private static final List<String> ALPHA_TRUSTED = List.of(
         "https://alpha.university.neordinary.com",
         "https://*.alpha.university.neordinary.com"
     );
 
     private static CorsConfiguration corsConfiguration(List<String> trusted, List<String> configured) {
+        return corsConfiguration(trusted, configured, List.of());
+    }
+
+    private static CorsConfiguration corsConfiguration(
+        List<String> trusted,
+        List<String> configured,
+        List<String> denied
+    ) {
         SecurityConfig securityConfig = new SecurityConfig(null, null, null, null);
         ReflectionTestUtils.setField(securityConfig, "trustedOriginPatterns", trusted);
         ReflectionTestUtils.setField(securityConfig, "allowedOriginPatterns", configured);
+        ReflectionTestUtils.setField(securityConfig, "deniedOriginPatterns", denied);
 
         CorsConfigurationSource source = securityConfig.corsConfigurationSource();
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/members/me");
@@ -50,7 +64,7 @@ class SecurityConfigCorsTest {
     @DisplayName("prod 프로필")
     class Prod {
 
-        private final CorsConfiguration configuration = corsConfiguration(PROD_TRUSTED, List.of());
+        private final CorsConfiguration configuration = corsConfiguration(PROD_TRUSTED, List.of(), PROD_DENIED);
 
         @Test
         @DisplayName("소유 도메인의 서브도메인은 별도 등록 없이 모두 허용한다")
@@ -99,6 +113,30 @@ class SecurityConfigCorsTest {
         void http_스킴은_차단된다() {
             // when & then
             assertThat(configuration.checkOrigin("http://backoffice.university.neordinary.com")).isNull();
+        }
+
+        @Test
+        @DisplayName("하위 환경인 alpha 오리진은 소유 도메인 패턴에 걸리더라도 차단한다")
+        void alpha_오리진은_차단된다() {
+            // given (origin pattern 의 * 는 점을 넘어 매칭되므로 차단 목록이 없으면 아래 오리진들이 모두 통과한다)
+            CorsConfiguration denyDisabled = corsConfiguration(PROD_TRUSTED, List.of());
+            assertThat(denyDisabled.checkOrigin("https://alpha.university.neordinary.com")).isNotNull();
+            assertThat(denyDisabled.checkOrigin("https://api.alpha.university.neordinary.com")).isNotNull();
+
+            // when & then
+            assertThat(configuration.checkOrigin("https://alpha.university.neordinary.com")).isNull();
+            assertThat(configuration.checkOrigin("https://api.alpha.university.neordinary.com")).isNull();
+            assertThat(configuration.checkOrigin("https://admin.alpha.university.neordinary.com")).isNull();
+        }
+
+        @Test
+        @DisplayName("alpha 를 차단해도 prod 오리진은 그대로 허용한다")
+        void alpha_차단이_prod_오리진에는_영향이_없다() {
+            // when & then
+            assertThat(configuration.checkOrigin("https://api.university.neordinary.com"))
+                .isEqualTo("https://api.university.neordinary.com");
+            assertThat(configuration.checkOrigin("https://alphabet.university.neordinary.com"))
+                .isEqualTo("https://alphabet.university.neordinary.com");
         }
     }
 
@@ -196,15 +234,21 @@ class SecurityConfigCorsTest {
     @DisplayName("application.yml 프로필별 소유 도메인 설정")
     class TrustedOriginPatternsByProfile {
 
-        private static String trustedOriginPatterns(String profile) {
+        private static String property(String profile, String key) {
             AtomicReference<String> value = new AtomicReference<>();
             new ApplicationContextRunner()
                 .withInitializer(new ConfigDataApplicationContextInitializer())
                 .withPropertyValues("spring.profiles.active=" + profile)
-                .run(context -> value.set(
-                    context.getEnvironment().getProperty("app.cors.trusted-origin-patterns")
-                ));
+                .run(context -> value.set(context.getEnvironment().getProperty(key)));
             return value.get();
+        }
+
+        private static String trustedOriginPatterns(String profile) {
+            return property(profile, "app.cors.trusted-origin-patterns");
+        }
+
+        private static String deniedOriginPatterns(String profile) {
+            return property(profile, "app.cors.denied-origin-patterns");
         }
 
         @Test
@@ -212,6 +256,19 @@ class SecurityConfigCorsTest {
         void prod_프로필_소유_도메인() {
             assertThat(trustedOriginPatterns("prod"))
                 .isEqualTo("https://university.neordinary.com,https://*.university.neordinary.com");
+        }
+
+        @Test
+        @DisplayName("prod 프로필은 alpha 서브트리를 차단 목록에 둔다")
+        void prod_프로필_alpha_차단() {
+            assertThat(deniedOriginPatterns("prod"))
+                .isEqualTo("https://alpha.university.neordinary.com,https://*.alpha.university.neordinary.com");
+        }
+
+        @Test
+        @DisplayName("alpha 프로필에는 차단 목록이 없다")
+        void alpha_프로필_차단_목록_없음() {
+            assertThat(deniedOriginPatterns("alpha")).isEmpty();
         }
 
         @Test

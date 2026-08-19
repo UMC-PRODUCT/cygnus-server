@@ -70,6 +70,15 @@ public class SecurityConfig {
     private List<String> allowedOriginPatterns;
 
     /**
+     * 허용 패턴보다 우선해서 차단할 오리진. Spring 의 origin pattern 에서 {@code *} 는 점을 넘어 매칭되므로, prod 의
+     * {@code *.university.neordinary.com} 은 하위 환경인 {@code alpha.university.neordinary.com} 까지 포함한다. SSO 로그인 쿠키가
+     * {@code .university.neordinary.com} 도메인으로 발급되어 하위 환경에도 실려 가고, alpha 와 prod 는 same-site 라 SameSite 로도 막히지
+     * 않는다. 따라서 낮은 신뢰 환경의 오리진은 여기서 명시적으로 제외한다.
+     */
+    @Value("${app.cors.denied-origin-patterns}")
+    private List<String> deniedOriginPatterns;
+
+    /**
      * 점검 모드 필터. JWT 다음에 동작해서 점검 중 일반 사용자 요청을 503 으로 차단한다. {@code @Component} 가 아닌 명시 {@code @Bean} 으로 두는 이유: 슬라이스 테스트
      * ({@code @WebMvcTest}) 의 자동 Filter 디스커버리가 본 필터의 의존성까지 끌어와 컨텍스트 로딩을 실패시키는 것을 막기 위함이다. SecurityConfig 는 슬라이스 테스트에
      * 포함되지 않으므로 본 빈도 함께 제외된다.
@@ -194,11 +203,12 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
-        CorsConfiguration configuration = new CorsConfiguration();
-
         List<String> originPatterns = mergeOriginPatterns(trustedOriginPatterns, allowedOriginPatterns);
-        log.info("Allowed Origin Patterns for CORS: {} (trusted={}, configured={})",
-            originPatterns, trustedOriginPatterns, allowedOriginPatterns);
+        List<String> denyPatterns = mergeOriginPatterns(deniedOriginPatterns, List.of());
+        log.info("Allowed Origin Patterns for CORS: {} (trusted={}, configured={}, denied={})",
+            originPatterns, trustedOriginPatterns, allowedOriginPatterns, denyPatterns);
+
+        CorsConfiguration configuration = new DenyAwareCorsConfiguration(denyPatterns);
 
         // Swagger CORS 설정
         configuration.setAllowedOriginPatterns(originPatterns);
@@ -225,5 +235,34 @@ public class SecurityConfig {
             .map(String::trim)
             .distinct()
             .toList();
+    }
+
+    /**
+     * 차단 패턴을 허용 패턴보다 먼저 평가하는 {@link CorsConfiguration}.
+     * <p>
+     * 차단 패턴 매칭에도 Spring 의 origin pattern 문법을 그대로 쓰기 위해, 패턴만 담은 별도 {@link CorsConfiguration} 의
+     * {@link CorsConfiguration#checkOrigin} 을 매처로 재사용한다. 차단된 오리진은 허용 목록에 없는 오리진과 동일하게 {@code null} 을 돌려주므로, preflight 는
+     * 403 이 되고 실제 요청에는 {@code Access-Control-Allow-Origin} 헤더가 붙지 않는다.
+     */
+    static final class DenyAwareCorsConfiguration extends CorsConfiguration {
+
+        private final CorsConfiguration denyMatcher;
+
+        DenyAwareCorsConfiguration(List<String> denyPatterns) {
+            if (denyPatterns.isEmpty()) {
+                this.denyMatcher = null;
+            } else {
+                this.denyMatcher = new CorsConfiguration();
+                this.denyMatcher.setAllowedOriginPatterns(denyPatterns);
+            }
+        }
+
+        @Override
+        public String checkOrigin(String requestOrigin) {
+            if (denyMatcher != null && denyMatcher.checkOrigin(requestOrigin) != null) {
+                return null;
+            }
+            return super.checkOrigin(requestOrigin);
+        }
     }
 }
