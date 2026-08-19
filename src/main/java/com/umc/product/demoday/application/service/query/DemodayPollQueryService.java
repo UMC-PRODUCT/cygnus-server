@@ -3,6 +3,7 @@ package com.umc.product.demoday.application.service.query;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -16,13 +17,13 @@ import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipatio
 import com.umc.product.demoday.application.port.in.query.dto.DemodayPollInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayStampInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
-import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantType;
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayStampPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayStamp;
+import com.umc.product.demoday.domain.DemodayVote;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 
@@ -58,23 +59,19 @@ public class DemodayPollQueryService implements
     public DemodayParticipationInfo getParticipation(Long pollId, DemodayParticipant participant) {
         validatePollExists(pollId);
 
-        if (participant.participantType() != DemodayParticipantType.MEMBER) {
-            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_PARTICIPATION_UNSUPPORTED);
-        }
-
         Set<Long> boothIds = loadDemodayBoothPort.listByPollId(pollId)
             .stream()
             .map(DemodayBooth::getId)
             .collect(toUnmodifiableSet());
 
-        List<DemodayStampInfo> stamps = loadDemodayStampPort.listMemberStamps(participant.participantId())
+        List<DemodayStampInfo> stamps = loadStamps(participant)
             .stream()
             .filter(stamp -> !stamp.isRevoked())
             .filter(stamp -> boothIds.contains(stamp.getBoothId()))
             .map(this::toStampInfo)
             .toList();
 
-        boolean hasVoted = loadDemodayVotePort.findMemberVote(pollId, participant.participantId())
+        boolean hasVoted = findVote(pollId, participant)
             .filter(vote -> !vote.isRevoked())
             .isPresent();
 
@@ -109,6 +106,24 @@ public class DemodayPollQueryService implements
     private void validatePollExists(Long pollId) {
         loadDemodayPollPort.findById(pollId)
                 .orElseThrow(() -> new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_NOT_FOUND));
+    }
+
+    /**
+     * 참여자 유형별 조회 포트가 다르다(회원=memberId, 게스트=entryCodeId). 참여 상태는 저장된 값이 아니라
+     * 스탬프·투표 기록에서 매 요청마다 파생되므로 유형이 늘어날 경우 분기만 추가하면 된다.
+     */
+    private List<DemodayStamp> loadStamps(DemodayParticipant participant) {
+        return switch (participant.participantType()) {
+            case MEMBER -> loadDemodayStampPort.listMemberStamps(participant.participantId());
+            case GUEST -> loadDemodayStampPort.listVisitorStamps(participant.participantId());
+        };
+    }
+
+    private Optional<DemodayVote> findVote(Long pollId, DemodayParticipant participant) {
+        return switch (participant.participantType()) {
+            case MEMBER -> loadDemodayVotePort.findMemberVote(pollId, participant.participantId());
+            case GUEST -> loadDemodayVotePort.findVisitorVote(participant.participantId());
+        };
     }
 
     private DemodayStampInfo toStampInfo(DemodayStamp stamp) {
