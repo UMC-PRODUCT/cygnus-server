@@ -475,6 +475,10 @@ app:
     firebase-configuration: ${FIREBASE_CONFIGURATION:}
 
   cors:
+    # 우리가 소유한 도메인이라 Origin 위변조가 불가능하므로, 환경별 소유 도메인은 서브도메인까지 통째로 허용한다.
+    # 프로필별 문서(prod / alpha)에서 재정의하며, 그 외 프로필(local, test)은 비워 둔다.
+    trusted-origin-patterns: ""
+    # 소유 도메인 밖의 오리진(로컬 프론트엔드, 외부 파트너 등)만 환경변수로 추가한다.
     allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:}
 
   webhook:
@@ -576,6 +580,21 @@ storage:
 
 
 # ==================================================================
+# configuration override for prod profile
+# ==================================================================
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+app:
+  cors:
+    trusted-origin-patterns: https://university.neordinary.com,https://*.university.neordinary.com
+
+
+# ==================================================================
 # configuration override for alpha profile
 # ==================================================================
 
@@ -592,6 +611,9 @@ spring:
       enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
 
 app:
+  cors:
+    trusted-origin-patterns: https://alpha.university.neordinary.com,https://*.alpha.university.neordinary.com
+
   client-context:
     origins:
       - origin: http://localhost:5173

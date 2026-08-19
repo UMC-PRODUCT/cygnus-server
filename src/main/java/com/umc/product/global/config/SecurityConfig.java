@@ -3,6 +3,8 @@ package com.umc.product.global.config;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -23,6 +25,7 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -54,7 +57,15 @@ public class SecurityConfig {
     private final ApiAccessDeniedHandler accessDeniedHandler;
     private final RequestMappingHandlerMapping requestMappingHandlerMapping;
 
-    // application.yml에서 cors.allowed-origin-patterns 값을 List 형태로 주입받음
+    /**
+     * 우리가 소유한 도메인이라 Origin 위변조가 불가능하므로 프로필별로 서브도메인 전체를 허용한다.
+     * <p>
+     * prod: {@code *.university.neordinary.com} / alpha: {@code *.alpha.university.neordinary.com}
+     */
+    @Value("${app.cors.trusted-origin-patterns}")
+    private List<String> trustedOriginPatterns;
+
+    // 소유 도메인 밖에서 추가로 허용할 오리진 (환경변수 CORS_ALLOWED_ORIGIN_PATTERNS)
     @Value("${app.cors.allowed-origin-patterns}")
     private List<String> allowedOriginPatterns;
 
@@ -185,10 +196,12 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        log.info("Allowed Origin Patterns for CORS: {}", allowedOriginPatterns);
+        List<String> originPatterns = mergeOriginPatterns(trustedOriginPatterns, allowedOriginPatterns);
+        log.info("Allowed Origin Patterns for CORS: {} (trusted={}, configured={})",
+            originPatterns, trustedOriginPatterns, allowedOriginPatterns);
 
         // Swagger CORS 설정
-        configuration.setAllowedOriginPatterns(allowedOriginPatterns);
+        configuration.setAllowedOriginPatterns(originPatterns);
 
         configuration.setAllowedMethods(List.of("*"));
         configuration.setAllowedHeaders(List.of("*"));
@@ -199,5 +212,18 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * 소유 도메인 패턴과 환경변수로 추가된 패턴을 순서를 유지한 채 합치고 중복을 제거한다. 빈 문자열 항목은 설정이 비어 있는 프로필에서 들어올 수 있으므로 걸러낸다.
+     */
+    static List<String> mergeOriginPatterns(List<String> trusted, List<String> configured) {
+        return Stream.of(trusted, configured)
+            .filter(Objects::nonNull)
+            .flatMap(List::stream)
+            .filter(StringUtils::hasText)
+            .map(String::trim)
+            .distinct()
+            .toList();
     }
 }
