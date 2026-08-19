@@ -397,7 +397,7 @@ paths:
     post:
       tags: [데모데이 - 참여자]
       operationId: collectStamp
-      summary: 부스 QR을 통한 스탬프 적립
+      summary: 부스 QR을 통한 스탬프 적립(제작 완료)
       description: |
         부스에 비치된 QR을 스캔해 스탬프를 적립합니다.
         외부 방문자는 `Authorization` 대신 HttpOnly Cookie가 자동 첨부됩니다.
@@ -453,9 +453,12 @@ paths:
             | 상황 | `code` |
             |---|---|
             | QR과 요청 Poll 불일치 | `DEMODAY-0503` |
-            | 5분 쿨다운 미경과 | 서버 구현 시 확정 |
-            | 스탬프 최대 6개 초과 | 서버 구현 시 확정 |
-            | 유효하지 않거나 만료된 QR credential | 서버 구현 시 확정 |
+            | 유효하지 않은 QR credential | `DEMODAY-0504` |
+            | 5분 쿨다운 미경과 | `DEMODAY-0505` |
+            | 스탬프 최대 6개 초과 | `DEMODAY-0506` |
+
+            credential은 재발급되면 이전 값이 그대로 대체되어 사라지므로, 시간 만료가 아니라
+            "그런 credential이 없음"으로 판정합니다.
 
             **쿨다운 오류의 `result`에는 `nextStampAvailableAt`이 담깁니다.**
             FE가 서버 시각을 다시 계산하지 않도록 하기 위한 규칙입니다.
@@ -467,7 +470,7 @@ paths:
                 쿨다운 미경과:
                   value:
                     success: false
-                    code: DEMODAY-XXXX
+                    code: DEMODAY-0505
                     message: 아직 다음 스탬프를 적립할 수 없습니다.
                     result:
                       nextStampAvailableAt: '2026-08-14T10:25:00+09:00'
