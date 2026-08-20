@@ -52,7 +52,7 @@ class DemodayVoteSubmissionConcurrencyIntegrationTest extends IntegrationTestSup
         Instant now = clock.instant();
         DemodayPoll poll = saveDemodayPollPort.save(
             DemodayPoll.create(1L, "동시 제출 Poll", now.minusSeconds(60), now.plusSeconds(3600)));
-        DemodayBooth booth = saveDemodayBoothPort.save(poll.registerExternalBooth("동시 제출 부스"));
+        DemodayBooth booth = saveDemodayBoothPort.save(poll.registerProjectBooth(91001L));
         poll.open();
         saveDemodayPollPort.save(poll);
 

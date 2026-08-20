@@ -55,6 +55,7 @@ public class CreateDemodayVoteAuthorizationCommandService implements CreateDemod
 
         DemodayBooth booth = loadBooth(command.boothId());
         validateSamePoll(command.pollId(), booth);
+        booth.validateVoteTarget();
         validateVoteSlotUnused(command.pollId(), command.participant());
         validateRequiredStamps(command.pollId(), command.participant());
 

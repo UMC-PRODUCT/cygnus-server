@@ -92,6 +92,16 @@ public class DemodayBooth extends BaseEntity {
             && stampCredentialGeneratedAt != null;
     }
 
+    public boolean isProjectBooth() {
+        return projectId != null;
+    }
+
+    public void validateVoteTarget() {
+        if (!isProjectBooth()) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
+        }
+    }
+
     //=== Private Method ===
 
     private static void validateProject(Long projectId) {

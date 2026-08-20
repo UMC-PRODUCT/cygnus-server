@@ -60,6 +60,7 @@ public class DemodayVote extends BaseEntity {
         Objects.requireNonNull(memberId, "memberId must not be null");
         Objects.requireNonNull(targetBooth, "targetBooth must not be null");
         requireSamePoll(pollId, targetBooth.getPollId());
+        targetBooth.validateVoteTarget();
 
         return DemodayVote.builder()
             .pollId(pollId)
@@ -74,6 +75,7 @@ public class DemodayVote extends BaseEntity {
         Objects.requireNonNull(targetBooth, "targetBooth must not be null");
         requireSamePoll(pollId, targetBooth.getPollId());
         requireSamePoll(pollId, entryCode.getPollId());
+        targetBooth.validateVoteTarget();
 
         return DemodayVote.builder()
             .pollId(pollId)

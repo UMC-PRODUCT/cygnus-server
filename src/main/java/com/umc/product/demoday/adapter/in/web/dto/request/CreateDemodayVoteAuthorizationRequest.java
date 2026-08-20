@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
 public record CreateDemodayVoteAuthorizationRequest(
-    @Schema(description = "사용자가 미리 선택한 투표 대상 부스 ID", example = "12")
+    @Schema(description = "사용자가 미리 선택한 프로젝트 부스 ID. 외부 부스는 투표할 수 없습니다.", example = "12")
     @NotNull Long boothId,
     @Schema(description = "INFO 부스 QR에서 추출한 서명 token", example = "signed-info-qr-token")
     @NotBlank String qrToken

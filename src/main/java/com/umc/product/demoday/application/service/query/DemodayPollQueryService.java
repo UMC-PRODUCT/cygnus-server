@@ -95,6 +95,7 @@ public class DemodayPollQueryService implements
 
         return loadDemodayBoothPort.listByPollId(pollId)
             .stream()
+            .filter(DemodayBooth::isProjectBooth)
             .map(DemodayBoothInfo::from)
             .toList();
     }

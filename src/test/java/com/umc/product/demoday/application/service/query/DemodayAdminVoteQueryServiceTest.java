@@ -66,13 +66,13 @@ class DemodayAdminVoteQueryServiceTest {
     void listVotesWithStableGuestOrdinalAndCursor() {
         // given
         DemodayBooth projectBooth = projectBooth(20L, 101L);
-        DemodayBooth externalBooth = externalBooth(21L, "외부 참가팀 A");
+        DemodayBooth secondProjectBooth = projectBooth(21L, 102L);
         DemodayEntryCode firstEntryCode = redeemedEntryCode(31L, "2026-08-15T08:00:00Z");
         DemodayEntryCode secondEntryCode = redeemedEntryCode(32L, "2026-08-15T08:01:00Z");
 
         DemodayVote memberVote = memberVote(30L, 100L, projectBooth, "2026-08-15T10:00:00Z");
         memberVote.revoke(Instant.parse("2026-08-15T10:10:00Z"));
-        DemodayVote guestVote = guestVote(29L, secondEntryCode, externalBooth, "2026-08-15T09:59:00Z");
+        DemodayVote guestVote = guestVote(29L, secondEntryCode, secondProjectBooth, "2026-08-15T09:59:00Z");
         DemodayVote lookaheadVote = memberVote(28L, 101L, projectBooth, "2026-08-15T09:58:00Z");
 
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll()));
@@ -80,9 +80,10 @@ class DemodayAdminVoteQueryServiceTest {
             POLL_ID, null, null, null, 3)))
             .willReturn(List.of(memberVote, guestVote, lookaheadVote));
 
-        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(projectBooth, externalBooth));
-        given(getProjectUseCase.findAllByIds(Set.of(101L))).willReturn(Map.of(
-            101L, ProjectInfo.builder().id(101L).name("잇픽").build()));
+        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(projectBooth, secondProjectBooth));
+        given(getProjectUseCase.findAllByIds(Set.of(101L, 102L))).willReturn(Map.of(
+            101L, ProjectInfo.builder().id(101L).name("잇픽").build(),
+            102L, ProjectInfo.builder().id(102L).name("모디").build()));
         given(getMemberUseCase.findAllNamesByIds(Set.of(100L))).willReturn(Map.of(100L, "이재원"));
 
         given(loadDemodayEntryCodePort.listRedeemedByPollId(POLL_ID))
@@ -104,7 +105,7 @@ class DemodayAdminVoteQueryServiceTest {
                 DemodayAdminVoteInfo::status)
             .containsExactly(
                 tuple(30L, DemodayParticipantType.MEMBER, "이재원", "잇픽", DemodayVoteStatus.REVOKED),
-                tuple(29L, DemodayParticipantType.GUEST, "외부인 2번", "외부 참가팀 A", DemodayVoteStatus.VALID));
+                tuple(29L, DemodayParticipantType.GUEST, "외부인 2번", "모디", DemodayVoteStatus.VALID));
         then(adminAccessChecker).should().validateAdminAccess(REQUESTER_ID, GISU_ID);
     }
 
@@ -181,12 +182,6 @@ class DemodayAdminVoteQueryServiceTest {
 
     private DemodayBooth projectBooth(Long id, Long projectId) {
         DemodayBooth booth = DemodayBooth.forProject(POLL_ID, projectId);
-        ReflectionTestUtils.setField(booth, "id", id);
-        return booth;
-    }
-
-    private DemodayBooth externalBooth(Long id, String displayName) {
-        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, displayName);
         ReflectionTestUtils.setField(booth, "id", id);
         return booth;
     }

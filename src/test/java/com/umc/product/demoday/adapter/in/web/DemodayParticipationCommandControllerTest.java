@@ -220,7 +220,7 @@ class DemodayParticipationCommandControllerTest {
         // given
         DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
         given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
-        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, null, "선택 부스");
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, 101L, "선택 부스");
         given(createDemodayVoteAuthorizationUseCase.create(
             new CreateDemodayVoteAuthorizationCommand(POLL_ID, BOOTH_ID, "info-qr-token", participant)))
             .willReturn(new DemodayVoteAuthorizationInfo(
@@ -253,7 +253,7 @@ class DemodayParticipationCommandControllerTest {
         // given
         DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
         given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
-        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, null, "선택 부스");
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, 101L, "선택 부스");
         given(castDemodayVoteUseCase.cast(
             new CastDemodayVoteCommand(POLL_ID, "vote-authorization-token", participant)))
             .willReturn(new DemodayVoteInfo(
@@ -295,6 +295,25 @@ class DemodayParticipationCommandControllerTest {
                 .content("{\"boothId\":20,\"qrToken\":\"info-qr-token\"}"))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_VOTE_INSUFFICIENT_STAMPS.getCode()));
+    }
+
+    @Test
+    @DisplayName("외부 부스를 선택하면 투표 권한 발급 요청에 409와 원인 코드를 반환한다")
+    void createVoteAuthorizationForExternalBooth() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
+        given(createDemodayVoteAuthorizationUseCase.create(
+            new CreateDemodayVoteAuthorizationCommand(POLL_ID, BOOTH_ID, "info-qr-token", participant)))
+            .willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED));
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/vote-authorizations", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"boothId\":20,\"qrToken\":\"info-qr-token\"}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code")
+                .value(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED.getCode()));
     }
 
     @Test

@@ -58,21 +58,23 @@ public class DemodayDashboardQueryService implements GetDemodayDashboardUseCase 
         adminAccessChecker.validateAdminAccess(memberId, poll.getGisuId());
 
         List<DemodayBooth> booths = loadDemodayBoothPort.listByPollId(pollId);
+        List<DemodayBooth> voteTargets = booths.stream()
+            .filter(DemodayBooth::isProjectBooth)
+            .toList();
         Map<Long, Long> voteCounts = loadDemodayDashboardPort.countActiveVotesByBooth(pollId);
         Map<Long, Long> stampCounts = loadDemodayDashboardPort.countActiveStampsByBooth(pollId);
         Map<Long, ProjectInfo> projectsById = getProjectUseCase.findAllByIds(projectIdsOf(booths));
 
-        int totalVoteCount = voteCounts
-            .values()
+        int totalVoteCount = voteTargets
             .stream()
-            .mapToInt(Long::intValue)
+            .mapToInt(booth -> voteCountOf(booth, voteCounts))
             .sum();
 
         return new DemodayDashboardInfo(
             pollId,
             Instant.now(clock),
             new SummaryInfo(booths.size(), totalVoteCount),
-            buildRankings(booths, voteCounts, projectsById),
+            buildRankings(voteTargets, voteCounts, projectsById),
             buildStampHeatmap(booths, stampCounts, projectsById)
         );
     }

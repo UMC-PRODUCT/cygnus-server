@@ -133,8 +133,7 @@ class DemodayPollAdminControllerTest {
             new DemodayDashboardInfo.SummaryInfo(3, 35),
             List.of(
                 new DemodayDashboardInfo.RankingInfo(1, 9L, 509L, "잇픽", 20),
-                new DemodayDashboardInfo.RankingInfo(2, 4L, 504L, "모디", 15),
-                new DemodayDashboardInfo.RankingInfo(2, 7L, null, "외부 참가팀 A", 15)
+                new DemodayDashboardInfo.RankingInfo(2, 4L, 504L, "모디", 15)
             ),
             List.of(
                 new DemodayDashboardInfo.StampHeatmapInfo(4L, 504L, "모디", 123),
@@ -153,8 +152,7 @@ class DemodayPollAdminControllerTest {
             .andExpect(jsonPath("$.result.rankings[0].rank").value(1))
             .andExpect(jsonPath("$.result.rankings[0].boothId").value(9))
             .andExpect(jsonPath("$.result.rankings[1].rank").value(2))
-            .andExpect(jsonPath("$.result.rankings[2].rank").value(2))
-            .andExpect(jsonPath("$.result.rankings[2].projectId").doesNotExist())
+            .andExpect(jsonPath("$.result.rankings.length()").value(2))
             .andExpect(jsonPath("$.result.stampHeatmap[1].stampCount").value(0));
 
         then(getDemodayDashboardUseCase).should().getDashboard(POLL_ID, MEMBER_ID);

@@ -27,6 +27,7 @@ class DemodayBoothTest {
         assertThat(demodayBooth.getPollId()).isEqualTo(POLL_ID);
         assertThat(demodayBooth.getProjectId()).isEqualTo(PROJECT_ID);
         assertThat(demodayBooth.getDisplayName()).isNull();
+        assertThat(demodayBooth.isProjectBooth()).isTrue();
     }
 
     @Test
@@ -39,6 +40,20 @@ class DemodayBoothTest {
         assertThat(demodayBooth.getPollId()).isEqualTo(POLL_ID);
         assertThat(demodayBooth.getDisplayName()).isEqualTo("external");
         assertThat(demodayBooth.getProjectId()).isNull();
+        assertThat(demodayBooth.isProjectBooth()).isFalse();
+    }
+
+    @Test
+    @DisplayName("외부 부스는 투표 대상으로 사용할 수 없다.")
+    void rejectExternalBoothAsVoteTarget() {
+        // given
+        DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, "external");
+
+        // when & then
+        assertThatThrownBy(externalBooth::validateVoteTarget)
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
     }
 
     @Test
