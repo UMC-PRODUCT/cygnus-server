@@ -134,8 +134,10 @@ class DemodayPollQueryControllerTest {
     @DisplayName("투표 가능한 프로젝트 부스 목록을 조회한다")
     void listBooths() throws Exception {
         // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
         DemodayBoothInfo boothInfo = new DemodayBoothInfo(20L, BOOTH_CODE, 30L, "PRODUCT 프로젝트");
-        given(listDemodayBoothUseCase.listBooths(POLL_ID))
+        given(participantResolver.resolve(principal)).willReturn(participant);
+        given(listDemodayBoothUseCase.listBooths(POLL_ID, participant))
             .willReturn(List.of(boothInfo));
 
         // when & then
@@ -146,7 +148,8 @@ class DemodayPollQueryControllerTest {
                 .andExpect(jsonPath("$.result.booths[0].projectId").value(30L))
                 .andExpect(jsonPath("$.result.booths[0].displayName").value("PRODUCT 프로젝트"));
 
-        then(listDemodayBoothUseCase).should().listBooths(POLL_ID);
+        then(participantResolver).should().resolve(principal);
+        then(listDemodayBoothUseCase).should().listBooths(POLL_ID, participant);
     }
 
     private static DemodayPollInfo getPollInfo() {

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
+import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -34,6 +35,7 @@ import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayStampPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.application.service.DemodayVoteQrCredentialValidator;
+import com.umc.product.demoday.application.service.DemodayVoteTargetValidator;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.DemodayStamp;
@@ -56,6 +58,7 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
     @Mock private LoadDemodayStampPort loadDemodayStampPort;
     @Mock private LoadDemodayVotePort loadDemodayVotePort;
     @Mock private DemodayVoteQrCredentialValidator demodayVoteQrCredentialValidator;
+    @Mock private DemodayVoteTargetValidator demodayVoteTargetValidator;
     @Mock private GenerateDemodayVoteAuthorizationPort generateDemodayVoteAuthorizationPort;
 
     @Mock private Clock clock;
@@ -92,6 +95,7 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
         assertThat(result.selectedBooth().boothId()).isEqualTo(BOOTH_ID);
         assertThat(result.expiresAt()).isEqualTo(NOW.plusSeconds(300));
         then(demodayVoteQrCredentialValidator).should().validate(POLL_ID, QR_TOKEN);
+        then(demodayVoteTargetValidator).should().validateEligibleBooth(selectedBooth, command.participant());
     }
 
     @Test
@@ -143,6 +147,27 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
         assertThat(result.voteAuthorizationToken()).isEqualTo("guest-authorization-token");
         then(loadDemodayStampPort).should().listVisitorStamps(entryCodeId);
         then(loadDemodayVotePort).should().findVisitorVote(entryCodeId);
+    }
+
+    @Test
+    @DisplayName("회원이 소속 부스를 선택하면 투표 권한을 발급하지 않는다")
+    void rejectOwnBoothAuthorization() {
+        // given
+        CreateDemodayVoteAuthorizationCommand command = command();
+        DemodayBooth selectedBooth = booth(BOOTH_ID);
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
+        given(loadDemodayBoothPort.findById(BOOTH_ID)).willReturn(Optional.of(selectedBooth));
+        willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_OWN_BOOTH_FORBIDDEN))
+            .given(demodayVoteTargetValidator)
+            .validateEligibleBooth(selectedBooth, command.participant());
+
+        // when & then
+        assertThatThrownBy(() -> service.create(command))
+            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
+                assertThat(exception.getBaseCode())
+                    .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_OWN_BOOTH_FORBIDDEN));
+        then(generateDemodayVoteAuthorizationPort).should(never())
+            .generate(any(), any(), any(), any(), any());
     }
 
     @Test
