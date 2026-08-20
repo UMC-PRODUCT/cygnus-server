@@ -12,6 +12,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.umc.product.common.domain.enums.ClientType;
+import com.umc.product.demoday.adapter.in.web.security.DemodayParticipationPrincipal;
 import com.umc.product.global.security.MemberPrincipal;
 
 class RateLimitClientKeyResolverTest {
@@ -39,6 +40,24 @@ class RateLimitClientKeyResolverTest {
         assertThat(clientKey.value()).isEqualTo("member:42");
         assertThat(clientKey.authenticated()).isTrue();
         assertThat(clientKey.clientType()).isEqualTo("WEB");
+    }
+
+    @Test
+    @DisplayName("인증된 데모데이 게스트가 있으면 입장 코드 ID 기준 key를 사용한다")
+    void resolve_authenticated_demoday_guest_key() {
+        DemodayParticipationPrincipal principal = new DemodayParticipationPrincipal(73L);
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(principal, null, Collections.emptyList())
+        );
+
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setRemoteAddr("10.0.0.10");
+
+        RateLimitClientKey clientKey = resolver.resolve(request);
+
+        assertThat(clientKey.value()).isEqualTo("guest:73");
+        assertThat(clientKey.authenticated()).isTrue();
+        assertThat(clientKey.clientType()).isEqualTo("GUEST");
     }
 
     @Test
