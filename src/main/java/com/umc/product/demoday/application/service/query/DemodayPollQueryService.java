@@ -71,9 +71,9 @@ public class DemodayPollQueryService implements
             .map(this::toStampInfo)
             .toList();
 
-        boolean hasVoted = findVote(pollId, participant)
-            .filter(vote -> !vote.isRevoked())
-            .isPresent();
+        Optional<DemodayVote> vote = findVote(pollId, participant);
+        boolean hasActiveVote = vote.filter(existingVote -> !existingVote.isRevoked()).isPresent();
+        boolean hasUsedVoteSlot = vote.isPresent();
 
         int stampCount = stamps.size();
 
@@ -84,8 +84,9 @@ public class DemodayPollQueryService implements
                 REQUIRED_STAMP_COUNT,
                 stamps,
                 null,
-                hasVoted,
-                stampCount >= REQUIRED_STAMP_COUNT
+                hasActiveVote,
+                hasUsedVoteSlot,
+                stampCount >= REQUIRED_STAMP_COUNT && !hasUsedVoteSlot
         );
     }
 
@@ -95,11 +96,7 @@ public class DemodayPollQueryService implements
 
         return loadDemodayBoothPort.listByPollId(pollId)
             .stream()
-            .map(booth -> new DemodayBoothInfo(
-                booth.getId(),
-                booth.getProjectId(),
-                booth.getDisplayName()
-            ))
+            .map(DemodayBoothInfo::from)
             .toList();
     }
 

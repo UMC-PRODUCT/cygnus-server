@@ -9,6 +9,6 @@ public record DemodayStampCollectInfo(
     int stampCount,
     int requiredStampCount,
     Instant nextStampAvailableAt,
-    boolean canEnterVotePage
+    boolean canRequestVoteAuthorization
 ) {
 }

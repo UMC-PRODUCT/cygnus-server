@@ -12,7 +12,8 @@ public record DemodayParticipationInfo(
         int requiredStampCount,
         List<DemodayStampInfo> stamps,
         Instant nextStampAvailableAt,
-        boolean hasVoted,
-        boolean canEnterVotePage
+        boolean hasActiveVote,
+        boolean hasUsedVoteSlot,
+        boolean canRequestVoteAuthorization
 ) {
 }

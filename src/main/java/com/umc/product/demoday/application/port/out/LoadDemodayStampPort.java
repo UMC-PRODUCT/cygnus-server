@@ -17,9 +17,9 @@ public interface LoadDemodayStampPort {
 
     List<DemodayStamp> listVisitorStamps(Long entryCodeId);
 
-    int countActiveMemberStamps(Long memberId);
+    int countActiveMemberStamps(Long pollId, Long memberId);
 
-    int countActiveVisitorStamps(Long entryCodeId);
+    int countActiveVisitorStamps(Long pollId, Long entryCodeId);
 
     Optional<DemodayStamp> findLatestActiveMemberStamp(Long memberId);
 
