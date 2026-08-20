@@ -44,7 +44,8 @@ public class DemodayPollQueryController {
     @Operation(
         summary = "내 투표 참여 정보 조회",
         description = "스탬프와 투표 기록을 기반으로 내 투표 참여 정보를 조회합니다. 회원 Bearer 또는 게스트 participant "
-            + "Cookie 둘 중 하나만 있으면 통과합니다."
+            + "Cookie 둘 중 하나만 있으면 통과합니다. 현재 유효한 표가 있으면 activeVoteReceipt를 반환하며, "
+            + "투표하지 않았거나 표가 취소된 경우에는 null을 반환합니다."
     )
     @GetMapping("/{pollId}/participations/me")
     public DemodayParticipationResponse getMyParticipation(

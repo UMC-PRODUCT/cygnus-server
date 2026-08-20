@@ -1,10 +1,11 @@
 package com.umc.product.demoday.application.service.query;
 
-import static java.util.stream.Collectors.toUnmodifiableSet;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toUnmodifiableMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,6 +17,7 @@ import com.umc.product.demoday.application.port.in.query.dto.DemodayBoothInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayPollInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayStampInfo;
+import com.umc.product.demoday.application.port.in.query.dto.DemodayVoteReceiptInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
@@ -60,21 +62,24 @@ public class DemodayPollQueryService implements
     public DemodayParticipationInfo getParticipation(Long pollId, DemodayParticipant participant) {
         validatePollExists(pollId);
 
-        Set<Long> boothIds = loadDemodayBoothPort.listByPollId(pollId)
+        Map<Long, DemodayBooth> boothsById = loadDemodayBoothPort.listByPollId(pollId)
             .stream()
-            .map(DemodayBooth::getId)
-            .collect(toUnmodifiableSet());
+            .collect(toUnmodifiableMap(DemodayBooth::getId, identity()));
 
         List<DemodayStampInfo> stamps = loadStamps(participant)
             .stream()
             .filter(stamp -> !stamp.isRevoked())
-            .filter(stamp -> boothIds.contains(stamp.getBoothId()))
+            .filter(stamp -> boothsById.containsKey(stamp.getBoothId()))
             .map(this::toStampInfo)
             .toList();
 
         Optional<DemodayVote> vote = findVote(pollId, participant);
-        boolean hasActiveVote = vote.filter(existingVote -> !existingVote.isRevoked()).isPresent();
+        Optional<DemodayVote> activeVote = vote.filter(existingVote -> !existingVote.isRevoked());
+        boolean hasActiveVote = activeVote.isPresent();
         boolean hasUsedVoteSlot = vote.isPresent();
+        DemodayVoteReceiptInfo activeVoteReceipt = activeVote
+            .map(existingVote -> toVoteReceiptInfo(existingVote, boothsById))
+            .orElse(null);
 
         int stampCount = stamps.size();
 
@@ -87,7 +92,8 @@ public class DemodayPollQueryService implements
                 null,
                 hasActiveVote,
                 hasUsedVoteSlot,
-                DemodayParticipationPolicy.canRequestVoteAuthorization(stampCount, hasUsedVoteSlot)
+                DemodayParticipationPolicy.canRequestVoteAuthorization(stampCount, hasUsedVoteSlot),
+                activeVoteReceipt
         );
     }
 
@@ -129,5 +135,19 @@ public class DemodayPollQueryService implements
 
     private DemodayStampInfo toStampInfo(DemodayStamp stamp) {
         return new DemodayStampInfo(stamp.getBoothId(), stamp.getCreatedAt());
+    }
+
+    private DemodayVoteReceiptInfo toVoteReceiptInfo(
+        DemodayVote vote,
+        Map<Long, DemodayBooth> boothsById
+    ) {
+        DemodayBooth selectedBooth = Optional.ofNullable(boothsById.get(vote.getTargetBoothId()))
+            .orElseThrow(() -> new DemodayDomainException(DemodayErrorCode.DEMODAY_BOOTH_NOT_FOUND));
+
+        return new DemodayVoteReceiptInfo(
+            vote.getId(),
+            DemodayBoothInfo.from(selectedBooth),
+            vote.getCreatedAt()
+        );
     }
 }

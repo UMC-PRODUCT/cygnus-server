@@ -1,5 +1,6 @@
 package com.umc.product.demoday.adapter.in.web;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -31,6 +32,7 @@ import com.umc.product.demoday.application.port.in.query.dto.DemodayBoothInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayPollInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayStampInfo;
+import com.umc.product.demoday.application.port.in.query.dto.DemodayVoteReceiptInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantResolver;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantType;
@@ -124,9 +126,53 @@ class DemodayPollQueryControllerTest {
                 .andExpect(jsonPath("$.result.stamps[0].boothId").value(20L))
                 .andExpect(jsonPath("$.result.hasActiveVote").value(false))
                 .andExpect(jsonPath("$.result.hasUsedVoteSlot").value(false))
-                .andExpect(jsonPath("$.result.canRequestVoteAuthorization").value(true));
+                .andExpect(jsonPath("$.result.canRequestVoteAuthorization").value(true))
+                .andExpect(jsonPath("$.result.activeVoteReceipt").value(nullValue()));
 
         then(participantResolver).should().resolve(principal);
+        then(getDemodayParticipationUseCase).should().getParticipation(POLL_ID, participant);
+    }
+
+    @Test
+    @DisplayName("유효한 표가 있으면 참여 정보에 최종 투표 영수증을 반환한다")
+    void getMyParticipationWithActiveVoteReceipt() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(20L, BOOTH_CODE, 30L, "PRODUCT 프로젝트");
+        DemodayVoteReceiptInfo receipt = new DemodayVoteReceiptInfo(
+            100L,
+            selectedBooth,
+            Instant.parse("2026-08-21T01:00:00Z")
+        );
+        DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
+            POLL_ID,
+            DemodayParticipantType.MEMBER,
+            STAMP_COUNT,
+            REQUIRED_STAMP_COUNT,
+            List.of(),
+            null,
+            true,
+            true,
+            false,
+            receipt
+        );
+
+        given(participantResolver.resolve(principal)).willReturn(participant);
+        given(getDemodayParticipationUseCase.getParticipation(POLL_ID, participant))
+            .willReturn(participationInfo);
+
+        // when & then
+        mockMvc.perform(get("/api/v1/demoday/polls/{pollId}/participations/me", POLL_ID))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.hasActiveVote").value(true))
+            .andExpect(jsonPath("$.result.hasUsedVoteSlot").value(true))
+            .andExpect(jsonPath("$.result.canRequestVoteAuthorization").value(false))
+            .andExpect(jsonPath("$.result.activeVoteReceipt.voteId").value(100L))
+            .andExpect(jsonPath("$.result.activeVoteReceipt.selectedBooth.boothId").value(20L))
+            .andExpect(jsonPath("$.result.activeVoteReceipt.selectedBooth.boothCode").value(BOOTH_CODE))
+            .andExpect(jsonPath("$.result.activeVoteReceipt.selectedBooth.projectId").value(30L))
+            .andExpect(jsonPath("$.result.activeVoteReceipt.votedAt").value("2026-08-21T01:00:00Z"));
+
         then(getDemodayParticipationUseCase).should().getParticipation(POLL_ID, participant);
     }
 
@@ -171,6 +217,7 @@ class DemodayPollQueryControllerTest {
             null,
             false,
             false,
-            true);
+            true,
+            null);
     }
 }

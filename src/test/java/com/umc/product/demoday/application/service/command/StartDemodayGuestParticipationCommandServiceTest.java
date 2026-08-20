@@ -176,7 +176,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
             POLL_ID, DemodayParticipantType.GUEST, 0, 6, List.of(),
-            null, false, false, false);
+            null, false, false, false, null);
 
         given(getDemodayParticipationUseCase.getParticipation(
             eq(POLL_ID), eq(new GuestDemodayParticipant(ENTRY_CODE_ID))))
@@ -214,7 +214,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
         given(issueDemodayParticipantTokenPort.issue(ENTRY_CODE_ID, CLOSES_AT)).willReturn(PARTICIPANT_TOKEN);
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
-            POLL_ID, DemodayParticipantType.GUEST, 2, 6, List.of(), null, false, false, false);
+            POLL_ID, DemodayParticipantType.GUEST, 2, 6, List.of(), null, false, false, false, null);
         given(getDemodayParticipationUseCase.getParticipation(
             eq(POLL_ID), eq(new GuestDemodayParticipant(ENTRY_CODE_ID))))
             .willReturn(participationInfo);
