@@ -27,6 +27,7 @@ import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
+import com.umc.product.demoday.domain.policy.DemodayParticipationPolicy;
 
 import lombok.RequiredArgsConstructor;
 
@@ -35,7 +36,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class CreateDemodayVoteAuthorizationCommandService implements CreateDemodayVoteAuthorizationUseCase {
 
-    private static final int REQUIRED_STAMP_COUNT = 6;
     private static final Duration AUTHORIZATION_TTL = Duration.ofMinutes(5);
 
     private final LoadDemodayPollPort loadDemodayPollPort;
@@ -107,7 +107,7 @@ public class CreateDemodayVoteAuthorizationCommandService implements CreateDemod
             .filter(stamp -> boothIds.contains(stamp.getBoothId()))
             .count();
 
-        if (activeStampCount < REQUIRED_STAMP_COUNT) {
+        if (!DemodayParticipationPolicy.hasRequiredStamps(activeStampCount)) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_INSUFFICIENT_STAMPS);
         }
     }

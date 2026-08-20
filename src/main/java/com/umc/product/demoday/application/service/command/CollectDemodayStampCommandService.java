@@ -26,6 +26,7 @@ import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
+import com.umc.product.demoday.domain.policy.DemodayParticipationPolicy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +48,6 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CollectDemodayStampCommandService implements CollectDemodayStampUseCase {
 
-    private static final int REQUIRED_STAMP_COUNT = 6;
     private static final Duration STAMP_COOLDOWN = Duration.ofMinutes(5);
 
     private final LoadDemodayBoothPort loadDemodayBoothPort;
@@ -120,7 +120,7 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
     }
 
     private void validateNotMaxed(Long pollId, DemodayParticipant participant) {
-        if (countActiveStamps(pollId, participant) >= REQUIRED_STAMP_COUNT) {
+        if (DemodayParticipationPolicy.hasRequiredStamps(countActiveStamps(pollId, participant))) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_STAMP_MAX_COUNT_REACHED);
         }
     }
@@ -173,7 +173,7 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         DemodayStamp stamp
     ) {
         int stampCount = countActiveStamps(pollId, participant);
-        boolean maxed = stampCount >= REQUIRED_STAMP_COUNT;
+        boolean maxed = DemodayParticipationPolicy.hasRequiredStamps(stampCount);
         Instant nextStampAvailableAt = maxed
             ? null
             : findLatestActiveStamp(participant).map(
@@ -182,9 +182,12 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         return new DemodayStampCollectInfo(
             new DemodayStampInfo(stamp.getBoothId(), stamp.getCreatedAt()),
             stampCount,
-            REQUIRED_STAMP_COUNT,
+            DemodayParticipationPolicy.requiredStampCount(),
             nextStampAvailableAt,
-            maxed && !hasUsedVoteSlot(pollId, participant)
+            DemodayParticipationPolicy.canRequestVoteAuthorization(
+                stampCount,
+                hasUsedVoteSlot(pollId, participant)
+            )
         );
     }
 

@@ -26,6 +26,7 @@ import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.DemodayVote;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
+import com.umc.product.demoday.domain.policy.DemodayParticipationPolicy;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,8 +35,6 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class DemodayPollQueryService implements
     ListDemodayPollUseCase, GetDemodayParticipationUseCase, ListDemodayBoothUseCase {
-
-    private static final int REQUIRED_STAMP_COUNT = 6;
 
     private final LoadDemodayPollPort loadDemodayPollPort;
     private final LoadDemodayBoothPort loadDemodayBoothPort;
@@ -81,12 +80,12 @@ public class DemodayPollQueryService implements
                 pollId,
                 participant.participantType(),
                 stampCount,
-                REQUIRED_STAMP_COUNT,
+                DemodayParticipationPolicy.requiredStampCount(),
                 stamps,
                 null,
                 hasActiveVote,
                 hasUsedVoteSlot,
-                stampCount >= REQUIRED_STAMP_COUNT && !hasUsedVoteSlot
+                DemodayParticipationPolicy.canRequestVoteAuthorization(stampCount, hasUsedVoteSlot)
         );
     }
 
