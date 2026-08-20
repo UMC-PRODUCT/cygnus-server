@@ -15,11 +15,13 @@ import com.umc.product.demoday.adapter.in.web.dto.request.CreateDemodayPollReque
 import com.umc.product.demoday.adapter.in.web.dto.request.GenerateDemodayEntryCodesRequest;
 import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayEntryCodeResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.CreateDemodayPollResponse;
+import com.umc.product.demoday.adapter.in.web.dto.response.DemodayDashboardResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayVoteQrResponse;
 import com.umc.product.demoday.application.port.in.command.ChangeDemodayPollStatusUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayEntryCodeUseCase;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayPollUseCase;
 import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayEntryCodesInfo;
+import com.umc.product.demoday.application.port.in.query.GetDemodayDashboardUseCase;
 import com.umc.product.demoday.application.port.in.query.GetDemodayVoteQrUseCase;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.global.security.annotation.CurrentMember;
@@ -43,6 +45,7 @@ public class DemodayPollAdminController {
     private final ChangeDemodayPollStatusUseCase changeDemodayPollStatusUseCase;
     private final CreateDemodayEntryCodeUseCase createDemodayEntryCodeUseCase;
     private final GetDemodayVoteQrUseCase getDemodayVoteQrUseCase;
+    private final GetDemodayDashboardUseCase getDemodayDashboardUseCase;
 
     @Operation(
         operationId = "createDemodayPoll",
@@ -125,5 +128,44 @@ public class DemodayPollAdminController {
         @PathVariable("pollId") Long pollId) {
 
         return DemodayVoteQrResponse.from(getDemodayVoteQrUseCase.get(pollId, memberPrincipal.getMemberId()));
+    }
+
+    @Operation(
+        operationId = "getAdminDashboard",
+        summary = "Poll 대시보드 통계 스냅샷 조회",
+        description = """
+            요약 지표·투표 랭킹·스탬프 히트맵을 **하나의 스냅샷으로** 반환합니다.
+            세 가지 모두 같은 Poll을 기준으로 하고, 데이터 규모가 부스 수 수준이며,
+            같은 화면에서 비슷한 주기로 갱신되고, 같은 권한을 쓰기 때문에 API를 분리하지 않았습니다.
+
+            FE는 WebSocket을 쓰지 않고 이 API를 폴링합니다. 주기는 FE 운영 설정으로 관리하며,
+            이전 요청이 끝나기 전에 같은 요청을 중첩하지 않습니다.
+
+            ### 무효 처리된 데이터의 집계 제외
+
+            `summary.totalVoteCount`, `rankings[].voteCount`, `stampHeatmap[].stampCount`는
+            모두 **무효 처리되지 않은 행만 집계합니다.** 이 수치가 시상 근거이므로
+            어드민이 부정표를 무효화하면 즉시 수치와 순위에서 빠집니다.
+
+            ### 정렬과 순위
+
+            `rankings`는 `voteCount` 내림차순, 동점이면 `boothId` 오름차순인 **전체** 부스 목록입니다.
+            `rank`는 표준 경쟁 순위입니다. 동점 부스는 같은 순위를 공유하고, 다음 순위는 동점자 수만큼
+            건너뜁니다(1, 2, 2, 4). 화면에 표시할 상위 개수는 FE가 정합니다.
+
+            `stampHeatmap`에는 스탬프 수가 `0`인 부스도 포함됩니다.
+            부스 구역·좌표는 FE 정적 데이터이므로 서버는 반환하지 않습니다. FE가 `boothId`로 결합하세요.
+
+            요청자는 투표가 속한 기수의 총괄단이거나 SUPER_ADMIN이어야 합니다.
+            """
+    )
+    @GetMapping("/{pollId}/dashboard")
+    public DemodayDashboardResponse getDashboard(
+        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal,
+        @Parameter(description = "대시보드를 조회할 데모데이 투표 ID", required = true, example = "1")
+        @PathVariable("pollId") Long pollId) {
+
+        return DemodayDashboardResponse.from(
+            getDemodayDashboardUseCase.getDashboard(pollId, memberPrincipal.getMemberId()));
     }
 }
