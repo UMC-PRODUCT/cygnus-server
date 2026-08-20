@@ -28,6 +28,9 @@ class DemodayPersistenceAdapterConstraintTranslationTest {
     private DemodayVoteJpaRepository voteRepository;
 
     @Mock
+    private DemodayVoteQueryRepository voteQueryRepository;
+
+    @Mock
     private DemodayStampJpaRepository stampRepository;
 
     @Mock
@@ -41,7 +44,7 @@ class DemodayPersistenceAdapterConstraintTranslationTest {
 
     @BeforeEach
     void setUp() {
-        voteAdapter = new DemodayVotePersistenceAdapter(voteRepository);
+        voteAdapter = new DemodayVotePersistenceAdapter(voteRepository, voteQueryRepository);
         stampAdapter = new DemodayStampPersistenceAdapter(stampRepository);
     }
 

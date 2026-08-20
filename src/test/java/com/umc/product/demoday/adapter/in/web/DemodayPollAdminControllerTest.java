@@ -118,6 +118,7 @@ class DemodayPollAdminControllerTest {
 
         // when & then
         mockMvc.perform(get("/api/v1/demoday/admin/polls/{pollId}/vote-qr", POLL_ID))
+            .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_ADMIN_ACCESS_DENIED.getCode()));
     }
 
@@ -182,6 +183,7 @@ class DemodayPollAdminControllerTest {
 
         // when & then
         mockMvc.perform(get("/api/v1/demoday/admin/polls/{pollId}/dashboard", POLL_ID))
+            .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_ADMIN_ACCESS_DENIED.getCode()));
     }
 }

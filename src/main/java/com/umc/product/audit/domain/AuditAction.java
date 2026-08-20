@@ -18,5 +18,7 @@ public enum AuditAction {
     CANCEL,
     REMIND,
     REORDER,
-    FINALIZE
+    FINALIZE,
+    REVOKE,
+    RESTORE
 }

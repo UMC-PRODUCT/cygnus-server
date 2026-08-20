@@ -49,7 +49,7 @@ class MemberQueryServiceBatchTest {
 
     @Test
     @DisplayName("findAllByIds는 빈 입력이면 외부 조회 없이 빈 Map을 반환한다")
-    void findAllByIds는_빈_입력이면_외부_조회_없이_빈_Map을_반환한다() {
+    void findAllByIdsReturnsEmptyMapWithoutExternalLookup() {
         assertThat(sut.findAllByIds(Set.of())).isEmpty();
         assertThat(sut.findAllByIds(null)).isEmpty();
 
@@ -58,7 +58,7 @@ class MemberQueryServiceBatchTest {
 
     @Test
     @DisplayName("findAllByIds는 같은 schoolId와 profileImageId를 한 번만 조회한다")
-    void findAllByIds는_같은_schoolId와_profileImageId를_한_번만_조회한다() {
+    void findAllByIdsCachesRepeatedSchoolAndProfileLookups() {
         Member first = member(1L, "홍길동", 10L, "profile-file-id");
         Member second = member(2L, "김철수", 10L, "profile-file-id");
         given(loadMemberPort.findAllByIds(Set.of(1L, 2L))).willReturn(List.of(first, second));
@@ -75,8 +75,34 @@ class MemberQueryServiceBatchTest {
     }
 
     @Test
+    @DisplayName("회원명 일괄 조회는 부가 프로필 조회 없이 ID와 이름만 반환한다")
+    void findAllNamesByIdsReturnsOnlyIdsAndNames() {
+        Member first = member(1L, "홍길동", 10L, "profile-file-id");
+        Member second = member(2L, "김철수", 20L, null);
+        given(loadMemberPort.findAllByIds(Set.of(1L, 2L))).willReturn(List.of(first, second));
+
+        Map<Long, String> result = sut.findAllNamesByIds(Set.of(1L, 2L));
+
+        assertThat(result).containsExactlyInAnyOrderEntriesOf(Map.of(1L, "홍길동", 2L, "김철수"));
+        then(getSchoolUseCase).shouldHaveNoInteractions();
+        then(getFileUseCase).shouldHaveNoInteractions();
+        then(getChallengerRoleUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("회원명 검색은 후보 회원 안에서 앞뒤 공백을 제거한 이름으로 수행한다")
+    void searchIdsByNameWithinCandidateMembers() {
+        given(loadMemberPort.searchIdsByName(Set.of(1L, 2L), "길동")).willReturn(Set.of(1L));
+
+        Set<Long> result = sut.searchIdsByName(Set.of(1L, 2L), "  길동  ");
+
+        assertThat(result).containsExactly(1L);
+        then(loadMemberPort).should().searchIdsByName(Set.of(1L, 2L), "길동");
+    }
+
+    @Test
     @DisplayName("listIdsBySchoolIds는 조회 결과가 없는 학교도 빈 Set으로 채운다")
-    void listIdsBySchoolIds는_조회_결과가_없는_학교도_빈_Set으로_채운다() {
+    void listIdsBySchoolIdsFillsMissingSchoolsWithEmptySet() {
         given(loadMemberPort.listIdsBySchoolIds(Set.of(10L, 20L)))
             .willReturn(Map.of(10L, Set.of(1L, 2L)));
 

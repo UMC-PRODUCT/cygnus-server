@@ -105,6 +105,14 @@ public class DemodayVote extends BaseEntity {
         this.revokedAt = now;
     }
 
+    public void restore() {
+        if (!isRevoked()) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_NOT_REVOKED);
+        }
+
+        this.revokedAt = null;
+    }
+
     public boolean isRevoked() {
         return revokedAt != null;
     }
