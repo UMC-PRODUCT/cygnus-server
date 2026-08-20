@@ -16,6 +16,7 @@ public record RegisterDemodayBoothBatchCommand(
 ) {
 
     public record BoothRegistration(
+        Integer boothCode,
         Long projectId,
         String displayName
     ) {

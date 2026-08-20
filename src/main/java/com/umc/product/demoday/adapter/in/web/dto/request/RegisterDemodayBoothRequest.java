@@ -3,6 +3,8 @@ package com.umc.product.demoday.adapter.in.web.dto.request;
 import com.umc.product.demoday.application.port.in.command.dto.RegisterDemodayBoothCommand;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 
 @Schema(
     description = """
@@ -12,6 +14,13 @@ import io.swagger.v3.oas.annotations.media.Schema;
         """
 )
 public record RegisterDemodayBoothRequest(
+    @Schema(
+        description = "행사에서 사용하는 부스 코드 번호. 같은 투표 안에서 중복될 수 없는 1 이상의 정수입니다.",
+        example = "11",
+        requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    @NotNull @Positive Integer boothCode,
+
     @Schema(
         description = "UPMS에 등록된 프로젝트 ID. 등록된 프로젝트를 부스로 올릴 때만 채웁니다.",
         example = "101",
@@ -28,6 +37,6 @@ public record RegisterDemodayBoothRequest(
 ) {
 
     public RegisterDemodayBoothCommand toCommand(Long pollId, Long memberId) {
-        return new RegisterDemodayBoothCommand(memberId, pollId, projectId, displayName);
+        return new RegisterDemodayBoothCommand(memberId, pollId, boothCode, projectId, displayName);
     }
 }

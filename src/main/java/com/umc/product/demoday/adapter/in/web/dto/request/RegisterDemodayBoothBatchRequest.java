@@ -12,7 +12,7 @@ import jakarta.validation.constraints.NotEmpty;
     description = """
         데모데이 부스 일괄 등록 요청.
 
-        항목마다 projectId와 displayName 중 정확히 하나만 채웁니다.
+        항목마다 boothCode를 채우고 projectId와 displayName 중 정확히 하나만 채웁니다.
         한 항목이라도 규칙을 어기면 전체가 저장되지 않습니다.
         """
 )
@@ -27,6 +27,7 @@ public record RegisterDemodayBoothBatchRequest(
             pollId,
             booths.stream()
                 .map(booth -> new RegisterDemodayBoothBatchCommand.BoothRegistration(
+                    booth.boothCode(),
                     booth.projectId(),
                     booth.displayName()))
                 .toList()
