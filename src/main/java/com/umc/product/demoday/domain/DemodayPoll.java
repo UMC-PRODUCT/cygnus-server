@@ -228,6 +228,23 @@ public class DemodayPoll extends BaseEntity {
         }
     }
 
+    /**
+     * 참여자가 새 투표 권한을 발급받거나 최종 표를 저장할 수 있는 시간인지 검증한다.
+     *
+     * <p>투표 권한은 INFO QR의 만료와 독립적으로 5분간 유효하지만, Poll 종료까지 연장하는 권리는 아니다.
+     * 따라서 권한 발급과 최종 저장 양쪽에서 이 규칙을 다시 확인한다.
+     */
+    public void validateVotingAvailable(Instant now) {
+        Objects.requireNonNull(now, "now must not be null");
+
+        if (status == DemodayPollStatus.CLOSED || !now.isBefore(closesAt)) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_CLOSED);
+        }
+        if (status != DemodayPollStatus.OPEN || now.isBefore(opensAt)) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_NOT_OPENED_YET);
+        }
+    }
+
     private boolean isOpen() {
         return status == DemodayPollStatus.OPEN;
     }
