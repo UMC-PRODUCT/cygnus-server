@@ -36,6 +36,9 @@ public class DemodayBooth extends BaseEntity {
     @Column(name = "demoday_poll_id", nullable = false)
     private Long pollId;
 
+    @Column(name = "booth_code", nullable = false)
+    private Integer boothCode;
+
     @Column(name = "project_id")
     private Long projectId;
 
@@ -52,26 +55,31 @@ public class DemodayBooth extends BaseEntity {
     private Instant stampCredentialGeneratedAt;
 
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayBooth(Long pollId, Long projectId, String displayName) {
+    private DemodayBooth(Long pollId, Integer boothCode, Long projectId, String displayName) {
         this.pollId = pollId;
+        this.boothCode = boothCode;
         this.projectId = projectId;
         this.displayName = displayName;
     }
 
-    public static DemodayBooth forProject(Long pollId, Long projectId) {
+    public static DemodayBooth forProject(Long pollId, Integer boothCode, Long projectId) {
         Objects.requireNonNull(pollId, "pollId must not be null");
+        validateBoothCode(boothCode);
         validateProject(projectId);
         return DemodayBooth.builder()
             .pollId(pollId)
+            .boothCode(boothCode)
             .projectId(projectId)
             .build();
     }
 
-    public static DemodayBooth forExternal(Long pollId, String displayName) {
+    public static DemodayBooth forExternal(Long pollId, Integer boothCode, String displayName) {
         Objects.requireNonNull(pollId, "pollId must not be null");
+        validateBoothCode(boothCode);
         String normalizedName = requireDisplayName(displayName);
         return DemodayBooth.builder()
             .pollId(pollId)
+            .boothCode(boothCode)
             .displayName(normalizedName)
             .build();
     }
@@ -93,6 +101,12 @@ public class DemodayBooth extends BaseEntity {
     }
 
     //=== Private Method ===
+
+    private static void validateBoothCode(Integer boothCode) {
+        if (boothCode == null || boothCode <= 0) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_BOOTH_INVALID_CODE);
+        }
+    }
 
     private static void validateProject(Long projectId) {
         if (projectId == null) {

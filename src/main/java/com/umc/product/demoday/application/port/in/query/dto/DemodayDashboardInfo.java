@@ -20,6 +20,7 @@ public record DemodayDashboardInfo(
     public record RankingInfo(
             int rank,
             Long boothId,
+            Integer boothCode,
             Long projectId,
             String displayName,
             int voteCount
@@ -28,6 +29,7 @@ public record DemodayDashboardInfo(
 
     public record StampHeatmapInfo(
             Long boothId,
+            Integer boothCode,
             Long projectId,
             String displayName,
             int stampCount

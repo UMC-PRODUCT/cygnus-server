@@ -110,8 +110,8 @@ class DemodayStampPersistenceAdapterTest {
         // Given
         DemodayPoll poll = savePoll("회원 스탬프 목록");
         List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
-            DemodayBooth.forProject(poll.getId(), 1L),
-            DemodayBooth.forProject(poll.getId(), 2L)
+            DemodayBooth.forProject(poll.getId(), 1, 1L),
+            DemodayBooth.forProject(poll.getId(), 2, 2L)
         ));
         DemodayStamp firstStamp = saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, booths.get(0)));
         DemodayStamp secondStamp = saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, booths.get(1)));
@@ -133,8 +133,8 @@ class DemodayStampPersistenceAdapterTest {
         // Given
         DemodayPoll poll = savePoll("방문자 스탬프 목록");
         List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
-            DemodayBooth.forProject(poll.getId(), 1L),
-            DemodayBooth.forProject(poll.getId(), 2L)
+            DemodayBooth.forProject(poll.getId(), 1, 1L),
+            DemodayBooth.forProject(poll.getId(), 2, 2L)
         ));
         DemodayEntryCode entryCode = saveEntryCode(poll, "b");
         DemodayStamp firstStamp = saveDemodayStampPort.save(DemodayStamp.forVisitor(entryCode, booths.get(0)));
@@ -157,8 +157,8 @@ class DemodayStampPersistenceAdapterTest {
         // Given
         DemodayPoll poll = savePoll("무효화 스탬프 제외");
         List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
-            DemodayBooth.forProject(poll.getId(), 1L),
-            DemodayBooth.forProject(poll.getId(), 2L)
+            DemodayBooth.forProject(poll.getId(), 1, 1L),
+            DemodayBooth.forProject(poll.getId(), 2, 2L)
         ));
         DemodayStamp activeStamp = saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, booths.get(0)));
         DemodayStamp revokedStamp = saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, booths.get(1)));
@@ -219,7 +219,9 @@ class DemodayStampPersistenceAdapterTest {
     }
 
     private DemodayBooth saveBooth(DemodayPoll poll, Long projectId) {
-        return saveDemodayBoothPort.save(DemodayBooth.forProject(poll.getId(), projectId));
+        return saveDemodayBoothPort.save(
+            DemodayBooth.forProject(poll.getId(), Math.toIntExact(projectId), projectId)
+        );
     }
 
     private DemodayEntryCode saveEntryCode(DemodayPoll poll, String seed) {

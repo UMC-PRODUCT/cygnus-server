@@ -190,7 +190,7 @@ class CastDemodayVoteCommandServiceTest {
     }
 
     private DemodayBooth booth() {
-        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, "선택 부스");
+        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, 11, "선택 부스");
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }

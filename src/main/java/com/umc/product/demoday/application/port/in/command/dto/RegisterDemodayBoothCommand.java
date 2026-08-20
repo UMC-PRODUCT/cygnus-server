@@ -9,6 +9,7 @@ package com.umc.product.demoday.application.port.in.command.dto;
 public record RegisterDemodayBoothCommand(
     Long memberId,
     Long pollId,
+    Integer boothCode,
     Long projectId,
     String displayName
 ) {

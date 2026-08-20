@@ -132,14 +132,14 @@ class DemodayPollAdminControllerTest {
             generatedAt,
             new DemodayDashboardInfo.SummaryInfo(3, 35),
             List.of(
-                new DemodayDashboardInfo.RankingInfo(1, 9L, 509L, "잇픽", 20),
-                new DemodayDashboardInfo.RankingInfo(2, 4L, 504L, "모디", 15),
-                new DemodayDashboardInfo.RankingInfo(2, 7L, null, "외부 참가팀 A", 15)
+                new DemodayDashboardInfo.RankingInfo(1, 9L, 34, 509L, "잇픽", 20),
+                new DemodayDashboardInfo.RankingInfo(2, 4L, 11, 504L, "모디", 15),
+                new DemodayDashboardInfo.RankingInfo(2, 7L, 22, null, "외부 참가팀 A", 15)
             ),
             List.of(
-                new DemodayDashboardInfo.StampHeatmapInfo(4L, 504L, "모디", 123),
-                new DemodayDashboardInfo.StampHeatmapInfo(7L, null, "외부 참가팀 A", 0),
-                new DemodayDashboardInfo.StampHeatmapInfo(9L, 509L, "잇픽", 88)
+                new DemodayDashboardInfo.StampHeatmapInfo(4L, 11, 504L, "모디", 123),
+                new DemodayDashboardInfo.StampHeatmapInfo(7L, 22, null, "외부 참가팀 A", 0),
+                new DemodayDashboardInfo.StampHeatmapInfo(9L, 34, 509L, "잇픽", 88)
             )
         );
         given(getDemodayDashboardUseCase.getDashboard(POLL_ID, MEMBER_ID)).willReturn(info);
@@ -152,10 +152,16 @@ class DemodayPollAdminControllerTest {
             .andExpect(jsonPath("$.result.summary.totalVoteCount").value(35))
             .andExpect(jsonPath("$.result.rankings[0].rank").value(1))
             .andExpect(jsonPath("$.result.rankings[0].boothId").value(9))
+            .andExpect(jsonPath("$.result.rankings[0].boothCode").value(34))
             .andExpect(jsonPath("$.result.rankings[1].rank").value(2))
+            .andExpect(jsonPath("$.result.rankings[1].boothCode").value(11))
             .andExpect(jsonPath("$.result.rankings[2].rank").value(2))
+            .andExpect(jsonPath("$.result.rankings[2].boothCode").value(22))
             .andExpect(jsonPath("$.result.rankings[2].projectId").doesNotExist())
-            .andExpect(jsonPath("$.result.stampHeatmap[1].stampCount").value(0));
+            .andExpect(jsonPath("$.result.stampHeatmap[0].boothCode").value(11))
+            .andExpect(jsonPath("$.result.stampHeatmap[1].boothCode").value(22))
+            .andExpect(jsonPath("$.result.stampHeatmap[1].stampCount").value(0))
+            .andExpect(jsonPath("$.result.stampHeatmap[2].boothCode").value(34));
 
         then(getDemodayDashboardUseCase).should().getDashboard(POLL_ID, MEMBER_ID);
     }

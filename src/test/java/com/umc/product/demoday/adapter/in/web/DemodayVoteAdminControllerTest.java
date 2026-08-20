@@ -81,7 +81,7 @@ class DemodayVoteAdminControllerTest {
             VOTE_ID,
             VOTED_AT,
             new ParticipantInfo(DemodayParticipantType.MEMBER, "이재원"),
-            new DemodayBoothInfo(20L, 101L, "잇픽"),
+            new DemodayBoothInfo(20L, 11, 101L, "잇픽"),
             DemodayVoteStatus.REVOKED,
             REVOKED_AT);
 
@@ -100,6 +100,7 @@ class DemodayVoteAdminControllerTest {
             .andExpect(jsonPath("$.result.content[0].participant.type").value("MEMBER"))
             .andExpect(jsonPath("$.result.content[0].participant.displayName").value("이재원"))
             .andExpect(jsonPath("$.result.content[0].booth.boothId").value(20))
+            .andExpect(jsonPath("$.result.content[0].booth.boothCode").value(11))
             .andExpect(jsonPath("$.result.content[0].booth.displayName").value("잇픽"))
             .andExpect(jsonPath("$.result.content[0].status").value("REVOKED"))
             .andExpect(jsonPath("$.result.nextCursor").value(VOTE_ID))

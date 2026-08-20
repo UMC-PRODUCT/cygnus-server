@@ -59,17 +59,17 @@ class DemodayDashboardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("득표가 동점이면 같은 rank를 공유하고 다음 rank는 동점자 수만큼 건너뛴다")
+    @DisplayName("득표 내림차순과 동점 부스 코드 오름차순으로 정렬하고 경쟁 순위를 매긴다")
     void assignsCompetitionRanking() {
         // given
         DemodayPoll poll = mock(DemodayPoll.class);
         given(poll.getGisuId()).willReturn(GISU_ID);
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
 
-        DemodayBooth booth1 = projectBooth(1L, 501L);
-        DemodayBooth booth2 = projectBooth(2L, 502L);
-        DemodayBooth booth3 = externalBooth(3L, "외부 참가팀 A");
-        DemodayBooth booth4 = externalBooth(4L, "외부 참가팀 B");
+        DemodayBooth booth1 = projectBooth(1L, 30, 501L);
+        DemodayBooth booth2 = projectBooth(2L, 20, 502L);
+        DemodayBooth booth3 = externalBooth(3L, 10, "외부 참가팀 A");
+        DemodayBooth booth4 = externalBooth(4L, 40, "외부 참가팀 B");
         given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(booth1, booth2, booth3, booth4));
 
         given(loadDemodayDashboardPort.countActiveVotesByBooth(POLL_ID)).willReturn(Map.of(
@@ -93,26 +93,26 @@ class DemodayDashboardQueryServiceTest {
 
         List<DemodayDashboardInfo.RankingInfo> rankings = info.rankings();
         assertThat(rankings).containsExactly(
-            new DemodayDashboardInfo.RankingInfo(1, 1L, 501L, "잇픽", 20),
-            new DemodayDashboardInfo.RankingInfo(2, 2L, 502L, "모디", 15),
-            new DemodayDashboardInfo.RankingInfo(2, 3L, null, "외부 참가팀 A", 15),
-            new DemodayDashboardInfo.RankingInfo(4, 4L, null, "외부 참가팀 B", 0)
+            new DemodayDashboardInfo.RankingInfo(1, 1L, 30, 501L, "잇픽", 20),
+            new DemodayDashboardInfo.RankingInfo(2, 3L, 10, null, "외부 참가팀 A", 15),
+            new DemodayDashboardInfo.RankingInfo(2, 2L, 20, 502L, "모디", 15),
+            new DemodayDashboardInfo.RankingInfo(4, 4L, 40, null, "외부 참가팀 B", 0)
         );
 
         verifyAdminAccessValidated();
     }
 
     @Test
-    @DisplayName("스탬프가 0건인 부스도 boothId 오름차순으로 히트맵에 포함된다")
+    @DisplayName("스탬프가 0건인 부스도 부스 코드 오름차순으로 히트맵에 포함된다")
     void includesZeroStampBoothsInHeatmap() {
         // given
         DemodayPoll poll = mock(DemodayPoll.class);
         given(poll.getGisuId()).willReturn(GISU_ID);
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
 
-        DemodayBooth booth1 = externalBooth(1L, "부스 A");
-        DemodayBooth booth2 = externalBooth(2L, "부스 B");
-        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(booth2, booth1));
+        DemodayBooth booth1 = externalBooth(1L, 20, "부스 A");
+        DemodayBooth booth2 = externalBooth(2L, 10, "부스 B");
+        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(booth1, booth2));
 
         given(loadDemodayDashboardPort.countActiveVotesByBooth(POLL_ID)).willReturn(Map.of());
         given(loadDemodayDashboardPort.countActiveStampsByBooth(POLL_ID)).willReturn(Map.of(1L, 5L));
@@ -123,8 +123,8 @@ class DemodayDashboardQueryServiceTest {
 
         // then
         assertThat(info.stampHeatmap()).containsExactly(
-            new DemodayDashboardInfo.StampHeatmapInfo(1L, null, "부스 A", 5),
-            new DemodayDashboardInfo.StampHeatmapInfo(2L, null, "부스 B", 0)
+            new DemodayDashboardInfo.StampHeatmapInfo(2L, 10, null, "부스 B", 0),
+            new DemodayDashboardInfo.StampHeatmapInfo(1L, 20, null, "부스 A", 5)
         );
     }
 
@@ -132,16 +132,18 @@ class DemodayDashboardQueryServiceTest {
         then(adminAccessChecker).should().validateAdminAccess(MEMBER_ID, GISU_ID);
     }
 
-    private DemodayBooth projectBooth(Long boothId, Long projectId) {
+    private DemodayBooth projectBooth(Long boothId, Integer boothCode, Long projectId) {
         DemodayBooth booth = mock(DemodayBooth.class);
         given(booth.getId()).willReturn(boothId);
+        given(booth.getBoothCode()).willReturn(boothCode);
         given(booth.getProjectId()).willReturn(projectId);
         return booth;
     }
 
-    private DemodayBooth externalBooth(Long boothId, String displayName) {
+    private DemodayBooth externalBooth(Long boothId, Integer boothCode, String displayName) {
         DemodayBooth booth = mock(DemodayBooth.class);
         given(booth.getId()).willReturn(boothId);
+        given(booth.getBoothCode()).willReturn(boothCode);
         // Mockito는 미스텁 boxed Long을 null이 아닌 0L로 기본 응답한다. projectId가 없는
         // 부스임을 명시하기 위해 null을 직접 스텁해야 projectIdsOf()의 nonNull 필터가 정확히 동작한다.
         given(booth.getProjectId()).willReturn(null);

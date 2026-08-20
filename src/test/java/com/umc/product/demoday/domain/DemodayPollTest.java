@@ -19,6 +19,7 @@ class DemodayPollTest {
 
     private static final Long GISU_ID = 8L;
     private static final Long POLL_ID = 1L;
+    private static final Integer BOOTH_CODE = 11;
     private static final Long PROJECT_ID = 101L;
     private static final String NAME = "8기 데모데이 현장 투표";
     private static final Instant OPENS_AT = Instant.parse("2026-08-01T05:00:00Z");
@@ -150,10 +151,11 @@ class DemodayPollTest {
         DemodayPoll poll = persistedPoll();
 
         // when
-        DemodayBooth booth = poll.registerProjectBooth(PROJECT_ID);
+        DemodayBooth booth = poll.registerProjectBooth(BOOTH_CODE, PROJECT_ID);
 
         // then
         assertThat(booth.getPollId()).isEqualTo(POLL_ID);
+        assertThat(booth.getBoothCode()).isEqualTo(BOOTH_CODE);
         assertThat(booth.getProjectId()).isEqualTo(PROJECT_ID);
         assertThat(booth.getDisplayName()).isNull();
     }
@@ -165,10 +167,11 @@ class DemodayPollTest {
         DemodayPoll poll = persistedPoll();
 
         // when
-        DemodayBooth booth = poll.registerExternalBooth("외부 참가팀 A");
+        DemodayBooth booth = poll.registerExternalBooth(BOOTH_CODE, "외부 참가팀 A");
 
         // then
         assertThat(booth.getPollId()).isEqualTo(POLL_ID);
+        assertThat(booth.getBoothCode()).isEqualTo(BOOTH_CODE);
         assertThat(booth.getProjectId()).isNull();
         assertThat(booth.getDisplayName()).isEqualTo("외부 참가팀 A");
     }
@@ -180,7 +183,7 @@ class DemodayPollTest {
         DemodayPoll poll = persistedPoll();
 
         // when
-        poll.registerProjectBooth(PROJECT_ID);
+        poll.registerProjectBooth(BOOTH_CODE, PROJECT_ID);
 
         // then
         assertThat(poll.getBooths()).isEmpty();
@@ -196,12 +199,12 @@ class DemodayPollTest {
         // when & then
         assertThat(poll.isBoothRegistrable()).isFalse();
 
-        assertThatThrownBy(() -> poll.registerProjectBooth(PROJECT_ID))
+        assertThatThrownBy(() -> poll.registerProjectBooth(BOOTH_CODE, PROJECT_ID))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_POLL_BOOTH_LOCKED);
 
-        assertThatThrownBy(() -> poll.registerExternalBooth("외부 참가팀 A"))
+        assertThatThrownBy(() -> poll.registerExternalBooth(BOOTH_CODE, "외부 참가팀 A"))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_POLL_BOOTH_LOCKED);
@@ -217,7 +220,7 @@ class DemodayPollTest {
 
         // when & then
         assertThat(poll.isBoothRegistrable()).isTrue();
-        assertThatCode(() -> poll.registerProjectBooth(PROJECT_ID)).doesNotThrowAnyException();
+        assertThatCode(() -> poll.registerProjectBooth(BOOTH_CODE, PROJECT_ID)).doesNotThrowAnyException();
     }
 
     @Test
@@ -227,7 +230,7 @@ class DemodayPollTest {
         DemodayPoll unsavedPoll = DemodayPoll.create(GISU_ID, NAME, OPENS_AT, CLOSES_AT);
 
         // when & then
-        assertThatThrownBy(() -> unsavedPoll.registerProjectBooth(PROJECT_ID))
+        assertThatThrownBy(() -> unsavedPoll.registerProjectBooth(BOOTH_CODE, PROJECT_ID))
             .isInstanceOf(NullPointerException.class);
     }
 
@@ -238,7 +241,7 @@ class DemodayPollTest {
         DemodayPoll poll = persistedPoll();
 
         // when & then
-        assertThatThrownBy(() -> poll.registerExternalBooth("  "))
+        assertThatThrownBy(() -> poll.registerExternalBooth(BOOTH_CODE, "  "))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);

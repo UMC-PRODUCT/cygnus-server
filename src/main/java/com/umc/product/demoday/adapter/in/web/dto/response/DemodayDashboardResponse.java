@@ -47,6 +47,8 @@ public record DemodayDashboardResponse(
             int rank,
             @Schema(description = "부스 ID", example = "9")
             Long boothId,
+            @Schema(description = "행사에서 사용하는 부스 코드 번호", example = "11")
+            Integer boothCode,
             @Schema(description = "UPMS에 등록된 프로젝트 부스만 값을 가집니다. 외부 부스는 null입니다.", example = "509")
             Long projectId,
             @Schema(description = "화면에 표시할 부스 이름", example = "잇픽")
@@ -59,6 +61,7 @@ public record DemodayDashboardResponse(
             return new RankingEntryResponse(
                     info.rank(),
                     info.boothId(),
+                    info.boothCode(),
                     info.projectId(),
                     info.displayName(),
                     info.voteCount()
@@ -69,6 +72,8 @@ public record DemodayDashboardResponse(
     public record StampHeatmapEntryResponse(
             @Schema(description = "부스 ID", example = "4")
             Long boothId,
+            @Schema(description = "행사에서 사용하는 부스 코드 번호", example = "11")
+            Integer boothCode,
             @Schema(description = "UPMS에 등록된 프로젝트 부스만 값을 가집니다. 외부 부스는 null입니다.", example = "504")
             Long projectId,
             @Schema(description = "화면에 표시할 부스 이름", example = "모디")
@@ -80,6 +85,7 @@ public record DemodayDashboardResponse(
         public static StampHeatmapEntryResponse from(DemodayDashboardInfo.StampHeatmapInfo info) {
             return new StampHeatmapEntryResponse(
                     info.boothId(),
+                    info.boothCode(),
                     info.projectId(),
                     info.displayName(),
                     info.stampCount()

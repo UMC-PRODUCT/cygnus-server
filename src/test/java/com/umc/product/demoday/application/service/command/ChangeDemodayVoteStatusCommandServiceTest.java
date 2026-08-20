@@ -145,7 +145,7 @@ class ChangeDemodayVoteStatusCommandServiceTest {
     }
 
     private DemodayVote vote() {
-        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, 501L);
+        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, 11, 501L);
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, booth);
         ReflectionTestUtils.setField(vote, "id", VOTE_ID);

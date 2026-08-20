@@ -1,5 +1,6 @@
 package com.umc.product.demoday.adapter.out.persistence;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
@@ -42,6 +43,45 @@ class DemodayPersistenceConstraintTest {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    @Test
+    @DisplayName("같은 투표에서 부스 코드를 중복 저장할 수 없다")
+    void rejectDuplicateBoothCodeInSamePoll() {
+        // Given
+        DemodayPoll poll = savePoll("부스 코드 중복");
+        saveBooth(poll, 11, 1L);
+
+        // When & Then
+        assertConstraintViolation(
+            () -> boothRepository.saveAndFlush(DemodayBooth.forProject(poll.getId(), 11, 2L)),
+            "uk_demoday_booth_poll_code"
+        );
+    }
+
+    @Test
+    @DisplayName("서로 다른 투표에서는 같은 부스 코드를 사용할 수 있다")
+    void allowSameBoothCodeAcrossPolls() {
+        // Given
+        DemodayPoll firstPoll = savePoll("첫 번째 부스 코드 범위");
+        DemodayPoll secondPoll = savePoll("두 번째 부스 코드 범위");
+        saveBooth(firstPoll, 11, 1L);
+
+        // When & Then
+        assertThatCode(() -> saveBooth(secondPoll, 11, 2L)).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("부스 코드는 데이터베이스에도 양수로만 저장할 수 있다")
+    void rejectNonPositiveBoothCode() {
+        // Given
+        DemodayPoll poll = savePoll("부스 코드 양수 제약");
+
+        // When & Then
+        assertConstraintViolation(
+            () -> insertBooth(poll.getId(), 0, 1L),
+            "ck_demoday_booth_code_positive"
+        );
+    }
 
     @Test
     @DisplayName("같은 투표에서 한 회원의 표를 중복 저장할 수 없다")
@@ -191,7 +231,11 @@ class DemodayPersistenceConstraintTest {
     }
 
     private DemodayBooth saveBooth(DemodayPoll poll, Long projectId) {
-        return boothRepository.saveAndFlush(DemodayBooth.forProject(poll.getId(), projectId));
+        return saveBooth(poll, Math.toIntExact(projectId), projectId);
+    }
+
+    private DemodayBooth saveBooth(DemodayPoll poll, Integer boothCode, Long projectId) {
+        return boothRepository.saveAndFlush(DemodayBooth.forProject(poll.getId(), boothCode, projectId));
     }
 
     private DemodayEntryCode saveEntryCode(DemodayPoll poll, String seed) {
@@ -211,6 +255,18 @@ class DemodayPersistenceConstraintTest {
                 target_booth_id
             ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?, ?)
             """, pollId, memberId, entryCodeId, boothId);
+    }
+
+    private void insertBooth(Long pollId, Integer boothCode, Long projectId) {
+        jdbcTemplate.update("""
+            INSERT INTO demoday_booth (
+                created_at,
+                updated_at,
+                demoday_poll_id,
+                booth_code,
+                project_id
+            ) VALUES (CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?, ?)
+            """, pollId, boothCode, projectId);
     }
 
     private void insertStamp(Long memberId, Long entryCodeId, Long boothId) {

@@ -116,8 +116,8 @@ class DemodayVotePersistenceAdapterTest {
         // Given
         DemodayPoll poll = savePoll("표 목록 정렬");
         List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
-            DemodayBooth.forProject(poll.getId(), 1L),
-            DemodayBooth.forProject(poll.getId(), 2L)
+            DemodayBooth.forProject(poll.getId(), 1, 1L),
+            DemodayBooth.forProject(poll.getId(), 2, 2L)
         ));
         DemodayVote firstVote = saveDemodayVotePort.save(
             DemodayVote.forMember(poll.getId(), MEMBER_ID, booths.get(0))
@@ -217,7 +217,9 @@ class DemodayVotePersistenceAdapterTest {
     }
 
     private DemodayBooth saveBooth(DemodayPoll poll, Long projectId) {
-        return saveDemodayBoothPort.save(DemodayBooth.forProject(poll.getId(), projectId));
+        return saveDemodayBoothPort.save(
+            DemodayBooth.forProject(poll.getId(), Math.toIntExact(projectId), projectId)
+        );
     }
 
     private DemodayEntryCode saveEntryCode(DemodayPoll poll, String seed) {
