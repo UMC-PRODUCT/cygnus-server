@@ -18,6 +18,7 @@ import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.application.port.out.SaveDemodayVotePort;
 import com.umc.product.demoday.application.service.DemodayVoteAuthorizationValidator;
+import com.umc.product.demoday.application.service.DemodayVoteTargetValidator;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayEntryCode;
 import com.umc.product.demoday.domain.DemodayPoll;
@@ -38,6 +39,7 @@ public class CastDemodayVoteCommandService implements CastDemodayVoteUseCase {
     private final LoadDemodayVotePort loadDemodayVotePort;
     private final SaveDemodayVotePort saveDemodayVotePort;
     private final DemodayVoteAuthorizationValidator demodayVoteAuthorizationValidator;
+    private final DemodayVoteTargetValidator demodayVoteTargetValidator;
     private final Clock clock;
 
     @Override
@@ -51,6 +53,7 @@ public class CastDemodayVoteCommandService implements CastDemodayVoteUseCase {
         DemodayBooth targetBooth = loadBooth(claims.boothId());
         validateSamePoll(command.pollId(), targetBooth);
         targetBooth.validateVoteTarget();
+        demodayVoteTargetValidator.validateEligibleBooth(targetBooth, command.participant());
         validateVoteSlotUnused(command.pollId(), command.participant());
 
         DemodayVote savedVote = saveDemodayVotePort.save(createVote(command.participant(), targetBooth));
