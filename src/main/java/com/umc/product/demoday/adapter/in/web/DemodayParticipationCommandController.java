@@ -9,28 +9,38 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.umc.product.demoday.adapter.in.web.dto.request.CastDemodayVoteRequest;
+import com.umc.product.demoday.adapter.in.web.dto.request.CreateDemodayVoteAuthorizationRequest;
 import com.umc.product.demoday.adapter.in.web.dto.request.GuestParticipationRequest;
 import com.umc.product.demoday.adapter.in.web.dto.request.StampCollectRequest;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayParticipationResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayStampCollectResponse;
+import com.umc.product.demoday.adapter.in.web.dto.response.DemodayVoteAuthorizationResponse;
+import com.umc.product.demoday.adapter.in.web.dto.response.DemodayVoteResponse;
 import com.umc.product.demoday.adapter.in.web.security.CurrentDemodayParticipant;
 import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantCookieWriter;
 import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantTokenProvider;
+import com.umc.product.demoday.application.port.in.command.CastDemodayVoteUseCase;
 import com.umc.product.demoday.application.port.in.command.CollectDemodayStampUseCase;
+import com.umc.product.demoday.application.port.in.command.CreateDemodayVoteAuthorizationUseCase;
 import com.umc.product.demoday.application.port.in.command.StartDemodayGuestParticipationUseCase;
 import com.umc.product.demoday.application.port.in.command.dto.DemodayStampCollectInfo;
+import com.umc.product.demoday.application.port.in.command.dto.DemodayVoteAuthorizationInfo;
+import com.umc.product.demoday.application.port.in.command.dto.DemodayVoteInfo;
 import com.umc.product.demoday.application.port.in.command.dto.StartDemodayGuestParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
 import com.umc.product.global.security.annotation.Public;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-@Tag(name = "데모데이 투표 - 참여자", description = "외부 방문자가 참여를 시작하는 API")
+@Tag(name = "Demoday Vote | Participation", description = "회원과 외부 방문자의 데모데이 참여 명령 API")
 @RestController
 @RequestMapping("/api/v1/demoday/polls")
 @RequiredArgsConstructor
@@ -38,6 +48,8 @@ public class DemodayParticipationCommandController {
 
     private final StartDemodayGuestParticipationUseCase startDemodayGuestParticipationUseCase;
     private final CollectDemodayStampUseCase collectDemodayStampUseCase;
+    private final CreateDemodayVoteAuthorizationUseCase createDemodayVoteAuthorizationUseCase;
+    private final CastDemodayVoteUseCase castDemodayVoteUseCase;
     private final DemodayParticipantTokenProvider demodayParticipantTokenProvider;
     private final DemodayParticipantCookieWriter demodayParticipantCookieWriter;
 
@@ -94,5 +106,66 @@ public class DemodayParticipationCommandController {
         DemodayStampCollectInfo info = collectDemodayStampUseCase.collect(request.toCommand(pollId, participant));
 
         return DemodayStampCollectResponse.from(info);
+    }
+
+    @Operation(
+        operationId = "createVoteAuthorization",
+        summary = "INFO QR 재인증 및 5분 투표 권한 발급",
+        description = """
+            사용자가 투표할 부스를 선택한 뒤 INFO 부스 QR을 스캔해 최종 투표 권한을 발급받습니다.
+            INFO QR의 서명·용도·Poll과 참여자의 스탬프 6개·미투표 상태를 검증합니다.
+            성공하면 선택 부스와 참여자에 결합된 별도 서명 token을 반환하며, 발급 시점부터 정확히 5분간 유효합니다.
+            투표 전에는 다시 발급받을 수 있고, 최종적으로 먼저 저장된 한 표만 인정합니다.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "투표 권한 발급 성공"),
+        @ApiResponse(responseCode = "400", description = "요청 필드 형식 오류"),
+        @ApiResponse(responseCode = "401", description = "참여자 인증 또는 INFO QR이 유효하지 않거나 만료됨"),
+        @ApiResponse(responseCode = "403", description = "스탬프가 6개 미만임(DEMODAY-0409)"),
+        @ApiResponse(responseCode = "404", description = "Poll 또는 선택 부스를 찾을 수 없음"),
+        @ApiResponse(responseCode = "409", description = "투표 시간 아님, 이미 투표함, Poll과 부스 불일치")
+    })
+    @PostMapping("/{pollId}/vote-authorizations")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DemodayVoteAuthorizationResponse createVoteAuthorization(
+        @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId,
+        @Valid @RequestBody CreateDemodayVoteAuthorizationRequest request,
+        @Parameter(hidden = true) @CurrentDemodayParticipant DemodayParticipant participant
+    ) {
+        DemodayVoteAuthorizationInfo info = createDemodayVoteAuthorizationUseCase.create(
+            request.toCommand(pollId, participant));
+
+        return DemodayVoteAuthorizationResponse.from(info);
+    }
+
+    @Operation(
+        operationId = "castVote",
+        summary = "선택한 부스에 최종 투표",
+        description = """
+            투표 권한 token에 결합된 부스에 표를 최종 저장합니다. boothId를 다시 받지 않습니다.
+            token의 서명·용도·만료·Poll·참여자 일치와 최종 저장 시점의 Poll 운영 시간을 검증합니다.
+            같은 참여자의 여러 권한이 제출되면 DB 유일 제약으로 가장 먼저 저장된 한 표만 성공합니다.
+            Poll이 종료되면 아직 token의 5분 유효 시간이 남아 있어도 제출을 거절합니다.
+            """
+    )
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "최종 투표 성공"),
+        @ApiResponse(responseCode = "400", description = "요청 필드 형식 오류"),
+        @ApiResponse(responseCode = "401", description = "투표 권한이 유효하지 않거나 만료됨"),
+        @ApiResponse(responseCode = "403", description = "다른 참여자에게 발급된 투표 권한임(DEMODAY-0413)"),
+        @ApiResponse(responseCode = "404", description = "Poll, token에 결합된 부스 또는 게스트 입장 코드를 찾을 수 없음"),
+        @ApiResponse(responseCode = "409", description = "투표 시간 아님, 이미 투표함, Poll 불일치")
+    })
+    @PostMapping("/{pollId}/votes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public DemodayVoteResponse castVote(
+        @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId,
+        @Valid @RequestBody CastDemodayVoteRequest request,
+        @Parameter(hidden = true) @CurrentDemodayParticipant DemodayParticipant participant
+    ) {
+        DemodayVoteInfo info = castDemodayVoteUseCase.cast(request.toCommand(pollId, participant));
+
+        return DemodayVoteResponse.from(info);
     }
 }

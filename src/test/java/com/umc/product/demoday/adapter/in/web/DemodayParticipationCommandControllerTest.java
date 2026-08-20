@@ -31,18 +31,27 @@ import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantCookieW
 import com.umc.product.demoday.adapter.in.web.security.DemodayParticipantTokenProvider;
 import com.umc.product.demoday.adapter.in.web.security.DemodayParticipationPrincipal;
 import com.umc.product.demoday.adapter.in.web.support.DemodayParticipantResolverConfig;
+import com.umc.product.demoday.application.port.in.command.CastDemodayVoteUseCase;
 import com.umc.product.demoday.application.port.in.command.CollectDemodayStampUseCase;
+import com.umc.product.demoday.application.port.in.command.CreateDemodayVoteAuthorizationUseCase;
 import com.umc.product.demoday.application.port.in.command.StartDemodayGuestParticipationUseCase;
+import com.umc.product.demoday.application.port.in.command.dto.CastDemodayVoteCommand;
 import com.umc.product.demoday.application.port.in.command.dto.CollectDemodayStampCommand;
+import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayVoteAuthorizationCommand;
 import com.umc.product.demoday.application.port.in.command.dto.DemodayStampCollectInfo;
+import com.umc.product.demoday.application.port.in.command.dto.DemodayVoteAuthorizationInfo;
+import com.umc.product.demoday.application.port.in.command.dto.DemodayVoteInfo;
 import com.umc.product.demoday.application.port.in.command.dto.StartDemodayGuestParticipationCommand;
 import com.umc.product.demoday.application.port.in.command.dto.StartDemodayGuestParticipationInfo;
+import com.umc.product.demoday.application.port.in.query.dto.DemodayBoothInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayStampInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantResolver;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantType;
 import com.umc.product.demoday.application.port.in.query.participant.MemberDemodayParticipant;
+import com.umc.product.demoday.domain.exception.DemodayDomainException;
+import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
@@ -68,6 +77,10 @@ class DemodayParticipationCommandControllerTest {
     @MockitoBean private StartDemodayGuestParticipationUseCase startDemodayGuestParticipationUseCase;
 
     @MockitoBean private CollectDemodayStampUseCase collectDemodayStampUseCase;
+
+    @MockitoBean private CreateDemodayVoteAuthorizationUseCase createDemodayVoteAuthorizationUseCase;
+
+    @MockitoBean private CastDemodayVoteUseCase castDemodayVoteUseCase;
 
     @MockitoBean private DemodayParticipantTokenProvider demodayParticipantTokenProvider;
 
@@ -97,7 +110,7 @@ class DemodayParticipationCommandControllerTest {
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
             POLL_ID, DemodayParticipantType.GUEST, 0, 6,
-            List.of(), null, false, false);
+            List.of(), null, false, false, false);
 
         StartDemodayGuestParticipationInfo info =
             new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);
@@ -134,7 +147,7 @@ class DemodayParticipationCommandControllerTest {
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
             POLL_ID, DemodayParticipantType.GUEST, 2, 6,
-            List.of(), null, false, false);
+            List.of(), null, false, false, false);
 
         StartDemodayGuestParticipationInfo info =
             new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);
@@ -186,7 +199,7 @@ class DemodayParticipationCommandControllerTest {
             .andExpect(jsonPath("$.result.stamp.boothId").value(BOOTH_ID))
             .andExpect(jsonPath("$.result.stampCount").value(1))
             .andExpect(jsonPath("$.result.requiredStampCount").value(6))
-            .andExpect(jsonPath("$.result.canEnterVotePage").value(false));
+            .andExpect(jsonPath("$.result.canRequestVoteAuthorization").value(false));
 
         then(collectDemodayStampUseCase).should().collect(
             eq(new CollectDemodayStampCommand(POLL_ID, "sq_opaque_credential", participant)));
@@ -199,5 +212,106 @@ class DemodayParticipationCommandControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"qrCredential\":\"\"}"))
             .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("INFO QR과 선택 부스를 제출하면 201과 5분 투표 권한을 반환한다")
+    void createVoteAuthorization() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, null, "선택 부스");
+        given(createDemodayVoteAuthorizationUseCase.create(
+            new CreateDemodayVoteAuthorizationCommand(POLL_ID, BOOTH_ID, "info-qr-token", participant)))
+            .willReturn(new DemodayVoteAuthorizationInfo(
+                "vote-authorization-token", selectedBooth, Instant.parse("2026-08-19T10:05:00Z")));
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/vote-authorizations", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"boothId":20,"qrToken":"info-qr-token"}
+                    """))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.result.voteAuthorizationToken").value("vote-authorization-token"))
+            .andExpect(jsonPath("$.result.selectedBooth.boothId").value(BOOTH_ID))
+            .andExpect(jsonPath("$.result.expiresAt").value("2026-08-19T10:05:00Z"));
+    }
+
+    @Test
+    @DisplayName("선택 부스가 없으면 투표 권한 발급 요청을 400으로 거부한다")
+    void createVoteAuthorizationWithoutBooth() throws Exception {
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/vote-authorizations", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"qrToken\":\"info-qr-token\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("투표 권한만 제출하면 201과 최종 표를 반환한다")
+    void castVote() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, null, "선택 부스");
+        given(castDemodayVoteUseCase.cast(
+            new CastDemodayVoteCommand(POLL_ID, "vote-authorization-token", participant)))
+            .willReturn(new DemodayVoteInfo(
+                100L, POLL_ID, selectedBooth, Instant.parse("2026-08-19T10:01:00Z")));
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/votes", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"voteAuthorizationToken\":\"vote-authorization-token\"}"))
+            .andExpect(status().isCreated())
+            .andExpect(jsonPath("$.result.voteId").value(100L))
+            .andExpect(jsonPath("$.result.pollId").value(POLL_ID))
+            .andExpect(jsonPath("$.result.selectedBooth.boothId").value(BOOTH_ID))
+            .andExpect(jsonPath("$.result.votedAt").value("2026-08-19T10:01:00Z"));
+    }
+
+    @Test
+    @DisplayName("투표 권한이 비어 있으면 최종 제출을 400으로 거부한다")
+    void castVoteWithBlankAuthorization() throws Exception {
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/votes", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"voteAuthorizationToken\":\"\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("스탬프가 부족하면 투표 권한 발급 요청에 403과 원인 코드를 반환한다")
+    void createVoteAuthorizationWithInsufficientStamps() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
+        given(createDemodayVoteAuthorizationUseCase.create(
+            new CreateDemodayVoteAuthorizationCommand(POLL_ID, BOOTH_ID, "info-qr-token", participant)))
+            .willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_INSUFFICIENT_STAMPS));
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/vote-authorizations", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"boothId\":20,\"qrToken\":\"info-qr-token\"}"))
+            .andExpect(status().isForbidden())
+            .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_VOTE_INSUFFICIENT_STAMPS.getCode()));
+    }
+
+    @Test
+    @DisplayName("만료된 투표 권한은 최종 제출에 401과 원인 코드를 반환한다")
+    void castVoteWithExpiredAuthorization() throws Exception {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
+        given(castDemodayVoteUseCase.cast(
+            new CastDemodayVoteCommand(POLL_ID, "expired-token", participant)))
+            .willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_AUTHORIZATION_EXPIRED));
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/votes", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"voteAuthorizationToken\":\"expired-token\"}"))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_VOTE_AUTHORIZATION_EXPIRED.getCode()));
     }
 }

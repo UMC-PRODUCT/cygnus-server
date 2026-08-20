@@ -39,6 +39,8 @@ demoday:
     base-url: https://vote.test.umc.it.kr
   vote-qr:
     signing-key: test-dummy-vote-qr-signing-key-needs-32-bytes-min
+  vote-authorization:
+    signing-key: test-dummy-vote-authorization-signing-key-needs-32-bytes-min
   stamp-credential:
     encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
   participant-token:
@@ -122,4 +124,3 @@ app:
   oauth2:
     google:
       client-id-list: apps.googleusercontent.com
-

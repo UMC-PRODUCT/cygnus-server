@@ -18,6 +18,7 @@ import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayEntryCodePort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayStampPort;
+import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.application.port.out.SaveDemodayStampPort;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayEntryCode;
@@ -25,6 +26,7 @@ import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
+import com.umc.product.demoday.domain.policy.DemodayParticipationPolicy;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -46,13 +48,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class CollectDemodayStampCommandService implements CollectDemodayStampUseCase {
 
-    private static final int REQUIRED_STAMP_COUNT = 6;
     private static final Duration STAMP_COOLDOWN = Duration.ofMinutes(5);
 
     private final LoadDemodayBoothPort loadDemodayBoothPort;
     private final LoadDemodayEntryCodePort loadDemodayEntryCodePort;
     private final LoadDemodayPollPort loadDemodayPollPort;
     private final LoadDemodayStampPort loadDemodayStampPort;
+    private final LoadDemodayVotePort loadDemodayVotePort;
     private final SaveDemodayStampPort saveDemodayStampPort;
     private final HashDemodayStampCredentialPort hashDemodayStampCredentialPort;
     private final Clock clock;
@@ -70,11 +72,11 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
                 "demoday stamp rescanned participantType={} participantId={} boothId={}",
                 participant.participantType(), participant.participantId(), booth.getId()
             );
-            return buildResult(participant, existingStamp.get());
+            return buildResult(command.pollId(), participant, existingStamp.get());
         }
 
-        DemodayStamp collected = collectNewStamp(participant, booth);
-        return buildResult(participant, collected);
+        DemodayStamp collected = collectNewStamp(command.pollId(), participant, booth);
+        return buildResult(command.pollId(), participant, collected);
     }
 
     private DemodayBooth loadBoothByCredential(String qrCredential) {
@@ -95,8 +97,8 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         poll.validParticipationAvailable(clock.instant());
     }
 
-    private DemodayStamp collectNewStamp(DemodayParticipant participant, DemodayBooth booth) {
-        validateNotMaxed(participant);
+    private DemodayStamp collectNewStamp(Long pollId, DemodayParticipant participant, DemodayBooth booth) {
+        validateNotMaxed(pollId, participant);
         validateCooldownElapsed(participant);
 
         DemodayStamp stamp = createStamp(participant, booth);
@@ -108,7 +110,8 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
                 throw exception;
             }
             log.info(
-                "demoday stamp collect lost the race, returning current state participantType={} participantId={} boothId={}",
+                "demoday stamp collect lost the race, returning current state "
+                    + "participantType={} participantId={} boothId={}",
                 participant.participantType(), participant.participantId(), booth.getId()
             );
 
@@ -116,8 +119,8 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         }
     }
 
-    private void validateNotMaxed(DemodayParticipant participant) {
-        if (countActiveStamps(participant) >= REQUIRED_STAMP_COUNT) {
+    private void validateNotMaxed(Long pollId, DemodayParticipant participant) {
+        if (DemodayParticipationPolicy.hasRequiredStamps(countActiveStamps(pollId, participant))) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_STAMP_MAX_COUNT_REACHED);
         }
     }
@@ -150,10 +153,10 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         };
     }
 
-    private int countActiveStamps(DemodayParticipant participant) {
+    private int countActiveStamps(Long pollId, DemodayParticipant participant) {
         return switch (participant.participantType()) {
-            case MEMBER -> loadDemodayStampPort.countActiveMemberStamps(participant.participantId());
-            case GUEST -> loadDemodayStampPort.countActiveVisitorStamps(participant.participantId());
+            case MEMBER -> loadDemodayStampPort.countActiveMemberStamps(pollId, participant.participantId());
+            case GUEST -> loadDemodayStampPort.countActiveVisitorStamps(pollId, participant.participantId());
         };
     }
 
@@ -164,9 +167,13 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         };
     }
 
-    private DemodayStampCollectInfo buildResult(DemodayParticipant participant, DemodayStamp stamp) {
-        int stampCount = countActiveStamps(participant);
-        boolean maxed = stampCount >= REQUIRED_STAMP_COUNT;
+    private DemodayStampCollectInfo buildResult(
+        Long pollId,
+        DemodayParticipant participant,
+        DemodayStamp stamp
+    ) {
+        int stampCount = countActiveStamps(pollId, participant);
+        boolean maxed = DemodayParticipationPolicy.hasRequiredStamps(stampCount);
         Instant nextStampAvailableAt = maxed
             ? null
             : findLatestActiveStamp(participant).map(
@@ -175,9 +182,19 @@ public class CollectDemodayStampCommandService implements CollectDemodayStampUse
         return new DemodayStampCollectInfo(
             new DemodayStampInfo(stamp.getBoothId(), stamp.getCreatedAt()),
             stampCount,
-            REQUIRED_STAMP_COUNT,
+            DemodayParticipationPolicy.requiredStampCount(),
             nextStampAvailableAt,
-            maxed
+            DemodayParticipationPolicy.canRequestVoteAuthorization(
+                stampCount,
+                hasUsedVoteSlot(pollId, participant)
+            )
         );
+    }
+
+    private boolean hasUsedVoteSlot(Long pollId, DemodayParticipant participant) {
+        return switch (participant.participantType()) {
+            case MEMBER -> loadDemodayVotePort.findMemberVote(pollId, participant.participantId()).isPresent();
+            case GUEST -> loadDemodayVotePort.findVisitorVote(participant.participantId()).isPresent();
+        };
     }
 }

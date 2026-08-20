@@ -177,6 +177,8 @@ demoday:
     encryption-key: ${DEMODAY_STAMP_CREDENTIAL_ENCRYPTION_KEY}
   vote-qr:
     signing-key: ${DEMODAY_VOTE_QR_SIGNING_KEY}
+  vote-authorization:
+    signing-key: ${DEMODAY_VOTE_AUTHORIZATION_SIGNING_KEY}
   participant-token:
     secret: ${DEMODAY_PARTICIPANT_TOKEN_SECRET}
   guest-rate-limit:

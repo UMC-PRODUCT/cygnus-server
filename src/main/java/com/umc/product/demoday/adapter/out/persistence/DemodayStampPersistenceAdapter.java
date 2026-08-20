@@ -56,13 +56,13 @@ public class DemodayStampPersistenceAdapter implements LoadDemodayStampPort, Sav
     }
 
     @Override
-    public int countActiveMemberStamps(Long memberId) {
-        return repository.countByMemberIdAndRevokedAtIsNull(memberId);
+    public int countActiveMemberStamps(Long pollId, Long memberId) {
+        return repository.countActiveMemberStamps(pollId, memberId);
     }
 
     @Override
-    public int countActiveVisitorStamps(Long entryCodeId) {
-        return repository.countByEntryCodeIdAndRevokedAtIsNull(entryCodeId);
+    public int countActiveVisitorStamps(Long pollId, Long entryCodeId) {
+        return repository.countActiveVisitorStamps(pollId, entryCodeId);
     }
 
     @Override

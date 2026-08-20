@@ -29,6 +29,7 @@ import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayEntryCodePort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayStampPort;
+import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.application.port.out.SaveDemodayStampPort;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayEntryCode;
@@ -61,6 +62,9 @@ class CollectDemodayStampCommandServiceTest {
     private LoadDemodayStampPort loadDemodayStampPort;
 
     @Mock
+    private LoadDemodayVotePort loadDemodayVotePort;
+
+    @Mock
     private SaveDemodayStampPort saveDemodayStampPort;
 
     @Mock
@@ -84,7 +88,7 @@ class CollectDemodayStampCommandServiceTest {
         given(loadDemodayBoothPort.findByStampCredentialHash(CREDENTIAL_HASH)).willReturn(Optional.of(booth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
         given(loadDemodayStampPort.findMemberStamp(MEMBER_ID, BOOTH_ID)).willReturn(Optional.empty());
-        given(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).willReturn(0, 1);
+        given(loadDemodayStampPort.countActiveMemberStamps(POLL_ID, MEMBER_ID)).willReturn(0, 1);
         given(loadDemodayStampPort.findLatestActiveMemberStamp(MEMBER_ID)).willReturn(Optional.empty());
         given(clock.instant()).willReturn(NOW);
         given(saveDemodayStampPort.save(any(DemodayStamp.class))).willAnswer(invocation -> invocation.getArgument(0));
@@ -97,7 +101,7 @@ class CollectDemodayStampCommandServiceTest {
         assertThat(result.stampCount()).isEqualTo(1);
         assertThat(result.requiredStampCount()).isEqualTo(6);
         assertThat(result.nextStampAvailableAt()).isNull();
-        assertThat(result.canEnterVotePage()).isFalse();
+        assertThat(result.canRequestVoteAuthorization()).isFalse();
 
         then(saveDemodayStampPort).should().save(any(DemodayStamp.class));
     }
@@ -108,14 +112,15 @@ class CollectDemodayStampCommandServiceTest {
         // given
         DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
         DemodayBooth booth = boothOf(POLL_ID);
-        DemodayStamp existingStamp = stampWithCreatedAt(DemodayStamp.forMember(MEMBER_ID, booth), NOW.minusSeconds(600));
+        DemodayStamp existingStamp = stampWithCreatedAt(
+            DemodayStamp.forMember(MEMBER_ID, booth), NOW.minusSeconds(600));
         CollectDemodayStampCommand command = new CollectDemodayStampCommand(POLL_ID, QR_CREDENTIAL, participant);
 
         given(hashDemodayStampCredentialPort.hash(QR_CREDENTIAL)).willReturn(CREDENTIAL_HASH);
         given(loadDemodayBoothPort.findByStampCredentialHash(CREDENTIAL_HASH)).willReturn(Optional.of(booth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
         given(loadDemodayStampPort.findMemberStamp(MEMBER_ID, BOOTH_ID)).willReturn(Optional.of(existingStamp));
-        given(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).willReturn(3);
+        given(loadDemodayStampPort.countActiveMemberStamps(POLL_ID, MEMBER_ID)).willReturn(3);
         given(loadDemodayStampPort.findLatestActiveMemberStamp(MEMBER_ID)).willReturn(Optional.of(existingStamp));
         given(clock.instant()).willReturn(NOW);
 
@@ -202,7 +207,7 @@ class CollectDemodayStampCommandServiceTest {
         given(loadDemodayBoothPort.findByStampCredentialHash(CREDENTIAL_HASH)).willReturn(Optional.of(booth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
         given(loadDemodayStampPort.findMemberStamp(MEMBER_ID, BOOTH_ID)).willReturn(Optional.empty());
-        given(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).willReturn(6);
+        given(loadDemodayStampPort.countActiveMemberStamps(POLL_ID, MEMBER_ID)).willReturn(6);
         given(clock.instant()).willReturn(NOW);
 
         // when & then
@@ -228,7 +233,7 @@ class CollectDemodayStampCommandServiceTest {
         given(loadDemodayBoothPort.findByStampCredentialHash(CREDENTIAL_HASH)).willReturn(Optional.of(booth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
         given(loadDemodayStampPort.findMemberStamp(MEMBER_ID, BOOTH_ID)).willReturn(Optional.empty());
-        given(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).willReturn(1);
+        given(loadDemodayStampPort.countActiveMemberStamps(POLL_ID, MEMBER_ID)).willReturn(1);
         given(loadDemodayStampPort.findLatestActiveMemberStamp(MEMBER_ID)).willReturn(Optional.of(latestStamp));
         given(clock.instant()).willReturn(NOW);
 
@@ -252,8 +257,9 @@ class CollectDemodayStampCommandServiceTest {
         given(hashDemodayStampCredentialPort.hash(QR_CREDENTIAL)).willReturn(CREDENTIAL_HASH);
         given(loadDemodayBoothPort.findByStampCredentialHash(CREDENTIAL_HASH)).willReturn(Optional.of(booth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
-        given(loadDemodayStampPort.findMemberStamp(MEMBER_ID, BOOTH_ID)).willReturn(Optional.empty(), Optional.of(winnerStamp));
-        given(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).willReturn(0, 1);
+        given(loadDemodayStampPort.findMemberStamp(MEMBER_ID, BOOTH_ID))
+            .willReturn(Optional.empty(), Optional.of(winnerStamp));
+        given(loadDemodayStampPort.countActiveMemberStamps(POLL_ID, MEMBER_ID)).willReturn(0, 1);
         given(loadDemodayStampPort.findLatestActiveMemberStamp(MEMBER_ID)).willReturn(Optional.empty());
         given(clock.instant()).willReturn(NOW);
         given(saveDemodayStampPort.save(any(DemodayStamp.class)))
@@ -280,7 +286,7 @@ class CollectDemodayStampCommandServiceTest {
         given(loadDemodayBoothPort.findByStampCredentialHash(CREDENTIAL_HASH)).willReturn(Optional.of(booth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
         given(loadDemodayStampPort.findVisitorStamp(ENTRY_CODE_ID, BOOTH_ID)).willReturn(Optional.empty());
-        given(loadDemodayStampPort.countActiveVisitorStamps(ENTRY_CODE_ID)).willReturn(0, 1);
+        given(loadDemodayStampPort.countActiveVisitorStamps(POLL_ID, ENTRY_CODE_ID)).willReturn(0, 1);
         given(loadDemodayStampPort.findLatestActiveVisitorStamp(ENTRY_CODE_ID)).willReturn(Optional.empty());
         given(loadDemodayEntryCodePort.findById(ENTRY_CODE_ID)).willReturn(Optional.of(entryCode));
         given(clock.instant()).willReturn(NOW);

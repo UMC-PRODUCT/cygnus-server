@@ -288,4 +288,35 @@ class DemodayPollTest {
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_POLL_NOT_OPEN);
     }
+
+    @Test
+    @DisplayName("OPEN 상태이고 투표 기간 안이면 최종 투표가 가능하다")
+    void allowVotingWhenOpenAndWithinWindow() {
+        // given
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+
+        // when & then
+        assertThatCode(() -> poll.validateVotingAvailable(OPENS_AT.plusSeconds(60)))
+            .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("시작 전에는 DEMODAY-0400, 종료 시각부터는 DEMODAY-0401로 구분한다")
+    void distinguishVotingWindowErrors() {
+        // given
+        DemodayPoll poll = persistedPoll();
+        poll.open();
+
+        // when & then
+        assertThatThrownBy(() -> poll.validateVotingAvailable(OPENS_AT.minusSeconds(1)))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_NOT_OPENED_YET);
+
+        assertThatThrownBy(() -> poll.validateVotingAvailable(CLOSES_AT))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_CLOSED);
+    }
 }

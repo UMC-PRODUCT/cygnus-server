@@ -26,6 +26,7 @@ import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.DemodayVote;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
 import com.umc.product.demoday.domain.exception.DemodayErrorCode;
+import com.umc.product.demoday.domain.policy.DemodayParticipationPolicy;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,8 +35,6 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class DemodayPollQueryService implements
     ListDemodayPollUseCase, GetDemodayParticipationUseCase, ListDemodayBoothUseCase {
-
-    private static final int REQUIRED_STAMP_COUNT = 6;
 
     private final LoadDemodayPollPort loadDemodayPollPort;
     private final LoadDemodayBoothPort loadDemodayBoothPort;
@@ -71,9 +70,9 @@ public class DemodayPollQueryService implements
             .map(this::toStampInfo)
             .toList();
 
-        boolean hasVoted = findVote(pollId, participant)
-            .filter(vote -> !vote.isRevoked())
-            .isPresent();
+        Optional<DemodayVote> vote = findVote(pollId, participant);
+        boolean hasActiveVote = vote.filter(existingVote -> !existingVote.isRevoked()).isPresent();
+        boolean hasUsedVoteSlot = vote.isPresent();
 
         int stampCount = stamps.size();
 
@@ -81,11 +80,12 @@ public class DemodayPollQueryService implements
                 pollId,
                 participant.participantType(),
                 stampCount,
-                REQUIRED_STAMP_COUNT,
+                DemodayParticipationPolicy.requiredStampCount(),
                 stamps,
                 null,
-                hasVoted,
-                stampCount >= REQUIRED_STAMP_COUNT
+                hasActiveVote,
+                hasUsedVoteSlot,
+                DemodayParticipationPolicy.canRequestVoteAuthorization(stampCount, hasUsedVoteSlot)
         );
     }
 
@@ -95,11 +95,7 @@ public class DemodayPollQueryService implements
 
         return loadDemodayBoothPort.listByPollId(pollId)
             .stream()
-            .map(booth -> new DemodayBoothInfo(
-                booth.getId(),
-                booth.getProjectId(),
-                booth.getDisplayName()
-            ))
+            .map(DemodayBoothInfo::from)
             .toList();
     }
 

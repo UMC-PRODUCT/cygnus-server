@@ -76,22 +76,22 @@ info:
                   └─ HttpOnly Cookie와 현재 참여 상태 수신
 
     현재 참여 상태
-      ├─ 스탬프 미달
-      │  └─ 스탬프 QR 스캔
-      │     └─ POST /api/v1/demoday/polls/{pollId}/stamps
-      │        └─ 응답 상태로 화면 갱신
-      └─ canEnterVotePage == true
-         └─ GET /api/v1/demoday/polls/{pollId}/booths
-            └─ 투표할 부스 선택
-               └─ INFO QR 스캔
-                  └─ POST /api/v1/demoday/polls/{pollId}/vote-authorizations
-                     └─ selectedBooth와 expiresAt 최종 확인
-                        └─ POST /api/v1/demoday/polls/{pollId}/votes
+      ├─ GET /api/v1/demoday/polls/{pollId}/booths로 부스 목록 탐색
+      ├─ 스탬프 미달이면 스탬프 QR 스캔
+      │  └─ POST /api/v1/demoday/polls/{pollId}/stamps
+      │     └─ 응답 상태로 화면 갱신
+      └─ canRequestVoteAuthorization == true
+         └─ 투표할 부스 선택
+            └─ INFO QR 스캔
+               └─ POST /api/v1/demoday/polls/{pollId}/vote-authorizations
+                  └─ selectedBooth와 expiresAt 최종 확인
+                     └─ POST /api/v1/demoday/polls/{pollId}/votes
     ```
 
     - 외부 방문자의 최초 참여 응답에는 현재 참여 상태가 포함되므로 곧바로 다시 조회할 필요가 없습니다.
       새로고침·재접속 시에는 Cookie를 첨부해 `GET /api/v1/demoday/polls/{pollId}/participations/me`를 호출합니다.
-    - 스탬프 등록 후에는 응답의 `requiredStampCount`, `nextStampAvailableAt`, `canEnterVotePage`로 화면을 갱신합니다.
+    - 스탬프 등록 후에는 응답의 `requiredStampCount`, `nextStampAvailableAt`,
+      `canRequestVoteAuthorization`으로 화면을 갱신합니다.
     - `voteAuthorizationToken`은 메모리에만 보관하고, 최종 투표 요청에는 `boothId`가 아니라 이 토큰만 보냅니다.
     - 처음으로·스탬프 현황으로 돌아가기·다시 선택하기는 FE 화면 이동이며 별도 API가 없습니다.
 
@@ -411,7 +411,8 @@ paths:
         - 새로 적립된 스탬프 사이에는 **5분의 쿨다운**이 있으며, 판정은 서버 시각 기준입니다.
           **재스캔은 새 적립이 아니므로 쿨다운을 새로 시작하지 않습니다.**
           같은 부스를 반복해서 찍어도 `nextStampAvailableAt`은 뒤로 밀리지 않습니다.
-        - 여섯 번째 적립 후 `nextStampAvailableAt`은 `null`, `canEnterVotePage`는 `true`가 됩니다.
+        - 여섯 번째 적립 후 `nextStampAvailableAt`은 `null`이 됩니다. 투표 슬롯을 아직 사용하지 않았다면
+          `canRequestVoteAuthorization`은 `true`가 됩니다.
 
         ### QR 값에서 credential 추출
 
@@ -485,8 +486,8 @@ paths:
 
         ### 도메인 규칙과 FE 책임
 
-        - 스탬프 6개를 모두 모은 참여자만 투표 화면에 진입합니다. FE는 `canEnterVotePage`를 확인한 뒤 이동합니다.
         - **부스 목록 자체는 인증된 참여자면 스탬프 수와 무관하게 조회할 수 있습니다.**
+          목록 탐색과 선택은 투표 권한 발급과 다른 행위입니다.
           투표 자격은 `POST /vote-authorizations`와 `POST /votes`에서 서버가 다시 검증합니다.
         - 부스 목록과 개인 참여 상태는 분리합니다.
           `전체 구역`·`스탬프 완료` 필터는 FE가 이 목록과 `participations/me.stamps`를 `boothId`로 결합해 처리합니다.
@@ -508,128 +509,6 @@ paths:
                         $ref: '#/components/schemas/BoothListResult'
         '401':
           $ref: '#/components/responses/ParticipantUnauthorized'
-
-  /api/v1/demoday/polls/{pollId}/vote-authorizations:
-    post:
-      tags: [데모데이 - 참여자]
-      operationId: createVoteAuthorization
-      summary: INFO QR 재인증 및 5분 투표 권한 발급
-      description: |
-        사용자는 투표할 부스를 **먼저 선택한 뒤** INFO 부스에서 QR을 스캔합니다.
-        FE는 스캔한 `qrToken`과 이미 선택한 `boothId`를 함께 전달합니다.
-
-        ### 도메인 규칙
-
-        - INFO QR은 서버가 서명한 signed token이며 운영 화면에서 **1시간마다 교체**됩니다.
-        - QR의 남은 유효 시간은 참여자에게 공개하지 않습니다.
-        - 서버는 서명, 용도, `pollId`, 발급 시각, 만료 시각을 검증합니다.
-        - 인증에 성공하면 선택한 `boothId`에 **결합된** 투표 권한을 발급합니다.
-        - 투표 권한은 INFO QR 자체의 만료와 **독립적으로** 인증 성공 시점부터 5분간 유효합니다.
-          QR 만료 직전에 발급받았더라도 이미 발급된 권한은 자신의 5분 만료 시각까지 살아 있습니다.
-        - 스탬프가 6개 미만이거나 이미 투표했다면 발급하지 않습니다.
-
-        ### FE 책임
-
-        - `selectedBooth`로 최종 투표 대상을 사용자에게 명확히 보여줍니다.
-        - `voteAuthorizationToken`은 최종 제출 전까지 **메모리에만** 보관하고
-          성공·만료·화면 이탈 시 제거합니다.
-
-        개념적인 INFO QR 값:
-
-        ```text
-        https://vote.example.com/demoday/polls/101/vote-authorization#token={signedToken}
-        ```
-      parameters:
-        - $ref: '#/components/parameters/PollId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VoteAuthorizationRequest'
-      responses:
-        '201':
-          description: 투표 권한 발급 성공
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessEnvelope'
-                  - type: object
-                    properties:
-                      result:
-                        $ref: '#/components/schemas/VoteAuthorizationResult'
-        '401':
-          $ref: '#/components/responses/ParticipantUnauthorized'
-        '409':
-          description: |
-            발급 거절. 상황별 `code`는 다음과 같습니다.
-
-            | 상황 | `code` |
-            |---|---|
-            | 아직 투표 시작 전 | `DEMODAY-0400` |
-            | 투표 종료 | `DEMODAY-0401` |
-            | 이미 투표함 | `DEMODAY-0402` |
-            | 스탬프 6개 미만 | 서버 구현 시 확정 |
-            | 유효하지 않거나 만료된 INFO QR token | 서버 구현 시 확정 |
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
-
-  /api/v1/demoday/polls/{pollId}/votes:
-    post:
-      tags: [데모데이 - 참여자]
-      operationId: castVote
-      summary: 선택한 부스에 최종 투표
-      description: |
-        ### 도메인 규칙
-
-        - 최종 투표는 사용자의 **명시적인 버튼 동작으로만** 실행합니다.
-        - **`boothId`는 다시 받지 않습니다.** 투표 대상은 앞서 발급한 투표 권한에 이미 결합되어 있습니다.
-        - 서버는 투표 권한의 참여자, Poll, 선택 부스, 만료 여부, 미사용 여부를 검증합니다.
-        - 회원과 외부 방문자 모두 Poll마다 **한 번만** 투표할 수 있습니다.
-        - 성공한 투표 권한은 다시 사용할 수 없습니다.
-
-        FE는 최종 제출 직전에 `selectedBooth`를 다시 안내합니다.
-      parameters:
-        - $ref: '#/components/parameters/PollId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/VoteRequest'
-      responses:
-        '201':
-          description: 투표 성공
-          content:
-            application/json:
-              schema:
-                allOf:
-                  - $ref: '#/components/schemas/SuccessEnvelope'
-                  - type: object
-                    properties:
-                      result:
-                        $ref: '#/components/schemas/VoteResult'
-        '401':
-          $ref: '#/components/responses/ParticipantUnauthorized'
-        '409':
-          description: |
-            투표 거절. 상황별 `code`는 다음과 같습니다.
-
-            | 상황 | `code` |
-            |---|---|
-            | 아직 투표 시작 전 | `DEMODAY-0400` |
-            | 투표 종료 | `DEMODAY-0401` |
-            | 이미 투표함 | `DEMODAY-0402` |
-            | 투표 권한과 요청 Poll 불일치 | `DEMODAY-0404` |
-            | 유효하지 않거나 만료·사용 완료된 투표 권한 | 서버 구현 시 확정 |
-            | 투표 권한과 현재 참여자 불일치 | 서버 구현 시 확정 |
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorEnvelope'
 
   # ------------------------------------------------------------------
   # 관리자
@@ -1362,14 +1241,17 @@ components:
             여섯 번째 스탬프까지 모두 적립했거나 적용할 쿨다운이 없으면 `null`입니다.
             FE는 이 절대 시각으로 쿨다운을 표시하고 남은 시간을 자체 계산하지 않습니다.
           examples: ['2026-08-14T10:15:00+09:00']
-        hasVoted:
+        hasActiveVote:
           type: boolean
-          description: 해당 Poll의 최종 투표 완료 여부.
-        canEnterVotePage:
+          description: 현재 집계에 포함되는 유효한 표가 있는지 나타냅니다. 취소된 표는 `false`입니다.
+        hasUsedVoteSlot:
+          type: boolean
+          description: 취소 여부와 무관하게 이번 Poll의 한 번뿐인 투표 기회를 이미 사용했는지 나타냅니다.
+        canRequestVoteAuthorization:
           type: boolean
           description: |
-            스탬프 수와 투표 상태로 서버가 계산한 투표 화면 진입 가능 여부.
-            `false`면 FE는 투표 화면 진입을 막습니다.
+            스탬프 6개를 충족했고 `hasUsedVoteSlot`이 `false`라서 INFO QR 인증을 요청할 수 있는지 나타냅니다.
+            부스 목록 조회 가능 여부를 뜻하지 않습니다.
       required:
         - pollId
         - participantType
@@ -1377,8 +1259,9 @@ components:
         - requiredStampCount
         - stamps
         - nextStampAvailableAt
-        - hasVoted
-        - canEnterVotePage
+        - hasActiveVote
+        - hasUsedVoteSlot
+        - canRequestVoteAuthorization
 
     # ----- 참여자: 스탬프 -----
     StampCollectRequest:
@@ -1408,9 +1291,9 @@ components:
           format: date-time
           description: 여섯 번째 적립 후에는 `null`입니다.
           examples: ['2026-08-14T10:25:00+09:00']
-        canEnterVotePage:
+        canRequestVoteAuthorization:
           type: boolean
-      required: [stamp, stampCount, requiredStampCount, nextStampAvailableAt, canEnterVotePage]
+      required: [stamp, stampCount, requiredStampCount, nextStampAvailableAt, canRequestVoteAuthorization]
 
     # ----- 참여자: 부스와 투표 -----
     BoothListResult:
@@ -1421,69 +1304,6 @@ components:
           items:
             $ref: '#/components/schemas/Booth'
       required: [booths]
-
-    VoteAuthorizationRequest:
-      type: object
-      properties:
-        boothId:
-          type: integer
-          format: int64
-          description: 사용자가 **이미 선택한** 투표 대상 부스.
-          examples: [12]
-        qrToken:
-          type: string
-          description: INFO 부스에서 스캔한 서명된 token. QR 값의 `#token=` 뒤에서 추출합니다.
-          examples: [signed-info-qr-token]
-      required: [boothId, qrToken]
-
-    VoteAuthorizationResult:
-      type: object
-      properties:
-        voteAuthorizationToken:
-          type: string
-          description: |
-            최종 투표에 사용할 opaque token.
-            **메모리에만 보관**하고 성공·만료·화면 이탈 시 제거하세요.
-          examples: [va_opaque_token]
-        selectedBooth:
-          $ref: '#/components/schemas/Booth'
-        expiresAt:
-          type: string
-          format: date-time
-          description: |
-            인증 성공 시점부터 5분 뒤. INFO QR 자체의 만료와 독립적입니다.
-          examples: ['2026-08-14T11:35:00+09:00']
-      required: [voteAuthorizationToken, selectedBooth, expiresAt]
-
-    VoteRequest:
-      type: object
-      properties:
-        voteAuthorizationToken:
-          type: string
-          description: |
-            `POST /vote-authorizations`로 발급받은 token.
-            **`boothId`는 다시 보내지 않습니다.** 투표 대상은 이 token에 이미 결합되어 있습니다.
-          examples: [va_opaque_token]
-      required: [voteAuthorizationToken]
-
-    VoteResult:
-      type: object
-      properties:
-        voteId:
-          type: integer
-          format: int64
-          examples: [9001]
-        pollId:
-          type: integer
-          format: int64
-          examples: [101]
-        selectedBooth:
-          $ref: '#/components/schemas/Booth'
-        votedAt:
-          type: string
-          format: date-time
-          examples: ['2026-08-14T11:32:00+09:00']
-      required: [voteId, pollId, selectedBooth, votedAt]
 
     # ----- 관리자: 대시보드 -----
     DashboardResult:

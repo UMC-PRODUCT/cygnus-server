@@ -168,11 +168,29 @@ class DemodayStampPersistenceAdapterTest {
         entityManager.clear();
 
         // When & Then
-        assertThat(loadDemodayStampPort.countActiveMemberStamps(MEMBER_ID)).isEqualTo(1);
+        assertThat(loadDemodayStampPort.countActiveMemberStamps(poll.getId(), MEMBER_ID)).isEqualTo(1);
         assertThat(loadDemodayStampPort.findLatestActiveMemberStamp(MEMBER_ID))
             .get()
             .extracting(DemodayStamp::getId)
             .isEqualTo(activeStamp.getId());
+    }
+
+    @Test
+    @DisplayName("회원의 활성 스탬프 수는 Poll별로 독립적으로 계산한다")
+    void countActiveMemberStampsWithinPoll() {
+        // Given
+        DemodayPoll firstPoll = savePoll("첫 번째 Poll 스탬프");
+        DemodayPoll secondPoll = savePoll("두 번째 Poll 스탬프");
+        DemodayBooth firstBooth = saveBooth(firstPoll, 1L);
+        DemodayBooth secondBooth = saveBooth(secondPoll, 2L);
+        saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, firstBooth));
+        saveDemodayStampPort.save(DemodayStamp.forMember(MEMBER_ID, secondBooth));
+
+        entityManager.clear();
+
+        // When & Then
+        assertThat(loadDemodayStampPort.countActiveMemberStamps(firstPoll.getId(), MEMBER_ID)).isEqualTo(1);
+        assertThat(loadDemodayStampPort.countActiveMemberStamps(secondPoll.getId(), MEMBER_ID)).isEqualTo(1);
     }
 
     @Test
