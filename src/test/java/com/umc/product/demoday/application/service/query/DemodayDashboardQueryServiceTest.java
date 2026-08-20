@@ -59,7 +59,7 @@ class DemodayDashboardQueryServiceTest {
     }
 
     @Test
-    @DisplayName("득표 내림차순과 동점 부스 코드 오름차순으로 정렬하고 경쟁 순위를 매긴다")
+    @DisplayName("랭킹과 총 투표 수는 프로젝트 부스만 포함하고 동점이면 부스 코드 오름차순으로 정렬한다")
     void assignsCompetitionRanking() {
         // given
         DemodayPoll poll = mock(DemodayPoll.class);
@@ -68,20 +68,21 @@ class DemodayDashboardQueryServiceTest {
 
         DemodayBooth booth1 = projectBooth(1L, 30, 501L);
         DemodayBooth booth2 = projectBooth(2L, 20, 502L);
-        DemodayBooth booth3 = externalBooth(3L, 10, "외부 참가팀 A");
-        DemodayBooth booth4 = externalBooth(4L, 40, "외부 참가팀 B");
+        DemodayBooth booth3 = projectBooth(3L, 10, 503L);
+        DemodayBooth booth4 = externalBooth(4L, 40, "외부 참가팀 A");
         given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(booth1, booth2, booth3, booth4));
 
         given(loadDemodayDashboardPort.countActiveVotesByBooth(POLL_ID)).willReturn(Map.of(
             1L, 20L,
             2L, 15L,
-            3L, 15L
-            // booth4는 집계에 없음 -> 0표로 취급되어야 한다
+            3L, 15L,
+            4L, 100L // 외부 부스의 잘못된 집계 값은 랭킹과 총 투표 수에서 제외되어야 한다
         ));
         given(loadDemodayDashboardPort.countActiveStampsByBooth(POLL_ID)).willReturn(Map.of());
-        given(getProjectUseCase.findAllByIds(Set.of(501L, 502L))).willReturn(Map.of(
+        given(getProjectUseCase.findAllByIds(Set.of(501L, 502L, 503L))).willReturn(Map.of(
             501L, projectInfo(501L, "잇픽"),
-            502L, projectInfo(502L, "모디")
+            502L, projectInfo(502L, "모디"),
+            503L, projectInfo(503L, "토닥")
         ));
 
         // when
@@ -94,9 +95,8 @@ class DemodayDashboardQueryServiceTest {
         List<DemodayDashboardInfo.RankingInfo> rankings = info.rankings();
         assertThat(rankings).containsExactly(
             new DemodayDashboardInfo.RankingInfo(1, 1L, 30, 501L, "잇픽", 20),
-            new DemodayDashboardInfo.RankingInfo(2, 3L, 10, null, "외부 참가팀 A", 15),
-            new DemodayDashboardInfo.RankingInfo(2, 2L, 20, 502L, "모디", 15),
-            new DemodayDashboardInfo.RankingInfo(4, 4L, 40, null, "외부 참가팀 B", 0)
+            new DemodayDashboardInfo.RankingInfo(2, 3L, 10, 503L, "토닥", 15),
+            new DemodayDashboardInfo.RankingInfo(2, 2L, 20, 502L, "모디", 15)
         );
 
         verifyAdminAccessValidated();
@@ -122,6 +122,9 @@ class DemodayDashboardQueryServiceTest {
         DemodayDashboardInfo info = service.getDashboard(POLL_ID, MEMBER_ID);
 
         // then
+        assertThat(info.summary().boothCount()).isEqualTo(2);
+        assertThat(info.summary().totalVoteCount()).isZero();
+        assertThat(info.rankings()).isEmpty();
         assertThat(info.stampHeatmap()).containsExactly(
             new DemodayDashboardInfo.StampHeatmapInfo(2L, 10, null, "부스 B", 0),
             new DemodayDashboardInfo.StampHeatmapInfo(1L, 20, null, "부스 A", 5)
@@ -137,6 +140,7 @@ class DemodayDashboardQueryServiceTest {
         given(booth.getId()).willReturn(boothId);
         given(booth.getBoothCode()).willReturn(boothCode);
         given(booth.getProjectId()).willReturn(projectId);
+        given(booth.isProjectBooth()).willReturn(true);
         return booth;
     }
 
@@ -148,6 +152,7 @@ class DemodayDashboardQueryServiceTest {
         // 부스임을 명시하기 위해 null을 직접 스텁해야 projectIdsOf()의 nonNull 필터가 정확히 동작한다.
         given(booth.getProjectId()).willReturn(null);
         given(booth.getDisplayName()).willReturn(displayName);
+        given(booth.isProjectBooth()).willReturn(false);
         return booth;
     }
 

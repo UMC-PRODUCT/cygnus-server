@@ -131,7 +131,7 @@ class DemodayPollQueryControllerTest {
     }
 
     @Test
-    @DisplayName("투표 부스 목록을 조회한다")
+    @DisplayName("투표 가능한 프로젝트 부스 목록을 조회한다")
     void listBooths() throws Exception {
         // given
         DemodayBoothInfo boothInfo = new DemodayBoothInfo(20L, BOOTH_CODE, 30L, "PRODUCT 프로젝트");

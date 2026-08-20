@@ -144,6 +144,26 @@ class CastDemodayVoteCommandServiceTest {
     }
 
     @Test
+    @DisplayName("외부 부스에 결합된 권한은 최종 투표를 저장하지 않는다")
+    void rejectExternalBoothAtFinalSubmission() {
+        // given
+        DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
+        given(demodayVoteAuthorizationValidator.validate(POLL_ID, participant, TOKEN))
+            .willReturn(claims(participant));
+        given(loadDemodayBoothPort.findById(BOOTH_ID)).willReturn(Optional.of(externalBooth()));
+
+        // when & then
+        assertThatThrownBy(() -> service.cast(new CastDemodayVoteCommand(POLL_ID, TOKEN, participant)))
+            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
+                assertThat(exception.getBaseCode())
+                    .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED));
+
+        then(loadDemodayVotePort).shouldHaveNoInteractions();
+        then(saveDemodayVotePort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("사전 조회 뒤 경합에서 저장이 늦으면 DEMODAY-0402를 그대로 반환한다")
     void propagateAlreadyCastWhenLosingDatabaseRace() {
         // given
@@ -190,7 +210,13 @@ class CastDemodayVoteCommandServiceTest {
     }
 
     private DemodayBooth booth() {
-        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, 11, "선택 부스");
+        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, 11, 100L);
+        ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
+        return booth;
+    }
+
+    private DemodayBooth externalBooth() {
+        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, 11, "외부 부스");
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }

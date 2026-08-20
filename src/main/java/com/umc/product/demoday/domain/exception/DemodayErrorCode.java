@@ -51,6 +51,7 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_VOTE_AUTHORIZATION_PARTICIPANT_MISMATCH(HttpStatus.FORBIDDEN, "DEMODAY-0413", "다른 참여자에게 발급된 투표 권한이에요."),
     DEMODAY_VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DEMODAY-0414", "투표 기록을 찾을 수 없어요."),
     DEMODAY_VOTE_NOT_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0415", "무효 처리되지 않은 표에요."),
+    DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED(HttpStatus.CONFLICT, "DEMODAY-0416", "외부 부스에는 투표할 수 없어요."),
 
     DEMODAY_STAMP_ALREADY_COLLECTED(HttpStatus.CONFLICT, "DEMODAY-0501", "이미 스탬프를 받은 부스예요."),
     DEMODAY_STAMP_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0502", "이미 무효 처리된 스탬프예요."),

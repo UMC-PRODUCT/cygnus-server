@@ -14,7 +14,7 @@ public record DemodayDashboardResponse(
         Instant generatedAt,
         @Schema(description = "요약 지표")
         SummaryResponse summary,
-        @Schema(description = "득표 순으로 정렬된 전체 부스 목록")
+        @Schema(description = "득표 순으로 정렬된 프로젝트 부스 목록. 스탬프 적립 전용 외부 부스는 제외됩니다.")
         List<RankingEntryResponse> rankings,
         @Schema(description = "스탬프 획득 수를 포함한 전체 부스 목록")
         List<StampHeatmapEntryResponse> stampHeatmap
@@ -33,7 +33,7 @@ public record DemodayDashboardResponse(
     public record SummaryResponse(
             @Schema(description = "해당 Poll에서 운영하는 전체 부스 수", example = "30")
             int boothCount,
-            @Schema(description = "해당 Poll에서 유효한 전체 투표 수. 무효 처리된 표는 제외됩니다.", example = "275")
+            @Schema(description = "프로젝트 부스에 저장된 유효 투표 수. 무효 처리된 표와 외부 부스 표는 제외됩니다.", example = "275")
             int totalVoteCount
     ) {
 

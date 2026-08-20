@@ -69,7 +69,7 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
     }
 
     @Test
-    @DisplayName("스탬프 6개와 미사용 투표 슬롯을 확인하고 선택 부스에 결합된 5분 권한을 발급한다")
+    @DisplayName("외부 부스 스탬프를 포함한 6개와 미사용 투표 슬롯을 확인하고 프로젝트 부스 권한을 발급한다")
     void createAuthorization() {
         // given
         CreateDemodayVoteAuthorizationCommand command = command();
@@ -164,6 +164,24 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
     }
 
     @Test
+    @DisplayName("외부 부스에는 투표 권한을 발급하지 않는다")
+    void rejectAuthorizationForExternalBooth() {
+        // given
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(openPoll()));
+        given(loadDemodayBoothPort.findById(BOOTH_ID)).willReturn(Optional.of(externalBooth(BOOTH_ID)));
+
+        // when & then
+        assertThatThrownBy(() -> service.create(command()))
+            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
+                assertThat(exception.getBaseCode())
+                    .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED));
+
+        then(loadDemodayVotePort).shouldHaveNoInteractions();
+        then(loadDemodayStampPort).shouldHaveNoInteractions();
+        then(generateDemodayVoteAuthorizationPort).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("현재 Poll의 유효 스탬프가 6개 미만이면 권한을 발급하지 않는다")
     void rejectWhenInsufficientStamps() {
         // given
@@ -209,12 +227,21 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
     }
 
     private List<DemodayBooth> booths() {
-        return LongStream.range(0, 6).mapToObj(index -> booth(BOOTH_ID + index)).toList();
+        return LongStream.range(0, 6)
+            .mapToObj(index -> index == 5 ? externalBooth(BOOTH_ID + index) : booth(BOOTH_ID + index))
+            .toList();
     }
 
     private DemodayBooth booth(Long boothId) {
         int boothCode = Math.toIntExact(boothId - BOOTH_ID + 1);
-        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, boothCode, "부스 " + boothId);
+        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, boothCode, boothId);
+        ReflectionTestUtils.setField(booth, "id", boothId);
+        return booth;
+    }
+
+    private DemodayBooth externalBooth(Long boothId) {
+        int boothCode = Math.toIntExact(boothId - BOOTH_ID + 1);
+        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, boothCode, "외부 부스 " + boothId);
         ReflectionTestUtils.setField(booth, "id", boothId);
         return booth;
     }

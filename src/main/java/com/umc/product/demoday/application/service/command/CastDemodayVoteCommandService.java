@@ -50,6 +50,7 @@ public class CastDemodayVoteCommandService implements CastDemodayVoteUseCase {
             command.pollId(), command.participant(), command.voteAuthorizationToken());
         DemodayBooth targetBooth = loadBooth(claims.boothId());
         validateSamePoll(command.pollId(), targetBooth);
+        targetBooth.validateVoteTarget();
         validateVoteSlotUnused(command.pollId(), command.participant());
 
         DemodayVote savedVote = saveDemodayVotePort.save(createVote(command.participant(), targetBooth));

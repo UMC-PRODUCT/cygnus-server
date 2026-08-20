@@ -120,6 +120,26 @@ class DemodayVoteTest {
     }
 
     @Test
+    @DisplayName("회원과 외부 방문자는 외부 부스에 투표할 수 없다.")
+    void rejectVoteForExternalBooth() {
+        // given
+        DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, "외부 부스");
+        ReflectionTestUtils.setField(externalBooth, "id", BOOTH_ID);
+        DemodayEntryCode entryCode = createEntryCode(POLL_ID);
+
+        // when & then
+        assertThatThrownBy(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, externalBooth))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
+
+        assertThatThrownBy(() -> DemodayVote.forVisitor(POLL_ID, entryCode, externalBooth))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
+    }
+
+    @Test
     @DisplayName("무효화된 표는 다시 무효화 할 수 없다.")
     void rejectRevokingVoteTwice() {
         //given

@@ -216,7 +216,7 @@ class DemodayTestDataCleanupPersistenceAdapterTest {
         DemodayBooth secondBooth = em.persist(DemodayBooth.forExternal(firstPoll.getId(), 12, "외부 부스"));
         DemodayEntryCode firstEntryCode = em.persist(DemodayEntryCode.create(firstPoll.getId(), hash('a')));
         em.persist(DemodayVote.forMember(firstPoll.getId(), memberId, firstBooth));
-        em.persist(DemodayVote.forVisitor(firstPoll.getId(), firstEntryCode, secondBooth));
+        em.persist(DemodayVote.forVisitor(firstPoll.getId(), firstEntryCode, firstBooth));
         em.persist(DemodayStamp.forMember(memberId, firstBooth));
         em.persist(DemodayStamp.forVisitor(firstEntryCode, secondBooth));
 

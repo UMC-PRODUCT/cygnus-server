@@ -17,6 +17,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
@@ -149,5 +150,25 @@ class DemodayPollQueryServiceTest {
                                 .isEqualTo(DemodayErrorCode.DEMODAY_POLL_NOT_FOUND));
 
         verifyNoInteractions(loadDemodayBoothPort);
+    }
+
+    @Test
+    @DisplayName("투표 부스 목록에서는 외부 부스를 제외하고 프로젝트 부스만 반환한다")
+    void listOnlyProjectBooths() {
+        // given
+        DemodayBooth projectBooth = DemodayBooth.forProject(POLL_ID, 11, 101L);
+        ReflectionTestUtils.setField(projectBooth, "id", 10L);
+        DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, 12, "외부 부스");
+        ReflectionTestUtils.setField(externalBooth, "id", 11L);
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(mock(DemodayPoll.class)));
+        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(projectBooth, externalBooth));
+
+        // when
+        var booths = demodayPollQueryService.listBooths(POLL_ID);
+
+        // then
+        assertThat(booths)
+            .extracting(booth -> booth.boothId())
+            .containsExactly(10L);
     }
 }

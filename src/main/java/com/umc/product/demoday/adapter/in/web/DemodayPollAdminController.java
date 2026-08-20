@@ -149,10 +149,12 @@ public class DemodayPollAdminController {
 
             ### 정렬과 순위
 
-            `rankings`는 `voteCount` 내림차순, 동점이면 `boothCode` 오름차순인 **전체** 부스 목록입니다.
+            `rankings`는 `voteCount` 내림차순, 동점이면 `boothCode` 오름차순인 **프로젝트 부스** 목록입니다.
+            스탬프 적립 전용인 외부 부스는 랭킹과 `summary.totalVoteCount`에서 제외됩니다.
             `rank`는 표준 경쟁 순위입니다. 동점 부스는 같은 순위를 공유하고, 다음 순위는 동점자 수만큼
             건너뜁니다(1, 2, 2, 4). 화면에 표시할 상위 개수는 FE가 정합니다.
 
+            `summary.boothCount`와 `stampHeatmap`은 프로젝트 부스와 외부 부스를 모두 포함합니다.
             `stampHeatmap`에는 스탬프 수가 `0`인 부스도 포함됩니다.
             부스 구역·좌표는 FE 정적 데이터이므로 서버는 반환하지 않습니다. FE가 `boothId`로 결합하세요.
 
