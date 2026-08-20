@@ -519,8 +519,10 @@ paths:
       operationId: getAdminDashboard
       security:
         - 'Access Token': []
-      summary: Poll 대시보드 통계 스냅샷 조회
+      summary: Poll 대시보드 통계 스냅샷 조회(제작 완료)
       description: |
+        제작 완료되었으므로 [Scalar 자동 생성본](/docs/scalar.html)를 확인해주세요
+
         요약 지표·투표 랭킹·스탬프 히트맵을 **하나의 스냅샷으로** 반환합니다.
         세 가지 모두 같은 Poll을 기준으로 하고, 데이터 규모가 부스 수 수준이며,
         같은 화면에서 비슷한 주기로 갱신되고, 같은 권한을 쓰기 때문에 API를 분리하지 않았습니다.
