@@ -1,10 +1,11 @@
 package com.umc.product.member.application.port.in.query;
 
-import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+
+import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 
 public interface GetMemberUseCase {
     MemberInfo getById(Long memberId);
@@ -20,6 +21,10 @@ public interface GetMemberUseCase {
     MemberInfo findByIdOrNull(Long memberId);
 
     Map<Long, MemberInfo> findAllByIds(Set<Long> memberIds);
+
+    Map<Long, String> findAllNamesByIds(Set<Long> memberIds);
+
+    Set<Long> searchIdsByName(Set<Long> candidateMemberIds, String name);
 
     Map<Long, Long> findAllSchoolIdsByIds(Set<Long> memberIds);
 

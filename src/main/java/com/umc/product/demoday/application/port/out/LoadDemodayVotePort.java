@@ -9,6 +9,8 @@ public interface LoadDemodayVotePort {
 
     Optional<DemodayVote> findById(Long voteId);
 
+    Optional<DemodayVote> findByIdInPollForUpdate(Long pollId, Long voteId);
+
     Optional<DemodayVote> findMemberVote(Long pollId, Long memberId);
 
     Optional<DemodayVote> findVisitorVote(Long entryCodeId);

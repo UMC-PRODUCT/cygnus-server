@@ -47,6 +47,8 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_VOTE_AUTHORIZATION_EXPIRED(HttpStatus.UNAUTHORIZED, "DEMODAY-0411", "투표 권한이 만료되었어요. INFO QR을 다시 스캔해주세요."),
     DEMODAY_VOTE_AUTHORIZATION_PURPOSE_MISMATCH(HttpStatus.UNAUTHORIZED, "DEMODAY-0412", "최종 투표 용도의 권한이 아니에요."),
     DEMODAY_VOTE_AUTHORIZATION_PARTICIPANT_MISMATCH(HttpStatus.FORBIDDEN, "DEMODAY-0413", "다른 참여자에게 발급된 투표 권한이에요."),
+    DEMODAY_VOTE_NOT_FOUND(HttpStatus.NOT_FOUND, "DEMODAY-0414", "투표 기록을 찾을 수 없어요."),
+    DEMODAY_VOTE_NOT_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0415", "무효 처리되지 않은 표에요."),
 
     DEMODAY_STAMP_ALREADY_COLLECTED(HttpStatus.CONFLICT, "DEMODAY-0501", "이미 스탬프를 받은 부스예요."),
     DEMODAY_STAMP_ALREADY_REVOKED(HttpStatus.CONFLICT, "DEMODAY-0502", "이미 무효 처리된 스탬프예요."),
@@ -55,7 +57,7 @@ public enum DemodayErrorCode implements BaseCode {
     DEMODAY_STAMP_COOLDOWN_ACTIVE(HttpStatus.CONFLICT, "DEMODAY-0505", "아직 다음 스탬프를 적립할 수 없어요."),
     DEMODAY_STAMP_MAX_COUNT_REACHED(HttpStatus.CONFLICT, "DEMODAY-0506", "이미 모든 부스의 스탬프를 받았어요."),
 
-    DEMODAY_ADMIN_ACCESS_DENIED(HttpStatus.BAD_REQUEST, "DEMODAY-0600", "접근 권한이 없는 사용자입니다.");
+    DEMODAY_ADMIN_ACCESS_DENIED(HttpStatus.FORBIDDEN, "DEMODAY-0600", "접근 권한이 없는 사용자입니다.");
 
     private final HttpStatus httpStatus;
     private final String code;

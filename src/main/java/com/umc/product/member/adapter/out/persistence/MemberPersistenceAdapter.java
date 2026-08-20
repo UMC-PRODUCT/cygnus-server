@@ -63,6 +63,11 @@ public class MemberPersistenceAdapter implements
     }
 
     @Override
+    public Set<Long> searchIdsByName(Set<Long> candidateMemberIds, String name) {
+        return memberJpaRepository.searchIdsByName(candidateMemberIds, name);
+    }
+
+    @Override
     public Set<Long> listIdsBySchoolId(Long schoolId) {
         return memberJpaRepository.findAllIdsBySchoolId(schoolId);
     }

@@ -1,5 +1,16 @@
 package com.umc.product.member.application.service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.umc.product.authorization.application.port.in.query.GetChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.query.dto.ChallengerRoleInfo;
 import com.umc.product.member.application.port.in.query.GetMemberProfileUseCase;
@@ -14,15 +25,8 @@ import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.storage.application.port.in.query.GetFileUseCase;
 import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -114,6 +118,28 @@ public class MemberQueryService implements GetMemberUseCase, GetMemberProfileUse
         }
 
         return results;
+    }
+
+    @Override
+    public Map<Long, String> findAllNamesByIds(Set<Long> memberIds) {
+        if (memberIds == null || memberIds.isEmpty()) {
+            return Map.of();
+        }
+
+        return loadMemberPort.findAllByIds(memberIds).stream()
+            .collect(Collectors.toMap(Member::getId, Member::getName));
+    }
+
+    @Override
+    public Set<Long> searchIdsByName(Set<Long> candidateMemberIds, String name) {
+        if (candidateMemberIds == null || candidateMemberIds.isEmpty()) {
+            return Set.of();
+        }
+        if (name == null || name.isBlank()) {
+            return Set.copyOf(candidateMemberIds);
+        }
+
+        return loadMemberPort.searchIdsByName(candidateMemberIds, name.strip());
     }
 
     @Override

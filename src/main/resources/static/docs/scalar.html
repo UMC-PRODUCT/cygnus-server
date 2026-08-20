@@ -17,23 +17,12 @@
 
 <script>
     Scalar.createApiReference(document.getElementById('app'), {
-        // 목록의 첫 항목이 기본 문서다. default: true 로 명시해 순서에 의존하지 않는다.
         sources: [
             {
                 title: 'UMC PRODUCT API',
                 slug: 'umc-product-api',
                 url: '/docs-json',   // springdoc 자동 생성. 컨트롤러가 있는 API 전체.
                 default: true
-            },
-            {
-                // 컨트롤러 구현 전 FE 착수용으로 손으로 쓴 계약 초안.
-                //
-                // 구현 PR 에서 해당 경로를 demoday-draft.yaml 에서 지우고,
-                // 마지막 경로가 빠지면 그 파일과 이 sources 항목을 함께 삭제한다.
-                // 같은 경로가 양쪽 문서에 다 보이면 자동 생성본이 정본이다.
-                title: '데모데이 현장 투표 (초안)',
-                slug: 'demoday-draft',
-                url: '/docs/demoday-draft.yaml'
             }
         ],
 
