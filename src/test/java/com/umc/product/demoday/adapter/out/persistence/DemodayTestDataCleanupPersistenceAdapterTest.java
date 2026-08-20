@@ -105,7 +105,7 @@ class DemodayTestDataCleanupPersistenceAdapterTest {
 
         // When
         DemodayPoll recreatedPoll = em.persist(createPoll(9L, "초기화 후 Poll"));
-        DemodayBooth recreatedBooth = em.persist(DemodayBooth.forProject(recreatedPoll.getId(), 300L));
+        DemodayBooth recreatedBooth = em.persist(DemodayBooth.forProject(recreatedPoll.getId(), 11, 300L));
         DemodayEntryCode recreatedEntryCode = em.persist(DemodayEntryCode.create(recreatedPoll.getId(), hash('c')));
         DemodayVote recreatedVote = em.persist(DemodayVote.forVisitor(
             recreatedPoll.getId(),
@@ -212,8 +212,8 @@ class DemodayTestDataCleanupPersistenceAdapterTest {
 
     private DemodayRows persistDemodayRows(Long gisuId, Long memberId) {
         DemodayPoll firstPoll = em.persist(createPoll(gisuId, "첫 번째 데모데이"));
-        DemodayBooth firstBooth = em.persist(DemodayBooth.forProject(firstPoll.getId(), 100L));
-        DemodayBooth secondBooth = em.persist(DemodayBooth.forExternal(firstPoll.getId(), "외부 부스"));
+        DemodayBooth firstBooth = em.persist(DemodayBooth.forProject(firstPoll.getId(), 11, 100L));
+        DemodayBooth secondBooth = em.persist(DemodayBooth.forExternal(firstPoll.getId(), 12, "외부 부스"));
         DemodayEntryCode firstEntryCode = em.persist(DemodayEntryCode.create(firstPoll.getId(), hash('a')));
         em.persist(DemodayVote.forMember(firstPoll.getId(), memberId, firstBooth));
         em.persist(DemodayVote.forVisitor(firstPoll.getId(), firstEntryCode, secondBooth));
@@ -221,7 +221,7 @@ class DemodayTestDataCleanupPersistenceAdapterTest {
         em.persist(DemodayStamp.forVisitor(firstEntryCode, secondBooth));
 
         DemodayPoll secondPoll = em.persist(createPoll(gisuId, "두 번째 데모데이"));
-        DemodayBooth thirdBooth = em.persist(DemodayBooth.forProject(secondPoll.getId(), 200L));
+        DemodayBooth thirdBooth = em.persist(DemodayBooth.forProject(secondPoll.getId(), 11, 200L));
         DemodayEntryCode secondEntryCode = em.persist(DemodayEntryCode.create(secondPoll.getId(), hash('b')));
         DemodayVote thirdVote = em.persist(DemodayVote.forVisitor(secondPoll.getId(), secondEntryCode, thirdBooth));
         DemodayStamp thirdStamp = em.persist(DemodayStamp.forVisitor(secondEntryCode, thirdBooth));
