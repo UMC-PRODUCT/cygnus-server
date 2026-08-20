@@ -213,7 +213,8 @@ class CreateDemodayVoteAuthorizationCommandServiceTest {
     }
 
     private DemodayBooth booth(Long boothId) {
-        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, "부스 " + boothId);
+        int boothCode = Math.toIntExact(boothId - BOOTH_ID + 1);
+        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, boothCode, "부스 " + boothId);
         ReflectionTestUtils.setField(booth, "id", boothId);
         return booth;
     }

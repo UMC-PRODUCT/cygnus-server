@@ -14,6 +14,7 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 class DemodayBoothTest {
 
     private static final Long POLL_ID = 1L;
+    private static final Integer BOOTH_CODE = 11;
     private static final Long PROJECT_ID = 1L;
 
     @Test
@@ -21,10 +22,11 @@ class DemodayBoothTest {
     void createProjectBooth() {
 
         // given
-        DemodayBooth demodayBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
+        DemodayBooth demodayBooth = DemodayBooth.forProject(POLL_ID, BOOTH_CODE, PROJECT_ID);
 
         // when & then
         assertThat(demodayBooth.getPollId()).isEqualTo(POLL_ID);
+        assertThat(demodayBooth.getBoothCode()).isEqualTo(BOOTH_CODE);
         assertThat(demodayBooth.getProjectId()).isEqualTo(PROJECT_ID);
         assertThat(demodayBooth.getDisplayName()).isNull();
     }
@@ -33,10 +35,11 @@ class DemodayBoothTest {
     @DisplayName("외부 부스 생성은 프로젝트는 비어 있고 부스 이름은 갖고 있다.")
     void createExternalBooth() {
         //given
-        DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, "external");
+        DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, "external");
 
         //when & then
         assertThat(demodayBooth.getPollId()).isEqualTo(POLL_ID);
+        assertThat(demodayBooth.getBoothCode()).isEqualTo(BOOTH_CODE);
         assertThat(demodayBooth.getDisplayName()).isEqualTo("external");
         assertThat(demodayBooth.getProjectId()).isNull();
     }
@@ -45,23 +48,32 @@ class DemodayBoothTest {
     @DisplayName("부스는 투표 식별자 없이 만들 수 없다.")
     void rejectBoothWithoutPollId() {
         //when & then
-        assertThatThrownBy(() -> DemodayBooth.forProject(null, PROJECT_ID))
+        assertThatThrownBy(() -> DemodayBooth.forProject(null, BOOTH_CODE, PROJECT_ID))
             .isInstanceOf(NullPointerException.class);
 
-        assertThatThrownBy(() -> DemodayBooth.forExternal(null, "external"))
+        assertThatThrownBy(() -> DemodayBooth.forExternal(null, BOOTH_CODE, "external"))
             .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("부스 코드는 양의 정수여야 한다.")
+    void rejectNonPositiveBoothCode() {
+        // when & then
+        assertInvalidBoothCode(null);
+        assertInvalidBoothCode(0);
+        assertInvalidBoothCode(-1);
     }
 
     @Test
     @DisplayName("외부 부스 생성시 부스 이름이 비어 있으면 안된다.")
     void rejectBlankExternalBoothName() {
         //when & then
-        assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, null))
+        assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, null))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
 
-        assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, " "))
+        assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, " "))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
@@ -75,13 +87,20 @@ class DemodayBoothTest {
         String tooLong = "가".repeat(256);
 
         // when & then
-        assertThatCode(() -> DemodayBooth.forExternal(POLL_ID, maxLength))
+        assertThatCode(() -> DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, maxLength))
             .doesNotThrowAnyException();
 
-        assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, tooLong))
+        assertThatThrownBy(() -> DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, tooLong))
             .isInstanceOf(DemodayDomainException.class)
             .extracting("baseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_NAME);
+    }
+
+    private void assertInvalidBoothCode(Integer boothCode) {
+        assertThatThrownBy(() -> DemodayBooth.forProject(POLL_ID, boothCode, PROJECT_ID))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_CODE);
     }
 
 }

@@ -42,6 +42,8 @@ class RegisterDemodayBoothCommandServiceTest {
     private static final Long GISU_ID = 8L;
     private static final Long PROJECT_ID = 101L;
     private static final Long BOOTH_ID = 20L;
+    private static final Integer BOOTH_CODE = 11;
+    private static final Integer SECOND_BOOTH_CODE = 12;
     private static final String DISPLAY_NAME = "외부 참가팀 A";
     private static final String POLL_NAME = "8기 데모데이 투표";
     private static final Instant OPENS_AT = Instant.parse("2026-08-15T09:00:00Z");
@@ -82,6 +84,7 @@ class RegisterDemodayBoothCommandServiceTest {
         then(saveDemodayBoothPort).should().save(boothCaptor.capture());
 
         assertThat(boothCaptor.getValue().getPollId()).isEqualTo(POLL_ID);
+        assertThat(boothCaptor.getValue().getBoothCode()).isEqualTo(BOOTH_CODE);
         assertThat(boothCaptor.getValue().getProjectId()).isEqualTo(PROJECT_ID);
         assertThat(boothCaptor.getValue().getDisplayName()).isNull();
     }
@@ -99,6 +102,7 @@ class RegisterDemodayBoothCommandServiceTest {
         // then
         assertThat(boothId).isEqualTo(BOOTH_ID);
         then(saveDemodayBoothPort).should().save(boothCaptor.capture());
+        assertThat(boothCaptor.getValue().getBoothCode()).isEqualTo(BOOTH_CODE);
         assertThat(boothCaptor.getValue().getProjectId()).isNull();
         assertThat(boothCaptor.getValue().getDisplayName()).isEqualTo(DISPLAY_NAME);
     }
@@ -147,6 +151,22 @@ class RegisterDemodayBoothCommandServiceTest {
                 DemodayDomainException.class,
                 exception -> assertThat(exception.getBaseCode())
                     .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_IDENTIFIER));
+
+        then(saveDemodayBoothPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("부스 코드가 없으면 저장하지 않는다")
+    void rejectCommandWithoutBoothCode() {
+        // given
+        givenClosedPoll();
+
+        // when & then
+        assertThatThrownBy(() -> service.register(commandOf(null, PROJECT_ID, null)))
+            .isInstanceOfSatisfying(
+                DemodayDomainException.class,
+                exception -> assertThat(exception.getBaseCode())
+                    .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_CODE));
 
         then(saveDemodayBoothPort).shouldHaveNoInteractions();
     }
@@ -215,8 +235,8 @@ class RegisterDemodayBoothCommandServiceTest {
 
         // when
         List<Long> boothIds = service.registerAll(batchCommandOf(
-            new BoothRegistration(PROJECT_ID, null),
-            new BoothRegistration(null, DISPLAY_NAME)));
+            new BoothRegistration(BOOTH_CODE, PROJECT_ID, null),
+            new BoothRegistration(SECOND_BOOTH_CODE, null, DISPLAY_NAME)));
 
         // then
         assertThat(boothIds).containsExactly(BOOTH_ID, BOOTH_ID + 1);
@@ -225,8 +245,10 @@ class RegisterDemodayBoothCommandServiceTest {
         then(saveDemodayBoothPort).should().saveAll(boothListCaptor.capture());
 
         assertThat(boothListCaptor.getValue())
-            .extracting(DemodayBooth::getProjectId, DemodayBooth::getDisplayName)
-            .containsExactly(tuple(PROJECT_ID, null), tuple(null, DISPLAY_NAME));
+            .extracting(DemodayBooth::getBoothCode, DemodayBooth::getProjectId, DemodayBooth::getDisplayName)
+            .containsExactly(
+                tuple(BOOTH_CODE, PROJECT_ID, null),
+                tuple(SECOND_BOOTH_CODE, null, DISPLAY_NAME));
     }
 
     @Test
@@ -242,7 +264,7 @@ class RegisterDemodayBoothCommandServiceTest {
 
         // when & then
         assertThatThrownBy(() -> service.registerAll(
-            batchCommandOf(new BoothRegistration(PROJECT_ID, null))))
+            batchCommandOf(new BoothRegistration(BOOTH_CODE, PROJECT_ID, null))))
             .isSameAs(expectedException);
 
         then(loadDemodayPollPort).shouldHaveNoInteractions();
@@ -258,12 +280,31 @@ class RegisterDemodayBoothCommandServiceTest {
         // when & then
         assertThatThrownBy(() -> service.registerAll(
             batchCommandOf(
-                new BoothRegistration(PROJECT_ID, null),
-                new BoothRegistration(PROJECT_ID, DISPLAY_NAME))))
+                new BoothRegistration(BOOTH_CODE, PROJECT_ID, null),
+                new BoothRegistration(SECOND_BOOTH_CODE, PROJECT_ID, DISPLAY_NAME))))
             .isInstanceOfSatisfying(
                 DemodayDomainException.class,
                 exception -> assertThat(exception.getBaseCode())
                     .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_IDENTIFIER));
+
+        then(saveDemodayBoothPort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("일괄 등록은 한 항목이라도 부스 코드가 양수가 아니면 전체를 저장하지 않는다")
+    void rejectWholeBatchWhenAnyBoothCodeIsInvalid() {
+        // given
+        givenClosedPoll();
+
+        // when & then
+        assertThatThrownBy(() -> service.registerAll(
+            batchCommandOf(
+                new BoothRegistration(BOOTH_CODE, PROJECT_ID, null),
+                new BoothRegistration(0, null, DISPLAY_NAME))))
+            .isInstanceOfSatisfying(
+                DemodayDomainException.class,
+                exception -> assertThat(exception.getBaseCode())
+                    .isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_INVALID_CODE));
 
         then(saveDemodayBoothPort).shouldHaveNoInteractions();
     }
@@ -277,7 +318,8 @@ class RegisterDemodayBoothCommandServiceTest {
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
 
         // when & then
-        assertThatThrownBy(() -> service.registerAll(batchCommandOf(new BoothRegistration(PROJECT_ID, null))))
+        assertThatThrownBy(() -> service.registerAll(
+            batchCommandOf(new BoothRegistration(BOOTH_CODE, PROJECT_ID, null))))
             .isInstanceOfSatisfying(
                 DemodayDomainException.class,
                 exception -> assertThat(exception.getBaseCode())
@@ -320,6 +362,14 @@ class RegisterDemodayBoothCommandServiceTest {
     }
 
     private RegisterDemodayBoothCommand commandOf(Long projectId, String displayName) {
-        return new RegisterDemodayBoothCommand(MEMBER_ID, POLL_ID, projectId, displayName);
+        return commandOf(BOOTH_CODE, projectId, displayName);
+    }
+
+    private RegisterDemodayBoothCommand commandOf(
+        Integer boothCode,
+        Long projectId,
+        String displayName
+    ) {
+        return new RegisterDemodayBoothCommand(MEMBER_ID, POLL_ID, boothCode, projectId, displayName);
     }
 }

@@ -44,8 +44,8 @@ class DemodayEntityMappingTest {
     void mapBoothCollection() {
         // given
         DemodayPoll poll = persistPoll();
-        em.persistAndFlush(DemodayBooth.forProject(poll.getId(), PROJECT_ID));
-        em.persistAndFlush(DemodayBooth.forExternal(poll.getId(), "외부 부스"));
+        em.persistAndFlush(DemodayBooth.forProject(poll.getId(), 11, PROJECT_ID));
+        em.persistAndFlush(DemodayBooth.forExternal(poll.getId(), 12, "외부 부스"));
 
         // when
         em.clear(); //현재 영속성 컨텍스트(1차 캐시)를 비운다.
@@ -64,7 +64,7 @@ class DemodayEntityMappingTest {
     void mapVoteAndStamp() {
         // given
         DemodayPoll poll = persistPoll();
-        DemodayBooth booth = em.persistAndFlush(DemodayBooth.forProject(poll.getId(), PROJECT_ID));
+        DemodayBooth booth = em.persistAndFlush(DemodayBooth.forProject(poll.getId(), 11, PROJECT_ID));
         DemodayEntryCode entryCode = em.persistAndFlush(DemodayEntryCode.create(poll.getId(), "code-hash"));
 
         DemodayVote memberVote = em.persistAndFlush(DemodayVote.forMember(poll.getId(), MEMBER_ID, booth));

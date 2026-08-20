@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DataIntegrityViolationException;
 
+import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.DemodayVote;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
@@ -26,6 +27,9 @@ class DemodayPersistenceAdapterConstraintTranslationTest {
 
     @Mock
     private DemodayVoteJpaRepository voteRepository;
+
+    @Mock
+    private DemodayBoothJpaRepository boothRepository;
 
     @Mock
     private DemodayVoteQueryRepository voteQueryRepository;
@@ -39,13 +43,33 @@ class DemodayPersistenceAdapterConstraintTranslationTest {
     @Mock
     private DemodayStamp stamp;
 
+    @Mock
+    private DemodayBooth booth;
+
+    private DemodayBoothPersistenceAdapter boothAdapter;
     private DemodayVotePersistenceAdapter voteAdapter;
     private DemodayStampPersistenceAdapter stampAdapter;
 
     @BeforeEach
     void setUp() {
+        boothAdapter = new DemodayBoothPersistenceAdapter(boothRepository);
         voteAdapter = new DemodayVotePersistenceAdapter(voteRepository, voteQueryRepository);
         stampAdapter = new DemodayStampPersistenceAdapter(stampRepository);
+    }
+
+    @Test
+    @DisplayName("같은 Poll의 부스 코드 중복 제약 위반을 중복 코드 도메인 오류로 변환한다")
+    void translateDuplicateBoothCodeConstraint() {
+        // Given
+        DataIntegrityViolationException exception = constraintViolation("uk_demoday_booth_poll_code");
+        given(boothRepository.saveAndFlush(any(DemodayBooth.class))).willThrow(exception);
+
+        // When & Then
+        assertThatThrownBy(() -> boothAdapter.save(booth))
+            .isInstanceOfSatisfying(DemodayDomainException.class, domainException -> {
+                assertThat(domainException.getBaseCode()).isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_CODE_DUPLICATED);
+                assertThat(domainException.getCause()).isSameAs(exception);
+            });
     }
 
     @Test
@@ -98,6 +122,17 @@ class DemodayPersistenceAdapterConstraintTranslationTest {
 
         // When & Then
         assertThatThrownBy(() -> stampAdapter.save(stamp)).isSameAs(exception);
+    }
+
+    @Test
+    @DisplayName("알 수 없는 부스 무결성 오류는 원래 예외를 유지한다")
+    void preserveUnknownBoothIntegrityViolation() {
+        // Given
+        DataIntegrityViolationException exception = constraintViolation("unknown_booth_constraint");
+        given(boothRepository.saveAndFlush(any(DemodayBooth.class))).willThrow(exception);
+
+        // When & Then
+        assertThatThrownBy(() -> boothAdapter.save(booth)).isSameAs(exception);
     }
 
     private void assertVoteConstraintTranslation(String constraintName, DemodayErrorCode errorCode) {

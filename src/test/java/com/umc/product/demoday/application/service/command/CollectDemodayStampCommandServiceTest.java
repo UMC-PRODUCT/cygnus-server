@@ -307,7 +307,7 @@ class CollectDemodayStampCommandServiceTest {
     }
 
     private static DemodayBooth boothOf(Long pollId) {
-        DemodayBooth booth = DemodayBooth.forExternal(pollId, "테스트 부스");
+        DemodayBooth booth = DemodayBooth.forExternal(pollId, 11, "테스트 부스");
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }
