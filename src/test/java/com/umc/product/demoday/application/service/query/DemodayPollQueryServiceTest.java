@@ -22,6 +22,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantType;
+import com.umc.product.demoday.application.port.in.query.participant.GuestDemodayParticipant;
 import com.umc.product.demoday.application.port.in.query.participant.MemberDemodayParticipant;
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
@@ -150,6 +151,7 @@ class DemodayPollQueryServiceTest {
         DemodayBooth ownBooth = mock(DemodayBooth.class);
         DemodayBooth eligibleBooth = mock(DemodayBooth.class);
         given(eligibleBooth.getId()).willReturn(2L);
+        given(eligibleBooth.isProjectBooth()).willReturn(true);
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(mock(DemodayPoll.class)));
         given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(ownBooth, eligibleBooth));
         given(demodayVoteTargetValidator.filterEligibleBooths(List.of(ownBooth, eligibleBooth), participant))
@@ -185,15 +187,18 @@ class DemodayPollQueryServiceTest {
     @DisplayName("투표 부스 목록에서는 외부 부스를 제외하고 프로젝트 부스만 반환한다")
     void listOnlyProjectBooths() {
         // given
+        DemodayParticipant participant = new GuestDemodayParticipant(10L);
         DemodayBooth projectBooth = DemodayBooth.forProject(POLL_ID, 11, 101L);
         ReflectionTestUtils.setField(projectBooth, "id", 10L);
         DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, 12, "외부 부스");
         ReflectionTestUtils.setField(externalBooth, "id", 11L);
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(mock(DemodayPoll.class)));
         given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(projectBooth, externalBooth));
+        given(demodayVoteTargetValidator.filterEligibleBooths(List.of(projectBooth, externalBooth), participant))
+            .willReturn(List.of(projectBooth, externalBooth));
 
         // when
-        var booths = demodayPollQueryService.listBooths(POLL_ID);
+        var booths = demodayPollQueryService.listBooths(POLL_ID, participant);
 
         // then
         assertThat(booths)

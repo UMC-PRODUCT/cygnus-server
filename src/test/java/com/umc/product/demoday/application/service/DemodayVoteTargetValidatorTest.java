@@ -62,7 +62,7 @@ class DemodayVoteTargetValidatorTest {
     }
 
     @Test
-    @DisplayName("게스트에게는 모든 부스를 투표 대상으로 제공한다")
+    @DisplayName("게스트에게는 소속 프로젝트 필터를 적용하지 않는다")
     void keepAllBoothsForGuest() {
         // given
         List<DemodayBooth> booths = List.of(
@@ -99,8 +99,8 @@ class DemodayVoteTargetValidatorTest {
     }
 
     @Test
-    @DisplayName("외부 부스는 프로젝트 소속 확인 없이 투표할 수 있다")
-    void allowExternalBooth() {
+    @DisplayName("외부 부스는 프로젝트 소속 확인 대상이 아니다")
+    void skipParticipationCheckForExternalBooth() {
         // given
         DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, EXTERNAL_BOOTH_CODE, "외부 부스");
 
