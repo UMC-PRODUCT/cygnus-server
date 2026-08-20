@@ -22,6 +22,7 @@ import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayStampPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.application.service.DemodayVoteQrCredentialValidator;
+import com.umc.product.demoday.application.service.DemodayVoteTargetValidator;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.DemodayStamp;
@@ -43,6 +44,7 @@ public class CreateDemodayVoteAuthorizationCommandService implements CreateDemod
     private final LoadDemodayStampPort loadDemodayStampPort;
     private final LoadDemodayVotePort loadDemodayVotePort;
     private final DemodayVoteQrCredentialValidator demodayVoteQrCredentialValidator;
+    private final DemodayVoteTargetValidator demodayVoteTargetValidator;
     private final GenerateDemodayVoteAuthorizationPort generateDemodayVoteAuthorizationPort;
     private final Clock clock;
 
@@ -56,6 +58,7 @@ public class CreateDemodayVoteAuthorizationCommandService implements CreateDemod
         DemodayBooth booth = loadBooth(command.boothId());
         validateSamePoll(command.pollId(), booth);
         booth.validateVoteTarget();
+        demodayVoteTargetValidator.validateEligibleBooth(booth, command.participant());
         validateVoteSlotUnused(command.pollId(), command.participant());
         validateRequiredStamps(command.pollId(), command.participant());
 

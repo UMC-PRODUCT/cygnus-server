@@ -58,13 +58,15 @@ public class DemodayPollQueryController {
 
     @Operation(
         summary = "투표 대상 프로젝트 부스 목록 조회",
-        description = "참여자가 투표할 수 있는 프로젝트 부스만 부스 코드 오름차순으로 조회합니다. 스탬프 적립 전용인 외부 부스는 제외됩니다."
+        description = "참여자가 투표할 수 있는 프로젝트 부스만 부스 코드 오름차순으로 조회합니다. "
+            + "스탬프 적립 전용인 외부 부스와 회원의 소속 부스는 제외됩니다."
     )
     @GetMapping("/{pollId}/booths")
     public DemodayBoothListResponse listBooths(
-        @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId
+        @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId,
+        @Parameter(hidden = true) @CurrentDemodayParticipant DemodayParticipant participant
     ) {
-        List<DemodayBoothInfo> boothInfos = listDemodayBoothUseCase.listBooths(pollId);
+        List<DemodayBoothInfo> boothInfos = listDemodayBoothUseCase.listBooths(pollId, participant);
         return DemodayBoothListResponse.from(boothInfos);
     }
 }

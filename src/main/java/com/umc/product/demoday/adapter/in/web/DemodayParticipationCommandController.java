@@ -124,7 +124,7 @@ public class DemodayParticipationCommandController {
         @ApiResponse(responseCode = "201", description = "투표 권한 발급 성공"),
         @ApiResponse(responseCode = "400", description = "요청 필드 형식 오류"),
         @ApiResponse(responseCode = "401", description = "참여자 인증 또는 INFO QR이 유효하지 않거나 만료됨"),
-        @ApiResponse(responseCode = "403", description = "스탬프가 6개 미만임(DEMODAY-0409)"),
+        @ApiResponse(responseCode = "403", description = "스탬프가 6개 미만이거나 소속 부스를 선택함"),
         @ApiResponse(responseCode = "404", description = "Poll 또는 선택 부스를 찾을 수 없음"),
         @ApiResponse(responseCode = "409", description = "투표 시간 아님, 이미 투표함, Poll과 부스 불일치, 외부 부스 선택(DEMODAY-0416)")
     })
@@ -156,7 +156,7 @@ public class DemodayParticipationCommandController {
         @ApiResponse(responseCode = "201", description = "최종 투표 성공"),
         @ApiResponse(responseCode = "400", description = "요청 필드 형식 오류"),
         @ApiResponse(responseCode = "401", description = "투표 권한이 유효하지 않거나 만료됨"),
-        @ApiResponse(responseCode = "403", description = "다른 참여자에게 발급된 투표 권한임(DEMODAY-0413)"),
+        @ApiResponse(responseCode = "403", description = "다른 참여자의 권한이거나 소속 부스에 투표함"),
         @ApiResponse(responseCode = "404", description = "Poll, token에 결합된 부스 또는 게스트 입장 코드를 찾을 수 없음"),
         @ApiResponse(responseCode = "409", description = "투표 시간 아님, 이미 투표함, Poll 불일치, 외부 부스 선택(DEMODAY-0416)")
     })

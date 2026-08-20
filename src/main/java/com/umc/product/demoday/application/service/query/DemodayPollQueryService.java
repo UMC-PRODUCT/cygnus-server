@@ -21,6 +21,7 @@ import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayStampPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
+import com.umc.product.demoday.application.service.DemodayVoteTargetValidator;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayStamp;
 import com.umc.product.demoday.domain.DemodayVote;
@@ -40,6 +41,7 @@ public class DemodayPollQueryService implements
     private final LoadDemodayBoothPort loadDemodayBoothPort;
     private final LoadDemodayStampPort loadDemodayStampPort;
     private final LoadDemodayVotePort loadDemodayVotePort;
+    private final DemodayVoteTargetValidator demodayVoteTargetValidator;
 
     @Override
     public List<DemodayPollInfo> listPolls() {
@@ -90,10 +92,12 @@ public class DemodayPollQueryService implements
     }
 
     @Override
-    public List<DemodayBoothInfo> listBooths(Long pollId) {
+    public List<DemodayBoothInfo> listBooths(Long pollId, DemodayParticipant participant) {
         validatePollExists(pollId);
 
-        return loadDemodayBoothPort.listByPollId(pollId)
+        List<DemodayBooth> booths = loadDemodayBoothPort.listByPollId(pollId);
+
+        return demodayVoteTargetValidator.filterEligibleBooths(booths, participant)
             .stream()
             .filter(DemodayBooth::isProjectBooth)
             .map(DemodayBoothInfo::from)
