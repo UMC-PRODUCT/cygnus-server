@@ -48,6 +48,7 @@ class DemodayPollQueryControllerTest {
 
     private static final Long MEMBER_ID = 1L;
     private static final Long POLL_ID = 10L;
+    private static final int BOOTH_CODE = 11;
     public static final int STAMP_COUNT = 6;
     public static final int REQUIRED_STAMP_COUNT = 6;
 
@@ -133,7 +134,7 @@ class DemodayPollQueryControllerTest {
     @DisplayName("투표 가능한 프로젝트 부스 목록을 조회한다")
     void listBooths() throws Exception {
         // given
-        DemodayBoothInfo boothInfo = new DemodayBoothInfo(20L, 30L, "PRODUCT 프로젝트");
+        DemodayBoothInfo boothInfo = new DemodayBoothInfo(20L, BOOTH_CODE, 30L, "PRODUCT 프로젝트");
         given(listDemodayBoothUseCase.listBooths(POLL_ID))
             .willReturn(List.of(boothInfo));
 
@@ -141,6 +142,7 @@ class DemodayPollQueryControllerTest {
         mockMvc.perform(get("/api/v1/demoday/polls/{pollId}/booths", POLL_ID))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.result.booths[0].boothId").value(20L))
+                .andExpect(jsonPath("$.result.booths[0].boothCode").value(BOOTH_CODE))
                 .andExpect(jsonPath("$.result.booths[0].projectId").value(30L))
                 .andExpect(jsonPath("$.result.booths[0].displayName").value("PRODUCT 프로젝트"));
 

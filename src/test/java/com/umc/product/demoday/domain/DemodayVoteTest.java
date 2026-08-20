@@ -18,12 +18,13 @@ class DemodayVoteTest {
 
     private static final Long POLL_ID = 1L;
     private static final Long BOOTH_ID = 10L;
+    private static final Integer BOOTH_CODE = 11;
     private static final Long ENTRY_CODE_ID = 20L;
     private static final Long MEMBER_ID = 1L;
     private static final Long PROJECT_ID = 1L;
 
     private static DemodayBooth createBooth(Long pollId) {
-        DemodayBooth booth = DemodayBooth.forProject(pollId, PROJECT_ID);
+        DemodayBooth booth = DemodayBooth.forProject(pollId, BOOTH_CODE, PROJECT_ID);
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }
@@ -111,7 +112,7 @@ class DemodayVoteTest {
     @DisplayName("저장되지 않은 부스에는 투표할 수 없다.")
     void rejectVoteForUnsavedBooth() {
         // given
-        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
+        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, BOOTH_CODE, PROJECT_ID);
 
         // when & then
         assertThatThrownBy(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, unsavedBooth))
@@ -122,7 +123,7 @@ class DemodayVoteTest {
     @DisplayName("회원과 외부 방문자는 외부 부스에 투표할 수 없다.")
     void rejectVoteForExternalBooth() {
         // given
-        DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, "외부 부스");
+        DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, "외부 부스");
         ReflectionTestUtils.setField(externalBooth, "id", BOOTH_ID);
         DemodayEntryCode entryCode = createEntryCode(POLL_ID);
 

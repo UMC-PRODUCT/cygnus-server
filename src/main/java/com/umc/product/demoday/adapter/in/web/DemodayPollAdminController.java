@@ -95,7 +95,7 @@ public class DemodayPollAdminController {
         @Parameter(hidden = true) @CurrentMember MemberPrincipal principal,
         @PathVariable("pollId") Long pollId,
         @Valid @RequestBody GenerateDemodayEntryCodesRequest request
-        ) {
+    ) {
 
         CreateDemodayEntryCodesInfo demodayEntryCodesInfo = createDemodayEntryCodeUseCase.create(
             principal.getMemberId(), request.toCommand(pollId));
@@ -149,7 +149,7 @@ public class DemodayPollAdminController {
 
             ### 정렬과 순위
 
-            `rankings`는 `voteCount` 내림차순, 동점이면 `boothId` 오름차순인 **프로젝트 부스** 목록입니다.
+            `rankings`는 `voteCount` 내림차순, 동점이면 `boothCode` 오름차순인 **프로젝트 부스** 목록입니다.
             스탬프 적립 전용인 외부 부스는 랭킹과 `summary.totalVoteCount`에서 제외됩니다.
             `rank`는 표준 경쟁 순위입니다. 동점 부스는 같은 순위를 공유하고, 다음 순위는 동점자 수만큼
             건너뜁니다(1, 2, 2, 4). 화면에 표시할 상위 개수는 FE가 정합니다.

@@ -210,13 +210,13 @@ class CastDemodayVoteCommandServiceTest {
     }
 
     private DemodayBooth booth() {
-        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, 100L);
+        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, 11, 100L);
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }
 
     private DemodayBooth externalBooth() {
-        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, "외부 부스");
+        DemodayBooth booth = DemodayBooth.forExternal(POLL_ID, 11, "외부 부스");
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }

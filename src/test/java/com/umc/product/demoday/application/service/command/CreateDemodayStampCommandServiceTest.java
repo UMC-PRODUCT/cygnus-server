@@ -72,7 +72,7 @@ class CreateDemodayStampCommandServiceTest {
     @DisplayName("관리자가 부스의 스탬프 QR을 발급하면 QR 값과 발급 정보를 일관되게 저장하고 반환한다")
     void createStampCredential() {
         // given
-        DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, "UMC PRODUCT");
+        DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, 11, "UMC PRODUCT");
         DemodayPoll demodayPoll = DemodayPoll.create(
             GISU_ID,
             "데모데이",
@@ -134,7 +134,7 @@ class CreateDemodayStampCommandServiceTest {
     void throwExceptionWhenBoothDoesNotBelongToPoll() {
         // given
         Long anotherPollId = 4L;
-        DemodayBooth demodayBooth = DemodayBooth.forExternal(anotherPollId, "UMC PRODUCT");
+        DemodayBooth demodayBooth = DemodayBooth.forExternal(anotherPollId, 11, "UMC PRODUCT");
         CreateStampCredentialCommand command = new CreateStampCredentialCommand(POLL_ID, BOOTH_ID);
         given(loadDemodayBoothPort.findById(BOOTH_ID)).willReturn(Optional.of(demodayBooth));
 
@@ -155,7 +155,7 @@ class CreateDemodayStampCommandServiceTest {
     @DisplayName("존재하지 않는 데모데이 투표의 스탬프 QR 발급 요청은 실패한다")
     void throwExceptionWhenPollDoesNotExist() {
         // given
-        DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, "팀 리버");
+        DemodayBooth demodayBooth = DemodayBooth.forExternal(POLL_ID, 11, "팀 리버");
         CreateStampCredentialCommand command = new CreateStampCredentialCommand(POLL_ID, BOOTH_ID);
         given(loadDemodayBoothPort.findById(BOOTH_ID)).willReturn(Optional.of(demodayBooth));
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.empty());

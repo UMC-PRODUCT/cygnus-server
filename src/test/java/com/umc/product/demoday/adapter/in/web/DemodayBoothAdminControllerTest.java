@@ -15,6 +15,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -50,6 +52,7 @@ class DemodayBoothAdminControllerTest {
     private static final Long POLL_ID = 10L;
     private static final Long PROJECT_ID = 101L;
     private static final Long BOOTH_ID = 20L;
+    private static final int BOOTH_CODE = 11;
 
     @Autowired private MockMvc mockMvc;
 
@@ -83,12 +86,12 @@ class DemodayBoothAdminControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"projectId\": 101}"))
+                .content("{\"boothCode\": 11, \"projectId\": 101}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.result.boothId").value(BOOTH_ID));
 
         then(registerDemodayBoothUseCase).should()
-            .register(new RegisterDemodayBoothCommand(MEMBER_ID, POLL_ID, PROJECT_ID, null));
+            .register(new RegisterDemodayBoothCommand(MEMBER_ID, POLL_ID, BOOTH_CODE, PROJECT_ID, null));
     }
 
     @Test
@@ -101,12 +104,12 @@ class DemodayBoothAdminControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"displayName\": \"외부 참가팀 A\"}"))
+                .content("{\"boothCode\": 11, \"displayName\": \"외부 참가팀 A\"}"))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.result.boothId").value(BOOTH_ID));
 
         then(registerDemodayBoothUseCase).should()
-            .register(new RegisterDemodayBoothCommand(MEMBER_ID, POLL_ID, null, "외부 참가팀 A"));
+            .register(new RegisterDemodayBoothCommand(MEMBER_ID, POLL_ID, BOOTH_CODE, null, "외부 참가팀 A"));
     }
 
     @Test
@@ -120,9 +123,50 @@ class DemodayBoothAdminControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"projectId\": 101}"))
+                .content("{\"boothCode\": 11, \"projectId\": 101}"))
             .andExpect(status().isConflict())
             .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_POLL_BOOTH_LOCKED.getCode()));
+    }
+
+    @Test
+    @DisplayName("같은 Poll의 중복 코드를 등록하면 409와 중복 코드를 반환한다")
+    void returnConflictWhenBoothCodeIsDuplicated() throws Exception {
+        // given
+        willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_BOOTH_CODE_DUPLICATED))
+            .given(registerDemodayBoothUseCase)
+            .register(any(RegisterDemodayBoothCommand.class));
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"boothCode\": 11, \"projectId\": 101}"))
+            .andExpect(status().isConflict())
+            .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_BOOTH_CODE_DUPLICATED.getCode()));
+    }
+
+    @Test
+    @DisplayName("부스 코드가 누락되면 400을 반환하고 유스케이스를 호출하지 않는다")
+    void rejectMissingBoothCode() throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"projectId\": 101}"))
+            .andExpect(status().isBadRequest());
+
+        then(registerDemodayBoothUseCase).shouldHaveNoInteractions();
+    }
+
+    @ParameterizedTest(name = "boothCode={0}")
+    @ValueSource(ints = {0, -1})
+    @DisplayName("부스 코드가 양수가 아니면 400을 반환하고 유스케이스를 호출하지 않는다")
+    void rejectNonPositiveBoothCode(int boothCode) throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"boothCode\": %d, \"projectId\": 101}".formatted(boothCode)))
+            .andExpect(status().isBadRequest());
+
+        then(registerDemodayBoothUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -136,7 +180,7 @@ class DemodayBoothAdminControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"projectId\": 101, \"displayName\": \"외부 참가팀 A\"}"))
+                .content("{\"boothCode\": 11, \"projectId\": 101, \"displayName\": \"외부 참가팀 A\"}"))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_BOOTH_INVALID_IDENTIFIER.getCode()));
     }
@@ -152,7 +196,10 @@ class DemodayBoothAdminControllerTest {
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths/batch", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                    {"booths": [{"projectId": 101}, {"displayName": "외부 참가팀 A"}]}
+                    {"booths": [
+                      {"boothCode": 11, "projectId": 101},
+                      {"boothCode": 12, "displayName": "외부 참가팀 A"}
+                    ]}
                     """))
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.result.registeredCount").value(2))
@@ -161,8 +208,8 @@ class DemodayBoothAdminControllerTest {
 
         then(registerDemodayBoothUseCase).should()
             .registerAll(new RegisterDemodayBoothBatchCommand(MEMBER_ID, POLL_ID, List.of(
-                new BoothRegistration(PROJECT_ID, null),
-                new BoothRegistration(null, "외부 참가팀 A"))));
+                new BoothRegistration(BOOTH_CODE, PROJECT_ID, null),
+                new BoothRegistration(12, null, "외부 참가팀 A"))));
     }
 
     @Test
@@ -172,6 +219,18 @@ class DemodayBoothAdminControllerTest {
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths/batch", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"booths\": []}"))
+            .andExpect(status().isBadRequest());
+
+        then(registerDemodayBoothUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("일괄 등록 항목의 부스 코드가 누락되면 400을 반환하고 유스케이스를 호출하지 않는다")
+    void rejectBatchWhenBoothCodeIsMissing() throws Exception {
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths/batch", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"booths\": [{\"projectId\": 101}]}"))
             .andExpect(status().isBadRequest());
 
         then(registerDemodayBoothUseCase).shouldHaveNoInteractions();
@@ -188,7 +247,7 @@ class DemodayBoothAdminControllerTest {
         // when & then
         mockMvc.perform(post("/api/v1/demoday/admin/polls/{pollId}/booths/batch", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"booths\": [{\"projectId\": 101}]}"))
+                .content("{\"booths\": [{\"boothCode\": 11, \"projectId\": 101}]}"))
             .andExpect(jsonPath("$.code").value(DemodayErrorCode.DEMODAY_ADMIN_ACCESS_DENIED.getCode()));
     }
 
@@ -202,8 +261,8 @@ class DemodayBoothAdminControllerTest {
             true,
             2,
             List.of(
-                new DemodayBoothInfo(BOOTH_ID, PROJECT_ID, null),
-                new DemodayBoothInfo(21L, null, "외부 참가팀 A")));
+                new DemodayBoothInfo(BOOTH_ID, BOOTH_CODE, PROJECT_ID, null),
+                new DemodayBoothInfo(21L, 12, null, "외부 참가팀 A")));
         given(listDemodayAdminBoothUseCase.listBooths(POLL_ID, MEMBER_ID)).willReturn(info);
 
         // when & then
@@ -214,7 +273,9 @@ class DemodayBoothAdminControllerTest {
             .andExpect(jsonPath("$.result.boothAddable").value(true))
             .andExpect(jsonPath("$.result.boothCount").value(2))
             .andExpect(jsonPath("$.result.booths[0].boothId").value(BOOTH_ID))
+            .andExpect(jsonPath("$.result.booths[0].boothCode").value(BOOTH_CODE))
             .andExpect(jsonPath("$.result.booths[0].projectId").value(PROJECT_ID))
+            .andExpect(jsonPath("$.result.booths[1].boothCode").value(12))
             .andExpect(jsonPath("$.result.booths[1].displayName").value("외부 참가팀 A"));
 
         then(listDemodayAdminBoothUseCase).should().listBooths(POLL_ID, MEMBER_ID);

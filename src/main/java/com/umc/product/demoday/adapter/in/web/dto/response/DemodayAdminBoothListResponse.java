@@ -24,7 +24,7 @@ public record DemodayAdminBoothListResponse(
     @Schema(description = "등록된 부스 수", example = "8")
     int boothCount,
 
-    @Schema(description = "등록된 부스 목록. 부스 ID 오름차순입니다.")
+    @Schema(description = "등록된 부스 목록. 부스 코드 오름차순입니다.")
     List<DemodayBoothResponse> booths
 ) {
 

@@ -66,6 +66,7 @@ class DemodayParticipationCommandControllerTest {
     private static final Long ENTRY_CODE_ID = 42L;
     private static final Long MEMBER_ID = 1L;
     private static final Long BOOTH_ID = 20L;
+    private static final int BOOTH_CODE = 11;
     // MockHttpServletResponse의 Set-Cookie 파서(MockCookie#parse)는 Max-Age를 int로 파싱한다.
     // 실제 poll.closesAt은 항상 근시일이라 문제되지 않지만, 테스트 데이터는 그 한계를 넘지 않게 근접 미래로 둔다.
     private static final Instant CLOSES_AT = Instant.now().plusSeconds(3600);
@@ -220,7 +221,7 @@ class DemodayParticipationCommandControllerTest {
         // given
         DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
         given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
-        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, 101L, "선택 부스");
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, BOOTH_CODE, 101L, "선택 부스");
         given(createDemodayVoteAuthorizationUseCase.create(
             new CreateDemodayVoteAuthorizationCommand(POLL_ID, BOOTH_ID, "info-qr-token", participant)))
             .willReturn(new DemodayVoteAuthorizationInfo(
@@ -235,6 +236,7 @@ class DemodayParticipationCommandControllerTest {
             .andExpect(status().isCreated())
             .andExpect(jsonPath("$.result.voteAuthorizationToken").value("vote-authorization-token"))
             .andExpect(jsonPath("$.result.selectedBooth.boothId").value(BOOTH_ID))
+            .andExpect(jsonPath("$.result.selectedBooth.boothCode").value(BOOTH_CODE))
             .andExpect(jsonPath("$.result.expiresAt").value("2026-08-19T10:05:00Z"));
     }
 
@@ -253,7 +255,7 @@ class DemodayParticipationCommandControllerTest {
         // given
         DemodayParticipant participant = new MemberDemodayParticipant(MEMBER_ID);
         given(memberDemodayParticipantResolver.resolve(principal)).willReturn(participant);
-        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, 101L, "선택 부스");
+        DemodayBoothInfo selectedBooth = new DemodayBoothInfo(BOOTH_ID, BOOTH_CODE, 101L, "선택 부스");
         given(castDemodayVoteUseCase.cast(
             new CastDemodayVoteCommand(POLL_ID, "vote-authorization-token", participant)))
             .willReturn(new DemodayVoteInfo(
@@ -267,6 +269,7 @@ class DemodayParticipationCommandControllerTest {
             .andExpect(jsonPath("$.result.voteId").value(100L))
             .andExpect(jsonPath("$.result.pollId").value(POLL_ID))
             .andExpect(jsonPath("$.result.selectedBooth.boothId").value(BOOTH_ID))
+            .andExpect(jsonPath("$.result.selectedBooth.boothCode").value(BOOTH_CODE))
             .andExpect(jsonPath("$.result.votedAt").value("2026-08-19T10:01:00Z"));
     }
 

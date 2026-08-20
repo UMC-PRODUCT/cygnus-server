@@ -18,12 +18,13 @@ class DemodayStampTest {
 
     private static final Long POLL_ID = 1L;
     private static final Long BOOTH_ID = 10L;
+    private static final Integer BOOTH_CODE = 11;
     private static final Long ENTRY_CODE_ID = 20L;
     private static final Long MEMBER_ID = 1L;
     private static final Long PROJECT_ID = 1L;
 
     private static DemodayBooth createBooth(Long pollId) {
-        DemodayBooth booth = DemodayBooth.forProject(pollId, PROJECT_ID);
+        DemodayBooth booth = DemodayBooth.forProject(pollId, BOOTH_CODE, PROJECT_ID);
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }
@@ -97,7 +98,7 @@ class DemodayStampTest {
     @DisplayName("저장되지 않은 부스에서는 스탬프를 받을 수 없다.")
     void rejectStampForUnsavedBooth() {
         // given
-        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
+        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, BOOTH_CODE, PROJECT_ID);
 
         // when & then
         assertThatThrownBy(() -> DemodayStamp.forMember(MEMBER_ID, unsavedBooth))

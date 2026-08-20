@@ -59,8 +59,8 @@ class DemodayAdminBoothQueryServiceTest {
         // given
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(persistedClosedPoll()));
         given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(
-            booth(20L, 101L, null),
-            booth(21L, null, "외부 참가팀 A")
+            booth(20L, 11, 101L, null),
+            booth(21L, 12, null, "외부 참가팀 A")
         ));
 
         // when
@@ -72,10 +72,14 @@ class DemodayAdminBoothQueryServiceTest {
         assertThat(info.boothAddable()).isTrue();
         assertThat(info.boothCount()).isEqualTo(2);
         assertThat(info.booths())
-            .extracting(DemodayBoothInfo::boothId, DemodayBoothInfo::projectId, DemodayBoothInfo::displayName)
+            .extracting(
+                DemodayBoothInfo::boothId,
+                DemodayBoothInfo::boothCode,
+                DemodayBoothInfo::projectId,
+                DemodayBoothInfo::displayName)
             .containsExactly(
-                tuple(20L, 101L, null),
-                tuple(21L, null, "외부 참가팀 A"));
+                tuple(20L, 11, 101L, null),
+                tuple(21L, 12, null, "외부 참가팀 A"));
         then(adminAccessChecker).should().validateAdminAccess(MEMBER_ID, GISU_ID);
     }
 
@@ -143,10 +147,15 @@ class DemodayAdminBoothQueryServiceTest {
         return poll;
     }
 
-    private DemodayBooth booth(Long boothId, Long projectId, String displayName) {
+    private DemodayBooth booth(
+        Long boothId,
+        Integer boothCode,
+        Long projectId,
+        String displayName
+    ) {
         DemodayBooth booth = projectId != null
-            ? DemodayBooth.forProject(POLL_ID, projectId)
-            : DemodayBooth.forExternal(POLL_ID, displayName);
+            ? DemodayBooth.forProject(POLL_ID, boothCode, projectId)
+            : DemodayBooth.forExternal(POLL_ID, boothCode, displayName);
         ReflectionTestUtils.setField(booth, "id", boothId);
         return booth;
     }

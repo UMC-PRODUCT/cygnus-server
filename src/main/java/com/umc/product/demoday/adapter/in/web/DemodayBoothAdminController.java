@@ -52,6 +52,8 @@ public class DemodayBoothAdminController {
             투표 행사에 부스를 하나 등록합니다.
 
             요청자는 투표가 속한 기수의 총괄단이거나 SUPER_ADMIN이어야 합니다.
+            `boothCode`는 행사에서 사용하는 1 이상의 정수이며 같은 투표 안에서 중복될 수 없습니다.
+            이미 사용 중인 코드를 등록하면 409(DEMODAY-0204)를 반환합니다.
             등록 경로는 두 가지이며 `projectId`와 `displayName` 중 정확히 하나만 채워 구분합니다.
             UPMS에 등록된 프로젝트는 `projectId`로, 외부 참가팀은 `displayName`으로 등록합니다.
             둘 다 채우거나 둘 다 비우면 어느 경로인지 정할 수 없어 400(DEMODAY-0200)으로 거부합니다.
@@ -85,9 +87,10 @@ public class DemodayBoothAdminController {
             여러 부스를 한 번의 요청으로 등록합니다. 이번 기수에는 관리자 화면이 없어 운영자가 API를 직접
             호출하므로, 행사 전 준비 단계에서 부스를 한 번에 넣기 위한 경로입니다.
 
-            항목마다 `projectId`와 `displayName` 중 정확히 하나만 채우는 규칙은 단건 등록과 같습니다.
+            항목마다 `boothCode`를 채우고 `projectId`와 `displayName` 중 정확히 하나만 채우는 규칙은 단건 등록과 같습니다.
             **한 항목이라도 규칙을 어기면 전체가 저장되지 않습니다.** 부분 성공을 허용하면 무엇이 들어갔는지
             운영자가 목록을 다시 확인해야 하는데, 그 비용이 요청 전체를 고쳐 다시 보내는 비용보다 큽니다.
+            기존 부스 또는 요청 안의 다른 항목과 코드가 중복되면 409(DEMODAY-0204)를 반환합니다.
 
             응답의 `boothIds`는 요청한 부스 목록과 순서가 같습니다.
             투표 상태가 OPEN이면 단건 등록과 동일하게 409(DEMODAY-0105)를 반환합니다.
@@ -137,7 +140,7 @@ public class DemodayBoothAdminController {
         operationId = "listDemodayAdminBooths",
         summary = "데모데이 부스 등록 현황 조회",
         description = """
-            투표에 등록된 부스 목록을 부스 ID 오름차순으로 조회합니다.
+            투표에 등록된 부스 목록을 부스 코드 오름차순으로 조회합니다.
 
             요청자는 투표가 속한 기수의 총괄단이거나 SUPER_ADMIN이어야 합니다.
             등록 직후 운영자가 확인해야 하는 값을 함께 내려줍니다.

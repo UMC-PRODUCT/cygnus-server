@@ -134,26 +134,26 @@ public class DemodayPoll extends BaseEntity {
     /**
      * 등록된 프로젝트에 연결되는 부스를 만든다.
      *
-     * <p>부스 생성 자체는 {@link DemodayBooth#forProject(Long, Long)}가 담당하지만, 진입점을 투표에 두는 이유는
+     * <p>부스 생성 자체는 {@link DemodayBooth#forProject(Long, Integer, Long)}가 담당하지만, 진입점을 투표에 두는 이유는
      * 부스를 더 받을 수 있는지 판단하는 근거가 투표의 운영 상태이기 때문이다. 식별자만 넘기는 팩토리를 직접
      * 호출하면 이 판단을 호출자가 대신해야 하고, 호출자가 빠뜨리면 규칙이 사라진다.
      *
      * <p>반환된 부스는 아직 저장되지 않았고 {@link #getBooths()}에도 반영되지 않는다. 이 컬렉션은 조회 전용
      * 뷰이므로 저장은 호출자가 부스 저장 Port로 수행한다.
      */
-    public DemodayBooth registerProjectBooth(Long projectId) {
+    public DemodayBooth registerProjectBooth(Integer boothCode, Long projectId) {
         requireBoothRegistrable();
-        return DemodayBooth.forProject(requirePersistedId(), projectId);
+        return DemodayBooth.forProject(requirePersistedId(), boothCode, projectId);
     }
 
     /**
      * UPMS에 등록되지 않은 외부 참가팀의 부스를 표시 이름으로 만든다.
      *
-     * @see #registerProjectBooth(Long)
+     * @see #registerProjectBooth(Integer, Long)
      */
-    public DemodayBooth registerExternalBooth(String displayName) {
+    public DemodayBooth registerExternalBooth(Integer boothCode, String displayName) {
         requireBoothRegistrable();
-        return DemodayBooth.forExternal(requirePersistedId(), displayName);
+        return DemodayBooth.forExternal(requirePersistedId(), boothCode, displayName);
     }
 
     /**

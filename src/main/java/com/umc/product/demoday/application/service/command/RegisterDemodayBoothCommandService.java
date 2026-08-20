@@ -33,7 +33,8 @@ public class RegisterDemodayBoothCommandService implements RegisterDemodayBoothU
 
         adminAccessChecker.validateAdminAccess(command.memberId(), poll.getGisuId());
 
-        return saveDemodayBoothPort.save(createBooth(poll, command.projectId(), command.displayName())).getId();
+        return saveDemodayBoothPort.save(
+            createBooth(poll, command.boothCode(), command.projectId(), command.displayName())).getId();
     }
 
     /**
@@ -49,7 +50,11 @@ public class RegisterDemodayBoothCommandService implements RegisterDemodayBoothU
         DemodayPoll poll = loadPoll(command.pollId());
 
         List<DemodayBooth> booths = command.registrations().stream()
-            .map(registration -> createBooth(poll, registration.projectId(), registration.displayName()))
+            .map(registration -> createBooth(
+                poll,
+                registration.boothCode(),
+                registration.projectId(),
+                registration.displayName()))
             .toList();
 
         return saveDemodayBoothPort.saveAll(booths).stream()
@@ -69,7 +74,12 @@ public class RegisterDemodayBoothCommandService implements RegisterDemodayBoothU
      * 갖지 않는다는 규칙은 투표가 위임하는 두 팩토리가 각각 한쪽만 채우는 것으로 이미 보장되므로, 서비스가
      * 그 규칙을 다시 검사하지는 않는다. 다만 둘 다 담겨 온 요청은 어느 경로인지 정할 수 없어 거부한다.
      */
-    private DemodayBooth createBooth(DemodayPoll poll, Long projectId, String displayName) {
+    private DemodayBooth createBooth(
+        DemodayPoll poll,
+        Integer boothCode,
+        Long projectId,
+        String displayName
+    ) {
         boolean hasProject = projectId != null;
         boolean hasDisplayName = displayName != null && !displayName.isBlank();
 
@@ -78,7 +88,7 @@ public class RegisterDemodayBoothCommandService implements RegisterDemodayBoothU
         }
 
         return hasProject
-            ? poll.registerProjectBooth(projectId)
-            : poll.registerExternalBooth(displayName);
+            ? poll.registerProjectBooth(boothCode, projectId)
+            : poll.registerExternalBooth(boothCode, displayName);
     }
 }

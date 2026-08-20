@@ -43,6 +43,7 @@ public class DemodayAdminBoothQueryService implements ListDemodayAdminBoothUseCa
             .stream()
             .map(booth -> new DemodayBoothInfo(
                 booth.getId(),
+                booth.getBoothCode(),
                 booth.getProjectId(),
                 booth.getDisplayName()
             ))

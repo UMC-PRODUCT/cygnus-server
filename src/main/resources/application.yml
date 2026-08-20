@@ -171,6 +171,9 @@ jwt:
   verification-token-validity-in-seconds: ${JWT_VERIFICATION_TOKEN_VALIDITY_IN_SECONDS:600}
 
 demoday:
+  # 운영 외 환경의 데모데이 테스트 데이터 초기화 API. 기본은 비활성이고 prod에서는 빈 등록도 차단한다.
+  test-data-reset:
+    enabled: ${DEMODAY_TEST_DATA_RESET_ENABLED:false}
   qr:
     base-url: ${DEMODAY_QR_BASE_URL}
   stamp-credential:
@@ -592,6 +595,10 @@ spring:
         enabled: true
     graphiql:
       enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
+
+demoday:
+  test-data-reset:
+    enabled: ${DEMODAY_TEST_DATA_RESET_ENABLED:true}
 
 app:
   client-context:

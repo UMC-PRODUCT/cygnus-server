@@ -65,8 +65,8 @@ class DemodayAdminVoteQueryServiceTest {
     @DisplayName("무효 표를 포함해 최신순으로 조회하고 외부인 번호를 Poll 전체 입장 순서로 표시한다")
     void listVotesWithStableGuestOrdinalAndCursor() {
         // given
-        DemodayBooth projectBooth = projectBooth(20L, 101L);
-        DemodayBooth secondProjectBooth = projectBooth(21L, 102L);
+        DemodayBooth projectBooth = projectBooth(20L, 11, 101L);
+        DemodayBooth secondProjectBooth = projectBooth(21L, 12, 102L);
         DemodayEntryCode firstEntryCode = redeemedEntryCode(31L, "2026-08-15T08:00:00Z");
         DemodayEntryCode secondEntryCode = redeemedEntryCode(32L, "2026-08-15T08:01:00Z");
 
@@ -101,11 +101,12 @@ class DemodayAdminVoteQueryServiceTest {
                 DemodayAdminVoteInfo::voteId,
                 info -> info.participant().type(),
                 info -> info.participant().displayName(),
+                info -> info.booth().boothCode(),
                 info -> info.booth().displayName(),
                 DemodayAdminVoteInfo::status)
             .containsExactly(
-                tuple(30L, DemodayParticipantType.MEMBER, "이재원", "잇픽", DemodayVoteStatus.REVOKED),
-                tuple(29L, DemodayParticipantType.GUEST, "외부인 2번", "모디", DemodayVoteStatus.VALID));
+                tuple(30L, DemodayParticipantType.MEMBER, "이재원", 11, "잇픽", DemodayVoteStatus.REVOKED),
+                tuple(29L, DemodayParticipantType.GUEST, "외부인 2번", 12, "모디", DemodayVoteStatus.VALID));
         then(adminAccessChecker).should().validateAdminAccess(REQUESTER_ID, GISU_ID);
     }
 
@@ -180,8 +181,8 @@ class DemodayAdminVoteQueryServiceTest {
         return poll;
     }
 
-    private DemodayBooth projectBooth(Long id, Long projectId) {
-        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, projectId);
+    private DemodayBooth projectBooth(Long id, Integer boothCode, Long projectId) {
+        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, boothCode, projectId);
         ReflectionTestUtils.setField(booth, "id", id);
         return booth;
     }
