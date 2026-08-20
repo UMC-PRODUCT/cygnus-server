@@ -139,4 +139,34 @@ class DemodayVoteTest {
             .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_ALREADY_REVOKED);
 
     }
+
+    @Test
+    @DisplayName("무효화한 표를 복원하면 원래 부스와 참여자 식별자를 유지한다")
+    void restoreRevokedVote() {
+        // given
+        DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, createBooth(POLL_ID));
+        vote.revoke(Instant.parse("2026-08-20T01:00:00Z"));
+
+        // when
+        vote.restore();
+
+        // then
+        assertThat(vote.isRevoked()).isFalse();
+        assertThat(vote.getRevokedAt()).isNull();
+        assertThat(vote.getMemberId()).isEqualTo(MEMBER_ID);
+        assertThat(vote.getTargetBoothId()).isEqualTo(BOOTH_ID);
+    }
+
+    @Test
+    @DisplayName("유효한 표는 무효 해제할 수 없다")
+    void rejectRestoringValidVote() {
+        // given
+        DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, createBooth(POLL_ID));
+
+        // when & then
+        assertThatThrownBy(vote::restore)
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("BaseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_NOT_REVOKED);
+    }
 }

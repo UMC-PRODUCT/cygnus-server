@@ -11,12 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Import;
 
+import com.umc.product.demoday.application.port.out.DemodayVoteSearchCondition;
 import com.umc.product.demoday.application.port.out.LoadDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayVotePort;
 import com.umc.product.demoday.application.port.out.SaveDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.SaveDemodayEntryCodePort;
 import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
 import com.umc.product.demoday.application.port.out.SaveDemodayVotePort;
+import com.umc.product.demoday.application.port.out.SearchDemodayVotePort;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayEntryCode;
 import com.umc.product.demoday.domain.DemodayPoll;
@@ -32,7 +34,8 @@ import jakarta.persistence.EntityManager;
     DemodayPollPersistenceAdapter.class,
     DemodayBoothPersistenceAdapter.class,
     DemodayEntryCodePersistenceAdapter.class,
-    DemodayVotePersistenceAdapter.class
+    DemodayVotePersistenceAdapter.class,
+    DemodayVoteQueryRepository.class
 })
 class DemodayVotePersistenceAdapterTest {
 
@@ -45,6 +48,9 @@ class DemodayVotePersistenceAdapterTest {
 
     @Autowired
     private SaveDemodayVotePort saveDemodayVotePort;
+
+    @Autowired
+    private SearchDemodayVotePort searchDemodayVotePort;
 
     @Autowired
     private SaveDemodayPollPort saveDemodayPollPort;
@@ -130,6 +136,62 @@ class DemodayVotePersistenceAdapterTest {
         assertThat(votes)
             .extracting(DemodayVote::getId)
             .containsExactly(secondVote.getId(), firstVote.getId());
+    }
+
+    @Test
+    @DisplayName("관리자 검색은 무효 표를 포함하고 부스·커서를 AND로 적용한다")
+    void searchAdminVotesWithBoothAndCursor() {
+        // Given
+        DemodayPoll poll = savePoll("관리자 표 검색");
+        DemodayBooth firstBooth = saveBooth(poll, 1L);
+        DemodayBooth secondBooth = saveBooth(poll, 2L);
+        DemodayVote firstVote = saveDemodayVotePort.save(
+            DemodayVote.forMember(poll.getId(), MEMBER_ID, firstBooth)
+        );
+        DemodayEntryCode entryCode = saveEntryCode(poll, "c");
+        DemodayVote revokedVote = DemodayVote.forVisitor(poll.getId(), entryCode, firstBooth);
+        revokedVote.revoke(Instant.parse("2026-07-27T10:00:00Z"));
+        revokedVote = saveDemodayVotePort.save(revokedVote);
+        DemodayEntryCode otherEntryCode = saveEntryCode(poll, "d");
+        saveDemodayVotePort.save(DemodayVote.forVisitor(poll.getId(), otherEntryCode, secondBooth));
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // When
+        List<DemodayVote> firstPage = searchDemodayVotePort.search(
+            new DemodayVoteSearchCondition(poll.getId(), null, firstBooth.getId(), null, 10)
+        );
+        List<DemodayVote> afterCursor = searchDemodayVotePort.search(
+            new DemodayVoteSearchCondition(poll.getId(), revokedVote.getId(), firstBooth.getId(), null, 10)
+        );
+
+        // Then
+        assertThat(firstPage)
+            .extracting(DemodayVote::getId)
+            .containsExactly(revokedVote.getId(), firstVote.getId());
+        assertThat(firstPage.get(0).isRevoked()).isTrue();
+        assertThat(afterCursor)
+            .extracting(DemodayVote::getId)
+            .containsExactly(firstVote.getId());
+        assertThat(searchDemodayVotePort.listMemberIds(poll.getId(), firstBooth.getId()))
+            .containsExactly(MEMBER_ID);
+    }
+
+    @Test
+    @DisplayName("Poll과 표 ID를 함께 잠금 조회해 다른 Poll의 표를 숨긴다")
+    void loadVoteForUpdateWithinPoll() {
+        // Given
+        DemodayPoll poll = savePoll("잠금 조회 대상");
+        DemodayPoll otherPoll = savePoll("다른 투표");
+        DemodayBooth booth = saveBooth(poll, 1L);
+        DemodayVote vote = saveDemodayVotePort.save(DemodayVote.forMember(poll.getId(), MEMBER_ID, booth));
+        entityManager.flush();
+        entityManager.clear();
+
+        // When & Then
+        assertThat(loadDemodayVotePort.findByIdInPollForUpdate(poll.getId(), vote.getId())).isPresent();
+        assertThat(loadDemodayVotePort.findByIdInPollForUpdate(otherPoll.getId(), vote.getId())).isEmpty();
     }
 
     @Test
