@@ -121,8 +121,9 @@ class DemodayPollQueryControllerTest {
                 .andExpect(jsonPath("$.result.stampCount").value(6))
                 .andExpect(jsonPath("$.result.requiredStampCount").value(6))
                 .andExpect(jsonPath("$.result.stamps[0].boothId").value(20L))
-                .andExpect(jsonPath("$.result.hasVoted").value(false))
-                .andExpect(jsonPath("$.result.canEnterVotePage").value(true));
+                .andExpect(jsonPath("$.result.hasActiveVote").value(false))
+                .andExpect(jsonPath("$.result.hasUsedVoteSlot").value(false))
+                .andExpect(jsonPath("$.result.canRequestVoteAuthorization").value(true));
 
         then(participantResolver).should().resolve(principal);
         then(getDemodayParticipationUseCase).should().getParticipation(POLL_ID, participant);
@@ -163,6 +164,7 @@ class DemodayPollQueryControllerTest {
             REQUIRED_STAMP_COUNT,
             demodayStampInfos,
             null,
+            false,
             false,
             true);
     }
