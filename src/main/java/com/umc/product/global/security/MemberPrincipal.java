@@ -3,7 +3,6 @@ package com.umc.product.global.security;
 import java.util.Collection;
 import java.util.Collections;
 
-import org.springframework.security.core.AuthenticatedPrincipal;
 import org.springframework.security.core.GrantedAuthority;
 
 import com.umc.product.common.domain.enums.ClientType;
@@ -13,7 +12,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 @Getter
-public class MemberPrincipal implements AuthenticatedPrincipal {
+public class MemberPrincipal implements RateLimitPrincipal {
 
     private final Long memberId;
 
@@ -43,16 +42,26 @@ public class MemberPrincipal implements AuthenticatedPrincipal {
     }
 
     @Override
+    public String rateLimitKey() {
+        return "member:" + memberId;
+    }
+
+    @Override
+    public String rateLimitClientType() {
+        return clientType == null ? "UNKNOWN" : clientType.name();
+    }
+
+    @Override
     public String getName() {
         return String.valueOf(memberId);
     }
 
     @Override
     public String toString() {
-        return "MemberPrincipal{" +
-                "memberId=" + memberId +
-                ", clientType=" + clientType +
-                ", clientContextClaims=" + clientContextClaims +
-                '}';
+        return "MemberPrincipal{"
+            + "memberId=" + memberId
+            + ", clientType=" + clientType
+            + ", clientContextClaims=" + clientContextClaims
+            + '}';
     }
 }
