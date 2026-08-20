@@ -85,7 +85,7 @@ public class DemodayDashboardQueryService implements GetDemodayDashboardUseCase 
     }
 
     /**
-     * 득표 내림차순, 동점이면 boothId 오름차순으로 정렬한 뒤 표준 경쟁 순위를 매긴다.
+     * 득표 내림차순, 동점이면 boothCode 오름차순으로 정렬한 뒤 표준 경쟁 순위를 매긴다.
      *
      * <p>동점 부스는 같은 rank를 공유하고, 다음 rank는 동점자 수만큼 건너뛴다(1, 2, 2, 4).
      * 시상 발표에서 "공동 2위"를 그대로 표현할 수 있어야 하기 때문이다.
@@ -99,7 +99,7 @@ public class DemodayDashboardQueryService implements GetDemodayDashboardUseCase 
             .sorted(Comparator
                 .comparingLong((DemodayBooth booth) -> voteCountOf(booth, voteCounts))
                 .reversed()
-                .thenComparing(DemodayBooth::getId))
+                .thenComparing(DemodayBooth::getBoothCode))
             .toList();
 
         List<RankingInfo> rankings = new ArrayList<>();
@@ -116,6 +116,7 @@ public class DemodayDashboardQueryService implements GetDemodayDashboardUseCase 
             rankings.add(new RankingInfo(
                 rank,
                 booth.getId(),
+                booth.getBoothCode(),
                 booth.getProjectId(),
                 resolveDisplayName(booth, projectsById),
                 voteCount
@@ -130,9 +131,10 @@ public class DemodayDashboardQueryService implements GetDemodayDashboardUseCase 
         Map<Long, ProjectInfo> projectsById
     ) {
         return booths.stream()
-            .sorted(Comparator.comparing(DemodayBooth::getId))
+            .sorted(Comparator.comparing(DemodayBooth::getBoothCode))
             .map(booth -> new StampHeatmapInfo(
                 booth.getId(),
+                booth.getBoothCode(),
                 booth.getProjectId(),
                 resolveDisplayName(booth, projectsById),
                 stampCounts.getOrDefault(booth.getId(), 0L).intValue()

@@ -178,6 +178,7 @@ public class DemodayAdminVoteQueryService implements ListDemodayAdminVoteUseCase
             participantOf(vote, memberNamesById, guestOrdinalsByEntryCodeId),
             new DemodayBoothInfo(
                 booth.getId(),
+                booth.getBoothCode(),
                 booth.getProjectId(),
                 resolveDisplayName(booth, projectsById)
             ),

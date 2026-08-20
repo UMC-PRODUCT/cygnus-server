@@ -56,7 +56,7 @@ public class DemodayPollQueryController {
         return DemodayParticipationResponse.from(participation);
     }
 
-    @Operation(summary = "투표 부스 목록 조회", description = "투표에 등록된 부스 목록을 조회합니다.")
+    @Operation(summary = "투표 부스 목록 조회", description = "투표에 등록된 부스 목록을 부스 코드 오름차순으로 조회합니다.")
     @GetMapping("/{pollId}/booths")
     public DemodayBoothListResponse listBooths(
         @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId
