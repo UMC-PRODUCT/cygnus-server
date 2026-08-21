@@ -67,6 +67,7 @@ class DemodayParticipationCommandControllerTest {
     private static final Long MEMBER_ID = 1L;
     private static final Long BOOTH_ID = 20L;
     private static final int BOOTH_CODE = 11;
+    private static final String REQUEST_ID = "0f43f02a-6ecf-4bb3-82ce-625029bd3e09";
     // MockHttpServletResponse의 Set-Cookie 파서(MockCookie#parse)는 Max-Age를 int로 파싱한다.
     // 실제 poll.closesAt은 항상 근시일이라 문제되지 않지만, 테스트 데이터는 그 한계를 넘지 않게 근접 미래로 둔다.
     private static final Instant CLOSES_AT = Instant.now().plusSeconds(3600);
@@ -117,7 +118,7 @@ class DemodayParticipationCommandControllerTest {
             new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);
 
         given(startDemodayGuestParticipationUseCase.start(
-            new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", null)))
+            new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", null, null)))
             .willReturn(info);
 
         // when
@@ -154,7 +155,7 @@ class DemodayParticipationCommandControllerTest {
             new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);
 
         given(startDemodayGuestParticipationUseCase.start(
-            new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", ENTRY_CODE_ID)))
+            new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", null, ENTRY_CODE_ID)))
             .willReturn(info);
 
         // when & then
@@ -166,7 +167,33 @@ class DemodayParticipationCommandControllerTest {
             .andExpect(status().isCreated());
 
         then(startDemodayGuestParticipationUseCase).should().start(
-            eq(new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", ENTRY_CODE_ID)));
+            eq(new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", null, ENTRY_CODE_ID)));
+    }
+
+    @Test
+    @DisplayName("requestId를 제출하면 커맨드에 전달한다")
+    void startGuestParticipationWithRequestId() throws Exception {
+        // given
+        given(demodayParticipantTokenProvider.parseEntryCodeId(null)).willReturn(Optional.empty());
+        DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
+            POLL_ID, DemodayParticipantType.GUEST, 0, 6,
+            List.of(), null, false, false, false, null);
+        StartDemodayGuestParticipationInfo info =
+            new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);
+        given(startDemodayGuestParticipationUseCase.start(
+            new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", REQUEST_ID, null)))
+            .willReturn(info);
+
+        // when & then
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/participations/guest", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                    {"admissionCode":"GUEST-A1B2C3","requestId":"%s"}
+                    """.formatted(REQUEST_ID)))
+            .andExpect(status().isCreated());
+
+        then(startDemodayGuestParticipationUseCase).should().start(
+            eq(new StartDemodayGuestParticipationCommand(POLL_ID, "GUEST-A1B2C3", REQUEST_ID, null)));
     }
 
     @Test
@@ -175,6 +202,15 @@ class DemodayParticipationCommandControllerTest {
         mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/participations/guest", POLL_ID)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"admissionCode\":\"\"}"))
+            .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("requestId가 UUID v4 형식이 아니면 400을 반환한다")
+    void startGuestParticipationWithInvalidRequestId() throws Exception {
+        mockMvc.perform(post("/api/v1/demoday/polls/{pollId}/participations/guest", POLL_ID)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"admissionCode\":\"GUEST-A1B2C3\",\"requestId\":\"predictable-id\"}"))
             .andExpect(status().isBadRequest());
     }
 

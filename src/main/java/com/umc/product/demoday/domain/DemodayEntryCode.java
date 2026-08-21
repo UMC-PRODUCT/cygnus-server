@@ -56,6 +56,9 @@ public class DemodayEntryCode extends BaseEntity {
     @Column(name = "redeemed_at")
     private Instant redeemedAt;
 
+    @Column(name = "redemption_request_id_hash", length = HASH_LENGTH)
+    private String redemptionRequestIdHash;
+
     @Builder(access = AccessLevel.PRIVATE)
     private DemodayEntryCode(Long pollId, String codeHash) {
         this.pollId = pollId;
@@ -78,6 +81,23 @@ public class DemodayEntryCode extends BaseEntity {
         }
 
         this.redeemedAt = now;
+    }
+
+    public boolean redeemOrResume(Instant now, String requestIdHash) {
+        Objects.requireNonNull(now, "now must not be null");
+        Objects.requireNonNull(requestIdHash, "requestIdHash must not be null");
+
+        if (!isRedeemed()) {
+            this.redeemedAt = now;
+            this.redemptionRequestIdHash = requestIdHash;
+            return true;
+        }
+
+        if (requestIdHash.equals(redemptionRequestIdHash)) {
+            return false;
+        }
+
+        throw new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_ALREADY_REDEEMED);
     }
 
     public boolean isRedeemed() {

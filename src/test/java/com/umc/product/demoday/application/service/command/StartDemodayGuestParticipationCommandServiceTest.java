@@ -28,6 +28,7 @@ import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipatio
 import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantType;
 import com.umc.product.demoday.application.port.in.query.participant.GuestDemodayParticipant;
 import com.umc.product.demoday.application.port.out.HashDemodayEntryCodePort;
+import com.umc.product.demoday.application.port.out.HashDemodayParticipationRequestIdPort;
 import com.umc.product.demoday.application.port.out.IssueDemodayParticipantTokenPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayEntryCodePort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
@@ -46,6 +47,8 @@ class StartDemodayGuestParticipationCommandServiceTest {
     private static final Instant CLOSES_AT = Instant.parse("2100-08-15T12:00:00Z");
     private static final String ADMISSION_CODE = "GUEST-A1B2C3";
     private static final String CODE_HASH = "hashed-code";
+    private static final String REQUEST_ID = "0f43f02a-6ecf-4bb3-82ce-625029bd3e09";
+    private static final String REQUEST_ID_HASH = "hashed-request-id";
     private static final String PARTICIPANT_TOKEN = "participant-token";
 
     @Mock
@@ -59,6 +62,9 @@ class StartDemodayGuestParticipationCommandServiceTest {
 
     @Mock
     private HashDemodayEntryCodePort hashDemodayEntryCodePort;
+
+    @Mock
+    private HashDemodayParticipationRequestIdPort hashDemodayParticipationRequestIdPort;
 
     @Mock
     private IssueDemodayParticipantTokenPort issueDemodayParticipantTokenPort;
@@ -75,7 +81,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
         // given
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.empty());
         StartDemodayGuestParticipationCommand command =
-            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null);
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null, null);
 
         // when & then
         assertThatThrownBy(() -> startDemodayGuestParticipationCommandService.start(command))
@@ -92,9 +98,9 @@ class StartDemodayGuestParticipationCommandServiceTest {
         // given
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(mock(DemodayPoll.class)));
         given(hashDemodayEntryCodePort.hash(ADMISSION_CODE)).willReturn(CODE_HASH);
-        given(loadDemodayEntryCodePort.findByCodeHash(CODE_HASH)).willReturn(Optional.empty());
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.empty());
         StartDemodayGuestParticipationCommand command =
-            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null);
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null, null);
 
         // when & then
         assertThatThrownBy(() -> startDemodayGuestParticipationCommandService.start(command))
@@ -115,10 +121,10 @@ class StartDemodayGuestParticipationCommandServiceTest {
 
         DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
         given(entryCode.getPollId()).willReturn(999L);
-        given(loadDemodayEntryCodePort.findByCodeHash(CODE_HASH)).willReturn(Optional.of(entryCode));
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
 
         StartDemodayGuestParticipationCommand command =
-            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null);
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null, null);
 
         // when & then
         assertThatThrownBy(() -> startDemodayGuestParticipationCommandService.start(command))
@@ -140,13 +146,13 @@ class StartDemodayGuestParticipationCommandServiceTest {
 
         DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
         given(entryCode.getPollId()).willReturn(POLL_ID);
-        given(loadDemodayEntryCodePort.findByCodeHash(CODE_HASH)).willReturn(Optional.of(entryCode));
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
         willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_ALREADY_REDEEMED))
             .given(entryCode).redeem(any());
 
         // 다른 브라우저이므로 existingEntryCodeId가 없다(없거나 이 코드와 다른 값)
         StartDemodayGuestParticipationCommand command =
-            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null);
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null, null);
 
         // when & then
         assertThatThrownBy(() -> startDemodayGuestParticipationCommandService.start(command))
@@ -171,7 +177,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
         DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
         given(entryCode.getPollId()).willReturn(POLL_ID);
         given(entryCode.getId()).willReturn(ENTRY_CODE_ID);
-        given(loadDemodayEntryCodePort.findByCodeHash(CODE_HASH)).willReturn(Optional.of(entryCode));
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
         given(issueDemodayParticipantTokenPort.issue(ENTRY_CODE_ID, CLOSES_AT)).willReturn(PARTICIPANT_TOKEN);
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
@@ -183,7 +189,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
             .willReturn(participationInfo);
 
         StartDemodayGuestParticipationCommand command =
-            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null);
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null, null);
 
         // when
         StartDemodayGuestParticipationInfo result = startDemodayGuestParticipationCommandService.start(command);
@@ -209,7 +215,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
         DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
         given(entryCode.getPollId()).willReturn(POLL_ID);
         given(entryCode.getId()).willReturn(ENTRY_CODE_ID);
-        given(loadDemodayEntryCodePort.findByCodeHash(CODE_HASH)).willReturn(Optional.of(entryCode));
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
 
         given(issueDemodayParticipantTokenPort.issue(ENTRY_CODE_ID, CLOSES_AT)).willReturn(PARTICIPANT_TOKEN);
 
@@ -220,7 +226,7 @@ class StartDemodayGuestParticipationCommandServiceTest {
             .willReturn(participationInfo);
 
         StartDemodayGuestParticipationCommand command =
-            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, ENTRY_CODE_ID);
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, null, ENTRY_CODE_ID);
 
         // when
         StartDemodayGuestParticipationInfo result = startDemodayGuestParticipationCommandService.start(command);
@@ -229,5 +235,105 @@ class StartDemodayGuestParticipationCommandServiceTest {
         assertThat(result.participantToken()).isEqualTo(PARTICIPANT_TOKEN);
         then(entryCode).should(never()).redeem(any());
         then(saveDemodayEntryCodePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("요청 식별자가 있는 코드를 처음 제출하면 사용 처리하고 토큰을 발급한다")
+    void startWithRequestIdWhenNewRedemption() {
+        // given
+        DemodayPoll poll = mock(DemodayPoll.class);
+        given(poll.getId()).willReturn(POLL_ID);
+        given(poll.getClosesAt()).willReturn(CLOSES_AT);
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
+        given(hashDemodayEntryCodePort.hash(ADMISSION_CODE)).willReturn(CODE_HASH);
+        given(hashDemodayParticipationRequestIdPort.hash(REQUEST_ID)).willReturn(REQUEST_ID_HASH);
+
+        DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
+        given(entryCode.getPollId()).willReturn(POLL_ID);
+        given(entryCode.getId()).willReturn(ENTRY_CODE_ID);
+        given(entryCode.redeemOrResume(any(), eq(REQUEST_ID_HASH))).willReturn(true);
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
+        given(issueDemodayParticipantTokenPort.issue(ENTRY_CODE_ID, CLOSES_AT)).willReturn(PARTICIPANT_TOKEN);
+        givenParticipationInfo();
+
+        StartDemodayGuestParticipationCommand command =
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, REQUEST_ID, null);
+
+        // when
+        StartDemodayGuestParticipationInfo result = startDemodayGuestParticipationCommandService.start(command);
+
+        // then
+        assertThat(result.participantToken()).isEqualTo(PARTICIPANT_TOKEN);
+        then(entryCode).should().redeemOrResume(any(), eq(REQUEST_ID_HASH));
+        then(saveDemodayEntryCodePort).should().save(entryCode);
+    }
+
+    @Test
+    @DisplayName("같은 요청 식별자로 사용된 코드를 다시 제출하면 토큰을 재발급한다")
+    void startWithSameRequestIdWhenAlreadyRedeemed() {
+        // given
+        DemodayPoll poll = mock(DemodayPoll.class);
+        given(poll.getId()).willReturn(POLL_ID);
+        given(poll.getClosesAt()).willReturn(CLOSES_AT);
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
+        given(hashDemodayEntryCodePort.hash(ADMISSION_CODE)).willReturn(CODE_HASH);
+        given(hashDemodayParticipationRequestIdPort.hash(REQUEST_ID)).willReturn(REQUEST_ID_HASH);
+
+        DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
+        given(entryCode.getPollId()).willReturn(POLL_ID);
+        given(entryCode.getId()).willReturn(ENTRY_CODE_ID);
+        given(entryCode.redeemOrResume(any(), eq(REQUEST_ID_HASH))).willReturn(false);
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
+        given(issueDemodayParticipantTokenPort.issue(ENTRY_CODE_ID, CLOSES_AT)).willReturn(PARTICIPANT_TOKEN);
+        givenParticipationInfo();
+
+        StartDemodayGuestParticipationCommand command =
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, REQUEST_ID, null);
+
+        // when
+        StartDemodayGuestParticipationInfo result = startDemodayGuestParticipationCommandService.start(command);
+
+        // then
+        assertThat(result.participantToken()).isEqualTo(PARTICIPANT_TOKEN);
+        then(saveDemodayEntryCodePort).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("다른 요청 식별자로 이미 사용된 코드를 제출하면 거부한다")
+    void startWithDifferentRequestIdWhenAlreadyRedeemed() {
+        // given
+        DemodayPoll poll = mock(DemodayPoll.class);
+        given(poll.getId()).willReturn(POLL_ID);
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
+        given(hashDemodayEntryCodePort.hash(ADMISSION_CODE)).willReturn(CODE_HASH);
+        given(hashDemodayParticipationRequestIdPort.hash(REQUEST_ID)).willReturn(REQUEST_ID_HASH);
+
+        DemodayEntryCode entryCode = mock(DemodayEntryCode.class);
+        given(entryCode.getPollId()).willReturn(POLL_ID);
+        given(loadDemodayEntryCodePort.findByCodeHashForRedemption(CODE_HASH)).willReturn(Optional.of(entryCode));
+        willThrow(new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_ALREADY_REDEEMED))
+            .given(entryCode).redeemOrResume(any(), eq(REQUEST_ID_HASH));
+
+        StartDemodayGuestParticipationCommand command =
+            new StartDemodayGuestParticipationCommand(POLL_ID, ADMISSION_CODE, REQUEST_ID, null);
+
+        // when & then
+        assertThatThrownBy(() -> startDemodayGuestParticipationCommandService.start(command))
+            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
+                assertThat(exception.getBaseCode())
+                    .isEqualTo(DemodayErrorCode.DEMODAY_ENTRY_CODE_ALREADY_REDEEMED));
+
+        then(saveDemodayEntryCodePort).shouldHaveNoInteractions();
+        then(issueDemodayParticipantTokenPort).shouldHaveNoInteractions();
+    }
+
+    private DemodayParticipationInfo givenParticipationInfo() {
+        DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
+            POLL_ID, DemodayParticipantType.GUEST, 0, 6, List.of(),
+            null, false, false, false, null);
+        given(getDemodayParticipationUseCase.getParticipation(
+            eq(POLL_ID), eq(new GuestDemodayParticipant(ENTRY_CODE_ID))))
+            .willReturn(participationInfo);
+        return participationInfo;
     }
 }

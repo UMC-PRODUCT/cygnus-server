@@ -61,7 +61,8 @@ public class DemodayParticipationCommandController {
 
             성공하면 서버가 코드를 사용 처리하고 요청한 브라우저에 1회 바인딩한 뒤,
             데모데이 전용 participant token을 HttpOnly Cookie로 설정합니다.
-            이미 유효한 Cookie를 가진 같은 브라우저가 같은 코드를 다시 제출하면 성공으로 처리합니다.
+            같은 코드와 requestId로 재시도하면 Cookie를 다시 발급합니다. 다른 requestId로 이미 사용된
+            코드를 제출하면 거절합니다. requestId를 생략한 기존 클라이언트는 기존 Cookie 기반 동작을 유지합니다.
             Cookie와 입장 코드의 수명은 Poll 종료 시점까지입니다.
             """
     )
