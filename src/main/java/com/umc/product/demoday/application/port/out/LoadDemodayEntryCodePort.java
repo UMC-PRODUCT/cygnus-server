@@ -11,5 +11,7 @@ public interface LoadDemodayEntryCodePort {
 
     Optional<DemodayEntryCode> findByCodeHash(String codeHash);
 
+    Optional<DemodayEntryCode> findByCodeHashForRedemption(String codeHash);
+
     List<DemodayEntryCode> listRedeemedByPollId(Long pollId);
 }

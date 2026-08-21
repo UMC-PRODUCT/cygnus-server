@@ -13,6 +13,7 @@ import com.umc.product.demoday.application.port.in.query.GetDemodayParticipation
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
 import com.umc.product.demoday.application.port.in.query.participant.GuestDemodayParticipant;
 import com.umc.product.demoday.application.port.out.HashDemodayEntryCodePort;
+import com.umc.product.demoday.application.port.out.HashDemodayParticipationRequestIdPort;
 import com.umc.product.demoday.application.port.out.IssueDemodayParticipantTokenPort;
 import com.umc.product.demoday.application.port.out.LoadDemodayEntryCodePort;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
@@ -33,6 +34,7 @@ public class StartDemodayGuestParticipationCommandService implements StartDemoda
     private final LoadDemodayEntryCodePort loadDemodayEntryCodePort;
     private final SaveDemodayEntryCodePort saveDemodayEntryCodePort;
     private final HashDemodayEntryCodePort hashDemodayEntryCodePort;
+    private final HashDemodayParticipationRequestIdPort hashDemodayParticipationRequestIdPort;
     private final IssueDemodayParticipantTokenPort issueDemodayParticipantTokenPort;
     private final GetDemodayParticipationUseCase getDemodayParticipationUseCase;
 
@@ -42,14 +44,16 @@ public class StartDemodayGuestParticipationCommandService implements StartDemoda
             .orElseThrow(() -> new DemodayDomainException(DemodayErrorCode.DEMODAY_POLL_NOT_FOUND));
 
         String codeHash = hashDemodayEntryCodePort.hash(command.admissionCode());
-        DemodayEntryCode entryCode = loadDemodayEntryCodePort.findByCodeHash(codeHash)
+        DemodayEntryCode entryCode = loadDemodayEntryCodePort.findByCodeHashForRedemption(codeHash)
             .orElseThrow(() -> new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_NOT_FOUND));
 
         if (!Objects.equals(entryCode.getPollId(), poll.getId())) {
             throw new DemodayDomainException(DemodayErrorCode.DEMODAY_ENTRY_CODE_POLL_MISMATCH);
         }
 
-        if (!isIsResubmissionByExistingHolder(command, entryCode)) {
+        if (command.requestId() != null) {
+            redeemOrResume(command.requestId(), entryCode);
+        } else if (!isLegacyResubmissionByExistingHolder(command, entryCode)) {
             entryCode.redeem(Instant.now());
             saveDemodayEntryCodePort.save(entryCode);
         }
@@ -62,7 +66,14 @@ public class StartDemodayGuestParticipationCommandService implements StartDemoda
         return new StartDemodayGuestParticipationInfo(participantToken, poll.getClosesAt(), participation);
     }
 
-    private static boolean isIsResubmissionByExistingHolder(
+    private void redeemOrResume(String requestId, DemodayEntryCode entryCode) {
+        String requestIdHash = hashDemodayParticipationRequestIdPort.hash(requestId);
+        if (entryCode.redeemOrResume(Instant.now(), requestIdHash)) {
+            saveDemodayEntryCodePort.save(entryCode);
+        }
+    }
+
+    private static boolean isLegacyResubmissionByExistingHolder(
         StartDemodayGuestParticipationCommand command, DemodayEntryCode entryCode) {
 
         return command.existingEntryCodeId() != null

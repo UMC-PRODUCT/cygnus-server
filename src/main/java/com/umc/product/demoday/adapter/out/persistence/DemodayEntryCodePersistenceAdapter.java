@@ -29,6 +29,11 @@ public class DemodayEntryCodePersistenceAdapter
     }
 
     @Override
+    public Optional<DemodayEntryCode> findByCodeHashForRedemption(String codeHash) {
+        return repository.findByCodeHashForUpdate(codeHash);
+    }
+
+    @Override
     public List<DemodayEntryCode> listRedeemedByPollId(Long pollId) {
         return repository.findAllByPollIdAndRedeemedAtIsNotNullOrderByRedeemedAtAscIdAsc(pollId);
     }

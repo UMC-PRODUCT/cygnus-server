@@ -1,13 +1,13 @@
 package com.umc.product.demoday.application.port.in.command.dto;
 
 /**
- * {@code existingEntryCodeId}는 요청에 이미 유효한 게스트 participant Cookie가 있을 때만 채워진다(nullable).
- * 같은 브라우저의 재제출 멱등 처리(계약: "이미 유효한 Cookie를 가진 같은 브라우저가 같은 코드를 다시
- * 제출하면 성공으로 처리")에 쓰인다. 이 값이 지금 제출된 코드의 entryCodeId와 같으면 re-redeem 하지 않는다.
+ * {@code requestId}는 응답과 Cookie가 유실되어도 같은 입장 시도를 재개하기 위한 선택 UUID다.
+ * {@code existingEntryCodeId}는 기존 클라이언트의 Cookie 기반 재제출 호환성을 위해 사용한다.
  */
 public record StartDemodayGuestParticipationCommand(
     Long pollId,
     String admissionCode,
+    String requestId,
     Long existingEntryCodeId
 ) {
 }
