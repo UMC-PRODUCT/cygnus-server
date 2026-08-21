@@ -111,7 +111,7 @@ class DemodayParticipationCommandControllerTest {
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
             POLL_ID, DemodayParticipantType.GUEST, 0, 6,
-            List.of(), null, false, false, false);
+            List.of(), null, false, false, false, null);
 
         StartDemodayGuestParticipationInfo info =
             new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);
@@ -148,7 +148,7 @@ class DemodayParticipationCommandControllerTest {
 
         DemodayParticipationInfo participationInfo = new DemodayParticipationInfo(
             POLL_ID, DemodayParticipantType.GUEST, 2, 6,
-            List.of(), null, false, false, false);
+            List.of(), null, false, false, false, null);
 
         StartDemodayGuestParticipationInfo info =
             new StartDemodayGuestParticipationInfo("issued-token", CLOSES_AT, participationInfo);

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.LongStream;
@@ -41,6 +42,9 @@ import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 class DemodayPollQueryServiceTest {
 
     private static final Long POLL_ID = 1L;
+    private static final Long BOOTH_ID = 20L;
+    private static final Long VOTE_ID = 100L;
+    private static final Instant VOTED_AT = Instant.parse("2026-08-21T01:00:00Z");
 
     @Mock
     private LoadDemodayPollPort loadDemodayPollPort;
@@ -81,7 +85,64 @@ class DemodayPollQueryServiceTest {
         assertThat(info.hasActiveVote()).isFalse();
         assertThat(info.hasUsedVoteSlot()).isFalse();
         assertThat(info.canRequestVoteAuthorization()).isFalse();
+        assertThat(info.activeVoteReceipt()).isNull();
         verify(loadDemodayStampPort).listVisitorStamps(entryCodeId);
+        verify(loadDemodayVotePort).findVisitorVote(entryCodeId);
+    }
+
+    @Test
+    @DisplayName("회원에게 유효한 표가 있으면 선택 부스와 저장 시각을 영수증으로 반환한다")
+    void activeMemberVoteReturnsReceipt() {
+        // given
+        Long memberId = 10L;
+        DemodayBooth selectedBooth = projectBooth();
+        DemodayVote activeVote = activeVote();
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(mock(DemodayPoll.class)));
+        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(selectedBooth));
+        given(loadDemodayStampPort.listMemberStamps(memberId)).willReturn(List.of());
+        given(loadDemodayVotePort.findMemberVote(POLL_ID, memberId)).willReturn(Optional.of(activeVote));
+
+        // when
+        DemodayParticipationInfo info = demodayPollQueryService.getParticipation(
+            POLL_ID,
+            new MemberDemodayParticipant(memberId)
+        );
+
+        // then
+        assertThat(info.hasActiveVote()).isTrue();
+        assertThat(info.hasUsedVoteSlot()).isTrue();
+        assertThat(info.canRequestVoteAuthorization()).isFalse();
+        assertThat(info.activeVoteReceipt()).isNotNull();
+        assertThat(info.activeVoteReceipt().voteId()).isEqualTo(VOTE_ID);
+        assertThat(info.activeVoteReceipt().selectedBooth().boothId()).isEqualTo(BOOTH_ID);
+        assertThat(info.activeVoteReceipt().selectedBooth().boothCode()).isEqualTo(11);
+        assertThat(info.activeVoteReceipt().votedAt()).isEqualTo(VOTED_AT);
+        verify(loadDemodayVotePort).findMemberVote(POLL_ID, memberId);
+    }
+
+    @Test
+    @DisplayName("게스트도 회원과 동일한 유효 투표 영수증을 반환한다")
+    void activeGuestVoteReturnsReceipt() {
+        // given
+        Long entryCodeId = 42L;
+        DemodayBooth selectedBooth = projectBooth();
+        DemodayVote activeVote = activeVote();
+        given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(mock(DemodayPoll.class)));
+        given(loadDemodayBoothPort.listByPollId(POLL_ID)).willReturn(List.of(selectedBooth));
+        given(loadDemodayStampPort.listVisitorStamps(entryCodeId)).willReturn(List.of());
+        given(loadDemodayVotePort.findVisitorVote(entryCodeId)).willReturn(Optional.of(activeVote));
+
+        // when
+        DemodayParticipationInfo info = demodayPollQueryService.getParticipation(
+            POLL_ID,
+            new GuestDemodayParticipant(entryCodeId)
+        );
+
+        // then
+        assertThat(info.activeVoteReceipt()).isNotNull();
+        assertThat(info.activeVoteReceipt().voteId()).isEqualTo(VOTE_ID);
+        assertThat(info.activeVoteReceipt().selectedBooth().boothId()).isEqualTo(BOOTH_ID);
+        assertThat(info.activeVoteReceipt().votedAt()).isEqualTo(VOTED_AT);
         verify(loadDemodayVotePort).findVisitorVote(entryCodeId);
     }
 
@@ -107,6 +168,7 @@ class DemodayPollQueryServiceTest {
         assertThat(info.hasActiveVote()).isFalse();
         assertThat(info.hasUsedVoteSlot()).isTrue();
         assertThat(info.canRequestVoteAuthorization()).isFalse();
+        assertThat(info.activeVoteReceipt()).isNull();
     }
 
     @Test
@@ -204,5 +266,20 @@ class DemodayPollQueryServiceTest {
         assertThat(booths)
             .extracting(booth -> booth.boothId())
             .containsExactly(10L);
+    }
+
+    private DemodayBooth projectBooth() {
+        DemodayBooth booth = DemodayBooth.forProject(POLL_ID, 11, 101L);
+        ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
+        return booth;
+    }
+
+    private DemodayVote activeVote() {
+        DemodayVote vote = mock(DemodayVote.class);
+        given(vote.isRevoked()).willReturn(false);
+        given(vote.getId()).willReturn(VOTE_ID);
+        given(vote.getTargetBoothId()).willReturn(BOOTH_ID);
+        given(vote.getCreatedAt()).willReturn(VOTED_AT);
+        return vote;
     }
 }

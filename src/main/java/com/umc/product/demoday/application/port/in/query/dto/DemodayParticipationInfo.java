@@ -14,6 +14,7 @@ public record DemodayParticipationInfo(
         Instant nextStampAvailableAt,
         boolean hasActiveVote,
         boolean hasUsedVoteSlot,
-        boolean canRequestVoteAuthorization
+        boolean canRequestVoteAuthorization,
+        DemodayVoteReceiptInfo activeVoteReceipt
 ) {
 }
