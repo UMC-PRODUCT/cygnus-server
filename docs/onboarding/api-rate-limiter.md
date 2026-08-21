@@ -97,6 +97,7 @@ Bucket key는 다음 형식이다.
 
 ```text
 member:42:GET:/api/v1/projects/{projectId}
+guest:73:GET:/api/v1/demoday/polls/{pollId}/participations/me
 ip:203.0.113.7:POST:/api/v1/projects/{projectId}/applications
 ```
 
@@ -136,13 +137,18 @@ flowchart TD
 
 ## Client key 결정
 
-`RateLimitClientKeyResolver`는 인증 정보가 있으면 `MemberPrincipal.memberId`를 사용한다.
+`RateLimitClientKeyResolver`는 인증 principal 종류에 따라 회원 또는 데모데이 게스트 식별자를 사용한다.
 
 ```text
 member:{memberId}
+guest:{entryCodeId}
 ```
 
-인증 정보가 없으면 `request.getRemoteAddr()` 값을 사용한다.
+따라서 공용 Wi-Fi나 NAT 환경에서도 인증된 데모데이 게스트는 같은 IP의 다른 게스트와 bucket을 공유하지 않는다.
+게스트 입장 코드 제출은 인증 전 요청이므로 이 전역 정책에서 제외하고, 별도의 IP 기반
+`DemodayGuestRateLimitInterceptor`와 `demoday.guest-rate-limit` 설정으로 제한한다.
+
+지원하는 인증 principal이 없으면 `request.getRemoteAddr()` 값을 사용한다.
 
 ```text
 ip:{remoteAddr}
@@ -156,7 +162,7 @@ ip:{remoteAddr}
 
 | 대상 | 초당 제한 | 분당 제한 |
 |---|---:|---:|
-| 인증 사용자 | 20 req/s | 300 req/min |
+| 인증 사용자(회원·데모데이 게스트) | 20 req/s | 300 req/min |
 | 익명 IP | 5 req/s | 60 req/min |
 
 현재 기본 설정에는 endpoint별 route override가 없다. 실제 서비스에 비싼 API가 생기면 `app.api-rate-limit.route-policies`에 명시적으로 추가한다.
@@ -255,9 +261,9 @@ tag는 다음과 같다.
 | `rule` | `authenticated-default`, `anonymous-default`, `custom` |
 | `method` | `GET`, `POST` |
 | `uriTemplate` | `/api/v1/projects/{projectId}`, `unmapped` |
-| `clientType` | `WEB`, `ANONYMOUS`, `UNKNOWN` |
+| `clientType` | `WEB`, `GUEST`, `ANONYMOUS`, `UNKNOWN` |
 
-metric tag에는 raw `memberId`나 raw IP를 넣지 않는다. 차단 로그도 `method`, `routePattern`, `clientType`, `retryAfterSeconds`, `keyHash`만 남긴다.
+metric tag에는 raw `memberId`, `entryCodeId`, IP를 넣지 않는다. 차단 로그도 `method`, `routePattern`, `clientType`, `retryAfterSeconds`, `keyHash`만 남긴다.
 
 ## 운영 시 주의사항
 

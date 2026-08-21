@@ -50,6 +50,7 @@ public record StudyMemberSubmissionResponse(
     public record WeeklySubmissionResponse(
         Long weekNo,
         Long weeklyCurriculumId,
+        String weeklyCurriculumTitle,
         Long challengerWorkbookId,
         ChallengerWorkbookStatus status,
         boolean isBest
@@ -59,6 +60,7 @@ public record StudyMemberSubmissionResponse(
             return WeeklySubmissionResponse.builder()
                 .weekNo(info.weekNo())
                 .weeklyCurriculumId(info.weeklyCurriculumId())
+                .weeklyCurriculumTitle(info.weeklyCurriculumTitle())
                 .challengerWorkbookId(info.challengerWorkbookId())
                 .status(info.status())
                 .isBest(info.isBest())

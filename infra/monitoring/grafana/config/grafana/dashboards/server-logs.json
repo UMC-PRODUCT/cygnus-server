@@ -2,7 +2,7 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "umc-product-server-logs"
+    "name": "cygnus-server-logs"
   },
   "spec": {
     "annotations": [

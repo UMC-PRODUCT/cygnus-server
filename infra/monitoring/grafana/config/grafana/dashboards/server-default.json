@@ -2,7 +2,7 @@
   "apiVersion": "dashboard.grafana.app/v2",
   "kind": "Dashboard",
   "metadata": {
-    "name": "umc-product-server-default"
+    "name": "cygnus-server-default"
   },
   "spec": {
     "annotations": [

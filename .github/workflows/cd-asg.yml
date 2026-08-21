@@ -2,8 +2,11 @@
 # - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
 # - vars.ASG_NAME
 # - vars.LAUNCH_TEMPLATE_NAME
-# - vars.SECRET_S3_URI
 # Optional repository variables:
+# - vars.SSM_BASE_PATH (default: /umc-product/cygnus-server)
+#   환경변수는 부팅 시 인스턴스가 ${SSM_BASE_PATH}/{prod|alpha}/ 에서 직접 내려받는다.
+#   Launch Template 의 instance profile(IAM Role)에 해당 경로의
+#   ssm:GetParametersByPath + kms:Decrypt(aws/ssm) 권한이 필요하다.
 # - vars.AWS_REGION (default: ap-northeast-2)
 # - vars.ECR_REPOSITORY (default: umc-product-server)
 # - vars.APP_PORT (default: 8080)
@@ -41,7 +44,7 @@ on:
         required: true
         type: choice
         options:
-          - Development
+          - Alpha
           - Production
 
 concurrency:
@@ -81,7 +84,7 @@ jobs:
       LAUNCH_TEMPLATE_NAME: ${{ vars.LAUNCH_TEMPLATE_NAME }}
       APP_PORT: ${{ vars.APP_PORT || '8080' }}
       MANAGEMENT_PORT: ${{ vars.MANAGEMENT_PORT || '9090' }}
-      SECRET_S3_URI: ${{ vars.SECRET_S3_URI }}
+      SSM_BASE_PATH: ${{ vars.SSM_BASE_PATH || '/umc-product/cygnus-server' }}
       MIN_HEALTHY_PERCENTAGE: ${{ vars.ASG_MIN_HEALTHY_PERCENTAGE || '100' }}
       MAX_HEALTHY_PERCENTAGE: ${{ vars.ASG_MAX_HEALTHY_PERCENTAGE || '200' }}
       INSTANCE_WARMUP: ${{ vars.ASG_INSTANCE_WARMUP || '300' }}
@@ -117,18 +120,21 @@ jobs:
           : "${ECR_REPOSITORY:?ECR_REPOSITORY is required}"
           : "${APP_PORT:?APP_PORT is required}"
           : "${MANAGEMENT_PORT:?MANAGEMENT_PORT is required}"
-          : "${SECRET_S3_URI:?SECRET_S3_URI is required}"
+          : "${SSM_BASE_PATH:?SSM_BASE_PATH is required}"
 
           if [[ -z "${AWS_ACCOUNT_ID}" ]]; then
             AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
           fi
 
+          # SPRING_PROFILE 은 Spring profile 이름, SSM_ENV 는 SSM 경로 세그먼트다.
           case "${ENVIRONMENT}" in
-            Production) SPRING_PROFILE="prod" ;;
-            Development) SPRING_PROFILE="dev" ;;
-            Test) SPRING_PROFILE="test" ;;
-            *) SPRING_PROFILE="dev" ;;
+            Production) SPRING_PROFILE="prod"; SSM_ENV="prod" ;;
+            Alpha) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
+            Test) SPRING_PROFILE="test"; SSM_ENV="alpha" ;;
+            *) SPRING_PROFILE="alpha"; SSM_ENV="alpha" ;;
           esac
+
+          SSM_PARAMETER_PATH="${SSM_BASE_PATH}/${SSM_ENV}"
 
           cp infra/asg/user-data.sh /tmp/user-data.sh
 
@@ -138,7 +144,7 @@ jobs:
           sed -i "s|__IMAGE_TAG__|${IMAGE_TAG}|g" /tmp/user-data.sh
           sed -i "s|__APP_PORT__|${APP_PORT}|g" /tmp/user-data.sh
           sed -i "s|__MANAGEMENT_PORT__|${MANAGEMENT_PORT}|g" /tmp/user-data.sh
-          sed -i "s|__SECRET_S3_URI__|${SECRET_S3_URI}|g" /tmp/user-data.sh
+          sed -i "s|__SSM_PARAMETER_PATH__|${SSM_PARAMETER_PATH}|g" /tmp/user-data.sh
           sed -i "s|__SPRING_PROFILE__|${SPRING_PROFILE}|g" /tmp/user-data.sh
 
           USER_DATA_BASE64=$(base64 -w 0 /tmp/user-data.sh)

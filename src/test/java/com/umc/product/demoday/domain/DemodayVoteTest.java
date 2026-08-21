@@ -18,12 +18,13 @@ class DemodayVoteTest {
 
     private static final Long POLL_ID = 1L;
     private static final Long BOOTH_ID = 10L;
+    private static final Integer BOOTH_CODE = 11;
     private static final Long ENTRY_CODE_ID = 20L;
     private static final Long MEMBER_ID = 1L;
     private static final Long PROJECT_ID = 1L;
 
     private static DemodayBooth createBooth(Long pollId) {
-        DemodayBooth booth = DemodayBooth.forProject(pollId, PROJECT_ID);
+        DemodayBooth booth = DemodayBooth.forProject(pollId, BOOTH_CODE, PROJECT_ID);
         ReflectionTestUtils.setField(booth, "id", BOOTH_ID);
         return booth;
     }
@@ -111,11 +112,31 @@ class DemodayVoteTest {
     @DisplayName("저장되지 않은 부스에는 투표할 수 없다.")
     void rejectVoteForUnsavedBooth() {
         // given
-        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, PROJECT_ID);
+        DemodayBooth unsavedBooth = DemodayBooth.forProject(POLL_ID, BOOTH_CODE, PROJECT_ID);
 
         // when & then
         assertThatThrownBy(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, unsavedBooth))
             .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    @DisplayName("회원과 외부 방문자는 외부 부스에 투표할 수 없다.")
+    void rejectVoteForExternalBooth() {
+        // given
+        DemodayBooth externalBooth = DemodayBooth.forExternal(POLL_ID, BOOTH_CODE, "외부 부스");
+        ReflectionTestUtils.setField(externalBooth, "id", BOOTH_ID);
+        DemodayEntryCode entryCode = createEntryCode(POLL_ID);
+
+        // when & then
+        assertThatThrownBy(() -> DemodayVote.forMember(POLL_ID, MEMBER_ID, externalBooth))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
+
+        assertThatThrownBy(() -> DemodayVote.forVisitor(POLL_ID, entryCode, externalBooth))
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("baseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
     }
 
     @Test
@@ -138,5 +159,35 @@ class DemodayVoteTest {
             .extracting("BaseCode")
             .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_ALREADY_REVOKED);
 
+    }
+
+    @Test
+    @DisplayName("무효화한 표를 복원하면 원래 부스와 참여자 식별자를 유지한다")
+    void restoreRevokedVote() {
+        // given
+        DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, createBooth(POLL_ID));
+        vote.revoke(Instant.parse("2026-08-20T01:00:00Z"));
+
+        // when
+        vote.restore();
+
+        // then
+        assertThat(vote.isRevoked()).isFalse();
+        assertThat(vote.getRevokedAt()).isNull();
+        assertThat(vote.getMemberId()).isEqualTo(MEMBER_ID);
+        assertThat(vote.getTargetBoothId()).isEqualTo(BOOTH_ID);
+    }
+
+    @Test
+    @DisplayName("유효한 표는 무효 해제할 수 없다")
+    void rejectRestoringValidVote() {
+        // given
+        DemodayVote vote = DemodayVote.forMember(POLL_ID, MEMBER_ID, createBooth(POLL_ID));
+
+        // when & then
+        assertThatThrownBy(vote::restore)
+            .isInstanceOf(DemodayDomainException.class)
+            .extracting("BaseCode")
+            .isEqualTo(DemodayErrorCode.DEMODAY_VOTE_NOT_REVOKED);
     }
 }

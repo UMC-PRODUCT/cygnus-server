@@ -57,12 +57,12 @@ class WebSocketBrokerRelayStartupValidatorTest {
     }
 
     @Test
-    @DisplayName("dev 또는 prod가 포함된 혼합 프로필은 relay startup readiness를 강제한다")
+    @DisplayName("alpha 또는 prod가 포함된 혼합 프로필은 relay startup readiness를 강제한다")
     void mixedSharedProfilesRequireStartupReadiness() throws InterruptedException {
         WebSocketBrokerProperties properties = relayProperties();
         given(monitor.awaitAvailable(properties.relay().startupTimeout())).willReturn(false);
 
-        for (String[] profiles : new String[][] {{"test", "dev"}, {"local", "prod"}}) {
+        for (String[] profiles : new String[][] {{"test", "alpha"}, {"local", "prod"}}) {
             MockEnvironment environment = new MockEnvironment();
             environment.setActiveProfiles(profiles);
             WebSocketBrokerRelayStartupValidator sut = new WebSocketBrokerRelayStartupValidator(

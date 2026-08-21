@@ -6,6 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.umc.product.demoday.application.port.in.command.CreateDemodayPollUseCase;
 import com.umc.product.demoday.application.port.in.command.dto.CreateDemodayPollCommand;
 import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
+import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
 import com.umc.product.demoday.domain.DemodayPoll;
 
 import lombok.RequiredArgsConstructor;
@@ -22,7 +23,8 @@ public class CreateDemodayPollCommandService implements CreateDemodayPollUseCase
     public Long create(CreateDemodayPollCommand command) {
         adminAccessChecker.validateAdminAccess(command.memberId(), command.gisuId());
 
-        DemodayPoll demodayPoll = DemodayPoll.create(command.gisuId(), command.name(), command.opensAt(), command.closesAt());
+        DemodayPoll demodayPoll = DemodayPoll.create(
+            command.gisuId(), command.name(), command.opensAt(), command.closesAt());
         DemodayPoll savedPoll = saveDemodayPollPort.save(demodayPoll);
         return savedPoll.getId();
     }

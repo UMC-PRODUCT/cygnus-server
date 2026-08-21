@@ -247,6 +247,7 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
             return WeeklySubmissionInfo.builder()
                 .weekNo(week.getWeekNo())
                 .weeklyCurriculumId(week.getId())
+                .weeklyCurriculumTitle(week.getTitle())
                 .challengerWorkbookId(null)
                 .status(ChallengerWorkbookStatus.NOT_SUBMITTED)
                 .isBest(isBest)
@@ -256,6 +257,7 @@ public class StudyMemberSubmissionQueryService implements GetStudyMemberSubmissi
         return WeeklySubmissionInfo.builder()
             .weekNo(week.getWeekNo())
             .weeklyCurriculumId(week.getId())
+            .weeklyCurriculumTitle(week.getTitle())
             .challengerWorkbookId(workbook.getId())
             .status(ChallengerWorkbookStatusPolicy.resolveWorkbookStatus(
                 workbook.isExcused(),

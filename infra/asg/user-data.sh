@@ -9,7 +9,7 @@ ECR_REPOSITORY="__ECR_REPOSITORY__"
 IMAGE_TAG="__IMAGE_TAG__"
 APP_PORT="__APP_PORT__"
 MANAGEMENT_PORT="__MANAGEMENT_PORT__"
-SECRET_S3_URI="__SECRET_S3_URI__"
+SSM_PARAMETER_PATH="__SSM_PARAMETER_PATH__"
 SPRING_PROFILE="__SPRING_PROFILE__"
 
 ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -47,9 +47,26 @@ systemctl start docker
 mkdir -p "${APP_DIR}"
 cd "${APP_DIR}"
 
-echo "Downloading env file from S3..."
-aws s3 cp "${SECRET_S3_URI}" "${APP_DIR}/.env" --region "${AWS_REGION}"
+# SSM Parameter Store 에서 환경변수를 내려받아 .env 를 구성한다.
+# 인스턴스 프로파일(IAM Role)에 다음 권한이 필요하다:
+#   - ssm:GetParametersByPath on arn:aws:ssm:*:*:parameter${SSM_PARAMETER_PATH}/*
+#   - kms:Decrypt on aws/ssm 키 (SecureString 복호화)
+# 값에 탭/개행이 포함되면 파싱이 깨지므로 멀티라인 값은 base64 로 저장한다 (가이드 참조).
+echo "Fetching env from SSM Parameter Store (${SSM_PARAMETER_PATH})..."
+aws ssm get-parameters-by-path \
+  --path "${SSM_PARAMETER_PATH}/" \
+  --recursive --with-decryption \
+  --region "${AWS_REGION}" \
+  --query "Parameters[*].[Name,Value]" --output text \
+  | while IFS=$'\t' read -r name value; do
+      printf '%s=%s\n' "${name##*/}" "${value}"
+    done > "${APP_DIR}/.env"
 chmod 600 "${APP_DIR}/.env"
+
+if [[ ! -s "${APP_DIR}/.env" ]]; then
+  echo "No parameters found under ${SSM_PARAMETER_PATH}/ (권한 또는 경로 확인)"
+  exit 1
+fi
 
 echo "Logging in to ECR..."
 aws ecr get-login-password --region "${AWS_REGION}" \

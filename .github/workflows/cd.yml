@@ -35,7 +35,7 @@ on:
         required: true
         type: choice
         options:
-          - Development
+          - Alpha
           - Production
 
 jobs:
@@ -223,9 +223,9 @@ jobs:
 
             case "${{ env.ENVIRONMENT }}" in
               "Production") PROFILE="prod" ;;
-              "Development") PROFILE="dev" ;;
+              "Alpha") PROFILE="alpha" ;;
               "Test") PROFILE="test" ;;
-              *) PROFILE="dev" ;;
+              *) PROFILE="alpha" ;;
             esac
 
             echo "📝 Docker Compose 치환 전용 .env 파일 생성 중..."

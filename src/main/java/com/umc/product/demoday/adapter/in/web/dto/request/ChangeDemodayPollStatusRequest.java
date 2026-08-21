@@ -1,4 +1,4 @@
-package com.umc.product.demoday.adapter.in.web.dto;
+package com.umc.product.demoday.adapter.in.web.dto.request;
 
 import com.umc.product.demoday.application.port.in.command.dto.ChangeDemodayPollStatusCommand;
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;
@@ -9,7 +9,7 @@ import jakarta.validation.constraints.NotNull;
 @Schema(description = "데모데이 투표 운영 상태 변경 요청")
 public record ChangeDemodayPollStatusRequest(
     @Schema(
-        description = "변경할 운영 상태. OPEN은 투표 진행, CLOSED는 투표 종료를 의미합니다.",
+        description = "변경할 운영 상태. OPEN은 투표 시작, CLOSED는 투표 종료를 의미합니다.",
         example = "OPEN",
         allowableValues = {"OPEN", "CLOSED"}
     )

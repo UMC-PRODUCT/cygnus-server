@@ -4,7 +4,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import com.umc.product.global.security.MemberPrincipal;
+import com.umc.product.global.security.RateLimitPrincipal;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -12,17 +12,16 @@ import jakarta.servlet.http.HttpServletRequest;
 public class RateLimitClientKeyResolver {
 
     private static final String CLIENT_TYPE_ANONYMOUS = "ANONYMOUS";
-    private static final String CLIENT_TYPE_UNKNOWN = "UNKNOWN";
 
     public RateLimitClientKey resolve(HttpServletRequest request) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null
             && authentication.isAuthenticated()
-            && authentication.getPrincipal() instanceof MemberPrincipal memberPrincipal) {
+            && authentication.getPrincipal() instanceof RateLimitPrincipal principal) {
             return new RateLimitClientKey(
-                "member:" + memberPrincipal.getMemberId(),
+                principal.rateLimitKey(),
                 true,
-                memberPrincipal.getClientType() == null ? CLIENT_TYPE_UNKNOWN : memberPrincipal.getClientType().name()
+                principal.rateLimitClientType()
             );
         }
 

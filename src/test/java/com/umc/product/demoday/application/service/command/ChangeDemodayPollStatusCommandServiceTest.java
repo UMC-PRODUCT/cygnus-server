@@ -19,6 +19,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.umc.product.demoday.application.port.in.command.dto.ChangeDemodayPollStatusCommand;
 import com.umc.product.demoday.application.port.out.LoadDemodayPollPort;
 import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
+import com.umc.product.demoday.application.service.DemodayAdminAccessChecker;
 import com.umc.product.demoday.domain.DemodayPoll;
 import com.umc.product.demoday.domain.enums.DemodayPollStatus;
 import com.umc.product.demoday.domain.exception.DemodayDomainException;
@@ -47,10 +48,10 @@ class ChangeDemodayPollStatusCommandServiceTest {
     private ChangeDemodayPollStatusCommandService service;
 
     @Test
-    @DisplayName("닫힌 투표를 열고 저장한다")
-    void openClosedPoll() {
+    @DisplayName("준비 상태의 투표를 열고 저장한다")
+    void openReadyPoll() {
         // given
-        DemodayPoll poll = createClosedPoll();
+        DemodayPoll poll = createReadyPoll();
         ChangeDemodayPollStatusCommand command = commandOf(DemodayPollStatus.OPEN);
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
 
@@ -67,7 +68,7 @@ class ChangeDemodayPollStatusCommandServiceTest {
     @DisplayName("열린 투표를 닫고 저장한다")
     void closeOpenPoll() {
         // given
-        DemodayPoll poll = createClosedPoll();
+        DemodayPoll poll = createReadyPoll();
         poll.open();
         ChangeDemodayPollStatusCommand command = commandOf(DemodayPollStatus.CLOSED);
         given(loadDemodayPollPort.findById(POLL_ID)).willReturn(Optional.of(poll));
@@ -102,7 +103,7 @@ class ChangeDemodayPollStatusCommandServiceTest {
     @DisplayName("관리자 권한이 없으면 상태를 변경하거나 저장하지 않는다")
     void doNotChangeOrSavePollWhenAdminAccessIsDenied() {
         // given
-        DemodayPoll poll = createClosedPoll();
+        DemodayPoll poll = createReadyPoll();
         ChangeDemodayPollStatusCommand command = commandOf(DemodayPollStatus.OPEN);
         DemodayDomainException expectedException =
                 new DemodayDomainException(DemodayErrorCode.DEMODAY_ADMIN_ACCESS_DENIED);
@@ -113,11 +114,11 @@ class ChangeDemodayPollStatusCommandServiceTest {
 
         // when & then
         assertThatThrownBy(() -> service.changeStatus(command)).isSameAs(expectedException);
-        assertThat(poll.getStatus()).isEqualTo(DemodayPollStatus.CLOSED);
+        assertThat(poll.getStatus()).isEqualTo(DemodayPollStatus.READY);
         then(saveDemodayPollPort).shouldHaveNoInteractions();
     }
 
-    private DemodayPoll createClosedPoll() {
+    private DemodayPoll createReadyPoll() {
         return DemodayPoll.create(GISU_ID, POLL_NAME, OPENS_AT, CLOSES_AT);
     }
 

@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.demoday.adapter.in.web.security.DemodayParticipationPrincipal;
 import com.umc.product.global.client.ClientContextProperties;
 import com.umc.product.global.client.ClientOriginRegistry;
 import com.umc.product.global.client.ClientRequestClassifier;
@@ -79,6 +80,41 @@ class ApiRateLimitInterceptorTest {
             .andExpect(jsonPath("$.code").value(CommonErrorCode.TOO_MANY_REQUESTS.getCode()));
 
         assertThat(controller.invocations()).isEqualTo(5);
+    }
+
+    @Test
+    @DisplayName("같은 IP의 게스트들은 참가자별 한도를 사용하고 한 게스트의 초과가 다른 게스트에 영향 주지 않는다")
+    void demoday_guests_on_same_ip_use_independent_buckets() throws Exception {
+        DemodayParticipationController controller = new DemodayParticipationController();
+        MockMvc mockMvc = mockMvc(controller, guestLimitedProperties());
+
+        authenticateGuest(101L);
+        mockMvc.perform(get("/api/v1/demoday/polls/1/participations/me")
+                .with(request -> {
+                    request.setRemoteAddr("10.0.0.10");
+                    return request;
+                }))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-RateLimit-Limit", "1"));
+
+        mockMvc.perform(get("/api/v1/demoday/polls/1/participations/me")
+                .with(request -> {
+                    request.setRemoteAddr("10.0.0.10");
+                    return request;
+                }))
+            .andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("$.code").value(CommonErrorCode.TOO_MANY_REQUESTS.getCode()));
+
+        authenticateGuest(202L);
+        mockMvc.perform(get("/api/v1/demoday/polls/1/participations/me")
+                .with(request -> {
+                    request.setRemoteAddr("10.0.0.10");
+                    return request;
+                }))
+            .andExpect(status().isOk())
+            .andExpect(header().string("X-RateLimit-Limit", "1"));
+
+        assertThat(controller.invocations()).isEqualTo(2);
     }
 
     @Test
@@ -168,6 +204,27 @@ class ApiRateLimitInterceptorTest {
         );
     }
 
+    private static ApiRateLimitProperties guestLimitedProperties() {
+        ApiRateLimitProperties.Limit oneRequest = new ApiRateLimitProperties.Limit(1, 1);
+        ApiRateLimitProperties.Limit anonymousLimit = new ApiRateLimitProperties.Limit(5, 5);
+        return new ApiRateLimitProperties(
+            true,
+            List.of("/api/**"),
+            ApiRateLimitProperties.defaultExcludedPaths(),
+            oneRequest,
+            anonymousLimit,
+            List.of(),
+            new ApiRateLimitProperties.Cache(10_000, Duration.ofMinutes(10))
+        );
+    }
+
+    private static void authenticateGuest(Long entryCodeId) {
+        DemodayParticipationPrincipal principal = new DemodayParticipationPrincipal(entryCodeId);
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(principal, null, List.of())
+        );
+    }
+
     @RestController
     private static class ProductController {
 
@@ -197,6 +254,22 @@ class ApiRateLimitInterceptorTest {
         String graphql() {
             invocations.incrementAndGet();
             return "graphql";
+        }
+
+        int invocations() {
+            return invocations.get();
+        }
+    }
+
+    @RestController
+    private static class DemodayParticipationController {
+
+        private final AtomicInteger invocations = new AtomicInteger();
+
+        @GetMapping("/api/v1/demoday/polls/{pollId}/participations/me")
+        String participation(@PathVariable Long pollId) {
+            invocations.incrementAndGet();
+            return "participation-" + pollId;
         }
 
         int invocations() {

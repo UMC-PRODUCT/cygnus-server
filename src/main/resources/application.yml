@@ -70,14 +70,22 @@ spring:
       keepalive-time: 60000 # DB에 1분마다 생존 신고 (유휴 커넥션 방지)
 
   flyway:
-    enabled: true
+    # 부팅 시 자동 migrate 여부. 로컬/테스트는 true(기본값), 배포 환경(prod/alpha)은
+    # SSM 에 FLYWAY_ENABLED=false 를 넣어 끈다. 배포 환경의 마이그레이션은
+    # `DB Migrate [Flyway]` 워크플로우(workflow_dispatch)로만 수행한다.
+    # 참고: docs/infra/flyway-migration-runbook.md
+    enabled: ${FLYWAY_ENABLED:true}
     baseline-version: 2026.02.25.01.30
     baseline-on-migrate: ${FLYWAY_BASELINE_ON_MIGRATE:false}
     out-of-order: ${FLYWAY_OUT_OF_ORDER:false}
 
   jpa:
     hibernate:
-      ddl-auto: validate
+      # validate 는 DB를 변경하지 않는 읽기 전용 검증이다. 마이그레이션 없이 신버전이 배포되면
+      # 부팅이 실패하고 ASG instance refresh 가 중단되므로 안전장치로 유지한다.
+      # expand-contract 중간 단계처럼 "스키마가 아직 안 맞아도 떠야 하는" 예외 상황에서만
+      # JPA_DDL_AUTO=none 으로 일시 완화한다. create/update 계열은 절대 주입하지 않는다.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     open-in-view: false
     properties:
       hibernate:
@@ -162,6 +170,24 @@ jwt:
   refresh-token-validity-in-seconds: ${JWT_REFRESH_TOKEN_VALIDITY_IN_SECONDS:604800}
   verification-token-validity-in-seconds: ${JWT_VERIFICATION_TOKEN_VALIDITY_IN_SECONDS:600}
 
+demoday:
+  # 운영 외 환경의 데모데이 테스트 데이터 초기화 API. 기본은 비활성이고 prod에서는 빈 등록도 차단한다.
+  test-data-reset:
+    enabled: ${DEMODAY_TEST_DATA_RESET_ENABLED:false}
+  qr:
+    base-url: ${DEMODAY_QR_BASE_URL}
+  stamp-credential:
+    encryption-key: ${DEMODAY_STAMP_CREDENTIAL_ENCRYPTION_KEY}
+  vote-qr:
+    signing-key: ${DEMODAY_VOTE_QR_SIGNING_KEY}
+  vote-authorization:
+    signing-key: ${DEMODAY_VOTE_AUTHORIZATION_SIGNING_KEY}
+  participant-token:
+    secret: ${DEMODAY_PARTICIPANT_TOKEN_SECRET}
+  guest-rate-limit:
+    requests-per-second: ${DEMODAY_GUEST_RATE_LIMIT_PER_SECOND:5}
+    requests-per-minute: ${DEMODAY_GUEST_RATE_LIMIT_PER_MINUTE:150}
+
 # OpenAPI / Scalar 문서 설정
 springdoc:
   swagger-ui:
@@ -180,7 +206,7 @@ springdoc:
 #     DB span 트레이싱은 그대로 동작한다 (SQL 원문 라인만 사라짐).
 #   - local 프로필은 파일 하단(on-profile: local)에서 enable-logging=true 로 재정의하므로,
 #     로컬 개발자는 별도 env 설정 없이 SQL 라인을 본다.
-# 환경변수 기본값: local=true / dev·staging·prod·test=false
+# 환경변수 기본값: local=true / alpha·staging·prod·test=false
 # ====================================================================
 decorator:
   datasource:
@@ -408,6 +434,10 @@ app:
       - /webjars/**
       - /umc-logo.svg
       - /error
+      # 데모데이 게스트 입장 코드 제출: 전역 anonymous-default(분당 60회)가 해당 도메인 전용
+      # demoday.guest-rate-limit(분당 150회)보다 먼저 실행되어 해당 경로의 정책을 사실상 무력화하기 때문에 제외한다.
+      # 해당 경로는 전용 인터셉터(DemodayGuestRateLimitInterceptor)가 단독으로 관장한다.
+      - /api/v1/demoday/polls/*/participations/guest
     authenticated-default:
       requests-per-second: ${API_RATE_LIMIT_AUTH_REQUESTS_PER_SECOND:20}
       requests-per-minute: ${API_RATE_LIMIT_AUTH_REQUESTS_PER_MINUTE:300}
@@ -551,20 +581,24 @@ storage:
 
 
 # ==================================================================
-# configuration override for dev profile
+# configuration override for alpha profile
 # ==================================================================
 
 ---
 spring:
   config:
     activate:
-      on-profile: dev
+      on-profile: alpha
   graphql:
     schema:
       introspection:
         enabled: true
     graphiql:
       enabled: ${GRAPHQL_GRAPHIQL_ENABLED:true}
+
+demoday:
+  test-data-reset:
+    enabled: ${DEMODAY_TEST_DATA_RESET_ENABLED:true}
 
 app:
   client-context:
@@ -579,7 +613,7 @@ app:
   sso:
     clients:
       backoffice:
-        name: dev backoffice
+        name: alpha backoffice
         service-type: UMC_BACKOFFICE
         environment: DEV
         require-pkce: true
@@ -589,7 +623,7 @@ app:
         allowed-origins:
           - https://dev.admin.university.neordinary.com
       website:
-        name: dev website
+        name: alpha website
         service-type: UMC_WEBSITE
         environment: DEV
         require-pkce: true

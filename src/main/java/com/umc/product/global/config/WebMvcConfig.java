@@ -10,6 +10,7 @@ import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import com.umc.product.demoday.adapter.in.web.support.CurrentDemodayParticipantArgumentResolver;
 import com.umc.product.global.client.ClientContextConfig;
 import com.umc.product.global.logging.OperationalMetricsConfig;
 import com.umc.product.global.ratelimit.ApiRateLimitInterceptor;
@@ -28,12 +29,14 @@ import lombok.RequiredArgsConstructor;
 public class WebMvcConfig implements WebMvcConfigurer {
 
     private final CurrentMemberArgumentResolver currentMemberArgumentResolver;
+    private final ObjectProvider<CurrentDemodayParticipantArgumentResolver> currentDemodayParticipantArgumentResolverProvider;
     private final LoggingInterceptor loggingInterceptor;
     private final ObjectProvider<ApiRateLimitInterceptor> apiRateLimitInterceptorProvider;
 
     @Override
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(currentMemberArgumentResolver);
+        currentDemodayParticipantArgumentResolverProvider.ifAvailable(resolvers::add);
     }
 
     @Override

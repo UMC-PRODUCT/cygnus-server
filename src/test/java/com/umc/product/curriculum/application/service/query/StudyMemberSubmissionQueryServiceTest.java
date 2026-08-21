@@ -163,6 +163,7 @@ class StudyMemberSubmissionQueryServiceTest {
         assertThat(notDeployed.weeks()).singleElement()
             .satisfies(week -> {
                 assertThat(week.challengerWorkbookId()).isNull();
+                assertThat(week.weeklyCurriculumTitle()).isEqualTo("3주차");
                 assertThat(week.status()).isEqualTo(ChallengerWorkbookStatus.NOT_SUBMITTED);
                 assertThat(week.isBest()).isFalse();
             });
@@ -174,7 +175,10 @@ class StudyMemberSubmissionQueryServiceTest {
         List<StudyMemberSubmissionInfo> result = service.getStudyMemberSubmissions(query());
 
         assertThat(findByMemberId(result, PASSED_MEMBER).weeks()).singleElement()
-            .satisfies(week -> assertThat(week.status()).isEqualTo(ChallengerWorkbookStatus.PASS));
+            .satisfies(week -> {
+                assertThat(week.status()).isEqualTo(ChallengerWorkbookStatus.PASS);
+                assertThat(week.weeklyCurriculumTitle()).isEqualTo("3주차");
+            });
         assertThat(findByMemberId(result, FAILED_MEMBER).weeks()).singleElement()
             .satisfies(week -> assertThat(week.status()).isEqualTo(ChallengerWorkbookStatus.FAIL));
     }

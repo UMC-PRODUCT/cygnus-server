@@ -15,6 +15,8 @@ import com.umc.product.test.adapter.in.web.dto.CreateSeedChallengerRoleRequest;
 import com.umc.product.test.adapter.in.web.dto.CreateSeedChallengerRoleResponse;
 import com.umc.product.test.adapter.in.web.dto.CreateSeedMemberRequest;
 import com.umc.product.test.adapter.in.web.dto.CreateSeedMemberResponse;
+import com.umc.product.test.adapter.in.web.dto.CreateSeedMemberSystemRoleRequest;
+import com.umc.product.test.adapter.in.web.dto.CreateSeedMemberSystemRoleResponse;
 import com.umc.product.test.adapter.in.web.dto.DeleteSeedProjectDataRequest;
 import com.umc.product.test.adapter.in.web.dto.DeleteSeedProjectDataResponse;
 import com.umc.product.test.adapter.in.web.dto.SeedChallengerPointsRequest;
@@ -35,6 +37,7 @@ import com.umc.product.test.adapter.in.web.dto.SeedProjectsRequest;
 import com.umc.product.test.adapter.in.web.dto.SeedProjectsResponse;
 import com.umc.product.test.application.port.in.command.CreateSeedChallengerRoleUseCase;
 import com.umc.product.test.application.port.in.command.CreateSeedChallengerUseCase;
+import com.umc.product.test.application.port.in.command.CreateSeedMemberSystemRoleUseCase;
 import com.umc.product.test.application.port.in.command.CreateSeedMemberUseCase;
 import com.umc.product.test.application.port.in.command.DeleteSeedProjectDataUseCase;
 import com.umc.product.test.application.port.in.command.SeedChallengerPointsUseCase;
@@ -71,6 +74,7 @@ public class SeedController {
 
     private final SeedMembersUseCase seedMembersUseCase;
     private final CreateSeedMemberUseCase createSeedMemberUseCase;
+    private final CreateSeedMemberSystemRoleUseCase createSeedMemberSystemRoleUseCase;
     private final SeedChallengersUseCase seedChallengersUseCase;
     private final CreateSeedChallengerUseCase createSeedChallengerUseCase;
     private final CreateSeedChallengerRoleUseCase createSeedChallengerRoleUseCase;
@@ -110,6 +114,22 @@ public class SeedController {
     @PostMapping("/member")
     public CreateSeedMemberResponse createMember(@RequestBody @Valid CreateSeedMemberRequest request) {
         return CreateSeedMemberResponse.from(createSeedMemberUseCase.create(request.toCommand()));
+    }
+
+    @Operation(
+        operationId = "SEED-001-R",
+        summary = "테스트 회원 시스템 역할 부여",
+        description = """
+            회원 ID와 시스템 역할을 받아 비운영 환경의 테스트 회원에게 역할을 부여합니다.
+            현재 지원되는 역할은 SUPER_ADMIN이며, 같은 역할이 이미 있으면 새 행을 만들지 않습니다.
+            """
+    )
+    @PostMapping("/member-system-role")
+    public CreateSeedMemberSystemRoleResponse createMemberSystemRole(
+        @RequestBody @Valid CreateSeedMemberSystemRoleRequest request
+    ) {
+        return CreateSeedMemberSystemRoleResponse.from(
+            createSeedMemberSystemRoleUseCase.create(request.toCommand()));
     }
 
     @Operation(

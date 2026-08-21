@@ -56,14 +56,14 @@ jobs:
       deployments: write
     secrets: inherit
     with:
-      environment: Development
+      environment: Alpha
 
   deploy:
     name: Deploy to Develop Home Server
     needs: ci-and-build
-    if: (github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch') && needs.ci-and-build.outputs.environment == 'Development'
+    if: (github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch') && needs.ci-and-build.outputs.environment == 'Alpha'
     runs-on: ubuntu-latest
-    environment: Development
+    environment: Alpha
 
     env:
       ENVIRONMENT: ${{ needs.ci-and-build.outputs.environment }}

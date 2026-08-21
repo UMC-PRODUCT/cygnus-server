@@ -1,6 +1,7 @@
 package com.umc.product.demoday.adapter.out.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
 import java.util.List;
@@ -15,6 +16,8 @@ import com.umc.product.demoday.application.port.out.SaveDemodayBoothPort;
 import com.umc.product.demoday.application.port.out.SaveDemodayPollPort;
 import com.umc.product.demoday.domain.DemodayBooth;
 import com.umc.product.demoday.domain.DemodayPoll;
+import com.umc.product.demoday.domain.exception.DemodayDomainException;
+import com.umc.product.demoday.domain.exception.DemodayErrorCode;
 import com.umc.product.support.PersistenceAdapterTest;
 
 import jakarta.persistence.EntityManager;
@@ -46,7 +49,7 @@ class DemodayBoothPersistenceAdapterTest {
     void saveAndFindBoothById() {
         // Given
         DemodayPoll poll = savePoll();
-        DemodayBooth booth = saveDemodayBoothPort.save(DemodayBooth.forProject(poll.getId(), 1L));
+        DemodayBooth booth = saveDemodayBoothPort.save(DemodayBooth.forProject(poll.getId(), 11, 1L));
         clearPersistenceContext();
 
         // When
@@ -54,6 +57,7 @@ class DemodayBoothPersistenceAdapterTest {
 
         // Then
         assertThat(found.getId()).isEqualTo(booth.getId());
+        assertThat(found.getBoothCode()).isEqualTo(11);
     }
 
     @Test
@@ -62,8 +66,8 @@ class DemodayBoothPersistenceAdapterTest {
         // Given
         DemodayPoll poll = savePoll();
         List<DemodayBooth> booths = List.of(
-            DemodayBooth.forProject(poll.getId(), 1L),
-            DemodayBooth.forExternal(poll.getId(), "외부 참가팀")
+            DemodayBooth.forProject(poll.getId(), 11, 1L),
+            DemodayBooth.forExternal(poll.getId(), 12, "외부 참가팀")
         );
 
         // When
@@ -76,13 +80,13 @@ class DemodayBoothPersistenceAdapterTest {
     }
 
     @Test
-    @DisplayName("투표의 부스 목록을 식별자 오름차순으로 조회한다")
-    void listBoothsByIdAscending() {
+    @DisplayName("투표의 부스 목록을 부스 코드 오름차순으로 조회한다")
+    void listBoothsByCodeAscending() {
         // Given
         DemodayPoll poll = savePoll();
-        List<DemodayBooth> booths = saveDemodayBoothPort.saveAll(List.of(
-            DemodayBooth.forProject(poll.getId(), 1L),
-            DemodayBooth.forProject(poll.getId(), 2L)
+        saveDemodayBoothPort.saveAll(List.of(
+            DemodayBooth.forProject(poll.getId(), 20, 1L),
+            DemodayBooth.forProject(poll.getId(), 10, 2L)
         ));
         clearPersistenceContext();
 
@@ -91,8 +95,59 @@ class DemodayBoothPersistenceAdapterTest {
 
         // Then
         assertThat(found)
+            .extracting(DemodayBooth::getBoothCode)
+            .containsExactly(10, 20);
+    }
+
+    @Test
+    @DisplayName("같은 투표에 같은 부스 코드를 저장하면 중복 코드 도메인 오류로 변환한다")
+    void rejectDuplicateBoothCodeInSamePoll() {
+        // Given
+        DemodayPoll poll = savePoll();
+        saveDemodayBoothPort.save(DemodayBooth.forProject(poll.getId(), 11, 1L));
+
+        // When & Then
+        assertThatThrownBy(() -> saveDemodayBoothPort.save(
+            DemodayBooth.forExternal(poll.getId(), 11, "외부 참가팀")
+        )).isInstanceOfSatisfying(DemodayDomainException.class, exception ->
+            assertThat(exception.getBaseCode()).isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_CODE_DUPLICATED)
+        );
+    }
+
+    @Test
+    @DisplayName("일괄 저장 안의 부스 코드 중복도 도메인 오류로 변환한다")
+    void rejectDuplicateBoothCodeInBatch() {
+        // Given
+        DemodayPoll poll = savePoll();
+        List<DemodayBooth> booths = List.of(
+            DemodayBooth.forProject(poll.getId(), 11, 1L),
+            DemodayBooth.forExternal(poll.getId(), 11, "외부 참가팀")
+        );
+
+        // When & Then
+        assertThatThrownBy(() -> saveDemodayBoothPort.saveAll(booths))
+            .isInstanceOfSatisfying(DemodayDomainException.class, exception ->
+                assertThat(exception.getBaseCode()).isEqualTo(DemodayErrorCode.DEMODAY_BOOTH_CODE_DUPLICATED)
+            );
+    }
+
+    @Test
+    @DisplayName("스탬프 credential 해시로 부스를 조회한다")
+    void findBoothByStampCredentialHash() {
+        // Given
+        DemodayPoll poll = savePoll();
+        DemodayBooth booth = DemodayBooth.forProject(poll.getId(), 11, 1L);
+        booth.applyStampCredential("credential-hash", "encrypted-credential", Instant.parse("2026-08-19T00:00:00Z"));
+        DemodayBooth saved = saveDemodayBoothPort.save(booth);
+        clearPersistenceContext();
+
+        // When & Then
+        assertThat(loadDemodayBoothPort.findByStampCredentialHash("credential-hash"))
+            .get()
             .extracting(DemodayBooth::getId)
-            .containsExactly(booths.get(0).getId(), booths.get(1).getId());
+            .isEqualTo(saved.getId());
+        assertThat(loadDemodayBoothPort.findByStampCredentialHash("no-such-hash"))
+            .isEmpty();
     }
 
     private DemodayPoll savePoll() {

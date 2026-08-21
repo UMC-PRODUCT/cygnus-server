@@ -8,12 +8,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Profile;
 
+import com.umc.product.test.adapter.out.persistence.MemberSystemRoleSeedPersistenceAdapter;
 import com.umc.product.test.application.service.ChallengerSeedService;
 import com.umc.product.test.application.service.CurriculumSeedService;
 import com.umc.product.test.application.service.DummyCurriculumFactory;
 import com.umc.product.test.application.service.DummyMemberFactory;
 import com.umc.product.test.application.service.DummyNoticeFactory;
 import com.umc.product.test.application.service.MemberSeedService;
+import com.umc.product.test.application.service.MemberSystemRoleSeedService;
 import com.umc.product.test.application.service.NoticeSeedService;
 import com.umc.product.test.application.service.PartAssignmentPolicy;
 import com.umc.product.test.application.service.ProjectApplicationSeedService;
@@ -34,6 +36,8 @@ class SeedControllerBeanRegistrationTest {
     @ValueSource(classes = {
         SeedController.class,
         MemberSeedService.class,
+        MemberSystemRoleSeedService.class,
+        MemberSystemRoleSeedPersistenceAdapter.class,
         ChallengerSeedService.class,
         ProjectSeedService.class,
         ProjectSeedDataCleanupService.class,

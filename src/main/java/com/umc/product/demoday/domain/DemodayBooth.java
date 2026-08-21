@@ -1,5 +1,6 @@
 package com.umc.product.demoday.domain;
 
+import java.time.Instant;
 import java.util.Objects;
 
 import com.umc.product.common.BaseEntity;
@@ -35,35 +36,86 @@ public class DemodayBooth extends BaseEntity {
     @Column(name = "demoday_poll_id", nullable = false)
     private Long pollId;
 
+    @Column(name = "booth_code", nullable = false)
+    private Integer boothCode;
+
     @Column(name = "project_id")
     private Long projectId;
 
     @Column(name = "display_name")
     private String displayName;
 
+    @Column(name = "stamp_credential_hash")
+    private String stampCredentialHash;
+
+    @Column(name = "stamp_credential_cipher")
+    private String stampCredentialCipher;
+
+    @Column(name = "stamp_credential_generated_at")
+    private Instant stampCredentialGeneratedAt;
+
     @Builder(access = AccessLevel.PRIVATE)
-    private DemodayBooth(Long pollId, Long projectId, String displayName) {
+    private DemodayBooth(Long pollId, Integer boothCode, Long projectId, String displayName) {
         this.pollId = pollId;
+        this.boothCode = boothCode;
         this.projectId = projectId;
         this.displayName = displayName;
     }
 
-    public static DemodayBooth forProject(Long pollId, Long projectId) {
+    public static DemodayBooth forProject(Long pollId, Integer boothCode, Long projectId) {
         Objects.requireNonNull(pollId, "pollId must not be null");
+        validateBoothCode(boothCode);
         validateProject(projectId);
         return DemodayBooth.builder()
             .pollId(pollId)
+            .boothCode(boothCode)
             .projectId(projectId)
             .build();
     }
 
-    public static DemodayBooth forExternal(Long pollId, String displayName) {
+    public static DemodayBooth forExternal(Long pollId, Integer boothCode, String displayName) {
         Objects.requireNonNull(pollId, "pollId must not be null");
+        validateBoothCode(boothCode);
         String normalizedName = requireDisplayName(displayName);
         return DemodayBooth.builder()
             .pollId(pollId)
+            .boothCode(boothCode)
             .displayName(normalizedName)
             .build();
+    }
+
+    public void applyStampCredential(
+        String stampCredentialHash,
+        String stampCredentialCipher,
+        Instant stampCredentialGeneratedAt
+    ) {
+        this.stampCredentialHash = Objects.requireNonNull(stampCredentialHash);
+        this.stampCredentialCipher = Objects.requireNonNull(stampCredentialCipher);
+        this.stampCredentialGeneratedAt = Objects.requireNonNull(stampCredentialGeneratedAt);
+    }
+
+    public boolean hasStampCredential() {
+        return stampCredentialHash != null
+            && stampCredentialCipher != null
+            && stampCredentialGeneratedAt != null;
+    }
+
+    public boolean isProjectBooth() {
+        return projectId != null;
+    }
+
+    public void validateVoteTarget() {
+        if (!isProjectBooth()) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_VOTE_EXTERNAL_BOOTH_NOT_ALLOWED);
+        }
+    }
+
+    //=== Private Method ===
+
+    private static void validateBoothCode(Integer boothCode) {
+        if (boothCode == null || boothCode <= 0) {
+            throw new DemodayDomainException(DemodayErrorCode.DEMODAY_BOOTH_INVALID_CODE);
+        }
     }
 
     private static void validateProject(Long projectId) {

@@ -52,7 +52,7 @@
                         },
                         "owner": "UMC-PRODUCT",
                         "queryType": "Pull_Requests",
-                        "repository": "umc-product-server"
+                        "repository": "cygnus-server"
                       },
                       "version": "v0"
                     },
@@ -207,7 +207,7 @@
                         },
                         "owner": "UMC-PRODUCT",
                         "queryType": "Issues",
-                        "repository": "umc-product-server"
+                        "repository": "cygnus-server"
                       },
                       "version": "v0"
                     },
@@ -289,7 +289,7 @@
                       "spec": {
                         "owner": "UMC-PRODUCT",
                         "queryType": "Issues",
-                        "repository": "umc-product-server"
+                        "repository": "cygnus-server"
                       },
                       "version": "v0"
                     },
@@ -443,7 +443,7 @@
                         },
                         "owner": "UMC-PRODUCT",
                         "queryType": "Pull_Requests",
-                        "repository": "umc-product-server"
+                        "repository": "cygnus-server"
                       },
                       "version": "v0"
                     },
@@ -529,7 +529,7 @@
                         },
                         "owner": "UMC-PRODUCT",
                         "queryType": "Pull_Requests",
-                        "repository": "umc-product-server"
+                        "repository": "cygnus-server"
                       },
                       "version": "v0"
                     },
@@ -631,7 +631,7 @@
                         },
                         "owner": "UMC-PRODUCT",
                         "queryType": "Pull_Requests",
-                        "repository": "umc-product-server"
+                        "repository": "cygnus-server"
                       },
                       "version": "v0"
                     },

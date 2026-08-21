@@ -401,7 +401,8 @@ public class S3StorageAdapter implements StoragePort {
     private String parseSpringProfileToCloudFrontPath() {
         return switch (springProfile) {
             case "prod" -> "prod";
-            case "dev" -> "dev";
+            // dev → alpha 프로필 rename 이후에도 기존 S3/CDN 객체는 dev/ 경로에 있으므로 저장 경로는 dev 를 유지한다.
+            case "dev", "alpha" -> "dev";
             case "local" -> "local";
             default -> throw new StorageException(StorageErrorCode.INVALID_SPRING_PROFILE);
         };

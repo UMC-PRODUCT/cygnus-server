@@ -14,7 +14,7 @@ import com.umc.product.global.config.WebSocketBrokerProperties;
 @ConditionalOnProperty(prefix = "app.websocket.broker", name = "mode", havingValue = "relay")
 public class WebSocketBrokerRelayStartupValidator implements ApplicationRunner {
 
-    private static final Profiles SHARED_ENVIRONMENT_PROFILES = Profiles.of("dev", "prod");
+    private static final Profiles SHARED_ENVIRONMENT_PROFILES = Profiles.of("alpha", "prod");
 
     private final WebSocketBrokerProperties properties;
     private final Environment environment;

@@ -34,6 +34,20 @@ jwt:
   refresh-token-validity-in-seconds: 604800
   verification-token-validity-in-seconds: 600
 
+demoday:
+  qr:
+    base-url: https://vote.test.umc.it.kr
+  vote-qr:
+    signing-key: test-dummy-vote-qr-signing-key-needs-32-bytes-min
+  vote-authorization:
+    signing-key: test-dummy-vote-authorization-signing-key-needs-32-bytes-min
+  stamp-credential:
+    encryption-key: MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=
+  participant-token:
+    secret: test-dummy-participant-token-secret-needs-32-bytes-min
+  guest-rate-limit:
+    requests-per-second: 5
+    requests-per-minute: 150
 
 management:
   tracing:

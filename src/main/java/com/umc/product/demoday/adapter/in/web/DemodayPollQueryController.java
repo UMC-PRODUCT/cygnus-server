@@ -10,14 +10,13 @@ import org.springframework.web.bind.annotation.RestController;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayBoothListResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayParticipationResponse;
 import com.umc.product.demoday.adapter.in.web.dto.response.DemodayPollListResponse;
+import com.umc.product.demoday.adapter.in.web.security.CurrentDemodayParticipant;
 import com.umc.product.demoday.application.port.in.query.GetDemodayParticipationUseCase;
 import com.umc.product.demoday.application.port.in.query.ListDemodayBoothUseCase;
 import com.umc.product.demoday.application.port.in.query.ListDemodayPollUseCase;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayBoothInfo;
 import com.umc.product.demoday.application.port.in.query.dto.DemodayParticipationInfo;
-import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipantResolver;
-import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.global.security.annotation.CurrentMember;
+import com.umc.product.demoday.application.port.in.query.participant.DemodayParticipant;
 import com.umc.product.global.security.annotation.Public;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,7 +33,6 @@ public class DemodayPollQueryController {
     private final ListDemodayPollUseCase listDemodayPollUseCase;
     private final GetDemodayParticipationUseCase getDemodayParticipationUseCase;
     private final ListDemodayBoothUseCase listDemodayBoothUseCase;
-    private final DemodayParticipantResolver<MemberPrincipal> participantResolver;
 
     @Operation(summary = "데모데이 투표 목록 조회", description = "데모데이 투표 목록을 조회합니다.")
     @Public
@@ -43,24 +41,33 @@ public class DemodayPollQueryController {
         return DemodayPollListResponse.from(listDemodayPollUseCase.listPolls());
     }
 
-    @Operation(summary = "내 투표 참여 정보 조회", description = "스탬프와 투표 기록을 기반으로 내 투표 참여 정보를 조회합니다.")
+    @Operation(
+        summary = "내 투표 참여 정보 조회",
+        description = "스탬프와 투표 기록을 기반으로 내 투표 참여 정보를 조회합니다. 회원 Bearer 또는 게스트 participant "
+            + "Cookie 둘 중 하나만 있으면 통과합니다. 현재 유효한 표가 있으면 activeVoteReceipt를 반환하며, "
+            + "투표하지 않았거나 표가 취소된 경우에는 null을 반환합니다."
+    )
     @GetMapping("/{pollId}/participations/me")
     public DemodayParticipationResponse getMyParticipation(
         @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId,
-        @Parameter(hidden = true) @CurrentMember MemberPrincipal memberPrincipal
+        @Parameter(hidden = true) @CurrentDemodayParticipant DemodayParticipant participant
     ) {
-        DemodayParticipationInfo participation = getDemodayParticipationUseCase.getParticipation(
-                pollId, participantResolver.resolve(memberPrincipal));
+        DemodayParticipationInfo participation = getDemodayParticipationUseCase.getParticipation(pollId, participant);
 
         return DemodayParticipationResponse.from(participation);
     }
 
-    @Operation(summary = "투표 부스 목록 조회", description = "투표에 등록된 부스 목록을 조회합니다.")
+    @Operation(
+        summary = "투표 대상 프로젝트 부스 목록 조회",
+        description = "참여자가 투표할 수 있는 프로젝트 부스만 부스 코드 오름차순으로 조회합니다. "
+            + "스탬프 적립 전용인 외부 부스와 회원의 소속 부스는 제외됩니다."
+    )
     @GetMapping("/{pollId}/booths")
     public DemodayBoothListResponse listBooths(
-        @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId
+        @Parameter(description = "투표 ID", example = "1") @PathVariable Long pollId,
+        @Parameter(hidden = true) @CurrentDemodayParticipant DemodayParticipant participant
     ) {
-        List<DemodayBoothInfo> boothInfos = listDemodayBoothUseCase.listBooths(pollId);
+        List<DemodayBoothInfo> boothInfos = listDemodayBoothUseCase.listBooths(pollId, participant);
         return DemodayBoothListResponse.from(boothInfos);
     }
 }

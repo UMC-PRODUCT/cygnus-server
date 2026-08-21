@@ -52,10 +52,14 @@ class DemodayEntryCodePersistenceAdapterTest {
         // When
         DemodayEntryCode foundById = loadDemodayEntryCodePort.findById(entryCode.getId()).orElseThrow();
         DemodayEntryCode foundByHash = loadDemodayEntryCodePort.findByCodeHash(entryCode.getCodeHash()).orElseThrow();
+        DemodayEntryCode foundForRedemption = loadDemodayEntryCodePort
+            .findByCodeHashForRedemption(entryCode.getCodeHash())
+            .orElseThrow();
 
         // Then
         assertThat(foundById.getId()).isEqualTo(entryCode.getId());
         assertThat(foundByHash.getId()).isEqualTo(entryCode.getId());
+        assertThat(foundForRedemption.getId()).isEqualTo(entryCode.getId());
     }
 
     @Test
@@ -75,6 +79,24 @@ class DemodayEntryCodePersistenceAdapterTest {
         assertThat(saved)
             .extracting(DemodayEntryCode::getCodeHash)
             .containsExactly(entryCodes.get(0).getCodeHash(), entryCodes.get(1).getCodeHash());
+    }
+
+    @Test
+    @DisplayName("입장 코드 사용 요청 식별자는 해시로 저장하고 다시 조회할 수 있다")
+    void saveAndFindRedemptionRequestIdHash() {
+        // Given
+        DemodayPoll poll = savePoll();
+        DemodayEntryCode entryCode = newEntryCode(poll, "c");
+        String requestIdHash = "d".repeat(DemodayEntryCode.HASH_LENGTH);
+        entryCode.redeemOrResume(Instant.parse("2026-07-27T10:00:00Z"), requestIdHash);
+        DemodayEntryCode saved = saveDemodayEntryCodePort.save(entryCode);
+        clearPersistenceContext();
+
+        // When
+        DemodayEntryCode found = loadDemodayEntryCodePort.findById(saved.getId()).orElseThrow();
+
+        // Then
+        assertThat(found.getRedemptionRequestIdHash()).isEqualTo(requestIdHash);
     }
 
     private DemodayPoll savePoll() {
