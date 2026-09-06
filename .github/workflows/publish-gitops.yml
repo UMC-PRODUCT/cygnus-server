@@ -1,6 +1,6 @@
 # 필요한 저장소 Secret:
 # - UMC_INFRA_GITOPS_TOKEN: UMC-PRODUCT/umc-product-infra만 대상으로 하고
-#   Contents 및 Pull requests 읽기/쓰기 권한만 부여한 fine-grained PAT
+#   Contents 읽기/쓰기 권한만 부여한 fine-grained PAT
 # 최초 GHCR package는 조직 관리자가 Public으로 전환해야 한다.
 # Preview는 PR 코드에 쓰기 token을 노출하지 않도록 빌드와 발행 단계를 분리하기 전까지 비활성화한다.
 
@@ -179,12 +179,16 @@ jobs:
           fi
 
   update-infra:
-    # 애플리케이션 저장소에서 클러스터를 직접 변경하지 않는다.
-    # 별도 infra PR을 만들어 검토와 정적 검증을 통과한 변경만 Argo CD가 반영하게 한다.
-    name: Open infrastructure update PR
+    # 애플리케이션 저장소에서 클러스터를 직접 수정하지 않고 Git의 desired state만 바꾼다.
+    # Helm 렌더를 먼저 통과한 커밋만 infra main에 push하고, 이후 Argo CD가 이를 반영한다.
+    name: Update infrastructure main
     needs: publish
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # dev/prod publish가 동시에 infra main을 갱신해 push 경합을 만들지 않게 직렬화한다.
+    concurrency:
+      group: umc-product-infra-main-update
+      cancel-in-progress: false
     permissions:
       contents: read
 
@@ -203,6 +207,11 @@ jobs:
           token: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
           path: infra
 
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.4
+
       - name: Update immutable image and deployment gates
         env:
           VALUES_FILE: ${{ needs.publish.outputs.values_file }}
@@ -210,6 +219,8 @@ jobs:
           IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
         run: |
           set -euo pipefail
+          # checkout 뒤 먼저 최신 main을 확인한다. 이후 경합이 생겨도 push는 강제하지 않고 실패한다.
+          git -C infra pull --ff-only origin main
           node backend/.github/scripts/update-infra-image.mjs "infra/${VALUES_FILE}" "$IMAGE_TAG" "$IMAGE_DIGEST"
 
           # 자동화가 선택된 환경의 values 파일 외에는 건드리지 않았는지 확인한다.
@@ -220,13 +231,41 @@ jobs:
             exit 1
           fi
 
-      - name: Create deployment pull request
+      - name: Validate selected Helm release
         env:
-          GH_TOKEN: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
+          DEPLOY_ENVIRONMENT: ${{ needs.publish.outputs.deploy_environment }}
+          VALUES_FILE: ${{ needs.publish.outputs.values_file }}
+        working-directory: infra
+        run: |
+          set -euo pipefail
+
+          case "$DEPLOY_ENVIRONMENT" in
+            prod)
+              release_name="umc-product-server"
+              namespace="app"
+              ;;
+            dev)
+              release_name="dev-umc-product-server"
+              namespace="dev-app"
+              ;;
+            *)
+              echo "::error::Unsupported deploy environment: $DEPLOY_ENVIRONMENT"
+              exit 1
+              ;;
+          esac
+
+          # Argo CD가 사용할 공통 values + 환경 values 조합을 push 전에 그대로 검사한다.
+          helm lint charts/umc-product-server --strict -f "$VALUES_FILE"
+          helm template "$release_name" charts/umc-product-server \
+            --namespace "$namespace" \
+            -f "$VALUES_FILE" \
+            >/dev/null
+
+      - name: Commit infrastructure update
+        env:
           DEPLOY_ENVIRONMENT: ${{ needs.publish.outputs.deploy_environment }}
           VALUES_FILE: ${{ needs.publish.outputs.values_file }}
           IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
-          IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
         working-directory: infra
         run: |
           set -euo pipefail
@@ -236,34 +275,10 @@ jobs:
             exit 0
           fi
 
-          branch="deploy/${DEPLOY_ENVIRONMENT}/${IMAGE_TAG}"
           git config user.name "umc-product-deploy-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
           git add "$VALUES_FILE"
           git diff --cached --check
           git commit -m "chore(${DEPLOY_ENVIRONMENT}): deploy ${IMAGE_TAG}"
-
-          if ! git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null 2>&1; then
-            git push --set-upstream origin "$branch"
-          fi
-
-          existing_pr="$(gh pr list --repo "$INFRA_REPOSITORY" --head "$branch" --base main --state open --json url --jq '.[0].url // empty')"
-          if [[ -n "$existing_pr" ]]; then
-            echo "Deployment PR already exists: $existing_pr"
-            exit 0
-          fi
-
-          printf -v pr_body '%s\n\n- Source commit: `%s`\n- Image: `%s:%s`\n- Digest: `%s`' \
-            "Updates the immutable backend image reference. If the values file still uses bootstrap-required, this also opens its Deployment and Ingress gates. Later updates preserve the current gate state." \
-            "$GITHUB_SHA" \
-            "$IMAGE" \
-            "$IMAGE_TAG" \
-            "$IMAGE_DIGEST"
-
-          gh pr create \
-            --repo "$INFRA_REPOSITORY" \
-            --base main \
-            --head "$branch" \
-            --title "[Deploy] ${DEPLOY_ENVIRONMENT} ${IMAGE_TAG}" \
-            --body "$pr_body"
+          # force push를 사용하지 않는다. main이 달라졌다면 안전하게 실패시키고 재실행한다.
+          git push origin HEAD:main
