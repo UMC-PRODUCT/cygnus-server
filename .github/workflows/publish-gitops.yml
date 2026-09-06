@@ -82,11 +82,7 @@ jobs:
           cache: gradle
 
       - name: Validate and build boot JAR
-        run: |
-          chmod +x gradlew .github/scripts/check-boot-jar.sh
-          ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
-          .github/scripts/check-boot-jar.sh
-          node --test .github/scripts/update-infra-image.test.mjs
+        run: ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3

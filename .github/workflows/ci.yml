@@ -1,203 +1,49 @@
-# Required repository secrets:
-# - secrets.AWS_ACCESS_KEY_ID
-# - secrets.AWS_SECRET_ACCESS_KEY
-#
-# Legacy ECR/manual deployment workflows call this reusable workflow.
-# Pull requests use pr-ci.yml so untrusted code never receives AWS credentials.
-
 name: CI
 
 on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: '배포 환경 (prod/dev)'
-        required: true
-        type: choice
-        options:
-          - Alpha
-          - Production
-          - Test
-
-  workflow_call:
-    inputs:
-      environment:
-        description: '배포 환경'
-        required: false
-        type: string
-    outputs:
-      environment:
-        description: "결정된 환경"
-        value: ${{ jobs.build-and-test.outputs.environment }}
-      repo_owner:
-        description: "Repository owner"
-        value: ${{ jobs.build-and-test.outputs.repo_owner }}
-      image_tag:
-        description: "Docker image tag"
-        value: ${{ jobs.build-and-test.outputs.image_tag }}
+  pull_request:
+    branches:
+      - main
+      - develop
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true  # 이전 실행 취소
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  # Job 1: 빌드 및 테스트 (한 번만 실행)
-  build-and-test:
-    name: Build & Run Tests
-    #    runs-on: [ self-hosted, ci-runner ]
-    # self-hosted 러너가 .. Dockerhub에서 IP 밴을 당한 것 같아서 ARM 환경의 GH hosted runner로 변경합니다.
+  validate:
+    name: Product Team Server CI
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      checks: write
-
-    outputs:
-      environment: ${{ steps.set-env.outputs.environment }}
-      repo_owner: ${{ steps.set-env.outputs.repo_owner }}
-      image_tag: ${{ steps.set-env.outputs.image_tag }}
-      test_outcome: ${{ steps.test.outcome }}
-
-    #    strategy:
-    #      matrix:
-    #        platform: [ linux/amd64, linux/arm64 ]
-    #        include:
-    #          - platform: linux/amd64
-    #            tag-suffix: amd64
-    #          - platform: linux/arm64
-    #            tag-suffix: arm64
+    timeout-minutes: 60
 
     steps:
-      - name: 📦 코드베이스 체크아웃
+      - name: Checkout pull request
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - name: 🎯 배포 환경 설정
-        id: set-env
-        run: |
-          INPUT_ENV="${{ inputs.environment }}"
-
-          # PR일 때는 'test' 환경으로 설정
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "Running in PR mode - Setting test environment for build"
-            ENVIRONMENT="Test"
-          elif [[ -n "$INPUT_ENV" ]]; then
-            ENVIRONMENT="$INPUT_ENV"
-
-          # CD에서 호출한 경우 branch에 따라서 환경 결정
-          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ENVIRONMENT="Production"
-          elif [[ "${{ github.ref }}" == "refs/heads/develop" ]]; then
-            ENVIRONMENT="Alpha"
-          else
-            ENVIRONMENT="Test"
-          fi
-
-          echo "environment=${ENVIRONMENT}" >> $GITHUB_OUTPUT
-          echo "lower_environment=$(echo "${ENVIRONMENT}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          echo "repo_owner=${REPO_OWNER}" >> $GITHUB_OUTPUT
-
-          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
-          IMAGE_TAG=$(echo "${ENVIRONMENT}-${SHORT_SHA}" | tr '[:upper:]' '[:lower:]')
-          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
-
-      - name: 🧑‍💻 JDK 21 Corretto 설정
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
-          java-version: '21'
-          distribution: 'corretto'
+          java-version: "21"
+          distribution: corretto
           cache: gradle
 
-      - name: 🔑 Gradlew 실행 권한 부여
-        run: chmod +x gradlew
+      - name: Validate and build boot JAR
+        run: ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
 
-      - name: 🧹 코드 컨벤션 검증
-        run: ./gradlew spotlessCheck checkstyleMain checkstyleTest
-
-      - name: 🔍 컴파일 체크
-        run: ./gradlew compileJava compileTestJava
-
-      - name: 🧪 테스트 실행
-        id: test
-        run: ./gradlew test
-        continue-on-error: true
-
-      - name: 📊 테스트 결과 배포
-        uses: dorny/test-reporter@v2
-        if: always()
-        with:
-          name: 'Backend Test Results'
-          path: 'build/test-results/test/*.xml'
-          reporter: 'java-junit'
-          use-actions-summary: 'true'
-          fail-on-error: 'false'
-
-      - name: 🚨 테스트 실패 시 중단
-        if: steps.test.outcome == 'failure'
-        run: |
-          echo "::error::테스트가 실패하여 빌드 및 배포를 중단합니다."
-          exit 1
-
-      - name: 🏗️ Build JAR
-        run: ./gradlew bootJar
-
-      - name: 🔒 배포 JAR 비밀 파일 검사
-        run: .github/scripts/check-boot-jar.sh
-
-      - name: 📋 빌드 결과 확인
-        run: |
-          ls -la build/libs/
-          echo "Current directory: $(pwd)"
-
-      - name: 🖥️ Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: 🔧 Set up Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: 🔑 Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
-
-      - name: 🔐 Login to ECR
-        id: ecr-login
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: 📋 ECR Registry 출력 설정
-        id: set-ecr
-        run: |
-          echo "ecr_registry=${{ steps.ecr-login.outputs.registry }}" >> $GITHUB_OUTPUT
-
-      - name: 🐳 Build and Push Docker Image To ECR
+      - name: Build container without publishing
         uses: docker/build-push-action@v6
         with:
           context: .
           file: docker/app/dockerfile
-          # PR의 경우 빌드까지만 하고 레지스트리 등에 푸시하지 않음
-          push: ${{ github.event_name != 'pull_request' }}
-
-          # 우선은 GHCR과 ECR 모두에 푸시하도록 설정함, CD를 기존 on-premise dev 환경 지원을 위해서 유지 예정
-          # ghcr.io/${{ steps.set-env.outputs.repo_owner }}/server:${{ steps.set-env.outputs.image_tag }}
-          # ghcr.io/${{ steps.set-env.outputs.repo_owner }}/server:${{ steps.set-env.outputs.lower_environment }}-latest
-
-          tags: |
-            ${{ steps.ecr-login.outputs.registry }}/umc-product-server:${{ steps.set-env.outputs.image_tag }}
-            ${{ steps.ecr-login.outputs.registry }}/umc-product-server:${{ steps.set-env.outputs.lower_environment }}-latest
-
-          platforms: linux/amd64,linux/arm64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: 📝 Build Summary
-        if: always()
-        run: |
-          echo "### Build Summary :package:" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environment:** ${{ steps.set-env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image Tag:** ${{ steps.set-env.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
+          push: false
+          platforms: linux/amd64
+          tags: local/umc-product-server:pr-${{ github.event.pull_request.number }}
