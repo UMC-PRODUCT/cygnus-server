@@ -1,7 +1,4 @@
-# Required repository variables:
-# - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
 # Required repository secrets:
-# - secrets.UMC_GITHUB_APP_PRIVATE_KEY (used by reusable CI feedback)
 # - secrets.AWS_ACCESS_KEY_ID (used by reusable CI build/push)
 # - secrets.AWS_SECRET_ACCESS_KEY (used by reusable CI build/push)
 # - secrets.DOCKERHUB_USERNAME

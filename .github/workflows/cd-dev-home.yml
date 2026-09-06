@@ -1,5 +1,4 @@
 # Required repository variables:
-# - vars.UMC_GITHUB_APP_CLIENT_ID (used by reusable CI feedback)
 # - vars.SECRET_S3_URI
 # Optional repository variables:
 # - vars.AWS_REGION (default: ap-northeast-2)
@@ -10,7 +9,6 @@
 # - vars.APP_REPLICAS (default: 1)
 # - vars.HEALTHCHECK_TIMEOUT (default: 180)
 # Required repository secrets:
-# - secrets.UMC_GITHUB_APP_PRIVATE_KEY (used by reusable CI feedback)
 # - secrets.AWS_ACCESS_KEY_ID
 # - secrets.AWS_SECRET_ACCESS_KEY
 # - secrets.SERVER_APP_DIRECTORY

@@ -1,33 +1,13 @@
-# Required repository variables:
-# - vars.UMC_GITHUB_APP_CLIENT_ID
 # Required repository secrets:
-# - secrets.UMC_GITHUB_APP_PRIVATE_KEY
 # - secrets.AWS_ACCESS_KEY_ID
 # - secrets.AWS_SECRET_ACCESS_KEY
-# Built-in GitHub token:
-# - secrets.GITHUB_TOKEN (no manual setup required)
+#
+# Legacy ECR/manual deployment workflows call this reusable workflow.
+# Pull requests use pr-ci.yml so untrusted code never receives AWS credentials.
 
 name: CI
 
 on:
-  pull_request:
-    branches:
-      - main
-      - develop
-    paths:
-      - 'src/**'
-      - 'build.gradle.kts'
-      - 'config/checkstyle/**'
-      - '.editorconfig'
-      - 'docker/**'
-      - 'codedeploy/**'
-      - '.github/workflows/ci.yml'
-      #      - '.github/workflows/cd.yml'
-      - '.github/workflows/cd-ecr.yml'
-      - '.github/workflows/cd-asg.yml'
-      - '.github/scripts/**'
-      - 'infra/asg/**'
-
   workflow_dispatch:
     inputs:
       environment:
@@ -70,11 +50,6 @@ jobs:
     permissions:
       contents: read
       checks: write
-      pull-requests: write
-      issues: write
-      packages: write
-      statuses: write
-      deployments: write
 
     outputs:
       environment: ${{ steps.set-env.outputs.environment }}
@@ -168,6 +143,9 @@ jobs:
       - name: 🏗️ Build JAR
         run: ./gradlew bootJar
 
+      - name: 🔒 배포 JAR 비밀 파일 검사
+        run: .github/scripts/check-boot-jar.sh
+
       - name: 📋 빌드 결과 확인
         run: |
           ls -la build/libs/
@@ -185,13 +163,6 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
-
-      - name: 🔐 Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}  # 실제 푸시하는 사용자
-          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: 🔐 Login to ECR
         id: ecr-login
@@ -230,30 +201,3 @@ jobs:
           echo "- **Environment:** ${{ steps.set-env.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Image Tag:** ${{ steps.set-env.outputs.image_tag }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Platforms:** linux/amd64, linux/arm64" >> $GITHUB_STEP_SUMMARY
-
-  ci-feedback:
-    name: CI Feedback
-    needs: build-and-test
-    if: always()
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
-    steps:
-      - name: 코드베이스 체크아웃
-        uses: actions/checkout@v4
-
-      - name: GitHub App token 생성
-        id: app-token
-        uses: actions/create-github-app-token@v3
-        with:
-          app-id: ${{ vars.UMC_GITHUB_APP_CLIENT_ID }}
-          private-key: ${{ secrets.UMC_GITHUB_APP_PRIVATE_KEY }}
-
-      - name: CI 댓글 및 status 반영
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          FEEDBACK_MODE: ci
-          JOB_RESULT: ${{ needs.build-and-test.result }}
-          TEST_OUTCOME: ${{ needs.build-and-test.outputs.test_outcome }}
-        run: node .github/scripts/github-pr-feedback.mjs

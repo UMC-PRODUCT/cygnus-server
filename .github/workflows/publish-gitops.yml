@@ -1,0 +1,254 @@
+# Required repository secret:
+# - UMC_INFRA_GITOPS_TOKEN: fine-grained PAT limited to UMC-PRODUCT/umc-product-infra
+#   with Contents and Pull requests read/write permissions.
+# The first GHCR package version must be made public by an organization admin.
+# Preview publishing stays disabled until its build and privileged publish stages
+# can be separated without executing pull-request code with a write token.
+
+name: Publish GitOps Image
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: publish-gitops-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/umc-product/umc-product-server
+  INFRA_REPOSITORY: UMC-PRODUCT/umc-product-infra
+
+jobs:
+  publish:
+    name: Build and publish immutable image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      deploy_environment: ${{ steps.metadata.outputs.deploy_environment }}
+      values_file: ${{ steps.metadata.outputs.values_file }}
+      image_tag: ${{ steps.metadata.outputs.image_tag }}
+      image_digest: ${{ steps.resolve.outputs.image_digest }}
+
+    steps:
+      - name: Checkout trusted branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve deployment metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "${GITHUB_REF}" in
+            refs/heads/main)
+              deploy_environment="prod"
+              values_file="charts/umc-product-server/values-prod.yaml"
+              ;;
+            refs/heads/develop)
+              deploy_environment="dev"
+              values_file="charts/umc-product-server/values-dev.yaml"
+              ;;
+            *)
+              echo "::error::Unsupported publish ref: ${GITHUB_REF}"
+              exit 1
+              ;;
+          esac
+
+          image_tag="${GITHUB_SHA:0:12}"
+          if [[ ! "$image_tag" =~ ^[a-f0-9]{12}$ ]]; then
+            echo "::error::Invalid immutable image tag: $image_tag"
+            exit 1
+          fi
+
+          echo "deploy_environment=$deploy_environment" >> "$GITHUB_OUTPUT"
+          echo "values_file=$values_file" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: corretto
+          cache: gradle
+
+      - name: Validate and build boot JAR
+        run: |
+          chmod +x gradlew .github/scripts/check-boot-jar.sh
+          ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
+          .github/scripts/check-boot-jar.sh
+          node --test .github/scripts/update-infra-image.test.mjs
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for an existing immutable tag
+        id: existing
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          if digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
+            if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "::error::Registry returned an invalid digest for the existing tag."
+              exit 1
+            fi
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and publish image
+        id: build
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app/dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ env.IMAGE }}:${{ steps.metadata.outputs.image_tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify and export registry digest
+        id: resolve
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.image_tag }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          expected_digest="${EXISTING_DIGEST:-$BUILD_DIGEST}"
+          if [[ ! "$expected_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::Build returned an invalid image digest."
+            exit 1
+          fi
+
+          registry_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' | jq -er '.digest')"
+          if [[ "$registry_digest" != "$expected_digest" ]]; then
+            echo "::error::Published tag digest does not match the build digest."
+            exit 1
+          fi
+
+          echo "image_digest=$registry_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Verify public anonymous image pull
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ steps.resolve.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+
+          docker logout ghcr.io
+          if ! anonymous_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
+            echo "::error::GHCR package is not publicly pullable. Make the package Public, then rerun this workflow."
+            exit 1
+          fi
+
+          if [[ "$anonymous_digest" != "$IMAGE_DIGEST" ]]; then
+            echo "::error::Anonymous GHCR lookup returned a different digest."
+            exit 1
+          fi
+
+  update-infra:
+    name: Open infrastructure update PR
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout backend automation
+        uses: actions/checkout@v4
+        with:
+          path: backend
+          persist-credentials: false
+
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPOSITORY }}
+          ref: main
+          token: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
+          path: infra
+
+      - name: Update only the immutable image reference
+        env:
+          VALUES_FILE: ${{ needs.publish.outputs.values_file }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+          node backend/.github/scripts/update-infra-image.mjs "infra/${VALUES_FILE}" "$IMAGE_TAG" "$IMAGE_DIGEST"
+
+          git -C infra diff --exit-code -- . ':!charts/umc-product-server/values-prod.yaml' ':!charts/umc-product-server/values-dev.yaml'
+          changed_files="$(git -C infra diff --name-only)"
+          if [[ -n "$changed_files" && "$changed_files" != "$VALUES_FILE" ]]; then
+            echo "::error::Automation changed an unexpected file: $changed_files"
+            exit 1
+          fi
+
+      - name: Create deployment pull request
+        env:
+          GH_TOKEN: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
+          DEPLOY_ENVIRONMENT: ${{ needs.publish.outputs.deploy_environment }}
+          VALUES_FILE: ${{ needs.publish.outputs.values_file }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+        working-directory: infra
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- "$VALUES_FILE"; then
+            echo "Infrastructure already references this image."
+            exit 0
+          fi
+
+          branch="deploy/${DEPLOY_ENVIRONMENT}/${IMAGE_TAG}"
+          git config user.name "umc-product-deploy-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add "$VALUES_FILE"
+          git diff --cached --check
+          git commit -m "chore(${DEPLOY_ENVIRONMENT}): deploy ${IMAGE_TAG}"
+
+          if ! git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null 2>&1; then
+            git push --set-upstream origin "$branch"
+          fi
+
+          existing_pr="$(gh pr list --repo "$INFRA_REPOSITORY" --head "$branch" --base main --state open --json url --jq '.[0].url // empty')"
+          if [[ -n "$existing_pr" ]]; then
+            echo "Deployment PR already exists: $existing_pr"
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$INFRA_REPOSITORY" \
+            --base main \
+            --head "$branch" \
+            --title "[Deploy] ${DEPLOY_ENVIRONMENT} ${IMAGE_TAG}" \
+            --body "Updates the immutable backend image reference.\n\n- Source commit: \`${GITHUB_SHA}\`\n- Image: \`${IMAGE}:${IMAGE_TAG}\`\n- Digest: \`${IMAGE_DIGEST}\`\n\nDeployment and Ingress gates are unchanged."
