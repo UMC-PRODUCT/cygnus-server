@@ -97,7 +97,7 @@ export function updateGitOpsValues(source, tag, digest) {
     lines[tagIndexes[0]] = `  tag: "${tag}"`;
     lines[digestIndexes[0]] = `  digest: "${digest}"`;
     if (bootstrapImage) {
-        // 최초 배포에서만 이미지와 두 gate를 한 PR로 연다.
+        // 최초 배포에서만 이미지와 두 gate를 한 커밋으로 연다.
         // 이후 운영자가 점검을 위해 gate를 닫았다면 다음 이미지 발행에서도 그 상태를 보존한다.
         lines[enabledIndexes.deployment[0]] = "  enabled: true";
         lines[enabledIndexes.ingress[0]] = "  enabled: true";
