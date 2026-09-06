@@ -1,22 +1,25 @@
-# Required repository secret:
-# - UMC_INFRA_GITOPS_TOKEN: fine-grained PAT limited to UMC-PRODUCT/umc-product-infra
-#   with Contents and Pull requests read/write permissions.
-# The first GHCR package version must be made public by an organization admin.
-# Preview publishing stays disabled until its build and privileged publish stages
-# can be separated without executing pull-request code with a write token.
+# 필요한 저장소 Secret:
+# - UMC_INFRA_GITOPS_TOKEN: UMC-PRODUCT/umc-product-infra만 대상으로 하고
+#   Contents 및 Pull requests 읽기/쓰기 권한만 부여한 fine-grained PAT
+# 최초 GHCR package는 조직 관리자가 Public으로 전환해야 한다.
+# Preview는 PR 코드에 쓰기 token을 노출하지 않도록 빌드와 발행 단계를 분리하기 전까지 비활성화한다.
 
 name: Publish GitOps Image
 
 on:
   push:
+    # main은 prod, develop은 dev 배포 이미지로 연결한다.
     branches:
       - main
       - develop
 
+# 같은 환경의 발행 순서를 보장한다. 실행 중인 배포를 취소하면 infra PR이 누락될 수 있다.
 concurrency:
   group: publish-gitops-${{ github.ref }}
   cancel-in-progress: false
 
+# 이 블록은 자동 발급되는 GITHUB_TOKEN의 권한만 제한한다.
+# GHCR 발행은 이 token을 사용하고, 별도 infra 저장소 PAT는 update-infra job에만 전달한다.
 permissions:
   contents: read
   packages: write
@@ -49,6 +52,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          # 소스 브랜치와 수정할 infra values 파일의 대응을 이곳에서만 결정한다.
           case "${GITHUB_REF}" in
             refs/heads/main)
               deploy_environment="prod"
@@ -101,6 +105,7 @@ jobs:
         run: |
           set -euo pipefail
 
+          # 재실행 시 같은 commit SHA 이미지를 다시 덮어쓰지 않고 기존 digest를 재사용한다.
           if digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
             if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
               echo "::error::Registry returned an invalid digest for the existing tag."
@@ -137,6 +142,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          # tag는 추적용 이름이고 digest가 실제 이미지 바이트를 고정한다.
+          # 빌드 결과와 registry 재조회 digest가 일치해야 infra에 기록한다.
           expected_digest="${EXISTING_DIGEST:-$BUILD_DIGEST}"
           if [[ ! "$expected_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
             echo "::error::Build returned an invalid image digest."
@@ -158,6 +165,8 @@ jobs:
         run: |
           set -euo pipefail
 
+          # 클러스터에는 GHCR 로그인 Secret을 두지 않으므로 로그인 상태를 제거하고 다시 조회한다.
+          # 익명 조회에서도 같은 digest가 보여야 실제 K3s에서도 동일한 이미지를 pull할 수 있다.
           docker logout ghcr.io
           if ! anonymous_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
             echo "::error::GHCR package is not publicly pullable. Make the package Public, then rerun this workflow."
@@ -170,6 +179,8 @@ jobs:
           fi
 
   update-infra:
+    # 애플리케이션 저장소에서 클러스터를 직접 변경하지 않는다.
+    # 별도 infra PR을 만들어 검토와 정적 검증을 통과한 변경만 Argo CD가 반영하게 한다.
     name: Open infrastructure update PR
     needs: publish
     runs-on: ubuntu-latest
@@ -201,6 +212,7 @@ jobs:
           set -euo pipefail
           node backend/.github/scripts/update-infra-image.mjs "infra/${VALUES_FILE}" "$IMAGE_TAG" "$IMAGE_DIGEST"
 
+          # 자동화가 선택된 환경의 values 파일 외에는 건드리지 않았는지 확인한다.
           git -C infra diff --exit-code -- . ':!charts/umc-product-server/values-prod.yaml' ':!charts/umc-product-server/values-dev.yaml'
           changed_files="$(git -C infra diff --name-only)"
           if [[ -n "$changed_files" && "$changed_files" != "$VALUES_FILE" ]]; then
