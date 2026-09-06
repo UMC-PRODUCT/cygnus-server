@@ -192,7 +192,7 @@ jobs:
           token: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
           path: infra
 
-      - name: Update only the immutable image reference
+      - name: Update immutable image and deployment gates
         env:
           VALUES_FILE: ${{ needs.publish.outputs.values_file }}
           IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
@@ -242,9 +242,16 @@ jobs:
             exit 0
           fi
 
+          printf -v pr_body '%s\n\n- Source commit: `%s`\n- Image: `%s:%s`\n- Digest: `%s`' \
+            "Updates the immutable backend image reference. If the values file still uses bootstrap-required, this also opens its Deployment and Ingress gates. Later updates preserve the current gate state." \
+            "$GITHUB_SHA" \
+            "$IMAGE" \
+            "$IMAGE_TAG" \
+            "$IMAGE_DIGEST"
+
           gh pr create \
             --repo "$INFRA_REPOSITORY" \
             --base main \
             --head "$branch" \
             --title "[Deploy] ${DEPLOY_ENVIRONMENT} ${IMAGE_TAG}" \
-            --body "Updates the immutable backend image reference.\n\n- Source commit: \`${GITHUB_SHA}\`\n- Image: \`${IMAGE}:${IMAGE_TAG}\`\n- Digest: \`${IMAGE_DIGEST}\`\n\nDeployment and Ingress gates are unchanged."
+            --body "$pr_body"
