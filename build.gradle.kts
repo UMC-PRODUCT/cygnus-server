@@ -33,6 +33,11 @@ springBoot {
     buildInfo()
 }
 
+// 로컬 개발용 dotenv 파일은 소스 디렉터리에 있더라도 배포 JAR에 포함하지 않는다.
+tasks.processResources {
+    exclude(".env", ".env.*", "**/.env", "**/.env.*")
+}
+
 spotless {
     ratchetFrom("origin/develop")
 
@@ -64,6 +69,9 @@ spotless {
 }
 
 tasks.named<org.springframework.boot.gradle.tasks.bundling.BootJar>("bootJar") {
+    // processResources 설정이 바뀌더라도 배포 산출물에서 한 번 더 차단한다.
+    exclude(".env", ".env.*", "**/.env", "**/.env.*")
+
     layered {
         enabled.set(true)
     }
