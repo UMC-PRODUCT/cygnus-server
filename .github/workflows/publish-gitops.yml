@@ -1,0 +1,284 @@
+# 필요한 저장소 Secret:
+# - UMC_INFRA_GITOPS_TOKEN: UMC-PRODUCT/umc-product-infra만 대상으로 하고
+#   Contents 읽기/쓰기 권한만 부여한 fine-grained PAT
+# 최초 GHCR package는 조직 관리자가 Public으로 전환해야 한다.
+# Preview는 PR 코드에 쓰기 token을 노출하지 않도록 빌드와 발행 단계를 분리하기 전까지 비활성화한다.
+
+name: Publish GitOps Image
+
+on:
+  push:
+    # main은 prod, develop은 dev 배포 이미지로 연결한다.
+    branches:
+      - main
+      - develop
+
+# 같은 환경의 발행 순서를 보장한다. 실행 중인 배포를 취소하면 infra 갱신이 누락될 수 있다.
+concurrency:
+  group: publish-gitops-${{ github.ref }}
+  cancel-in-progress: false
+
+# 이 블록은 자동 발급되는 GITHUB_TOKEN의 권한만 제한한다.
+# GHCR 발행은 이 token을 사용하고, 별도 infra 저장소 PAT는 update-infra job에만 전달한다.
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/umc-product/umc-product-server
+  INFRA_REPOSITORY: UMC-PRODUCT/umc-product-infra
+
+jobs:
+  publish:
+    name: Build and publish immutable image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      deploy_environment: ${{ steps.metadata.outputs.deploy_environment }}
+      values_file: ${{ steps.metadata.outputs.values_file }}
+      image_tag: ${{ steps.metadata.outputs.image_tag }}
+      image_digest: ${{ steps.resolve.outputs.image_digest }}
+
+    steps:
+      - name: Checkout trusted branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve deployment metadata
+        id: metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          # 소스 브랜치와 수정할 infra values 파일의 대응을 이곳에서만 결정한다.
+          case "${GITHUB_REF}" in
+            refs/heads/main)
+              deploy_environment="prod"
+              values_file="charts/umc-product-server/values-prod.yaml"
+              ;;
+            refs/heads/develop)
+              deploy_environment="dev"
+              values_file="charts/umc-product-server/values-dev.yaml"
+              ;;
+            *)
+              echo "::error::Unsupported publish ref: ${GITHUB_REF}"
+              exit 1
+              ;;
+          esac
+
+          image_tag="${GITHUB_SHA:0:12}"
+          if [[ ! "$image_tag" =~ ^[a-f0-9]{12}$ ]]; then
+            echo "::error::Invalid immutable image tag: $image_tag"
+            exit 1
+          fi
+
+          echo "deploy_environment=$deploy_environment" >> "$GITHUB_OUTPUT"
+          echo "values_file=$values_file" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: "21"
+          distribution: corretto
+          cache: gradle
+
+      - name: Validate and build boot JAR
+        run: ./gradlew clean spotlessCheck checkstyleMain checkstyleTest compileJava compileTestJava test bootJar
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for an existing immutable tag
+        id: existing
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.image_tag }}
+        run: |
+          set -euo pipefail
+
+          # 재실행 시 같은 commit SHA 이미지를 다시 덮어쓰지 않고 기존 digest를 재사용한다.
+          if digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
+            if [[ ! "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+              echo "::error::Registry returned an invalid digest for the existing tag."
+              exit 1
+            fi
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and publish image
+        id: build
+        if: steps.existing.outputs.exists != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/app/dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: ${{ env.IMAGE }}:${{ steps.metadata.outputs.image_tag }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Verify and export registry digest
+        id: resolve
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.image_tag }}
+          EXISTING_DIGEST: ${{ steps.existing.outputs.digest }}
+          BUILD_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+
+          # tag는 추적용 이름이고 digest가 실제 이미지 바이트를 고정한다.
+          # 빌드 결과와 registry 재조회 digest가 일치해야 infra에 기록한다.
+          expected_digest="${EXISTING_DIGEST:-$BUILD_DIGEST}"
+          if [[ ! "$expected_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::Build returned an invalid image digest."
+            exit 1
+          fi
+
+          registry_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' | jq -er '.digest')"
+          if [[ "$registry_digest" != "$expected_digest" ]]; then
+            echo "::error::Published tag digest does not match the build digest."
+            exit 1
+          fi
+
+          echo "image_digest=$registry_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Verify public anonymous image pull
+        env:
+          IMAGE_TAG: ${{ steps.metadata.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ steps.resolve.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+
+          # 클러스터에는 GHCR 로그인 Secret을 두지 않으므로 로그인 상태를 제거하고 다시 조회한다.
+          # 익명 조회에서도 같은 digest가 보여야 실제 K3s에서도 동일한 이미지를 pull할 수 있다.
+          docker logout ghcr.io
+          if ! anonymous_digest="$(docker buildx imagetools inspect "${IMAGE}:${IMAGE_TAG}" --format '{{json .Manifest}}' 2>/dev/null | jq -er '.digest')"; then
+            echo "::error::GHCR package is not publicly pullable. Make the package Public, then rerun this workflow."
+            exit 1
+          fi
+
+          if [[ "$anonymous_digest" != "$IMAGE_DIGEST" ]]; then
+            echo "::error::Anonymous GHCR lookup returned a different digest."
+            exit 1
+          fi
+
+  update-infra:
+    # 애플리케이션 저장소에서 클러스터를 직접 수정하지 않고 Git의 desired state만 바꾼다.
+    # Helm 렌더를 먼저 통과한 커밋만 infra main에 push하고, 이후 Argo CD가 이를 반영한다.
+    name: Update infrastructure main
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # dev/prod publish가 동시에 infra main을 갱신해 push 경합을 만들지 않게 직렬화한다.
+    concurrency:
+      group: umc-product-infra-main-update
+      cancel-in-progress: false
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout backend automation
+        uses: actions/checkout@v4
+        with:
+          path: backend
+          persist-credentials: false
+
+      - name: Checkout infrastructure repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.INFRA_REPOSITORY }}
+          ref: main
+          token: ${{ secrets.UMC_INFRA_GITOPS_TOKEN }}
+          path: infra
+
+      - name: Set up Helm
+        uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
+        with:
+          version: v4.2.4
+
+      - name: Update immutable image and deployment gates
+        env:
+          VALUES_FILE: ${{ needs.publish.outputs.values_file }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+          IMAGE_DIGEST: ${{ needs.publish.outputs.image_digest }}
+        run: |
+          set -euo pipefail
+          # checkout 뒤 먼저 최신 main을 확인한다. 이후 경합이 생겨도 push는 강제하지 않고 실패한다.
+          git -C infra pull --ff-only origin main
+          node backend/.github/scripts/update-infra-image.mjs "infra/${VALUES_FILE}" "$IMAGE_TAG" "$IMAGE_DIGEST"
+
+          # 자동화가 선택된 환경의 values 파일 외에는 건드리지 않았는지 확인한다.
+          git -C infra diff --exit-code -- . ':!charts/umc-product-server/values-prod.yaml' ':!charts/umc-product-server/values-dev.yaml'
+          changed_files="$(git -C infra diff --name-only)"
+          if [[ -n "$changed_files" && "$changed_files" != "$VALUES_FILE" ]]; then
+            echo "::error::Automation changed an unexpected file: $changed_files"
+            exit 1
+          fi
+
+      - name: Validate selected Helm release
+        env:
+          DEPLOY_ENVIRONMENT: ${{ needs.publish.outputs.deploy_environment }}
+          VALUES_FILE: ${{ needs.publish.outputs.values_file }}
+        working-directory: infra
+        run: |
+          set -euo pipefail
+
+          case "$DEPLOY_ENVIRONMENT" in
+            prod)
+              release_name="umc-product-server"
+              namespace="app"
+              ;;
+            dev)
+              release_name="dev-umc-product-server"
+              namespace="dev-app"
+              ;;
+            *)
+              echo "::error::Unsupported deploy environment: $DEPLOY_ENVIRONMENT"
+              exit 1
+              ;;
+          esac
+
+          # Argo CD가 사용할 공통 values + 환경 values 조합을 push 전에 그대로 검사한다.
+          helm lint charts/umc-product-server --strict -f "$VALUES_FILE"
+          helm template "$release_name" charts/umc-product-server \
+            --namespace "$namespace" \
+            -f "$VALUES_FILE" \
+            >/dev/null
+
+      - name: Commit infrastructure update
+        env:
+          DEPLOY_ENVIRONMENT: ${{ needs.publish.outputs.deploy_environment }}
+          VALUES_FILE: ${{ needs.publish.outputs.values_file }}
+          IMAGE_TAG: ${{ needs.publish.outputs.image_tag }}
+        working-directory: infra
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- "$VALUES_FILE"; then
+            echo "Infrastructure already references this image."
+            exit 0
+          fi
+
+          git config user.name "umc-product-deploy-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$VALUES_FILE"
+          git diff --cached --check
+          git commit -m "chore(${DEPLOY_ENVIRONMENT}): deploy ${IMAGE_TAG}"
+          # force push를 사용하지 않는다. main이 달라졌다면 안전하게 실패시키고 재실행한다.
+          git push origin HEAD:main
