@@ -39,8 +39,7 @@
     <!--
         ========== JSON 구조화 로그 어펜더 (ADR-016) ==========
         dev / staging / prod 환경의 stdout 을 JSON 한 줄로 출력.
-        본 커밋(#2)에서는 정의만 하고 어떤 root 에도 연결하지 않는다 (dead-code).
-        root 연결은 Commit #3 에서 수행한다.
+        각 프로파일의 SANITIZED 어펜더를 거쳐 root 에 연결한다.
     -->
     <appender class="ch.qos.logback.core.ConsoleAppender" name="CONSOLE_JSON">
         <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
@@ -125,8 +124,8 @@
         </root>
     </springProfile>
 
-    <!-- ========== staging: dev 와 동일 구성 ========== -->
-    <springProfile name="staging">
+    <!-- ========== dev / staging: stdout JSON + OTLP logs ========== -->
+    <springProfile name="dev | staging">
         <logger name="com.umc.product" level="${LOGGING_APP_LEVEL:-INFO}"/>
 
         <appender name="SANITIZED" class="com.umc.product.global.logging.SanitizingAppender">
