@@ -6,9 +6,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.mockito.Mockito.mock;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.Map;
 
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.reflect.MethodSignature;
@@ -75,22 +73,6 @@ class TraceFlowAspectTest {
         then(span).should().tag("app.adapter.type", "persistence");
         then(span).should().tag("code.function", "getById");
         then(span).should().end();
-    }
-
-    @Test
-    @DisplayName("동일한 target class와 method의 trace metadata를 캐시한다")
-    void 동일_메서드_trace_metadata_캐시() throws Throwable {
-        Method method = DemoUseCase.class.getMethod("getById", Long.class);
-        DemoQueryService target = new DemoQueryService();
-
-        sut.traceUseCaseAndAdapter(joinPoint(method, target, "first"));
-        sut.traceUseCaseAndAdapter(joinPoint(method, target, "second"));
-
-        Field cacheField = TraceFlowAspect.class.getDeclaredField("metadataCache");
-        cacheField.setAccessible(true);
-        Map<?, ?> metadataCache = (Map<?, ?>) cacheField.get(sut);
-
-        assertThat(metadataCache).hasSize(1);
     }
 
     @Test

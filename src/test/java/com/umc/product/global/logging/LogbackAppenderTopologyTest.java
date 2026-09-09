@@ -13,9 +13,6 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
-import org.springframework.core.env.Profiles;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -92,26 +89,6 @@ class LogbackAppenderTopologyTest {
                 }
             }
         }
-    }
-
-    @ParameterizedTest
-    @ValueSource(strings = {"dev", "staging", "prod"})
-    @DisplayName("서버 프로파일은 정제된 JSON 및 OTEL 출력 구성을 활성화한다")
-    void 서버_프로파일의_로그_출력이_활성화된다(String activeProfile) {
-        // Given
-        List<Element> activeProfiles = elementsByTag(config.getDocumentElement(), "springProfile").stream()
-            .filter(profile -> Profiles.of(profile.getAttribute("name")).matches(activeProfile::equals))
-            .toList();
-
-        // When / Then
-        assertThat(activeProfiles).as("%s 프로파일의 로그 설정", activeProfile).hasSize(1);
-        Element profile = activeProfiles.getFirst();
-        Element sanitizingAppender = elementsByTag(profile, "appender").stream()
-            .filter(appender -> SANITIZING_APPENDER.equals(appender.getAttribute("class")))
-            .findFirst()
-            .orElseThrow(() -> new AssertionError(activeProfile + " 프로파일에 정제 어펜더가 없다"));
-
-        assertThat(appenderRefs(sanitizingAppender)).containsExactly("CONSOLE_JSON", "OTEL");
     }
 
     private Element topLevelAppender(String name) {

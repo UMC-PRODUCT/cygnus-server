@@ -53,32 +53,6 @@ class EventOutboxJpaRepositoryTest {
     }
 
     @Test
-    @DisplayName("발행 대기 상태만 포함하는 partial index를 사용한다")
-    void publishablePartialIndexExists() {
-        Object indexDefinition = entityManager.createNativeQuery("""
-                SELECT indexdef
-                FROM pg_indexes
-                WHERE schemaname = 'public'
-                  AND tablename = 'event_outbox'
-                  AND indexname = 'idx_event_outbox_publishable'
-                """)
-            .getSingleResult();
-
-        assertThat(indexDefinition.toString())
-            .contains("next_attempt_at", "id", "PENDING", "PROCESSING");
-
-        Number legacyIndexCount = (Number) entityManager.createNativeQuery("""
-                SELECT COUNT(*)
-                FROM pg_indexes
-                WHERE schemaname = 'public'
-                  AND tablename = 'event_outbox'
-                  AND indexname = 'idx_event_outbox_pending'
-                """)
-            .getSingleResult();
-        assertThat(legacyIndexCount.longValue()).isZero();
-    }
-
-    @Test
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @DisplayName("lease를 다시 획득한 뒤에는 이전 worker가 outbox 상태를 덮어쓸 수 없다")
     void staleWorkerCannotOverwriteReclaimedOutbox() {

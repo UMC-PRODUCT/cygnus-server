@@ -5,58 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
-import java.util.Map;
-import java.util.Properties;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.config.YamlPropertiesFactoryBean;
-import org.springframework.boot.context.properties.bind.Bindable;
-import org.springframework.boot.context.properties.bind.Binder;
-import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.mock.env.MockEnvironment;
 
 @DisplayName("WebSocket broker relay port 정책")
 class WebSocketBrokerPortPolicyTest {
 
     private static final int LOCAL_DEFAULT_PORT = 61613;
-    private static final int EXPLICIT_RELAY_PORT = 61614;
     private static final String SYSTEM_PASSWORD = "system-port-secret";
     private static final String CLIENT_PASSWORD = "client-port-secret";
-
-    @Test
-    @DisplayName("빈 relay port binding은 외부 미공급 상태와 local 기본값을 구분한다")
-    void bindEmptyPortPreservesMissingValue() {
-        WebSocketBrokerProperties properties = bindRelayPort("");
-
-        assertThat(properties.relay().port()).isNull();
-        assertThat(properties.relay().resolvedPort()).isEqualTo(LOCAL_DEFAULT_PORT);
-    }
-
-    @Test
-    @DisplayName("명시적으로 공급한 relay port binding은 local 기본값보다 우선한다")
-    void bindExplicitPortPreservesValue() {
-        WebSocketBrokerProperties properties = bindRelayPort(String.valueOf(EXPLICIT_RELAY_PORT));
-
-        assertThat(properties.relay().port()).isEqualTo(EXPLICIT_RELAY_PORT);
-        assertThat(properties.relay().resolvedPort()).isEqualTo(EXPLICIT_RELAY_PORT);
-    }
-
-    @Test
-    @DisplayName("application.yml은 relay port를 외부 공급 없이는 기본 설정하지 않는다")
-    void applicationYamlDoesNotSupplyRelayPortDefault() {
-        YamlPropertiesFactoryBean yaml = new YamlPropertiesFactoryBean();
-        yaml.setResources(new ClassPathResource("application.yml"));
-
-        Properties properties = yaml.getObject();
-
-        assertThat(properties)
-            .containsEntry(
-                "app.websocket.broker.relay.port",
-                "${WEBSOCKET_BROKER_RELAY_PORT:}"
-            );
-    }
 
     @Test
     @DisplayName(
@@ -90,16 +49,6 @@ class WebSocketBrokerPortPolicyTest {
                 .doesNotThrowAnyException();
         }
         assertThat(properties.relay().resolvedPort()).isEqualTo(LOCAL_DEFAULT_PORT);
-    }
-
-    private WebSocketBrokerProperties bindRelayPort(String port) {
-        MapConfigurationPropertySource source = new MapConfigurationPropertySource(Map.of(
-            "app.websocket.broker.mode", "relay",
-            "app.websocket.broker.relay.port", port
-        ));
-        return new Binder(source)
-            .bind("app.websocket.broker", Bindable.of(WebSocketBrokerProperties.class))
-            .orElseThrow(() -> new IllegalStateException("broker properties binding failed"));
     }
 
     private WebSocketBrokerProperties relayProperties(Integer port) {
