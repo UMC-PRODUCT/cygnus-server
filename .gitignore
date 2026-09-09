@@ -270,14 +270,3 @@ scripts/
 !scripts/measure-boot-time.sh
 !scripts/aws-infra-inventory.sh
 docs/infra/aws-current-inventory/
-
-# load-test terraform (배포 env와 분리된 ephemeral 테스트 리그. local state·secret 커밋 금지)
-loadtest/terraform/**/.terraform/
-loadtest/terraform/**/.terraform.lock.hcl
-loadtest/terraform/**/*.tfstate
-loadtest/terraform/**/*.tfstate.*
-loadtest/terraform/**/*.tfplan
-loadtest/terraform/**/terraform.tfvars
-loadtest/terraform/**/*.auto.tfvars
-loadtest/terraform/**/load-test.env
-!loadtest/terraform/**/load-test.env.example

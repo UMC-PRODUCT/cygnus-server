@@ -1,7 +1,7 @@
 # loadtest/k6
 
 부하 테스트 실행 코드. 문서가 아니라 러너가 실제로 쓰는 k6 스크립트다.
-실행 명령은 `loadtest/RUNBOOK.md`, 설계 결정은 `loadtest/README.md` 참조.
+실행 명령과 설계 결정은 `loadtest/README.md` 참조.
 
 ## 구조
 
