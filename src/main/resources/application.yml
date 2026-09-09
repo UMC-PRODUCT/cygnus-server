@@ -491,6 +491,10 @@ app:
     discord:
       url: ${DISCORD_WEBHOOK_URL:}
 
+  # 일반 테스트 및 인증서 PDF 미리보기 API. prod 프로필에서는 설정과 무관하게 비활성화된다.
+  test-api:
+    enabled: ${APP_TEST_API_ENABLED:false}
+
   # test 도메인 시딩 API 설정. ADR-017 참조.
   # 기본값은 비활성. prod 가 아닌 환경에서 APP_SEED_ENABLED=true 로 켜야 시딩 API 가 노출된다.
   seed:
@@ -607,6 +611,9 @@ app:
         service-type: UNKNOWN
         environment: DEV
 
+  test-api:
+    enabled: ${APP_TEST_API_ENABLED:true}
+
   seed:
     enabled: ${APP_SEED_ENABLED:true}
 
@@ -678,3 +685,6 @@ app:
   websocket:
     broker:
       mode: ${WEBSOCKET_BROKER_MODE:simple}
+
+  test-api:
+    enabled: ${APP_TEST_API_ENABLED:true}
