@@ -12,13 +12,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -29,20 +27,15 @@ import com.umc.product.analytics.application.port.in.query.dto.AdminSchoolSummar
 import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = AdminSchoolAnalyticsController.class)
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("AdminSchoolAnalyticsController")
 class AdminSchoolAnalyticsControllerTest {
 
     @Autowired
     MockMvc mockMvc;
-
-    @Autowired
-    RestDocumentationResultHandler restDocsHandler;
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
@@ -59,8 +52,8 @@ class AdminSchoolAnalyticsControllerTest {
     }
 
     @Test
-    @DisplayName("학교별 summary API 문서화")
-    void 학교별_summary_API_문서화() throws Exception {
+    @DisplayName("학교별 summary API 응답")
+    void 학교별_summary_API_응답() throws Exception {
         AdminSchoolSummaryInfo info = AdminSchoolSummaryInfo.of(
             10L,
             "가천대학교",
@@ -81,7 +74,6 @@ class AdminSchoolAnalyticsControllerTest {
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.content[0].schoolName").value("가천대학교"))
-            .andExpect(jsonPath("$.result.content[0].riskChallengerCount").value(2L))
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.result.content[0].riskChallengerCount").value(2L));
     }
 }

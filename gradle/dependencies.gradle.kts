@@ -135,7 +135,4 @@ dependencies {
 
     add("testCompileOnly", "org.projectlombok:lombok")
     add("testAnnotationProcessor", "org.projectlombok:lombok")
-
-    // --- Spring REST Docs ---
-    add("testImplementation", "org.springframework.restdocs:spring-restdocs-mockmvc")
 }

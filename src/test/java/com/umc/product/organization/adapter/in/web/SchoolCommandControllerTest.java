@@ -1,28 +1,25 @@
 package com.umc.product.organization.adapter.in.web;
 
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.delete;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.patch;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.umc.product.organization.adapter.in.web.dto.request.CreateSchoolRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.DeleteSchoolsRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.SchoolLinkRequest;
+import com.umc.product.organization.application.port.in.command.dto.UpdateSchoolCommand;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
-import com.umc.product.support.DocumentationTest;
+import com.umc.product.support.ControllerTestSupport;
 
-public class SchoolCommandControllerTest extends DocumentationTest {
+public class SchoolCommandControllerTest extends ControllerTestSupport {
 
 
     @Test
@@ -42,16 +39,8 @@ public class SchoolCommandControllerTest extends DocumentationTest {
             post("/api/v1/schools").content(objectMapper.writeValueAsString(request))
                 .contentType(MediaType.APPLICATION_JSON));
 
-        result.andExpect(status().isOk()).andDo(restDocsHandler.document(
-            requestFields(fieldWithPath("schoolName").type(JsonFieldType.STRING).description("학교 이름"),
-                fieldWithPath("shortName").optional().type(JsonFieldType.STRING).description("학교 약칭 (20자 이내)"),
-                fieldWithPath("remark").type(JsonFieldType.STRING).description("비고"),
-                fieldWithPath("logoImageId").optional().type(JsonFieldType.STRING).description("로고 이미지 파일 ID"),
-                fieldWithPath("links").optional().type(JsonFieldType.ARRAY).description("학교 링크 목록"),
-                fieldWithPath("links[].title").type(JsonFieldType.STRING).description("링크 제목"),
-                fieldWithPath("links[].type").type(JsonFieldType.STRING)
-                    .description("링크 타입 (KAKAO, INSTAGRAM, YOUTUBE)"),
-                fieldWithPath("links[].url").type(JsonFieldType.STRING).description("링크 URL"))));
+        result.andExpect(status().isOk());
+        then(manageSchoolUseCase).should().create(request.toCommand());
 
     }
 
@@ -69,18 +58,10 @@ public class SchoolCommandControllerTest extends DocumentationTest {
                 .contentType(MediaType.APPLICATION_JSON));
 
         // then
-        result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(pathParameters(parameterWithName("schoolId").description("학교 ID")),
-                requestFields(
-                    fieldWithPath("schoolName").optional().type(JsonFieldType.STRING).description("학교 이름"),
-                    fieldWithPath("shortName").optional().type(JsonFieldType.STRING).description("학교 약칭 (20자 이내)"),
-                    fieldWithPath("remark").optional().type(JsonFieldType.STRING).description("비고"),
-                    fieldWithPath("logoImageId").optional().type(JsonFieldType.STRING).description("로고 이미지 파일 ID"),
-                    fieldWithPath("links").optional().type(JsonFieldType.ARRAY).description("학교 링크 목록 (전달 시 전체 교체)"),
-                    fieldWithPath("links[].title").optional().type(JsonFieldType.STRING).description("링크 제목"),
-                    fieldWithPath("links[].type").optional().type(JsonFieldType.STRING)
-                        .description("링크 타입 (KAKAO, INSTAGRAM, YOUTUBE)"),
-                    fieldWithPath("links[].url").optional().type(JsonFieldType.STRING).description("링크 URL"))));
+        result.andExpect(status().isOk());
+        then(manageSchoolUseCase).should().updateSchool(schoolId,
+            new UpdateSchoolCommand(request.schoolName(), request.shortName(), null, request.remark(),
+                request.logoImageId(), null));
 
     }
 
@@ -101,6 +82,7 @@ public class SchoolCommandControllerTest extends DocumentationTest {
 
         // then
         result.andExpect(status().isBadRequest());
+        then(manageSchoolUseCase).shouldHaveNoInteractions();
     }
 
     @Test
@@ -114,8 +96,8 @@ public class SchoolCommandControllerTest extends DocumentationTest {
                 .contentType(MediaType.APPLICATION_JSON));
 
         // then
-        result.andExpect(status().isOk()).andDo(restDocsHandler.document(
-            requestFields(fieldWithPath("schoolIds").type(JsonFieldType.ARRAY).description("삭제할 학교 ID 목록"))));
+        result.andExpect(status().isOk());
+        then(manageSchoolUseCase).should().deleteSchools(request.schoolIds());
     }
 
 }

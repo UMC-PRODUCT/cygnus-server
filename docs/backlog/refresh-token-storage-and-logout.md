@@ -279,13 +279,6 @@ public class RefreshToken extends BaseEntity {
     - `given_AT_없이_요청_when_logout_then_200` (Spring Security 통과 검증)
     - `given_만료된_AT_헤더_when_logout_then_200`
 
-### Commit 8 — `docs: refresh token whitelist 및 logout REST Docs 작성`
-
-- 신규/수정 파일:
-    - `src/test/java/.../docs/` 하위에 `LogoutRestDocsTest`, `RenewAccessTokenWithRotationRestDocsTest` 추가 (또는 기존 RestDocs 테스트 확장).
-    - `src/docs/asciidoc/` 하위에서 새 snippet include.
-- 검증: `./gradlew asciidoctor` 성공, 생성된 HTML 에 새 endpoint 문서가 노출되는지 확인.
-
 ---
 
 ## 5. 테스트 전략
@@ -294,7 +287,7 @@ public class RefreshToken extends BaseEntity {
 |-------------------|--------------------------------------------|--------------------------------------------|
 | 도메인               | JUnit5                                     | `RefreshToken.issue`, `validateNotExpired` |
 | 어댑터 (Persistence) | `@DataJpaTest` + Testcontainers (Postgres) | CRUD, jti 유니크 제약                           |
-| 어댑터 (Web)         | `@WebMvcTest` + RestDocs                   | logout, renew 엔드포인트                        |
+| 어댑터 (Web)         | `@WebMvcTest` + MockMvc                   | logout, renew 엔드포인트                        |
 | 서비스               | `@ExtendWith(MockitoExtension.class)`      | renew 회전, logout 멱등성, owner 검증             |
 | End-to-End        | `@SpringBootTest`                          | 로그인 → 재발급 → 로그아웃 → 재발급 실패 시나리오             |
 

@@ -7,7 +7,7 @@
 ## OVERVIEW
 
 UMC PRODUCT Backend is a Java 21 / Spring Boot 3.5 API server built with strict Hexagonal Architecture,
-DDD-style domain rules, JPA, QueryDSL, Flyway, JWT/SSO, REST/GraphQL APIs, OpenAPI, REST Docs,
+DDD-style domain rules, JPA, QueryDSL, Flyway, JWT/SSO, REST/GraphQL APIs, OpenAPI,
 Prometheus, and OpenTelemetry.
 
 All agent responses, generated reviews, and documentation comments must be in Korean unless identifiers or standard technical terms require English.
@@ -29,7 +29,7 @@ umc-product-server/
 ├── src/test/java/com/umc/product/   # domain tests plus shared support package
 ├── docs/adr                         # architecture decisions
 ├── docs/onboarding                  # domain/test maps
-└── build.gradle.kts                 # Gradle, REST Docs, QueryDSL, quality gates
+└── build.gradle.kts                 # Gradle, QueryDSL, quality gates
 ```
 
 ## WHERE TO LOOK
@@ -48,7 +48,7 @@ umc-product-server/
 | Public contracts | `{domain}/application/port/in`, `{domain}/application/port/out` | UseCase and Port interfaces |
 | High-complexity project flows | `src/main/java/com/umc/product/project` | application forms, matching, statistics, permissions |
 | Organization model | `src/main/java/com/umc/product/organization` | school, chapter, gisu, study group, UMC PRODUCT org |
-| Test infrastructure | `src/test/java/com/umc/product/support` | Testcontainers, fixtures, REST Docs, isolation |
+| Test infrastructure | `src/test/java/com/umc/product/support` | Testcontainers, fixtures, MockMvc, isolation |
 | Migrations | `src/main/resources/db/migration` | `VYYYY.MM.DD.HH.MM__snake_case.sql` |
 
 ## CODE MAP
@@ -92,7 +92,7 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 - REST controllers live under `adapter/in/web`; GraphQL controllers live under `adapter/in/graphql`.
 - REST API URIs must be resource-first: start with `/api/v{version}/{domain}` and use stable, kebab-case resource nouns after the domain segment.
 - Admin REST APIs must use `/api/v{version}/{domain}/admin/...`; do not create new admin APIs under `/api/v{version}/admin/{domain}/...`.
-- Treat `admin` as an access/control surface inside the owning domain, not as a top-level domain. When changing controller paths, update REST Docs, controller tests, security/maintenance allow paths, and onboarding/API guide documents together.
+- Treat `admin` as an access/control surface inside the owning domain, not as a top-level domain. When changing controller paths, update controller tests, security/maintenance allow paths, and onboarding/API guide documents together.
 - GraphQL schema files in `src/main/resources/graphql` are API contracts and must stay aligned with GraphQL DTOs.
 - SSO/PKCE flows must not log authorization codes, login tokens, refresh tokens, or client secrets.
 - Request records live under `adapter/in/web/dto/request` and convert to command/query objects near the adapter boundary.
@@ -134,7 +134,7 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 ## TESTING
 
 - Unit tests prefer JUnit 5 + Mockito with `@ExtendWith(MockitoExtension.class)`.
-- Integration tests reuse `IntegrationTestSupport`; persistence slices reuse `PersistenceAdapterTest`; REST Docs/web slices reuse `DocumentationTest`.
+- Integration tests reuse `IntegrationTestSupport`; persistence slices reuse `PersistenceAdapterTest`; web slices reuse `ControllerTestSupport`.
 - Test names and `@DisplayName` values should be Korean and behavior-focused.
 - Given/When/Then structure is expected.
 - Fixture code lives in `src/test/java/com/umc/product/support/fixture` and should persist through SavePorts where possible.

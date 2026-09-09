@@ -321,7 +321,7 @@ OpenAPI 작업번호는 기존 [FIGMA-005] 다음으로 [FIGMA-008], [FIGMA-009]
 
 - `FigmaRoutingDomainQueryServiceTest` (Mockito): list / 단건 / 미존재 시 예외, mention count 집계 검증.
 - `FigmaWatchedFileQueryServiceTest` (Mockito): enabled filter 분기 (null/true/false), 단건 미존재 시 예외.
-- `FigmaRoutingDomainControllerTest` / `FigmaWatchedFileControllerTest` (RestDocs): 마스킹된 webhook URL 이 응답에 포함되는지, 단건과 list 응답의 mention 포함 여부 차이.
+- `FigmaRoutingDomainControllerTest` / `FigmaWatchedFileControllerTest` (MockMvc): 마스킹된 webhook URL 이 응답에 포함되는지, 단건과 list 응답의 mention 포함 여부 차이.
 - 모두 `@DisplayName` 한국어, Given/When/Then 구조 유지.
 
 ### 마이그레이션 영향
@@ -339,15 +339,13 @@ OpenAPI 작업번호는 기존 [FIGMA-005] 다음으로 [FIGMA-008], [FIGMA-009]
    - `LoadFigmaRoutingDomainPort` 는 기존 메서드만으로 충분하므로 변경 없음.
 2. `feat: figma 라우팅 도메인 query api 노출`
    - 컨트롤러에 `@GetMapping` 3 개 추가 + Response DTO + webhook URL 마스킹 유틸.
-   - RestDocs 스니펫 작성.
 3. `feat: figma watched file query usecase / service 추가`
    - inbound port `GetFigmaWatchedFileUseCase`, `*Info` record, `FigmaWatchedFileQueryService`.
    - `LoadFigmaWatchedFilePort.listAll(Boolean)` outbound 시그니처 추가 + adapter 구현.
 4. `feat: figma watched file query api 노출`
    - 컨트롤러에 `@GetMapping` 2 개 추가 + Response DTO + sync 상태 필드 노출.
-   - RestDocs 스니펫 작성.
 5. `test: figma query 흐름 테스트 추가` (위 커밋들에 분산 가능. 별도 묶음 시 본 커밋 단독으로 가능)
-   - Service 단위 테스트 + Controller RestDocs.
+   - Service 단위 테스트 + MockMvc 컨트롤러 테스트.
 6. `docs: ADR-005 / 운영 가이드 갱신`
    - 본 ADR Status 를 `Accepted` 로 전환하고, 운영 가이드 문서가 있다면 Query API 사용 방법 / 마스킹 정책을 추가.
 

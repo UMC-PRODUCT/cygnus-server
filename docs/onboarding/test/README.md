@@ -34,5 +34,5 @@
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
 
 - `src/test/java/com/umc/product/organization/application/port/in/command/ManageStudyGroupUseCaseTest.java`
-- `src/test/java/com/umc/product/support/DocumentationTest.java`
+- `src/test/java/com/umc/product/support/ControllerTestSupport.java`
 - `src/test/java/com/umc/product/support/PersistenceAdapterTest.java`

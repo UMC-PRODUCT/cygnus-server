@@ -54,7 +54,7 @@ The project strictly follows **Hexagonal Architecture** and separates concerns i
 - **Database:** PostgreSQL 18.x, Flyway Migration, PostGIS
 - **ORM:** JPA (Hibernate), QueryDSL
 - **Auth:** JWT (`io.jsonwebtoken` 0.12.5)
-- **Documentation:** OpenAPI/Swagger, Spring REST Docs
+- **Documentation:** OpenAPI/Swagger
 - **Monitoring:** Prometheus Metrics, OpenTelemetry Tracing
 
 ### Environment & Commands

@@ -830,11 +830,11 @@ public class FigmaPermissionEvaluator implements ResourcePermissionEvaluator {
 17. `feat: figma 라우팅 도메인 query usecase / service 추가`
     - `GetFigmaRoutingDomainUseCase` + `FigmaRoutingDomainQueryService` (`@Transactional(readOnly=true)`).
 18. `feat: figma 라우팅 도메인 query api 노출 + webhook URL 마스킹`
-    - 컨트롤러에 `@GetMapping` 3 개 추가 + Response DTO + 마스킹 유틸 + RestDocs.
+    - 컨트롤러에 `@GetMapping` 3 개 추가 + Response DTO + 마스킹 유틸.
 19. `feat: figma watched file query usecase / service 추가`
     - `GetFigmaWatchedFileUseCase` + `FigmaWatchedFileQueryService` + `LoadFigmaWatchedFilePort.listAll(Boolean)` 추가.
 20. `feat: figma watched file query api 노출 + sync 상태 필드`
-    - 컨트롤러에 `@GetMapping` 2 개 + `last_synced_at` / `last_error` 노출 + RestDocs.
+    - 컨트롤러에 `@GetMapping` 2 개 + `last_synced_at` / `last_error` 노출.
 
 ### Phase 5 — admin 인가 (SUPER_ADMIN 전용) (2 commits)
 
@@ -850,7 +850,7 @@ public class FigmaPermissionEvaluator implements ResourcePermissionEvaluator {
     - `FigmaCommentSummaryServiceTest`: sync 첫 호출 발송 + dispatch + cursor advance / sync 재호출 dedup / digest force 무시 / preview dryRun 부수효과 0.
     - `FigmaSummaryCursorTest`: advance 방어 (미래 / 과거 / null / idempotent).
     - `FigmaPermissionEvaluatorTest`: SUPER_ADMIN 만 READ / MANAGE 통과, 그 외 false, 미지원 권한 false.
-    - `FigmaRoutingDomainQueryServiceTest`, `FigmaWatchedFileQueryServiceTest`, RestDocs 컨트롤러 테스트.
+    - `FigmaRoutingDomainQueryServiceTest`, `FigmaWatchedFileQueryServiceTest`, MockMvc 컨트롤러 테스트.
 24. `docs: ADR-015 status 를 Accepted 로 갱신 + 운영 가이드 작성`
     - 본 ADR Status 갱신.
     - `docs/guides/figma-comment-forwarder.md`: OAuth 동의 절차 / 파일 등록 / 라우팅 도메인 등록 / cursor 수동 조정 / dispatch 강제 삭제 / 90 일 보존 / 장애 대응 체크리스트.

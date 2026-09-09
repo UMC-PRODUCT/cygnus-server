@@ -1,7 +1,9 @@
 package com.umc.product.organization.adapter.in.web;
 
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.get;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
@@ -13,9 +15,9 @@ import org.junit.jupiter.api.Test;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductOrganizationChartInfo;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductSquadInfo;
-import com.umc.product.support.DocumentationTest;
+import com.umc.product.support.ControllerTestSupport;
 
-class UmcProductOrganizationChartQueryControllerDocumentationTest extends DocumentationTest {
+class UmcProductOrganizationChartQueryControllerTest extends ControllerTestSupport {
 
     @Test
     @DisplayName("현재 UMC PRODUCT Chapter와 Squad를 조회한다")
@@ -44,6 +46,20 @@ class UmcProductOrganizationChartQueryControllerDocumentationTest extends Docume
         // when & then
         mockMvc.perform(get("/api/v1/umc-product/organization-chart"))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.result.chapters.length()").value(1))
+            .andExpect(jsonPath("$.result.chapters[0].chapterId").value("10"))
+            .andExpect(jsonPath("$.result.chapters[0].code").value("DEV"))
+            .andExpect(jsonPath("$.result.chapters[0].name").value("Development"))
+            .andExpect(jsonPath("$.result.chapters[0].active").value(true))
+            .andExpect(jsonPath("$.result.squads.length()").value(1))
+            .andExpect(jsonPath("$.result.squads[0].squadId").value("70"))
+            .andExpect(jsonPath("$.result.squads[0].name").value("Sprint Squad"))
+            .andExpect(jsonPath("$.result.squads[0].startDate").value("2026-07-13"))
+            .andExpect(jsonPath("$.result.squads[0].endDate").value("2026-12-31"))
+            .andExpect(jsonPath("$.result.squads[0].sortOrder").value("1"))
+            .andExpect(jsonPath("$.result.squads[0].active").value(true));
+
+        verify(getUmcProductOrganizationChartUseCase).getCurrent();
     }
 }

@@ -2,13 +2,12 @@ package com.umc.product.organization.adapter.in.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.delete;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.patch;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
@@ -17,7 +16,6 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.restdocs.payload.JsonFieldType;
 
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductChapterMembershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductLeadershipRequest;
@@ -28,11 +26,20 @@ import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductC
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductLeadershipRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductMemberActivityPeriodRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductMemberProfileRequest;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductChapterMembershipCommand;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductLeadershipCommand;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductMemberActivityPeriodCommand;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductMemberCommand;
+import com.umc.product.organization.application.port.in.command.dto.UmcProductActivityPeriodCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductChapterMembershipCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductLeadershipCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberActivityPeriodCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductMemberProfileCommand;
 import com.umc.product.organization.domain.enums.UmcProductLeadershipRole;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
-import com.umc.product.support.DocumentationTest;
+import com.umc.product.support.ControllerTestSupport;
 
-class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTest {
+class UmcProductMemberCommandControllerTest extends ControllerTestSupport {
 
     private static final LocalDate START_DATE = LocalDate.of(2026, 7, 13);
     private static final LocalDate END_DATE = LocalDate.of(2026, 12, 31);
@@ -54,18 +61,12 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(requestFields(
-                fieldWithPath("memberId").type(JsonFieldType.STRING).description("전역 멤버 ID"),
-                fieldWithPath("introduction").type(JsonFieldType.STRING).description("소개").optional(),
-                fieldWithPath("profileImageId").type(JsonFieldType.STRING)
-                    .description("UMC PRODUCT 프로필 이미지 파일 ID").optional(),
-                fieldWithPath("activityPeriods").type(JsonFieldType.ARRAY)
-                    .description("한 개 이상의 활동 기간"),
-                fieldWithPath("activityPeriods[].startDate").type(JsonFieldType.STRING)
-                    .description("활동 시작일 (yyyy-MM-dd)"),
-                fieldWithPath("activityPeriods[].endDate").type(JsonFieldType.STRING)
-                    .description("활동 종료일, 종료일 포함 (yyyy-MM-dd)").optional()
-            )));
+            .andExpect(jsonPath("$.result").value("30"));
+
+        verify(manageUmcProductMemberUseCase).create(CreateUmcProductMemberCommand.of(
+            TEST_MEMBER_ID, 100L, "UMC PRODUCT 서버 개발자", "profile-file-id",
+            List.of(UmcProductActivityPeriodCommand.of(START_DATE, END_DATE))
+        ));
     }
 
     @Test
@@ -80,15 +81,11 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
         mockMvc.perform(patch("/api/v1/umc-product/members/{memberId}/profile", 30L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberPathParameters(),
-                requestFields(
-                    fieldWithPath("introduction").type(JsonFieldType.STRING).description("소개").optional(),
-                    fieldWithPath("profileImageId").type(JsonFieldType.STRING)
-                        .description("UMC PRODUCT 프로필 이미지 파일 ID").optional()
-                )
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).updateProfile(UpdateUmcProductMemberProfileCommand.of(
+            30L, TEST_MEMBER_ID, "프로필 소개 수정", "new-profile-file-id"
+        ));
     }
 
     @Test
@@ -104,7 +101,11 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(memberPathParameters(), requestFields(dateFields())));
+            .andExpect(jsonPath("$.result").value("40"));
+
+        verify(manageUmcProductMemberUseCase).createActivityPeriod(CreateUmcProductMemberActivityPeriodCommand.of(
+            30L, TEST_MEMBER_ID, START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -119,11 +120,11 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 "/api/v1/umc-product/members/{memberId}/activity-periods/{periodId}", 30L, 40L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("periodId", "활동 기간 ID"),
-                requestFields(dateFields())
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).updateActivityPeriod(UpdateUmcProductMemberActivityPeriodCommand.of(
+            30L, 40L, TEST_MEMBER_ID, START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -132,10 +133,9 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
         // when & then
         mockMvc.perform(delete(
                 "/api/v1/umc-product/members/{memberId}/activity-periods/{periodId}", 30L, 40L))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("periodId", "활동 기간 ID")
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).deleteActivityPeriod(30L, 40L, TEST_MEMBER_ID);
     }
 
     @Test
@@ -157,10 +157,12 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberPathParameters(),
-                requestFields(chapterMembershipFields())
-            ));
+            .andExpect(jsonPath("$.result").value("50"));
+
+        verify(manageUmcProductMemberUseCase).createChapterMembership(CreateUmcProductChapterMembershipCommand.of(
+            30L, TEST_MEMBER_ID, 20L, UmcProductPosition.SERVER_DEVELOPER,
+            "Server Developer", "서버 개발", START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -184,11 +186,12 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
             )
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("chapterMembershipId", "Chapter 소속 ID"),
-                requestFields(chapterMembershipFields())
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).updateChapterMembership(UpdateUmcProductChapterMembershipCommand.of(
+            30L, 50L, TEST_MEMBER_ID, 20L, UmcProductPosition.SERVER_DEVELOPER,
+            "Server Developer", "API 개발", START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -200,10 +203,9 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 30L,
                 50L
             ))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("chapterMembershipId", "Chapter 소속 ID")
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).deleteChapterMembership(30L, 50L, TEST_MEMBER_ID);
     }
 
     @Test
@@ -213,6 +215,8 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{}"))
             .andExpect(status().isNotFound());
+
+        verifyNoInteractions(manageUmcProductMemberUseCase);
     }
 
     @Test
@@ -229,10 +233,11 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberPathParameters(),
-                requestFields(leadershipFields())
-            ));
+            .andExpect(jsonPath("$.result").value("60"));
+
+        verify(manageUmcProductMemberUseCase).createLeadership(CreateUmcProductLeadershipCommand.of(
+            30L, TEST_MEMBER_ID, UmcProductLeadershipRole.UMC_PRODUCT_LEAD, START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -251,11 +256,11 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
             )
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("leadershipId", "Leadership ID"),
-                requestFields(leadershipFields())
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).updateLeadership(UpdateUmcProductLeadershipCommand.of(
+            30L, 60L, TEST_MEMBER_ID, UmcProductLeadershipRole.UMC_PRODUCT_VICE_LEAD, START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -267,10 +272,9 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
                 30L,
                 60L
             ))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                memberAndChildPathParameters("leadershipId", "Leadership ID")
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductMemberUseCase).deleteLeadership(30L, 60L, TEST_MEMBER_ID);
     }
 
     @Test
@@ -278,52 +282,8 @@ class UmcProductMemberCommandControllerDocumentationTest extends DocumentationTe
     void UMC_PRODUCT_멤버를_삭제한다() throws Exception {
         // when & then
         mockMvc.perform(delete("/api/v1/umc-product/members/{memberId}", 30L))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(memberPathParameters()));
-    }
+            .andExpect(status().isOk());
 
-    private org.springframework.restdocs.snippet.Snippet memberPathParameters() {
-        return pathParameters(parameterWithName("memberId").description("UMC PRODUCT 멤버 ID"));
-    }
-
-    private org.springframework.restdocs.snippet.Snippet memberAndChildPathParameters(
-        String childName,
-        String childDescription
-    ) {
-        return pathParameters(
-            parameterWithName("memberId").description("UMC PRODUCT 멤버 ID"),
-            parameterWithName(childName).description(childDescription)
-        );
-    }
-
-    private org.springframework.restdocs.payload.FieldDescriptor[] dateFields() {
-        return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("startDate").type(JsonFieldType.STRING)
-                .description("시작일 (yyyy-MM-dd)"),
-            fieldWithPath("endDate").type(JsonFieldType.STRING)
-                .description("종료일, 종료일 포함 (yyyy-MM-dd)").optional()
-        };
-    }
-
-    private org.springframework.restdocs.payload.FieldDescriptor[] chapterMembershipFields() {
-        return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("chapterId").type(JsonFieldType.STRING).description("Chapter ID"),
-            fieldWithPath("position").type(JsonFieldType.STRING).description("직군"),
-            fieldWithPath("responsibilityTitle").type(JsonFieldType.STRING)
-                .description("책임명").optional(),
-            fieldWithPath("responsibilityDescription").type(JsonFieldType.STRING)
-                .description("책임 설명").optional(),
-            dateFields()[0],
-            dateFields()[1]
-        };
-    }
-
-    private org.springframework.restdocs.payload.FieldDescriptor[] leadershipFields() {
-        return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("role").type(JsonFieldType.STRING)
-                .description("Leadership 역할: UMC_PRODUCT_LEAD, UMC_PRODUCT_VICE_LEAD"),
-            dateFields()[0],
-            dateFields()[1]
-        };
+        verify(manageUmcProductMemberUseCase).delete(30L, TEST_MEMBER_ID);
     }
 }

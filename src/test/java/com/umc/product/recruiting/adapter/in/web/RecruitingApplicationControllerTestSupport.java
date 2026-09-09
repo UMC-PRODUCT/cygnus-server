@@ -4,7 +4,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -30,16 +29,13 @@ import com.umc.product.recruiting.application.port.in.command.CreateRecruitingAp
 import com.umc.product.recruiting.application.port.in.command.SubmitRecruitingApplicationUseCase;
 import com.umc.product.recruiting.application.port.in.command.UpdateRecruitingApplicationDraftUseCase;
 import com.umc.product.recruiting.application.port.in.query.ListMyRecruitingApplicationsUseCase;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = RecruitingApplicationController.class)
 @Import({
     JacksonConfig.class,
-    RestDocsConfig.class,
     RecruitingApplicationControllerTestSupport.SecurityTestConfig.class
 })
 @AutoConfigureMockMvc
-@AutoConfigureRestDocs
 abstract class RecruitingApplicationControllerTestSupport {
 
     @Autowired

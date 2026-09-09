@@ -25,7 +25,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -85,12 +84,10 @@ import com.umc.product.recruiting.domain.enums.RecruitingDecisionHistorySortOrde
 import com.umc.product.recruiting.domain.enums.RecruitingDecisionResult;
 import com.umc.product.recruiting.domain.enums.RecruitingEvaluationProgressStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingFormSectionType;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = {RecruitingAdminController.class, RecruitingAdminInterviewController.class})
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("RecruitingAdminController")
 class RecruitingAdminControllerTest {
 

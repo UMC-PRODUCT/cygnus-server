@@ -261,7 +261,7 @@ public interface OAuthIdentityProvider {
 |-----|---------------------------|----------------------------------------------------------------------------|
 | 단위  | JUnit 5 + Mockito         | OidcMetadataCache TTL/동시성, ClientSecretCache 만료, AppleIdentityProvider 분기  |
 | 통합  | Testcontainers + WireMock | Apple/Google JWKS endpoint stub, token endpoint stub, revoke endpoint stub |
-| 회귀  | RestDocs                  | 기존 `POST /api/v1/auth/login/apple` 응답 스키마 보존 (호환 윈도우 동안)                   |
+| 회귀  | MockMvc                  | 기존 `POST /api/v1/auth/login/apple` 응답 스키마 보존 (호환 윈도우 동안)                   |
 | 성능  | k6 또는 Gatling             | 100 req/s 로그인 부하에서 외부 호출 횟수 ≤ 0.05 req/login (캐시 정상 동작)                    |
 
 > 모든 테스트는 한국어 `@DisplayName` 사용 (CLAUDE.md 규약).

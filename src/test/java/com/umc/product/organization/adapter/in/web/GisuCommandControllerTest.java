@@ -2,23 +2,22 @@ package com.umc.product.organization.adapter.in.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.delete;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
+import static org.mockito.BDDMockito.then;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.umc.product.organization.adapter.in.web.dto.request.CreateGisuRequest;
-import com.umc.product.support.DocumentationTest;
 import java.time.Instant;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
 
-class GisuCommandControllerTest extends DocumentationTest {
+import com.umc.product.organization.adapter.in.web.dto.request.CreateGisuRequest;
+import com.umc.product.support.ControllerTestSupport;
+
+class GisuCommandControllerTest extends ControllerTestSupport {
 
     private static final Instant START_AT = Instant.parse("2025-03-01T00:00:00Z");
     private static final Instant END_AT = Instant.parse("2025-08-31T23:59:59Z");
@@ -37,11 +36,10 @@ class GisuCommandControllerTest extends DocumentationTest {
                 .contentType(MediaType.APPLICATION_JSON));
 
         // then
-        result.andExpect(status().isOk()).andDo(restDocsHandler.document(
-            requestFields(
-                fieldWithPath("generation").type(JsonFieldType.STRING).description("기수 번호"),
-                fieldWithPath("startAt").type(JsonFieldType.STRING).description("기수 시작일시"),
-                fieldWithPath("endAt").type(JsonFieldType.STRING).description("기수 종료일시"))));
+        result.andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.result").value("1"));
+        then(manageGisuUseCase).should().create(request.toCommand());
     }
 
     @Test
@@ -53,8 +51,8 @@ class GisuCommandControllerTest extends DocumentationTest {
         ResultActions result = mockMvc.perform(delete("/api/v1/gisu/{gisuId}", gisuId));
 
         // then
-        result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(pathParameters(parameterWithName("gisuId").description("기수 ID"))));
+        result.andExpect(status().isOk());
+        then(manageGisuUseCase).should().deleteGisu(gisuId);
     }
 
     @Test
@@ -66,7 +64,7 @@ class GisuCommandControllerTest extends DocumentationTest {
         ResultActions result = mockMvc.perform(post("/api/v1/gisu/{gisuId}/active", gisuId));
 
         // then
-        result.andExpect(status().isOk()).andDo(restDocsHandler.document(
-            pathParameters(parameterWithName("gisuId").description("현재 기수로 설정할 기수 ID"))));
+        result.andExpect(status().isOk());
+        then(manageGisuUseCase).should().updateActiveGisu(gisuId);
     }
 }

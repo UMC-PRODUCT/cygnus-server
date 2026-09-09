@@ -2,16 +2,14 @@ package com.umc.product.organization.adapter.in.web;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.delete;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.get;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.patch;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.post;
-import static org.springframework.restdocs.mockmvc.RestDocumentationRequestBuilders.put;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.requestFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
-import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.LocalDate;
@@ -20,18 +18,21 @@ import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
-import org.springframework.restdocs.payload.JsonFieldType;
 
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductSquadParticipantRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateUmcProductSquadRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductSquadParticipantRequest;
 import com.umc.product.organization.adapter.in.web.dto.request.UpdateUmcProductSquadRequest;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductSquadCommand;
+import com.umc.product.organization.application.port.in.command.dto.CreateUmcProductSquadParticipantCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductSquadCommand;
+import com.umc.product.organization.application.port.in.command.dto.UpdateUmcProductSquadParticipantCommand;
 import com.umc.product.organization.application.port.in.query.dto.umcproduct.UmcProductSquadInfo;
 import com.umc.product.organization.domain.enums.UmcProductPosition;
 import com.umc.product.organization.domain.enums.UmcProductSquadRole;
-import com.umc.product.support.DocumentationTest;
+import com.umc.product.support.ControllerTestSupport;
 
-class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
+class UmcProductSquadControllerTest extends ControllerTestSupport {
 
     private static final LocalDate START_DATE = LocalDate.of(2026, 7, 13);
     private static final LocalDate END_DATE = LocalDate.of(2026, 12, 31);
@@ -50,7 +51,11 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(requestFields(squadFields())));
+            .andExpect(jsonPath("$.result").value("70"));
+
+        verify(manageUmcProductSquadUseCase).create(CreateUmcProductSquadCommand.of(
+            TEST_MEMBER_ID, "SPRINT", "Sprint Squad", "제품 개선 Squad", START_DATE, END_DATE, 1, true
+        ));
     }
 
     @Test
@@ -68,10 +73,18 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
                 .param("active", "true")
                 .param("activeOn", "2026-07-13"))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(queryParameters(
-                parameterWithName("active").description("활성 여부 필터").optional(),
-                parameterWithName("activeOn").description("활동 기준일 (yyyy-MM-dd)").optional()
-            )));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.result.squads.length()").value(1))
+            .andExpect(jsonPath("$.result.squads[0].squadId").value("70"))
+            .andExpect(jsonPath("$.result.squads[0].code").value("SPRINT"))
+            .andExpect(jsonPath("$.result.squads[0].name").value("Sprint Squad"))
+            .andExpect(jsonPath("$.result.squads[0].description").value("제품 개선 Squad"))
+            .andExpect(jsonPath("$.result.squads[0].startDate").value("2026-07-13"))
+            .andExpect(jsonPath("$.result.squads[0].endDate").value("2026-12-31"))
+            .andExpect(jsonPath("$.result.squads[0].sortOrder").value("1"))
+            .andExpect(jsonPath("$.result.squads[0].active").value(true));
+
+        verify(getUmcProductSquadUseCase).list(true, START_DATE);
     }
 
     @Test
@@ -86,11 +99,11 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
         mockMvc.perform(patch("/api/v1/umc-product/squads/{squadId}", 70L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                squadPathParameters(),
-                requestFields(squadFields())
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductSquadUseCase).update(UpdateUmcProductSquadCommand.of(
+            70L, TEST_MEMBER_ID, "SPRINT-2", "Sprint Squad 2", "제품 개선 Squad", START_DATE, END_DATE, 2, true
+        ));
     }
 
     @Test
@@ -98,8 +111,9 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
     void UMC_PRODUCT_Squad를_삭제한다() throws Exception {
         // when & then
         mockMvc.perform(delete("/api/v1/umc-product/squads/{squadId}", 70L))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(squadPathParameters()));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductSquadUseCase).delete(70L, TEST_MEMBER_ID);
     }
 
     @Test
@@ -122,10 +136,12 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                squadPathParameters(),
-                requestFields(createParticipantFields())
-            ));
+            .andExpect(jsonPath("$.result").value("80"));
+
+        verify(manageUmcProductSquadUseCase).createParticipant(CreateUmcProductSquadParticipantCommand.of(
+            70L, TEST_MEMBER_ID, 30L, UmcProductSquadRole.SQUAD_LEAD, UmcProductPosition.PRODUCT_OWNER,
+            "Squad Lead", "제품 목표 관리", START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -135,6 +151,8 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("[]"))
             .andExpect(status().isNotFound());
+
+        verifyNoInteractions(manageUmcProductSquadUseCase);
     }
 
     @Test
@@ -155,11 +173,12 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
                 "/api/v1/umc-product/squads/{squadId}/participants/{participantId}", 70L, 80L)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                squadAndParticipantPathParameters(),
-                requestFields(updateParticipantFields())
-            ));
+            .andExpect(status().isOk());
+
+        verify(manageUmcProductSquadUseCase).updateParticipant(UpdateUmcProductSquadParticipantCommand.of(
+            70L, 80L, TEST_MEMBER_ID, UmcProductSquadRole.MEMBER, UmcProductPosition.SERVER_DEVELOPER,
+            "Server Developer", "API 개발", START_DATE, END_DATE
+        ));
     }
 
     @Test
@@ -168,60 +187,8 @@ class UmcProductSquadControllerDocumentationTest extends DocumentationTest {
         // when & then
         mockMvc.perform(delete(
                 "/api/v1/umc-product/squads/{squadId}/participants/{participantId}", 70L, 80L))
-            .andExpect(status().isOk())
-            .andDo(restDocsHandler.document(squadAndParticipantPathParameters()));
-    }
+            .andExpect(status().isOk());
 
-    private org.springframework.restdocs.snippet.Snippet squadPathParameters() {
-        return pathParameters(parameterWithName("squadId").description("Squad ID"));
-    }
-
-    private org.springframework.restdocs.snippet.Snippet squadAndParticipantPathParameters() {
-        return pathParameters(
-            parameterWithName("squadId").description("Squad ID"),
-            parameterWithName("participantId").description("Squad 참여 ID")
-        );
-    }
-
-    private org.springframework.restdocs.payload.FieldDescriptor[] squadFields() {
-        return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("code").type(JsonFieldType.STRING).description("Squad 코드").optional(),
-            fieldWithPath("name").type(JsonFieldType.STRING).description("Squad 이름").optional(),
-            fieldWithPath("description").type(JsonFieldType.STRING).description("Squad 설명").optional(),
-            fieldWithPath("startDate").type(JsonFieldType.STRING)
-                .description("운영 시작일 (yyyy-MM-dd)"),
-            fieldWithPath("endDate").type(JsonFieldType.STRING)
-                .description("운영 종료일, 종료일 포함 (yyyy-MM-dd)").optional(),
-            fieldWithPath("sortOrder").type(JsonFieldType.STRING).description("정렬 순서").optional(),
-            fieldWithPath("active").type(JsonFieldType.BOOLEAN).description("활성 여부").optional()
-        };
-    }
-
-    private org.springframework.restdocs.payload.FieldDescriptor[] createParticipantFields() {
-        return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("umcProductMemberId").type(JsonFieldType.STRING)
-                .description("UMC PRODUCT 멤버 ID"),
-            updateParticipantFields()[0],
-            updateParticipantFields()[1],
-            updateParticipantFields()[2],
-            updateParticipantFields()[3],
-            updateParticipantFields()[4],
-            updateParticipantFields()[5]
-        };
-    }
-
-    private org.springframework.restdocs.payload.FieldDescriptor[] updateParticipantFields() {
-        return new org.springframework.restdocs.payload.FieldDescriptor[] {
-            fieldWithPath("role").type(JsonFieldType.STRING).description("Squad 역할: MEMBER, SQUAD_LEAD"),
-            fieldWithPath("position").type(JsonFieldType.STRING).description("직군"),
-            fieldWithPath("responsibilityTitle").type(JsonFieldType.STRING)
-                .description("책임명").optional(),
-            fieldWithPath("responsibilityDescription").type(JsonFieldType.STRING)
-                .description("책임 설명").optional(),
-            fieldWithPath("startDate").type(JsonFieldType.STRING)
-                .description("참여 시작일 (yyyy-MM-dd)"),
-            fieldWithPath("endDate").type(JsonFieldType.STRING)
-                .description("참여 종료일, 종료일 포함 (yyyy-MM-dd)").optional()
-        };
+        verify(manageUmcProductSquadUseCase).deleteParticipant(70L, 80L, TEST_MEMBER_ID);
     }
 }

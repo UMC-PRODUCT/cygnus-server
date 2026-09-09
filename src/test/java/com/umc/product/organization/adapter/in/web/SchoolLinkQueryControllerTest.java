@@ -1,22 +1,21 @@
 package com.umc.product.organization.adapter.in.web;
 
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import java.util.List;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.test.web.servlet.ResultActions;
 
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolLinkInfo;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
-import com.umc.product.support.DocumentationTest;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.springframework.restdocs.payload.JsonFieldType;
-import org.springframework.test.web.servlet.ResultActions;
+import com.umc.product.support.ControllerTestSupport;
 
-class SchoolLinkQueryControllerTest extends DocumentationTest {
+class SchoolLinkQueryControllerTest extends ControllerTestSupport {
 
     @Test
     void 학교_링크를_조회합니다() throws Exception {
@@ -37,20 +36,13 @@ class SchoolLinkQueryControllerTest extends DocumentationTest {
 
         // then
         result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                pathParameters(
-                    parameterWithName("schoolId").description("학교 ID")
-                ),
-                responseFields(
-                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.links").type(JsonFieldType.ARRAY).description("학교 링크 목록"),
-                    fieldWithPath("result.links[].title").type(JsonFieldType.STRING).description("링크 제목"),
-                    fieldWithPath("result.links[].type").type(JsonFieldType.STRING)
-                        .description("링크 타입 (KAKAO, INSTAGRAM, YOUTUBE)"),
-                    fieldWithPath("result.links[].url").type(JsonFieldType.STRING).description("링크 URL")
-                )
-            ));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.links").isArray())
+            .andExpect(jsonPath("$.result.links[*].title").value(contains("UMC 카카오톡", "UMC 인스타그램", "UMC 유튜브")))
+            .andExpect(jsonPath("$.result.links[*].type").value(contains("KAKAO", "INSTAGRAM", "YOUTUBE")))
+            .andExpect(jsonPath("$.result.links[*].url").value(contains(
+                "https://pf.kakao.com/_example", "https://instagram.com/umc", "https://youtube.com/@umc")));
     }
 }

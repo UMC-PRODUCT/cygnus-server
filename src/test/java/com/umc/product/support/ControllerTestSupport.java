@@ -2,11 +2,9 @@ package com.umc.product.support;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
-import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -71,24 +69,15 @@ import com.umc.product.storage.application.port.in.query.GetFileUseCase;
     NoticeQueryController.class,
     NoticeContentController.class,
 })
-@Import({
-    RestDocsConfig.class,
-    JacksonConfig.class
-})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
-public class DocumentationTest {
-    // =================================================
-    // Rest Docs 생성을 위한 기본적인 주입을 처리하는 부모 클래스
-    // =================================================
+public class ControllerTestSupport {
+    // 컨트롤러 테스트에 필요한 공통 설정과 의존성을 제공한다.
 
     protected static final Long TEST_MEMBER_ID = 1L;
 
     @Autowired
     protected MockMvc mockMvc;
-
-    @Autowired
-    protected RestDocumentationResultHandler restDocsHandler;
 
     @Autowired
     protected ObjectMapper objectMapper;
