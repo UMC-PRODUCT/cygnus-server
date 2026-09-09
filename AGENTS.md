@@ -104,7 +104,6 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 - Static factories: `of` for multiple params, `from` for one source, `create`/`newInstance` for guaranteed new instances.
 - QueryDSL code belongs in `*QueryRepository`; avoid N+1 by fetch joins, split queries, or IN/batch maps.
 - Flyway files use `VYYYY.MM.DD.HH.MM__snake_case.sql`; duplicate versions are checked by Gradle.
-- REST Docs snippets use `{class-name}/{method-name}` and are assembled into `docs/static`.
 
 ## AUTHORIZATION
 
@@ -154,12 +153,11 @@ Java LSP (`jdtls`) was unavailable; CodeGraph was available for review, but refe
 ./gradlew spotlessCheck checkstyleMain checkstyleTest
 ./gradlew compileJava compileTestJava
 ./gradlew test
-./gradlew asciidoctor
 ./gradlew build
 ```
 
 ## NOTES
 
 - Default profile is `local`; app port is `8080`; management/Prometheus port is `9090`.
-- `build` depends on clean/docs copy behavior; `bootJar` is deployment-focused; Checkstyle tasks are diff-oriented.
+- `bootJar`는 배포용 JAR을 생성한다. Checkstyle 작업은 변경 파일을 기준으로 실행한다.
 - `CLAUDE.md`, `GEMINI.md`, and `.github/copilot-instructions.md` are pointers to this canonical file.
