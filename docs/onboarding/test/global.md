@@ -80,43 +80,6 @@
 
 ## Domain
 
-### CacheKeyTest
-- 테스트 설명: CacheKey
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheKeyTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [7](../../../src/test/java/com/umc/product/global/cache/domain/CacheKeyTest.java#L7) | 문자열 값으로 cache key를 생성한다 | 조건 문자열 값으로 cache key를 생성한다 | 성공: 검증 assertThat(key.value()).isEqualTo("comment-1"); |
-| [18](../../../src/test/java/com/umc/product/global/cache/domain/CacheKeyTest.java#L18) | CacheKey / 빈 cache key는 허용하지 않는다 | 조건 CacheKey / 빈 cache key는 허용하지 않는다 | 실패: 예외 IllegalArgumentException |
-
-### CacheLookupTest
-- 테스트 설명: CacheLookup
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheLookupTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [6](../../../src/test/java/com/umc/product/global/cache/domain/CacheLookupTest.java#L6) | Hit은 값을 변환할 수 있다 | 조건 Hit은 값을 변환할 수 있다 | 실패: 예외 CacheLookup.Hit; 검증 assertThat(lookup.hit()).isTrue(); assertThat(lookup).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<Integer>) lookup).value()).isEqualTo(3); |
-| [19](../../../src/test/java/com/umc/product/global/cache/domain/CacheLookupTest.java#L19) | CacheLookup / Miss는 변환해도 Miss로 유지된다 | 조건 CacheLookup / Miss는 변환해도 Miss로 유지된다 | 실패: 예외 CacheLookup.Miss; 검증 assertThat(lookup.hit()).isFalse(); assertThat(lookup).isInstanceOf(CacheLookup.Miss.class); |
-
-### CacheNamespaceTest
-- 테스트 설명: CacheNamespace
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [6](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L6) | cache namespace 값은 중복되지 않는다 | 조건 cache namespace 값은 중복되지 않는다 | 실패: cache namespace 값은 중복되지 않는다 |
-| [15](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L15) | CacheNamespace / Google JWKS 캐시는 기존 Prometheus metric name을 유지한다 | 조건 CacheNamespace / Google JWKS 캐시는 기존 Prometheus metric name을 유지한다 | 성공: 검증 .isEqualTo("authentication.google.jwks.l1"); |
-
-### CacheSpecTest
-- 테스트 설명: CacheSpec
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L8) | namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 조건 namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 성공: 검증 assertThat(spec.namespace()).isEqualTo(CacheNamespace.GOOGLE_JWKS); assertThat(spec.valueType()).isEqualTo(String.class); assertThat(spec.ttl()).isEqualTo(Duration.ofMinutes(5)); assertThat(spec.maximumSize()... |
-| [27](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L27) | CacheSpec / ttl은 양수여야 한다 | 조건 CacheSpec / ttl은 양수여야 한다 | 실패: 예외 IllegalArgumentException |
-| [40](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L40) | CacheSpec / maximumSize는 양수여야 한다 | 조건 CacheSpec / maximumSize는 양수여야 한다 | 실패: 예외 IllegalArgumentException |
-
 ### EventOutboxTest
 - 테스트 설명: EventOutbox
 - 위치: `src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java`
