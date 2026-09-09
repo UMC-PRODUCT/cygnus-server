@@ -9,14 +9,6 @@
 
 ## UseCase / Application Service
 
-### CacheServiceTest
-- 테스트 설명: CacheService
-- 위치: `src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [12](../../../src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java#L12) | get, put, evict 요청을 저장소 포트로 위임한다 | 호출 put(spec, key, "auth"); 호출 get(spec, key); 호출 evict(CacheNamespace.GOOGLE_JWKS, key) | 실패: 예외 CacheLookup.Hit, CacheLookup.Miss; 검증 assertThat(hit).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) hit).value()).isEqualTo("auth"); assertThat(miss).isInstanceOf(CacheLookup.Miss.class); |
-
 ### EventOutboxRelayServiceTest
 - 테스트 설명: EventOutboxRelayService
 - 위치: `src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayServiceTest.java`
@@ -139,16 +131,6 @@
 | [75](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L75) | 최대 시도 횟수에 도달하면 failed 상태로 전환한다 | 조건 최대 시도 횟수에 도달하면 failed 상태로 전환한다 | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED); assertThat(outbox.getAttempts()).isEqualTo(2); assertThat(outbox.getLastError()).isEqualTo("second"); |
 
 ## External Adapter
-
-### CaffeineCacheStoreAdapterTest
-- 테스트 설명: CaffeineCacheStoreAdapter
-- 위치: `src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [11](../../../src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java#L11) | 저장되지 않은 key는 Miss를 반환한다 | 조건 저장되지 않은 key는 Miss를 반환한다 | 실패: 예외 CacheLookup.Miss; 검증 assertThat(result).isInstanceOf(CacheLookup.Miss.class); |
-| [25](../../../src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java#L25) | CaffeineCacheStoreAdapter / put한 값은 Hit로 조회된다 | 조건 CaffeineCacheStoreAdapter / put한 값은 Hit로 조회된다 | 실패: 예외 CacheLookup.Hit; 검증 assertThat(result).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) result).value()).isEqualTo("auth"); |
-| [38](../../../src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java#L38) | CaffeineCacheStoreAdapter / evict하면 다음 조회는 Miss가 된다 | 조건 CaffeineCacheStoreAdapter / evict하면 다음 조회는 Miss가 된다 | 실패: 예외 CacheLookup.Miss; 검증 assertThat(adapter.get(spec, key)).isInstanceOf(CacheLookup.Miss.class); |
 
 ### EventPayloadDeserializerTest
 - 테스트 설명: EventPayloadDeserializer
