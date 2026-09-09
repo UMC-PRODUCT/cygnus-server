@@ -140,14 +140,6 @@
 
 ## External Adapter
 
-### CacheKeyFormatterTest
-- 테스트 설명: CacheKeyFormatter
-- 위치: `src/test/java/com/umc/product/global/cache/adapter/out/CacheKeyFormatterTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/cache/adapter/out/CacheKeyFormatterTest.java#L8) | 환경, namespace, key를 조합해 최종 cache key를 만든다 | 조건 환경, namespace, key를 조합해 최종 cache key를 만든다 | 성공: 검증 assertThat(result).isEqualTo("umc:local:authentication.google.jwks:google"); |
-
 ### CaffeineCacheStoreAdapterTest
 - 테스트 설명: CaffeineCacheStoreAdapter
 - 위치: `src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java`
