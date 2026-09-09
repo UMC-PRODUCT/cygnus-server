@@ -462,7 +462,6 @@ GitHub Actions 의 secret 도 같은 매핑으로 정리하고, 변경 PR 은 �
 
 - 관련 ADR
     - [ADR-013: k6 기반 부하·성능 테스트 도입 전략](013-k6-load-and-performance-testing-strategy.md) — k6 의 결과를 동일 Self-hosted Prometheus 로 송신하면 운영 메트릭과 부하 메트릭이 한 대시보드에 모인다.
-    - [ADR-012: LLM 호출의 동기 대기 병목 완화 전략](012-llm-call-blocking-bottleneck-mitigation.md) — virtual-thread 비동기 도입의 효과 측정에 본 ADR 의 metric/trace 가 1차 도구.
 - 기존 코드 / 설정
     - [application.yml — management 섹션](../../src/main/resources/application.yml#L252-L418)
     - [logback-spring.xml — Loki 어펜더](../../src/main/resources/logback-spring.xml)

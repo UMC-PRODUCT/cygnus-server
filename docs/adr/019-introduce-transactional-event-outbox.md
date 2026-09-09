@@ -417,4 +417,3 @@ app:
 - Confluent: "Reliable Microservices Data Exchange With the Outbox Pattern"
 - Spring Modulith: `event_publication` 메커니즘 (Spring 공식)
 - Debezium: Outbox Event Router (CDC 기반 outbox 자동화)
-- `docs/analysis/notification-fcm-current-state.md` (FcmOutbox 분석)

@@ -441,7 +441,7 @@ public TokenPair login(LoginCommand command) {
 1. **시스템 actor를 표기할 별도 컬럼 도입 여부** — `actorMemberId IS NULL`을 시스템으로 간주하는 현재 안 vs `actor_type ENUM` 컬럼 추가. 운영 데이터가 쌓인 뒤 결정.
 2. **audit_log archive 저장소** — S3 Glacier? 별도 RDS 인스턴스? 운영팀 합의 필요.
 3. **audit 검색 API의 본문 키워드 검색** — `description ILIKE '%탈퇴%'` 같은 질의가 잦으면 GIN 인덱스 도입 검토.
-4. **FAILURE outcome의 폭증 모니터링** — `LOGIN_FAILURE`가 분당 임계치 초과 시 Discord 알림 등(ADR-003 발송 인프라 재사용 가능).
+4. **FAILURE outcome의 폭증 모니터링** — `LOGIN_FAILURE`가 분당 임계치 초과 시 Discord 알림 등.
 5. **`@Audited`가 잘못 평가될 때 fail-closed vs fail-open** — 현재는 `AuditAspect`가 try/catch + log.error로 fail-open. 보안 액션(LOGIN/LOGOUT/GRANT 등)에서는 fail-closed로 트랜잭션 자체를 실패시켜야 할 수도 있다. 위험과 가용성 trade-off 결정.
 6. **audit_log 파티셔닝** — 3년치 누적이면 row 수가 수천만대 가능. PostgreSQL 파티셔닝(`PARTITION BY RANGE (created_at)`) 도입 시점 결정.
 7. **audit_log INSERT-only 강제용 DB 권한 마이그레이션** — Phase 0 commit 2에서 `outcome` 컬럼 추가는 즉시 적용하지만, `REVOKE UPDATE, DELETE ON audit_log FROM <app_role>` 마이그레이션은 환경별(local/dev/prod) 어플리케이션 DB role 이름이 운영팀과 합의된 뒤 별도 적용한다. 우선 후보: 어플리케이션은 `app_writer` 같은 role로 운영하고, audit 정정·archive 잡은 별도 admin role(`audit_admin` 등)로 분리.

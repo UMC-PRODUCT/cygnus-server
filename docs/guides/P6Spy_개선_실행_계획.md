@@ -1,7 +1,6 @@
 # P6Spy 개선 실행 계획 (Commit-by-commit)
 
 > 작성일: 2026-05-13
-> 선행 문서: [P6Spy 활용 현황 및 개선 보고서](P6Spy_활용_현황_및_개선_보고서.md)
 > 관련 ADR: [ADR-016 — JSON 구조화 로깅](../adr/016-structured-json-logging-with-mdc.md), [ADR-014 — 자체 호스팅 모니터링 이관](../adr/014-self-hosted-monitoring-stack-migration.md), [ADR-013 — k6 부하 테스트](../adr/013-k6-load-and-performance-testing-strategy.md)
 
 ---
@@ -23,13 +22,13 @@
 
 목표:
 
-- 보고서 §3 의 **P1 버그 / P1 운영비용·민감정보 / P2 SqlWithValues / P3 정리 3건**을 한 PR 에 묶어 정리.
+- **P1 버그 / P1 운영비용·민감정보 / P2 SqlWithValues / P3 정리 3건**을 한 PR 에 묶어 정리.
 - 운영 환경에서 라인 단위 SQL 로깅을 **즉시 끄고**, 통계 수집(JdbcEventListener) 만 남기는 상태로 만든다.
 - 슬로우 쿼리 이벤트(PR-2) 가 들어오기 전에 "라인 로깅이 꺼져도 가시성이 사라지지 않는다"는 안전선을 먼저 깔아둔다 (= `api_request_completed` 의 `queryCount` / `queryTimeMs` 가 이미 동작 중이므로 이 PR 만 머지해도 안전).
 
 ### Commit #1 — `fix: remove duplicate formatSql call in P6SpyFormatter`
 
-목적: 보고서 §3 P1 버그 해결. statement 카테고리에서 Hibernate 포맷터가 두 번 적용되는 잠재 버그 제거.
+목적: P1 버그 해결. statement 카테고리에서 Hibernate 포맷터가 두 번 적용되는 잠재 버그 제거.
 
 변경 파일:
 
@@ -56,7 +55,7 @@ public String formatMessage(int connectionId, String now, long elapsed, String c
 
 ### Commit #2 — `refactor: drop sqlWithValues debug logging from QueryStatsJdbcEventListener`
 
-목적: 보고서 §3 P2 — `info.getSqlWithValues()` 를 `log.debug` 로 찍는 라인 제거. 통계 수집 책임만 남긴다. 민감정보 노출 위험 차단 + P6Spy 라인과의 이중 로깅 제거.
+목적: P2 — `info.getSqlWithValues()` 를 `log.debug` 로 찍는 라인 제거. 통계 수집 책임만 남긴다. 민감정보 노출 위험 차단 + P6Spy 라인과의 이중 로깅 제거.
 
 변경 파일:
 
@@ -67,7 +66,7 @@ public String formatMessage(int connectionId, String now, long elapsed, String c
 - `onAfterExecuteQuery` 의 commented-out `log.trace` 블록 삭제 (P4 정리).
 - `onAfterExecuteUpdate` / `onAfterExecuteBatch` 의 `log.debug("[executeUpdate] sql={}, elapsed={} ms", info.getSqlWithValues(), ...)` 호출 삭제.
 - 세 메서드는 `record(timeElapsedNanos, e)` 단일 호출만 남도록 정리.
-- 클래스 Javadoc 에 "성공한 쿼리만 통계에 누적 (실패는 별도 추적 없음). 자세한 정책은 §부록 참조" 명시 (보고서 §3 P3 항목 해소).
+- 클래스 Javadoc 에 "성공한 쿼리만 통계에 누적 (실패는 별도 추적 없음). 자세한 정책은 §부록 참조" 명시.
 - `@Slf4j` 어노테이션은 더 이상 사용 안 함 → 제거.
 
 검증:
@@ -77,7 +76,7 @@ public String formatMessage(int connectionId, String now, long elapsed, String c
 
 ### Commit #3 — `chore: drop dead hibernate.format_sql property`
 
-목적: 보고서 §3 P3 — P6Spy 가 포맷을 담당하므로 Hibernate `format_sql=true` 는 무영향. 의도 명료화.
+목적: P3 — P6Spy 가 포맷을 담당하므로 Hibernate `format_sql=true` 는 무영향. 의도 명료화.
 
 변경 파일:
 
@@ -102,7 +101,7 @@ spring:
 
 ### Commit #4 — `feat: expose p6spy decorator config via env vars`
 
-목적: 보고서 §3 P1 — 환경별 출력 제어가 가능하도록 `decorator.datasource.p6spy.*` 키를 `application.yml` 에 노출. **본 커밋은 기본값을 현재 동작과 동일**하게 두어 운영 영향을 0 으로 만든다 (실제 전환은 Commit #5).
+목적: P1 — 환경별 출력 제어가 가능하도록 `decorator.datasource.p6spy.*` 키를 `application.yml` 에 노출. **본 커밋은 기본값을 현재 동작과 동일**하게 두어 운영 영향을 0 으로 만든다 (실제 전환은 Commit #5).
 
 변경 파일:
 
@@ -145,7 +144,7 @@ decorator:
 
 ### Commit #5 — `chore: silence p6spy line logging in test profile`
 
-목적: 보고서 §3 P3 — Testcontainers 통합 테스트 출력에서 SQL flood 제거. CI 로그 검색성 개선.
+목적: P3 — Testcontainers 통합 테스트 출력에서 SQL flood 제거. CI 로그 검색성 개선.
 
 변경 파일:
 
@@ -180,7 +179,7 @@ decorator:
 
 목표:
 
-- 보고서 §3 P2 — 슬로우 쿼리 자동 표시, P2 — 쿼리 카운트 임계 초과 시 WARN 승격.
+- P2 — 슬로우 쿼리 자동 표시, P2 — 쿼리 카운트 임계 초과 시 WARN 승격.
 - PR-1 에서 라인 SQL 로깅을 껐으므로, 이제 슬로우 쿼리만 별도 구조화 이벤트로 표면화해서 운영 가시성을 다시 확보한다.
 - ADR-016 의 MDC 키 표준 + event 분류 규약을 그대로 따른다 (`event=slow_query`, `event=api_request_heavy_db`).
 
@@ -257,7 +256,7 @@ app:
 
 ### Commit #7 — `feat: escalate api_request_completed to api_request_heavy_db on threshold`
 
-목적: 요청 1건 안에서 N+1 의심 트래픽을 자동 WARN 으로 승격. 보고서 §3 P2.
+목적: 요청 1건 안에서 N+1 의심 트래픽을 자동 WARN 으로 승격.
 
 변경 파일:
 
@@ -310,7 +309,7 @@ info(EVENT_REQUEST_COMPLETED);
 
 ### Commit #8 — `docs: document slow_query and api_request_heavy_db events in ADR-016`
 
-목적: 보고서 §3 의 새 이벤트 두 개를 ADR-016 §MDC 키 표준 / event 표 에 추가. 향후 LogQL 룰 작성자가 검색 가능.
+목적: 새 이벤트 두 개를 ADR-016 §MDC 키 표준 / event 표 에 추가. 향후 LogQL 룰 작성자가 검색 가능.
 
 변경 파일:
 
@@ -369,7 +368,7 @@ topk(10,
 
 목표:
 
-- 보고서 §3 P2 — JDBC 쿼리 시간을 Prometheus 1급 메트릭으로 노출. LogQL `| unwrap` 의존 제거.
+- P2 — JDBC 쿼리 시간을 Prometheus 1급 메트릭으로 노출. LogQL `| unwrap` 의존 제거.
 - ADR-013 의 k6 부하 결과를 P95/P99 메트릭으로 자동 비교 가능하게.
 - `QueryStatsJdbcEventListener` 의 책임을 "요청 단위 ThreadLocal 누적" 으로 좁히고, 메트릭 발행은 별도 리스너로 분리.
 
@@ -534,7 +533,6 @@ CLAUDE.md §6 의 PR 제목 규약에 따라 다음 형식 사용:
 
 ## 참고
 
-- [P6Spy 활용 현황 및 개선 보고서](P6Spy_활용_현황_및_개선_보고서.md) — 본 계획의 입력 문서
 - [ADR-016 §커밋 단위 실행 계획](../adr/016-structured-json-logging-with-mdc.md) — 본 계획의 커밋 단위 분리 방식의 레퍼런스
 - [dependencies.gradle.kts](../../gradle/dependencies.gradle.kts)
 - [LoggingInterceptor.java](../../src/main/java/com/umc/product/global/config/LoggingInterceptor.java)

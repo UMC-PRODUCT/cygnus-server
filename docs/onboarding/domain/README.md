@@ -30,7 +30,6 @@
 - [Recruiting Entity and Flow Diagrams](recruiting-diagrams.md)
 - [Schedule](schedule.md)
 - [Storage](storage.md)
-- [Survey](survey.md)
 - [Term](term.md)
 
 ## 작성 원칙
