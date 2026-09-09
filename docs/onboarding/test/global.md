@@ -299,15 +299,6 @@
 | [65](../../../src/test/java/com/umc/product/global/config/QueryStatsJdbcEventListenerTest.java#L65) | SQL 앞에 주석이 있어도 실제 DB operation을 기록한다 | 호출 onBeforeExecuteQuery(info); 호출 onAfterExecuteQuery(info, 1_000_000L, null) | 성공: SQL 앞에 주석이 있어도 실제 DB operation을 기록한다 |
 | [77](../../../src/test/java/com/umc/product/global/config/QueryStatsJdbcEventListenerTest.java#L77) | DB 쿼리 실패 시 span에 예외를 기록하고 요청 통계에는 성공 쿼리만 반영한다 | 호출 onBeforeExecuteQuery(info); 호출 onAfterExecuteQuery(info, 3_000_000L, exception) | 실패: 검증 assertThat(QueryStatsHolder.getQueryCount()).isZero(); |
 
-### SecurityPathConfigTest
-- 위치: `src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [12](../../../src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java#L12) | 문서 공개 경로는 Scalar와 문서 카탈로그에 필요한 경로만 포함한다 | 조건 문서 공개 경로는 Scalar와 문서 카탈로그에 필요한 경로만 포함한다 | 성공: 검증 assertThat(SecurityPathConfig.DOCUMENTATION_PATHS); .contains( |
-| [35](../../../src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java#L35) | Swagger 경로는 인증 여부와 무관하게 차단 대상이다 | 조건 Swagger 경로는 인증 여부와 무관하게 차단 대상이다 | 성공: 검증 assertThat(SecurityPathConfig.SWAGGER_BLOCKED_PATHS); .contains( |
-| [56](../../../src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java#L56) | Springdoc은 Swagger UI를 끄고 Scalar가 사용할 OpenAPI JSON만 제공한다 | 조건 Springdoc은 Swagger UI를 끄고 Scalar가 사용할 OpenAPI JSON만 제공한다 | 성공: 검증 assertThat(properties); .containsEntry("springdoc.swagger-ui.enabled", Boolean.FALSE); .containsEntry("springdoc.api-docs.path", "/docs-json"); .containsEntry("springdoc.api-docs.enabled", "${OPENAPI_ENABLE:${SWAGGER_ENA... |
-
 ### TraceFlowAspectTest
 - 위치: `src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java`
 

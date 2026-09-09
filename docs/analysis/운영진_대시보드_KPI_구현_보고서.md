@@ -66,7 +66,6 @@
 | --- | --- |
 | `./gradlew compileJava` | 성공 |
 | `./gradlew compileTestJava` | 성공 |
-| `./gradlew test --tests "com.umc.product.analytics.application.service.query.AdminAnalyticsScopeResolverTest" --tests "com.umc.product.analytics.application.service.query.AdminAnalyticsQueryServiceTest" --tests "com.umc.product.analytics.adapter.in.web.AdminDashboardControllerTest" --tests "com.umc.product.analytics.adapter.in.web.AdminSchoolAnalyticsControllerTest" --tests "com.umc.product.analytics.adapter.out.persistence.AdminAnalyticsPersistenceConventionTest"` | 성공 |
 | `./gradlew test --tests "com.umc.product.analytics.adapter.out.persistence.AdminDashboardAnalyticsQueryRepositoryTest"` | 실패: Testcontainers가 Docker 클라이언트를 찾지 못해 `DockerClientProviderStrategy` 초기화에서 중단 |
 
 Repository 통합 테스트 실패는 구현 로직 실패가 아니라 현재 실행 환경의 Docker 접근 실패로 확인했다. 동일 테스트는 Testcontainers 의존성이 있으므로 Docker Desktop 또는 호환 Docker daemon이 동작하는 환경에서 재실행해야 한다.
