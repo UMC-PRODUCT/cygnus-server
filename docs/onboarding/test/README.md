@@ -13,7 +13,6 @@
 | Blog | 3 | 33 | [blog.md](blog.md) |
 | Challenger | 13 | 56 | [challenger.md](challenger.md) |
 | Curriculum | 5 | 61 | [curriculum.md](curriculum.md) |
-| Documentation | 2 | 4 | [documentation.md](documentation.md) |
 | Global | 28 | 96 | [global.md](global.md) |
 | LLM | 4 | 15 | [llm.md](llm.md) |
 | Maintenance | 8 | 47 | [maintenance.md](maintenance.md) |
@@ -29,7 +28,7 @@
 | Term | 8 | 23 | [term.md](term.md) |
 | Test Seed | 11 | 58 | [test.md](test.md) |
 
-- 문서화된 23개 도메인 행 합계: 테스트 파일 293개, 테스트 케이스 1,741개
+- 문서화된 21개 도메인 행 합계: 테스트 파일 287개, 테스트 케이스 1,730개
 - 최신 전체 실행 합계: Task 12 격리 JUnit XML snapshot 기준 446 suites, 2,172 tests, failures 0, errors 0, skipped 40
 
 ## 참고: 실행 테스트 메서드가 없는 지원 파일
