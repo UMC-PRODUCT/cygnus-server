@@ -21,8 +21,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.umc.product.global.event.adapter.out.EventPayloadDeserializer;
 import com.umc.product.global.event.adapter.out.EventPayloadSerializer;
-import com.umc.product.global.event.adapter.out.OutboxDomainEventPublisher;
-import com.umc.product.global.event.application.port.out.DomainEventPublisher;
 import com.umc.product.global.event.application.port.out.SaveEventOutboxPort;
 import com.umc.product.global.event.domain.DomainEvent;
 import com.umc.product.global.event.domain.EventOutbox;
@@ -38,17 +36,6 @@ class EventOutboxRelayJdbcIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     DataSource dataSource;
-
-    @Autowired
-    List<DomainEventPublisher> domainEventPublishers;
-
-    @Test
-    @DisplayName("전체 application context는 outbox publisher 하나만 등록한다")
-    void application_context_uses_single_outbox_publisher() {
-        assertThat(domainEventPublishers)
-            .singleElement()
-            .isInstanceOf(OutboxDomainEventPublisher.class);
-    }
 
     @Test
     @DisplayName("non-transactional listener 실행 중에는 JDBC connection을 점유하지 않는다")

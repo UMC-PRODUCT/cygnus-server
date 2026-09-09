@@ -1,21 +1,13 @@
 # Global 테스트 케이스
 
-- 테스트 파일: 47개
-- 테스트 케이스: 163개
-- 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
-- 문서 범위: 아래 목록은 architecture와 운영에 영향이 큰 대표 계약을 추적한다. 전체 테스트 목록의
-  source of truth는 `src/test/java/com/umc/product/global`이며, 파일/케이스 개수는 각각 `rg --files`와
-  `@Test` 계열 annotation 기준이다.
+- 테스트 파일: 59개
+- 테스트 케이스: 251개
+- 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Domain`, `External Adapter`, `Support`
+- 집계 기준: 위 수치는 `src/test/java/com/umc/product/global` 전체의 Java 파일과 `@Test`,
+  `@ParameterizedTest`, `@RepeatedTest`, `@TestFactory`, `@TestTemplate` 메서드 수다. 파라미터별 실행 횟수는 합산하지 않는다.
+- 문서 범위: 아래 표는 운영에 영향이 큰 대표 검증 17개 파일·67개 케이스를 다룬다. 테스트 인덱스의 Global 행은 이 문서 범위를 집계한다.
 
 ## UseCase / Application Service
-
-### CacheServiceTest
-- 테스트 설명: CacheService
-- 위치: `src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [12](../../../src/test/java/com/umc/product/global/cache/application/service/CacheServiceTest.java#L12) | get, put, evict 요청을 저장소 포트로 위임한다 | 호출 put(spec, key, "auth"); 호출 get(spec, key); 호출 evict(CacheNamespace.GOOGLE_JWKS, key) | 실패: 예외 CacheLookup.Hit, CacheLookup.Miss; 검증 assertThat(hit).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) hit).value()).isEqualTo("auth"); assertThat(miss).isInstanceOf(CacheLookup.Miss.class); |
 
 ### EventOutboxRelayServiceTest
 - 테스트 설명: EventOutboxRelayService
@@ -35,25 +27,14 @@
 
 ## Repository / Outbound Persistence
 
-### EventOutboxPersistenceAdapterTest
-- 테스트 설명: EventOutboxPersistenceAdapter
-- 위치: `src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [16](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java#L16) | save는 repository save로 위임한다 | 조건 save는 repository save로 위임한다 | 성공: save는 repository save로 위임한다 |
-| [34](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java#L34) | EventOutboxPersistenceAdapter / saveAll은 repository saveAll로 위임한다 | 조건 EventOutboxPersistenceAdapter / saveAll은 repository saveAll로 위임한다 | 성공: EventOutboxPersistenceAdapter / saveAll은 repository saveAll로 위임한다 |
-| [45](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxPersistenceAdapterTest.java#L45) | EventOutboxPersistenceAdapter / listPublishable은 repository의 lock 조회로 위임한다 | 조건 EventOutboxPersistenceAdapter / listPublishable은 repository의 lock 조회로 위임한다 | 성공: 검증 assertThat(result).isSameAs(expected); |
-
 ### EventOutboxJpaRepositoryTest
 - 테스트 설명: EventOutbox JPA polling 및 lease fencing
 - 위치: `src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java`
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [39](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L39) | 발행 가능한 이벤트를 다음 시도 시각 순서로 조회한다 | PENDING/PUBLISHED 행 혼합 | 발행 대상 PENDING 행만 시각 순서로 반환 |
-| [55](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L55) | 발행 대기 partial index를 사용한다 | PostgreSQL index metadata | PENDING/PROCESSING partial index 존재, legacy index 제거 |
-| [81](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L81) | lease 재획득 후 이전 worker의 상태 덮어쓰기를 차단한다 | 두 EntityManager가 같은 outbox version으로 시작 | stale merge에서 `OptimisticLockException` 발생 |
+| [41](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L41) | 발행 가능한 이벤트를 다음 시도 시각 순서로 조회한다 | PENDING/PUBLISHED 행 혼합 | 발행 대상 PENDING 행만 시각 순서로 반환 |
+| [58](../../../src/test/java/com/umc/product/global/event/adapter/out/persistence/EventOutboxJpaRepositoryTest.java#L58) | lease 재획득 후 이전 worker의 상태 덮어쓰기를 차단한다 | 두 EntityManager가 같은 outbox version으로 시작 | stale merge에서 `OptimisticLockException` 발생 |
 
 ## E2E / Integration
 
@@ -73,57 +54,9 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [45](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L45) | 전체 application context는 outbox publisher 하나만 등록한다 | 실제 Spring application context | `OutboxDomainEventPublisher` 단일 bean 등록 |
-| [53](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L53) | non-transactional listener 실행 중에는 JDBC connection을 점유하지 않는다 | 실제 PostgreSQL DataSource와 Hikari pool | 트랜잭션 비활성, active connection 0, PUBLISHED 처리 |
-
-## Scheduler
-
-### EventOutboxPollerTest
-- 테스트 설명: EventOutboxPoller
-- 위치: `src/test/java/com/umc/product/global/event/adapter/in/scheduler/EventOutboxPollerTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/event/adapter/in/scheduler/EventOutboxPollerTest.java#L8) | poll은 relay service를 호출한다 | 조건 poll은 relay service를 호출한다 | 성공: poll은 relay service를 호출한다 |
+| [42](../../../src/test/java/com/umc/product/global/event/application/service/EventOutboxRelayJdbcIntegrationTest.java#L42) | non-transactional listener 실행 중에는 JDBC connection을 점유하지 않는다 | 실제 PostgreSQL DataSource와 Hikari pool | 트랜잭션 비활성, active connection 0, PUBLISHED 처리 |
 
 ## Domain
-
-### CacheKeyTest
-- 테스트 설명: CacheKey
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheKeyTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [7](../../../src/test/java/com/umc/product/global/cache/domain/CacheKeyTest.java#L7) | 문자열 값으로 cache key를 생성한다 | 조건 문자열 값으로 cache key를 생성한다 | 성공: 검증 assertThat(key.value()).isEqualTo("comment-1"); |
-| [18](../../../src/test/java/com/umc/product/global/cache/domain/CacheKeyTest.java#L18) | CacheKey / 빈 cache key는 허용하지 않는다 | 조건 CacheKey / 빈 cache key는 허용하지 않는다 | 실패: 예외 IllegalArgumentException |
-
-### CacheLookupTest
-- 테스트 설명: CacheLookup
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheLookupTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [6](../../../src/test/java/com/umc/product/global/cache/domain/CacheLookupTest.java#L6) | Hit은 값을 변환할 수 있다 | 조건 Hit은 값을 변환할 수 있다 | 실패: 예외 CacheLookup.Hit; 검증 assertThat(lookup.hit()).isTrue(); assertThat(lookup).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<Integer>) lookup).value()).isEqualTo(3); |
-| [19](../../../src/test/java/com/umc/product/global/cache/domain/CacheLookupTest.java#L19) | CacheLookup / Miss는 변환해도 Miss로 유지된다 | 조건 CacheLookup / Miss는 변환해도 Miss로 유지된다 | 실패: 예외 CacheLookup.Miss; 검증 assertThat(lookup.hit()).isFalse(); assertThat(lookup).isInstanceOf(CacheLookup.Miss.class); |
-
-### CacheNamespaceTest
-- 테스트 설명: CacheNamespace
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [6](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L6) | cache namespace 값은 중복되지 않는다 | 조건 cache namespace 값은 중복되지 않는다 | 실패: cache namespace 값은 중복되지 않는다 |
-| [15](../../../src/test/java/com/umc/product/global/cache/domain/CacheNamespaceTest.java#L15) | CacheNamespace / Google JWKS 캐시는 기존 Prometheus metric name을 유지한다 | 조건 CacheNamespace / Google JWKS 캐시는 기존 Prometheus metric name을 유지한다 | 성공: 검증 .isEqualTo("authentication.google.jwks.l1"); |
-
-### CacheSpecTest
-- 테스트 설명: CacheSpec
-- 위치: `src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L8) | namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 조건 namespace, valueType, ttl, maximumSize로 cache spec을 생성한다 | 성공: 검증 assertThat(spec.namespace()).isEqualTo(CacheNamespace.GOOGLE_JWKS); assertThat(spec.valueType()).isEqualTo(String.class); assertThat(spec.ttl()).isEqualTo(Duration.ofMinutes(5)); assertThat(spec.maximumSize()... |
-| [27](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L27) | CacheSpec / ttl은 양수여야 한다 | 조건 CacheSpec / ttl은 양수여야 한다 | 실패: 예외 IllegalArgumentException |
-| [40](../../../src/test/java/com/umc/product/global/cache/domain/CacheSpecTest.java#L40) | CacheSpec / maximumSize는 양수여야 한다 | 조건 CacheSpec / maximumSize는 양수여야 한다 | 실패: 예외 IllegalArgumentException |
 
 ### EventOutboxTest
 - 테스트 설명: EventOutbox
@@ -131,32 +64,10 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [9](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L9) | 도메인 이벤트와 payload로 pending outbox를 기록한다 | 조건 도메인 이벤트와 payload로 pending outbox를 기록한다 | 성공: 검증 assertThat(outbox.getEventId()).isEqualTo(event.eventId()); assertThat(outbox.getEventType()).isEqualTo("test.created"); assertThat(outbox.getEventClass()).isEqualTo(TestEvent.class.getName()); assertThat(outbox.getPa... |
-| [28](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L28) | EventOutbox / payload는 비어 있을 수 없다 | 조건 EventOutbox / payload는 비어 있을 수 없다 | 실패: 예외 IllegalArgumentException |
-| [38](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L38) | EventOutbox / 발행 성공 시 published 상태와 시간을 기록한다 | 조건 EventOutbox / 발행 성공 시 published 상태와 시간을 기록한다 | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PUBLISHED); assertThat(outbox.getPublishedAt()).isNotNull(); |
-| [49](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L49) | EventOutbox / 처리 시작 시 processing 상태와 lease 만료 시간을 기록한다 | 조건 EventOutbox / 처리 시작 시 processing 상태와 lease 만료 시간을 기록한다 | 실패: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PROCESSING); assertThat(outbox.getNextAttemptAt()).isEqualTo(leaseUntil); |
-| [61](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L61) | EventOutbox / 발행 실패 시 attempts를 증가시키고 다음 시도 시간을 기록한다 | 조건 EventOutbox / 발행 실패 시 attempts를 증가시키고 다음 시도 시간을 기록한다 | 실패: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING); assertThat(outbox.getAttempts()).isEqualTo(1); assertThat(outbox.getNextAttemptAt()).isEqualTo(nextAttemptAt); assertThat(outbox.getLastError()).isE... |
-| [75](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L75) | 최대 시도 횟수에 도달하면 failed 상태로 전환한다 | 조건 최대 시도 횟수에 도달하면 failed 상태로 전환한다 | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED); assertThat(outbox.getAttempts()).isEqualTo(2); assertThat(outbox.getLastError()).isEqualTo("second"); |
+| [16](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L16) | EventOutbox / 발행 실패 시 attempts를 증가시키고 다음 시도 시간을 기록한다 | 조건 EventOutbox / 발행 실패 시 attempts를 증가시키고 다음 시도 시간을 기록한다 | 실패: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.PENDING); assertThat(outbox.getAttempts()).isEqualTo(1); assertThat(outbox.getNextAttemptAt()).isEqualTo(nextAttemptAt); assertThat(outbox.getLastError()).isE... |
+| [30](../../../src/test/java/com/umc/product/global/event/domain/EventOutboxTest.java#L30) | 최대 시도 횟수에 도달하면 failed 상태로 전환한다 | 조건 최대 시도 횟수에 도달하면 failed 상태로 전환한다 | 성공: 검증 assertThat(outbox.getStatus()).isEqualTo(EventOutboxStatus.FAILED); assertThat(outbox.getAttempts()).isEqualTo(2); assertThat(outbox.getLastError()).isEqualTo("second"); |
 
 ## External Adapter
-
-### CacheKeyFormatterTest
-- 테스트 설명: CacheKeyFormatter
-- 위치: `src/test/java/com/umc/product/global/cache/adapter/out/CacheKeyFormatterTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [8](../../../src/test/java/com/umc/product/global/cache/adapter/out/CacheKeyFormatterTest.java#L8) | 환경, namespace, key를 조합해 최종 cache key를 만든다 | 조건 환경, namespace, key를 조합해 최종 cache key를 만든다 | 성공: 검증 assertThat(result).isEqualTo("umc:local:authentication.google.jwks:google"); |
-
-### CaffeineCacheStoreAdapterTest
-- 테스트 설명: CaffeineCacheStoreAdapter
-- 위치: `src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [11](../../../src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java#L11) | 저장되지 않은 key는 Miss를 반환한다 | 조건 저장되지 않은 key는 Miss를 반환한다 | 실패: 예외 CacheLookup.Miss; 검증 assertThat(result).isInstanceOf(CacheLookup.Miss.class); |
-| [25](../../../src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java#L25) | CaffeineCacheStoreAdapter / put한 값은 Hit로 조회된다 | 조건 CaffeineCacheStoreAdapter / put한 값은 Hit로 조회된다 | 실패: 예외 CacheLookup.Hit; 검증 assertThat(result).isInstanceOf(CacheLookup.Hit.class); assertThat(((CacheLookup.Hit<String>) result).value()).isEqualTo("auth"); |
-| [38](../../../src/test/java/com/umc/product/global/cache/adapter/out/CaffeineCacheStoreAdapterTest.java#L38) | CaffeineCacheStoreAdapter / evict하면 다음 조회는 Miss가 된다 | 조건 CaffeineCacheStoreAdapter / evict하면 다음 조회는 Miss가 된다 | 실패: 예외 CacheLookup.Miss; 검증 assertThat(adapter.get(spec, key)).isInstanceOf(CacheLookup.Miss.class); |
 
 ### EventPayloadDeserializerTest
 - 테스트 설명: EventPayloadDeserializer
@@ -175,8 +86,7 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [14](../../../src/test/java/com/umc/product/global/event/adapter/out/EventPayloadSerializerTest.java#L14) | 도메인 이벤트를 JSON payload로 직렬화한다 | 조건 도메인 이벤트를 JSON payload로 직렬화한다 | 성공: 검증 assertThat(payload).contains("\"eventType\":\"test.created\""); assertThat(payload).contains("\"message\":\"hello\""); |
-| [29](../../../src/test/java/com/umc/product/global/event/adapter/out/EventPayloadSerializerTest.java#L29) | EventPayloadSerializer / 직렬화 실패 시 eventType을 포함한 예외를 던진다 | 조건 EventPayloadSerializer / 직렬화 실패 시 eventType을 포함한 예외를 던진다 | 실패: 예외 IllegalStateException |
+| [22](../../../src/test/java/com/umc/product/global/event/adapter/out/EventPayloadSerializerTest.java#L22) | EventPayloadSerializer / 직렬화 실패 시 eventType을 포함한 예외를 던진다 | 조건 EventPayloadSerializer / 직렬화 실패 시 eventType을 포함한 예외를 던진다 | 실패: 예외 IllegalStateException |
 
 ### OutboxDomainEventPublisherTest
 - 테스트 설명: OutboxDomainEventPublisher
@@ -186,14 +96,6 @@
 |---:|---|---|---|
 | [15](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java#L15) | publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다 | 조건 publish는 도메인 이벤트를 직발행하지 않고 event outbox로 저장한다 | 성공: 검증 assertThat(savePort.saved).hasSize(1); assertThat(outbox.getEventId()).isEqualTo(event.eventId()); assertThat(outbox.getEventType()).isEqualTo("test.created"); assertThat(outbox.getPayload()).contains("\"message\":\"h... |
 | [37](../../../src/test/java/com/umc/product/global/event/adapter/out/OutboxDomainEventPublisherTest.java#L37) | OutboxDomainEventPublisher / publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다 | 조건 OutboxDomainEventPublisher / publishAll은 입력 순서대로 모든 이벤트를 일괄 저장한다 | 성공: 검증 assertThat(savePort.saved); .containsExactly(first.eventId(), second.eventId()); assertThat(savePort.saveAllCalled).isTrue(); |
-
-### EventOutboxPublisherConfigurationTest
-- 위치: `src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [27](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L27) | 과거 비활성화 property가 있어도 outbox publisher와 relay poller를 사용한다 | `app.event-outbox.enabled=false` | `OutboxDomainEventPublisher`와 `EventOutboxPoller` 단일 bean 등록 |
-| [40](../../../src/test/java/com/umc/product/global/event/adapter/out/EventOutboxPublisherConfigurationTest.java#L40) | relay를 중지해도 outbox publisher는 유지한다 | `app.event-outbox.relay-enabled=false` | `OutboxDomainEventPublisher`는 등록하고 `EventOutboxPoller`는 등록하지 않음 |
 
 ## Support / Config / Utility
 
@@ -234,9 +136,8 @@
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [45](../../../src/test/java/com/umc/product/global/logging/ExternalApiCallLoggerTest.java#L45) | 성공 호출은 INFO + result=SUCCESS + durationMs 로 기록되고 반환값을 그대로 돌려준다 | 조건 성공 호출은 INFO + result=SUCCESS + durationMs 로 기록되고 반환값을 그대로 돌려준다 | 성공: 검증 assertThat(result).isEqualTo("pr-list"); assertThat(event.getLevel()).isEqualTo(Level.INFO); assertThat(event.getMessage()).isEqualTo("external_api_called"); assertThat(kvOf(event, "provider")).isEqualTo("GITHUB"); |
-| [67](../../../src/test/java/com/umc/product/global/logging/ExternalApiCallLoggerTest.java#L67) | RuntimeException 발생 시 WARN + result=FAILURE + errorClass 가 기록되고 예외는 재던져진다 | 조건 RuntimeException 발생 시 WARN + result=FAILURE + errorClass 가 기록되고 예외는 재던져진다 | 실패: 예외 발생; 검증 assertThat(event.getLevel()).isEqualTo(Level.WARN); assertThat(event.getMessage()).isEqualTo("external_api_called"); assertThat(kvOf(event, "provider")).isEqualTo("OPENAI"); assertThat(kvOf(event, "operation")).isEqua... |
-| [94](../../../src/test/java/com/umc/product/global/logging/ExternalApiCallLoggerTest.java#L94) | Runnable 오버로드도 동일한 이벤트 스키마로 기록한다 | 조건 Runnable 오버로드도 동일한 이벤트 스키마로 기록한다 | 성공: 검증 assertThat(event.getLevel()).isEqualTo(Level.INFO); assertThat(kvOf(event, "provider")).isEqualTo("APPLE"); assertThat(kvOf(event, "operation")).isEqualTo("EXCHANGE_TOKEN"); assertThat(kvOf(event, "result")).isEqualTo... |
+| [54](../../../src/test/java/com/umc/product/global/logging/ExternalApiCallLoggerTest.java#L54) | 성공 호출은 INFO + result=SUCCESS + durationMs 로 기록되고 반환값을 그대로 돌려준다 | 조건 성공 호출은 INFO + result=SUCCESS + durationMs 로 기록되고 반환값을 그대로 돌려준다 | 성공: 검증 assertThat(result).isEqualTo("pr-list"); assertThat(event.getLevel()).isEqualTo(Level.INFO); assertThat(event.getMessage()).isEqualTo("external_api_called"); assertThat(kvOf(event, "provider")).isEqualTo("GITHUB"); |
+| [76](../../../src/test/java/com/umc/product/global/logging/ExternalApiCallLoggerTest.java#L76) | RuntimeException 발생 시 WARN + result=FAILURE + errorClass 가 기록되고 예외는 재던져진다 | 조건 RuntimeException 발생 시 WARN + result=FAILURE + errorClass 가 기록되고 예외는 재던져진다 | 실패: 예외 발생; 검증 assertThat(event.getLevel()).isEqualTo(Level.WARN); assertThat(event.getMessage()).isEqualTo("external_api_called"); assertThat(kvOf(event, "provider")).isEqualTo("OPENAI"); assertThat(kvOf(event, "operation")).isEqua... |
 
 ### GlobalExceptionHandlerTest
 - 위치: `src/test/java/com/umc/product/global/exception/GlobalExceptionHandlerTest.java`
@@ -278,18 +179,6 @@
 | [192](../../../src/test/java/com/umc/product/global/config/LoggingInterceptorTest.java#L192) | 익명 사용자는 MDC memberId 가 채워지지 않는다 | HTTP GET memberId; HTTP GET clientType | 성공: 검증 assertThat(MDC.get("memberId")).isNull(); assertThat(MDC.get("clientType")).isEqualTo("UNKNOWN"); |
 | [207](../../../src/test/java/com/umc/product/global/config/LoggingInterceptorTest.java#L207) | X-Forwarded-For 헤더가 있으면 첫 번째 IP 가 clientIp 로 채워진다 | 조건 X-Forwarded-For 헤더가 있으면 첫 번째 IP 가 clientIp 로 채워진다 | 성공: 검증 assertThat(snapshot).isNotNull(); assertThat(snapshot).containsEntry("clientIp", "203.0.113.7"); |
 
-### PasswordEncoderConfigTest
-- 위치: `src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [37](../../../src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java#L37) | 기본 인코딩은 {argon2} prefix 가 붙는다 | 조건 기본 인코딩은 {argon2} prefix 가 붙는다 | 성공: 검증 assertThat(encoded).startsWith("{argon2}"); |
-| [47](../../../src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java#L47) | argon2 로 인코딩된 해시는 같은 평문에 대해 matches=true 를 반환한다 | 조건 argon2 로 인코딩된 해시는 같은 평문에 대해 matches=true 를 반환한다 | 성공: 검증 assertThat(matches).isTrue(); |
-| [60](../../../src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java#L60) | argon2 해시에 대해 다른 평문은 matches=false 를 반환한다 | 조건 argon2 해시에 대해 다른 평문은 matches=false 를 반환한다 | 성공: 검증 assertThat(encoder.matches("Wrong-Pw-2026", encoded)).isFalse(); |
-| [70](../../../src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java#L70) | bcrypt prefix 가 붙은 기존 해시도 검증할 수 있다 | 조건 bcrypt prefix 가 붙은 기존 해시도 검증할 수 있다 | 성공: 검증 assertThat(matches).isTrue(); |
-| [83](../../../src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java#L83) | 기본(argon2) 으로 인코딩된 해시는 upgradeEncoding=false | 조건 기본(argon2) 으로 인코딩된 해시는 upgradeEncoding=false | 성공: 검증 assertThat(needsUpgrade).isFalse(); |
-| [96](../../../src/test/java/com/umc/product/global/config/PasswordEncoderConfigTest.java#L96) | 기본이 아닌 알고리즘(bcrypt) 의 해시는 upgradeEncoding=true 로 점진적 rehash 대상이 된다 | 조건 기본이 아닌 알고리즘(bcrypt) 의 해시는 upgradeEncoding=true 로 점진적 rehash 대상이 된다 | 성공: 검증 assertThat(needsUpgrade).isTrue(); |
-
 ### QueryStatsJdbcEventListenerTest
 - 위치: `src/test/java/com/umc/product/global/config/QueryStatsJdbcEventListenerTest.java`
 
@@ -299,21 +188,11 @@
 | [65](../../../src/test/java/com/umc/product/global/config/QueryStatsJdbcEventListenerTest.java#L65) | SQL 앞에 주석이 있어도 실제 DB operation을 기록한다 | 호출 onBeforeExecuteQuery(info); 호출 onAfterExecuteQuery(info, 1_000_000L, null) | 성공: SQL 앞에 주석이 있어도 실제 DB operation을 기록한다 |
 | [77](../../../src/test/java/com/umc/product/global/config/QueryStatsJdbcEventListenerTest.java#L77) | DB 쿼리 실패 시 span에 예외를 기록하고 요청 통계에는 성공 쿼리만 반영한다 | 호출 onBeforeExecuteQuery(info); 호출 onAfterExecuteQuery(info, 3_000_000L, exception) | 실패: 검증 assertThat(QueryStatsHolder.getQueryCount()).isZero(); |
 
-### SecurityPathConfigTest
-- 위치: `src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [12](../../../src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java#L12) | 문서 공개 경로는 Scalar와 문서 카탈로그에 필요한 경로만 포함한다 | 조건 문서 공개 경로는 Scalar와 문서 카탈로그에 필요한 경로만 포함한다 | 성공: 검증 assertThat(SecurityPathConfig.DOCUMENTATION_PATHS); .contains( |
-| [35](../../../src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java#L35) | Swagger 경로는 인증 여부와 무관하게 차단 대상이다 | 조건 Swagger 경로는 인증 여부와 무관하게 차단 대상이다 | 성공: 검증 assertThat(SecurityPathConfig.SWAGGER_BLOCKED_PATHS); .contains( |
-| [56](../../../src/test/java/com/umc/product/global/config/SecurityPathConfigTest.java#L56) | Springdoc은 Swagger UI를 끄고 Scalar가 사용할 OpenAPI JSON만 제공한다 | 조건 Springdoc은 Swagger UI를 끄고 Scalar가 사용할 OpenAPI JSON만 제공한다 | 성공: 검증 assertThat(properties); .containsEntry("springdoc.swagger-ui.enabled", Boolean.FALSE); .containsEntry("springdoc.api-docs.path", "/docs-json"); .containsEntry("springdoc.api-docs.enabled", "${OPENAPI_ENABLE:${SWAGGER_ENA... |
-
 ### TraceFlowAspectTest
 - 위치: `src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java`
 
 | 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
 |---:|---|---|---|
-| [40](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L40) | UseCase 구현체 호출을 UseCase 이름의 span으로 감싼다 | 호출 traceUseCaseAndAdapter(joinPoint) | 성공: 검증 assertThat(result).isEqualTo("result"); |
-| [58](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L58) | adapter.out 호출을 adapter span으로 감싼다 | 호출 traceUseCaseAndAdapter(joinPoint) | 성공: 검증 assertThat(result).isEqualTo("entity"); |
-| [75](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L75) | 동일한 target class와 method의 trace metadata를 캐시한다 | 호출 traceUseCaseAndAdapter(joinPoint(method, target, "first")); 호출 traceUseCaseAndAdapter(joinPoint(method, target, "second")) | 성공: 검증 assertThat(metadataCache).hasSize(1); |
-| [91](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L91) | 상위 클래스가 구현한 UseCase interface도 UseCase span으로 감싼다 | 호출 traceUseCaseAndAdapter(joinPoint) | 성공: 검증 assertThat(result).isEqualTo("result"); |
+| [45](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L45) | UseCase 구현체 호출을 UseCase 이름의 span으로 감싼다 | 호출 traceUseCaseAndAdapter(joinPoint) | 성공: 검증 assertThat(result).isEqualTo("result"); |
+| [63](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L63) | adapter.out 호출을 adapter span으로 감싼다 | 호출 traceUseCaseAndAdapter(joinPoint) | 성공: 검증 assertThat(result).isEqualTo("entity"); |
+| [80](../../../src/test/java/com/umc/product/global/observability/TraceFlowAspectTest.java#L80) | 상위 클래스가 구현한 UseCase interface도 UseCase span으로 감싼다 | 호출 traceUseCaseAndAdapter(joinPoint) | 성공: 검증 assertThat(result).isEqualTo("result"); |

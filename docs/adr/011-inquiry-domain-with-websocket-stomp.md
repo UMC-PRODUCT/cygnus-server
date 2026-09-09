@@ -462,7 +462,7 @@ WebSocket(STOMP) 측은 SUBSCRIBE/SEND 두 가지뿐이다. 발신 페이로드�
     - 정상 전송 → 구독자에게 broadcast.
     - 운영진 첫 메시지 → 상태가 IN_PROGRESS 로 전환.
     - CLOSED 상태에서 작성자 SEND → 상태가 IN_PROGRESS 로 재오픈.
-- REST 컨트롤러: RestDocs (`@DisplayName` 한국어, Given/When/Then).
+- REST 컨트롤러: MockMvc (`@DisplayName` 한국어, Given/When/Then).
 
 ---
 
@@ -524,13 +524,12 @@ REST / STOMP 양쪽이 공유할 권한 검증 빈을 먼저 만든다 (이후 �
     - 첨부 fileId 검증은 `FileQueryService.findAllByIds` (또는 동등) 호출.
     - 컨트롤러: `POST /api/v1/inquiries`.
     - FCM 발송: 대상 운영진 memberId 목록 산출 → `sendToMembers`.
-    - RestDocs 스니펫.
 9. `feat: 문의 종료 / 재오픈 UseCase / API`
     - `CloseInquiryUseCase`, `ReopenInquiryUseCase`.
     - `RECEIVED → CLOSED` 직접 전환(스팸 처리) / `CLOSED → IN_PROGRESS` 양방향(작성자 + 운영진).
     - 컨트롤러: `POST /api/v1/inquiries/{id}/close`, `POST /api/v1/inquiries/{id}/reopen`.
     - 종료 시 작성자에게 FCM 발송.
-    - 단위 / RestDocs 테스트.
+    - 단위 / MockMvc 테스트.
 
 ### Phase 4: 메시지 송수신 (REST 1차)
 
@@ -548,7 +547,6 @@ STOMP 도입 전, REST 폴백 경로로 메시지 전송 / 조회를 먼저 검�
     - `ListInquiryMessageUseCase`, `GetInquiryUseCase.getById` (작성자 Member/Challenger/ChallengerRole 정보 동봉).
     - REST: `GET /api/v1/inquiries`, `GET /api/v1/inquiries/{id}`, `GET /api/v1/inquiries/{id}/messages`.
     - 다중 필터 (status / target / category / unreadOnly).
-    - RestDocs.
 
 ### Phase 5: 운영진 미읽음 / 카운트
 
@@ -556,7 +554,7 @@ STOMP 도입 전, REST 폴백 경로로 메시지 전송 / 조회를 먼저 검�
     - `MarkInquiryMessagesReadUseCase` + `InquiryReadReceiptService`.
     - REST: `POST /api/v1/inquiries/{id}/messages/read` (운영진 본인 기준 일괄 read).
     - 목록 응답 DTO 에 `unreadCount` 필드 추가 (운영진 본인 기준).
-    - 단위 / RestDocs 테스트.
+    - 단위 / MockMvc 테스트.
 
 ### Phase 6: WebSocket + STOMP
 

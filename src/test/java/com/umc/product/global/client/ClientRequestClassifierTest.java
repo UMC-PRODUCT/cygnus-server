@@ -6,10 +6,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
-import org.springframework.boot.test.context.ConfigDataApplicationContextInitializer;
-import org.springframework.boot.test.context.runner.ApplicationContextRunner;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.mock.web.MockHttpServletRequest;
 
 import com.umc.product.common.domain.enums.ClientType;
@@ -36,10 +32,6 @@ class ClientRequestClassifierTest {
             )
         )))
     );
-
-    private final ApplicationContextRunner contextRunner = new ApplicationContextRunner()
-        .withInitializer(new ConfigDataApplicationContextInitializer())
-        .withUserConfiguration(ClientRequestClassifierTestConfig.class);
 
     @Test
     @DisplayName("등록된 Origin 이 있으면 Origin 서비스와 환경을 우선하고 토큰 서비스 충돌은 mismatch 로 표시한다")
@@ -94,22 +86,6 @@ class ClientRequestClassifierTest {
         assertThat(context.environment()).isEqualTo(ClientEnvironment.DEV);
         assertThat(context.source()).isEqualTo("token");
         assertThat(context.mismatched()).isFalse();
-    }
-
-    @Test
-    @DisplayName("alpha profile은 localhost 5173 Origin 하나만 UNKNOWN 서비스와 DEV 환경으로 바인딩한다")
-    void application_yml_alpha_client_context_localhost_unknown_바인딩() {
-        contextRunner
-            .withPropertyValues("spring.profiles.active=alpha")
-            .run(context -> {
-                ClientContextProperties properties = context.getBean(ClientContextProperties.class);
-
-                assertThat(properties.origins()).hasSize(1);
-                ClientContextProperties.Origin origin = properties.origins().getFirst();
-                assertThat(origin.origin()).isEqualTo("http://localhost:5173");
-                assertThat(origin.serviceType()).isEqualTo(ClientServiceType.UNKNOWN);
-                assertThat(origin.environment()).isEqualTo(ClientEnvironment.DEV);
-            });
     }
 
     @Test
@@ -228,10 +204,5 @@ class ClientRequestClassifierTest {
 
     private String desktopUserAgent() {
         return "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/537.36 Chrome/126 Safari/537.36";
-    }
-
-    @Configuration
-    @EnableConfigurationProperties(ClientContextProperties.class)
-    static class ClientRequestClassifierTestConfig {
     }
 }

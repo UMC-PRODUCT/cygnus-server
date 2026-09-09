@@ -1,35 +1,20 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# 데이터 준비의 "유일한 소유자". k6 는 시딩하지 않는다.
-# SEED_STRATEGY 로 방식을 고른다.
-#   api      : SeedController(/test/seed/*)를 순서대로 호출해 seed.json 산출 (기본, smoke·소규모)
-#   bulk     : SUT EC2 에서 앱 이미지를 seeder 프로파일로 1회 실행해 대규모(10만+) JDBC 배치 적재
-#   snapshot : 여기 아님 — RDS 생성 시점이라 rds.tf 의 snapshot_identifier 로 다룬다
-#
-# 사용법: loadtest/scripts/prepare-data.sh
-#   SEED_STRATEGY     : 기본 api
-#   SUT_URL           : (선택) SUT 앱 URL. 미설정이면 terraform output sut_app_url 사용.
+# SeedController API를 호출해 k6에서 읽을 seed.json을 생성한다.
+# 사용법: SUT_URL=http://localhost:8080 loadtest/scripts/prepare-data.sh
 #   SEED_MEMBER_COUNT   : api 시딩 멤버 수 (기본 30)
 #   SCHEDULE_COUNT      : 생성할 이번 달 스케줄 수 (기본 4)
 #   NOTICE_GLOBAL_COUNT : 생성할 GLOBAL 공지 수 (기본 5)
 #   POINT_PER_CHALLENGER: 챌린저당 상벌점 부여 수 (기본 2)
-#   BULK_MEMBER_COUNT   : bulk 멤버 수 (기본 100000)
-#   BULK_RANDOM_SEED    : bulk 결정성 seed — 같은 seed 면 같은 데이터 (기본 42)
-#   SSH_KEY / SSH_USER  : bulk 의 SUT SSH 접속 (run-k6.sh 와 동일 관례)
 
 REPO_ROOT="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
-TF_DIR="$REPO_ROOT/loadtest/terraform"
 SEED_JSON="$REPO_ROOT/loadtest/k6/data/seed.json"
-SEED_STRATEGY="${SEED_STRATEGY:-api}"
-
-resolve_base_url() {
-  if [ -n "${SUT_URL:-}" ]; then
-    echo "$SUT_URL"
-  else
-    terraform -chdir="$TF_DIR" output -raw sut_app_url
-  fi
-}
+BASE_URL="${SUT_URL:?대상 앱 URL을 SUT_URL로 지정하세요}"
+if [ "${SEED_STRATEGY:-api}" != "api" ]; then
+  echo "prepare-data.sh는 API 시딩만 지원합니다." >&2
+  exit 1
+fi
 
 # seed API 는 도메인 가드를 통과하는 baseline "골격"만 만든다(대용량 아님). 실패 시 즉시 중단.
 api_post() {
@@ -207,66 +192,4 @@ seed_home_data() {
   echo "[api] 상벌점 ${granted}건 부여"
 }
 
-# 대규모(10만+) 벌크 시딩. SUT EC2 에서 앱 이미지를 seeder 프로파일 컨테이너로 1회 실행한다.
-# 시딩 트래픽이 SUT 앱을 거치지 않고(JDBC 직행) 측정과 분리되며, 같은 seed 면 같은 데이터가 나온다.
-# 빈 DB(golden 골격만 있는 상태)를 전제한다 — 재실행은 destroy/apply 또는 snapshot 복원 후에.
-seed_bulk() {
-  local sut_ip count seed ssh_user
-  sut_ip="$(terraform -chdir="$TF_DIR" output -raw sut_public_ip)"
-  count="${BULK_MEMBER_COUNT:-100000}"
-  seed="${BULK_RANDOM_SEED:-42}"
-  ssh_user="${SSH_USER:-ec2-user}"
-  local ssh_opts=(-o StrictHostKeyChecking=accept-new)
-  if [ -n "${SSH_KEY:-}" ]; then
-    ssh_opts+=(-i "$SSH_KEY")
-  fi
-
-  echo "[bulk] $ssh_user@$sut_ip 에서 seeder 컨테이너 실행 (members=$count, seed=$seed)"
-  # app.env(dev profile·RDS 접속)를 그대로 쓰되 -e 오버라이드로 seeder 프로파일·웹서버 off 를 얹는다.
-  # 이미지·네트워크는 하드코딩하지 않고 "실행 중인 app 컨테이너"에서 그대로 뽑는다
-  # (valkey 호스트를 compose 서비스명으로 해석하려면 같은 네트워크에 붙어야 하기 때문).
-  ssh "${ssh_opts[@]}" "$ssh_user@$sut_ip" "sudo bash -s" <<REMOTE
-set -euo pipefail
-cd /opt/umc
-APP_CID="\$(docker compose ps -q app)"
-[ -n "\$APP_CID" ] || { echo "app 컨테이너가 실행 중이 아닙니다 — 앱 기동(compose up)·health 확인 후 다시 실행하세요" >&2; exit 1; }
-IMAGE="\$(docker inspect "\$APP_CID" | jq -r '.[0].Config.Image')"
-NETWORK="\$(docker inspect "\$APP_CID" | jq -r '.[0].NetworkSettings.Networks | keys[0]')"
-echo "[bulk-remote] image=\$IMAGE network=\$NETWORK"
-# 같은 태그로 새 이미지를 push 했을 수 있으니 항상 최신을 pull 한다 (시더 수정이 로컬 캐시에 가려지는 것 방지)
-REGISTRY="\${IMAGE%%/*}"
-REGION="\$(echo "\$REGISTRY" | sed -n 's/.*\.dkr\.ecr\.\([a-z0-9-]*\)\.amazonaws\.com/\1/p')"
-aws --region "\$REGION" ecr get-login-password | docker login --username AWS --password-stdin "\$REGISTRY" >/dev/null
-docker pull "\$IMAGE" >/dev/null
-install -d -m 777 /opt/umc/seed-out
-docker run --rm --network "\$NETWORK" --env-file /opt/umc/app.env \
-  -e SPRING_PROFILES_ACTIVE=dev,seeder \
-  -e APP_BULK_SEED_MEMBER_COUNT=$count \
-  -e APP_BULK_SEED_RANDOM_SEED=$seed \
-  -e APP_BULK_SEED_SEED_JSON_PATH=/seed-out/seed.json \
-  -v /opt/umc/seed-out:/seed-out \
-  "\$IMAGE"
-chmod a+r /opt/umc/seed-out/seed.json
-REMOTE
-
-  scp "${ssh_opts[@]}" "$ssh_user@$sut_ip:/opt/umc/seed-out/seed.json" "$SEED_JSON"
-  echo "[bulk] wrote $SEED_JSON"
-}
-
-case "$SEED_STRATEGY" in
-api)
-  BASE_URL="$(resolve_base_url)"
-  seed_api
-  ;;
-bulk)
-  seed_bulk
-  ;;
-snapshot)
-  echo "snapshot 전략은 prepare-data.sh 가 아니라 rds.tf 의 snapshot_identifier 로 다룹니다." >&2
-  exit 1
-  ;;
-*)
-  echo "알 수 없는 SEED_STRATEGY: $SEED_STRATEGY (api|bulk|snapshot)" >&2
-  exit 1
-  ;;
-esac
+seed_api

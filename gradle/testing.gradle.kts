@@ -3,8 +3,6 @@ import org.gradle.api.tasks.SourceSetContainer
 import org.gradle.api.tasks.testing.Test
 import org.gradle.testing.jacoco.tasks.JacocoReport
 
-val snippetsDir = layout.buildDirectory.dir("generated-snippets")
-
 val checkDuplicateFlywayMigrationVersions by tasks.registering {
     group = "verification"
     description = "Fails when two Flyway versioned migrations share the same version."
@@ -85,7 +83,6 @@ tasks.named<Test>("test") {
         println("=".repeat(50))
     }
 
-    outputs.dir(snippetsDir)
     finalizedBy(tasks.named("jacocoTestReport"))
 
     doLast {

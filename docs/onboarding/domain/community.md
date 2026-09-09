@@ -176,4 +176,4 @@ metric 이름은 `community.thread.realtime.send.commands`, `.reject.commands`,
 | STOMP command/subscription/relay | `community/adapter/in/websocket`, `global/websocket` |
 | source boundary/금지 surface | `CommunityThreadArchitectureTest` |
 
-Asciidoctor, REST Docs assembly, GraphQL Community API는 이 thread 계약의 문서 산출물에 포함하지 않는다.
+GraphQL Community API는 이 thread 계약의 문서 산출물에 포함하지 않는다.

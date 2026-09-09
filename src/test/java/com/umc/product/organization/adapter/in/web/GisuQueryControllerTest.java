@@ -1,27 +1,26 @@
 package com.umc.product.organization.adapter.in.web;
 
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.queryParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
-import com.umc.product.organization.application.port.in.query.dto.gisu.GisuNameInfo;
-import com.umc.product.support.DocumentationTest;
 import java.time.Instant;
 import java.util.List;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
 
-class GisuQueryControllerTest extends DocumentationTest {
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
+import com.umc.product.organization.application.port.in.query.dto.gisu.GisuNameInfo;
+import com.umc.product.support.ControllerTestSupport;
+
+class GisuQueryControllerTest extends ControllerTestSupport {
 
     @Test
     void 기수_목록을_페이징_조회한다() throws Exception {
@@ -51,30 +50,23 @@ class GisuQueryControllerTest extends DocumentationTest {
 
         // then
         result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                queryParameters(
-                    parameterWithName("page").description("페이지 번호 (0부터 시작)").optional(),
-                    parameterWithName("size").description("페이지 당 조회 수").optional()
-                ),
-                responseFields(
-                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.content").type(JsonFieldType.ARRAY).description("기수 목록"),
-                    fieldWithPath("result.content[].gisuId").type(JsonFieldType.STRING).description("기수 ID"),
-                    fieldWithPath("result.content[].generation").type(JsonFieldType.STRING).description("기수 번호"),
-                    fieldWithPath("result.content[].gisu").type(JsonFieldType.STRING).description("기수 번호"),
-                    fieldWithPath("result.content[].startAt").type(JsonFieldType.STRING).description("기수 시작일시"),
-                    fieldWithPath("result.content[].endAt").type(JsonFieldType.STRING).description("기수 종료일시"),
-                    fieldWithPath("result.content[].isActive").type(JsonFieldType.BOOLEAN).description("현재 기수 여부"),
-                    fieldWithPath("result.page").type(JsonFieldType.STRING).description("현재 페이지 번호 (0부터 시작)"),
-                    fieldWithPath("result.size").type(JsonFieldType.STRING).description("페이지 당 조회 수"),
-                    fieldWithPath("result.totalElements").type(JsonFieldType.STRING).description("전체 기수 수"),
-                    fieldWithPath("result.totalPages").type(JsonFieldType.STRING).description("전체 페이지 수"),
-                    fieldWithPath("result.hasNext").type(JsonFieldType.BOOLEAN).description("다음 페이지 존재 여부"),
-                    fieldWithPath("result.hasPrevious").type(JsonFieldType.BOOLEAN).description("이전 페이지 존재 여부")
-                )
-            ));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.content").isArray())
+            .andExpect(jsonPath("$.result.content[0].gisuId").isString())
+            .andExpect(jsonPath("$.result.content[*].gisuId").value(contains("3", "2", "1")))
+            .andExpect(jsonPath("$.result.content[*].generation").value(contains("9", "8", "7")))
+            .andExpect(jsonPath("$.result.content[*].gisu").value(contains("9", "8", "7")))
+            .andExpect(jsonPath("$.result.content[0].startAt").value("2025-03-01T00:00:00Z"))
+            .andExpect(jsonPath("$.result.content[0].endAt").value("2025-08-31T23:59:59Z"))
+            .andExpect(jsonPath("$.result.content[*].isActive").value(contains(true, false, false)))
+            .andExpect(jsonPath("$.result.page").value("0"))
+            .andExpect(jsonPath("$.result.size").value("10"))
+            .andExpect(jsonPath("$.result.totalElements").value("3"))
+            .andExpect(jsonPath("$.result.totalPages").value("1"))
+            .andExpect(jsonPath("$.result.hasNext").value(false))
+            .andExpect(jsonPath("$.result.hasPrevious").value(false));
     }
 
     @Test
@@ -93,18 +85,15 @@ class GisuQueryControllerTest extends DocumentationTest {
 
         // then
         result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                responseFields(
-                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.gisuList").type(JsonFieldType.ARRAY).description("기수 목록"),
-                    fieldWithPath("result.gisuList[].gisuId").type(JsonFieldType.STRING).description("기수 ID"),
-                    fieldWithPath("result.gisuList[].gisu").type(JsonFieldType.STRING).description("기수 번호"),
-                    fieldWithPath("result.gisuList[].generation").type(JsonFieldType.STRING).description("기수 번호"),
-                    fieldWithPath("result.gisuList[].isActive").type(JsonFieldType.BOOLEAN).description("활성 여부")
-                )
-            ));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.gisuList").isArray())
+            .andExpect(jsonPath("$.result.gisuList[0].gisuId").isString())
+            .andExpect(jsonPath("$.result.gisuList[*].gisuId").value(contains("3", "2", "1")))
+            .andExpect(jsonPath("$.result.gisuList[*].generation").value(contains("9", "8", "7")))
+            .andExpect(jsonPath("$.result.gisuList[*].gisu").value(contains("9", "8", "7")))
+            .andExpect(jsonPath("$.result.gisuList[*].isActive").value(contains(true, false, false)));
     }
 
     @Test
@@ -119,16 +108,13 @@ class GisuQueryControllerTest extends DocumentationTest {
 
         // then
         result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                responseFields(
-                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.gisuId").type(JsonFieldType.STRING).description("기수 ID"),
-                    fieldWithPath("result.generation").type(JsonFieldType.STRING).description("기수 번호"),
-                    fieldWithPath("result.gisu").type(JsonFieldType.STRING).description("기수 번호")
-                )
-            ));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.gisuId").isString())
+            .andExpect(jsonPath("$.result.gisuId").value("3"))
+            .andExpect(jsonPath("$.result.generation").value("9"))
+            .andExpect(jsonPath("$.result.gisu").value("9"));
     }
 
     private GisuInfo gisuInfo(Long id, Long generation, Instant startAt, Instant endAt, boolean isActive) {

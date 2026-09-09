@@ -639,7 +639,6 @@ SPRING_PROFILES_ACTIVE=dev ./gradlew bootRun | jq .
 - 관련 ADR
     - [ADR-014: 모니터링 스택을 Grafana Cloud 에서 자체 홈서버로 이관한다](014-self-hosted-monitoring-stack-migration.md) — 본 ADR 의 JSON 로그는 ADR-014 의 self-hosted Loki 이관 시점과 정렬되며, LogQL `| json` 룰을 공유한다.
     - [ADR-013: k6 기반 부하·성능 테스트 도입 전략](013-k6-load-and-performance-testing-strategy.md) — 본 ADR 의 `uriTemplate` / `durationMs` 필드가 k6 결과와 동일 축에서 비교 가능해진다.
-    - [ADR-012: LLM 호출의 동기 대기 병목 완화 전략](012-llm-call-blocking-bottleneck-mitigation.md) — `external_api_called` 이벤트가 LLM provider 별 성능 개선 측정의 1차 도구.
     - [ADR-011: 문의 도메인 WebSocket/STOMP 채택](011-inquiry-domain-with-websocket-stomp.md) — Interceptor 외 경로의 MDC 처리 가이드.
     - [ADR-010: GitHub App OAuth 및 Webhook 통합](010-github-app-oauth-and-webhook-integration.md) — `external_api_called` 의 첫 적용 후보.
     - [ADR-008: LLM 도메인 provider 전략](008-llm-domain-provider-strategy.md) — 동일.

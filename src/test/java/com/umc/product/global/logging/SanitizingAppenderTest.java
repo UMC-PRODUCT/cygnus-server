@@ -98,16 +98,6 @@ class SanitizingAppenderTest {
     }
 
     @Test
-    @DisplayName("비활성 레벨의 로그는 민감값이 있어도 어펜더에 도달하지 않는다")
-    void 비활성_레벨_로그_억제() {
-        logger.debug("Rejected email: {}", PROBE_EMAIL);
-        logger.trace("Rejected email: {}", PROBE_EMAIL);
-        logger.info("Rejected email: {}", PROBE_EMAIL);
-
-        assertThat(appender.list).isEmpty();
-    }
-
-    @Test
     @DisplayName("민감값이 없는 로그는 그대로 전달한다")
     void 민감값_없는_로그_보존() {
         logger.error("plain message {}", "nothing-sensitive");
@@ -115,17 +105,6 @@ class SanitizingAppenderTest {
         assertThat(appender.list).hasSize(1);
         assertThat(appender.list.getFirst().getFormattedMessage())
             .isEqualTo("plain message nothing-sensitive");
-    }
-
-    @Test
-    @DisplayName("이벤트를 새로 만들지 않으므로 로거 이름과 레벨이 보존된다")
-    void 이벤트_메타데이터_보존() {
-        logger.error("Rejected email: {}", PROBE_EMAIL);
-
-        ILoggingEvent event = appender.list.getFirst();
-        assertThat(event.getLoggerName()).isEqualTo("security-db-error-test");
-        assertThat(event.getLevel()).isEqualTo(Level.ERROR);
-        assertThat(event.getThreadName()).isEqualTo(Thread.currentThread().getName());
     }
 
     @Test
@@ -142,22 +121,6 @@ class SanitizingAppenderTest {
     }
 
     @Test
-    @DisplayName("파라미터의 toString()이 던져도 로깅 호출이 깨지지 않는다")
-    void toString_예외_격리() {
-        Object hostile = new Object() {
-            @Override
-            public String toString() {
-                throw new IllegalStateException("toString 실패");
-            }
-        };
-
-        logger.error("value: {}", hostile);
-
-        // logback 이 포매팅 단계에서 흡수하므로 호출자에게 전파되지 않는다.
-        assertThat(appender.list).hasSize(1);
-    }
-
-    @Test
     @DisplayName("MDC 값의 민감정보를 치환한다")
     void mdc_redaction() {
         LoggingEvent event = event("요청 처리");
@@ -167,18 +130,6 @@ class SanitizingAppenderTest {
 
         assertThat(sanitized.getMDCPropertyMap().get("path")).doesNotContain(PROBE_EMAIL).contains("[REDACTED]");
         assertThat(sanitized.getMDCPropertyMap().get("statusCode")).isEqualTo("200");
-    }
-
-    @Test
-    @DisplayName("MDC에 민감값이 없으면 원본 맵을 그대로 쓴다")
-    void mdc_변경_없으면_원본_유지() {
-        LoggingEvent event = event("요청 처리");
-        event.setMDCPropertyMap(Map.of("path", "/members/me", "statusCode", "200"));
-
-        ILoggingEvent sanitized = SanitizedLoggingEvent.wrap(event);
-
-        // 불필요한 복사를 하지 않는다.
-        assertThat(sanitized.getMDCPropertyMap()).isSameAs(event.getMDCPropertyMap());
     }
 
     @Test

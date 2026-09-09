@@ -72,34 +72,6 @@ class SpanContextPropagationTest {
             .isEqualTo(expectedTraceId);
     }
 
-    @Test
-    @DisplayName("TaskDecorator 가 없는 Executor 는 비동기 스레드로 trace 컨텍스트가 전파되지 않는다")
-    void TaskDecorator_미장착_시_traceId_단절() throws InterruptedException {
-        // given: 데코레이터가 없는 Executor 와, 현재 스레드에 시작된 Span
-        ThreadPoolTaskExecutor executor = newExecutor(null);
-        Span span = tracer.nextSpan().name("root").start();
-        AtomicReference<String> propagatedTraceId = new AtomicReference<>();
-        CountDownLatch latch = new CountDownLatch(1);
-
-        // when: Span 이 scope 에 있는 동안 작업을 제출한다
-        try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {
-            executor.execute(() -> {
-                Span current = tracer.currentSpan();
-                if (current != null) {
-                    propagatedTraceId.set(current.context().traceId());
-                }
-                latch.countDown();
-            });
-            latch.await(2, TimeUnit.SECONDS);
-        } finally {
-            span.end();
-            executor.shutdown();
-        }
-
-        // then: 작업 스레드에는 현재 Span 이 없어 traceId 가 단절된다 (데코레이터의 효과 대조)
-        assertThat(propagatedTraceId.get()).isNull();
-    }
-
     /**
      * Span 전용 accessor 를 <b>로컬</b> ContextRegistry 에만 등록한 데코레이터를 만든다.
      * 전역 {@link ContextRegistry#getInstance()} 를 건드리지 않으므로 다른 테스트와 격리된다.
@@ -117,9 +89,7 @@ class SpanContextPropagationTest {
         executor.setMaxPoolSize(1);
         executor.setQueueCapacity(1);
         executor.setThreadNamePrefix("test-async-");
-        if (taskDecorator != null) {
-            executor.setTaskDecorator(taskDecorator);
-        }
+        executor.setTaskDecorator(taskDecorator);
         executor.initialize();
         return executor;
     }

@@ -22,9 +22,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * seeder 프로파일 전용 벌크 시딩 러너 (SEED_STRATEGY=bulk).
+ * seeder 프로파일 전용 벌크 시딩 러너.
  * <p>
- * prepare-data.sh 가 앱 이미지를 다음처럼 1회 실행한다:
+ * 앱 이미지를 다음처럼 1회 실행한다:
  * <pre>
  * docker run --rm --env-file &lt;SUT env&gt; \
  *   -e SPRING_PROFILES_ACTIVE=&lt;base&gt;,seeder \

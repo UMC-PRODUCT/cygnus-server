@@ -54,7 +54,7 @@ The project strictly follows **Hexagonal Architecture** and separates concerns i
 - **Database:** PostgreSQL 18.x, Flyway Migration, PostGIS
 - **ORM:** JPA (Hibernate), QueryDSL
 - **Auth:** JWT (`io.jsonwebtoken` 0.12.5)
-- **Documentation:** OpenAPI/Swagger, Spring REST Docs (AsciiDoc)
+- **Documentation:** OpenAPI/Swagger
 - **Monitoring:** Prometheus Metrics, OpenTelemetry Tracing
 
 ### Environment & Commands
@@ -63,7 +63,6 @@ The project strictly follows **Hexagonal Architecture** and separates concerns i
 - **Ports:** Application runs on `8080`, Actuator/Prometheus on `9090`.
 - **Run Application:** `./gradlew bootRun`
 - **Run Tests:** `./gradlew test` (Uses JUnit 5 + Testcontainers)
-- **Build Docs:** `./gradlew asciidoctor` (Generates from RestDocs snippets)
 
 ## 4. Tools & Capabilities
 

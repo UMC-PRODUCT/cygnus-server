@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,15 +28,12 @@ public class OpenApiConfig {
     private final String accessToken = "Access Token";
     private final ObjectProvider<BuildProperties> buildPropertiesProvider;
 
-    @Value("${server.port:8080}")
-    private String serverPort;
-
     @Bean
     public OpenAPI umcProductApi() {
 
         return new OpenAPI()
             .info(apiInfo())
-            .servers(servers())
+            .servers(List.of(new Server().url("/").description("현재 접속 서버")))
             .components(securityComponents())
             .addSecurityItem(securityRequirement());
     }
@@ -78,20 +74,6 @@ public class OpenApiConfig {
             .map(BuildProperties::getVersion)
             .filter(version -> !version.isBlank())
             .orElse(DEFAULT_API_VERSION);
-    }
-
-    private List<Server> servers() {
-        return List.of(
-            new Server()
-                .url("https://dev.api.university.neordinary.com")
-                .description("Development"),
-            new Server()
-                .url("http://localhost:" + serverPort)
-                .description("Local"),
-            new Server()
-                .url("https://api.university.neordinary.com")
-                .description("Production")
-        );
     }
 
     @Bean

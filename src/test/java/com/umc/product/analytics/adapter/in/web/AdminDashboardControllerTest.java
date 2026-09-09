@@ -13,12 +13,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
-import org.springframework.restdocs.mockmvc.RestDocumentationResultHandler;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -45,12 +43,10 @@ import com.umc.product.global.config.JacksonConfig;
 import com.umc.product.global.security.JwtTokenProvider;
 import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.schedule.domain.enums.AttendanceStatus;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = AdminDashboardController.class)
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("AdminDashboardController")
 class AdminDashboardControllerTest {
 
@@ -58,9 +54,6 @@ class AdminDashboardControllerTest {
 
     @Autowired
     MockMvc mockMvc;
-
-    @Autowired
-    RestDocumentationResultHandler restDocsHandler;
 
     @MockitoBean
     JwtTokenProvider jwtTokenProvider;
@@ -104,8 +97,8 @@ class AdminDashboardControllerTest {
     }
 
     @Test
-    @DisplayName("대시보드 summary API 문서화")
-    void 대시보드_summary_API_문서화() throws Exception {
+    @DisplayName("대시보드 summary API 응답")
+    void 대시보드_summary_API_응답() throws Exception {
         given(getAdminDashboardSummaryUseCase.getSummary(any())).willReturn(AdminDashboardSummaryInfo.of(
             10L,
             2L,
@@ -121,13 +114,12 @@ class AdminDashboardControllerTest {
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.activeChallengerCount").value(10L))
             .andExpect(jsonPath("$.result.pendingApplicationCount").doesNotExist())
-            .andExpect(jsonPath("$.result.projectInProgressCount").doesNotExist())
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.result.projectInProgressCount").doesNotExist());
     }
 
     @Test
     @DisplayName("대시보드 actionQueue API는 대상 도메인의 처리 대기 항목만 반환한다")
-    void 대시보드_actionQueue_API_문서화() throws Exception {
+    void 대시보드_actionQueue_API_응답() throws Exception {
         given(getAdminDashboardActionQueueUseCase.getActionQueue(any()))
             .willReturn(AdminDashboardActionQueueInfo.of(4L, 3L, 5L));
 
@@ -138,8 +130,7 @@ class AdminDashboardControllerTest {
             .andExpect(jsonPath("$.result.newRiskMemberCountThisWeek").value(3L))
             .andExpect(jsonPath("$.result.upcomingGraduationCount").value(5L))
             .andExpect(jsonPath("$.result.pendingApplicationCount").doesNotExist())
-            .andExpect(jsonPath("$.result.unsentNoticeCount").doesNotExist())
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.result.unsentNoticeCount").doesNotExist());
     }
 
     @Test
@@ -157,8 +148,7 @@ class AdminDashboardControllerTest {
         mockMvc.perform(get("/api/v1/analytics/admin/dashboard/context"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.result.roleType").value("SUPER_ADMIN"))
-            .andExpect(jsonPath("$.result.scopeType").value("CENTRAL"))
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.result.scopeType").value("CENTRAL"));
     }
 
     @Test
@@ -169,8 +159,7 @@ class AdminDashboardControllerTest {
         mockMvc.perform(get("/api/v1/analytics/admin/dashboard/risk-challengers")
                 .param("gisuId", "7"))
             .andExpect(status().isOk())
-            .andExpect(jsonPath("$.result.content").isArray())
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.result.content").isArray());
     }
 
     @Test
@@ -216,7 +205,6 @@ class AdminDashboardControllerTest {
             .andExpect(jsonPath("$.result.pointGrantStatuses[0].grantCount").value(3L))
             .andExpect(jsonPath("$.result.scheduleAttendanceStatus.attendanceRecordCount").value(8L))
             .andExpect(jsonPath("$.result.studyGroupStatus.studyGroupCount").value(9L))
-            .andExpect(jsonPath("$.result.signupBuckets[0].count").value(2L))
-            .andDo(restDocsHandler);
+            .andExpect(jsonPath("$.result.signupBuckets[0].count").value(2L));
     }
 }

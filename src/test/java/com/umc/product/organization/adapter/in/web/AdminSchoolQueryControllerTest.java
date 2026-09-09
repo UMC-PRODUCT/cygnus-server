@@ -1,28 +1,23 @@
 package com.umc.product.organization.adapter.in.web;
 
+import static org.hamcrest.Matchers.contains;
 import static org.mockito.BDDMockito.given;
-import static org.springframework.restdocs.payload.PayloadDocumentation.fieldWithPath;
-import static org.springframework.restdocs.payload.PayloadDocumentation.responseFields;
-import static org.springframework.restdocs.request.RequestDocumentation.parameterWithName;
-import static org.springframework.restdocs.request.RequestDocumentation.pathParameters;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.ResultActions;
 
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolDetailInfo;
 import com.umc.product.organization.application.port.in.query.dto.school.SchoolNameInfo;
 import com.umc.product.organization.domain.enums.SchoolLinkType;
-import com.umc.product.storage.application.port.in.query.dto.FileInfo;
-import com.umc.product.storage.domain.enums.FileCategory;
-import com.umc.product.support.DocumentationTest;
+import com.umc.product.support.ControllerTestSupport;
 
-class AdminSchoolQueryControllerTest extends DocumentationTest {
+class AdminSchoolQueryControllerTest extends ControllerTestSupport {
 
 
     @Test
@@ -38,36 +33,33 @@ class AdminSchoolQueryControllerTest extends DocumentationTest {
             new SchoolDetailInfo.SchoolLinkItem("유튜브 채널", SchoolLinkType.YOUTUBE, "https://youtube.com/@example")
         );
 
-        SchoolDetailInfo schoolDetailInfo = new SchoolDetailInfo(3L, "Ain 지부", "중앙대학교", "중앙대", 1L, "비고", "logo-file-123",
-            links, true, createdAt, updatedAt);
-        FileInfo fileInfo = new FileInfo("logo-file-123", "동국대학교 로고", FileCategory.SCHOOL_LOGO, null, null,
-            "https://storage.example.com/school-logo/logo.png", null, null, null);
+        SchoolDetailInfo schoolDetailInfo = new SchoolDetailInfo(3L, "Ain 지부", "중앙대학교", "중앙대", 1L, "비고",
+            "https://storage.example.com/school-logo/logo.png", links, true, createdAt, updatedAt);
         given(getSchoolUseCase.getSchoolDetail(schoolId)).willReturn(schoolDetailInfo);
-        given(getFileUseCase.getById("logo-file-123")).willReturn(fileInfo);
         // when
         ResultActions result = mockMvc.perform(get("/api/v1/schools/{schoolId}", schoolId));
         // then
-        result.andExpect((status().isOk()))
-            .andDo(restDocsHandler.document(pathParameters(parameterWithName("schoolId").description("학교 ID")),
-                responseFields(fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.chapterId").type(JsonFieldType.STRING).description("지부 ID"),
-                    fieldWithPath("result.chapterName").type(JsonFieldType.STRING).description("지부 이름"),
-                    fieldWithPath("result.schoolName").type(JsonFieldType.STRING).description("학교 이름"),
-                    fieldWithPath("result.shortName").type(JsonFieldType.STRING).description("학교 약칭").optional(),
-                    fieldWithPath("result.schoolId").type(JsonFieldType.STRING).description("학교 ID"),
-                    fieldWithPath("result.isActive").type(JsonFieldType.BOOLEAN).description("학교 활성상태"),
-                    fieldWithPath("result.remark").type(JsonFieldType.STRING).description("비고"),
-                    fieldWithPath("result.logoImageUrl").type(JsonFieldType.STRING).description("로고 이미지 URL")
-                        .optional(),
-                    fieldWithPath("result.links").type(JsonFieldType.ARRAY).description("학교 링크 목록"),
-                    fieldWithPath("result.links[].title").type(JsonFieldType.STRING).description("링크 제목"),
-                    fieldWithPath("result.links[].type").type(JsonFieldType.STRING)
-                        .description("링크 타입 (KAKAO, INSTAGRAM, YOUTUBE)"),
-                    fieldWithPath("result.links[].url").type(JsonFieldType.STRING).description("링크 URL"),
-                    fieldWithPath("result.createdAt").type(JsonFieldType.STRING).description("생성일자"),
-                    fieldWithPath("result.updatedAt").type(JsonFieldType.STRING).description("수정일자"))));
+        result.andExpect(status().isOk())
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.chapterId").isString())
+            .andExpect(jsonPath("$.result.chapterId").value("3"))
+            .andExpect(jsonPath("$.result.chapterName").value("Ain 지부"))
+            .andExpect(jsonPath("$.result.schoolId").isString())
+            .andExpect(jsonPath("$.result.schoolId").value("1"))
+            .andExpect(jsonPath("$.result.schoolName").value("중앙대학교"))
+            .andExpect(jsonPath("$.result.shortName").value("중앙대"))
+            .andExpect(jsonPath("$.result.isActive").value(true))
+            .andExpect(jsonPath("$.result.remark").value("비고"))
+            .andExpect(jsonPath("$.result.logoImageUrl").value("https://storage.example.com/school-logo/logo.png"))
+            .andExpect(jsonPath("$.result.links").isArray())
+            .andExpect(jsonPath("$.result.links[*].title").value(contains("카카오톡 오픈채팅", "인스타그램", "유튜브 채널")))
+            .andExpect(jsonPath("$.result.links[*].type").value(contains("KAKAO", "INSTAGRAM", "YOUTUBE")))
+            .andExpect(jsonPath("$.result.links[*].url").value(contains(
+                "https://open.kakao.com/o/example", "https://instagram.com/example", "https://youtube.com/@example")))
+            .andExpect(jsonPath("$.result.createdAt").value(createdAt.toString()))
+            .andExpect(jsonPath("$.result.updatedAt").value(updatedAt.toString()));
     }
 
     @Test
@@ -86,16 +78,13 @@ class AdminSchoolQueryControllerTest extends DocumentationTest {
 
         // then
         result.andExpect(status().isOk())
-            .andDo(restDocsHandler.document(
-                responseFields(
-                    fieldWithPath("success").type(JsonFieldType.BOOLEAN).description("요청 성공 여부"),
-                    fieldWithPath("code").type(JsonFieldType.STRING).description("응답 코드"),
-                    fieldWithPath("message").type(JsonFieldType.STRING).description("응답 메시지"),
-                    fieldWithPath("result.schools").type(JsonFieldType.ARRAY).description("학교 목록"),
-                    fieldWithPath("result.schools[].schoolId").type(JsonFieldType.STRING).description("학교 ID"),
-                    fieldWithPath("result.schools[].schoolName").type(JsonFieldType.STRING).description("학교 이름")
-                )
-            ));
+            .andExpect(jsonPath("$.success").value(true))
+            .andExpect(jsonPath("$.code").isString())
+            .andExpect(jsonPath("$.message").isString())
+            .andExpect(jsonPath("$.result.schools").isArray())
+            .andExpect(jsonPath("$.result.schools[0].schoolId").isString())
+            .andExpect(jsonPath("$.result.schools[*].schoolId").value(contains("1", "2", "3")))
+            .andExpect(jsonPath("$.result.schools[*].schoolName").value(contains("동국대학교", "서울대학교", "중앙대학교")));
     }
 
     private Instant toInstant(int year, int month, int day) {

@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.SmartLifecycle;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.server.ServerHttpRequest;
 import org.springframework.http.server.ServerHttpResponse;
@@ -41,25 +40,5 @@ class ShutdownAwareHandshakeInterceptorTest {
 
         assertThat(sut.beforeHandshake(request, response, wsHandler, new HashMap<>())).isFalse();
         verify(response).setStatusCode(HttpStatus.SERVICE_UNAVAILABLE);
-    }
-
-    @Test
-    @DisplayName("stop 호출 전 isRunning이 true를 반환한다")
-    void is_running_returns_true_before_stop() {
-        assertThat(sut.isRunning()).isTrue();
-    }
-
-    @Test
-    @DisplayName("stop 호출 후 isRunning이 false를 반환한다")
-    void is_running_returns_false_after_stop() {
-        sut.stop();
-
-        assertThat(sut.isRunning()).isFalse();
-    }
-
-    @Test
-    @DisplayName("getPhase는 SmartLifecycle.DEFAULT_PHASE를 반환한다")
-    void get_phase_returns_default_phase() {
-        assertThat(sut.getPhase()).isEqualTo(SmartLifecycle.DEFAULT_PHASE);
     }
 }

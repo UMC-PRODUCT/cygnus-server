@@ -13,7 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -36,12 +35,10 @@ import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublic
 import com.umc.product.recruiting.application.port.in.query.dto.RecruitingPublicRoundSearchQuery;
 import com.umc.product.recruiting.domain.enums.RecruitingApplicationStatus;
 import com.umc.product.recruiting.domain.enums.RecruitingPublicResultStatus;
-import com.umc.product.support.RestDocsConfig;
 
 @WebMvcTest(controllers = RecruitingPublicController.class)
-@Import({JacksonConfig.class, RestDocsConfig.class})
+@Import(JacksonConfig.class)
 @AutoConfigureMockMvc(addFilters = false)
-@AutoConfigureRestDocs
 @DisplayName("RecruitingPublicController")
 class RecruitingPublicControllerTest {
 

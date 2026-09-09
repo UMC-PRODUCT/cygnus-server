@@ -1,6 +1,0 @@
-aws_region  = "ap-northeast-2"
-aws_profile = "umcproduct-admin"
-environment = "shared"
-
-hosted_zone_id      = "ZREPLACEWITHHOSTEDZONEID"
-acm_certificate_arn = "arn:aws:acm:ap-northeast-2:137809407320:certificate/0050f1b3-bd9d-4f97-8c3b-83129196de8e"

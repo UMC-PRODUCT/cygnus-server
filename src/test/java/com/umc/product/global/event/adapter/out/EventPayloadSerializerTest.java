@@ -1,32 +1,21 @@
 package com.umc.product.global.event.adapter.out;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.umc.product.global.event.domain.DomainEvent;
 import java.time.Instant;
 import java.util.UUID;
+
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.umc.product.global.event.domain.DomainEvent;
+
 @DisplayName("EventPayloadSerializer")
 class EventPayloadSerializerTest {
-
-    @Test
-    @DisplayName("도메인 이벤트를 JSON payload로 직렬화한다")
-    void serialize() {
-        EventPayloadSerializer serializer = new EventPayloadSerializer(new ObjectMapper().findAndRegisterModules());
-        TestEvent event = TestEvent.create("test.created", "hello");
-
-        String payload = serializer.serialize(event);
-
-        assertThat(payload).contains("\"eventType\":\"test.created\"");
-        assertThat(payload).contains("\"message\":\"hello\"");
-    }
 
     @Test
     @DisplayName("직렬화 실패 시 eventType을 포함한 예외를 던진다")

@@ -8,8 +8,6 @@ configurations {
     named("compileOnly") {
         extendsFrom(configurations.getByName("annotationProcessor"))
     }
-
-    maybeCreate("asciidoctorExt")
 }
 
 // Jackson 2는 Spring Boot 3/JJWT 축, tools.jackson은 logstash-logback-encoder 9.x 축이다.
@@ -137,8 +135,4 @@ dependencies {
 
     add("testCompileOnly", "org.projectlombok:lombok")
     add("testAnnotationProcessor", "org.projectlombok:lombok")
-
-    // --- Spring REST Docs ---
-    add("asciidoctorExt", "org.springframework.restdocs:spring-restdocs-asciidoctor")
-    add("testImplementation", "org.springframework.restdocs:spring-restdocs-mockmvc")
 }

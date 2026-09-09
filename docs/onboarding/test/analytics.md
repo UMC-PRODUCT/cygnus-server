@@ -1,14 +1,14 @@
 # Analytics 테스트 케이스
 
-- 테스트 파일: 8개
-- 테스트 케이스: 26개
+- 테스트 파일: 7개
+- 테스트 케이스: 25개
 - 분류 기준: `Controller`, `UseCase`, `Repository`, `E2E`, `Scheduler`, `Domain`, `External Adapter`, `Support`
 
 | 카테고리 | 케이스 수 |
 |---|---:|
 | Controller / Inbound Adapter | 6 |
 | UseCase / Application Service | 9 |
-| Repository / Outbound Persistence | 11 |
+| Repository / Outbound Persistence | 10 |
 
 ## Controller / Inbound Adapter
 
@@ -58,14 +58,6 @@
 | [98](../../../src/test/java/com/umc/product/analytics/application/service/query/AdminAnalyticsScopeResolverTest.java#L98) | 운영진 역할이 없으면 대시보드 접근이 거부된다 | 호출 resolve(MEMBER_ID, GISU_ID, null, null, null)) | 실패: 예외 AnalyticsDomainException; 에러코드 AnalyticsErrorCode.RESOURCE_ACCESS_DENIED; 검증 .isEqualTo(AnalyticsErrorCode.RESOURCE_ACCESS_DENIED); |
 
 ## Repository / Outbound Persistence
-
-### AdminAnalyticsPersistenceConventionTest
-- 테스트 설명: AdminAnalyticsPersistenceConvention
-- 위치: `src/test/java/com/umc/product/analytics/adapter/out/persistence/AdminAnalyticsPersistenceConventionTest.java`
-
-| 라인 | 테스트 케이스 | 입력/조건 | 기대 결과 |
-|---:|---|---|---|
-| [10](../../../src/test/java/com/umc/product/analytics/adapter/out/persistence/AdminAnalyticsPersistenceConventionTest.java#L10) | analytics query repository는 native SQL 대신 QueryDSL을 사용한다 | 조건 analytics query repository는 native SQL 대신 QueryDSL을 사용한다 | 성공: 검증 assertThat(queryRepositories).hasSize(4); assertThat(source); .contains("JPAQueryFactory") |
 
 ### AdminDashboardAnalyticsQueryRepositoryTest
 - 테스트 설명: AdminDashboardAnalyticsQueryRepository

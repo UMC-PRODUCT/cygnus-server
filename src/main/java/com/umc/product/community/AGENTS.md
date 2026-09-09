@@ -204,5 +204,3 @@ consumer는 이 범위에 없다.
   cross-instance relay와 broker failure recovery.
 - `community/architecture/CommunityThreadArchitectureTest`: source boundary와 destination namespace를
   static scan으로 고정한다.
-
-Asciidoctor/REST Docs assembly는 이 기능의 문서 산출물에 포함하지 않는다.
