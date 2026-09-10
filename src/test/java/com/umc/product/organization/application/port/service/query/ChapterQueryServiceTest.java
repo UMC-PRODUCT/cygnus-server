@@ -1,6 +1,7 @@
 package com.umc.product.organization.application.port.service.query;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 
@@ -25,6 +26,8 @@ import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.ChapterSchool;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
+import com.umc.product.organization.exception.OrganizationDomainException;
+import com.umc.product.organization.exception.OrganizationErrorCode;
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ChapterQueryService")
@@ -38,6 +41,41 @@ class ChapterQueryServiceTest {
 
     @InjectMocks
     ChapterQueryService chapterQueryService;
+
+    @Test
+    @DisplayName("학교가 여러 기수에 참여했어도 요청한 기수의 지부를 조회한다")
+    void 요청한_기수의_학교_지부를_조회한다() {
+        // given
+        School school = school(100L, "A 대학교");
+        Chapter previousChapter = chapter(10L, gisu(1L, 10L), "이전 지부");
+        Chapter currentChapter = chapter(20L, gisu(2L, 11L), "현재 지부");
+        given(loadChapterSchoolPort.findBySchoolId(100L)).willReturn(List.of(
+            ChapterSchool.create(previousChapter, school),
+            ChapterSchool.create(currentChapter, school)
+        ));
+
+        // when & then
+        assertThat(chapterQueryService.findByGisuAndSchool(2L, 100L))
+            .contains(new ChapterInfo(20L, "현재 지부"));
+        assertThat(chapterQueryService.byGisuAndSchool(2L, 100L))
+            .isEqualTo(new ChapterInfo(20L, "현재 지부"));
+    }
+
+    @Test
+    @DisplayName("해당 기수 지부가 없으면 선택 조회는 빈 값을 반환하고 필수 조회는 거부한다")
+    void 지부가_없는_학교의_선택_조회와_필수_조회를_구분한다() {
+        // given
+        School school = school(100L, "A 대학교");
+        Chapter previousChapter = chapter(10L, gisu(1L, 10L), "이전 지부");
+        given(loadChapterSchoolPort.findBySchoolId(100L))
+            .willReturn(List.of(ChapterSchool.create(previousChapter, school)));
+
+        // when & then
+        assertThat(chapterQueryService.findByGisuAndSchool(2L, 100L)).isEmpty();
+        assertThatThrownBy(() -> chapterQueryService.byGisuAndSchool(2L, 100L))
+            .isInstanceOfSatisfying(OrganizationDomainException.class,
+                exception -> assertThat(exception.getBaseCode()).isEqualTo(OrganizationErrorCode.CHAPTER_NOT_FOUND));
+    }
 
     @Test
     @DisplayName("listByGisuIds는 기수별 지부 목록을 그룹화한다")

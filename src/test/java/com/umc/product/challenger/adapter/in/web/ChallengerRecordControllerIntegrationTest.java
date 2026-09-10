@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -44,7 +45,6 @@ import com.umc.product.global.security.MemberPrincipal;
 import com.umc.product.member.application.port.out.SaveMemberPort;
 import com.umc.product.member.domain.Member;
 import com.umc.product.organization.application.port.out.command.SaveGisuPort;
-import com.umc.product.organization.application.port.out.query.LoadGisuPort;
 import com.umc.product.organization.domain.Chapter;
 import com.umc.product.organization.domain.Gisu;
 import com.umc.product.organization.domain.School;
@@ -61,9 +61,6 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
 
     @Autowired
     private GisuFixture gisuFixture;
-
-    @Autowired
-    private LoadGisuPort loadGisuPort;
 
     @Autowired
     private ChapterFixture chapterFixture;
@@ -253,6 +250,7 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
         assertThat(response.chapterId()).isEqualTo(chapter.getId());
         assertThat(response.chapterName()).isEqualTo(chapter.getName());
         assertThat(response.track()).isEqualTo(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(response.tracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         authenticate(member.getId());
 
         // when
@@ -266,6 +264,33 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
         assertThat(challenger.getPart()).isNull();
         assertThat(challenger.getTracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
         assertThat(challengerRecordJpaRepository.findById(recordId).orElseThrow().isUsed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("지부 없는 비수강 중앙 운영진 코드를 조회하면 학교와 역할을 보존하고 지부는 비운다")
+    void 지부_없는_비수강_중앙_운영진_코드를_조회한다() {
+        // Given
+        Gisu gisu = saveGisuPort.save(Gisu.create(
+            9303L, Instant.parse("2026-09-01T00:00:00Z"), Instant.parse("2027-02-01T00:00:00Z"),
+            false, GisuLearningType.TRACK));
+        School school = schoolFixture.학교("지부미배정중앙학교");
+        Member member = member("중앙회원", "중앙", "central-code@test.com", school.getId());
+        Long recordId = manageChallengerRecordUseCase.create(CreateChallengerRecordCommand.builder()
+            .creatorMemberId(member.getId()).gisuId(gisu.getId()).schoolId(school.getId())
+            .tracks(List.of()).memberName(member.getName())
+            .challengerRoleType(ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER).build());
+
+        // When
+        ChallengerRecordResponse response = recordResponseAssembler.from(recordId);
+
+        // Then
+        assertThat(response.chapterId()).isNull();
+        assertThat(response.chapterName()).isNull();
+        assertThat(response.schoolId()).isEqualTo(school.getId());
+        assertThat(response.schoolName()).isEqualTo(school.getName());
+        assertThat(response.tracks()).isEmpty();
+        assertThat(response.track()).isNull();
+        assertThat(response.challengerRoleType()).isEqualTo(ChallengerRoleType.CENTRAL_OPERATING_TEAM_MEMBER);
     }
 
     @Test
@@ -321,8 +346,7 @@ class ChallengerRecordControllerIntegrationTest extends IntegrationTestSupport {
     }
 
     private RecordContext recordContext(Long generation, String prefix) {
-        Gisu gisu = loadGisuPort.findActiveGisu()
-            .orElseGet(() -> gisuFixture.활성_기수(generation));
+        Gisu gisu = gisuFixture.비활성_기수(generation);
         Chapter chapter = chapterFixture.지부(gisu, prefix + "지부");
         School school = schoolFixture.지부에_소속된_학교(prefix + "학교", chapter);
         return new RecordContext(gisu, chapter, school);

@@ -25,6 +25,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.umc.product.authorization.application.port.in.command.EvictAuthoritySnapshotCacheUseCase;
 import com.umc.product.authorization.application.port.in.command.ManageChallengerRoleUseCase;
 import com.umc.product.authorization.application.port.in.command.dto.CreateChallengerRoleCommand;
+import com.umc.product.authorization.application.port.in.query.ListChallengerRoleUseCase;
 import com.umc.product.challenger.application.port.in.command.dto.ConsumeChallengerRecordCommand;
 import com.umc.product.challenger.application.port.in.command.dto.CreateChallengerRecordCommand;
 import com.umc.product.challenger.application.port.out.LoadChallengerPort;
@@ -39,11 +40,13 @@ import com.umc.product.common.domain.enums.ChallengerPart;
 import com.umc.product.common.domain.enums.ChallengerRoleType;
 import com.umc.product.common.domain.enums.ChallengerTrack;
 import com.umc.product.common.domain.enums.GisuLearningType;
+import com.umc.product.member.application.port.in.command.LockMemberUseCase;
 import com.umc.product.member.application.port.in.query.GetMemberUseCase;
 import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.notification.application.port.in.SendWebhookAlarmUseCase;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
+import com.umc.product.organization.application.port.in.query.GetSchoolUseCase;
 import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 
@@ -81,11 +84,22 @@ class ChallengerRecordCommandServiceTest {
     @Mock
     GetGisuUseCase getGisuUseCase;
 
+    @Mock
+    GetSchoolUseCase getSchoolUseCase;
+
+    @Mock
+    LockMemberUseCase lockMemberUseCase;
+
+    @Mock
+    ListChallengerRoleUseCase listChallengerRoleUseCase;
+
     @BeforeEach
     void 기본_기수는_파트_학습을_사용한다() {
         GisuInfo gisu = mock(GisuInfo.class);
         lenient().when(gisu.learningType()).thenReturn(GisuLearningType.PART);
         lenient().when(getGisuUseCase.getById(9L)).thenReturn(gisu);
+        lenient().when(getChapterUseCase.byGisuAndSchool(9L, 3L)).thenReturn(new ChapterInfo(2L, "서울"));
+        lenient().when(saveChallengerPort.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @InjectMocks
@@ -243,6 +257,7 @@ class ChallengerRecordCommandServiceTest {
         );
         given(loadChallengerRecordPort.getByCodeForUpdate("ABC123")).willReturn(record);
         given(loadChallengerPort.findByMemberIdAndGisuId(100L, 9L)).willReturn(Optional.empty());
+        given(getMemberUseCase.getById(100L)).willReturn(member("홍길동", 3L));
 
         assertThatThrownBy(() -> sut.consumeCode(consumeCommand()))
             .isInstanceOf(ChallengerDomainException.class)
@@ -364,15 +379,22 @@ class ChallengerRecordCommandServiceTest {
     }
 
     @Test
-    @DisplayName("운영진 코드에는 수강 트랙을 함께 발급할 수 없다")
-    void 운영진_코드에는_수강_트랙을_함께_발급할_수_없다() {
+    @DisplayName("운영진 코드에 수강 트랙을 함께 발급하고 담당 파트는 보존한다")
+    void 운영진_코드에_수강_트랙을_함께_발급하고_담당_파트는_보존한다() {
+        givenTrackGisu();
+        given(saveChallengerRecordPort.save(any())).willAnswer(invocation -> invocation.getArgument(0));
         CreateChallengerRecordCommand command = CreateChallengerRecordCommand.builder()
             .creatorMemberId(1L).gisuId(9L).chapterId(2L).schoolId(3L)
             .part(ChallengerPart.WEB).track(ChallengerTrack.WEB_PRODUCT_ENGINEER)
             .memberName("홍길동").challengerRoleType(ChallengerRoleType.SCHOOL_PART_LEADER).build();
 
-        assertThatThrownBy(() -> sut.create(command)).isInstanceOf(ChallengerDomainException.class);
-        then(saveChallengerRecordPort).should(never()).save(any());
+        sut.create(command);
+
+        ArgumentCaptor<ChallengerRecord> captor = ArgumentCaptor.forClass(ChallengerRecord.class);
+        then(saveChallengerRecordPort).should().save(captor.capture());
+        assertThat(captor.getValue().getTracks()).containsExactly(ChallengerTrack.WEB_PRODUCT_ENGINEER);
+        assertThat(captor.getValue().getPart()).isEqualTo(ChallengerPart.WEB);
+        assertThat(captor.getValue().getChallengerRoleType()).isEqualTo(ChallengerRoleType.SCHOOL_PART_LEADER);
     }
 
     private void givenTrackGisu() {

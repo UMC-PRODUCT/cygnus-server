@@ -38,6 +38,7 @@ import com.umc.product.member.application.port.in.query.dto.MemberInfo;
 import com.umc.product.member.domain.exception.MemberDomainException;
 import com.umc.product.member.domain.exception.MemberErrorCode;
 import com.umc.product.organization.application.port.in.query.GetChapterUseCase;
+import com.umc.product.organization.application.port.in.query.dto.chapter.ChapterInfo;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -125,17 +126,17 @@ public class AuthorizationService implements CheckPermissionUseCase {
         // 그 challenger를 기반으로 사용자가 활동했던 모든 기수를 가져옴.
         // 그러면 기수와 학교를 조합해서 챕터들이 나오겠지? 굳 그거 쓰면 될듯
         List<ChallengerInfo> memberChallengerList = getChallengerUseCase.getAllByMemberId(memberId);
+        List<RoleAttribute> roles = loadChallengerRolePort.findByMemberId(memberId).stream()
+            .map(RoleAttribute::from)
+            .toList();
         List<GisuChallengerInfo> chapterIds = memberChallengerList.stream().map((challengerInfo) ->
             GisuChallengerInfo.builder()
                 .gisuId(challengerInfo.gisuId())
-                .chapterId(getChapterUseCase.byGisuAndSchool(challengerInfo.gisuId(), schoolId).id())
+                .chapterId(resolveChapterId(challengerInfo, schoolId, roles))
                 .part(challengerInfo.part())
                 .challengerId(challengerInfo.challengerId())
                 .build()
         ).toList();
-        List<RoleAttribute> roles = loadChallengerRolePort.findByMemberId(memberId).stream()
-            .map(RoleAttribute::from)
-            .toList();
 
         SubjectAttributes subjectAttributes = SubjectAttributes.builder()
             .memberId(memberId)
@@ -150,6 +151,19 @@ public class AuthorizationService implements CheckPermissionUseCase {
             subjectAttributes.gisuChallengerInfos().size());
 
         return subjectAttributes;
+    }
+
+    private Long resolveChapterId(ChallengerInfo challengerInfo, Long schoolId, List<RoleAttribute> roles) {
+        boolean isNonLearningCentralStaff = challengerInfo.part() == null
+            && challengerInfo.tracks() != null && challengerInfo.tracks().isEmpty()
+            && roles.stream().anyMatch(role -> Objects.equals(role.gisuId(), challengerInfo.gisuId())
+                && role.roleType().isAtLeastCentralMember());
+        if (isNonLearningCentralStaff) {
+            return getChapterUseCase.findByGisuAndSchool(challengerInfo.gisuId(), schoolId)
+                .map(ChapterInfo::id)
+                .orElse(null);
+        }
+        return getChapterUseCase.byGisuAndSchool(challengerInfo.gisuId(), schoolId).id();
     }
 
     private Set<SystemRoleType> listSystemRoles(Long memberId) {
