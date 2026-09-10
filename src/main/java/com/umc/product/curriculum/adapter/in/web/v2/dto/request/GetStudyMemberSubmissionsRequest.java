@@ -6,6 +6,7 @@ import com.umc.product.curriculum.application.port.in.query.dto.StudyMemberSubmi
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 
 /**
  * 스터디원 제출 현황 조회 요청.
@@ -17,7 +18,7 @@ import jakarta.validation.constraints.Positive;
  */
 public record GetStudyMemberSubmissionsRequest(
     @Positive Long studyGroupId,
-    List<@Positive Long> weekNos,
+    List<@PositiveOrZero Long> weekNos,
     @Positive Long cursor,
     @Positive @Max(100) Integer size,
     @Positive Long gisuId

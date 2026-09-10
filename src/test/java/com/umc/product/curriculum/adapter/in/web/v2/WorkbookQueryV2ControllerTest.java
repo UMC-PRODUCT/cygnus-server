@@ -1,6 +1,7 @@
 package com.umc.product.curriculum.adapter.in.web.v2;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.then;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -128,6 +129,32 @@ class WorkbookQueryV2ControllerTest {
     }
 
     @Test
+    @DisplayName("0주차 필터로 베스트 워크북을 조회한다")
+    void bestWorkbook_zeroWeekAccepted() throws Exception {
+        given(getWeeklyBestWorkbookUseCase.searchBestWorkbooks(any()))
+            .willReturn(new WeeklyBestWorkbookPageInfo(List.of(), 0, 20, 0, 0, false, false));
+
+        mockMvc.perform(get("/api/v2/curriculums/weekly-best-workbooks")
+                .param("weekNos", "0"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.content").isArray())
+            .andExpect(jsonPath("$.result.totalElements").value(0));
+
+        then(getWeeklyBestWorkbookUseCase).should()
+            .searchBestWorkbooks(argThat(query -> query.weekNos().equals(List.of(0L))));
+    }
+
+    @Test
+    @DisplayName("베스트 워크북 조회에서 음수 주차를 거부한다")
+    void bestWorkbook_negativeWeekRejected() throws Exception {
+        mockMvc.perform(get("/api/v2/curriculums/weekly-best-workbooks")
+                .param("weekNos", "-1"))
+            .andExpect(status().isBadRequest());
+
+        then(getWeeklyBestWorkbookUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
     @DisplayName("스터디원 제출 현황을 커서 응답으로 반환하고 미배포 인원도 포함한다")
     void studyMemberSubmissions_returnsCursorResponse() throws Exception {
         given(getStudyMemberSubmissionUseCase.getStudyMemberSubmissions(any())).willReturn(List.of(
@@ -166,6 +193,45 @@ class WorkbookQueryV2ControllerTest {
     void studyMemberSubmissions_size101Rejected() throws Exception {
         mockMvc.perform(get("/api/v2/curriculums/workbook-submissions")
                 .param("size", "101"))
+            .andExpect(status().isBadRequest());
+
+        then(getStudyMemberSubmissionUseCase).shouldHaveNoInteractions();
+    }
+
+    @Test
+    @DisplayName("0주차 필터로 스터디원 제출 현황을 조회한다")
+    void studyMemberSubmissions_zeroWeekAccepted() throws Exception {
+        given(getStudyMemberSubmissionUseCase.getStudyMemberSubmissions(any())).willReturn(List.of(
+            StudyMemberSubmissionInfo.builder()
+                .studyGroupMemberId(51L)
+                .memberId(100L)
+                .studyGroupId(10L)
+                .weeks(List.of(WeeklySubmissionInfo.builder()
+                    .weekNo(0L)
+                    .weeklyCurriculumId(20L)
+                    .weeklyCurriculumTitle("Chapter 0")
+                    .status(ChallengerWorkbookStatus.NOT_SUBMITTED)
+                    .isBest(false)
+                    .build()))
+                .build()
+        ));
+
+        mockMvc.perform(get("/api/v2/curriculums/workbook-submissions")
+                .param("studyGroupId", "10")
+                .param("weekNos", "0"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.result.content[0].weeks[0].weekNo").value(0))
+            .andExpect(jsonPath("$.result.content[0].weeks[0].weeklyCurriculumTitle").value("Chapter 0"));
+
+        then(getStudyMemberSubmissionUseCase).should()
+            .getStudyMemberSubmissions(argThat(query -> query.weekNos().equals(List.of(0L))));
+    }
+
+    @Test
+    @DisplayName("스터디원 제출 현황 조회에서 음수 주차를 거부한다")
+    void studyMemberSubmissions_negativeWeekRejected() throws Exception {
+        mockMvc.perform(get("/api/v2/curriculums/workbook-submissions")
+                .param("weekNos", "-1"))
             .andExpect(status().isBadRequest());
 
         then(getStudyMemberSubmissionUseCase).shouldHaveNoInteractions();
