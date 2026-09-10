@@ -1,8 +1,10 @@
 package com.umc.product.notification.adapter.out.external.ses;
 
-import jakarta.validation.constraints.NotBlank;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
+
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * AWS SES v2 인프라 설정.
@@ -18,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
  */
 @Validated
 @ConfigurationProperties(prefix = "app.notification.email.ses")
+@ConditionalOnProperty(prefix = "app.notification.email", name = "provider", havingValue = "ses", matchIfMissing = true)
 public record SesProperties(
     @NotBlank String region,
     @NotBlank String accessKeyId,

@@ -15,6 +15,29 @@
 
 notification은 메시지를 전달할 뿐, 메시지를 보내야 하는 업무 판단은 호출한 도메인이 한다. 외부 제공자 장애나 설정 누락은 사용자에게 복구 행동을 중심으로 안내한다.
 
+## 이메일 제공자 전환
+
+이메일 템플릿과 인증 API는 그대로 두고 `EMAIL_PROVIDER`로 `SendEmailPort` 구현체를 선택한다.
+기본값은 `ses`이며, 설정 변경 후 애플리케이션을 재시작해야 한다. 실패 시 다른 제공자로 자동 재발송하지 않는다.
+
+- SES: `EMAIL_PROVIDER=ses`, `SES_REGION`, `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY`와 검증된
+  `EMAIL_NO_REPLY_ADDRESS`를 설정한다. `SES_CONFIGURATION_SET`은 선택 항목이다.
+- 개인 Gmail SMTP: `EMAIL_PROVIDER=smtp`, `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`,
+  `SMTP_USERNAME`과 `SMTP_PASSWORD`를 설정한다. `SMTP_PASSWORD`에는 Google 2단계 인증 후 발급한 앱 비밀번호를
+  사용하며, 일반 로그인 비밀번호를 넣지 않는다. `EMAIL_NO_REPLY_ADDRESS`는 해당 Gmail 주소와 맞춘다.
+- 선택하지 않은 제공자의 자격증명은 필요하지 않다. SMTP는 인증과 STARTTLS를 필수로 사용하고,
+  서버 인증서의 호스트 이름을 검사하며 연결·읽기·쓰기 대기에 각각 5초 제한을 둔다.
+
+실제 자격증명은 배포 Secret 또는 Git에서 제외된 로컬 env에만 보관한다. SMTP 프로토콜 디버그를 켜거나
+인증코드·수신 주소·메일 본문·비밀번호를 로그에 기록하지 않는다.
+SMTP 예외 원문은 수신 주소를 포함할 수 있어 예외 종류만 기록하고 기존 `EMAIL_SEND_FAILED`로 변환한다.
+SMTP health check는 상태 조회마다 외부 인증을 반복하지 않도록 끄고, 발송 성공·실패 로그와 지표를 확인한다.
+
+SES로 복귀할 때는 프로덕션 액세스 승인 여부를 먼저 확인한 뒤 `EMAIL_PROVIDER=ses`와
+`EMAIL_NO_REPLY_ADDRESS`를 기존 검증된 SES 발신 주소로 함께 되돌린다. 배포 후 허가된 테스트 주소에서
+실제 수신을 확인하고, 더 이상 쓰지 않는 Gmail 앱 비밀번호를 폐기한다.
+개인 Gmail 발송 제한은 별도로 적용되므로 SMTP 전환만으로 대량 발송이 보장되지는 않는다.
+
 ## FCM installation 등록
 
 FCM 등록은 물리적 기기가 아니라 앱 설치 인스턴스인 `installationId`를 기준으로 관리한다. 모바일 앱은 Firebase Installation ID처럼 재설치 시 교체 가능한 opaque identifier를 사용하며, 하드웨어 식별자를 보내지 않는다.
