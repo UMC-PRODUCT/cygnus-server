@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.ResultActions;
 
-import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.organization.adapter.in.web.dto.request.CreateGisuRequest;
 import com.umc.product.organization.application.port.in.command.dto.CreateGisuCommand;
 import com.umc.product.support.ControllerTestSupport;
@@ -38,7 +37,7 @@ class GisuCommandControllerTest extends ControllerTestSupport {
             .andExpect(status().isOk());
 
         // then
-        then(manageGisuUseCase).should().create(new CreateGisuCommand(11L, START_AT, END_AT, GisuLearningType.TRACK));
+        then(manageGisuUseCase).should().create(new CreateGisuCommand(11L, START_AT, END_AT));
     }
 
     @Test
@@ -56,7 +55,7 @@ class GisuCommandControllerTest extends ControllerTestSupport {
             .andExpect(status().isOk());
 
         // then
-        then(manageGisuUseCase).should().create(new CreateGisuCommand(12L, START_AT, END_AT, GisuLearningType.TRACK));
+        then(manageGisuUseCase).should().create(new CreateGisuCommand(12L, START_AT, END_AT));
     }
 
     @Test

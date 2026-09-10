@@ -3,6 +3,12 @@ package com.umc.product.organization.application.port.in.command;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.time.Instant;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+
+import com.umc.product.common.domain.enums.GisuLearningType;
 import com.umc.product.global.exception.BusinessException;
 import com.umc.product.organization.application.port.in.command.dto.CreateGisuCommand;
 import com.umc.product.organization.application.port.in.query.GetGisuUseCase;
@@ -10,9 +16,6 @@ import com.umc.product.organization.application.port.in.query.dto.gisu.GisuInfo;
 import com.umc.product.organization.exception.OrganizationErrorCode;
 import com.umc.product.support.UseCaseTestSupport;
 import com.umc.product.support.fixture.GisuFixture;
-import java.time.Instant;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 class ManageGisuUseCaseTest extends UseCaseTestSupport {
 
@@ -26,7 +29,7 @@ class ManageGisuUseCaseTest extends UseCaseTestSupport {
     private GisuFixture gisuFixture;
 
     @Test
-    void 신규_기수를_생성한다() {
+    void 신규_기수를_트랙방식으로_생성한다() {
         // given
         CreateGisuCommand command = new CreateGisuCommand(
             10L,
@@ -42,6 +45,7 @@ class ManageGisuUseCaseTest extends UseCaseTestSupport {
         GisuInfo savedGisu = getGisuUseCase.getById(gisuId);
         assertThat(savedGisu.generation()).isEqualTo(10L);
         assertThat(savedGisu.isActive()).isFalse();
+        assertThat(savedGisu.learningType()).isEqualTo(GisuLearningType.TRACK);
     }
 
     @Test
@@ -92,7 +96,9 @@ class ManageGisuUseCaseTest extends UseCaseTestSupport {
     @Test
     void 활성_기수를_변경한다() {
         // given
-        GisuInfo oldActiveGisu = getGisuUseCase.getById(gisuFixture.활성_기수(8L).getId());
+        Long oldActiveGisuId = gisuFixture.비활성_기수(8L).getId();
+        manageGisuUseCase.updateActiveGisu(oldActiveGisuId);
+        GisuInfo oldActiveGisu = getGisuUseCase.getById(oldActiveGisuId);
         Long newGisuId = gisuFixture.비활성_기수(9L).getId();
 
         // when
